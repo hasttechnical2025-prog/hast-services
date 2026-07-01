@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
-// Lấy danh sách công việc kèm thông tin khách hàng và kỹ thuật viên liên quan
+// Lấy danh sách công việc kèm thông tin khách hàng, kỹ thuật viên và vật tư liên quan
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -21,6 +21,14 @@ export async function GET(request: Request) {
         soct_users (
           full_name,
           telegram_id
+        ),
+        soct_chi_tiet_vat_tu (
+          id,
+          ma_hang,
+          so_luong,
+          soct_kho_hang (
+            ten_hang
+          )
         )
       `)
       .order('created_at', { ascending: false })
@@ -50,9 +58,12 @@ export async function POST(request: Request) {
       id_khach_hang,
       loai_cong_viec,
       km,
-      kem,
       ktv_id,
-      ghi_chu
+      report,
+      hoa_don,
+      chua_hoa_don,
+      ghi_chu,
+      vat_tu // mảng: [{ ma_hang, so_luong }]
     } = body
 
     if (!id_khach_hang || !loai_cong_viec) {
@@ -87,9 +98,11 @@ export async function POST(request: Request) {
         ma_may,
         id_khach_hang,
         loai_cong_viec,
-        km: kem ? 0 : (km || 0),
-        kem: !!kem,
+        km: km || 0,
         ktv_id: ktv_id || null,
+        report: report || null,
+        hoa_don: parseFloat(hoa_don) || 0,
+        chua_hoa_don: parseFloat(chua_hoa_don) || 0,
         ghi_chu,
         repeat_call,
         ket_qua: 'Chờ nhận'
@@ -98,6 +111,24 @@ export async function POST(request: Request) {
       .single()
 
     if (error) throw error
+
+    // Insert vật tư nếu có
+    if (vat_tu && Array.isArray(vat_tu) && vat_tu.length > 0) {
+      const validVatTu = vat_tu.filter(v => v.ma_hang && v.so_luong > 0)
+      if (validVatTu.length > 0) {
+        const vatTuInserts = validVatTu.map(v => ({
+          id_cong_viec: data.id,
+          ma_hang: v.ma_hang,
+          so_luong: parseInt(v.so_luong, 10)
+        }))
+
+        const { error: vtError } = await supabase
+          .from('soct_chi_tiet_vat_tu')
+          .insert(vatTuInserts)
+
+        if (vtError) console.error("Lỗi thêm vật tư:", vtError)
+      }
+    }
 
     // Sau khi insert, cơ chế Database Webhook trên Supabase sẽ tự bắn REST API
     // đến /api/webhook/supabase để gửi thông báo Telegram cho KTV
@@ -113,7 +144,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json()
-    const { id, ket_qua, ktv_id, ghi_chu } = body
+    const { id, ket_qua, ktv_id, report, hoa_don, chua_hoa_don, ghi_chu } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
@@ -122,6 +153,9 @@ export async function PUT(request: Request) {
     const updates: any = {}
     if (ket_qua !== undefined) updates.ket_qua = ket_qua
     if (ktv_id !== undefined) updates.ktv_id = ktv_id || null
+    if (report !== undefined) updates.report = report
+    if (hoa_don !== undefined) updates.hoa_don = parseFloat(hoa_don) || 0
+    if (chua_hoa_don !== undefined) updates.chua_hoa_don = parseFloat(chua_hoa_don) || 0
     if (ghi_chu !== undefined) updates.ghi_chu = ghi_chu
 
     const { data, error } = await supabase

@@ -12,9 +12,11 @@ type Job = {
   ma_may: string
   loai_cong_viec: string
   km: number
-  kem: boolean
   ket_qua: string
   ghi_chu: string
+  report?: string
+  hoa_don: number
+  chua_hoa_don: number
   soct_khach_hang: { ten_khach_hang: string; dia_chi: string; km_mac_dinh: number }
   soct_users: { full_name: string } | null
 }
@@ -42,14 +44,19 @@ export default function AdminDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [customers, setCustomers] = useState<any[]>([])
   const [technicians, setTechnicians] = useState<any[]>([])
+  const [inventory, setInventory] = useState<any[]>([]) // Thêm state inventory
+
   const [formData, setFormData] = useState({
     ma_may: "",
     id_khach_hang: "",
     loai_cong_viec: "Kiểm tra",
-    kem: false,
     km: 0,
     ktv_id: "",
+    report: "",
+    hoa_don: 0,
+    chua_hoa_don: 0,
     ghi_chu: "",
+    vat_tu: [] as {ma_hang: string, so_luong: string}[],
     // Dùng khi máy mới hoàn toàn chưa có trong db
     ten_khach_hang_moi: "",
     dia_chi_moi: "",
@@ -63,10 +70,13 @@ export default function AdminDashboard() {
       ma_may: "",
       id_khach_hang: "",
       loai_cong_viec: "Kiểm tra",
-      kem: false,
       km: 0,
       ktv_id: "",
+      report: "",
+      hoa_don: 0,
+      chua_hoa_don: 0,
       ghi_chu: "",
+      vat_tu: [],
       ten_khach_hang_moi: "",
       dia_chi_moi: "",
       model_moi: ""
@@ -77,19 +87,22 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [jobsRes, customersRes, usersRes] = await Promise.all([
+      const [jobsRes, customersRes, usersRes, inventoryRes] = await Promise.all([
         fetch('/api/admin/cong-viec'),
         fetch('/api/admin/khach-hang'),
-        fetch('/api/admin/users')
+        fetch('/api/admin/users'),
+        fetch('/api/admin/kho-hang')
       ])
 
       const jobsData = await jobsRes.json()
       const customersData = await customersRes.json()
       const usersData = await usersRes.json()
+      const inventoryData = await inventoryRes.json()
 
       if (jobsData.data) setJobs(jobsData.data)
       if (customersData.data) setCustomers(customersData.data)
       if (usersData.data) setTechnicians(usersData.data)
+      if (inventoryData.data) setInventory(inventoryData.data)
     } catch (error) {
       console.error("Error fetching data:", error)
     } finally {
@@ -135,14 +148,31 @@ export default function AdminDashboard() {
       if (selectedCustomer) {
         setFormData(prev => ({
           ...prev,
-          km: formData.kem ? 0 : (selectedCustomer.km_mac_dinh || 0),
+          km: selectedCustomer.km_mac_dinh || 0,
           ma_may: selectedCustomer.ma_may || prev.ma_may
         }))
       }
-    } else if (formData.kem) {
-      setFormData(prev => ({ ...prev, km: 0 }))
     }
-  }, [formData.id_khach_hang, formData.kem, customers])
+  }, [formData.id_khach_hang, customers])
+
+  // Xử lý thêm vật tư
+  const handleAddVatTu = () => {
+    setFormData(prev => ({
+      ...prev,
+      vat_tu: [...prev.vat_tu, { ma_hang: "", so_luong: "1" }]
+    }))
+  }
+
+  const handleUpdateVatTu = (index: number, field: 'ma_hang' | 'so_luong', value: string) => {
+    const newVatTu = [...formData.vat_tu]
+    newVatTu[index][field] = value
+    setFormData(prev => ({ ...prev, vat_tu: newVatTu }))
+  }
+
+  const handleRemoveVatTu = (index: number) => {
+    const newVatTu = formData.vat_tu.filter((_, i) => i !== index)
+    setFormData(prev => ({ ...prev, vat_tu: newVatTu }))
+  }
 
   const handleCreateJob = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -319,15 +349,16 @@ export default function AdminDashboard() {
                     <th className="px-4 py-3">Loại việc</th>
                     <th className="px-4 py-3">KTV</th>
                     <th className="px-4 py-3 text-center">KM</th>
+                    <th className="px-4 py-3">Báo cáo HĐ</th>
                     <th className="px-4 py-3">Trạng thái</th>
                     <th className="px-4 py-3 text-right">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {loading ? (
-                    <tr><td colSpan={8} className="text-center py-8 text-slate-400">Đang tải dữ liệu...</td></tr>
+                    <tr><td colSpan={9} className="text-center py-8 text-slate-400">Đang tải dữ liệu...</td></tr>
                   ) : jobs.length === 0 ? (
-                    <tr><td colSpan={8} className="text-center py-8 text-slate-400">Chưa có công việc nào</td></tr>
+                    <tr><td colSpan={9} className="text-center py-8 text-slate-400">Chưa có công việc nào</td></tr>
                   ) : (
                     jobs.map((job) => (
                       <tr key={job.id} className="hover:bg-slate-50/80 transition">
@@ -341,8 +372,13 @@ export default function AdminDashboard() {
                         <td className="px-4 py-3 font-mono text-xs">{job.ma_may || '-'}</td>
                         <td className="px-4 py-3">{job.loai_cong_viec}</td>
                         <td className="px-4 py-3">{job.soct_users?.full_name || <span className="text-amber-600 italic">Chưa giao</span>}</td>
-                        <td className="px-4 py-3 text-center">
-                          {job.kem ? <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-xs">Kèm</span> : `${job.km} km`}
+                        <td className="px-4 py-3 text-center text-xs">
+                          {job.km} km
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          {job.report && <div className="text-slate-700">Phiếu: {job.report}</div>}
+                          {job.hoa_don > 0 && <div className="text-emerald-600">Đã HĐ: {job.hoa_don.toLocaleString('vi-VN')}</div>}
+                          {job.chua_hoa_don > 0 && <div className="text-amber-600">Chưa HĐ: {job.chua_hoa_don.toLocaleString('vi-VN')}</div>}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`px-2.5 py-1 rounded-full text-xs font-medium border
@@ -497,10 +533,17 @@ export default function AdminDashboard() {
                     value={formData.loai_cong_viec}
                     onChange={(e) => setFormData({...formData, loai_cong_viec: e.target.value})}
                   >
+                    <option>Lắp máy</option>
+                    <option>Sửa máy</option>
+                    <option>Giao mực</option>
+                    <option>Thay vật tư</option>
+                    <option>Bảo trì</option>
+                    <option>Bảo hành</option>
+                    <option>Hỗ trợ thầu</option>
+                    <option>Hỗ trợ đại lý</option>
+                    <option>Khiếu nại</option>
                     <option>Kiểm tra</option>
-                    <option>Bảo dưỡng</option>
-                    <option>Sửa chữa</option>
-                    <option>Lắp mới</option>
+                    <option>Khác</option>
                   </select>
                 </div>
 
@@ -520,16 +563,6 @@ export default function AdminDashboard() {
               </div>
 
               <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 flex flex-col md:flex-row gap-6 items-start md:items-center">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-                    checked={formData.kem}
-                    onChange={(e) => setFormData({...formData, kem: e.target.checked})}
-                  />
-                  <span className="text-sm font-medium text-slate-700">Đi kèm ca khác (KM = 0)</span>
-                </label>
-
                 <div className="flex items-center gap-2 flex-1 w-full">
                   <label className="text-sm font-medium text-slate-700 whitespace-nowrap">Khoảng cách (KM):</label>
                   <Input
@@ -539,11 +572,102 @@ export default function AdminDashboard() {
                     className="w-full md:w-32 bg-white"
                     value={formData.km}
                     onChange={(e) => setFormData({...formData, km: parseFloat(e.target.value) || 0})}
-                    disabled={formData.kem}
                   />
-                  {formData.id_khach_hang && !formData.kem && customers.find(c => c.id === formData.id_khach_hang)?.km_mac_dinh === null && (
+                  {formData.id_khach_hang && customers.find(c => c.id === formData.id_khach_hang)?.km_mac_dinh === null && (
                     <span className="text-xs text-amber-600 italic">Hệ thống sẽ tự tính tọa độ & KM khi lưu</span>
                   )}
+                </div>
+              </div>
+
+              {/* Vật tư đi kèm */}
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+                  <h3 className="text-sm font-semibold text-slate-700">Vật tư / Linh kiện thay thế</h3>
+                  <Button type="button" variant="outline" size="sm" onClick={handleAddVatTu} className="h-8 text-xs gap-1">
+                    <Plus className="w-3 h-3" /> Thêm vật tư
+                  </Button>
+                </div>
+                <div className="p-4 space-y-3 bg-white">
+                  {formData.vat_tu.length === 0 ? (
+                    <p className="text-sm text-slate-400 italic text-center py-2">Chưa có vật tư nào được chọn.</p>
+                  ) : (
+                    formData.vat_tu.map((vt, index) => {
+                      const selectedItem = inventory.find(i => i.ma_hang === vt.ma_hang)
+                      return (
+                        <div key={index} className="flex flex-col sm:flex-row gap-3 items-start sm:items-center bg-slate-50 p-3 rounded-md border border-slate-100">
+                          <div className="flex-1 w-full">
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">Mã hàng hóa (Kho)</label>
+                            <select
+                              className="w-full h-9 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                              value={vt.ma_hang}
+                              onChange={(e) => handleUpdateVatTu(index, 'ma_hang', e.target.value)}
+                              required
+                            >
+                              <option value="">-- Chọn mã vật tư --</option>
+                              {inventory.map(item => (
+                                <option key={item.ma_hang} value={item.ma_hang}>
+                                  {item.ma_hang} - {item.ten_hang}
+                                </option>
+                              ))}
+                            </select>
+                            {selectedItem && (
+                              <div className="text-xs mt-1 text-slate-600">
+                                Tồn kho: <span className={`font-semibold ${selectedItem.ton_kho <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>{selectedItem.ton_kho}</span> | Model: {selectedItem.model || 'N/A'}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="w-full sm:w-24">
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">Số lượng</label>
+                            <Input
+                              type="number"
+                              min="1"
+                              className="h-9 bg-white"
+                              value={vt.so_luong}
+                              onChange={(e) => handleUpdateVatTu(index, 'so_luong', e.target.value)}
+                              required
+                            />
+                          </div>
+
+                          <div className="w-full sm:w-auto flex justify-end mt-4 sm:mt-0">
+                            <button type="button" onClick={() => handleRemoveVatTu(index)} className="text-slate-400 hover:text-red-500 p-2">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Thông tin đối chiếu tài chính */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Số phiếu (Report)</label>
+                  <Input
+                    placeholder="VD: RP-2026-001"
+                    value={formData.report}
+                    onChange={(e) => setFormData({...formData, report: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Hóa đơn (Số tiền)</label>
+                  <Input
+                    type="number"
+                    placeholder="Đã xuất hóa đơn"
+                    value={formData.hoa_don}
+                    onChange={(e) => setFormData({...formData, hoa_don: parseFloat(e.target.value) || 0})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Chưa hóa đơn (Số tiền)</label>
+                  <Input
+                    type="number"
+                    placeholder="Chưa xuất hóa đơn"
+                    value={formData.chua_hoa_don}
+                    onChange={(e) => setFormData({...formData, chua_hoa_don: parseFloat(e.target.value) || 0})}
+                  />
                 </div>
               </div>
 
