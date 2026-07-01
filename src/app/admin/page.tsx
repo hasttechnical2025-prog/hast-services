@@ -353,6 +353,22 @@ export default function AdminDashboard() {
             <p className="text-slate-500 max-w-md mx-auto">Module quản lý tồn kho, đặt hàng và phê duyệt nhập/xuất vật tư sẽ được cập nhật trong phiên bản tiếp theo.</p>
           </div>
         )}
+        {activeTab === "he_thong" && currentUserRole === 'admin' && (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+            <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Cài đặt Hệ thống</h2>
+
+            <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
+              <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập dữ liệu Khách Hàng (Bulk Import)</h3>
+              <p className="text-sm text-slate-500 mb-6">
+                Hỗ trợ 2 định dạng copy-paste:<br/>
+                - <b>Copy từ Excel (Tab-separated):</b> Cột thứ tự TT | Mã máy | Mã máy 2026 | Máy Khách hàng | Khách hàng | Địa chỉ | Model | Share | km ...<br/>
+                - <b>Danh sách Text thô:</b> VD: <code>158 _Ban Nội chính TW #Tòa 4A... @Apeos 7580</code>
+              </p>
+
+              <BulkImportTool onImportSuccess={fetchData} />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal Thêm Công Việc */}
@@ -361,7 +377,7 @@ export default function AdminDashboard() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
               <h2 className="text-xl font-bold text-slate-800">Giao công việc mới</h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={closeAndResetModal} className="text-slate-400 hover:text-slate-600">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
               </button>
             </div>
@@ -484,7 +500,7 @@ export default function AdminDashboard() {
               </div>
 
               <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
-                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Hủy</Button>
+                <Button type="button" variant="outline" onClick={closeAndResetModal}>Hủy</Button>
                 <Button type="submit">Lưu công việc & Báo KTV</Button>
               </div>
             </form>
@@ -495,3 +511,152 @@ export default function AdminDashboard() {
     </div>
   )
 }
+
+interface BulkImportToolProps {
+  onImportSuccess: () => void
+}
+
+function BulkImportTool({ onImportSuccess }: BulkImportToolProps) {
+  const [text, setText] = useState("")
+  const [records, setRecords] = useState<any[]>([])
+  const [importing, setImporting] = useState(false)
+
+  const handleParse = () => {
+    if (!text.trim()) return alert("Vui lòng nhập dữ liệu để phân tích")
+
+    const lines = text.split("\n")
+    const parsed: any[] = []
+
+    for (let line of lines) {
+      const cleanLine = line.trim()
+      if (!cleanLine) continue
+
+      if (cleanLine.includes("\t")) {
+        // Định dạng Excel (Tab separated)
+        const cols = cleanLine.split("\t")
+
+        // Bỏ qua dòng tiêu đề nếu người dùng copy cả tiêu đề
+        if (cols[1]?.toLowerCase().includes("mã máy") || cols[4]?.toLowerCase().includes("khách hàng")) {
+          continue
+        }
+
+        const ma_may = cols[1]?.trim() || ""
+        const ten_khach_hang = cols[4]?.trim() || ""
+        const dia_chi = cols[5]?.trim() || ""
+        const model = cols[6]?.trim() || ""
+        const km_raw = cols[8]?.trim() || "0"
+
+        if (ma_may && ten_khach_hang && dia_chi) {
+          parsed.push({
+            ma_may,
+            ten_khach_hang,
+            dia_chi,
+            model,
+            km_mac_dinh: parseFloat(km_raw) || 0
+          })
+        }
+      } else {
+        // Định dạng thô: "Mã_máy _Khách hàng #Địa chỉ @Model"
+        // Regex: (ma_may) _(khach_hang) #(dia_chi) @(model)
+        const match = cleanLine.match(/^(\S+)?\s*_(.+?)\s*#(.+?)\s*@(.+)$/)
+        if (match) {
+          parsed.push({
+            ma_may: match[1]?.trim() || "",
+            ten_khach_hang: match[2]?.trim() || "",
+            dia_chi: match[3]?.trim() || "",
+            model: match[4]?.trim() || "",
+            km_mac_dinh: 0 // Thô không có KM, mặc định 0
+          })
+        }
+      }
+    }
+
+    if (parsed.length === 0) {
+      alert("Không tìm thấy dòng dữ liệu nào đúng định dạng. Vui lòng kiểm tra lại.")
+    } else {
+      setRecords(parsed)
+    }
+  }
+
+  const handleSave = async () => {
+    if (records.length === 0) return
+    setImporting(true)
+
+    try {
+      const res = await fetch("/api/admin/khach-hang/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customers: records })
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        alert(`Đã lưu thành công ${data.count} khách hàng vào cơ sở dữ liệu!`)
+        setText("")
+        setRecords([])
+        onImportSuccess()
+      } else {
+        const err = await res.json()
+        alert("Lỗi khi import: " + err.error)
+      }
+    } catch (error) {
+      console.error(error)
+      alert("Lỗi kết nối khi import dữ liệu")
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <textarea
+          rows={8}
+          className="w-full p-3 rounded-md border border-slate-200 text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none"
+          placeholder="Dán dữ liệu Excel (gồm các cột) hoặc Danh sách thô vào đây..."
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        ></textarea>
+      </div>
+
+      <div className="flex gap-2">
+        <Button onClick={handleParse} variant="outline">
+          Phân tích dữ liệu ({text.split("\n").filter(l => l.trim()).length} dòng)
+        </Button>
+        {records.length > 0 && (
+          <Button onClick={handleSave} disabled={importing} className="bg-emerald-600 hover:bg-emerald-700">
+            {importing ? "Đang lưu..." : `Xác nhận lưu ${records.length} bản ghi vào CSDL`}
+          </Button>
+        )}
+      </div>
+
+      {records.length > 0 && (
+        <div className="border border-slate-200 rounded-lg overflow-hidden max-h-80 overflow-y-auto">
+          <table className="w-full text-left text-xs text-slate-600">
+            <thead className="bg-slate-100 text-slate-600 font-medium sticky top-0 border-b border-slate-200">
+              <tr>
+                <th className="px-3 py-2">Mã máy</th>
+                <th className="px-3 py-2">Khách hàng</th>
+                <th className="px-3 py-2">Địa chỉ</th>
+                <th className="px-3 py-2">Model</th>
+                <th className="px-3 py-2 text-center">KM</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {records.map((rec, idx) => (
+                <tr key={idx} className="hover:bg-slate-50">
+                  <td className="px-3 py-2 font-mono">{rec.ma_may}</td>
+                  <td className="px-3 py-2 font-medium text-slate-800">{rec.ten_khach_hang}</td>
+                  <td className="px-3 py-2">{rec.dia_chi}</td>
+                  <td className="px-3 py-2">{rec.model}</td>
+                  <td className="px-3 py-2 text-center">{rec.km_mac_dinh} km</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
