@@ -1,0 +1,165 @@
+import { NextResponse } from 'next/server'
+import { supabase } from '@/lib/supabase'
+
+// Lấy danh sách công việc kèm thông tin khách hàng và kỹ thuật viên liên quan
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const dateStr = searchParams.get('date') // Định dạng YYYY-MM-DD nếu lọc theo ngày
+
+    let query = supabase
+      .from('soct_cong_viec')
+      .select(`
+        *,
+        soct_khach_hang (
+          ten_khach_hang,
+          dia_chi,
+          lat,
+          lng,
+          km_mac_dinh
+        ),
+        soct_users (
+          full_name,
+          telegram_id
+        )
+      `)
+      .order('created_at', { ascending: false })
+
+    if (dateStr) {
+      query = query.eq('ngay', dateStr)
+    }
+
+    const { data, error } = await query
+
+    if (error) throw error
+
+    return NextResponse.json({ data })
+  } catch (error: any) {
+    console.error('Error fetching jobs:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+// Tạo công việc mới
+export async function POST(request: Request) {
+  try {
+    const body = await request.json()
+    const {
+      ngay,
+      ma_may,
+      id_khach_hang,
+      loai_cong_viec,
+      km,
+      kem,
+      ktv_id,
+      ghi_chu
+    } = body
+
+    if (!id_khach_hang || !loai_cong_viec) {
+      return NextResponse.json({ error: 'Thiếu thông tin bắt buộc' }, { status: 400 })
+    }
+
+    // Kiểm tra và đánh dấu repeat call tự động (nếu máy này sửa gần đây: 15-30 ngày)
+    let repeat_call = false
+    if (ma_may) {
+      const dateLimit = new Date()
+      dateLimit.setDate(dateLimit.getDate() - 30)
+      const dateLimitStr = dateLimit.toISOString().split('T')[0]
+
+      const { data: recentJobs } = await supabase
+        .from('soct_cong_viec')
+        .select('id')
+        .eq('ma_may', ma_may)
+        .gte('ngay', dateLimitStr)
+        .eq('ket_qua', 'Hoàn thành')
+        .limit(1)
+
+      if (recentJobs && recentJobs.length > 0) {
+        repeat_call = true
+      }
+    }
+
+    // Insert công việc mới
+    const { data, error } = await supabase
+      .from('soct_cong_viec')
+      .insert({
+        ngay: ngay || new Date().toISOString().split('T')[0],
+        ma_may,
+        id_khach_hang,
+        loai_cong_viec,
+        km: kem ? 0 : (km || 0),
+        kem: !!kem,
+        ktv_id: ktv_id || null,
+        ghi_chu,
+        repeat_call,
+        ket_qua: 'Chờ nhận'
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+
+    // Sau khi insert, cơ chế Database Webhook trên Supabase sẽ tự bắn REST API
+    // đến /api/webhook/supabase để gửi thông báo Telegram cho KTV
+
+    return NextResponse.json({ data })
+  } catch (error: any) {
+    console.error('Error creating job:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+// Thay đổi trạng thái/kết quả công việc hoặc cập nhật thông tin
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json()
+    const { id, ket_qua, ktv_id, ghi_chu } = body
+
+    if (!id) {
+      return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
+    }
+
+    const updates: any = {}
+    if (ket_qua !== undefined) updates.ket_qua = ket_qua
+    if (ktv_id !== undefined) updates.ktv_id = ktv_id || null
+    if (ghi_chu !== undefined) updates.ghi_chu = ghi_chu
+
+    const { data, error } = await supabase
+      .from('soct_cong_viec')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return NextResponse.json({ data })
+  } catch (error: any) {
+    console.error('Error updating job:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+// Xóa công việc
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+
+    if (!id) {
+      return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
+    }
+
+    const { error } = await supabase
+      .from('soct_cong_viec')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error('Error deleting job:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}

@@ -9,7 +9,7 @@
 CREATE TABLE IF NOT EXISTS public.soct_users (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     full_name TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('admin', 'ktv')),
+    role TEXT NOT NULL CHECK (role IN ('admin', 'tech_admin', 'staff', 'ktv')),
     telegram_id TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS public.soct_khach_hang (
     lat DOUBLE PRECISION,
     lng DOUBLE PRECISION,
     km_mac_dinh DOUBLE PRECISION,
+    ma_may TEXT UNIQUE, -- Mã máy duy nhất đại diện cho từng điểm lắp đặt
+    model TEXT,        -- Model của máy
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
