@@ -20,6 +20,17 @@ type Job = {
 }
 
 export default function AdminDashboard() {
+  // Notification State
+  const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null)
+
+  // Custom Confirm Dialog State
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, jobId: "", message: "" })
+
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({ type, message })
+    setTimeout(() => setNotification(null), 5000)
+  }
+
   // Role giả lập (Mock Auth)
   const [currentUserRole, setCurrentUserRole] = useState<'admin' | 'tech_admin' | 'staff'>('admin')
 
@@ -141,7 +152,7 @@ export default function AdminDashboard() {
     // Nếu là máy mới / khách hàng mới, tiến hành tạo Khách hàng trước
     if (formData.id_khach_hang === "NEW") {
       if (!formData.ten_khach_hang_moi || !formData.dia_chi_moi) {
-        return alert("Vui lòng nhập Tên Khách Hàng và Địa Chỉ mới")
+        return showNotification('error', "Vui lòng nhập Tên Khách Hàng và Địa Chỉ mới")
       }
 
       try {
@@ -165,12 +176,12 @@ export default function AdminDashboard() {
         finalCustomerId = newKh.data.id
       } catch (error: any) {
         console.error(error)
-        return alert("Không tạo được khách hàng: " + error.message)
+        return showNotification('error', "Không tạo được khách hàng: " + error.message)
       }
     }
 
     if (!finalCustomerId || finalCustomerId === "NEW") {
-      return alert("Vui lòng chọn khách hàng hoặc khai báo thông tin khách hàng mới")
+      return showNotification('error', "Vui lòng chọn khách hàng hoặc khai báo thông tin khách hàng mới")
     }
 
     try {
@@ -185,27 +196,40 @@ export default function AdminDashboard() {
 
       if (res.ok) {
         closeAndResetModal()
+        showNotification('success', "Tạo và giao công việc mới thành công!")
         fetchData() // Refresh list
       } else {
         const err = await res.json()
-        alert("Lỗi: " + err.error)
+        showNotification('error', "Lỗi: " + err.error)
       }
     } catch (error) {
       console.error(error)
-      alert("Đã xảy ra lỗi khi tạo công việc")
+      showNotification('error', "Đã xảy ra lỗi khi tạo công việc")
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa công việc này?")) return
+  const confirmDelete = (id: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      jobId: id,
+      message: "Bạn có chắc chắn muốn xóa công việc này khỏi sổ công tác không?"
+    })
+  }
 
+  const handleDelete = async (id: string) => {
     try {
       const res = await fetch(`/api/admin/cong-viec?id=${id}`, { method: 'DELETE' })
       if (res.ok) {
+        showNotification('success', "Đã xóa công việc thành công.")
         fetchData()
+      } else {
+        showNotification('error', "Xóa công việc không thành công.")
       }
     } catch (error) {
       console.error(error)
+      showNotification('error', "Lỗi kết nối khi xóa công việc.")
+    } finally {
+      setConfirmDialog({ isOpen: false, jobId: "", message: "" })
     }
   }
 
@@ -331,7 +355,7 @@ export default function AdminDashboard() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button onClick={() => handleDelete(job.id)} className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition">
+                          <button onClick={() => confirmDelete(job.id)} className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </td>
@@ -365,11 +389,45 @@ export default function AdminDashboard() {
                 - <b>Danh sách Text thô:</b> VD: <code>158 _Ban Nội chính TW #Tòa 4A... @Apeos 7580</code>
               </p>
 
-              <BulkImportTool onImportSuccess={fetchData} />
+              <BulkImportTool onImportSuccess={fetchData} showNotification={showNotification} />
             </div>
           </div>
         )}
       </div>
+
+      {/* Thông báo (Notification Banner) */}
+      {notification && (
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg border ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'} transition-all max-w-sm flex items-start gap-3`}>
+          {notification.type === 'success' ? (
+            <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+          ) : (
+            <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          )}
+          <div className="text-sm font-medium">{notification.message}</div>
+          <button onClick={() => setNotification(null)} className="ml-auto shrink-0 opacity-70 hover:opacity-100">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+      )}
+
+      {/* Modal Xác Nhận (Confirm Dialog) */}
+      {confirmDialog.isOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-8 h-8 text-red-600" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 mb-2">Xác nhận xóa</h3>
+              <p className="text-slate-500">{confirmDialog.message}</p>
+            </div>
+            <div className="bg-slate-50 p-4 flex justify-end gap-3 border-t border-slate-100">
+              <Button variant="outline" onClick={() => setConfirmDialog({ isOpen: false, jobId: "", message: "" })}>Hủy bỏ</Button>
+              <Button variant="destructive" onClick={() => handleDelete(confirmDialog.jobId)}>Xác nhận xóa</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Thêm Công Việc */}
       {isModalOpen && (
@@ -514,15 +572,16 @@ export default function AdminDashboard() {
 
 interface BulkImportToolProps {
   onImportSuccess: () => void
+  showNotification: (type: 'success' | 'error', msg: string) => void
 }
 
-function BulkImportTool({ onImportSuccess }: BulkImportToolProps) {
+function BulkImportTool({ onImportSuccess, showNotification }: BulkImportToolProps) {
   const [text, setText] = useState("")
   const [records, setRecords] = useState<any[]>([])
   const [importing, setImporting] = useState(false)
 
   const handleParse = () => {
-    if (!text.trim()) return alert("Vui lòng nhập dữ liệu để phân tích")
+    if (!text.trim()) return showNotification('error', "Vui lòng nhập dữ liệu để phân tích")
 
     const lines = text.split("\n")
     const parsed: any[] = []
@@ -572,7 +631,7 @@ function BulkImportTool({ onImportSuccess }: BulkImportToolProps) {
     }
 
     if (parsed.length === 0) {
-      alert("Không tìm thấy dòng dữ liệu nào đúng định dạng. Vui lòng kiểm tra lại.")
+      showNotification('error', "Không tìm thấy dòng dữ liệu nào đúng định dạng. Vui lòng kiểm tra lại.")
     } else {
       setRecords(parsed)
     }
@@ -591,17 +650,17 @@ function BulkImportTool({ onImportSuccess }: BulkImportToolProps) {
 
       if (res.ok) {
         const data = await res.json()
-        alert(`Đã lưu thành công ${data.count} khách hàng vào cơ sở dữ liệu!`)
+        showNotification('success', `Đã lưu thành công ${data.count} khách hàng vào cơ sở dữ liệu!`)
         setText("")
         setRecords([])
         onImportSuccess()
       } else {
         const err = await res.json()
-        alert("Lỗi khi import: " + err.error)
+        showNotification('error', "Lỗi khi import: " + err.error)
       }
     } catch (error) {
       console.error(error)
-      alert("Lỗi kết nối khi import dữ liệu")
+      showNotification('error', "Lỗi kết nối khi import dữ liệu")
     } finally {
       setImporting(false)
     }
