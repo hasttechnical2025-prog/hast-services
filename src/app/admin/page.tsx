@@ -26,7 +26,12 @@ export default function AdminDashboard() {
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null)
 
   // Custom Confirm Dialog State
-  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, jobId: "", message: "" })
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    id: "",
+    message: "",
+    type: "job" as "job" | "user" | "inventory"
+  })
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message })
@@ -240,11 +245,16 @@ export default function AdminDashboard() {
     }
   }
 
-  const confirmDelete = (id: string) => {
+  const confirmDelete = (id: string, type: "job" | "user" | "inventory" = "job") => {
+    let message = "Bạn có chắc chắn muốn xóa công việc này khỏi sổ công tác không?"
+    if (type === "user") message = "Bạn có chắc chắn muốn xóa tài khoản nhân viên này?"
+    if (type === "inventory") message = "Bạn có chắc chắn muốn xóa vật tư này khỏi kho?"
+
     setConfirmDialog({
       isOpen: true,
-      jobId: id,
-      message: "Bạn có chắc chắn muốn xóa công việc này khỏi sổ công tác không?"
+      id,
+      message,
+      type
     })
   }
 
@@ -258,20 +268,31 @@ export default function AdminDashboard() {
     return `${day}/${month}/${year}`;
   }
 
-  const handleDelete = async (id: string) => {
+  const handleExecuteDelete = async () => {
+    const { id, type } = confirmDialog
+    if (!id) return
+
     try {
-      const res = await fetch(`/api/admin/cong-viec?id=${id}`, { method: 'DELETE' })
-      if (res.ok) {
-        showNotification('success', "Đã xóa công việc thành công.")
+      let res;
+      if (type === "job") {
+        res = await fetch(`/api/admin/cong-viec?id=${id}`, { method: 'DELETE' })
+      } else if (type === "user") {
+        res = await fetch(`/api/admin/users?id=${id}`, { method: 'DELETE' })
+      } else if (type === "inventory") {
+        res = await fetch(`/api/admin/kho-hang?ma_hang=${encodeURIComponent(id)}`, { method: 'DELETE' })
+      }
+
+      if (res && res.ok) {
+        showNotification('success', "Xóa thành công.")
         fetchData()
       } else {
-        showNotification('error', "Xóa công việc không thành công.")
+        showNotification('error', "Xóa không thành công.")
       }
     } catch (error) {
       console.error(error)
-      showNotification('error', "Lỗi kết nối khi xóa công việc.")
+      showNotification('error', "Lỗi kết nối khi xóa.")
     } finally {
-      setConfirmDialog({ isOpen: false, jobId: "", message: "" })
+      setConfirmDialog({ isOpen: false, id: "", message: "", type: "job" })
     }
   }
 
@@ -422,7 +443,7 @@ export default function AdminDashboard() {
         {activeTab === "kho_hang" && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6 space-y-6">
             <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Quản lý Kho Hàng (Vật tư)</h2>
-            <InventoryManagementTool inventory={inventory} onUpdateSuccess={fetchData} showNotification={showNotification} />
+            <InventoryManagementTool inventory={inventory} onUpdateSuccess={fetchData} showNotification={showNotification} confirmDelete={confirmDelete} />
 
             <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 mt-8">
               <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập hàng hóa từ Excel (Bulk Import)</h3>
@@ -441,7 +462,7 @@ export default function AdminDashboard() {
             <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
               <h3 className="text-lg font-semibold text-slate-700 mb-2">Quản lý Tài khoản (KTV & Nhân viên)</h3>
               <p className="text-sm text-slate-500 mb-6">Thêm mới, cập nhật tên đăng nhập và mật khẩu cho Kỹ thuật viên.</p>
-              <UserManagementTool users={technicians} onUpdateSuccess={fetchData} showNotification={showNotification} />
+              <UserManagementTool users={technicians} onUpdateSuccess={fetchData} showNotification={showNotification} confirmDelete={confirmDelete} />
             </div>
 
             <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
@@ -485,8 +506,8 @@ export default function AdminDashboard() {
               <p className="text-slate-500">{confirmDialog.message}</p>
             </div>
             <div className="bg-slate-50 p-4 flex justify-end gap-3 border-t border-slate-100">
-              <Button variant="outline" onClick={() => setConfirmDialog({ isOpen: false, jobId: "", message: "" })}>Hủy bỏ</Button>
-              <Button variant="destructive" onClick={() => handleDelete(confirmDialog.jobId)}>Xác nhận xóa</Button>
+              <Button variant="outline" onClick={() => setConfirmDialog({ isOpen: false, id: "", message: "", type: "job" })}>Hủy bỏ</Button>
+              <Button variant="destructive" onClick={handleExecuteDelete}>Xác nhận xóa</Button>
             </div>
           </div>
         </div>
@@ -774,7 +795,7 @@ interface BulkImportToolProps {
   showNotification: (type: 'success' | 'error', msg: string) => void
 }
 
-function InventoryManagementTool({ inventory, onUpdateSuccess, showNotification }: { inventory: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+function InventoryManagementTool({ inventory, onUpdateSuccess, showNotification, confirmDelete }: { inventory: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, confirmDelete: (id: string, type: 'job' | 'user' | 'inventory') => void }) {
   const [formData, setFormData] = useState({
     ma_hang: "",
     ten_hang: "",
@@ -824,21 +845,6 @@ function InventoryManagementTool({ inventory, onUpdateSuccess, showNotification 
       showNotification('error', "Lỗi kết nối!")
     } finally {
       setLoading(false)
-    }
-  }
-
-  const handleDelete = async (ma_hang: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa vật tư này khỏi kho?")) return
-    try {
-      const res = await fetch(`/api/admin/kho-hang?ma_hang=${encodeURIComponent(ma_hang)}`, { method: 'DELETE' })
-      if (res.ok) {
-        showNotification('success', "Xóa vật tư thành công!")
-        onUpdateSuccess()
-      } else {
-        showNotification('error', "Không thể xóa!")
-      }
-    } catch (error) {
-      showNotification('error', "Lỗi kết nối!")
     }
   }
 
@@ -894,7 +900,7 @@ function InventoryManagementTool({ inventory, onUpdateSuccess, showNotification 
                 </td>
                 <td className="px-4 py-3 text-right">
                   <button onClick={() => handleEdit(item)} className="text-blue-500 hover:text-blue-700 p-1 bg-blue-50 hover:bg-blue-100 rounded transition mr-2"><PenSquare className="w-4 h-4" /></button>
-                  <button onClick={() => handleDelete(item.ma_hang)} className="text-red-500 hover:text-red-700 p-1 bg-red-50 hover:bg-red-100 rounded transition"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => confirmDelete(item.ma_hang, 'inventory')} className="text-red-500 hover:text-red-700 p-1 bg-red-50 hover:bg-red-100 rounded transition"><Trash2 className="w-4 h-4" /></button>
                 </td>
               </tr>
             ))}
@@ -905,7 +911,7 @@ function InventoryManagementTool({ inventory, onUpdateSuccess, showNotification 
   )
 }
 
-function UserManagementTool({ users, onUpdateSuccess, showNotification }: { users: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmDelete }: { users: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, confirmDelete: (id: string, type: 'job' | 'user' | 'inventory') => void }) {
   const [formData, setFormData] = useState({
     id: "",
     full_name: "",
@@ -961,21 +967,6 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification }: { user
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Xóa tài khoản này? (Chỉ xác nhận bằng hộp thoại)")) return // Dùng native tạm ở component con hoặc thiết kế dialog riêng, ở đây dùng native cho lẹ
-    try {
-      const res = await fetch(`/api/admin/users?id=${id}`, { method: 'DELETE' })
-      if (res.ok) {
-        showNotification('success', "Xóa thành công!")
-        onUpdateSuccess()
-      } else {
-        showNotification('error', "Không thể xóa!")
-      }
-    } catch (error) {
-      showNotification('error', "Lỗi kết nối!")
-    }
-  }
-
   return (
     <div className="space-y-6">
       <form onSubmit={handleSave} className="bg-white p-4 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1026,7 +1017,7 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification }: { user
                 </td>
                 <td className="px-4 py-2 text-right">
                   <button onClick={() => handleEdit(u)} className="text-blue-500 hover:text-blue-700 p-1"><PenSquare className="w-4 h-4" /></button>
-                  <button onClick={() => handleDelete(u.id)} className="text-red-500 hover:text-red-700 p-1 ml-2"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => confirmDelete(u.id, 'user')} className="text-red-500 hover:text-red-700 p-1 ml-2"><Trash2 className="w-4 h-4" /></button>
                 </td>
               </tr>
             ))}
