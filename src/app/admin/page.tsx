@@ -1007,7 +1007,7 @@ function InventoryManagementTool({ inventory, onUpdateSuccess, showNotification,
               <th className="px-4 py-3 font-semibold">Tên vật tư</th>
               <th className="px-4 py-3 font-semibold">Model máy</th>
               <th className="px-4 py-3 font-semibold text-center">Tồn kho</th>
-              <th className="px-4 py-3 font-semibold text-right">Thao tác</th>
+              <th className="px-4 py-3 font-semibold text-center w-24">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -1023,9 +1023,11 @@ function InventoryManagementTool({ inventory, onUpdateSuccess, showNotification,
                     {item.ton_kho}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right">
-                  <button onClick={() => handleEdit(item)} className="text-blue-500 hover:text-blue-700 p-1 bg-blue-50 hover:bg-blue-100 rounded transition mr-2"><PenSquare className="w-4 h-4" /></button>
-                  <button onClick={() => confirmDelete(item.ma_hang, 'inventory')} className="text-red-500 hover:text-red-700 p-1 bg-red-50 hover:bg-red-100 rounded transition"><Trash2 className="w-4 h-4" /></button>
+                <td className="px-4 py-3">
+                  <div className="flex items-center justify-center gap-2 whitespace-nowrap">
+                    <button onClick={() => handleEdit(item)} title="Sửa" className="text-blue-500 hover:text-blue-700 p-1.5 bg-blue-50 hover:bg-blue-100 rounded-md transition"><PenSquare className="w-4 h-4" /></button>
+                    <button onClick={() => confirmDelete(item.ma_hang, 'inventory')} title="Xóa" className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 hover:bg-red-100 rounded-md transition"><Trash2 className="w-4 h-4" /></button>
+                  </div>
                 </td>
               </tr>
             ))}
