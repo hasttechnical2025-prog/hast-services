@@ -503,13 +503,23 @@ export default function AdminDashboard() {
                 {/* Dòng 1: Ngày & Kỹ thuật viên */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700">Ngày</label>
-                  <Input
-                    type="date"
-                    value={formData.ngay}
-                    onChange={(e) => setFormData({...formData, ngay: e.target.value})}
-                    className="w-full text-slate-700 font-mono" // Thêm font-mono để ngày tháng hiển thị chuẩn cân đối
-                    required
-                  />
+                  <div className="relative w-full">
+                    {/* Ô hiển thị Text định dạng DD/MM/YYYY */}
+                    <div className="flex h-10 w-full items-center rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 font-mono">
+                      {formatDate(formData.ngay) || "Chọn ngày"}
+                      <svg className="w-4 h-4 ml-auto text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    {/* Ô Input date thực tế nằm đè lên nhưng ẩn đi (opacity-0) */}
+                    <input
+                      type="date"
+                      value={formData.ngay}
+                      onChange={(e) => setFormData({...formData, ngay: e.target.value})}
+                      required
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
