@@ -735,27 +735,42 @@ export default function AdminDashboard() {
                   ) : <div className="h-[28px] mt-2 hidden md:block"></div>}
                 </div>
 
-                <div className="space-y-2 flex flex-col justify-start">
-                  <label className="text-sm font-medium text-slate-700">Khách hàng <span className="text-red-500">*</span></label>
-                  <select
-                    className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                    value={formData.id_khach_hang}
-                    onChange={(e) => setFormData({...formData, id_khach_hang: e.target.value})}
-                    required
-                  >
-                    <option value="">-- Chọn khách hàng --</option>
-                    <option value="NEW" className="font-semibold text-blue-600">+ Tạo khách hàng (máy) mới</option>
-                    {customers.map(c => (
-                      <option key={c.id} value={c.id}>{c.ten_khach_hang}</option>
-                    ))}
-                  </select>
-                  {/* Căn chỉnh khoảng trắng với Mã máy nếu chưa có địa chỉ */}
-                  {formData.id_khach_hang && formData.id_khach_hang !== "NEW" && customers.find(c => c.id === formData.id_khach_hang)?.dia_chi ? (
-                    <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1.5 rounded border border-blue-100 font-medium truncate w-full mt-2" title={customers.find(c => c.id === formData.id_khach_hang)?.dia_chi}>
-                      Địa chỉ: <span className="font-semibold">{customers.find(c => c.id === formData.id_khach_hang)?.dia_chi}</span>
+                {(() => {
+                  // Mỗi mã máy chỉ ứng với 1 khách hàng: nếu mã máy đã khớp một khách,
+                  // khóa dropdown lại (khách được xác định theo mã máy, sửa mã máy để đổi).
+                  const lockedCustomer = formData.ma_may.trim()
+                    ? customers.find(c => c.ma_may && c.ma_may.toLowerCase() === formData.ma_may.trim().toLowerCase())
+                    : undefined
+                  const isLocked = !!lockedCustomer
+                  return (
+                    <div className="space-y-2 flex flex-col justify-start">
+                      <label className="text-sm font-medium text-slate-700">
+                        Khách hàng <span className="text-red-500">*</span>
+                        {isLocked && <span className="text-slate-400 font-normal text-xs italic ml-1">(khóa theo mã máy)</span>}
+                      </label>
+                      <select
+                        className={`w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none ${isLocked ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : 'bg-white'}`}
+                        value={formData.id_khach_hang}
+                        onChange={(e) => setFormData({...formData, id_khach_hang: e.target.value})}
+                        required
+                        disabled={isLocked}
+                        title={isLocked ? 'Khách hàng được xác định theo mã máy. Sửa/xóa mã máy để chọn khách khác.' : undefined}
+                      >
+                        <option value="">-- Chọn khách hàng --</option>
+                        <option value="NEW" className="font-semibold text-blue-600">+ Tạo khách hàng (máy) mới</option>
+                        {customers.map(c => (
+                          <option key={c.id} value={c.id}>{c.ten_khach_hang}</option>
+                        ))}
+                      </select>
+                      {/* Căn chỉnh khoảng trắng với Mã máy nếu chưa có địa chỉ */}
+                      {formData.id_khach_hang && formData.id_khach_hang !== "NEW" && customers.find(c => c.id === formData.id_khach_hang)?.dia_chi ? (
+                        <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1.5 rounded border border-blue-100 font-medium truncate w-full mt-2" title={customers.find(c => c.id === formData.id_khach_hang)?.dia_chi}>
+                          Địa chỉ: <span className="font-semibold">{customers.find(c => c.id === formData.id_khach_hang)?.dia_chi}</span>
+                        </div>
+                      ) : <div className="h-[28px] mt-2 hidden md:block"></div>}
                     </div>
-                  ) : <div className="h-[28px] mt-2 hidden md:block"></div>}
-                </div>
+                  )
+                })()}
 
                 {/* Phần thêm mới khách hàng/máy */}
                 {formData.id_khach_hang === "NEW" && (
@@ -838,19 +853,11 @@ export default function AdminDashboard() {
                           <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
                             <div className="flex-1 w-full">
                               <label className="text-xs font-medium text-slate-500 mb-1 block">Mã hàng hóa (Kho)</label>
-                              <select
-                                className="w-full h-9 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                              <MaterialCombobox
+                                inventory={inventory}
                                 value={vt.ma_hang}
-                                onChange={(e) => handleUpdateVatTu(index, 'ma_hang', e.target.value)}
-                                required
-                              >
-                                <option value="">-- Chọn mã vật tư --</option>
-                                {inventory.map(item => (
-                                  <option key={item.ma_hang} value={item.ma_hang}>
-                                    {item.ma_hang} - {item.ten_hang}
-                                  </option>
-                                ))}
-                              </select>
+                                onChange={(v) => handleUpdateVatTu(index, 'ma_hang', v)}
+                              />
                             </div>
 
                             <div className="w-full sm:w-24">
@@ -1302,6 +1309,52 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
               </div>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Ô tìm kiếm vật tư kiểu "Google": gõ mã/tên/model để lọc, chọn từ danh sách gợi ý
+function MaterialCombobox({ inventory, value, onChange }: { inventory: any[], value: string, onChange: (ma_hang: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
+
+  const selected = inventory.find(i => i.ma_hang === value)
+  const q = query.trim().toLowerCase()
+  const results = (q
+    ? inventory.filter(i =>
+        (i.ma_hang || "").toLowerCase().includes(q) ||
+        (i.ten_hang || "").toLowerCase().includes(q) ||
+        (i.model || "").toLowerCase().includes(q))
+    : inventory
+  ).slice(0, 30)
+
+  return (
+    <div className="relative">
+      <input
+        className="w-full h-9 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+        placeholder="Gõ mã / tên / model để tìm vật tư..."
+        value={open ? query : (selected ? `${selected.ma_hang} - ${selected.ten_hang}` : "")}
+        onFocus={() => { setOpen(true); setQuery("") }}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
+      />
+      {open && (
+        <div className="absolute z-30 mt-1 w-full max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg">
+          {results.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-slate-400">Không tìm thấy vật tư khớp.</div>
+          ) : results.map(item => (
+            <button
+              type="button"
+              key={item.ma_hang}
+              onMouseDown={(e) => { e.preventDefault(); onChange(item.ma_hang); setQuery(""); setOpen(false) }}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex justify-between items-center gap-2 ${item.ma_hang === value ? 'bg-blue-50' : ''}`}
+            >
+              <span className="truncate"><span className="font-mono font-medium text-slate-700">{item.ma_hang}</span> <span className="text-slate-500">- {item.ten_hang}</span></span>
+              <span className={`text-xs shrink-0 ${item.ton_kho <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>Tồn: {item.ton_kho}</span>
+            </button>
+          ))}
         </div>
       )}
     </div>
