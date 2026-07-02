@@ -69,6 +69,8 @@ export default function AdminDashboard() {
   const currentUserRole = (currentAdmin?.role || 'staff') as 'admin' | 'tech_admin' | 'staff'
 
   const [activeTab, setActiveTab] = useState("cong_viec")
+  // Tab con bên trong "Hệ thống" (dễ mở rộng thêm sau)
+  const [systemTab, setSystemTab] = useState<"cai_dat" | "khach_hang">("cai_dat")
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -577,39 +579,57 @@ export default function AdminDashboard() {
           </div>
         )}
         {activeTab === "he_thong" && currentUserRole === 'admin' && (
-          <div className="space-y-6">
-            {/* KHU VỰC 1: CẤU HÌNH HỆ THỐNG */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
-              <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Cài đặt Hệ thống</h2>
-
-              <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
-                <h3 className="text-lg font-semibold text-slate-700 mb-2">Quản lý Tài khoản (KTV & Nhân viên)</h3>
-                <p className="text-sm text-slate-500 mb-6">Thêm mới, cập nhật tên đăng nhập và mật khẩu cho Kỹ thuật viên.</p>
-                <UserManagementTool users={technicians} onUpdateSuccess={fetchData} showNotification={showNotification} confirmDelete={confirmDelete} />
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            {/* Thanh tab con của Hệ thống */}
+            <div className="p-4 border-b border-slate-200 bg-slate-50/50">
+              <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
+                <button
+                  onClick={() => setSystemTab("cai_dat")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'cai_dat' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Cài đặt hệ thống
+                </button>
+                <button
+                  onClick={() => setSystemTab("khach_hang")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'khach_hang' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Danh sách khách hàng
+                </button>
               </div>
             </div>
 
-            {/* KHU VỰC 2: KHÁCH HÀNG (tách riêng khỏi cấu hình hệ thống) */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
-              <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Quản lý Khách hàng</h2>
+            <div className="p-6 space-y-6">
+              {/* TAB CON: CÀI ĐẶT HỆ THỐNG */}
+              {systemTab === "cai_dat" && (
+                <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
+                  <h3 className="text-lg font-semibold text-slate-700 mb-2">Quản lý Tài khoản (KTV & Nhân viên)</h3>
+                  <p className="text-sm text-slate-500 mb-6">Thêm mới, cập nhật tên đăng nhập và mật khẩu cho Kỹ thuật viên.</p>
+                  <UserManagementTool users={technicians} onUpdateSuccess={fetchData} showNotification={showNotification} confirmDelete={confirmDelete} />
+                </div>
+              )}
 
-              <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
-                <h3 className="text-lg font-semibold text-slate-700 mb-2">Danh sách Khách hàng (Điểm máy)</h3>
-                <p className="text-sm text-slate-500 mb-4">Toàn bộ khách hàng / điểm máy hiện có trong hệ thống.</p>
-                <CustomerListTool customers={customers} />
-              </div>
+              {/* TAB CON: DANH SÁCH KHÁCH HÀNG */}
+              {systemTab === "khach_hang" && (
+                <>
+                  <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
+                    <h3 className="text-lg font-semibold text-slate-700 mb-2">Danh sách Khách hàng (Điểm máy)</h3>
+                    <p className="text-sm text-slate-500 mb-4">Toàn bộ khách hàng / điểm máy hiện có trong hệ thống.</p>
+                    <CustomerListTool customers={customers} />
+                  </div>
 
-              <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
-                <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập dữ liệu Khách Hàng (Bulk Import)</h3>
-                <p className="text-sm text-slate-500 mb-6">
-                  Hỗ trợ 2 định dạng copy-paste:<br/>
-                  - <b>Copy từ Excel (Tab-separated):</b> TT | Mã máy | Tên Khách hàng | Địa chỉ | Model | km<br/>
-                  - <b>Danh sách Text thô:</b> VD: <code>158 _Ban Nội chính TW #Tòa 4A Nguyễn Cảnh Chân, Hà Nội @Apeos 7580 !7</code><br/>
-                  <span className="text-xs text-slate-400">(số đầu = mã khách; sau <b>_</b> = tên KH; sau <b>#</b> = địa chỉ; sau <b>@</b> = model; sau <b>!</b> = số km)</span>
-                </p>
+                  <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
+                    <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập dữ liệu Khách Hàng (Bulk Import)</h3>
+                    <p className="text-sm text-slate-500 mb-6">
+                      Hỗ trợ 2 định dạng copy-paste:<br/>
+                      - <b>Copy từ Excel (Tab-separated):</b> TT | Mã máy | Tên Khách hàng | Địa chỉ | Model | km<br/>
+                      - <b>Danh sách Text thô:</b> VD: <code>158 _Ban Nội chính TW #Tòa 4A Nguyễn Cảnh Chân, Hà Nội @Apeos 7580 !7</code><br/>
+                      <span className="text-xs text-slate-400">(số đầu = mã khách; sau <b>_</b> = tên KH; sau <b>#</b> = địa chỉ; sau <b>@</b> = model; sau <b>!</b> = số km)</span>
+                    </p>
 
-                <BulkImportTool onImportSuccess={fetchData} showNotification={showNotification} />
-              </div>
+                    <BulkImportTool onImportSuccess={fetchData} showNotification={showNotification} />
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
