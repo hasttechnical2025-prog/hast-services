@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { MapPin, Clipboard, CheckCircle, Play, AlertTriangle, RefreshCw, Inbox, Hand } from "lucide-react"
+import { MapPin, Clipboard, CheckCircle, Play, AlertTriangle, RefreshCw, Inbox, Hand, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { supabase } from "@/lib/supabase"
@@ -9,6 +9,9 @@ import { supabase } from "@/lib/supabase"
 // Kênh realtime: đồng bộ với lib/realtime.ts (server phát broadcast sau mỗi thay đổi việc)
 const JOBS_TOPIC = "soct_jobs"
 const JOBS_EVENT = "changed"
+
+// Bot Telegram để KTV nhận thông báo việc gán riêng (liên kết 1 chạm)
+const TELEGRAM_BOT_USERNAME = "HAST_Report_bot"
 
 type Job = {
   id: string
@@ -323,6 +326,22 @@ export default function KtvMobileWeb() {
                 <RefreshCw className="w-4 h-4" />
               </button>
             </div>
+
+            {/* Liên kết Telegram 1 chạm: chỉ hiện khi KTV chưa liên kết */}
+            {!currentKtv.telegram_id ? (
+              <a
+                href={`https://t.me/${TELEGRAM_BOT_USERNAME}?start=${currentKtv.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full bg-sky-500 hover:bg-sky-600 text-white font-semibold text-sm h-11 rounded-xl shadow-sm transition"
+              >
+                <Send className="w-4 h-4" /> Kết nối Telegram để nhận thông báo việc
+              </a>
+            ) : (
+              <div className="flex items-center gap-1.5 text-xs text-emerald-600 px-1">
+                <CheckCircle className="w-3.5 h-3.5" /> Đã kết nối Telegram nhận thông báo
+              </div>
+            )}
 
             {!activeJob ? (
               <>
