@@ -87,8 +87,8 @@ CREATE TABLE IF NOT EXISTS public.soct_cong_viec (
     loai_cong_viec TEXT NOT NULL,
     km DOUBLE PRECISION NOT NULL DEFAULT 0,
     report TEXT, -- Số phiếu
-    hoa_don NUMERIC(15, 2) DEFAULT 0, -- Doanh số / Đã xuất hóa đơn
-    chua_hoa_don NUMERIC(15, 2) DEFAULT 0, -- Số tiền chưa xuất hóa đơn
+    so_tien NUMERIC(15, 2) DEFAULT 0, -- Số tiền
+    loai_thanh_toan TEXT DEFAULT 'Hóa đơn' CHECK (loai_thanh_toan IN ('Hóa đơn', 'Chưa hóa đơn')),
     ktv_id UUID REFERENCES public.soct_users(id) ON DELETE SET NULL,
     ket_qua TEXT NOT NULL DEFAULT 'Chờ nhận' CHECK (ket_qua IN ('Chờ nhận', 'Đang làm', 'Hoàn thành', 'Lắp tiếp')),
     ghi_chu TEXT,

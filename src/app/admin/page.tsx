@@ -15,8 +15,8 @@ type Job = {
   ket_qua: string
   ghi_chu: string
   report?: string
-  hoa_don: number
-  chua_hoa_don: number
+  so_tien: number
+  loai_thanh_toan: string
   soct_khach_hang: { ten_khach_hang: string; dia_chi: string; km_mac_dinh: number }
   soct_users: { full_name: string } | null
 }
@@ -47,14 +47,15 @@ export default function AdminDashboard() {
   const [inventory, setInventory] = useState<any[]>([]) // Thêm state inventory
 
   const [formData, setFormData] = useState({
+    ngay: new Date().toISOString().split('T')[0], // Mặc định ngày hôm nay
     ma_may: "",
     id_khach_hang: "",
     loai_cong_viec: "Kiểm tra",
     km: 0,
     ktv_id: "",
     report: "",
-    hoa_don: 0,
-    chua_hoa_don: 0,
+    so_tien: 0,
+    loai_thanh_toan: "Hóa đơn", // Hóa đơn hoặc Chưa hóa đơn
     ghi_chu: "",
     vat_tu: [] as {ma_hang: string, so_luong: string}[],
     // Dùng khi máy mới hoàn toàn chưa có trong db
@@ -67,14 +68,15 @@ export default function AdminDashboard() {
   const closeAndResetModal = () => {
     setIsModalOpen(false)
     setFormData({
+      ngay: new Date().toISOString().split('T')[0],
       ma_may: "",
       id_khach_hang: "",
       loai_cong_viec: "Kiểm tra",
       km: 0,
       ktv_id: "",
       report: "",
-      hoa_don: 0,
-      chua_hoa_don: 0,
+      so_tien: 0,
+      loai_thanh_toan: "Hóa đơn",
       ghi_chu: "",
       vat_tu: [],
       ten_khach_hang_moi: "",
@@ -246,6 +248,16 @@ export default function AdminDashboard() {
     })
   }
 
+  // Format ngày chuẩn VN DD/MM/YYYY
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
   const handleDelete = async (id: string) => {
     try {
       const res = await fetch(`/api/admin/cong-viec?id=${id}`, { method: 'DELETE' })
@@ -362,7 +374,7 @@ export default function AdminDashboard() {
                   ) : (
                     jobs.map((job) => (
                       <tr key={job.id} className="hover:bg-slate-50/80 transition">
-                        <td className="px-4 py-3 whitespace-nowrap">{new Date(job.ngay).toLocaleDateString('vi-VN')}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">{formatDate(job.ngay)}</td>
                         <td className="px-4 py-3">
                           <div className="font-medium text-slate-800">{job.soct_khach_hang?.ten_khach_hang}</div>
                           <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
@@ -373,12 +385,15 @@ export default function AdminDashboard() {
                         <td className="px-4 py-3">{job.loai_cong_viec}</td>
                         <td className="px-4 py-3">{job.soct_users?.full_name || <span className="text-amber-600 italic">Chưa giao</span>}</td>
                         <td className="px-4 py-3 text-center text-xs">
-                          {job.km} km
+                          {job.km ? `${job.km.toLocaleString('vi-VN')} km` : '0 km'}
                         </td>
                         <td className="px-4 py-3 text-xs">
                           {job.report && <div className="text-slate-700">Phiếu: {job.report}</div>}
-                          {job.hoa_don > 0 && <div className="text-emerald-600">Đã HĐ: {job.hoa_don.toLocaleString('vi-VN')}</div>}
-                          {job.chua_hoa_don > 0 && <div className="text-amber-600">Chưa HĐ: {job.chua_hoa_don.toLocaleString('vi-VN')}</div>}
+                          {job.so_tien > 0 && (
+                            <div className={job.loai_thanh_toan === 'Hóa đơn' ? 'text-emerald-600' : 'text-amber-600'}>
+                              {job.loai_thanh_toan}: {job.so_tien.toLocaleString('vi-VN')}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`px-2.5 py-1 rounded-full text-xs font-medium border
@@ -479,6 +494,32 @@ export default function AdminDashboard() {
             <form onSubmit={handleCreateJob} className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
+                {/* Dòng 1: Ngày & Kỹ thuật viên */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Ngày</label>
+                  <Input
+                    type="date"
+                    value={formData.ngay}
+                    onChange={(e) => setFormData({...formData, ngay: e.target.value})}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Kỹ thuật viên</label>
+                  <select
+                    className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                    value={formData.ktv_id}
+                    onChange={(e) => setFormData({...formData, ktv_id: e.target.value})}
+                  >
+                    <option value="">-- Chưa giao KTV --</option>
+                    {technicians.map(t => (
+                      <option key={t.id} value={t.id}>{t.full_name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Dòng 2: Mã máy & Khách hàng */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700">Mã máy <span className="text-amber-500 font-normal text-xs italic ml-1">(Gõ mã để điền tự động KH)</span></label>
                   <Input
@@ -486,17 +527,17 @@ export default function AdminDashboard() {
                     value={formData.ma_may}
                     onChange={(e) => handleMaMayChange(e.target.value)}
                   />
-                  {formData.id_khach_hang && formData.id_khach_hang !== "NEW" && customers.find(c => c.id === formData.id_khach_hang)?.model && (
-                     <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mt-1">
-                       Model: <span className="font-semibold">{customers.find(c => c.id === formData.id_khach_hang)?.model}</span>
-                     </div>
+                  {formData.id_khach_hang && formData.id_khach_hang !== "NEW" && (
+                    <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1.5 rounded mt-2 border border-blue-100 font-medium">
+                      Model: <span className="font-semibold">{customers.find(c => c.id === formData.id_khach_hang)?.model || 'N/A'}</span>
+                    </div>
                   )}
                 </div>
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700">Khách hàng <span className="text-red-500">*</span></label>
                   <select
-                    className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
                     value={formData.id_khach_hang}
                     onChange={(e) => setFormData({...formData, id_khach_hang: e.target.value})}
                     required
@@ -504,11 +545,17 @@ export default function AdminDashboard() {
                     <option value="">-- Chọn khách hàng --</option>
                     <option value="NEW" className="font-semibold text-blue-600">+ Tạo khách hàng (máy) mới</option>
                     {customers.map(c => (
-                      <option key={c.id} value={c.id}>{c.ten_khach_hang} ({c.dia_chi})</option>
+                      <option key={c.id} value={c.id}>{c.ten_khach_hang}</option>
                     ))}
                   </select>
+                  {formData.id_khach_hang && formData.id_khach_hang !== "NEW" && (
+                    <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1.5 rounded mt-2 border border-blue-100 font-medium">
+                      Địa chỉ: <span className="font-semibold">{customers.find(c => c.id === formData.id_khach_hang)?.dia_chi || 'N/A'}</span>
+                    </div>
+                  )}
                 </div>
 
+                {/* Phần thêm mới khách hàng/máy */}
                 {formData.id_khach_hang === "NEW" && (
                   <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50/50 p-4 rounded-lg border border-blue-100">
                     <div className="space-y-2">
@@ -526,10 +573,11 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
+                {/* Dòng 3: Loại công việc & Khoảng cách */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700">Loại công việc <span className="text-red-500">*</span></label>
                   <select
-                    className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
                     value={formData.loai_cong_viec}
                     onChange={(e) => setFormData({...formData, loai_cong_viec: e.target.value})}
                   >
@@ -548,35 +596,25 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Kỹ thuật viên</label>
-                  <select
-                    className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                    value={formData.ktv_id}
-                    onChange={(e) => setFormData({...formData, ktv_id: e.target.value})}
-                  >
-                    <option value="">-- Chưa giao KTV --</option>
-                    {technicians.map(t => (
-                      <option key={t.id} value={t.id}>{t.full_name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 flex flex-col md:flex-row gap-6 items-start md:items-center">
-                <div className="flex items-center gap-2 flex-1 w-full">
-                  <label className="text-sm font-medium text-slate-700 whitespace-nowrap">Khoảng cách (KM):</label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    className="w-full md:w-32 bg-white"
-                    value={formData.km}
-                    onChange={(e) => setFormData({...formData, km: parseFloat(e.target.value) || 0})}
-                  />
+                  <label className="text-sm font-medium text-slate-700">Khoảng cách (KM)</label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      className="bg-white pr-10"
+                      value={formData.km}
+                      onChange={(e) => setFormData({...formData, km: parseFloat(e.target.value) || 0})}
+                    />
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400 text-sm">
+                      km
+                    </div>
+                  </div>
                   {formData.id_khach_hang && customers.find(c => c.id === formData.id_khach_hang)?.km_mac_dinh === null && (
-                    <span className="text-xs text-amber-600 italic">Hệ thống sẽ tự tính tọa độ & KM khi lưu</span>
+                    <span className="text-xs text-amber-600 italic mt-1 block">Hệ thống sẽ tự tính tọa độ & KM khi lưu</span>
                   )}
                 </div>
+
               </div>
 
               {/* Vật tư đi kèm */}
@@ -652,22 +690,24 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Hóa đơn (Số tiền)</label>
+                  <label className="text-sm font-medium text-slate-700">Số tiền</label>
                   <Input
                     type="number"
-                    placeholder="Đã xuất hóa đơn"
-                    value={formData.hoa_don}
-                    onChange={(e) => setFormData({...formData, hoa_don: parseFloat(e.target.value) || 0})}
+                    placeholder="Nhập số tiền"
+                    value={formData.so_tien}
+                    onChange={(e) => setFormData({...formData, so_tien: parseFloat(e.target.value) || 0})}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Chưa hóa đơn (Số tiền)</label>
-                  <Input
-                    type="number"
-                    placeholder="Chưa xuất hóa đơn"
-                    value={formData.chua_hoa_don}
-                    onChange={(e) => setFormData({...formData, chua_hoa_don: parseFloat(e.target.value) || 0})}
-                  />
+                  <label className="text-sm font-medium text-slate-700">Loại thanh toán</label>
+                  <select
+                    className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                    value={formData.loai_thanh_toan}
+                    onChange={(e) => setFormData({...formData, loai_thanh_toan: e.target.value})}
+                  >
+                    <option value="Hóa đơn">Hóa đơn</option>
+                    <option value="Chưa hóa đơn">Chưa hóa đơn</option>
+                  </select>
                 </div>
               </div>
 

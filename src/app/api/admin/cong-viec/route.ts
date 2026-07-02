@@ -60,8 +60,8 @@ export async function POST(request: Request) {
       km,
       ktv_id,
       report,
-      hoa_don,
-      chua_hoa_don,
+      so_tien,
+      loai_thanh_toan,
       ghi_chu,
       vat_tu // mảng: [{ ma_hang, so_luong }]
     } = body
@@ -101,8 +101,8 @@ export async function POST(request: Request) {
         km: km || 0,
         ktv_id: ktv_id || null,
         report: report || null,
-        hoa_don: parseFloat(hoa_don) || 0,
-        chua_hoa_don: parseFloat(chua_hoa_don) || 0,
+        so_tien: parseFloat(so_tien) || 0,
+        loai_thanh_toan: loai_thanh_toan || 'Hóa đơn',
         ghi_chu,
         repeat_call,
         ket_qua: 'Chờ nhận'
@@ -144,7 +144,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json()
-    const { id, ket_qua, ktv_id, report, hoa_don, chua_hoa_don, ghi_chu } = body
+    const { id, ket_qua, ktv_id, report, so_tien, loai_thanh_toan, ghi_chu } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
@@ -154,8 +154,8 @@ export async function PUT(request: Request) {
     if (ket_qua !== undefined) updates.ket_qua = ket_qua
     if (ktv_id !== undefined) updates.ktv_id = ktv_id || null
     if (report !== undefined) updates.report = report
-    if (hoa_don !== undefined) updates.hoa_don = parseFloat(hoa_don) || 0
-    if (chua_hoa_don !== undefined) updates.chua_hoa_don = parseFloat(chua_hoa_don) || 0
+    if (so_tien !== undefined) updates.so_tien = parseFloat(so_tien) || 0
+    if (loai_thanh_toan !== undefined) updates.loai_thanh_toan = loai_thanh_toan
     if (ghi_chu !== undefined) updates.ghi_chu = ghi_chu
 
     const { data, error } = await supabaseAdmin
