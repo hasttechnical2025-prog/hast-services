@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import { cookies } from 'next/headers'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 // Phiên đăng nhập dùng cookie httpOnly có ký HMAC-SHA256.
 // Token dạng: base64url(payload).signature — client không thể tự sửa role.
@@ -29,8 +30,8 @@ function sign(data: string): string {
   return crypto.createHmac('sha256', getSecret()).update(data).digest('base64url')
 }
 
-export function createSessionToken(user: SessionUser): string {
-  const payload: SessionPayload = { ...user, exp: Date.now() + MAX_AGE_SECONDS * 1000 }
+export function createSessionToken(user: SessionUser, maxAgeSeconds: number = MAX_AGE_SECONDS): string {
+  const payload: SessionPayload = { ...user, exp: Date.now() + maxAgeSeconds * 1000 }
   const data = Buffer.from(JSON.stringify(payload)).toString('base64url')
   return `${data}.${sign(data)}`
 }
@@ -55,14 +56,15 @@ export function verifySessionToken(token: string): SessionPayload | null {
   }
 }
 
-export async function setSessionCookie(user: SessionUser): Promise<void> {
+// maxAgeSeconds mặc định 7 ngày; KTV đăng nhập bằng QR dùng phiên dài hạn.
+export async function setSessionCookie(user: SessionUser, maxAgeSeconds: number = MAX_AGE_SECONDS): Promise<void> {
   const store = await cookies()
-  store.set(COOKIE_NAME, createSessionToken(user), {
+  store.set(COOKIE_NAME, createSessionToken(user, maxAgeSeconds), {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
     path: '/',
-    maxAge: MAX_AGE_SECONDS,
+    maxAge: maxAgeSeconds,
   })
 }
 
@@ -78,11 +80,25 @@ export async function getSession(): Promise<SessionPayload | null> {
   return verifySessionToken(token)
 }
 
-// Trả về session nếu đã đăng nhập và đúng một trong các role yêu cầu, ngược lại null.
-// Không truyền role nào = chỉ cần đã đăng nhập.
+// Thời hạn phiên dài hạn cho KTV đăng nhập bằng QR (~10 năm = gần như vĩnh viễn).
+// Thu hồi bằng cột is_active hoặc tạo lại login_token, không phụ thuộc hết hạn cookie.
+export const KTV_LONG_MAX_AGE_SECONDS = 60 * 60 * 24 * 365 * 10
+
+// Trả về session nếu đã đăng nhập, đúng role yêu cầu, VÀ user trong DB còn tồn tại,
+// đúng role, đang hoạt động (is_active). Không truyền role nào = chỉ cần đã đăng nhập.
+// Đọc lại DB mỗi lần để tắt is_active là chặn được ngay cả khi gọi API trực tiếp.
 export async function requireRole(...roles: Role[]): Promise<SessionPayload | null> {
   const session = await getSession()
   if (!session) return null
   if (roles.length > 0 && !roles.includes(session.role)) return null
+
+  const { data } = await supabaseAdmin
+    .from('soct_users')
+    .select('role, is_active')
+    .eq('id', session.id)
+    .single()
+
+  if (!data || data.role !== session.role || data.is_active === false) return null
+
   return session
 }

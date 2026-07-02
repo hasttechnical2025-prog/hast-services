@@ -14,15 +14,17 @@ export async function GET() {
 
     const { data, error } = await supabaseAdmin
       .from('soct_users')
-      .select('id, full_name, role, telegram_id')
+      .select('id, full_name, role, telegram_id, is_active')
       .eq('id', session.id)
       .single()
 
-    if (error || !data || data.role !== session.role) {
+    if (error || !data || data.role !== session.role || data.is_active === false) {
       return NextResponse.json({ error: 'Phiên đăng nhập không còn hợp lệ' }, { status: 401 })
     }
 
-    return NextResponse.json({ data })
+    const { is_active, ...user } = data
+    void is_active
+    return NextResponse.json({ data: user })
   } catch (error: any) {
     console.error('Error fetching session user:', error)
     return NextResponse.json({ error: 'Lỗi hệ thống' }, { status: 500 })

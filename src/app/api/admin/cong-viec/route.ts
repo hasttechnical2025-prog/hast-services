@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
+import { broadcastJobsChanged } from '@/lib/realtime'
 
 // Lấy danh sách công việc kèm thông tin khách hàng, kỹ thuật viên và vật tư liên quan
-// KTV chỉ được xem các công việc gán cho chính mình
+// KTV thấy việc gán cho chính mình VÀ việc chưa gán ai (pool chờ nhận)
 export async function GET(request: Request) {
   try {
     const session = await requireRole()
@@ -41,7 +42,8 @@ export async function GET(request: Request) {
       .order('created_at', { ascending: false })
 
     if (session.role === 'ktv') {
-      query = query.eq('ktv_id', session.id)
+      // Việc của mình + việc trong pool (chưa gán KTV)
+      query = query.or(`ktv_id.eq.${session.id},ktv_id.is.null`)
     }
 
     if (dateStr) {
@@ -149,6 +151,8 @@ export async function POST(request: Request) {
     // Sau khi insert, cơ chế Database Webhook trên Supabase sẽ tự bắn REST API
     // đến /api/webhook/supabase để gửi thông báo Telegram cho KTV
 
+    await broadcastJobsChanged()
+
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error creating job:', error)
@@ -166,7 +170,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { id, ket_qua, ktv_id, report, so_tien, loai_thanh_toan, ghi_chu } = body
+    const { id, claim, ket_qua, ktv_id, report, so_tien, loai_thanh_toan, ghi_chu } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
@@ -174,6 +178,27 @@ export async function PUT(request: Request) {
 
     if (session.role === 'staff') {
       return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 403 })
+    }
+
+    // KTV nhận việc từ pool: chỉ nhận được nếu việc còn trống (atomic, chống tranh chấp)
+    if (session.role === 'ktv' && claim === true) {
+      const { data, error } = await supabaseAdmin
+        .from('soct_cong_viec')
+        .update({ ktv_id: session.id })
+        .eq('id', id)
+        .is('ktv_id', null)
+        .select()
+        .single()
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return NextResponse.json({ error: 'Việc này đã có người nhận hoặc không tồn tại' }, { status: 409 })
+        }
+        throw error
+      }
+
+      await broadcastJobsChanged()
+      return NextResponse.json({ data })
     }
 
     const updates: any = {}
@@ -213,6 +238,8 @@ export async function PUT(request: Request) {
       throw error
     }
 
+    await broadcastJobsChanged()
+
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error updating job:', error)
@@ -241,6 +268,8 @@ export async function DELETE(request: Request) {
       .eq('id', id)
 
     if (error) throw error
+
+    await broadcastJobsChanged()
 
     return NextResponse.json({ success: true })
   } catch (error: any) {

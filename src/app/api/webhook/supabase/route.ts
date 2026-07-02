@@ -2,6 +2,26 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendTelegramMessage } from '@/lib/telegram'
 
+// Xây nội dung tin nhắn cho một công việc
+function buildJobMessage(
+  heading: string,
+  record: any,
+  khachHang: { ten_khach_hang?: string; dia_chi?: string } | null,
+  appUrl: string,
+  extraLine?: string
+) {
+  return `
+${heading}
+${extraLine ? extraLine + '\n' : ''}📌 <b>Loại công việc:</b> ${record.loai_cong_viec}
+Khách hàng: ${khachHang?.ten_khach_hang || 'Không rõ'}
+Địa chỉ: ${khachHang?.dia_chi || 'Không rõ'}
+Mã máy: ${record.ma_may || 'N/A'}
+Ghi chú: ${record.ghi_chu || 'Không'}
+
+👉 <a href="${appUrl}/ktv">Mở App KTV</a>
+`
+}
+
 export async function POST(request: Request) {
   try {
     // 1. Kiểm tra Webhook Secret để đảm bảo request đến từ Supabase của mình
@@ -14,71 +34,85 @@ export async function POST(request: Request) {
 
     // 2. Parse payload từ Supabase Database Webhook
     const payload = await request.json()
-
-    // Payload form: { type: 'INSERT'|'UPDATE', table: 'soct_cong_viec', record: {...}, old_record: {...} }
     const { type, table, record, old_record } = payload
 
-    if (table !== 'soct_cong_viec') {
-      return NextResponse.json({ message: 'Ignored, not cong_viec table' })
+    if (table !== 'soct_cong_viec' || !record) {
+      return NextResponse.json({ message: 'Ignored' })
     }
 
-    // 3. Logic xác định xem có cần báo tin cho KTV không
-    let shouldNotify = false
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing Supabase credentials for Supabase webhook')
+      return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
+    }
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://techservice.app'
+    const groupChatId = process.env.TELEGRAM_GROUP_CHAT_ID
+
     const ktvId = record.ktv_id
 
-    if (!ktvId) {
-      return NextResponse.json({ message: 'No KTV assigned' })
-    }
+    // 3. Xác định loại thông báo cần gửi
+    // - INSERT + đã gán KTV  -> nhắn riêng KTV đó
+    // - INSERT + chưa gán    -> bắn vào group chung (pool chờ nhận)
+    // - UPDATE + ktv_id đổi sang người mới -> nhắn riêng người mới (gán/nhận việc)
+    let target: 'dm' | 'group' | null = null
 
     if (type === 'INSERT') {
-      shouldNotify = true
+      target = ktvId ? 'dm' : 'group'
     } else if (type === 'UPDATE') {
-      // Báo tin nếu update ktv_id từ null -> có người, hoặc đổi sang người khác
-      if (ktvId !== old_record?.ktv_id) {
-        shouldNotify = true
+      if (ktvId && ktvId !== old_record?.ktv_id) {
+        target = 'dm'
       }
     }
 
-    if (shouldNotify) {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    if (!target) {
+      return NextResponse.json({ message: 'No notification needed' })
+    }
 
-      if (supabaseUrl && supabaseServiceKey) {
-        // Khởi tạo Supabase client với Service Role Key để bỏ qua RLS khi truy vấn user
-        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+    // 4. Lấy thông tin khách hàng
+    const { data: khachHang } = await supabaseAdmin
+      .from('soct_khach_hang')
+      .select('ten_khach_hang, dia_chi')
+      .eq('id', record.id_khach_hang)
+      .single()
 
-        // 4. Truy vấn lấy thông tin khách hàng và telegram_id của KTV
-        const [userRes, khRes] = await Promise.all([
-          supabaseAdmin.from('soct_users').select('telegram_id, full_name').eq('id', ktvId).single(),
-          supabaseAdmin.from('soct_khach_hang').select('ten_khach_hang, dia_chi').eq('id', record.id_khach_hang).single()
-        ])
+    // 5a. Gửi tin nhắn riêng cho KTV được gán/đã nhận
+    if (target === 'dm') {
+      const { data: user } = await supabaseAdmin
+        .from('soct_users')
+        .select('telegram_id, full_name')
+        .eq('id', ktvId)
+        .single()
 
-        const user = userRes.data
-        const khachHang = khRes.data
-
-        if (user?.telegram_id) {
-          // 5. Build nội dung tin nhắn Telegram
-          const actionText = type === 'INSERT' ? '🆕 <b>CÔNG VIỆC MỚI</b>' : '🔄 <b>CÔNG VIỆC ĐƯỢC GIAO</b>'
-          const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://techservice.app'
-
-          const messageText = `
-${actionText}
-Xin chào ${user.full_name}, bạn vừa được giao một công việc!
-
-📌 <b>Loại công việc:</b> ${record.loai_cong_viec}
-Khách hàng: ${khachHang?.ten_khach_hang || 'Không rõ'}
-Địa chỉ: ${khachHang?.dia_chi || 'Không rõ'}
-Mã máy: ${record.ma_may || 'N/A'}
-Ghi chú: ${record.ghi_chu || 'Không'}
-
-👉 <a href="${appUrl}/ktv">Mở App KTV để nhận việc</a>
-`
-          // 6. Gửi tin nhắn
-          await sendTelegramMessage(user.telegram_id, messageText)
-        }
-      } else {
-        console.error('Missing Supabase credentials for Supabase webhook')
+      if (user?.telegram_id) {
+        const msg = buildJobMessage(
+          '🔔 <b>CÔNG VIỆC ĐƯỢC GIAO</b>',
+          record,
+          khachHang,
+          appUrl,
+          `Xin chào ${user.full_name}, bạn có một công việc!`
+        )
+        await sendTelegramMessage(user.telegram_id, msg)
       }
+      return NextResponse.json({ success: true, sent: 'dm' })
+    }
+
+    // 5b. Bắn vào group chung: việc mới chưa gán, KTV nào rảnh vào nhận
+    if (target === 'group') {
+      if (!groupChatId) {
+        console.error('Missing TELEGRAM_GROUP_CHAT_ID for group notification')
+        return NextResponse.json({ message: 'Group chat id not configured' })
+      }
+      const msg = buildJobMessage(
+        '🆕 <b>CÔNG VIỆC MỚI — CHỜ NHẬN</b>',
+        record,
+        khachHang,
+        appUrl,
+        'Mời KTV rảnh vào nhận việc.'
+      )
+      await sendTelegramMessage(groupChatId, msg)
+      return NextResponse.json({ success: true, sent: 'group' })
     }
 
     return NextResponse.json({ success: true })
