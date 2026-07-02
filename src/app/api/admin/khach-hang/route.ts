@@ -81,3 +81,46 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
+
+// Cập nhật thông tin khách hàng (bao gồm hợp đồng bảo trì HĐBT)
+export async function PUT(request: Request) {
+  try {
+    const session = await requireRole('admin', 'tech_admin')
+    if (!session) {
+      return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { id } = body
+    if (!id) {
+      return NextResponse.json({ error: 'Thiếu ID khách hàng' }, { status: 400 })
+    }
+
+    const allowed = ['ten_khach_hang', 'ma_may', 'dia_chi', 'model', 'km_mac_dinh', 'loai_hd', 'ngay_het_han_hdbt']
+    const updates: any = {}
+    for (const k of allowed) {
+      if (body[k] === undefined) continue
+      if (k === 'km_mac_dinh') updates[k] = body[k] === '' || body[k] === null ? null : (parseFloat(body[k]) || 0)
+      else updates[k] = body[k] === '' ? null : body[k]
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('soct_khach_hang')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      if (error.code === '23505') {
+        return NextResponse.json({ error: 'Mã máy này đã tồn tại ở khách hàng khác' }, { status: 400 })
+      }
+      throw error
+    }
+
+    return NextResponse.json({ data })
+  } catch (error: any) {
+    console.error('Error updating customer:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}

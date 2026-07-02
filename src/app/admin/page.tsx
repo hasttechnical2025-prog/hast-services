@@ -667,7 +667,7 @@ export default function AdminDashboard() {
                   <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
                     <h3 className="text-lg font-semibold text-slate-700 mb-2">Danh sách Khách hàng (Điểm máy)</h3>
                     <p className="text-sm text-slate-500 mb-4">Toàn bộ khách hàng / điểm máy hiện có trong hệ thống.</p>
-                    <CustomerListTool customers={customers} />
+                    <CustomerListTool customers={customers} onUpdateSuccess={fetchData} showNotification={showNotification} />
                   </div>
 
                   <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
@@ -1797,8 +1797,22 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
   )
 }
 
-function CustomerListTool({ customers }: { customers: any[] }) {
+// Trạng thái hạn HĐBT theo ngày hết hạn
+function hdbtStatus(dateStr: string | null) {
+  if (!dateStr) return null
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const exp = new Date(dateStr); exp.setHours(0, 0, 0, 0)
+  const days = Math.round((exp.getTime() - today.getTime()) / 86400000)
+  const label = `${String(exp.getDate()).padStart(2, '0')}/${String(exp.getMonth() + 1).padStart(2, '0')}/${exp.getFullYear()}`
+  if (days < 0) return { label, cls: 'bg-red-50 text-red-700 border-red-200', note: 'Đã hết hạn' }
+  if (days <= 30) return { label, cls: 'bg-amber-50 text-amber-700 border-amber-200', note: `Còn ${days} ngày` }
+  return { label, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', note: 'Còn hạn' }
+}
+
+function CustomerListTool({ customers, onUpdateSuccess, showNotification }: { customers: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [search, setSearch] = useState("")
+  const [editing, setEditing] = useState<any | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const q = search.trim().toLowerCase()
   const filtered = q
@@ -1806,16 +1820,40 @@ function CustomerListTool({ customers }: { customers: any[] }) {
         (c.ten_khach_hang || "").toLowerCase().includes(q) ||
         (c.ma_may || "").toLowerCase().includes(q) ||
         (c.dia_chi || "").toLowerCase().includes(q) ||
-        (c.model || "").toLowerCase().includes(q)
+        (c.model || "").toLowerCase().includes(q) ||
+        (c.loai_hd || "").toLowerCase().includes(q)
       )
     : customers
+
+  const handleSave = async () => {
+    if (!editing) return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/admin/khach-hang', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editing.id,
+          ten_khach_hang: editing.ten_khach_hang,
+          ma_may: editing.ma_may,
+          dia_chi: editing.dia_chi,
+          model: editing.model,
+          km_mac_dinh: editing.km_mac_dinh,
+          loai_hd: editing.loai_hd,
+          ngay_het_han_hdbt: editing.ngay_het_han_hdbt,
+        })
+      })
+      if (res.ok) { showNotification('success', "Đã cập nhật khách hàng."); setEditing(null); onUpdateSuccess() }
+      else { const err = await res.json(); showNotification('error', err.error) }
+    } catch { showNotification('error', "Lỗi kết nối!") }
+    finally { setSaving(false) }
+  }
 
   return (
     <div className="space-y-3">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input placeholder="Tìm mã máy, tên KH, địa chỉ, model..." className="pl-9 bg-white" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input placeholder="Tìm mã máy, tên KH, địa chỉ, model, HĐ..." className="pl-9 bg-white" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <span className="text-sm text-slate-500 whitespace-nowrap">
           {q ? `${filtered.length} / ${customers.length}` : `Tổng: ${customers.length}`} khách hàng
@@ -1828,28 +1866,89 @@ function CustomerListTool({ customers }: { customers: any[] }) {
             <tr>
               <th className="px-4 py-3 font-semibold">Mã máy</th>
               <th className="px-4 py-3 font-semibold">Tên khách hàng</th>
-              <th className="px-4 py-3 font-semibold">Địa chỉ</th>
               <th className="px-4 py-3 font-semibold">Model</th>
               <th className="px-4 py-3 font-semibold text-center">KM</th>
+              <th className="px-4 py-3 font-semibold text-center">Loại HĐ</th>
+              <th className="px-4 py-3 font-semibold text-center">Hết hạn HĐBT</th>
+              <th className="px-4 py-3 font-semibold text-center w-16">Sửa</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {customers.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Chưa có khách hàng nào. Nhập dữ liệu ở mục bên dưới.</td></tr>
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Chưa có khách hàng nào. Nhập dữ liệu ở mục bên dưới.</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Không tìm thấy khách hàng khớp từ khóa.</td></tr>
-            ) : filtered.map((c) => (
-              <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3 font-mono font-medium text-slate-700">{c.ma_may || <span className="text-slate-400 italic">—</span>}</td>
-                <td className="px-4 py-3 font-medium text-slate-800">{c.ten_khach_hang}</td>
-                <td className="px-4 py-3 text-slate-600">{c.dia_chi}</td>
-                <td className="px-4 py-3">{c.model || <span className="text-slate-400 italic">—</span>}</td>
-                <td className="px-4 py-3 text-center whitespace-nowrap">{c.km_mac_dinh != null ? `${Number(c.km_mac_dinh).toLocaleString('vi-VN')} km` : '—'}</td>
-              </tr>
-            ))}
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Không tìm thấy khách hàng khớp từ khóa.</td></tr>
+            ) : filtered.map((c) => {
+              const hd = hdbtStatus(c.ngay_het_han_hdbt)
+              return (
+                <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-4 py-3 font-mono font-medium text-slate-700">{c.ma_may || <span className="text-slate-400 italic">—</span>}</td>
+                  <td className="px-4 py-3 font-medium text-slate-800">{c.ten_khach_hang}<div className="text-xs text-slate-400 font-normal truncate max-w-xs" title={c.dia_chi}>{c.dia_chi}</div></td>
+                  <td className="px-4 py-3">{c.model || <span className="text-slate-400 italic">—</span>}</td>
+                  <td className="px-4 py-3 text-center whitespace-nowrap">{c.km_mac_dinh != null ? `${Number(c.km_mac_dinh).toLocaleString('vi-VN')}` : '—'}</td>
+                  <td className="px-4 py-3 text-center">{c.loai_hd || <span className="text-slate-300">—</span>}</td>
+                  <td className="px-4 py-3 text-center whitespace-nowrap">
+                    {hd ? <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${hd.cls}`} title={hd.note}>{hd.label}</span> : <span className="text-slate-300">—</span>}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <button onClick={() => setEditing({ ...c, ngay_het_han_hdbt: c.ngay_het_han_hdbt || "" })} className="text-blue-500 hover:text-blue-700 p-1.5 bg-blue-50 hover:bg-blue-100 rounded-md transition"><PenSquare className="w-4 h-4" /></button>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
+
+      {/* Modal sửa khách hàng */}
+      {editing && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-slate-800">Sửa khách hàng</h3>
+              <button onClick={() => setEditing(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
+            </div>
+            <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1 sm:col-span-2">
+                <label className="text-xs font-semibold text-slate-600">Tên khách hàng</label>
+                <Input value={editing.ten_khach_hang || ""} onChange={(e) => setEditing({ ...editing, ten_khach_hang: e.target.value })} className="bg-white" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Mã máy</label>
+                <Input value={editing.ma_may || ""} onChange={(e) => setEditing({ ...editing, ma_may: e.target.value })} className="bg-white" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Model</label>
+                <Input value={editing.model || ""} onChange={(e) => setEditing({ ...editing, model: e.target.value })} className="bg-white" />
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <label className="text-xs font-semibold text-slate-600">Địa chỉ</label>
+                <Input value={editing.dia_chi || ""} onChange={(e) => setEditing({ ...editing, dia_chi: e.target.value })} className="bg-white" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Khoảng cách (km)</label>
+                <Input type="number" step="0.1" value={editing.km_mac_dinh ?? ""} onChange={(e) => setEditing({ ...editing, km_mac_dinh: e.target.value })} className="bg-white" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Loại hợp đồng</label>
+                <select className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" value={editing.loai_hd || ""} onChange={(e) => setEditing({ ...editing, loai_hd: e.target.value })}>
+                  <option value="">— Không —</option>
+                  <option value="HĐBT">HĐBT</option>
+                  <option value="MF">MF</option>
+                </select>
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <label className="text-xs font-semibold text-slate-600">Ngày hết hạn HĐBT</label>
+                <Input type="date" value={editing.ngay_het_han_hdbt || ""} onChange={(e) => setEditing({ ...editing, ngay_het_han_hdbt: e.target.value })} className="bg-white" />
+              </div>
+            </div>
+            <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
+              <Button variant="outline" onClick={() => setEditing(null)}>Hủy</Button>
+              <Button onClick={handleSave} disabled={saving}>{saving ? "Đang lưu..." : "Lưu"}</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
