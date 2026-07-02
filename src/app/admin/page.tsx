@@ -1,12 +1,23 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { createPortal } from "react-dom"
 import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power } from "lucide-react"
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
 // Types
+type VatTuChiTiet = {
+  id: string
+  ma_hang: string
+  so_luong: number
+  don_gia: number
+  vat: number
+  thanh_tien: number
+  hoa_don: boolean
+}
+
 type Job = {
   id: string
   ngay: string
@@ -16,10 +27,9 @@ type Job = {
   ket_qua: string
   ghi_chu: string
   report?: string
-  so_tien: number
-  loai_thanh_toan: string
   soct_khach_hang: { ten_khach_hang: string; dia_chi: string; km_mac_dinh: number }
   soct_users: { full_name: string } | null
+  soct_chi_tiet_vat_tu?: VatTuChiTiet[]
 }
 
 export default function AdminDashboard() {
@@ -88,10 +98,8 @@ export default function AdminDashboard() {
     km: 0,
     ktv_id: "",
     report: "",
-    so_tien: 0,
-    loai_thanh_toan: "Hóa đơn", // Hóa đơn hoặc Chưa hóa đơn
     ghi_chu: "",
-    vat_tu: [] as {ma_hang: string, so_luong: string}[],
+    vat_tu: [] as {ma_hang: string, so_luong: string, don_gia: string, vat: string, hoa_don: boolean}[],
     // Dùng khi máy mới hoàn toàn chưa có trong db
     ten_khach_hang_moi: "",
     dia_chi_moi: "",
@@ -109,8 +117,6 @@ export default function AdminDashboard() {
       km: 0,
       ktv_id: "",
       report: "",
-      so_tien: 0,
-      loai_thanh_toan: "Hóa đơn",
       ghi_chu: "",
       vat_tu: [],
       ten_khach_hang_moi: "",
@@ -205,13 +211,13 @@ export default function AdminDashboard() {
   const handleAddVatTu = () => {
     setFormData(prev => ({
       ...prev,
-      vat_tu: [...prev.vat_tu, { ma_hang: "", so_luong: "1" }]
+      vat_tu: [...prev.vat_tu, { ma_hang: "", so_luong: "1", don_gia: "", vat: "", hoa_don: false }]
     }))
   }
 
-  const handleUpdateVatTu = (index: number, field: 'ma_hang' | 'so_luong', value: string) => {
+  const handleUpdateVatTu = (index: number, field: 'ma_hang' | 'so_luong' | 'don_gia' | 'vat' | 'hoa_don', value: string | boolean) => {
     const newVatTu = [...formData.vat_tu]
-    newVatTu[index][field] = value
+    newVatTu[index] = { ...newVatTu[index], [field]: value }
     setFormData(prev => ({ ...prev, vat_tu: newVatTu }))
   }
 
@@ -531,11 +537,17 @@ export default function AdminDashboard() {
                         </td>
                         <td className="px-4 py-3 text-xs">
                           {job.report && <div className="text-slate-700">Phiếu: {job.report}</div>}
-                          {job.so_tien > 0 && (
-                            <div className={job.loai_thanh_toan === 'Hóa đơn' ? 'text-emerald-600' : 'text-amber-600'}>
-                              {job.loai_thanh_toan}: {job.so_tien.toLocaleString('vi-VN')}
-                            </div>
-                          )}
+                          {(() => {
+                            const vt = job.soct_chi_tiet_vat_tu || []
+                            const tong = vt.reduce((s, v) => s + (Number(v.thanh_tien) || 0) + (v.hoa_don ? (Number(v.thanh_tien) || 0) * (Number(v.vat) || 0) / 100 : 0), 0)
+                            const coHD = vt.some(v => v.hoa_don)
+                            if (tong <= 0) return null
+                            return (
+                              <div className={coHD ? 'text-emerald-600' : 'text-amber-600'}>
+                                {coHD ? 'Có HĐ' : 'Chưa HĐ'}: {Math.round(tong).toLocaleString('vi-VN')} đ
+                              </div>
+                            )
+                          })()}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`px-2.5 py-1 rounded-full text-xs font-medium border
@@ -790,7 +802,10 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                {/* Dòng 3: Loại công việc & Khoảng cách */}
+              </div>
+
+              {/* Dòng: Loại công việc | Số phiếu | Khoảng cách */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700">Loại công việc <span className="text-red-500">*</span></label>
                   <select
@@ -813,6 +828,15 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Số phiếu (Report)</label>
+                  <Input
+                    placeholder="VD: RP-2026-001"
+                    value={formData.report}
+                    onChange={(e) => setFormData({...formData, report: e.target.value})}
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700">Khoảng cách (KM)</label>
                   <div className="relative">
                     <Input
@@ -831,7 +855,6 @@ export default function AdminDashboard() {
                     <span className="text-xs text-amber-600 italic mt-1 block">Hệ thống sẽ tự tính tọa độ & KM khi lưu</span>
                   )}
                 </div>
-
               </div>
 
               {/* Vật tư đi kèm */}
@@ -848,10 +871,14 @@ export default function AdminDashboard() {
                   ) : (
                     formData.vat_tu.map((vt, index) => {
                       const selectedItem = inventory.find(i => i.ma_hang === vt.ma_hang)
+                      const sl = parseInt(vt.so_luong) || 0
+                      const dg = parseFloat(vt.don_gia) || 0
+                      const thanhTien = dg * sl
                       return (
                         <div key={index} className="bg-slate-50 p-3 rounded-md border border-slate-100 space-y-2">
-                          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                            <div className="flex-1 w-full">
+                          {/* Dòng 1: Mã hàng + xóa */}
+                          <div className="flex gap-2 items-end">
+                            <div className="flex-1">
                               <label className="text-xs font-medium text-slate-500 mb-1 block">Mã hàng hóa (Kho)</label>
                               <MaterialCombobox
                                 inventory={inventory}
@@ -859,27 +886,42 @@ export default function AdminDashboard() {
                                 onChange={(v) => handleUpdateVatTu(index, 'ma_hang', v)}
                               />
                             </div>
-
-                            <div className="w-full sm:w-24">
-                              <label className="text-xs font-medium text-slate-500 mb-1 block">Số lượng</label>
-                              <Input
-                                type="number"
-                                min="1"
-                                className="h-9 bg-white"
-                                value={vt.so_luong}
-                                onChange={(e) => handleUpdateVatTu(index, 'so_luong', e.target.value)}
-                                required
-                              />
-                            </div>
-
-                            <div className="w-full sm:w-auto flex justify-end mt-4 sm:mt-0 pt-5">
-                              <button type="button" onClick={() => handleRemoveVatTu(index)} className="text-slate-400 hover:text-red-500 p-2">
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
+                            <button type="button" onClick={() => handleRemoveVatTu(index)} className="text-slate-400 hover:text-red-500 p-2 shrink-0">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
 
-                          {/* Dòng thông tin tồn kho và model phụ đặt ở dưới, cân bằng toàn bộ hàng */}
+                          {/* Dòng 2: SL | Đơn giá | VAT | Thành tiền | Hóa đơn */}
+                          <div className="grid grid-cols-2 md:grid-cols-12 gap-2 items-end">
+                            <div className="md:col-span-2">
+                              <label className="text-xs font-medium text-slate-500 mb-1 block">Số lượng</label>
+                              <Input type="number" min="1" className="h-9 bg-white" value={vt.so_luong} onChange={(e) => handleUpdateVatTu(index, 'so_luong', e.target.value)} required />
+                            </div>
+                            <div className="md:col-span-3">
+                              <label className="text-xs font-medium text-slate-500 mb-1 block">Đơn giá</label>
+                              <Input
+                                type="text" inputMode="numeric" placeholder="0" className="h-9 bg-white"
+                                value={vt.don_gia === "" ? "" : Number(vt.don_gia).toLocaleString('vi-VN')}
+                                onChange={(e) => handleUpdateVatTu(index, 'don_gia', e.target.value.replace(/\D/g, ''))}
+                              />
+                            </div>
+                            <div className="md:col-span-2">
+                              <label className="text-xs font-medium text-slate-500 mb-1 block">VAT (%)</label>
+                              <Input type="number" min="0" step="0.1" placeholder="0" className="h-9 bg-white" value={vt.vat} onChange={(e) => handleUpdateVatTu(index, 'vat', e.target.value)} />
+                            </div>
+                            <div className="md:col-span-3">
+                              <label className="text-xs font-medium text-slate-500 mb-1 block">Thành tiền</label>
+                              <div className="h-9 flex items-center px-3 rounded-md border border-slate-200 bg-slate-100 text-sm font-semibold text-slate-700">
+                                {thanhTien.toLocaleString('vi-VN')} đ
+                              </div>
+                            </div>
+                            <label className="md:col-span-2 flex items-center gap-1.5 h-9 cursor-pointer select-none">
+                              <input type="checkbox" checked={vt.hoa_don} onChange={(e) => handleUpdateVatTu(index, 'hoa_don', e.target.checked)} className="w-4 h-4 accent-blue-600" />
+                              <span className="text-xs font-medium text-slate-600">Hóa đơn</span>
+                            </label>
+                          </div>
+
+                          {/* Dòng thông tin tồn kho và model */}
                           {selectedItem && (
                             <div className="text-xs text-slate-500 bg-white px-2.5 py-1 rounded border border-slate-100 font-medium">
                               Tồn kho: <span className={`font-semibold ${selectedItem.ton_kho <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>{selectedItem.ton_kho}</span> | Model máy tương thích: <span className="font-semibold text-slate-700">{selectedItem.model || 'Dùng chung'}</span>
@@ -890,48 +932,26 @@ export default function AdminDashboard() {
                     })
                   )}
                 </div>
-              </div>
 
-              {/* Thông tin đối chiếu tài chính */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Số phiếu (Report)</label>
-                  <Input
-                    placeholder="VD: RP-2026-001"
-                    value={formData.report}
-                    onChange={(e) => setFormData({...formData, report: e.target.value})}
-                  />
-                </div>
-                <div className="space-y-2 relative">
-                  <label className="text-sm font-medium text-slate-700">Số tiền</label>
-                  {/* Fake input formatted cho đẹp */}
-                  <div className="relative">
-                    <Input
-                      type="text"
-                      placeholder="Nhập số tiền"
-                      value={formData.so_tien === 0 ? '' : formData.so_tien.toLocaleString('vi-VN')}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\./g, '')
-                        setFormData({...formData, so_tien: parseFloat(val) || 0})
-                      }}
-                      className="pr-8"
-                    />
-                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400 text-sm">
-                      đ
+                {/* Dòng tổng cộng */}
+                {formData.vat_tu.length > 0 && (() => {
+                  let tongChuaHD = 0, tongCoHD = 0, tienVAT = 0
+                  for (const vt of formData.vat_tu) {
+                    const tt = (parseFloat(vt.don_gia) || 0) * (parseInt(vt.so_luong) || 0)
+                    if (vt.hoa_don) { tongCoHD += tt; tienVAT += tt * (parseFloat(vt.vat) || 0) / 100 }
+                    else { tongChuaHD += tt }
+                  }
+                  const tongThanhToan = tongChuaHD + tongCoHD + tienVAT
+                  const fmt = (n: number) => Math.round(n).toLocaleString('vi-VN')
+                  return (
+                    <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-sm space-y-1">
+                      <div className="flex justify-between text-slate-600"><span>Tổng chưa hóa đơn</span><span className="font-medium">{fmt(tongChuaHD)} đ</span></div>
+                      <div className="flex justify-between text-slate-600"><span>Tổng có hóa đơn (chưa VAT)</span><span className="font-medium">{fmt(tongCoHD)} đ</span></div>
+                      <div className="flex justify-between text-slate-600"><span>Tiền VAT (phần có hóa đơn)</span><span className="font-medium">{fmt(tienVAT)} đ</span></div>
+                      <div className="flex justify-between text-slate-800 font-bold border-t border-slate-200 pt-1 mt-1"><span>Tổng thanh toán</span><span className="text-blue-700">{fmt(tongThanhToan)} đ</span></div>
                     </div>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Loại thanh toán</label>
-                  <select
-                    className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                    value={formData.loai_thanh_toan}
-                    onChange={(e) => setFormData({...formData, loai_thanh_toan: e.target.value})}
-                  >
-                    <option value="Hóa đơn">Hóa đơn</option>
-                    <option value="Chưa hóa đơn">Chưa hóa đơn</option>
-                  </select>
-                </div>
+                  )
+                })()}
               </div>
 
               <div className="space-y-2">
@@ -1315,10 +1335,28 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
   )
 }
 
-// Ô tìm kiếm vật tư kiểu "Google": gõ mã/tên/model để lọc, chọn từ danh sách gợi ý
+// Ô tìm kiếm vật tư kiểu "Google": gõ mã/tên/model để lọc, chọn từ danh sách gợi ý.
+// Danh sách gợi ý render qua portal (position: fixed) để không bị khuất bởi modal/thẻ overflow.
 function MaterialCombobox({ inventory, value, onChange }: { inventory: any[], value: string, onChange: (ma_hang: string) => void }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
+  const [rect, setRect] = useState<DOMRect | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const updateRect = useCallback(() => {
+    if (inputRef.current) setRect(inputRef.current.getBoundingClientRect())
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    updateRect()
+    window.addEventListener('scroll', updateRect, true)
+    window.addEventListener('resize', updateRect)
+    return () => {
+      window.removeEventListener('scroll', updateRect, true)
+      window.removeEventListener('resize', updateRect)
+    }
+  }, [open, updateRect])
 
   const selected = inventory.find(i => i.ma_hang === value)
   const q = query.trim().toLowerCase()
@@ -1331,8 +1369,9 @@ function MaterialCombobox({ inventory, value, onChange }: { inventory: any[], va
   ).slice(0, 30)
 
   return (
-    <div className="relative">
+    <>
       <input
+        ref={inputRef}
         className="w-full h-9 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
         placeholder="Gõ mã / tên / model để tìm vật tư..."
         value={open ? query : (selected ? `${selected.ma_hang} - ${selected.ten_hang}` : "")}
@@ -1340,8 +1379,11 @@ function MaterialCombobox({ inventory, value, onChange }: { inventory: any[], va
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
       />
-      {open && (
-        <div className="absolute z-30 mt-1 w-full max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg">
+      {open && rect && createPortal(
+        <div
+          style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, width: rect.width, zIndex: 100 }}
+          className="max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg"
+        >
           {results.length === 0 ? (
             <div className="px-3 py-2 text-sm text-slate-400">Không tìm thấy vật tư khớp.</div>
           ) : results.map(item => (
@@ -1355,9 +1397,10 @@ function MaterialCombobox({ inventory, value, onChange }: { inventory: any[], va
               <span className={`text-xs shrink-0 ${item.ton_kho <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>Tồn: {item.ton_kho}</span>
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   )
 }
 

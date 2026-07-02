@@ -34,6 +34,10 @@ export async function GET(request: Request) {
           id,
           ma_hang,
           so_luong,
+          don_gia,
+          vat,
+          thanh_tien,
+          hoa_don,
           soct_kho_hang (
             ten_hang
           )
@@ -78,10 +82,8 @@ export async function POST(request: Request) {
       km,
       ktv_id,
       report,
-      so_tien,
-      loai_thanh_toan,
       ghi_chu,
-      vat_tu // mảng: [{ ma_hang, so_luong }]
+      vat_tu // mảng: [{ ma_hang, so_luong, don_gia, vat, hoa_don }]
     } = body
 
     if (!id_khach_hang || !loai_cong_viec) {
@@ -119,8 +121,6 @@ export async function POST(request: Request) {
         km: km || 0,
         ktv_id: ktv_id || null,
         report: report || null,
-        so_tien: parseFloat(so_tien) || 0,
-        loai_thanh_toan: loai_thanh_toan || 'Hóa đơn',
         ghi_chu,
         repeat_call,
         ket_qua: 'Chờ nhận'
@@ -134,11 +134,19 @@ export async function POST(request: Request) {
     if (vat_tu && Array.isArray(vat_tu) && vat_tu.length > 0) {
       const validVatTu = vat_tu.filter(v => v.ma_hang && v.so_luong > 0)
       if (validVatTu.length > 0) {
-        const vatTuInserts = validVatTu.map(v => ({
-          id_cong_viec: data.id,
-          ma_hang: v.ma_hang,
-          so_luong: parseInt(v.so_luong, 10)
-        }))
+        const vatTuInserts = validVatTu.map(v => {
+          const so_luong = parseInt(v.so_luong, 10) || 0
+          const don_gia = parseFloat(v.don_gia) || 0
+          return {
+            id_cong_viec: data.id,
+            ma_hang: v.ma_hang,
+            so_luong,
+            don_gia,
+            vat: parseFloat(v.vat) || 0,
+            thanh_tien: don_gia * so_luong, // chưa gồm VAT
+            hoa_don: !!v.hoa_don
+          }
+        })
 
         const { error: vtError } = await supabaseAdmin
           .from('soct_chi_tiet_vat_tu')
@@ -170,7 +178,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { id, claim, ket_qua, ktv_id, report, so_tien, loai_thanh_toan, ghi_chu } = body
+    const { id, claim, ket_qua, ktv_id, report, ghi_chu } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
@@ -213,8 +221,6 @@ export async function PUT(request: Request) {
       if (ket_qua !== undefined) updates.ket_qua = ket_qua
       if (ktv_id !== undefined) updates.ktv_id = ktv_id || null
       if (report !== undefined) updates.report = report
-      if (so_tien !== undefined) updates.so_tien = parseFloat(so_tien) || 0
-      if (loai_thanh_toan !== undefined) updates.loai_thanh_toan = loai_thanh_toan
       if (ghi_chu !== undefined) updates.ghi_chu = ghi_chu
     }
 

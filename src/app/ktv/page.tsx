@@ -22,8 +22,6 @@ type Job = {
   ket_qua: string
   ghi_chu: string
   report?: string
-  so_tien: number
-  loai_thanh_toan: string
   ktv_id: string | null
   soct_khach_hang: { ten_khach_hang: string; dia_chi: string; km_mac_dinh: number }
   soct_chi_tiet_vat_tu: Array<{
@@ -422,14 +420,6 @@ export default function KtvMobileWeb() {
                     <div>Loại việc: <span className="font-bold text-slate-700">{activeJob.loai_cong_viec}</span></div>
                     <div>Số phiếu (RP): <span className="font-bold text-slate-700 font-mono">{activeJob.report || 'N/A'}</span></div>
                   </div>
-
-                  {/* Báo cáo tài chính thu hộ (Nếu có) */}
-                  {activeJob.so_tien > 0 && (
-                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 flex justify-between items-center text-xs">
-                      <span className="font-medium text-slate-600">Số tiền thu hộ ({activeJob.loai_thanh_toan}):</span>
-                      <span className="font-bold text-blue-700 text-sm">{activeJob.so_tien.toLocaleString('vi-VN')} đ</span>
-                    </div>
-                  )}
 
                   {/* Vật tư dự kiến đi kèm */}
                   <div className="space-y-2">
