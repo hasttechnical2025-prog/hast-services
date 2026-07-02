@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare } from "lucide-react"
+import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power } from "lucide-react"
+import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -1047,9 +1048,76 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  // QR đăng nhập cho KTV
+  const [qrModal, setQrModal] = useState<{ id: string; name: string; url: string; dataUrl: string } | null>(null)
+  const [qrLoadingId, setQrLoadingId] = useState<string | null>(null)
+
   const resetForm = () => {
     setFormData({ id: "", full_name: "", username: "", password: "", role: "ktv", telegram_id: "" })
     setIsEditing(false)
+  }
+
+  // Bật/tắt trạng thái hoạt động (KTV nghỉ việc -> tắt để vô hiệu phiên & QR)
+  const handleToggleActive = async (user: any) => {
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: user.id, is_active: !(user.is_active !== false) })
+      })
+      if (res.ok) {
+        showNotification('success', user.is_active !== false ? "Đã ngừng hoạt động tài khoản." : "Đã kích hoạt lại tài khoản.")
+        onUpdateSuccess()
+      } else {
+        const err = await res.json()
+        showNotification('error', err.error)
+      }
+    } catch {
+      showNotification('error', "Lỗi kết nối!")
+    }
+  }
+
+  // Tạo (hoặc tạo lại) QR đăng nhập cho KTV rồi hiển thị để in/quét
+  const handleGenerateQr = async (user: any, regenerate: boolean) => {
+    setQrLoadingId(user.id)
+    try {
+      const res = await fetch('/api/admin/ktv-qr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: user.id, regenerate })
+      })
+      if (res.ok) {
+        const { data } = await res.json()
+        const dataUrl = await QRCodeLib.toDataURL(data.enrollUrl, { width: 320, margin: 2 })
+        setQrModal({ id: user.id, name: user.full_name, url: data.enrollUrl, dataUrl })
+        if (regenerate) showNotification('success', "Đã tạo QR mới, QR cũ đã bị thu hồi.")
+      } else {
+        const err = await res.json()
+        showNotification('error', err.error)
+      }
+    } catch {
+      showNotification('error', "Lỗi khi tạo QR!")
+    } finally {
+      setQrLoadingId(null)
+    }
+  }
+
+  const handlePrintQr = () => {
+    if (!qrModal) return
+    const w = window.open('', '_blank', 'width=420,height=560')
+    if (!w) return
+    w.document.write(`
+      <html><head><title>QR đăng nhập - ${qrModal.name}</title></head>
+      <body style="font-family:sans-serif;text-align:center;padding:24px;">
+        <h2 style="margin-bottom:4px;">QR đăng nhập KTV</h2>
+        <p style="margin-top:0;color:#475569;">${qrModal.name}</p>
+        <img src="${qrModal.dataUrl}" style="width:320px;height:320px;" />
+        <p style="font-size:11px;color:#94a3b8;word-break:break-all;">${qrModal.url}</p>
+      </body></html>
+    `)
+    w.document.close()
+    w.focus()
+    w.print()
   }
 
   const handleEdit = (user: any) => {
@@ -1128,26 +1196,77 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
               <th className="px-4 py-2">Họ Tên</th>
               <th className="px-4 py-2">Tên đăng nhập</th>
               <th className="px-4 py-2">Role</th>
+              <th className="px-4 py-2 text-center">Trạng thái</th>
               <th className="px-4 py-2 text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {users.map((u) => (
-              <tr key={u.id} className="hover:bg-slate-50">
+            {users.map((u) => {
+              const active = u.is_active !== false
+              return (
+              <tr key={u.id} className={`hover:bg-slate-50 ${!active ? 'opacity-60' : ''}`}>
                 <td className="px-4 py-2 font-medium text-slate-800">{u.full_name}</td>
                 <td className="px-4 py-2 font-mono text-xs">{u.username || <span className="text-slate-400 italic">N/A</span>}</td>
                 <td className="px-4 py-2">
                   <span className={`px-2 py-0.5 rounded text-xs font-semibold ${u.role === 'admin' ? 'bg-red-50 text-red-600' : u.role === 'ktv' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600'}`}>{u.role}</span>
                 </td>
-                <td className="px-4 py-2 text-right">
+                <td className="px-4 py-2 text-center">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${active ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
+                    {active ? 'Hoạt động' : 'Ngừng'}
+                  </span>
+                </td>
+                <td className="px-4 py-2 text-right whitespace-nowrap">
+                  {u.role === 'ktv' && (
+                    <button
+                      onClick={() => handleGenerateQr(u, false)}
+                      disabled={qrLoadingId === u.id}
+                      title="Tạo QR đăng nhập"
+                      className="text-violet-600 hover:text-violet-800 p-1 bg-violet-50 hover:bg-violet-100 rounded transition mr-2 disabled:opacity-50"
+                    >
+                      <QrCode className="w-4 h-4" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleToggleActive(u)}
+                    title={active ? 'Ngừng hoạt động' : 'Kích hoạt lại'}
+                    className={`p-1 rounded transition mr-2 ${active ? 'text-amber-600 hover:text-amber-800 bg-amber-50 hover:bg-amber-100' : 'text-emerald-600 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100'}`}
+                  >
+                    <Power className="w-4 h-4" />
+                  </button>
                   <button onClick={() => handleEdit(u)} className="text-blue-500 hover:text-blue-700 p-1"><PenSquare className="w-4 h-4" /></button>
                   <button onClick={() => confirmDelete(u.id, 'user')} className="text-red-500 hover:text-red-700 p-1 ml-2"><Trash2 className="w-4 h-4" /></button>
                 </td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>
+
+      {/* Modal hiển thị QR đăng nhập KTV */}
+      {qrModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-slate-800">QR đăng nhập KTV</h3>
+              <button onClick={() => setQrModal(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
+            </div>
+            <div className="p-6 text-center space-y-3">
+              <p className="text-sm text-slate-600">Kỹ thuật viên: <span className="font-bold text-slate-800">{qrModal.name}</span></p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={qrModal.dataUrl} alt="QR đăng nhập" className="w-56 h-56 mx-auto border border-slate-200 rounded-lg" />
+              <p className="text-xs text-slate-400">KTV quét mã này để đăng nhập tự động. Có thể in ra, đưa quét rồi thu hồi.</p>
+            </div>
+            <div className="bg-slate-50 p-4 flex justify-between gap-2 border-t border-slate-100">
+              <Button variant="outline" onClick={() => setQrModal(null)}>Đóng</Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => handleGenerateQr({ id: qrModal.id, full_name: qrModal.name }, true)} disabled={qrLoadingId === qrModal.id}>Tạo QR mới</Button>
+                <Button onClick={handlePrintQr}>In QR</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

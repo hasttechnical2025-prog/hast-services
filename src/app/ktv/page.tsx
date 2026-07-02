@@ -1,11 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import Link from 'next/link'
-import { MapPin, Phone, MessageSquare, Clipboard, CheckCircle, Play, AlertTriangle, RefreshCw } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { MapPin, Clipboard, CheckCircle, Play, AlertTriangle, RefreshCw, Inbox, Hand } from "lucide-react"
 import { Button } from "@/components/ui/button"
-
 import { Input } from "@/components/ui/input"
+import { supabase } from "@/lib/supabase"
+
+// Kênh realtime: đồng bộ với lib/realtime.ts (server phát broadcast sau mỗi thay đổi việc)
+const JOBS_TOPIC = "soct_jobs"
+const JOBS_EVENT = "changed"
 
 type Job = {
   id: string
@@ -18,6 +21,7 @@ type Job = {
   report?: string
   so_tien: number
   loai_thanh_toan: string
+  ktv_id: string | null
   soct_khach_hang: { ten_khach_hang: string; dia_chi: string; km_mac_dinh: number }
   soct_chi_tiet_vat_tu: Array<{
     id: string
@@ -49,6 +53,27 @@ export default function KtvMobileWeb() {
 
   const [loginForm, setLoginForm] = useState({ username: "", password: "" })
 
+  // Tải danh sách công việc (server đã tự lọc: việc của mình + việc pool chưa gán)
+  const fetchKtvJobs = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/cong-viec')
+      if (res.status === 401) {
+        setCurrentKtv(null)
+        setJobs([])
+        showNotification('error', 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.')
+        return
+      }
+      const json = await res.json()
+      if (json.data) setJobs(json.data)
+    } catch (err) {
+      console.error(err)
+      showNotification('error', "Không tải được danh sách công việc")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   // Khôi phục phiên đăng nhập từ cookie httpOnly (qua API /api/auth/me)
   useEffect(() => {
     const restoreSession = async () => {
@@ -58,7 +83,7 @@ export default function KtvMobileWeb() {
           const { data: user } = await res.json()
           if (user.role === 'ktv') {
             setCurrentKtv(user)
-            fetchKtvJobs(user.id)
+            fetchKtvJobs()
           }
         }
       } catch (err) {
@@ -66,7 +91,17 @@ export default function KtvMobileWeb() {
       }
     }
     restoreSession()
-  }, [])
+  }, [fetchKtvJobs])
+
+  // Realtime: lắng nghe tín hiệu thay đổi việc rồi refetch (pool tự cập nhật khi người khác nhận)
+  useEffect(() => {
+    if (!currentKtv) return
+    const channel = supabase
+      .channel(JOBS_TOPIC)
+      .on('broadcast', { event: JOBS_EVENT }, () => { fetchKtvJobs() })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [currentKtv, fetchKtvJobs])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -81,7 +116,7 @@ export default function KtvMobileWeb() {
       if (res.ok) {
         const { data: user } = await res.json()
         setCurrentKtv(user)
-        fetchKtvJobs(user.id)
+        fetchKtvJobs()
         showNotification('success', `Chào mừng ${user.full_name} vào ca!`)
       } else {
         const err = await res.json()
@@ -106,29 +141,26 @@ export default function KtvMobileWeb() {
     setLoginForm({ username: "", password: "" })
   }
 
-  // Tải danh sách công việc của KTV được chọn
-  const fetchKtvJobs = async (ktvId: string) => {
-    setLoading(true)
+  // KTV nhận việc từ pool (atomic phía server; nếu người khác nhận trước sẽ báo lỗi)
+  const handleClaim = async (jobId: string) => {
     try {
-      const res = await fetch('/api/admin/cong-viec')
-      // Phiên hết hạn -> quay về màn hình đăng nhập
-      if (res.status === 401) {
-        setCurrentKtv(null)
-        setJobs([])
-        showNotification('error', 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.')
-        return
+      const res = await fetch('/api/admin/cong-viec', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: jobId, claim: true })
+      })
+      if (res.ok) {
+        showNotification('success', "Đã nhận việc! Việc đã chuyển vào 'Việc của tôi'.")
+        setActiveJob(null)
+        fetchKtvJobs()
+      } else {
+        const err = await res.json()
+        showNotification('error', err.error || "Không nhận được việc")
+        fetchKtvJobs()
       }
-      const json = await res.json()
-      if (json.data) {
-        // Server đã lọc theo KTV đăng nhập, lọc lại lần nữa cho chắc chắn
-        const filtered = json.data.filter((j: any) => j.ktv_id === ktvId)
-        setJobs(filtered)
-      }
-    } catch (err) {
-      console.error(err)
-      showNotification('error', "Không tải được danh sách công việc")
-    } finally {
-      setLoading(false)
+    } catch (error) {
+      console.error(error)
+      showNotification('error', "Lỗi kết nối mạng")
     }
   }
 
@@ -137,18 +169,16 @@ export default function KtvMobileWeb() {
       const res = await fetch('/api/admin/cong-viec', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: jobId,
-          ket_qua: nextStatus
-        })
+        body: JSON.stringify({ id: jobId, ket_qua: nextStatus })
       })
 
       if (res.ok) {
         showNotification('success', `Đã chuyển trạng thái sang: ${nextStatus}`)
-        if (currentKtv) fetchKtvJobs(currentKtv.id)
-
-        // Cập nhật lại view chi tiết đang mở
-        if (activeJob && activeJob.id === jobId) {
+        fetchKtvJobs()
+        // Việc hoàn thành sẽ bị ẩn khỏi danh sách -> đóng chi tiết
+        if (nextStatus === 'Hoàn thành') {
+          setActiveJob(null)
+        } else if (activeJob && activeJob.id === jobId) {
           setActiveJob(prev => prev ? { ...prev, ket_qua: nextStatus } : null)
         }
       } else {
@@ -170,6 +200,54 @@ export default function KtvMobileWeb() {
     const year = date.getFullYear();
     return `${day}/${month}/${year}`;
   }
+
+  // Phân loại: việc của tôi (đang hoạt động) và pool chờ nhận; ẩn việc đã Hoàn thành
+  const myJobs = currentKtv
+    ? jobs.filter(j => j.ktv_id === currentKtv.id && j.ket_qua !== 'Hoàn thành')
+    : []
+  const poolJobs = jobs.filter(j => !j.ktv_id && j.ket_qua !== 'Hoàn thành')
+
+  const statusBadge = (status: string) =>
+    `${status === 'Hoàn thành' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+      status === 'Đang làm' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+      status === 'Lắp tiếp' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
+      'bg-slate-100 text-slate-600'}`
+
+  const JobCard = ({ job, inPool }: { job: Job; inPool: boolean }) => (
+    <div
+      onClick={() => setActiveJob(job)}
+      className={`bg-white p-4 rounded-xl shadow-sm border transition cursor-pointer space-y-3 ${inPool ? 'border-amber-200 hover:border-amber-300' : 'border-slate-200 hover:border-emerald-300'}`}
+    >
+      <div className="flex justify-between items-start">
+        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${statusBadge(job.ket_qua)}`}>
+          {inPool ? 'Chờ nhận' : job.ket_qua}
+        </span>
+        <span className="text-xs text-slate-400 font-mono">{formatDate(job.ngay)}</span>
+      </div>
+
+      <div className="space-y-1">
+        <h4 className="font-bold text-slate-800 text-base">{job.soct_khach_hang?.ten_khach_hang}</h4>
+        <div className="text-xs text-slate-500 flex items-center gap-1">
+          <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+          <span className="truncate">{job.soct_khach_hang?.dia_chi}</span>
+        </div>
+      </div>
+
+      <div className="border-t border-slate-100 pt-2 flex justify-between items-center text-xs text-slate-500">
+        <div>Loại việc: <span className="font-semibold text-slate-700">{job.loai_cong_viec}</span></div>
+        <div className="font-mono text-slate-400">Mã máy: {job.ma_may || 'N/A'}</div>
+      </div>
+
+      {inPool && (
+        <Button
+          onClick={(e) => { e.stopPropagation(); handleClaim(job.id) }}
+          className="w-full bg-amber-500 hover:bg-amber-600 text-white gap-2 h-10 text-sm rounded-lg"
+        >
+          <Hand className="w-4 h-4" /> Nhận việc này
+        </Button>
+      )}
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
@@ -241,69 +319,49 @@ export default function KtvMobileWeb() {
                 <p className="text-xs text-slate-400">Nhân viên kỹ thuật</p>
                 <h3 className="font-bold text-slate-800 text-base">{currentKtv.full_name}</h3>
               </div>
-
-              {!currentKtv.telegram_id && (
-                <Link
-                  href={`https://t.me/YOUR_BOT_USERNAME?start=${currentKtv.id}`}
-                  target="_blank"
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full font-medium text-xs hover:bg-blue-100 transition"
-                >
-                  <span>Mở Telegram Bot</span>
-                </Link>
-              )}
+              <button onClick={() => fetchKtvJobs()} className="p-2 text-slate-400 hover:text-emerald-600 transition" title="Làm mới">
+                <RefreshCw className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* DANH SÁCH CÔNG VIỆC HÀNG NGÀY */}
             {!activeJob ? (
-              <div className="space-y-3">
-                <div className="flex justify-between items-center px-1">
-                  <h4 className="font-bold text-slate-700 text-sm">Công việc hôm nay</h4>
-                  <button onClick={() => fetchKtvJobs(currentKtv.id)} className="p-1 text-slate-400 hover:text-slate-600 transition">
-                    <RefreshCw className="w-4 h-4" />
-                  </button>
+              <>
+                {/* MỤC 1: VIỆC CỦA TÔI */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 px-1">
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                    <h4 className="font-bold text-slate-700 text-sm">Việc của tôi</h4>
+                    <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">{myJobs.length}</span>
+                  </div>
+
+                  {loading && jobs.length === 0 ? (
+                    <p className="text-sm text-slate-400 text-center py-6">Đang đồng bộ công việc...</p>
+                  ) : myJobs.length === 0 ? (
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center text-slate-400 text-sm">
+                      Bạn chưa nhận việc nào. Xem mục &quot;Chờ nhận&quot; bên dưới.
+                    </div>
+                  ) : (
+                    myJobs.map((job) => <JobCard key={job.id} job={job} inPool={false} />)
+                  )}
                 </div>
 
-                {loading ? (
-                  <p className="text-sm text-slate-400 text-center py-8">Đang đồng bộ công việc...</p>
-                ) : jobs.length === 0 ? (
-                  <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 text-center text-slate-400 text-sm">
-                     Không có lịch trình công tác được giao cho bạn hôm nay.
+                {/* MỤC 2: CHỜ NHẬN (POOL CHUNG) */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center gap-2 px-1">
+                    <Inbox className="w-4 h-4 text-amber-600" />
+                    <h4 className="font-bold text-slate-700 text-sm">Chờ nhận</h4>
+                    <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">{poolJobs.length}</span>
                   </div>
-                ) : (
-                  jobs.map((job) => (
-                    <div
-                      key={job.id}
-                      onClick={() => setActiveJob(job)}
-                      className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-emerald-300 transition cursor-pointer space-y-3"
-                    >
-                      <div className="flex justify-between items-start">
-                        <span className={`px-2 py-0.5 rounded text-xs font-semibold
-                          ${job.ket_qua === 'Hoàn thành' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
-                            job.ket_qua === 'Đang làm' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
-                            job.ket_qua === 'Lắp tiếp' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
-                            'bg-slate-100 text-slate-600'}`}
-                        >
-                          {job.ket_qua}
-                        </span>
-                        <span className="text-xs text-slate-400 font-mono">{formatDate(job.ngay)}</span>
-                      </div>
 
-                      <div className="space-y-1">
-                        <h4 className="font-bold text-slate-800 text-base">{job.soct_khach_hang?.ten_khach_hang}</h4>
-                        <div className="text-xs text-slate-500 flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                          <span className="truncate">{job.soct_khach_hang?.dia_chi}</span>
-                        </div>
-                      </div>
-
-                      <div className="border-t border-slate-100 pt-2 flex justify-between items-center text-xs text-slate-500">
-                        <div>Loại việc: <span className="font-semibold text-slate-700">{job.loai_cong_viec}</span></div>
-                        <div className="font-mono text-slate-400">Mã máy: {job.ma_may || 'N/A'}</div>
-                      </div>
+                  {poolJobs.length === 0 ? (
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center text-slate-400 text-sm">
+                      Không có việc nào đang chờ nhận.
                     </div>
-                  ))
-                )}
-              </div>
+                  ) : (
+                    poolJobs.map((job) => <JobCard key={job.id} job={job} inPool={true} />)
+                  )}
+                </div>
+              </>
             ) : (
               /* MÀN HÌNH CHI TIẾT CÔNG VIỆC */
               <div className="space-y-4">
@@ -324,7 +382,7 @@ export default function KtvMobileWeb() {
                         activeJob.ket_qua === 'Lắp tiếp' ? 'bg-amber-50 text-amber-700 border-amber-200' :
                         'bg-slate-100 text-slate-700 border-slate-200'}`}
                     >
-                      {activeJob.ket_qua}
+                      {!activeJob.ktv_id ? 'Chờ nhận' : activeJob.ket_qua}
                     </span>
                   </div>
 
@@ -381,7 +439,18 @@ export default function KtvMobileWeb() {
 
                   {/* NÚT THAO TÁC CỦA KTV */}
                   <div className="pt-2 border-t border-slate-100 flex gap-2">
-                    {activeJob.ket_qua === 'Chờ nhận' && (
+                    {/* Việc trong pool: nút nhận việc */}
+                    {!activeJob.ktv_id && (
+                      <Button
+                        onClick={() => handleClaim(activeJob.id)}
+                        className="w-full bg-amber-500 hover:bg-amber-600 text-white gap-2 h-11 text-sm rounded-lg"
+                      >
+                        <Hand className="w-4 h-4" /> Nhận việc này
+                      </Button>
+                    )}
+
+                    {/* Việc của mình, chưa bắt đầu */}
+                    {activeJob.ktv_id && activeJob.ket_qua === 'Chờ nhận' && (
                       <Button
                         onClick={() => handleUpdateStatus(activeJob.id, 'Đang làm')}
                         className="w-full bg-blue-600 hover:bg-blue-700 text-white gap-2 h-11 text-sm rounded-lg"
@@ -390,7 +459,7 @@ export default function KtvMobileWeb() {
                       </Button>
                     )}
 
-                    {activeJob.ket_qua === 'Đang làm' && (
+                    {activeJob.ktv_id && activeJob.ket_qua === 'Đang làm' && (
                       <>
                         <Button
                           onClick={() => handleUpdateStatus(activeJob.id, 'Lắp tiếp')}
@@ -406,6 +475,15 @@ export default function KtvMobileWeb() {
                           <CheckCircle className="w-4 h-4" /> Hoàn thành
                         </Button>
                       </>
+                    )}
+
+                    {activeJob.ktv_id && activeJob.ket_qua === 'Lắp tiếp' && (
+                      <Button
+                        onClick={() => handleUpdateStatus(activeJob.id, 'Hoàn thành')}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2 h-11 text-sm rounded-lg"
+                      >
+                        <CheckCircle className="w-4 h-4" /> Hoàn thành
+                      </Button>
                     )}
                   </div>
                 </div>

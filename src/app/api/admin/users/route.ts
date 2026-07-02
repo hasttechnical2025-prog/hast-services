@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     const onlyKtv = searchParams.get('ktv') === 'true'
 
     const columns = session.role === 'admin'
-      ? 'id, full_name, role, username, telegram_id'
+      ? 'id, full_name, role, username, telegram_id, is_active'
       : 'id, full_name, role'
 
     let query = supabaseAdmin.from('soct_users').select(columns)
@@ -86,7 +86,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { id, full_name, role, username, password, telegram_id } = body
+    const { id, full_name, role, username, password, telegram_id, is_active } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Thiếu ID nhân viên' }, { status: 400 })
@@ -97,6 +97,7 @@ export async function PUT(request: Request) {
     if (role !== undefined) updates.role = role
     if (username !== undefined) updates.username = username
     if (telegram_id !== undefined) updates.telegram_id = telegram_id || null
+    if (is_active !== undefined) updates.is_active = !!is_active
 
     // Nếu có mật khẩu mới, băm mật khẩu
     if (password && password.trim() !== '') {
@@ -107,7 +108,7 @@ export async function PUT(request: Request) {
       .from('soct_users')
       .update(updates)
       .eq('id', id)
-      .select('id, full_name, role, username, telegram_id')
+      .select('id, full_name, role, username, telegram_id, is_active')
       .single()
 
     if (error) {
