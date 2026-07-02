@@ -7,10 +7,12 @@
 
 -- Bảng thông tin nhân viên (liên kết với auth.users)
 CREATE TABLE IF NOT EXISTS public.soct_users (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     full_name TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('admin', 'tech_admin', 'staff', 'ktv')),
     telegram_id TEXT,
+    username TEXT UNIQUE,
+    password TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

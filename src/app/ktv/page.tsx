@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { MapPin, Phone, MessageSquare, Clipboard, CheckCircle, Play, AlertTriangle, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
+import { Input } from "@/components/ui/input"
+
 type Job = {
   id: string
   ngay: string
@@ -33,8 +35,6 @@ type User = {
 }
 
 export default function KtvMobileWeb() {
-  const [technicians, setTechnicians] = useState<User[]>([])
-  const [selectedKtvId, setSelectedKtvId] = useState("")
   const [currentKtv, setCurrentKtv] = useState<User | null>(null)
 
   const [jobs, setJobs] = useState<Job[]>([])
@@ -47,19 +47,52 @@ export default function KtvMobileWeb() {
     setTimeout(() => setNotification(null), 4000)
   }
 
-  // Tải danh sách KTV để giả lập đăng nhập
+  const [loginForm, setLoginForm] = useState({ username: "", password: "" })
+
+  // Tải thông tin phiên đăng nhập nếu có
   useEffect(() => {
-    const fetchKtvs = async () => {
-      try {
-        const res = await fetch('/api/admin/users')
-        const json = await res.json()
-        if (json.data) setTechnicians(json.data)
-      } catch (err) {
-        console.error("Error loading KTV list:", err)
-      }
+    const savedUser = localStorage.getItem('ktv_user')
+    if (savedUser) {
+      const user = JSON.parse(savedUser)
+      setCurrentKtv(user)
+      fetchKtvJobs(user.id)
     }
-    fetchKtvs()
   }, [])
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      const res = await fetch('/api/ktv/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginForm)
+      })
+
+      if (res.ok) {
+        const { data: user } = await res.json()
+        setCurrentKtv(user)
+        localStorage.setItem('ktv_user', JSON.stringify(user))
+        fetchKtvJobs(user.id)
+        showNotification('success', `Chào mừng ${user.full_name} vào ca!`)
+      } else {
+        const err = await res.json()
+        showNotification('error', err.error)
+      }
+    } catch (err) {
+      showNotification('error', "Lỗi kết nối khi đăng nhập")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleLogout = () => {
+    setCurrentKtv(null)
+    setJobs([])
+    setActiveJob(null)
+    setLoginForm({ username: "", password: "" })
+    localStorage.removeItem('ktv_user')
+  }
 
   // Tải danh sách công việc của KTV được chọn
   const fetchKtvJobs = async (ktvId: string) => {
@@ -78,22 +111,6 @@ export default function KtvMobileWeb() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const handleLogin = () => {
-    const user = technicians.find(t => t.id === selectedKtvId)
-    if (user) {
-      setCurrentKtv(user)
-      fetchKtvJobs(user.id)
-      showNotification('success', `Chào mừng ${user.full_name} vào ca!`)
-    }
-  }
-
-  const handleLogout = () => {
-    setCurrentKtv(null)
-    setJobs([])
-    setActiveJob(null)
-    setSelectedKtvId("")
   }
 
   const handleUpdateStatus = async (jobId: string, nextStatus: 'Đang làm' | 'Hoàn thành' | 'Lắp tiếp') => {
@@ -157,38 +174,45 @@ export default function KtvMobileWeb() {
       )}
 
       <main className="flex-1 p-4 max-w-md mx-auto w-full space-y-4">
-        {/* MÀN HÌNH ĐĂNG NHẬP GIẢ LẬP */}
+        {/* MÀN HÌNH ĐĂNG NHẬP BAO MẬT */}
         {!currentKtv ? (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+          <form onSubmit={handleLogin} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
             <div className="text-center space-y-1">
               <h2 className="text-lg font-bold text-slate-800">KTV Đăng nhập nhận việc</h2>
-              <p className="text-xs text-slate-400">Chọn tên của bạn để bắt đầu xem sổ công tác</p>
+              <p className="text-xs text-slate-400">Nhập tài khoản kỹ thuật viên của bạn</p>
             </div>
 
             <div className="space-y-4 pt-2">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Họ và Tên</label>
-                <select
-                  className="w-full h-11 px-3 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
-                  value={selectedKtvId}
-                  onChange={(e) => setSelectedKtvId(e.target.value)}
-                >
-                  <option value="">-- Chọn kỹ thuật viên --</option>
-                  {technicians.map(t => (
-                    <option key={t.id} value={t.id}>{t.full_name}</option>
-                  ))}
-                </select>
+                <label className="text-xs font-semibold text-slate-600">Tên đăng nhập</label>
+                <Input
+                  required
+                  placeholder="Nhập tên đăng nhập"
+                  value={loginForm.username}
+                  onChange={(e) => setLoginForm({...loginForm, username: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Mật khẩu</label>
+                <Input
+                  required
+                  type="password"
+                  placeholder="Nhập mật khẩu"
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
+                />
               </div>
 
               <Button
-                onClick={handleLogin}
-                disabled={!selectedKtvId}
+                type="submit"
+                disabled={loading}
                 className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition"
               >
-                Vào ca nhận việc
+                {loading ? "Đang xác thực..." : "Đăng nhập vào ca"}
               </Button>
             </div>
-          </div>
+          </form>
         ) : (
           /* MÀN HÌNH KTV ĐÃ VÀO CA */
           <div className="space-y-4">

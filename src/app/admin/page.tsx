@@ -433,6 +433,12 @@ export default function AdminDashboard() {
             <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Cài đặt Hệ thống</h2>
 
             <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
+              <h3 className="text-lg font-semibold text-slate-700 mb-2">Quản lý Tài khoản (KTV & Nhân viên)</h3>
+              <p className="text-sm text-slate-500 mb-6">Thêm mới, cập nhật tên đăng nhập và mật khẩu cho Kỹ thuật viên.</p>
+              <UserManagementTool users={technicians} onUpdateSuccess={fetchData} showNotification={showNotification} />
+            </div>
+
+            <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
               <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập dữ liệu Khách Hàng (Bulk Import)</h3>
               <p className="text-sm text-slate-500 mb-6">
                 Hỗ trợ 2 định dạng copy-paste:<br/>
@@ -750,6 +756,138 @@ export default function AdminDashboard() {
 interface BulkImportToolProps {
   onImportSuccess: () => void
   showNotification: (type: 'success' | 'error', msg: string) => void
+}
+
+function UserManagementTool({ users, onUpdateSuccess, showNotification }: { users: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+  const [formData, setFormData] = useState({
+    id: "",
+    full_name: "",
+    username: "",
+    password: "",
+    role: "ktv",
+    telegram_id: ""
+  })
+  const [isEditing, setIsEditing] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  const resetForm = () => {
+    setFormData({ id: "", full_name: "", username: "", password: "", role: "ktv", telegram_id: "" })
+    setIsEditing(false)
+  }
+
+  const handleEdit = (user: any) => {
+    setFormData({
+      id: user.id,
+      full_name: user.full_name,
+      username: user.username || "",
+      password: "", // Không show password cũ
+      role: user.role,
+      telegram_id: user.telegram_id || ""
+    })
+    setIsEditing(true)
+  }
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+
+    const method = isEditing ? 'PUT' : 'POST'
+    try {
+      const res = await fetch('/api/admin/users', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
+
+      if (res.ok) {
+        showNotification('success', isEditing ? "Cập nhật nhân viên thành công!" : "Tạo nhân viên thành công!")
+        resetForm()
+        onUpdateSuccess()
+      } else {
+        const err = await res.json()
+        showNotification('error', err.error)
+      }
+    } catch (error) {
+      showNotification('error', "Lỗi kết nối!")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Xóa tài khoản này? (Chỉ xác nhận bằng hộp thoại)")) return // Dùng native tạm ở component con hoặc thiết kế dialog riêng, ở đây dùng native cho lẹ
+    try {
+      const res = await fetch(`/api/admin/users?id=${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        showNotification('success', "Xóa thành công!")
+        onUpdateSuccess()
+      } else {
+        showNotification('error', "Không thể xóa!")
+      }
+    } catch (error) {
+      showNotification('error', "Lỗi kết nối!")
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <form onSubmit={handleSave} className="bg-white p-4 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-slate-600">Họ và Tên *</label>
+          <Input required value={formData.full_name} onChange={(e) => setFormData({...formData, full_name: e.target.value})} placeholder="VD: Nguyễn Văn A" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-slate-600">Tên đăng nhập *</label>
+          <Input required value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} placeholder="VD: nguyenva" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-slate-600">{isEditing ? "Mật khẩu mới" : "Mật khẩu *"}</label>
+          <Input required={!isEditing} type="password" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} placeholder={isEditing ? "(Bỏ trống nếu không đổi)" : "Nhập mật khẩu"} />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-slate-600">Quyền hạn *</label>
+          <select className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500" value={formData.role} onChange={(e) => setFormData({...formData, role: e.target.value})}>
+            <option value="ktv">Kỹ thuật viên (KTV)</option>
+            <option value="staff">Staff (Chỉ xem sổ)</option>
+            <option value="tech_admin">Tech Admin</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div className="space-y-1 lg:col-span-2 flex items-end gap-2">
+          {isEditing && <Button type="button" variant="outline" onClick={resetForm} className="h-10">Hủy sửa</Button>}
+          <Button type="submit" disabled={loading} className="h-10 w-full sm:w-auto">{loading ? "Đang lưu..." : isEditing ? "Cập nhật tài khoản" : "Tạo tài khoản mới"}</Button>
+        </div>
+      </form>
+
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[400px] overflow-y-auto">
+        <table className="w-full text-left text-sm text-slate-600">
+          <thead className="bg-slate-50 sticky top-0 border-b border-slate-200">
+            <tr>
+              <th className="px-4 py-2">Họ Tên</th>
+              <th className="px-4 py-2">Tên đăng nhập</th>
+              <th className="px-4 py-2">Role</th>
+              <th className="px-4 py-2 text-right">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {users.map((u) => (
+              <tr key={u.id} className="hover:bg-slate-50">
+                <td className="px-4 py-2 font-medium text-slate-800">{u.full_name}</td>
+                <td className="px-4 py-2 font-mono text-xs">{u.username || <span className="text-slate-400 italic">N/A</span>}</td>
+                <td className="px-4 py-2">
+                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${u.role === 'admin' ? 'bg-red-50 text-red-600' : u.role === 'ktv' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600'}`}>{u.role}</span>
+                </td>
+                <td className="px-4 py-2 text-right">
+                  <button onClick={() => handleEdit(u)} className="text-blue-500 hover:text-blue-700 p-1"><PenSquare className="w-4 h-4" /></button>
+                  <button onClick={() => handleDelete(u.id)} className="text-red-500 hover:text-red-700 p-1 ml-2"><Trash2 className="w-4 h-4" /></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
 }
 
 function BulkImportTool({ onImportSuccess, showNotification }: BulkImportToolProps) {
