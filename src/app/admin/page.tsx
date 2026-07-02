@@ -678,46 +678,50 @@ export default function AdminDashboard() {
                     formData.vat_tu.map((vt, index) => {
                       const selectedItem = inventory.find(i => i.ma_hang === vt.ma_hang)
                       return (
-                        <div key={index} className="flex flex-col sm:flex-row gap-3 items-start sm:items-center bg-slate-50 p-3 rounded-md border border-slate-100">
-                          <div className="flex-1 w-full">
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">Mã hàng hóa (Kho)</label>
-                            <select
-                              className="w-full h-9 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                              value={vt.ma_hang}
-                              onChange={(e) => handleUpdateVatTu(index, 'ma_hang', e.target.value)}
-                              required
-                            >
-                              <option value="">-- Chọn mã vật tư --</option>
-                              {inventory.map(item => (
-                                <option key={item.ma_hang} value={item.ma_hang}>
-                                  {item.ma_hang} - {item.ten_hang}
-                                </option>
-                              ))}
-                            </select>
-                            {selectedItem && (
-                              <div className="text-xs mt-1 text-slate-600">
-                                Tồn kho: <span className={`font-semibold ${selectedItem.ton_kho <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>{selectedItem.ton_kho}</span> | Model: {selectedItem.model || 'N/A'}
-                              </div>
-                            )}
+                        <div key={index} className="bg-slate-50 p-3 rounded-md border border-slate-100 space-y-2">
+                          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                            <div className="flex-1 w-full">
+                              <label className="text-xs font-medium text-slate-500 mb-1 block">Mã hàng hóa (Kho)</label>
+                              <select
+                                className="w-full h-9 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                                value={vt.ma_hang}
+                                onChange={(e) => handleUpdateVatTu(index, 'ma_hang', e.target.value)}
+                                required
+                              >
+                                <option value="">-- Chọn mã vật tư --</option>
+                                {inventory.map(item => (
+                                  <option key={item.ma_hang} value={item.ma_hang}>
+                                    {item.ma_hang} - {item.ten_hang}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="w-full sm:w-24">
+                              <label className="text-xs font-medium text-slate-500 mb-1 block">Số lượng</label>
+                              <Input
+                                type="number"
+                                min="1"
+                                className="h-9 bg-white"
+                                value={vt.so_luong}
+                                onChange={(e) => handleUpdateVatTu(index, 'so_luong', e.target.value)}
+                                required
+                              />
+                            </div>
+
+                            <div className="w-full sm:w-auto flex justify-end mt-4 sm:mt-0 pt-5">
+                              <button type="button" onClick={() => handleRemoveVatTu(index)} className="text-slate-400 hover:text-red-500 p-2">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </div>
 
-                          <div className="w-full sm:w-24">
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">Số lượng</label>
-                            <Input
-                              type="number"
-                              min="1"
-                              className="h-9 bg-white"
-                              value={vt.so_luong}
-                              onChange={(e) => handleUpdateVatTu(index, 'so_luong', e.target.value)}
-                              required
-                            />
-                          </div>
-
-                          <div className="w-full sm:w-auto flex justify-end mt-4 sm:mt-0">
-                            <button type="button" onClick={() => handleRemoveVatTu(index)} className="text-slate-400 hover:text-red-500 p-2">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
+                          {/* Dòng thông tin tồn kho và model phụ đặt ở dưới, cân bằng toàn bộ hàng */}
+                          {selectedItem && (
+                            <div className="text-xs text-slate-500 bg-white px-2.5 py-1 rounded border border-slate-100 font-medium">
+                              Tồn kho: <span className={`font-semibold ${selectedItem.ton_kho <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>{selectedItem.ton_kho}</span> | Model máy tương thích: <span className="font-semibold text-slate-700">{selectedItem.model || 'Dùng chung'}</span>
+                            </div>
+                          )}
                         </div>
                       )
                     })
