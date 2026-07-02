@@ -577,25 +577,39 @@ export default function AdminDashboard() {
           </div>
         )}
         {activeTab === "he_thong" && currentUserRole === 'admin' && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
-            <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Cài đặt Hệ thống</h2>
+          <div className="space-y-6">
+            {/* KHU VỰC 1: CẤU HÌNH HỆ THỐNG */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+              <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Cài đặt Hệ thống</h2>
 
-            <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
-              <h3 className="text-lg font-semibold text-slate-700 mb-2">Quản lý Tài khoản (KTV & Nhân viên)</h3>
-              <p className="text-sm text-slate-500 mb-6">Thêm mới, cập nhật tên đăng nhập và mật khẩu cho Kỹ thuật viên.</p>
-              <UserManagementTool users={technicians} onUpdateSuccess={fetchData} showNotification={showNotification} confirmDelete={confirmDelete} />
+              <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
+                <h3 className="text-lg font-semibold text-slate-700 mb-2">Quản lý Tài khoản (KTV & Nhân viên)</h3>
+                <p className="text-sm text-slate-500 mb-6">Thêm mới, cập nhật tên đăng nhập và mật khẩu cho Kỹ thuật viên.</p>
+                <UserManagementTool users={technicians} onUpdateSuccess={fetchData} showNotification={showNotification} confirmDelete={confirmDelete} />
+              </div>
             </div>
 
-            <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
-              <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập dữ liệu Khách Hàng (Bulk Import)</h3>
-              <p className="text-sm text-slate-500 mb-6">
-                Hỗ trợ 2 định dạng copy-paste:<br/>
-                - <b>Copy từ Excel (Tab-separated):</b> TT | Mã máy | Tên Khách hàng | Địa chỉ | Model | km<br/>
-                - <b>Danh sách Text thô:</b> VD: <code>158 _Ban Nội chính TW #Tòa 4A Nguyễn Cảnh Chân, Hà Nội @Apeos 7580 !7</code><br/>
-                <span className="text-xs text-slate-400">(số đầu = mã khách; sau <b>_</b> = tên KH; sau <b>#</b> = địa chỉ; sau <b>@</b> = model; sau <b>!</b> = số km)</span>
-              </p>
+            {/* KHU VỰC 2: KHÁCH HÀNG (tách riêng khỏi cấu hình hệ thống) */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+              <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Quản lý Khách hàng</h2>
 
-              <BulkImportTool onImportSuccess={fetchData} showNotification={showNotification} />
+              <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
+                <h3 className="text-lg font-semibold text-slate-700 mb-2">Danh sách Khách hàng (Điểm máy)</h3>
+                <p className="text-sm text-slate-500 mb-4">Toàn bộ khách hàng / điểm máy hiện có trong hệ thống.</p>
+                <CustomerListTool customers={customers} />
+              </div>
+
+              <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
+                <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập dữ liệu Khách Hàng (Bulk Import)</h3>
+                <p className="text-sm text-slate-500 mb-6">
+                  Hỗ trợ 2 định dạng copy-paste:<br/>
+                  - <b>Copy từ Excel (Tab-separated):</b> TT | Mã máy | Tên Khách hàng | Địa chỉ | Model | km<br/>
+                  - <b>Danh sách Text thô:</b> VD: <code>158 _Ban Nội chính TW #Tòa 4A Nguyễn Cảnh Chân, Hà Nội @Apeos 7580 !7</code><br/>
+                  <span className="text-xs text-slate-400">(số đầu = mã khách; sau <b>_</b> = tên KH; sau <b>#</b> = địa chỉ; sau <b>@</b> = model; sau <b>!</b> = số km)</span>
+                </p>
+
+                <BulkImportTool onImportSuccess={fetchData} showNotification={showNotification} />
+              </div>
             </div>
           </div>
         )}
@@ -1270,6 +1284,63 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function CustomerListTool({ customers }: { customers: any[] }) {
+  const [search, setSearch] = useState("")
+
+  const q = search.trim().toLowerCase()
+  const filtered = q
+    ? customers.filter(c =>
+        (c.ten_khach_hang || "").toLowerCase().includes(q) ||
+        (c.ma_may || "").toLowerCase().includes(q) ||
+        (c.dia_chi || "").toLowerCase().includes(q) ||
+        (c.model || "").toLowerCase().includes(q)
+      )
+    : customers
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input placeholder="Tìm mã máy, tên KH, địa chỉ, model..." className="pl-9 bg-white" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <span className="text-sm text-slate-500 whitespace-nowrap">
+          {q ? `${filtered.length} / ${customers.length}` : `Tổng: ${customers.length}`} khách hàng
+        </span>
+      </div>
+
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[500px] overflow-y-auto">
+        <table className="w-full text-left text-sm text-slate-600">
+          <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 shadow-sm z-10">
+            <tr>
+              <th className="px-4 py-3 font-semibold">Mã máy</th>
+              <th className="px-4 py-3 font-semibold">Tên khách hàng</th>
+              <th className="px-4 py-3 font-semibold">Địa chỉ</th>
+              <th className="px-4 py-3 font-semibold">Model</th>
+              <th className="px-4 py-3 font-semibold text-center">KM</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {customers.length === 0 ? (
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Chưa có khách hàng nào. Nhập dữ liệu ở mục bên dưới.</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Không tìm thấy khách hàng khớp từ khóa.</td></tr>
+            ) : filtered.map((c) => (
+              <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                <td className="px-4 py-3 font-mono font-medium text-slate-700">{c.ma_may || <span className="text-slate-400 italic">—</span>}</td>
+                <td className="px-4 py-3 font-medium text-slate-800">{c.ten_khach_hang}</td>
+                <td className="px-4 py-3 text-slate-600">{c.dia_chi}</td>
+                <td className="px-4 py-3">{c.model || <span className="text-slate-400 italic">—</span>}</td>
+                <td className="px-4 py-3 text-center whitespace-nowrap">{c.km_mac_dinh != null ? `${Number(c.km_mac_dinh).toLocaleString('vi-VN')} km` : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
