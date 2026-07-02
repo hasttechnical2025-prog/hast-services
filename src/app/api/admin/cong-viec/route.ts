@@ -244,6 +244,14 @@ export async function PUT(request: Request) {
       throw error
     }
 
+    // Cơ chế lai: công việc loại 'Bảo trì' vừa Hoàn thành -> tự đánh dấu máy đã bảo trì tháng đó
+    if (updates.ket_qua === 'Hoàn thành' && data.loai_cong_viec === 'Bảo trì' && data.ma_may) {
+      const thang_nam = String(data.ngay).slice(0, 7) // YYYY-MM
+      await supabaseAdmin
+        .from('soct_bao_tri')
+        .upsert({ ma_may: data.ma_may, thang_nam, ngay: data.ngay, ktv_id: data.ktv_id || null }, { onConflict: 'ma_may,thang_nam' })
+    }
+
     await broadcastJobsChanged()
 
     return NextResponse.json({ data })
