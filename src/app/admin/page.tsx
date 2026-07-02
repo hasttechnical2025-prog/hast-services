@@ -423,6 +423,15 @@ export default function AdminDashboard() {
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6 space-y-6">
             <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Quản lý Kho Hàng (Vật tư)</h2>
             <InventoryManagementTool inventory={inventory} onUpdateSuccess={fetchData} showNotification={showNotification} />
+
+            <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 mt-8">
+              <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập hàng hóa từ Excel (Bulk Import)</h3>
+              <p className="text-sm text-slate-500 mb-6">
+                Copy danh sách từ Excel và dán vào đây.<br/>
+                <b>Thứ tự cột yêu cầu:</b> Mã hàng | Tên vật tư | Model máy | Tồn kho
+              </p>
+              <BulkImportInventoryTool onImportSuccess={fetchData} showNotification={showNotification} />
+            </div>
           </div>
         )}
         {activeTab === "he_thong" && currentUserRole === 'admin' && (
@@ -838,7 +847,7 @@ function InventoryManagementTool({ inventory, onUpdateSuccess, showNotification 
       <form onSubmit={handleSave} className="bg-slate-50 p-4 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="space-y-1 lg:col-span-1">
           <label className="text-xs font-semibold text-slate-600">Mã hàng *</label>
-          <Input required value={formData.ma_hang} onChange={(e) => setFormData({...formData, ma_hang: e.target.value})} disabled={isEditing} placeholder="VD: DR017" className="bg-white" />
+          <Input required value={formData.ma_hang} onChange={(e) => setFormData({...formData, ma_hang: e.target.value.toUpperCase()})} disabled={isEditing} placeholder="VD: DR017" className="bg-white" />
         </div>
         <div className="space-y-1 lg:col-span-2">
           <label className="text-xs font-semibold text-slate-600">Tên hàng / Vật tư *</label>
@@ -1024,6 +1033,136 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification }: { user
           </tbody>
         </table>
       </div>
+    </div>
+  )
+}
+
+function BulkImportInventoryTool({ onImportSuccess, showNotification }: BulkImportToolProps) {
+  const [text, setText] = useState("")
+  const [records, setRecords] = useState<any[]>([])
+  const [importing, setImporting] = useState(false)
+
+  const handleParse = () => {
+    if (!text.trim()) return showNotification('error', "Vui lòng nhập dữ liệu để phân tích")
+
+    const lines = text.split("\n")
+    const parsed: any[] = []
+
+    for (let line of lines) {
+      const cleanLine = line.trim()
+      if (!cleanLine) continue
+
+      if (cleanLine.includes("\t")) {
+        // Định dạng Excel (Tab separated)
+        const cols = cleanLine.split("\t")
+
+        // Bỏ qua dòng tiêu đề nếu người dùng copy cả tiêu đề
+        if (cols[0]?.toLowerCase().includes("mã hàng") || cols[1]?.toLowerCase().includes("vật tư")) {
+          continue
+        }
+
+        const ma_hang = cols[0]?.trim().toUpperCase() || ""
+        const ten_hang = cols[1]?.trim() || ""
+        const model = cols[2]?.trim() || ""
+        const ton_kho_raw = cols[3]?.trim() || "0"
+
+        if (ma_hang && ten_hang) {
+          parsed.push({
+            ma_hang,
+            ten_hang,
+            model,
+            hang: "",
+            ton_kho: parseInt(ton_kho_raw) || 0
+          })
+        }
+      } else {
+        // Định dạng thô cho vật tư chưa hỗ trợ regex
+      }
+    }
+
+    if (parsed.length === 0) {
+      showNotification('error', "Không tìm thấy dòng dữ liệu nào đúng định dạng. Đảm bảo copy Excel đúng 4 cột: Mã hàng | Tên vật tư | Model | Tồn kho.")
+    } else {
+      setRecords(parsed)
+    }
+  }
+
+  const handleSave = async () => {
+    if (records.length === 0) return
+    setImporting(true)
+
+    try {
+      const res = await fetch("/api/admin/kho-hang/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: records })
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        showNotification('success', `Đã lưu thành công ${data.count} vật tư vào cơ sở dữ liệu!`)
+        setText("")
+        setRecords([])
+        onImportSuccess()
+      } else {
+        const err = await res.json()
+        showNotification('error', "Lỗi khi import: " + err.error)
+      }
+    } catch (error) {
+      console.error(error)
+      showNotification('error', "Lỗi kết nối khi import dữ liệu")
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <textarea
+          rows={6}
+          className="w-full p-3 rounded-md border border-slate-200 text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none"
+          placeholder="Dán dữ liệu Excel (gồm các cột Mã hàng, Tên vật tư, Model, Tồn kho) vào đây..."
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        ></textarea>
+      </div>
+
+      <div className="flex gap-2">
+        <Button onClick={handleParse} variant="outline">
+          Phân tích dữ liệu ({text.split("\n").filter(l => l.trim()).length} dòng)
+        </Button>
+        {records.length > 0 && (
+          <Button onClick={handleSave} disabled={importing} className="bg-emerald-600 hover:bg-emerald-700">
+            {importing ? "Đang lưu..." : `Xác nhận nạp ${records.length} vật tư vào CSDL`}
+          </Button>
+        )}
+      </div>
+
+      {records.length > 0 && (
+        <div className="border border-slate-200 rounded-lg overflow-hidden max-h-80 overflow-y-auto mt-4">
+          <table className="w-full text-left text-xs text-slate-600">
+            <thead className="bg-slate-100 text-slate-600 font-medium sticky top-0 border-b border-slate-200">
+              <tr>
+                <th className="px-3 py-2">Mã hàng</th>
+                <th className="px-3 py-2">Tên vật tư</th>
+                <th className="px-3 py-2">Model máy</th>
+                <th className="px-3 py-2 text-center">Tồn kho</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {records.map((rec, idx) => (
+                <tr key={idx} className="hover:bg-slate-50">
+                  <td className="px-3 py-2 font-mono font-medium">{rec.ma_hang}</td>
+                  <td className="px-3 py-2 font-medium text-slate-800">{rec.ten_hang}</td>
+                  <td className="px-3 py-2">{rec.model}</td>
+                  <td className="px-3 py-2 text-center font-bold text-emerald-600">{rec.ton_kho}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
