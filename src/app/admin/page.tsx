@@ -590,8 +590,9 @@ export default function AdminDashboard() {
               <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập dữ liệu Khách Hàng (Bulk Import)</h3>
               <p className="text-sm text-slate-500 mb-6">
                 Hỗ trợ 2 định dạng copy-paste:<br/>
-                - <b>Copy từ Excel (Tab-separated):</b> Cột thứ tự TT | Mã máy | Mã máy 2026 | Máy Khách hàng | Khách hàng | Địa chỉ | Model | Share | km ...<br/>
-                - <b>Danh sách Text thô:</b> VD: <code>158 _Ban Nội chính TW #Tòa 4A... @Apeos 7580</code>
+                - <b>Copy từ Excel (Tab-separated):</b> TT | Mã máy | Tên Khách hàng | Địa chỉ | Model | km<br/>
+                - <b>Danh sách Text thô:</b> VD: <code>158 _Ban Nội chính TW #Tòa 4A Nguyễn Cảnh Chân, Hà Nội @Apeos 7580 !7</code><br/>
+                <span className="text-xs text-slate-400">(số đầu = mã khách; sau <b>_</b> = tên KH; sau <b>#</b> = địa chỉ; sau <b>@</b> = model; sau <b>!</b> = số km)</span>
               </p>
 
               <BulkImportTool onImportSuccess={fetchData} showNotification={showNotification} />
@@ -1419,19 +1420,19 @@ function BulkImportTool({ onImportSuccess, showNotification }: BulkImportToolPro
       if (!cleanLine) continue
 
       if (cleanLine.includes("\t")) {
-        // Định dạng Excel (Tab separated)
+        // Định dạng Excel (Tab separated): TT | Mã máy | Tên KH | Địa chỉ | Model | km
         const cols = cleanLine.split("\t")
 
         // Bỏ qua dòng tiêu đề nếu người dùng copy cả tiêu đề
-        if (cols[1]?.toLowerCase().includes("mã máy") || cols[4]?.toLowerCase().includes("khách hàng")) {
+        if (cols[1]?.toLowerCase().includes("mã máy") || cols[2]?.toLowerCase().includes("khách")) {
           continue
         }
 
         const ma_may = cols[1]?.trim() || ""
-        const ten_khach_hang = cols[4]?.trim() || ""
-        const dia_chi = cols[5]?.trim() || ""
-        const model = cols[6]?.trim() || ""
-        const km_raw = cols[8]?.trim() || "0"
+        const ten_khach_hang = cols[2]?.trim() || ""
+        const dia_chi = cols[3]?.trim() || ""
+        const model = cols[4]?.trim() || ""
+        const km_raw = cols[5]?.trim() || "0"
 
         if (ma_may && ten_khach_hang && dia_chi) {
           parsed.push({
@@ -1443,16 +1444,16 @@ function BulkImportTool({ onImportSuccess, showNotification }: BulkImportToolPro
           })
         }
       } else {
-        // Định dạng thô: "Mã_máy _Khách hàng #Địa chỉ @Model"
-        // Regex: (ma_may) _(khach_hang) #(dia_chi) @(model)
-        const match = cleanLine.match(/^(\S+)?\s*_(.+?)\s*#(.+?)\s*@(.+)$/)
+        // Định dạng thô: "<mã khách> _<Tên KH> #<Địa chỉ> @<Model> !<km>"
+        // km (phần sau dấu !) là tùy chọn.
+        const match = cleanLine.match(/^(.*?)_(.+?)#(.+?)@(.+?)(?:\s*!\s*([\d.]+))?\s*$/)
         if (match) {
           parsed.push({
             ma_may: match[1]?.trim() || "",
             ten_khach_hang: match[2]?.trim() || "",
             dia_chi: match[3]?.trim() || "",
             model: match[4]?.trim() || "",
-            km_mac_dinh: 0 // Thô không có KM, mặc định 0
+            km_mac_dinh: match[5] ? (parseFloat(match[5]) || 0) : 0
           })
         }
       }
