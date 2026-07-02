@@ -1445,13 +1445,16 @@ function MaterialCombobox({ inventory, value, onChange }: { inventory: any[], va
   )
 }
 
-// Khớp model vật tư với model máy khách (heuristic: chứa nhau hoặc trùng token)
+// Khớp model vật tư với model máy khách theo đúng cách trên Google Sheets:
+// lấy số trong model khách (bizhub 551i -> 551) rồi giữ vật tư có model chứa số đó.
+function modelNumber(model: string) {
+  const m = (model || '').match(/\d+/)
+  return m ? m[0] : ''
+}
 function matchModelGD(itemModel: string, custModel: string) {
-  if (!itemModel) return true            // vật tư dùng chung
-  if (!custModel) return true
-  const a = itemModel.toLowerCase(), b = custModel.toLowerCase()
-  if (a.includes(b) || b.includes(a)) return true
-  return a.split(/[\/,;\s]+/).filter(t => t.length >= 3).some(t => b.includes(t))
+  const num = modelNumber(custModel)
+  if (!num) return true                 // model khách không có số -> không lọc
+  return (itemModel || '').includes(num) // vật tư không có model / không chứa số -> loại
 }
 
 function GiamDinhTool({ customers, inventory, showNotification }: { customers: any[], inventory: any[], showNotification: (type: 'success' | 'error', msg: string) => void }) {
