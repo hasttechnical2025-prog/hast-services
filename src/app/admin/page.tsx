@@ -501,6 +501,7 @@ export default function AdminDashboard() {
                     type="date"
                     value={formData.ngay}
                     onChange={(e) => setFormData({...formData, ngay: e.target.value})}
+                    className="w-full text-slate-700 font-mono" // Thêm font-mono để ngày tháng hiển thị chuẩn cân đối
                     required
                   />
                 </div>
@@ -520,7 +521,7 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Dòng 2: Mã máy & Khách hàng */}
-                <div className="space-y-2">
+                <div className="space-y-2 flex flex-col justify-start">
                   <label className="text-sm font-medium text-slate-700">Mã máy <span className="text-amber-500 font-normal text-xs italic ml-1">(Gõ mã để điền tự động KH)</span></label>
                   <Input
                     placeholder="Nhập mã máy (VD: 35953)"
@@ -528,16 +529,14 @@ export default function AdminDashboard() {
                     onChange={(e) => handleMaMayChange(e.target.value)}
                   />
                   {/* Căn chỉnh khoảng trắng với Khách hàng nếu chưa có model */}
-                  <div className="min-h-[28px] mt-2">
-                    {formData.id_khach_hang && formData.id_khach_hang !== "NEW" && customers.find(c => c.id === formData.id_khach_hang)?.model && (
-                      <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1.5 rounded border border-blue-100 font-medium w-max">
-                        Model: <span className="font-semibold">{customers.find(c => c.id === formData.id_khach_hang)?.model}</span>
-                      </div>
-                    )}
-                  </div>
+                  {formData.id_khach_hang && formData.id_khach_hang !== "NEW" && customers.find(c => c.id === formData.id_khach_hang)?.model ? (
+                    <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1.5 rounded border border-blue-100 font-medium w-max mt-2">
+                      Model: <span className="font-semibold">{customers.find(c => c.id === formData.id_khach_hang)?.model}</span>
+                    </div>
+                  ) : <div className="h-[28px] mt-2 hidden md:block"></div>}
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 flex flex-col justify-start">
                   <label className="text-sm font-medium text-slate-700">Khách hàng <span className="text-red-500">*</span></label>
                   <select
                     className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
@@ -552,13 +551,11 @@ export default function AdminDashboard() {
                     ))}
                   </select>
                   {/* Căn chỉnh khoảng trắng với Mã máy nếu chưa có địa chỉ */}
-                  <div className="min-h-[28px] mt-2">
-                    {formData.id_khach_hang && formData.id_khach_hang !== "NEW" && customers.find(c => c.id === formData.id_khach_hang)?.dia_chi && (
-                      <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1.5 rounded border border-blue-100 font-medium truncate w-full" title={customers.find(c => c.id === formData.id_khach_hang)?.dia_chi}>
-                        Địa chỉ: <span className="font-semibold">{customers.find(c => c.id === formData.id_khach_hang)?.dia_chi}</span>
-                      </div>
-                    )}
-                  </div>
+                  {formData.id_khach_hang && formData.id_khach_hang !== "NEW" && customers.find(c => c.id === formData.id_khach_hang)?.dia_chi ? (
+                    <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1.5 rounded border border-blue-100 font-medium truncate w-full mt-2" title={customers.find(c => c.id === formData.id_khach_hang)?.dia_chi}>
+                      Địa chỉ: <span className="font-semibold">{customers.find(c => c.id === formData.id_khach_hang)?.dia_chi}</span>
+                    </div>
+                  ) : <div className="h-[28px] mt-2 hidden md:block"></div>}
                 </div>
 
                 {/* Phần thêm mới khách hàng/máy */}
@@ -695,14 +692,24 @@ export default function AdminDashboard() {
                     onChange={(e) => setFormData({...formData, report: e.target.value})}
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 relative">
                   <label className="text-sm font-medium text-slate-700">Số tiền</label>
-                  <Input
-                    type="number"
-                    placeholder="Nhập số tiền"
-                    value={formData.so_tien}
-                    onChange={(e) => setFormData({...formData, so_tien: parseFloat(e.target.value) || 0})}
-                  />
+                  {/* Fake input formatted cho đẹp */}
+                  <div className="relative">
+                    <Input
+                      type="text"
+                      placeholder="Nhập số tiền"
+                      value={formData.so_tien === 0 ? '' : formData.so_tien.toLocaleString('vi-VN')}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\./g, '')
+                        setFormData({...formData, so_tien: parseFloat(val) || 0})
+                      }}
+                      className="pr-8"
+                    />
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400 text-sm">
+                      đ
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700">Loại thanh toán</label>
