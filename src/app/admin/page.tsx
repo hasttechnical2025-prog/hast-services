@@ -527,11 +527,14 @@ export default function AdminDashboard() {
                     value={formData.ma_may}
                     onChange={(e) => handleMaMayChange(e.target.value)}
                   />
-                  {formData.id_khach_hang && formData.id_khach_hang !== "NEW" && (
-                    <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1.5 rounded mt-2 border border-blue-100 font-medium">
-                      Model: <span className="font-semibold">{customers.find(c => c.id === formData.id_khach_hang)?.model || 'N/A'}</span>
-                    </div>
-                  )}
+                  {/* Căn chỉnh khoảng trắng với Khách hàng nếu chưa có model */}
+                  <div className="min-h-[28px] mt-2">
+                    {formData.id_khach_hang && formData.id_khach_hang !== "NEW" && customers.find(c => c.id === formData.id_khach_hang)?.model && (
+                      <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1.5 rounded border border-blue-100 font-medium w-max">
+                        Model: <span className="font-semibold">{customers.find(c => c.id === formData.id_khach_hang)?.model}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -548,11 +551,14 @@ export default function AdminDashboard() {
                       <option key={c.id} value={c.id}>{c.ten_khach_hang}</option>
                     ))}
                   </select>
-                  {formData.id_khach_hang && formData.id_khach_hang !== "NEW" && (
-                    <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1.5 rounded mt-2 border border-blue-100 font-medium">
-                      Địa chỉ: <span className="font-semibold">{customers.find(c => c.id === formData.id_khach_hang)?.dia_chi || 'N/A'}</span>
-                    </div>
-                  )}
+                  {/* Căn chỉnh khoảng trắng với Mã máy nếu chưa có địa chỉ */}
+                  <div className="min-h-[28px] mt-2">
+                    {formData.id_khach_hang && formData.id_khach_hang !== "NEW" && customers.find(c => c.id === formData.id_khach_hang)?.dia_chi && (
+                      <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1.5 rounded border border-blue-100 font-medium truncate w-full" title={customers.find(c => c.id === formData.id_khach_hang)?.dia_chi}>
+                        Địa chỉ: <span className="font-semibold">{customers.find(c => c.id === formData.id_khach_hang)?.dia_chi}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Phần thêm mới khách hàng/máy */}
