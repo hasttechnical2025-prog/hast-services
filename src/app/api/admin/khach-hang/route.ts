@@ -26,9 +26,10 @@ export async function GET() {
 }
 
 // Thêm khách hàng mới kèm tự động tính tọa độ và km mặc định
+// Tạo khách hàng mới — cho phép cả staff vì luồng "máy mới" trong form giao việc cần tạo khách hàng
 export async function POST(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin')
+    const session = await requireRole('admin', 'tech_admin', 'staff')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
     }

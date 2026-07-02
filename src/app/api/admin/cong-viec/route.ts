@@ -59,10 +59,10 @@ export async function GET(request: Request) {
   }
 }
 
-// Tạo công việc mới (chỉ admin/tech_admin)
+// Tạo công việc mới (admin/tech_admin/staff đều được giao việc cho KTV)
 export async function POST(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin')
+    const session = await requireRole('admin', 'tech_admin', 'staff')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
     }

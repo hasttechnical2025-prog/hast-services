@@ -483,11 +483,10 @@ export default function AdminDashboard() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input placeholder="Tìm mã máy, tên khách hàng..." className="pl-9 bg-white" />
               </div>
-              {currentUserRole !== 'staff' && (
-                <Button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto gap-2">
-                  <Plus className="w-4 h-4" /> Giao việc mới
-                </Button>
-              )}
+              {/* Tất cả role văn phòng (admin, tech_admin, staff) đều được giao việc cho KTV */}
+              <Button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto gap-2">
+                <Plus className="w-4 h-4" /> Giao việc mới
+              </Button>
             </div>
 
             {/* Table */}
