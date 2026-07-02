@@ -42,7 +42,9 @@ export async function POST(request: Request) {
       if (updErr) throw updErr
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin
+    // Dùng đúng origin mà admin đang truy cập (localhost / IP LAN / domain prod)
+    // để QR trỏ về đúng nơi -> test được ở local mà không cần đổi env.
+    const appUrl = new URL(request.url).origin
     const enrollUrl = `${appUrl}/api/ktv/enroll?token=${token}`
 
     return NextResponse.json({ data: { token, enrollUrl } })
