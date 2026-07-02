@@ -420,12 +420,9 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === "kho_hang" && (
-          <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 mb-4">
-              <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-            </div>
-            <h2 className="text-xl font-semibold text-slate-700 mb-2">Tính năng Kho Hàng đang phát triển</h2>
-            <p className="text-slate-500 max-w-md mx-auto">Module quản lý tồn kho, đặt hàng và phê duyệt nhập/xuất vật tư sẽ được cập nhật trong phiên bản tiếp theo.</p>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6 space-y-6">
+            <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Quản lý Kho Hàng (Vật tư)</h2>
+            <InventoryManagementTool inventory={inventory} onUpdateSuccess={fetchData} showNotification={showNotification} />
           </div>
         )}
         {activeTab === "he_thong" && currentUserRole === 'admin' && (
@@ -766,6 +763,137 @@ export default function AdminDashboard() {
 interface BulkImportToolProps {
   onImportSuccess: () => void
   showNotification: (type: 'success' | 'error', msg: string) => void
+}
+
+function InventoryManagementTool({ inventory, onUpdateSuccess, showNotification }: { inventory: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+  const [formData, setFormData] = useState({
+    ma_hang: "",
+    ten_hang: "",
+    model: "",
+    hang: "",
+    ton_kho: 0
+  })
+  const [isEditing, setIsEditing] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  const resetForm = () => {
+    setFormData({ ma_hang: "", ten_hang: "", model: "", hang: "", ton_kho: 0 })
+    setIsEditing(false)
+  }
+
+  const handleEdit = (item: any) => {
+    setFormData({
+      ma_hang: item.ma_hang,
+      ten_hang: item.ten_hang,
+      model: item.model || "",
+      hang: item.hang || "",
+      ton_kho: item.ton_kho || 0
+    })
+    setIsEditing(true)
+  }
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+
+    try {
+      const res = await fetch('/api/admin/kho-hang', {
+        method: 'POST', // API route uses upsert for POST
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
+
+      if (res.ok) {
+        showNotification('success', isEditing ? "Cập nhật vật tư thành công!" : "Thêm vật tư mới thành công!")
+        resetForm()
+        onUpdateSuccess()
+      } else {
+        const err = await res.json()
+        showNotification('error', err.error)
+      }
+    } catch (error) {
+      showNotification('error', "Lỗi kết nối!")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDelete = async (ma_hang: string) => {
+    if (!confirm("Bạn có chắc chắn muốn xóa vật tư này khỏi kho?")) return
+    try {
+      const res = await fetch(`/api/admin/kho-hang?ma_hang=${encodeURIComponent(ma_hang)}`, { method: 'DELETE' })
+      if (res.ok) {
+        showNotification('success', "Xóa vật tư thành công!")
+        onUpdateSuccess()
+      } else {
+        showNotification('error', "Không thể xóa!")
+      }
+    } catch (error) {
+      showNotification('error', "Lỗi kết nối!")
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <form onSubmit={handleSave} className="bg-slate-50 p-4 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="space-y-1 lg:col-span-1">
+          <label className="text-xs font-semibold text-slate-600">Mã hàng *</label>
+          <Input required value={formData.ma_hang} onChange={(e) => setFormData({...formData, ma_hang: e.target.value})} disabled={isEditing} placeholder="VD: DR017" className="bg-white" />
+        </div>
+        <div className="space-y-1 lg:col-span-2">
+          <label className="text-xs font-semibold text-slate-600">Tên hàng / Vật tư *</label>
+          <Input required value={formData.ten_hang} onChange={(e) => setFormData({...formData, ten_hang: e.target.value})} placeholder="VD: Trống lấy ảnh DR017" className="bg-white" />
+        </div>
+        <div className="space-y-1 lg:col-span-1">
+          <label className="text-xs font-semibold text-slate-600">Model máy</label>
+          <Input value={formData.model} onChange={(e) => setFormData({...formData, model: e.target.value})} placeholder="VD: PP 7136" className="bg-white" />
+        </div>
+        <div className="space-y-1 lg:col-span-1">
+          <label className="text-xs font-semibold text-slate-600">Số lượng Tồn *</label>
+          <Input type="number" required value={formData.ton_kho} onChange={(e) => setFormData({...formData, ton_kho: parseInt(e.target.value) || 0})} className="bg-white" />
+        </div>
+
+        <div className="space-y-1 lg:col-span-5 flex justify-end gap-2 mt-2">
+          {isEditing && <Button type="button" variant="outline" onClick={resetForm} className="h-9">Hủy</Button>}
+          <Button type="submit" disabled={loading} className="h-9">{loading ? "Đang lưu..." : isEditing ? "Cập nhật vật tư" : "Thêm vật tư mới"}</Button>
+        </div>
+      </form>
+
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[500px] overflow-y-auto">
+        <table className="w-full text-left text-sm text-slate-600">
+          <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 shadow-sm z-10">
+            <tr>
+              <th className="px-4 py-3 font-semibold">Mã hàng</th>
+              <th className="px-4 py-3 font-semibold">Tên vật tư</th>
+              <th className="px-4 py-3 font-semibold">Model máy</th>
+              <th className="px-4 py-3 font-semibold text-center">Tồn kho</th>
+              <th className="px-4 py-3 font-semibold text-right">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {inventory.length === 0 ? (
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Kho hàng đang trống.</td></tr>
+            ) : inventory.map((item) => (
+              <tr key={item.ma_hang} className="hover:bg-slate-50 transition-colors">
+                <td className="px-4 py-3 font-mono font-medium text-slate-700">{item.ma_hang}</td>
+                <td className="px-4 py-3 font-medium text-slate-800">{item.ten_hang}</td>
+                <td className="px-4 py-3">{item.model || <span className="text-slate-400 italic">Dùng chung</span>}</td>
+                <td className="px-4 py-3 text-center">
+                  <span className={`px-2 py-1 rounded-full text-xs font-bold ${item.ton_kho <= 0 ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'}`}>
+                    {item.ton_kho}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <button onClick={() => handleEdit(item)} className="text-blue-500 hover:text-blue-700 p-1 bg-blue-50 hover:bg-blue-100 rounded transition mr-2"><PenSquare className="w-4 h-4" /></button>
+                  <button onClick={() => handleDelete(item.ma_hang)} className="text-red-500 hover:text-red-700 p-1 bg-red-50 hover:bg-red-100 rounded transition"><Trash2 className="w-4 h-4" /></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
 }
 
 function UserManagementTool({ users, onUpdateSuccess, showNotification }: { users: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {

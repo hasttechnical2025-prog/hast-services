@@ -48,3 +48,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
+
+// Xóa hàng hóa khỏi kho hàng
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const ma_hang = searchParams.get('ma_hang')
+
+    if (!ma_hang) {
+      return NextResponse.json({ error: 'Thiếu mã hàng' }, { status: 400 })
+    }
+
+    const { error } = await supabaseAdmin
+      .from('soct_kho_hang')
+      .delete()
+      .eq('ma_hang', ma_hang)
+
+    if (error) throw error
+
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error('Error deleting inventory item:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
