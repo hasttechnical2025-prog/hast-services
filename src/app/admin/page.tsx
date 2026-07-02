@@ -1671,11 +1671,13 @@ function GiamDinhTool({ customers, inventory, showNotification }: { customers: a
 function BaoTriTool({ customers, showNotification }: { customers: any[], showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [thangNam, setThangNam] = useState(new Date().toISOString().slice(0, 7))
   const [text, setText] = useState("")
+  const [preview, setPreview] = useState<{ ma_may: string, cust: any }[] | null>(null)
   const [records, setRecords] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const customerByMaMay = new Map(customers.filter(c => c.ma_may).map(c => [String(c.ma_may).toLowerCase(), c]))
+  const unknownCount = preview ? preview.filter(p => !p.cust).length : 0
 
   const fetchRecords = async (thang: string) => {
     setLoading(true)
@@ -1692,20 +1694,33 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
 
   useEffect(() => { fetchRecords(thangNam) }, [thangNam])
 
+  const handleAnalyze = () => {
+    const raw = text.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean)
+    const seen = new Set<string>()
+    const list: { ma_may: string, cust: any }[] = []
+    for (const m of raw) {
+      const key = m.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      list.push({ ma_may: m, cust: customerByMaMay.get(key) || null })
+    }
+    if (list.length === 0) return showNotification('error', "Nhập ít nhất một mã máy")
+    setPreview(list)
+  }
+
   const handleSave = async () => {
-    const ma_mays = text.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean)
-    if (ma_mays.length === 0) return showNotification('error', "Nhập ít nhất một mã máy")
+    if (!preview || preview.length === 0) return
     setSaving(true)
     try {
       const res = await fetch('/api/admin/bao-tri', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ thang_nam: thangNam, ma_mays })
+        body: JSON.stringify({ thang_nam: thangNam, ma_mays: preview.map(p => p.ma_may) })
       })
       if (res.ok) {
         const data = await res.json()
         showNotification('success', `Đã đánh dấu ${data.count} máy bảo trì tháng ${thangNam.split('-').reverse().join('/')}.`)
-        setText("")
+        setText(""); setPreview(null)
         fetchRecords(thangNam)
       } else {
         const err = await res.json()
@@ -1749,11 +1764,43 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
           className="w-full p-3 rounded-md border border-slate-200 text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none"
           placeholder="VD: 35971 36068 36084..."
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => { setText(e.target.value); setPreview(null) }}
         />
-        <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
-          {saving ? "Đang lưu..." : "Đánh dấu đã bảo trì"}
-        </Button>
+
+        {!preview ? (
+          <Button onClick={handleAnalyze} variant="outline">
+            Phân tích ({text.split(/[\s,;]+/).filter(Boolean).length} mã)
+          </Button>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 flex-wrap text-sm">
+              <span className="text-emerald-700 font-medium">{preview.length - unknownCount} mã hợp lệ</span>
+              {unknownCount > 0 && <span className="text-red-600 font-medium">⚠ {unknownCount} mã lạ (không khớp khách hàng — kiểm tra nhập sai)</span>}
+            </div>
+            <div className="border border-slate-200 rounded-lg overflow-hidden max-h-64 overflow-y-auto bg-white">
+              <table className="w-full text-left text-xs text-slate-600">
+                <thead className="bg-slate-100 sticky top-0 border-b border-slate-200">
+                  <tr><th className="px-3 py-2 font-medium">Mã máy</th><th className="px-3 py-2 font-medium">Khách hàng</th><th className="px-3 py-2 font-medium">HĐBT</th></tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {preview.map((p, i) => (
+                    <tr key={i} className={p.cust ? '' : 'bg-red-50'}>
+                      <td className="px-3 py-2 font-mono font-medium">{p.ma_may}</td>
+                      <td className="px-3 py-2">{p.cust ? p.cust.ten_khach_hang : <span className="text-red-600 font-medium">Không khớp — có thể nhập sai</span>}</td>
+                      <td className="px-3 py-2">{p.cust ? (p.cust.loai_hd || <span className="text-slate-300">—</span>) : ''}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
+                {saving ? "Đang lưu..." : `Xác nhận lưu ${preview.length} mã`}
+              </Button>
+              <Button variant="outline" onClick={() => setPreview(null)}>Sửa lại</Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div>
