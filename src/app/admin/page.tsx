@@ -81,6 +81,8 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("cong_viec")
   // Tab con bên trong "Hệ thống" (dễ mở rộng thêm sau)
   const [systemTab, setSystemTab] = useState<"cai_dat" | "khach_hang">("cai_dat")
+  // Tab con bên trong "Theo dõi máy"
+  const [monitorTab, setMonitorTab] = useState<"bao_tri" | "giam_dinh">("bao_tri")
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -468,6 +470,15 @@ export default function AdminDashboard() {
                 </button>
               )}
 
+              {currentUserRole !== 'staff' && (
+                <button
+                  onClick={() => setActiveTab("theo_doi_may")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'theo_doi_may' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Theo dõi máy
+                </button>
+              )}
+
               {currentUserRole === 'admin' && (
                 <button
                   onClick={() => setActiveTab("he_thong")}
@@ -587,6 +598,38 @@ export default function AdminDashboard() {
                 <b>Thứ tự cột yêu cầu:</b> Mã hàng | Tên vật tư | Model máy | Tồn kho
               </p>
               <BulkImportInventoryTool onImportSuccess={fetchData} showNotification={showNotification} />
+            </div>
+          </div>
+        )}
+        {activeTab === "theo_doi_may" && currentUserRole !== 'staff' && (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            {/* Thanh tab con của Theo dõi máy */}
+            <div className="p-4 border-b border-slate-200 bg-slate-50/50">
+              <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
+                <button
+                  onClick={() => setMonitorTab("bao_tri")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${monitorTab === 'bao_tri' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Bảo trì
+                </button>
+                <button
+                  onClick={() => setMonitorTab("giam_dinh")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${monitorTab === 'giam_dinh' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Giám định
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {monitorTab === "bao_tri" && (
+                <BaoTriTool customers={customers} showNotification={showNotification} />
+              )}
+              {monitorTab === "giam_dinh" && (
+                <div className="text-center text-slate-400 text-sm py-10 border border-dashed border-slate-200 rounded-lg">
+                  Module Giám định — sẽ bổ sung ở bước tiếp theo.
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1401,6 +1444,135 @@ function MaterialCombobox({ inventory, value, onChange }: { inventory: any[], va
         document.body
       )}
     </>
+  )
+}
+
+function BaoTriTool({ customers, showNotification }: { customers: any[], showNotification: (type: 'success' | 'error', msg: string) => void }) {
+  const [thangNam, setThangNam] = useState(new Date().toISOString().slice(0, 7))
+  const [text, setText] = useState("")
+  const [records, setRecords] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const customerByMaMay = new Map(customers.filter(c => c.ma_may).map(c => [String(c.ma_may).toLowerCase(), c]))
+
+  const fetchRecords = async (thang: string) => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/admin/bao-tri?thang_nam=${thang}`)
+      const json = await res.json()
+      setRecords(json.data || [])
+    } catch {
+      showNotification('error', "Không tải được dữ liệu bảo trì")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { fetchRecords(thangNam) }, [thangNam])
+
+  const handleSave = async () => {
+    const ma_mays = text.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean)
+    if (ma_mays.length === 0) return showNotification('error', "Nhập ít nhất một mã máy")
+    setSaving(true)
+    try {
+      const res = await fetch('/api/admin/bao-tri', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ thang_nam: thangNam, ma_mays })
+      })
+      if (res.ok) {
+        const data = await res.json()
+        showNotification('success', `Đã đánh dấu ${data.count} máy bảo trì tháng ${thangNam.split('-').reverse().join('/')}.`)
+        setText("")
+        fetchRecords(thangNam)
+      } else {
+        const err = await res.json()
+        showNotification('error', err.error)
+      }
+    } catch {
+      showNotification('error', "Lỗi kết nối!")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/bao-tri?id=${id}`, { method: 'DELETE' })
+      if (res.ok) fetchRecords(thangNam)
+      else showNotification('error', "Xóa không thành công")
+    } catch {
+      showNotification('error', "Lỗi kết nối!")
+    }
+  }
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return ''
+    const d = new Date(dateStr)
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Tháng bảo trì</label>
+            <input type="month" value={thangNam} onChange={(e) => setThangNam(e.target.value)} className="h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white block" />
+          </div>
+          <p className="text-sm text-slate-500 flex-1">Dán danh sách <b>mã máy</b> đã bảo trì trong tháng (cách nhau bởi xuống dòng, dấu phẩy hoặc khoảng trắng).</p>
+        </div>
+        <textarea
+          rows={4}
+          className="w-full p-3 rounded-md border border-slate-200 text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none"
+          placeholder="VD: 35971 36068 36084..."
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+        <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
+          {saving ? "Đang lưu..." : "Đánh dấu đã bảo trì"}
+        </Button>
+      </div>
+
+      <div>
+        <div className="flex items-center gap-2 mb-2 px-1">
+          <h3 className="text-sm font-bold text-slate-700">Đã bảo trì tháng {thangNam.split('-').reverse().join('/')}</h3>
+          <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">{records.length} máy</span>
+        </div>
+        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[420px] overflow-y-auto">
+          <table className="w-full text-left text-sm text-slate-600">
+            <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 shadow-sm z-10">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Mã máy</th>
+                <th className="px-4 py-3 font-semibold">Khách hàng</th>
+                <th className="px-4 py-3 font-semibold">Ngày</th>
+                <th className="px-4 py-3 font-semibold text-center w-16">Xóa</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
+                <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Đang tải...</td></tr>
+              ) : records.length === 0 ? (
+                <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Chưa có máy nào được đánh dấu bảo trì tháng này.</td></tr>
+              ) : records.map((r) => {
+                const kh = customerByMaMay.get(String(r.ma_may).toLowerCase())
+                return (
+                  <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-4 py-3 font-mono font-medium text-slate-700">{r.ma_may}</td>
+                    <td className="px-4 py-3">{kh ? kh.ten_khach_hang : <span className="text-slate-400 italic">Không khớp khách hàng</span>}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{formatDate(r.ngay)}</td>
+                    <td className="px-4 py-3 text-center">
+                      <button onClick={() => handleDelete(r.id)} className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 hover:bg-red-100 rounded-md transition"><Trash2 className="w-4 h-4" /></button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   )
 }
 
