@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { requireRole } from '@/lib/session'
 
 export async function POST(request: Request) {
   try {
+    const session = await requireRole('admin')
+    if (!session) {
+      return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
+    }
+
     const { customers } = await request.json()
 
     if (!Array.isArray(customers) || customers.length === 0) {

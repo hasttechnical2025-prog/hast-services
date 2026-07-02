@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { requireRole } from '@/lib/session'
 
 // Lấy danh sách công việc kèm thông tin khách hàng, kỹ thuật viên và vật tư liên quan
+// KTV chỉ được xem các công việc gán cho chính mình
 export async function GET(request: Request) {
   try {
+    const session = await requireRole()
+    if (!session) {
+      return NextResponse.json({ error: 'Chưa đăng nhập' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const dateStr = searchParams.get('date') // Định dạng YYYY-MM-DD nếu lọc theo ngày
 
@@ -33,6 +40,10 @@ export async function GET(request: Request) {
       `)
       .order('created_at', { ascending: false })
 
+    if (session.role === 'ktv') {
+      query = query.eq('ktv_id', session.id)
+    }
+
     if (dateStr) {
       query = query.eq('ngay', dateStr)
     }
@@ -48,9 +59,14 @@ export async function GET(request: Request) {
   }
 }
 
-// Tạo công việc mới
+// Tạo công việc mới (chỉ admin/tech_admin)
 export async function POST(request: Request) {
   try {
+    const session = await requireRole('admin', 'tech_admin')
+    if (!session) {
+      return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
+    }
+
     const body = await request.json()
     const {
       ngay,
@@ -141,8 +157,14 @@ export async function POST(request: Request) {
 }
 
 // Thay đổi trạng thái/kết quả công việc hoặc cập nhật thông tin
+// KTV chỉ được cập nhật ket_qua trên công việc của chính mình
 export async function PUT(request: Request) {
   try {
+    const session = await requireRole()
+    if (!session) {
+      return NextResponse.json({ error: 'Chưa đăng nhập' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { id, ket_qua, ktv_id, report, so_tien, loai_thanh_toan, ghi_chu } = body
 
@@ -150,22 +172,46 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
     }
 
-    const updates: any = {}
-    if (ket_qua !== undefined) updates.ket_qua = ket_qua
-    if (ktv_id !== undefined) updates.ktv_id = ktv_id || null
-    if (report !== undefined) updates.report = report
-    if (so_tien !== undefined) updates.so_tien = parseFloat(so_tien) || 0
-    if (loai_thanh_toan !== undefined) updates.loai_thanh_toan = loai_thanh_toan
-    if (ghi_chu !== undefined) updates.ghi_chu = ghi_chu
+    if (session.role === 'staff') {
+      return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 403 })
+    }
 
-    const { data, error } = await supabaseAdmin
+    const updates: any = {}
+
+    if (session.role === 'ktv') {
+      // KTV chỉ được đổi trạng thái công việc
+      if (ket_qua === undefined) {
+        return NextResponse.json({ error: 'Thiếu trạng thái cần cập nhật' }, { status: 400 })
+      }
+      updates.ket_qua = ket_qua
+    } else {
+      if (ket_qua !== undefined) updates.ket_qua = ket_qua
+      if (ktv_id !== undefined) updates.ktv_id = ktv_id || null
+      if (report !== undefined) updates.report = report
+      if (so_tien !== undefined) updates.so_tien = parseFloat(so_tien) || 0
+      if (loai_thanh_toan !== undefined) updates.loai_thanh_toan = loai_thanh_toan
+      if (ghi_chu !== undefined) updates.ghi_chu = ghi_chu
+    }
+
+    let query = supabaseAdmin
       .from('soct_cong_viec')
       .update(updates)
       .eq('id', id)
-      .select()
-      .single()
 
-    if (error) throw error
+    // KTV chỉ được cập nhật công việc gán cho chính mình
+    if (session.role === 'ktv') {
+      query = query.eq('ktv_id', session.id)
+    }
+
+    const { data, error } = await query.select().single()
+
+    if (error) {
+      // Không tìm thấy bản ghi (VD: KTV cố cập nhật việc của người khác)
+      if (error.code === 'PGRST116') {
+        return NextResponse.json({ error: 'Không tìm thấy công việc hoặc không có quyền cập nhật' }, { status: 403 })
+      }
+      throw error
+    }
 
     return NextResponse.json({ data })
   } catch (error: any) {
@@ -174,9 +220,14 @@ export async function PUT(request: Request) {
   }
 }
 
-// Xóa công việc
+// Xóa công việc (chỉ admin/tech_admin)
 export async function DELETE(request: Request) {
   try {
+    const session = await requireRole('admin', 'tech_admin')
+    if (!session) {
+      return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 

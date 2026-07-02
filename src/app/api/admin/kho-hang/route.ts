@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { requireRole } from '@/lib/session'
 
 // Lấy danh sách hàng hóa trong kho
 export async function GET() {
   try {
+    const session = await requireRole('admin', 'tech_admin', 'staff')
+    if (!session) {
+      return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
+    }
+
     const { data, error } = await supabaseAdmin
       .from('soct_kho_hang')
       .select('*')
@@ -21,6 +27,11 @@ export async function GET() {
 // Thêm hàng hóa mới hoặc cập nhật tồn kho (nếu cần cho dropdown tùy biến)
 export async function POST(request: Request) {
   try {
+    const session = await requireRole('admin', 'tech_admin')
+    if (!session) {
+      return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { ma_hang, ten_hang, model, hang, ton_kho } = body
 
@@ -52,6 +63,11 @@ export async function POST(request: Request) {
 // Xóa hàng hóa khỏi kho hàng
 export async function DELETE(request: Request) {
   try {
+    const session = await requireRole('admin', 'tech_admin')
+    if (!session) {
+      return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const ma_hang = searchParams.get('ma_hang')
 

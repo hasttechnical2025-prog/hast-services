@@ -1,14 +1,25 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import crypto from 'crypto'
+import { hashPassword } from '@/lib/password'
+import { requireRole } from '@/lib/session'
 
 // GET: Lấy danh sách toàn bộ nhân viên (phục vụ quản lý của Admin)
+// Các role không phải admin chỉ nhận id/full_name/role (đủ cho dropdown giao việc)
 export async function GET(request: Request) {
   try {
+    const session = await requireRole('admin', 'tech_admin', 'staff')
+    if (!session) {
+      return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const onlyKtv = searchParams.get('ktv') === 'true'
 
-    let query = supabaseAdmin.from('soct_users').select('id, full_name, role, username, telegram_id')
+    const columns = session.role === 'admin'
+      ? 'id, full_name, role, username, telegram_id'
+      : 'id, full_name, role'
+
+    let query = supabaseAdmin.from('soct_users').select(columns)
 
     if (onlyKtv) {
       query = query.eq('role', 'ktv')
@@ -25,9 +36,14 @@ export async function GET(request: Request) {
   }
 }
 
-// POST: Tạo nhân viên mới kèm mã hóa mật khẩu
+// POST: Tạo nhân viên mới kèm mã hóa mật khẩu (chỉ admin)
 export async function POST(request: Request) {
   try {
+    const session = await requireRole('admin')
+    if (!session) {
+      return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { full_name, role, username, password, telegram_id } = body
 
@@ -35,16 +51,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Thiếu thông tin bắt buộc' }, { status: 400 })
     }
 
-    // Mã hóa mật khẩu SHA-256
-    const hashedPassword = crypto.createHash('sha256').update(password).digest('hex')
-
     const { data, error } = await supabaseAdmin
       .from('soct_users')
       .insert({
         full_name,
         role,
         username,
-        password: hashedPassword,
+        password: hashPassword(password),
         telegram_id: telegram_id || null
       })
       .select('id, full_name, role, username, telegram_id')
@@ -64,9 +77,14 @@ export async function POST(request: Request) {
   }
 }
 
-// PUT: Cập nhật thông tin nhân viên hoặc đổi mật khẩu
+// PUT: Cập nhật thông tin nhân viên hoặc đổi mật khẩu (chỉ admin)
 export async function PUT(request: Request) {
   try {
+    const session = await requireRole('admin')
+    if (!session) {
+      return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { id, full_name, role, username, password, telegram_id } = body
 
@@ -82,7 +100,7 @@ export async function PUT(request: Request) {
 
     // Nếu có mật khẩu mới, băm mật khẩu
     if (password && password.trim() !== '') {
-      updates.password = crypto.createHash('sha256').update(password).digest('hex')
+      updates.password = hashPassword(password)
     }
 
     const { data, error } = await supabaseAdmin
@@ -106,14 +124,23 @@ export async function PUT(request: Request) {
   }
 }
 
-// DELETE: Xóa nhân viên
+// DELETE: Xóa nhân viên (chỉ admin, không cho tự xóa chính mình)
 export async function DELETE(request: Request) {
   try {
+    const session = await requireRole('admin')
+    if (!session) {
+      return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
     if (!id) {
       return NextResponse.json({ error: 'Thiếu ID nhân viên' }, { status: 400 })
+    }
+
+    if (id === session.id) {
+      return NextResponse.json({ error: 'Không thể xóa tài khoản đang đăng nhập' }, { status: 400 })
     }
 
     const { error } = await supabaseAdmin

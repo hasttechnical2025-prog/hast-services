@@ -49,14 +49,23 @@ export default function KtvMobileWeb() {
 
   const [loginForm, setLoginForm] = useState({ username: "", password: "" })
 
-  // Tải thông tin phiên đăng nhập nếu có
+  // Khôi phục phiên đăng nhập từ cookie httpOnly (qua API /api/auth/me)
   useEffect(() => {
-    const savedUser = localStorage.getItem('ktv_user')
-    if (savedUser) {
-      const user = JSON.parse(savedUser)
-      setCurrentKtv(user)
-      fetchKtvJobs(user.id)
+    const restoreSession = async () => {
+      try {
+        const res = await fetch('/api/auth/me')
+        if (res.ok) {
+          const { data: user } = await res.json()
+          if (user.role === 'ktv') {
+            setCurrentKtv(user)
+            fetchKtvJobs(user.id)
+          }
+        }
+      } catch (err) {
+        console.error('Không khôi phục được phiên đăng nhập:', err)
+      }
     }
+    restoreSession()
   }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -72,7 +81,6 @@ export default function KtvMobileWeb() {
       if (res.ok) {
         const { data: user } = await res.json()
         setCurrentKtv(user)
-        localStorage.setItem('ktv_user', JSON.stringify(user))
         fetchKtvJobs(user.id)
         showNotification('success', `Chào mừng ${user.full_name} vào ca!`)
       } else {
@@ -86,12 +94,16 @@ export default function KtvMobileWeb() {
     }
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch (err) {
+      console.error('Lỗi khi đăng xuất:', err)
+    }
     setCurrentKtv(null)
     setJobs([])
     setActiveJob(null)
     setLoginForm({ username: "", password: "" })
-    localStorage.removeItem('ktv_user')
   }
 
   // Tải danh sách công việc của KTV được chọn
@@ -99,9 +111,16 @@ export default function KtvMobileWeb() {
     setLoading(true)
     try {
       const res = await fetch('/api/admin/cong-viec')
+      // Phiên hết hạn -> quay về màn hình đăng nhập
+      if (res.status === 401) {
+        setCurrentKtv(null)
+        setJobs([])
+        showNotification('error', 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.')
+        return
+      }
       const json = await res.json()
       if (json.data) {
-        // Lọc công việc được gán cho KTV này
+        // Server đã lọc theo KTV đăng nhập, lọc lại lần nữa cho chắc chắn
         const filtered = json.data.filter((j: any) => j.ktv_id === ktvId)
         setJobs(filtered)
       }

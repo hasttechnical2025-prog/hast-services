@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getCoordinatesFromAddress, getDistanceFromOffice } from '@/lib/routing'
+import { requireRole } from '@/lib/session'
 
 // Lấy danh sách khách hàng
 export async function GET() {
   try {
+    const session = await requireRole('admin', 'tech_admin', 'staff')
+    if (!session) {
+      return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
+    }
+
     const { data, error } = await supabaseAdmin
       .from('soct_khach_hang')
       .select('*')
@@ -22,6 +28,11 @@ export async function GET() {
 // Thêm khách hàng mới kèm tự động tính tọa độ và km mặc định
 export async function POST(request: Request) {
   try {
+    const session = await requireRole('admin', 'tech_admin')
+    if (!session) {
+      return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { ten_khach_hang, dia_chi, ma_may, model } = body
 

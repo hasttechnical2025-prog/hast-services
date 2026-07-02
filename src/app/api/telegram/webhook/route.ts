@@ -3,6 +3,12 @@ import { createClient } from '@supabase/supabase-js'
 
 export async function POST(request: Request) {
   try {
+    // Xác thực request đến từ Telegram (secret_token đặt khi gọi setWebhook)
+    const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET
+    if (webhookSecret && request.headers.get('x-telegram-bot-api-secret-token') !== webhookSecret) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const payload = await request.json()
 
     // Cấu trúc của Telegram Update object

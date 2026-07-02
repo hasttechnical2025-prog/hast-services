@@ -25,13 +25,27 @@ export default function AdminDashboard() {
   const [currentAdmin, setCurrentAdmin] = useState<{ id: string, full_name: string, role: string } | null>(null)
   const [loginForm, setLoginForm] = useState({ username: "", password: "" })
   const [loginLoading, setLoginLoading] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
 
-  // Tải trạng thái đăng nhập từ localStorage
+  // Khôi phục phiên đăng nhập từ cookie httpOnly (qua API /api/auth/me)
   useEffect(() => {
-    const savedUser = localStorage.getItem('admin_user')
-    if (savedUser) {
-      setCurrentAdmin(JSON.parse(savedUser))
+    const restoreSession = async () => {
+      try {
+        const res = await fetch('/api/auth/me')
+        if (res.ok) {
+          const { data: user } = await res.json()
+          // Trang Admin chỉ chấp nhận các role văn phòng
+          if (['admin', 'tech_admin', 'staff'].includes(user.role)) {
+            setCurrentAdmin(user)
+          }
+        }
+      } catch (err) {
+        console.error('Không khôi phục được phiên đăng nhập:', err)
+      } finally {
+        setIsMounted(true)
+      }
     }
+    restoreSession()
   }, [])
 
   // Notification State
@@ -113,6 +127,13 @@ export default function AdminDashboard() {
         fetch('/api/admin/kho-hang')
       ])
 
+      // Phiên hết hạn hoặc bị thu hồi -> quay về màn hình đăng nhập
+      if (jobsRes.status === 401) {
+        setCurrentAdmin(null)
+        showNotification('error', 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.')
+        return
+      }
+
       const jobsData = await jobsRes.json()
       const customersData = await customersRes.json()
       const usersData = await usersRes.json()
@@ -129,9 +150,12 @@ export default function AdminDashboard() {
     }
   }
 
+  // Tải dữ liệu khi admin đăng nhập thành công hoặc load trang
   useEffect(() => {
-    fetchData()
-  }, [])
+    if (isMounted && currentAdmin) {
+      fetchData()
+    }
+  }, [isMounted, currentAdmin])
 
   // Tìm kiếm theo mã máy để điền tự động
   const handleMaMayChange = (val: string) => {
@@ -257,9 +281,14 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch (err) {
+      console.error('Lỗi khi đăng xuất:', err)
+    }
     setCurrentAdmin(null)
-    localStorage.removeItem('admin_user')
+    setLoginForm({ username: "", password: "" })
     setActiveTab("cong_viec")
   }
 
@@ -276,7 +305,7 @@ export default function AdminDashboard() {
       if (res.ok) {
         const { data: user } = await res.json()
         setCurrentAdmin(user)
-        localStorage.setItem('admin_user', JSON.stringify(user))
+        setLoginForm({ username: "", password: "" })
         showNotification('success', `Chào mừng ${user.full_name} đăng nhập thành công!`)
       } else {
         const err = await res.json()
@@ -338,6 +367,64 @@ export default function AdminDashboard() {
     } finally {
       setConfirmDialog({ isOpen: false, id: "", message: "", type: "job" })
     }
+  }
+
+  // Chờ khôi phục phiên xong mới render để tránh nháy màn hình đăng nhập
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 text-sm">
+        Đang tải...
+      </div>
+    )
+  }
+
+  // Cổng đăng nhập: chưa có phiên hợp lệ thì chỉ hiển thị form đăng nhập
+  if (!currentAdmin) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        {notification && (
+          <div className={`fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg border ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'} transition-all max-w-sm flex items-start gap-3`}>
+            <div className="text-sm font-medium">{notification.message}</div>
+            <button onClick={() => setNotification(null)} className="ml-auto shrink-0 opacity-70 hover:opacity-100">✕</button>
+          </div>
+        )}
+
+        <form onSubmit={handleAdminLogin} className="bg-white p-8 rounded-xl shadow-md border border-slate-200 w-full max-w-sm space-y-5">
+          <div className="text-center space-y-1">
+            <div className="bg-blue-600 p-2.5 rounded-lg w-max mx-auto mb-3">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+            </div>
+            <h1 className="text-xl font-bold text-slate-800">Admin Dashboard</h1>
+            <p className="text-xs text-slate-400">Đăng nhập tài khoản văn phòng để tiếp tục</p>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Tên đăng nhập</label>
+            <Input
+              required
+              placeholder="Nhập tên đăng nhập"
+              value={loginForm.username}
+              onChange={(e) => setLoginForm({...loginForm, username: e.target.value})}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Mật khẩu</label>
+            <Input
+              required
+              type="password"
+              placeholder="Nhập mật khẩu"
+              value={loginForm.password}
+              onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
+            />
+          </div>
+
+          <Button type="submit" disabled={loginLoading} className="w-full h-11 font-semibold">
+            {loginLoading ? "Đang xác thực..." : "Đăng nhập"}
+          </Button>
+        </form>
+      </div>
+    )
   }
 
   return (

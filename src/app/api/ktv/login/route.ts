@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import crypto from 'crypto'
+import { verifyPassword, hashPassword } from '@/lib/password'
+import { setSessionCookie } from '@/lib/session'
 
 export async function POST(request: Request) {
   try {
@@ -10,15 +11,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Thiếu tên đăng nhập hoặc mật khẩu' }, { status: 400 })
     }
 
-    // Mã hóa mật khẩu gửi lên để so khớp với DB
-    const hashedPassword = crypto.createHash('sha256').update(password).digest('hex')
-
-    // Tìm KTV trong DB
+    // Tìm KTV theo username
     const { data, error } = await supabaseAdmin
       .from('soct_users')
-      .select('id, full_name, role, telegram_id')
+      .select('id, full_name, role, telegram_id, password')
       .eq('username', username)
-      .eq('password', hashedPassword)
       .eq('role', 'ktv')
       .single()
 
@@ -26,7 +23,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Tên đăng nhập hoặc mật khẩu không chính xác' }, { status: 401 })
     }
 
-    return NextResponse.json({ data })
+    const { valid, needsUpgrade } = verifyPassword(password, data.password)
+    if (!valid) {
+      return NextResponse.json({ error: 'Tên đăng nhập hoặc mật khẩu không chính xác' }, { status: 401 })
+    }
+
+    // Nâng cấp hash SHA-256 cũ lên scrypt có salt
+    if (needsUpgrade) {
+      await supabaseAdmin
+        .from('soct_users')
+        .update({ password: hashPassword(password) })
+        .eq('id', data.id)
+    }
+
+    await setSessionCookie({ id: data.id, full_name: data.full_name, role: 'ktv' })
+
+    return NextResponse.json({
+      data: {
+        id: data.id,
+        full_name: data.full_name,
+        role: data.role,
+        telegram_id: data.telegram_id,
+      },
+    })
   } catch (error: any) {
     console.error('Error logging in KTV:', error)
     return NextResponse.json({ error: 'Lỗi hệ thống khi đăng nhập' }, { status: 500 })
