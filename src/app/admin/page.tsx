@@ -22,6 +22,18 @@ type Job = {
 }
 
 export default function AdminDashboard() {
+  const [currentAdmin, setCurrentAdmin] = useState<{ id: string, full_name: string, role: string } | null>(null)
+  const [loginForm, setLoginForm] = useState({ username: "", password: "" })
+  const [loginLoading, setLoginLoading] = useState(false)
+
+  // Tải trạng thái đăng nhập từ localStorage
+  useEffect(() => {
+    const savedUser = localStorage.getItem('admin_user')
+    if (savedUser) {
+      setCurrentAdmin(JSON.parse(savedUser))
+    }
+  }, [])
+
   // Notification State
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null)
 
@@ -38,8 +50,8 @@ export default function AdminDashboard() {
     setTimeout(() => setNotification(null), 5000)
   }
 
-  // Role giả lập (Mock Auth)
-  const [currentUserRole, setCurrentUserRole] = useState<'admin' | 'tech_admin' | 'staff'>('admin')
+  // Lấy role từ thông tin đăng nhập thực tế
+  const currentUserRole = (currentAdmin?.role || 'staff') as 'admin' | 'tech_admin' | 'staff'
 
   const [activeTab, setActiveTab] = useState("cong_viec")
   const [jobs, setJobs] = useState<Job[]>([])
@@ -245,6 +257,38 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleLogout = () => {
+    setCurrentAdmin(null)
+    localStorage.removeItem('admin_user')
+    setActiveTab("cong_viec")
+  }
+
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoginLoading(true)
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginForm)
+      })
+
+      if (res.ok) {
+        const { data: user } = await res.json()
+        setCurrentAdmin(user)
+        localStorage.setItem('admin_user', JSON.stringify(user))
+        showNotification('success', `Chào mừng ${user.full_name} đăng nhập thành công!`)
+      } else {
+        const err = await res.json()
+        showNotification('error', err.error)
+      }
+    } catch (err) {
+      showNotification('error', "Lỗi kết nối khi đăng nhập")
+    } finally {
+      setLoginLoading(false)
+    }
+  }
+
   const confirmDelete = (id: string, type: "job" | "user" | "inventory" = "job") => {
     let message = "Bạn có chắc chắn muốn xóa công việc này khỏi sổ công tác không?"
     if (type === "user") message = "Bạn có chắc chắn muốn xóa tài khoản nhân viên này?"
@@ -307,28 +351,10 @@ export default function AdminDashboard() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-slate-800">Admin Dashboard</h1>
-              <p className="text-xs text-slate-400">Quyền: <span className="font-bold text-slate-600 uppercase">{currentUserRole}</span></p>
+              <p className="text-xs text-slate-400">Tài khoản: <span className="font-bold text-slate-700">{currentAdmin?.full_name}</span> (<span className="font-semibold text-slate-500 uppercase">{currentUserRole}</span>)</p>
             </div>
           </div>
           <div className="flex items-center gap-4 flex-wrap">
-            {/* Mock Role Switcher */}
-            <div className="flex items-center gap-2 text-xs bg-slate-100 p-2 rounded-lg border border-slate-200">
-              <span className="font-semibold text-slate-600">Simulate Role:</span>
-              <select
-                value={currentUserRole}
-                onChange={(e) => {
-                  const newRole = e.target.value as 'admin' | 'tech_admin' | 'staff'
-                  setCurrentUserRole(newRole)
-                  if (newRole === 'staff') setActiveTab("cong_viec")
-                }}
-                className="bg-white border rounded px-1.5 py-0.5 text-slate-700 outline-none font-medium"
-              >
-                <option value="admin">Admin (Full)</option>
-                <option value="tech_admin">Tech Admin (No System)</option>
-                <option value="staff">Staff (Sổ công tác only)</option>
-              </select>
-            </div>
-
             <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
               <button
                 onClick={() => setActiveTab("cong_viec")}
@@ -355,6 +381,10 @@ export default function AdminDashboard() {
                 </button>
               )}
             </div>
+
+            <Button onClick={handleLogout} variant="outline" className="text-slate-600 hover:text-red-600 hover:bg-red-50 gap-1 text-xs px-3 py-1">
+              Đăng xuất
+            </Button>
           </div>
         </header>
 
@@ -366,9 +396,11 @@ export default function AdminDashboard() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input placeholder="Tìm mã máy, tên khách hàng..." className="pl-9 bg-white" />
               </div>
-              <Button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto gap-2">
-                <Plus className="w-4 h-4" /> Giao việc mới
-              </Button>
+              {currentUserRole !== 'staff' && (
+                <Button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto gap-2">
+                  <Plus className="w-4 h-4" /> Giao việc mới
+                </Button>
+              )}
             </div>
 
             {/* Table */}
@@ -384,14 +416,14 @@ export default function AdminDashboard() {
                     <th className="px-4 py-3 text-center">KM</th>
                     <th className="px-4 py-3">Báo cáo HĐ</th>
                     <th className="px-4 py-3">Trạng thái</th>
-                    <th className="px-4 py-3 text-right">Thao tác</th>
+                    {currentUserRole !== 'staff' && <th className="px-4 py-3 text-right">Thao tác</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {loading ? (
-                    <tr><td colSpan={9} className="text-center py-8 text-slate-400">Đang tải dữ liệu...</td></tr>
+                    <tr><td colSpan={currentUserRole === 'staff' ? 8 : 9} className="text-center py-8 text-slate-400">Đang tải dữ liệu...</td></tr>
                   ) : jobs.length === 0 ? (
-                    <tr><td colSpan={9} className="text-center py-8 text-slate-400">Chưa có công việc nào</td></tr>
+                    <tr><td colSpan={currentUserRole === 'staff' ? 8 : 9} className="text-center py-8 text-slate-400">Chưa có công việc nào</td></tr>
                   ) : (
                     jobs.map((job) => (
                       <tr key={job.id} className="hover:bg-slate-50/80 transition">
@@ -426,11 +458,13 @@ export default function AdminDashboard() {
                             {job.ket_qua}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right">
-                          <button onClick={() => confirmDelete(job.id)} className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
+                        {currentUserRole !== 'staff' && (
+                          <td className="px-4 py-3 text-right">
+                            <button onClick={() => confirmDelete(job.id)} className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))
                   )}
