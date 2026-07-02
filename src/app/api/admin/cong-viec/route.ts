@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 // Lấy danh sách công việc kèm thông tin khách hàng, kỹ thuật viên và vật tư liên quan
 export async function GET(request: Request) {
@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const dateStr = searchParams.get('date') // Định dạng YYYY-MM-DD nếu lọc theo ngày
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('soct_cong_viec')
       .select(`
         *,
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       dateLimit.setDate(dateLimit.getDate() - 30)
       const dateLimitStr = dateLimit.toISOString().split('T')[0]
 
-      const { data: recentJobs } = await supabase
+      const { data: recentJobs } = await supabaseAdmin
         .from('soct_cong_viec')
         .select('id')
         .eq('ma_may', ma_may)
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     }
 
     // Insert công việc mới
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('soct_cong_viec')
       .insert({
         ngay: ngay || new Date().toISOString().split('T')[0],
@@ -122,7 +122,7 @@ export async function POST(request: Request) {
           so_luong: parseInt(v.so_luong, 10)
         }))
 
-        const { error: vtError } = await supabase
+        const { error: vtError } = await supabaseAdmin
           .from('soct_chi_tiet_vat_tu')
           .insert(vatTuInserts)
 
@@ -158,7 +158,7 @@ export async function PUT(request: Request) {
     if (chua_hoa_don !== undefined) updates.chua_hoa_don = parseFloat(chua_hoa_don) || 0
     if (ghi_chu !== undefined) updates.ghi_chu = ghi_chu
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('soct_cong_viec')
       .update(updates)
       .eq('id', id)
@@ -184,7 +184,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
     }
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('soct_cong_viec')
       .delete()
       .eq('id', id)

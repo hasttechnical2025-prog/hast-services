@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export async function POST(request: Request) {
   try {
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
 
     // Insert records. Supabase `upsert` method is perfect here for avoiding duplicate errors on `ma_may`.
     // It requires the unique column in onConflict option.
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('soct_khach_hang')
       .upsert(customers, { onConflict: 'ma_may' })
       .select()

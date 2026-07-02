@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getCoordinatesFromAddress, getDistanceFromOffice } from '@/lib/routing'
 
 // Lấy danh sách khách hàng
 export async function GET() {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('soct_khach_hang')
       .select('*')
       .order('ten_khach_hang')
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     }
 
     // 3. Lưu vào database
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('soct_khach_hang')
       .insert({
         ten_khach_hang,
