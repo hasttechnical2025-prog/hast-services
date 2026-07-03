@@ -2115,8 +2115,17 @@ function hdbtStatus(dateStr: string | null) {
 function CustomerListTool({ customers, loaiHdOptions, hdbtCanhBaoThang, onUpdateSuccess, showNotification }: { customers: any[], loaiHdOptions: string[], hdbtCanhBaoThang: number, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [search, setSearch] = useState("")
   const [hdFilter, setHdFilter] = useState("all")
+  const [filterOpen, setFilterOpen] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
   const [saving, setSaving] = useState(false)
+
+  const filterLabel = hdFilter === 'all' ? 'Tất cả'
+    : hdFilter === 'has' ? 'Có hợp đồng'
+    : hdFilter === 'expiring' ? `Sắp hết hạn (${hdbtCanhBaoThang} tháng)`
+    : hdFilter === 'expired' ? 'Đã hết hạn'
+    : hdFilter.startsWith('hd:') ? hdFilter.slice(3)
+    : 'Tất cả'
+  const selectFilter = (v: string) => { setHdFilter(v); setFilterOpen(false) }
 
   const q = search.trim().toLowerCase()
   const today = new Date(); today.setHours(0, 0, 0, 0)
@@ -2131,7 +2140,7 @@ function CustomerListTool({ customers, loaiHdOptions, hdbtCanhBaoThang, onUpdate
       (c.loai_hd || "").toLowerCase().includes(q)
     )) return false
     if (hdFilter === 'all') return true
-    if (hdFilter === 'has') return !!c.loai_hd
+    if (hdFilter === 'has') return c.loai_hd === 'HĐBT' || c.loai_hd === 'MF'
     if (hdFilter.startsWith('hd:')) return c.loai_hd === hdFilter.slice(3)
     const exp = c.ngay_het_han_hdbt ? new Date(c.ngay_het_han_hdbt) : null
     if (hdFilter === 'expiring') return exp !== null && exp >= today && exp <= limit
@@ -2170,17 +2179,36 @@ function CustomerListTool({ customers, loaiHdOptions, hdbtCanhBaoThang, onUpdate
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input placeholder="Tìm mã máy, tên KH, địa chỉ, model, HĐ..." className="pl-9 bg-white" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          <select value={hdFilter} onChange={(e) => setHdFilter(e.target.value)} className="h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white shrink-0">
-            <option value="all">Tất cả</option>
-            <option value="has">Có hợp đồng</option>
-            <option value="expiring">Sắp hết hạn ({hdbtCanhBaoThang} tháng)</option>
-            <option value="expired">Đã hết hạn</option>
-            {loaiHdOptions.length > 0 && (
-              <optgroup label="Theo loại hợp đồng">
-                {loaiHdOptions.map(v => <option key={v} value={`hd:${v}`}>{v}</option>)}
-              </optgroup>
+          <div className="relative shrink-0">
+            <button type="button" onClick={() => setFilterOpen(o => !o)} className="h-10 px-3 rounded-md border border-slate-200 text-sm bg-white flex items-center gap-2 min-w-[13rem] justify-between hover:border-slate-300">
+              <span className="truncate">{filterLabel}</span>
+              <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            {filterOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setFilterOpen(false)} />
+                <div className="absolute z-40 mt-1 w-56 bg-white border border-slate-200 rounded-md shadow-lg py-1 text-sm">
+                  <button type="button" onClick={() => selectFilter('all')} className={`w-full text-left px-3 py-1.5 hover:bg-slate-50 ${hdFilter === 'all' ? 'text-blue-700 font-medium' : 'text-slate-700'}`}>Tất cả</button>
+                  <button type="button" onClick={() => selectFilter('has')} className={`w-full text-left px-3 py-1.5 hover:bg-slate-50 ${hdFilter === 'has' ? 'text-blue-700 font-medium' : 'text-slate-700'}`}>Có hợp đồng</button>
+                  <button type="button" onClick={() => selectFilter('expiring')} className={`w-full text-left px-3 py-1.5 hover:bg-slate-50 ${hdFilter === 'expiring' ? 'text-blue-700 font-medium' : 'text-slate-700'}`}>Sắp hết hạn ({hdbtCanhBaoThang} tháng)</button>
+                  <button type="button" onClick={() => selectFilter('expired')} className={`w-full text-left px-3 py-1.5 hover:bg-slate-50 ${hdFilter === 'expired' ? 'text-blue-700 font-medium' : 'text-slate-700'}`}>Đã hết hạn</button>
+                  {loaiHdOptions.length > 0 && (
+                    <div className="relative group border-t border-slate-100 mt-1 pt-1">
+                      <div className="flex items-center justify-between px-3 py-1.5 text-slate-700 hover:bg-slate-50 cursor-default">
+                        <span>Theo loại hợp đồng</span>
+                        <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                      </div>
+                      <div className="hidden group-hover:block absolute left-full top-0 -mt-1 w-44 bg-white border border-slate-200 rounded-md shadow-lg py-1">
+                        {loaiHdOptions.map(v => (
+                          <button type="button" key={v} onClick={() => selectFilter(`hd:${v}`)} className={`w-full text-left px-3 py-1.5 hover:bg-slate-50 ${hdFilter === `hd:${v}` ? 'text-blue-700 font-medium' : 'text-slate-700'}`}>{v}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
-          </select>
+          </div>
         </div>
         <span className="text-sm text-slate-500 whitespace-nowrap">
           {(q || hdFilter !== 'all') ? `${filtered.length} / ${customers.length}` : `Tổng: ${customers.length}`} khách hàng
