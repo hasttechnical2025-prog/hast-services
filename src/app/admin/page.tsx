@@ -80,7 +80,7 @@ export default function AdminDashboard() {
 
   const [activeTab, setActiveTab] = useState("cong_viec")
   // Tab con bên trong "Hệ thống" (dễ mở rộng thêm sau)
-  const [systemTab, setSystemTab] = useState<"cai_dat" | "khach_hang" | "danh_muc">("cai_dat")
+  const [systemTab, setSystemTab] = useState<"cai_dat" | "tai_khoan" | "khach_hang" | "danh_muc">("tai_khoan")
   // Tab con bên trong "Theo dõi máy"
   const [monitorTab, setMonitorTab] = useState<"bao_tri" | "giam_dinh">("bao_tri")
   const [hdbtOpen, setHdbtOpen] = useState(false)
@@ -514,7 +514,7 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-4">
+        <header className="sticky top-0 z-30 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-xl shadow-md border border-slate-200 gap-4">
           <div className="flex items-center gap-3">
             <div className="bg-blue-600 p-2 rounded-lg">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
@@ -746,6 +746,12 @@ export default function AdminDashboard() {
                   Cài đặt hệ thống
                 </button>
                 <button
+                  onClick={() => setSystemTab("tai_khoan")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'tai_khoan' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Tài khoản
+                </button>
+                <button
                   onClick={() => setSystemTab("khach_hang")}
                   className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'khach_hang' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                 >
@@ -761,8 +767,15 @@ export default function AdminDashboard() {
             </div>
 
             <div className="p-6 space-y-6">
-              {/* TAB CON: CÀI ĐẶT HỆ THỐNG */}
+              {/* TAB CON: CÀI ĐẶT HỆ THỐNG (để trống, bổ sung sau) */}
               {systemTab === "cai_dat" && (
+                <div className="text-center text-slate-400 text-sm py-12 border border-dashed border-slate-200 rounded-lg">
+                  Chưa có cài đặt nào — sẽ bổ sung sau.
+                </div>
+              )}
+
+              {/* TAB CON: TÀI KHOẢN */}
+              {systemTab === "tai_khoan" && (
                 <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
                   <h3 className="text-lg font-semibold text-slate-700 mb-2">Quản lý Tài khoản (KTV & Nhân viên)</h3>
                   <p className="text-sm text-slate-500 mb-6">Thêm mới, cập nhật tên đăng nhập và mật khẩu cho Kỹ thuật viên.</p>
@@ -2119,6 +2132,7 @@ function CustomerListTool({ customers, loaiHdOptions, hdbtCanhBaoThang, onUpdate
     )) return false
     if (hdFilter === 'all') return true
     if (hdFilter === 'has') return !!c.loai_hd
+    if (hdFilter.startsWith('hd:')) return c.loai_hd === hdFilter.slice(3)
     const exp = c.ngay_het_han_hdbt ? new Date(c.ngay_het_han_hdbt) : null
     if (hdFilter === 'expiring') return exp !== null && exp >= today && exp <= limit
     if (hdFilter === 'expired') return exp !== null && exp < today
@@ -2161,6 +2175,11 @@ function CustomerListTool({ customers, loaiHdOptions, hdbtCanhBaoThang, onUpdate
             <option value="has">Có hợp đồng</option>
             <option value="expiring">Sắp hết hạn ({hdbtCanhBaoThang} tháng)</option>
             <option value="expired">Đã hết hạn</option>
+            {loaiHdOptions.length > 0 && (
+              <optgroup label="Theo loại hợp đồng">
+                {loaiHdOptions.map(v => <option key={v} value={`hd:${v}`}>{v}</option>)}
+              </optgroup>
+            )}
           </select>
         </div>
         <span className="text-sm text-slate-500 whitespace-nowrap">
