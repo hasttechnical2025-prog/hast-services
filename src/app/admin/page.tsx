@@ -83,6 +83,7 @@ export default function AdminDashboard() {
   const [systemTab, setSystemTab] = useState<"cai_dat" | "khach_hang" | "danh_muc">("cai_dat")
   // Tab con bên trong "Theo dõi máy"
   const [monitorTab, setMonitorTab] = useState<"bao_tri" | "giam_dinh">("bao_tri")
+  const [hdbtOpen, setHdbtOpen] = useState(false)
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -99,6 +100,16 @@ export default function AdminDashboard() {
     const items = danhMuc.filter(d => d.nhom === nhom && d.active).map(d => d.gia_tri)
     return items.length > 0 ? items : fallback
   }
+
+  // Khách hàng sắp/đã hết hạn HĐBT (trong vòng N tháng theo cấu hình)
+  const hdbtCanhBaoThang = parseInt(cauHinh.hdbt_canh_bao_thang || '2') || 2
+  const hdbtExpiring = (() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const limit = new Date(today); limit.setMonth(limit.getMonth() + hdbtCanhBaoThang)
+    return customers
+      .filter(c => c.ngay_het_han_hdbt && new Date(c.ngay_het_han_hdbt) <= limit)
+      .sort((a, b) => new Date(a.ngay_het_han_hdbt).getTime() - new Date(b.ngay_het_han_hdbt).getTime())
+  })()
 
   const [formData, setFormData] = useState({
     ngay: new Date().toISOString().split('T')[0], // Mặc định ngày hôm nay
@@ -509,6 +520,37 @@ export default function AdminDashboard() {
           </div>
         </header>
 
+        {activeTab === "cong_viec" && hdbtExpiring.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
+            <button onClick={() => setHdbtOpen(o => !o)} className="w-full flex items-center gap-2 px-4 py-3 text-left">
+              <svg className="w-5 h-5 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              <span className="text-sm font-semibold text-amber-800">{hdbtExpiring.length} khách sắp/đã hết hạn hợp đồng bảo trì</span>
+              <span className="text-xs text-amber-600">(trong {hdbtCanhBaoThang} tháng — liên hệ ký tiếp)</span>
+              <svg className={`w-4 h-4 text-amber-600 ml-auto transition-transform ${hdbtOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            {hdbtOpen && (
+              <div className="border-t border-amber-200 max-h-64 overflow-y-auto bg-white">
+                <table className="w-full text-left text-sm text-slate-600">
+                  <thead className="bg-amber-50/50 text-xs text-amber-800"><tr><th className="px-4 py-2 font-medium">Mã máy</th><th className="px-4 py-2 font-medium">Khách hàng</th><th className="px-4 py-2 font-medium">Loại HĐ</th><th className="px-4 py-2 font-medium text-center">Hết hạn</th></tr></thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {hdbtExpiring.map(c => {
+                      const st = hdbtStatus(c.ngay_het_han_hdbt)
+                      return (
+                        <tr key={c.id}>
+                          <td className="px-4 py-2 font-mono text-xs">{c.ma_may || '—'}</td>
+                          <td className="px-4 py-2 font-medium text-slate-800">{c.ten_khach_hang}</td>
+                          <td className="px-4 py-2">{c.loai_hd || '—'}</td>
+                          <td className="px-4 py-2 text-center whitespace-nowrap">{st && <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${st.cls}`} title={st.note}>{st.label}</span>}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === "cong_viec" && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             {/* Toolbar */}
@@ -687,7 +729,7 @@ export default function AdminDashboard() {
                   <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
                     <h3 className="text-lg font-semibold text-slate-700 mb-2">Danh sách Khách hàng (Điểm máy)</h3>
                     <p className="text-sm text-slate-500 mb-4">Toàn bộ khách hàng / điểm máy hiện có trong hệ thống.</p>
-                    <CustomerListTool customers={customers} loaiHdOptions={dmOptions('loai_hd', ['HĐBT','MF'])} onUpdateSuccess={fetchData} showNotification={showNotification} />
+                    <CustomerListTool customers={customers} loaiHdOptions={dmOptions('loai_hd', ['HĐBT','MF'])} hdbtCanhBaoThang={hdbtCanhBaoThang} onUpdateSuccess={fetchData} showNotification={showNotification} />
                   </div>
 
                   <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
@@ -1969,21 +2011,31 @@ function hdbtStatus(dateStr: string | null) {
   return { label, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', note: 'Còn hạn' }
 }
 
-function CustomerListTool({ customers, loaiHdOptions, onUpdateSuccess, showNotification }: { customers: any[], loaiHdOptions: string[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+function CustomerListTool({ customers, loaiHdOptions, hdbtCanhBaoThang, onUpdateSuccess, showNotification }: { customers: any[], loaiHdOptions: string[], hdbtCanhBaoThang: number, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [search, setSearch] = useState("")
+  const [hdFilter, setHdFilter] = useState("all")
   const [editing, setEditing] = useState<any | null>(null)
   const [saving, setSaving] = useState(false)
 
   const q = search.trim().toLowerCase()
-  const filtered = q
-    ? customers.filter(c =>
-        (c.ten_khach_hang || "").toLowerCase().includes(q) ||
-        (c.ma_may || "").toLowerCase().includes(q) ||
-        (c.dia_chi || "").toLowerCase().includes(q) ||
-        (c.model || "").toLowerCase().includes(q) ||
-        (c.loai_hd || "").toLowerCase().includes(q)
-      )
-    : customers
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const limit = new Date(today); limit.setMonth(limit.getMonth() + hdbtCanhBaoThang)
+
+  const filtered = customers.filter(c => {
+    if (q && !(
+      (c.ten_khach_hang || "").toLowerCase().includes(q) ||
+      (c.ma_may || "").toLowerCase().includes(q) ||
+      (c.dia_chi || "").toLowerCase().includes(q) ||
+      (c.model || "").toLowerCase().includes(q) ||
+      (c.loai_hd || "").toLowerCase().includes(q)
+    )) return false
+    if (hdFilter === 'all') return true
+    if (hdFilter === 'has') return !!c.loai_hd
+    const exp = c.ngay_het_han_hdbt ? new Date(c.ngay_het_han_hdbt) : null
+    if (hdFilter === 'expiring') return exp !== null && exp >= today && exp <= limit
+    if (hdFilter === 'expired') return exp !== null && exp < today
+    return true
+  })
 
   const handleSave = async () => {
     if (!editing) return
@@ -2011,12 +2063,20 @@ function CustomerListTool({ customers, loaiHdOptions, onUpdateSuccess, showNotif
   return (
     <div className="space-y-3">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input placeholder="Tìm mã máy, tên KH, địa chỉ, model, HĐ..." className="pl-9 bg-white" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <div className="flex gap-2 w-full sm:w-auto">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input placeholder="Tìm mã máy, tên KH, địa chỉ, model, HĐ..." className="pl-9 bg-white" value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+          <select value={hdFilter} onChange={(e) => setHdFilter(e.target.value)} className="h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white shrink-0">
+            <option value="all">Tất cả</option>
+            <option value="has">Có hợp đồng</option>
+            <option value="expiring">Sắp hết hạn ({hdbtCanhBaoThang} tháng)</option>
+            <option value="expired">Đã hết hạn</option>
+          </select>
         </div>
         <span className="text-sm text-slate-500 whitespace-nowrap">
-          {q ? `${filtered.length} / ${customers.length}` : `Tổng: ${customers.length}`} khách hàng
+          {(q || hdFilter !== 'all') ? `${filtered.length} / ${customers.length}` : `Tổng: ${customers.length}`} khách hàng
         </span>
       </div>
 
