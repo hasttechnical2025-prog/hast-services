@@ -725,7 +725,7 @@ export default function AdminDashboard() {
       {/* Modal Thêm Công Việc */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
               <h2 className="text-xl font-bold text-slate-800">Giao công việc mới</h2>
               <button onClick={closeAndResetModal} className="text-slate-400 hover:text-slate-600">
@@ -734,20 +734,17 @@ export default function AdminDashboard() {
             </div>
 
             <form onSubmit={handleCreateJob} className="p-6 space-y-6">
+              {/* Cụm: Ngày & Kỹ thuật viên */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                {/* Dòng 1: Ngày & Kỹ thuật viên */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700">Ngày</label>
                   <div className="relative w-full">
-                    {/* Ô hiển thị Text định dạng DD/MM/YYYY */}
                     <div className="flex h-10 w-full items-center rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 font-mono">
                       {formatDate(formData.ngay) || "Chọn ngày"}
                       <svg className="w-4 h-4 ml-auto text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                     </div>
-                    {/* Ô Input date thực tế nằm đè lên nhưng ẩn đi (opacity-0) */}
                     <input
                       type="date"
                       value={formData.ngay}
@@ -771,21 +768,17 @@ export default function AdminDashboard() {
                     ))}
                   </select>
                 </div>
+              </div>
 
-                {/* Dòng 2: Mã máy & Khách hàng */}
-                <div className="space-y-2 flex flex-col justify-start">
-                  <label className="text-sm font-medium text-slate-700">Mã máy <span className="text-amber-500 font-normal text-xs italic ml-1">(Gõ mã để điền tự động KH)</span></label>
+              {/* Cụm: Mã máy (hẹp) & Khách hàng (rộng) */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Mã máy <span className="text-amber-500 font-normal text-xs italic ml-1">(Gõ mã để điền KH)</span></label>
                   <Input
-                    placeholder="Nhập mã máy (VD: 35953)"
+                    placeholder="VD: 35953"
                     value={formData.ma_may}
                     onChange={(e) => handleMaMayChange(e.target.value)}
                   />
-                  {/* Căn chỉnh khoảng trắng với Khách hàng nếu chưa có model */}
-                  {formData.id_khach_hang && formData.id_khach_hang !== "NEW" && customers.find(c => c.id === formData.id_khach_hang)?.model ? (
-                    <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1.5 rounded border border-blue-100 font-medium w-max mt-2">
-                      Model: <span className="font-semibold">{customers.find(c => c.id === formData.id_khach_hang)?.model}</span>
-                    </div>
-                  ) : <div className="h-[28px] mt-2 hidden md:block"></div>}
                 </div>
 
                 {(() => {
@@ -795,8 +788,11 @@ export default function AdminDashboard() {
                     ? customers.find(c => c.ma_may && c.ma_may.toLowerCase() === formData.ma_may.trim().toLowerCase())
                     : undefined
                   const isLocked = !!lockedCustomer
+                  const selected = formData.id_khach_hang && formData.id_khach_hang !== "NEW"
+                    ? customers.find(c => c.id === formData.id_khach_hang)
+                    : undefined
                   return (
-                    <div className="space-y-2 flex flex-col justify-start">
+                    <div className="space-y-2 md:col-span-2">
                       <label className="text-sm font-medium text-slate-700">
                         Khách hàng <span className="text-red-500">*</span>
                         {isLocked && <span className="text-slate-400 font-normal text-xs italic ml-1">(khóa theo mã máy)</span>}
@@ -815,19 +811,19 @@ export default function AdminDashboard() {
                           <option key={c.id} value={c.id}>{c.ten_khach_hang}</option>
                         ))}
                       </select>
-                      {/* Căn chỉnh khoảng trắng với Mã máy nếu chưa có địa chỉ */}
-                      {formData.id_khach_hang && formData.id_khach_hang !== "NEW" && customers.find(c => c.id === formData.id_khach_hang)?.dia_chi ? (
-                        <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1.5 rounded border border-blue-100 font-medium truncate w-full mt-2" title={customers.find(c => c.id === formData.id_khach_hang)?.dia_chi}>
-                          Địa chỉ: <span className="font-semibold">{customers.find(c => c.id === formData.id_khach_hang)?.dia_chi}</span>
+                      {selected && (selected.model || selected.dia_chi) && (
+                        <div className="flex flex-wrap gap-2 text-xs pt-1">
+                          {selected.model && <span className="text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100">Model: <b>{selected.model}</b></span>}
+                          {selected.dia_chi && <span className="text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100 max-w-full truncate" title={selected.dia_chi}>Địa chỉ: <b>{selected.dia_chi}</b></span>}
                         </div>
-                      ) : <div className="h-[28px] mt-2 hidden md:block"></div>}
+                      )}
                     </div>
                   )
                 })()}
 
                 {/* Phần thêm mới khách hàng/máy */}
                 {formData.id_khach_hang === "NEW" && (
-                  <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50/50 p-4 rounded-lg border border-blue-100">
+                  <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4 bg-blue-50/50 p-4 rounded-lg border border-blue-100">
                     <div className="space-y-2">
                        <label className="text-sm font-medium text-slate-700">Tên Khách Hàng mới <span className="text-red-500">*</span></label>
                        <Input placeholder="Nhập tên khách hàng" value={formData.ten_khach_hang_moi} onChange={(e) => setFormData({...formData, ten_khach_hang_moi: e.target.value})} required={formData.id_khach_hang === "NEW"} />
@@ -842,7 +838,6 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 )}
-
               </div>
 
               {/* Dòng: Loại công việc | Số phiếu | Khoảng cách */}
@@ -917,49 +912,35 @@ export default function AdminDashboard() {
                       const thanhTien = dg * sl
                       return (
                         <div key={index} className="bg-slate-50 p-3 rounded-md border border-slate-100 space-y-2">
-                          {/* Dòng 1: Mã hàng + xóa */}
+                          {/* Vật tư trên một dòng: Mã hàng | SL | Đơn giá | VAT | Thành tiền | HĐ | xóa */}
                           <div className="flex gap-2 items-end">
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                               <label className="text-xs font-medium text-slate-500 mb-1 block">Mã hàng hóa (Kho)</label>
-                              <MaterialCombobox
-                                inventory={inventory}
-                                value={vt.ma_hang}
-                                onChange={(v) => handleUpdateVatTu(index, 'ma_hang', v)}
-                              />
+                              <MaterialCombobox inventory={inventory} value={vt.ma_hang} onChange={(v) => handleUpdateVatTu(index, 'ma_hang', v)} />
                             </div>
-                            <button type="button" onClick={() => handleRemoveVatTu(index)} className="text-slate-400 hover:text-red-500 p-2 shrink-0">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-
-                          {/* Dòng 2: SL | Đơn giá | VAT | Thành tiền | Hóa đơn */}
-                          <div className="grid grid-cols-2 md:grid-cols-12 gap-2 items-end">
-                            <div className="md:col-span-2">
-                              <label className="text-xs font-medium text-slate-500 mb-1 block">Số lượng</label>
+                            <div className="w-16 shrink-0">
+                              <label className="text-xs font-medium text-slate-500 mb-1 block">SL</label>
                               <Input type="number" min="1" className="h-9 bg-white" value={vt.so_luong} onChange={(e) => handleUpdateVatTu(index, 'so_luong', e.target.value)} required />
                             </div>
-                            <div className="md:col-span-3">
+                            <div className="w-28 shrink-0">
                               <label className="text-xs font-medium text-slate-500 mb-1 block">Đơn giá</label>
-                              <Input
-                                type="text" inputMode="numeric" placeholder="0" className="h-9 bg-white"
-                                value={vt.don_gia === "" ? "" : Number(vt.don_gia).toLocaleString('vi-VN')}
-                                onChange={(e) => handleUpdateVatTu(index, 'don_gia', e.target.value.replace(/\D/g, ''))}
-                              />
+                              <Input type="text" inputMode="numeric" placeholder="0" className="h-9 bg-white" value={vt.don_gia === "" ? "" : Number(vt.don_gia).toLocaleString('vi-VN')} onChange={(e) => handleUpdateVatTu(index, 'don_gia', e.target.value.replace(/\D/g, ''))} />
                             </div>
-                            <div className="md:col-span-2">
-                              <label className="text-xs font-medium text-slate-500 mb-1 block">VAT (%)</label>
+                            <div className="w-20 shrink-0">
+                              <label className="text-xs font-medium text-slate-500 mb-1 block">VAT %</label>
                               <Input type="number" min="0" step="0.1" placeholder="0" className="h-9 bg-white" value={vt.vat} onChange={(e) => handleUpdateVatTu(index, 'vat', e.target.value)} />
                             </div>
-                            <div className="md:col-span-3">
+                            <div className="w-32 shrink-0">
                               <label className="text-xs font-medium text-slate-500 mb-1 block">Thành tiền</label>
-                              <div className="h-9 flex items-center px-3 rounded-md border border-slate-200 bg-slate-100 text-sm font-semibold text-slate-700">
-                                {thanhTien.toLocaleString('vi-VN')} đ
-                              </div>
+                              <div className="h-9 flex items-center justify-end px-2 rounded-md border border-slate-200 bg-slate-100 text-sm font-semibold text-slate-700 whitespace-nowrap overflow-hidden">{thanhTien.toLocaleString('vi-VN')} đ</div>
                             </div>
-                            <label className="md:col-span-2 flex items-center gap-1.5 h-9 cursor-pointer select-none">
+                            <label className="shrink-0 flex items-center gap-1.5 h-9 cursor-pointer select-none">
                               <input type="checkbox" checked={vt.hoa_don} onChange={(e) => handleUpdateVatTu(index, 'hoa_don', e.target.checked)} className="w-4 h-4 accent-blue-600" />
-                              <span className="text-xs font-medium text-slate-600">Hóa đơn</span>
+                              <span className="text-xs font-medium text-slate-600">HĐ</span>
                             </label>
+                            <button type="button" onClick={() => handleRemoveVatTu(index)} className="text-slate-400 hover:text-red-500 p-2 shrink-0 h-9 flex items-center">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
 
                           {/* Dòng thông tin tồn kho và model */}
@@ -1543,15 +1524,14 @@ function GiamDinhTool({ customers, inventory, showNotification }: { customers: a
             <div className="h-10 flex items-center px-3 rounded-md border border-slate-200 bg-slate-100 text-sm text-slate-600 overflow-hidden whitespace-nowrap text-ellipsis">
               {cust ? cust.ten_khach_hang : <span className="text-slate-400 italic">Chưa khớp mã máy</span>}
             </div>
+            {cust && (
+              <div className="flex flex-wrap gap-2 text-xs pt-1">
+                {cust.model && <span className="text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100">Model: <b>{cust.model}</b></span>}
+                {cust.dia_chi && <span className="text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100 max-w-full truncate" title={cust.dia_chi}>Địa chỉ: <b>{cust.dia_chi}</b></span>}
+              </div>
+            )}
           </div>
         </div>
-
-        {cust && (
-          <div className="flex flex-wrap gap-2 text-xs">
-            {cust.model && <span className="text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100">Model: <b>{cust.model}</b></span>}
-            {cust.dia_chi && <span className="text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100 max-w-full truncate" title={cust.dia_chi}>Địa chỉ: <b>{cust.dia_chi}</b></span>}
-          </div>
-        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1">
