@@ -94,6 +94,9 @@ export default function AdminDashboard() {
   const [inventory, setInventory] = useState<any[]>([]) // Thêm state inventory
   const [danhMuc, setDanhMuc] = useState<{ id: string, nhom: string, gia_tri: string, thu_tu: number, active: boolean }[]>([])
   const [cauHinh, setCauHinh] = useState<Record<string, string>>({})
+  // Trạng thái máy cho phù hiệu trong form giao việc
+  const [mayStatus, setMayStatus] = useState<{ bao_tri_thang: boolean, thang_nam: string, giam_dinh: any[] } | null>(null)
+  const [dongGiamDinh, setDongGiamDinh] = useState(false)
 
   // Lấy các giá trị đang dùng của một nhóm danh mục (fallback về mặc định nếu bảng trống)
   const dmOptions = (nhom: string, fallback: string[] = []) => {
@@ -234,12 +237,43 @@ export default function AdminDashboard() {
     }
   }, [formData.id_khach_hang, customers])
 
+  // Nạp trạng thái máy (bảo trì tháng / giám định chờ thay) khi mã máy khớp một khách
+  useEffect(() => {
+    const mm = formData.ma_may.trim()
+    const matched = mm ? customers.find(c => c.ma_may && c.ma_may.toLowerCase() === mm.toLowerCase()) : undefined
+    if (!matched) { setMayStatus(null); setDongGiamDinh(false); return }
+    let cancelled = false
+    fetch(`/api/admin/may-status?ma_may=${encodeURIComponent(matched.ma_may)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled && j) setMayStatus(j.data) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [formData.ma_may, customers])
+
   // Xử lý thêm vật tư
   const handleAddVatTu = () => {
     setFormData(prev => ({
       ...prev,
       vat_tu: [...prev.vat_tu, { ma_hang: "", so_luong: "1", don_gia: "", vat: "", hoa_don: false }]
     }))
+  }
+
+  // Đưa vật tư đề xuất từ (các) biên bản giám định chờ thay vào ca việc
+  const handleAddGiamDinhVatTu = () => {
+    if (!mayStatus) return
+    const lines = mayStatus.giam_dinh.flatMap((g: any) =>
+      (g.soct_giam_dinh_vat_tu || []).map((v: any) => ({ ma_hang: v.ma_hang, so_luong: String(v.so_luong), don_gia: "", vat: "", hoa_don: false }))
+    )
+    if (lines.length === 0) return
+    // Bỏ dòng trống mặc định, tránh trùng mã đã có
+    setFormData(prev => {
+      const existing = new Set(prev.vat_tu.filter(v => v.ma_hang).map(v => v.ma_hang))
+      const toAdd = lines.filter(l => !existing.has(l.ma_hang))
+      const base = prev.vat_tu.filter(v => v.ma_hang)
+      return { ...prev, vat_tu: [...base, ...toAdd] }
+    })
+    setDongGiamDinh(true)
+    showNotification('success', "Đã đưa vật tư giám định vào ca.")
   }
 
   const handleUpdateVatTu = (index: number, field: 'ma_hang' | 'so_luong' | 'don_gia' | 'vat' | 'hoa_don', value: string | boolean) => {
@@ -304,6 +338,19 @@ export default function AdminDashboard() {
       })
 
       if (res.ok) {
+        // Đóng (các) biên bản giám định chờ thay nếu được tick, dùng số phiếu của việc
+        if (dongGiamDinh && mayStatus && mayStatus.giam_dinh.length > 0) {
+          if (!formData.report.trim()) {
+            showNotification('error', "Đã tạo việc, nhưng cần Số phiếu để đóng giám định.")
+          } else {
+            await Promise.all(mayStatus.giam_dinh.map((g: any) =>
+              fetch('/api/admin/giam-dinh', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: g.id, da_thay: true, ngay_thay: formData.ngay, so_report: formData.report })
+              })
+            ))
+          }
+        }
         closeAndResetModal()
         showNotification('success', "Tạo và giao công việc mới thành công!")
         fetchData() // Refresh list
@@ -906,6 +953,47 @@ export default function AdminDashboard() {
                   </div>
                 )}
               </div>
+
+              {/* Phù hiệu trạng thái máy (khi mã máy khớp một khách) */}
+              {(() => {
+                const mm = formData.ma_may.trim()
+                const matched = mm ? customers.find(c => c.ma_may && c.ma_may.toLowerCase() === mm.toLowerCase()) : undefined
+                if (!matched) return null
+                const hd = hdbtStatus(matched.ngay_het_han_hdbt)
+                const recent = jobs.find(j => j.ma_may && j.ma_may.toLowerCase() === mm.toLowerCase() && j.ket_qua === 'Hoàn thành' && j.ngay && (Date.now() - new Date(j.ngay).getTime()) <= 30 * 86400000)
+                const gd = mayStatus?.giam_dinh || []
+                const gdVatTu = gd.flatMap((g: any) => g.soct_giam_dinh_vat_tu || [])
+                const pill = 'px-2.5 py-1 rounded-full text-xs font-semibold border'
+                return (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {mayStatus && (mayStatus.bao_tri_thang
+                        ? <span className={`${pill} bg-emerald-50 text-emerald-700 border-emerald-200`}>✓ Đã bảo trì T{mayStatus.thang_nam.split('-')[1]}</span>
+                        : <span className={`${pill} bg-amber-50 text-amber-700 border-amber-200`}>Chưa bảo trì tháng này</span>)}
+                      {hd && <span className={`${pill} ${hd.cls}`}>HĐBT: {hd.note} ({hd.label})</span>}
+                      {gd.length > 0 && <span className={`${pill} bg-red-50 text-red-700 border-red-200`}>Giám định: {gdVatTu.length} vật tư chờ thay</span>}
+                      {recent && <span className={`${pill} bg-slate-100 text-slate-600 border-slate-200`}>Đã sửa gần đây</span>}
+                    </div>
+                    {gd.length > 0 && (
+                      <div className="border border-red-100 bg-red-50/40 rounded-lg p-3 space-y-2">
+                        <div className="flex justify-between items-center flex-wrap gap-2">
+                          <span className="text-xs font-semibold text-red-700">Vật tư giám định đề xuất thay</span>
+                          <Button type="button" variant="outline" size="sm" onClick={handleAddGiamDinhVatTu} className="h-8 text-xs border-red-200 text-red-700 hover:bg-red-50">Đưa vào ca</Button>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {gdVatTu.map((v: any) => (
+                            <span key={v.id} className="text-xs bg-white border border-red-100 rounded px-2 py-1"><span className="font-mono text-slate-700">{v.ma_hang}</span> {v.soct_kho_hang?.ten_hang || ''} <span className="text-slate-400">×{v.so_luong}</span></span>
+                          ))}
+                        </div>
+                        <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer select-none">
+                          <input type="checkbox" checked={dongGiamDinh} onChange={(e) => setDongGiamDinh(e.target.checked)} className="w-4 h-4 accent-emerald-600" />
+                          Đóng giám định (đã thay) khi lưu việc — dùng Số phiếu bên dưới
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
 
               {/* Dòng: Loại công việc | Số phiếu | Khoảng cách */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
