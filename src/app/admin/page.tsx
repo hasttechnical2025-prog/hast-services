@@ -80,7 +80,7 @@ export default function AdminDashboard() {
 
   const [activeTab, setActiveTab] = useState("cong_viec")
   // Tab con bên trong "Hệ thống" (dễ mở rộng thêm sau)
-  const [systemTab, setSystemTab] = useState<"cai_dat" | "khach_hang">("cai_dat")
+  const [systemTab, setSystemTab] = useState<"cai_dat" | "khach_hang" | "danh_muc">("cai_dat")
   // Tab con bên trong "Theo dõi máy"
   const [monitorTab, setMonitorTab] = useState<"bao_tri" | "giam_dinh">("bao_tri")
   const [jobs, setJobs] = useState<Job[]>([])
@@ -91,6 +91,14 @@ export default function AdminDashboard() {
   const [customers, setCustomers] = useState<any[]>([])
   const [technicians, setTechnicians] = useState<any[]>([])
   const [inventory, setInventory] = useState<any[]>([]) // Thêm state inventory
+  const [danhMuc, setDanhMuc] = useState<{ id: string, nhom: string, gia_tri: string, thu_tu: number, active: boolean }[]>([])
+  const [cauHinh, setCauHinh] = useState<Record<string, string>>({})
+
+  // Lấy các giá trị đang dùng của một nhóm danh mục (fallback về mặc định nếu bảng trống)
+  const dmOptions = (nhom: string, fallback: string[] = []) => {
+    const items = danhMuc.filter(d => d.nhom === nhom && d.active).map(d => d.gia_tri)
+    return items.length > 0 ? items : fallback
+  }
 
   const [formData, setFormData] = useState({
     ngay: new Date().toISOString().split('T')[0], // Mặc định ngày hôm nay
@@ -131,11 +139,13 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [jobsRes, customersRes, usersRes, inventoryRes] = await Promise.all([
+      const [jobsRes, customersRes, usersRes, inventoryRes, danhMucRes, cauHinhRes] = await Promise.all([
         fetch('/api/admin/cong-viec'),
         fetch('/api/admin/khach-hang'),
         fetch('/api/admin/users'),
-        fetch('/api/admin/kho-hang')
+        fetch('/api/admin/kho-hang'),
+        fetch('/api/admin/danh-muc'),
+        fetch('/api/admin/cau-hinh')
       ])
 
       // Phiên hết hạn hoặc bị thu hồi -> quay về màn hình đăng nhập
@@ -149,11 +159,15 @@ export default function AdminDashboard() {
       const customersData = await customersRes.json()
       const usersData = await usersRes.json()
       const inventoryData = await inventoryRes.json()
+      const danhMucData = await danhMucRes.json()
+      const cauHinhData = await cauHinhRes.json()
 
       if (jobsData.data) setJobs(jobsData.data)
       if (customersData.data) setCustomers(customersData.data)
       if (usersData.data) setTechnicians(usersData.data)
       if (inventoryData.data) setInventory(inventoryData.data)
+      if (danhMucData.data) setDanhMuc(danhMucData.data)
+      if (cauHinhData.data) setCauHinh(cauHinhData.data)
     } catch (error) {
       console.error("Error fetching data:", error)
     } finally {
@@ -626,7 +640,7 @@ export default function AdminDashboard() {
                 <BaoTriTool customers={customers} showNotification={showNotification} />
               )}
               {monitorTab === "giam_dinh" && (
-                <GiamDinhTool customers={customers} inventory={inventory} showNotification={showNotification} />
+                <GiamDinhTool customers={customers} inventory={inventory} ktvOptions={dmOptions('ktv_giam_dinh')} tinhTrangOptions={dmOptions('tinh_trang_may')} showNotification={showNotification} />
               )}
             </div>
           </div>
@@ -648,6 +662,12 @@ export default function AdminDashboard() {
                 >
                   Danh sách khách hàng
                 </button>
+                <button
+                  onClick={() => setSystemTab("danh_muc")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'danh_muc' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Danh mục
+                </button>
               </div>
             </div>
 
@@ -667,7 +687,7 @@ export default function AdminDashboard() {
                   <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
                     <h3 className="text-lg font-semibold text-slate-700 mb-2">Danh sách Khách hàng (Điểm máy)</h3>
                     <p className="text-sm text-slate-500 mb-4">Toàn bộ khách hàng / điểm máy hiện có trong hệ thống.</p>
-                    <CustomerListTool customers={customers} onUpdateSuccess={fetchData} showNotification={showNotification} />
+                    <CustomerListTool customers={customers} loaiHdOptions={dmOptions('loai_hd', ['HĐBT','MF'])} onUpdateSuccess={fetchData} showNotification={showNotification} />
                   </div>
 
                   <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
@@ -682,6 +702,11 @@ export default function AdminDashboard() {
                     <BulkImportTool onImportSuccess={fetchData} showNotification={showNotification} />
                   </div>
                 </>
+              )}
+
+              {/* TAB CON: DANH MỤC */}
+              {systemTab === "danh_muc" && (
+                <DanhMucTool danhMuc={danhMuc} cauHinh={cauHinh} onUpdateSuccess={fetchData} showNotification={showNotification} />
               )}
             </div>
           </div>
@@ -849,17 +874,9 @@ export default function AdminDashboard() {
                     value={formData.loai_cong_viec}
                     onChange={(e) => setFormData({...formData, loai_cong_viec: e.target.value})}
                   >
-                    <option>Lắp máy</option>
-                    <option>Sửa máy</option>
-                    <option>Giao mực</option>
-                    <option>Thay vật tư</option>
-                    <option>Bảo trì</option>
-                    <option>Bảo hành</option>
-                    <option>Hỗ trợ thầu</option>
-                    <option>Hỗ trợ đại lý</option>
-                    <option>Khiếu nại</option>
-                    <option>Kiểm tra</option>
-                    <option>Khác</option>
+                    {dmOptions('loai_cong_viec', ['Lắp máy','Sửa máy','Giao mực','Thay vật tư','Bảo trì','Bảo hành','Hỗ trợ thầu','Hỗ trợ đại lý','Khiếu nại','Kiểm tra','Khác']).map(v => (
+                      <option key={v} value={v}>{v}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -1438,7 +1455,7 @@ function matchModelGD(itemModel: string, custModel: string) {
   return (itemModel || '').includes(num) // vật tư không có model / không chứa số -> loại
 }
 
-function GiamDinhTool({ customers, inventory, showNotification }: { customers: any[], inventory: any[], showNotification: (type: 'success' | 'error', msg: string) => void }) {
+function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, showNotification }: { customers: any[], inventory: any[], ktvOptions: string[], tinhTrangOptions: string[], showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const emptyForm = { ma_may: "", ngay_giam_dinh: new Date().toISOString().split('T')[0], ktv_giam_dinh: "", vi_tri: "", so_dem: "", tinh_trang_may: "", da_bao_gia: false, ghi_chu: "" }
   const [form, setForm] = useState(emptyForm)
   const [vatTu, setVatTu] = useState<{ ma_hang: string, so_luong: string, ghi_chu: string }[]>([])
@@ -1540,7 +1557,8 @@ function GiamDinhTool({ customers, inventory, showNotification }: { customers: a
           </div>
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">KTV giám định</label>
-            <Input placeholder="VD: Đức Thể" value={form.ktv_giam_dinh} onChange={(e) => setForm({ ...form, ktv_giam_dinh: e.target.value })} className="bg-white" />
+            <Input list="gd-ktv-list" placeholder="VD: Đức Thể" value={form.ktv_giam_dinh} onChange={(e) => setForm({ ...form, ktv_giam_dinh: e.target.value })} className="bg-white" />
+            <datalist id="gd-ktv-list">{ktvOptions.map(o => <option key={o} value={o} />)}</datalist>
           </div>
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">Vị trí đặt máy</label>
@@ -1552,7 +1570,8 @@ function GiamDinhTool({ customers, inventory, showNotification }: { customers: a
           </div>
           <div className="space-y-1 md:col-span-2">
             <label className="text-xs font-semibold text-slate-600">Tình trạng máy</label>
-            <Input placeholder="VD: Bản in vệt đen, kẹt giấy..." value={form.tinh_trang_may} onChange={(e) => setForm({ ...form, tinh_trang_may: e.target.value })} className="bg-white" />
+            <Input list="gd-tt-list" placeholder="VD: Bản in vệt đen, kẹt giấy..." value={form.tinh_trang_may} onChange={(e) => setForm({ ...form, tinh_trang_may: e.target.value })} className="bg-white" />
+            <datalist id="gd-tt-list">{tinhTrangOptions.map(o => <option key={o} value={o} />)}</datalist>
           </div>
         </div>
 
@@ -1643,6 +1662,109 @@ function GiamDinhTool({ customers, inventory, showNotification }: { customers: a
             )}
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+const DANH_MUC_NHOMS = [
+  { key: 'loai_cong_viec', label: 'Loại công việc' },
+  { key: 'loai_hd', label: 'Loại hợp đồng' },
+  { key: 'ktv_giam_dinh', label: 'KTV giám định' },
+  { key: 'tinh_trang_may', label: 'Tình trạng máy' },
+]
+
+function DanhMucTool({ danhMuc, cauHinh, onUpdateSuccess, showNotification }: { danhMuc: any[], cauHinh: Record<string, string>, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+  const [nhom, setNhom] = useState('loai_cong_viec')
+  const [newVal, setNewVal] = useState("")
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editVal, setEditVal] = useState("")
+  const [hdbtThang, setHdbtThang] = useState(cauHinh.hdbt_canh_bao_thang || "2")
+
+  const items = danhMuc.filter(d => d.nhom === nhom)
+
+  const call = async (method: string, body?: any, qs = "") => {
+    const res = await fetch('/api/admin/danh-muc' + qs, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
+    if (res.ok) { onUpdateSuccess(); return true }
+    const err = await res.json(); showNotification('error', err.error); return false
+  }
+
+  const addVal = async () => {
+    if (!newVal.trim()) return
+    if (await call('POST', { nhom, gia_tri: newVal.trim() })) { setNewVal(""); showNotification('success', "Đã thêm giá trị.") }
+  }
+  const saveEdit = async () => {
+    if (!editId || !editVal.trim()) return
+    if (await call('PUT', { id: editId, gia_tri: editVal.trim() })) setEditId(null)
+  }
+  const saveHdbt = async () => {
+    const res = await fetch('/api/admin/cau-hinh', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ khoa: 'hdbt_canh_bao_thang', gia_tri: String(parseInt(hdbtThang) || 2) }) })
+    if (res.ok) { showNotification('success', "Đã lưu mốc cảnh báo HĐBT."); onUpdateSuccess() }
+    else showNotification('error', "Lưu không thành công")
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Cấu hình cảnh báo HĐBT */}
+      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
+        <h3 className="text-lg font-semibold text-slate-700 mb-2">Cấu hình cảnh báo HĐBT</h3>
+        <div className="flex items-end gap-3 flex-wrap">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Cảnh báo trước (tháng)</label>
+            <Input type="number" min="1" className="w-32 bg-white" value={hdbtThang} onChange={(e) => setHdbtThang(e.target.value)} />
+          </div>
+          <Button onClick={saveHdbt} className="h-10">Lưu</Button>
+          <p className="text-xs text-slate-500 flex-1 min-w-[200px]">Khách có ngày hết hạn HĐBT trong vòng số tháng này sẽ được cảnh báo trên Sổ công tác.</p>
+        </div>
+      </div>
+
+      {/* Quản lý danh mục dropdown */}
+      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+        <h3 className="text-lg font-semibold text-slate-700">Danh mục dropdown</h3>
+        <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
+          {DANH_MUC_NHOMS.map(n => (
+            <button key={n.key} onClick={() => { setNhom(n.key); setEditId(null) }} className={`px-3 py-1.5 rounded-md font-medium text-xs transition whitespace-nowrap ${nhom === n.key ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>{n.label}</button>
+          ))}
+        </div>
+
+        <div className="flex gap-2">
+          <Input placeholder="Thêm giá trị mới..." className="bg-white" value={newVal} onChange={(e) => setNewVal(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addVal() } }} />
+          <Button onClick={addVal} className="gap-1 shrink-0"><Plus className="w-4 h-4" /> Thêm</Button>
+        </div>
+
+        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[400px] overflow-y-auto">
+          <table className="w-full text-left text-sm text-slate-600">
+            <thead className="bg-slate-50 sticky top-0 border-b border-slate-200">
+              <tr><th className="px-4 py-2 font-semibold">Giá trị</th><th className="px-4 py-2 font-semibold text-center w-24">Trạng thái</th><th className="px-4 py-2 font-semibold text-right w-28">Thao tác</th></tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {items.length === 0 ? (
+                <tr><td colSpan={3} className="px-4 py-8 text-center text-slate-400">Nhóm này chưa có giá trị. Thêm ở trên.</td></tr>
+              ) : items.map(it => (
+                <tr key={it.id} className={`hover:bg-slate-50 ${it.active ? '' : 'opacity-50'}`}>
+                  <td className="px-4 py-2">
+                    {editId === it.id ? (
+                      <div className="flex gap-2">
+                        <Input value={editVal} onChange={(e) => setEditVal(e.target.value)} className="h-8 bg-white" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveEdit() } }} />
+                        <Button onClick={saveEdit} className="h-8 text-xs px-3">Lưu</Button>
+                        <Button variant="outline" onClick={() => setEditId(null)} className="h-8 text-xs px-3">Hủy</Button>
+                      </div>
+                    ) : <span className="font-medium text-slate-800">{it.gia_tri}</span>}
+                  </td>
+                  <td className="px-4 py-2 text-center">
+                    <button onClick={() => call('PUT', { id: it.id, active: !it.active })} className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${it.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                      {it.active ? 'Đang dùng' : 'Đã ẩn'}
+                    </button>
+                  </td>
+                  <td className="px-4 py-2 text-right whitespace-nowrap">
+                    <button onClick={() => { setEditId(it.id); setEditVal(it.gia_tri) }} className="text-blue-500 hover:text-blue-700 p-1"><PenSquare className="w-4 h-4" /></button>
+                    <button onClick={() => call('DELETE', undefined, `?id=${it.id}`)} className="text-red-500 hover:text-red-700 p-1 ml-1"><Trash2 className="w-4 h-4" /></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )
@@ -1847,7 +1969,7 @@ function hdbtStatus(dateStr: string | null) {
   return { label, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', note: 'Còn hạn' }
 }
 
-function CustomerListTool({ customers, onUpdateSuccess, showNotification }: { customers: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+function CustomerListTool({ customers, loaiHdOptions, onUpdateSuccess, showNotification }: { customers: any[], loaiHdOptions: string[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [search, setSearch] = useState("")
   const [editing, setEditing] = useState<any | null>(null)
   const [saving, setSaving] = useState(false)
@@ -1971,8 +2093,7 @@ function CustomerListTool({ customers, onUpdateSuccess, showNotification }: { cu
                 <label className="text-xs font-semibold text-slate-600">Loại hợp đồng</label>
                 <select className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" value={editing.loai_hd || ""} onChange={(e) => setEditing({ ...editing, loai_hd: e.target.value })}>
                   <option value="">— Không —</option>
-                  <option value="HĐBT">HĐBT</option>
-                  <option value="MF">MF</option>
+                  {loaiHdOptions.map(v => <option key={v} value={v}>{v}</option>)}
                 </select>
               </div>
               <div className="space-y-1 sm:col-span-2">
