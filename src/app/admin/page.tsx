@@ -83,6 +83,8 @@ export default function AdminDashboard() {
   const [systemTab, setSystemTab] = useState<"cai_dat" | "tai_khoan" | "khach_hang" | "danh_muc">("tai_khoan")
   // Tab con bên trong "Theo dõi máy"
   const [monitorTab, setMonitorTab] = useState<"bao_tri" | "giam_dinh">("bao_tri")
+  // Tab con bên trong "Kho hàng"
+  const [khoTab, setKhoTab] = useState<"ton_kho" | "dat_hang" | "thong_ke">("ton_kho")
   const [hdbtOpen, setHdbtOpen] = useState(false)
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
@@ -690,17 +692,37 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === "kho_hang" && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6 space-y-6">
-            <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Quản lý Kho Hàng (Vật tư)</h2>
-            <InventoryManagementTool inventory={inventory} onUpdateSuccess={fetchData} showNotification={showNotification} confirmDelete={confirmDelete} />
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            {/* Thanh tab con của Kho hàng */}
+            <div className="p-4 border-b border-slate-200 bg-slate-50/50">
+              <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
+                {[['ton_kho','Tồn kho'],['dat_hang','Đặt hàng'],['thong_ke','Thống kê nhập']].map(([k,l]) => (
+                  <button key={k} onClick={() => setKhoTab(k as any)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${khoTab === k ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>{l}</button>
+                ))}
+              </div>
+            </div>
 
-            <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 mt-8">
-              <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập hàng hóa từ Excel (Bulk Import)</h3>
-              <p className="text-sm text-slate-500 mb-6">
-                Copy danh sách từ Excel và dán vào đây.<br/>
-                <b>Thứ tự cột yêu cầu:</b> Mã hàng | Tên vật tư | Model máy | Tồn kho
-              </p>
-              <BulkImportInventoryTool onImportSuccess={fetchData} showNotification={showNotification} />
+            <div className="p-6 space-y-6">
+              {khoTab === "ton_kho" && (
+                <>
+                  <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Quản lý Kho Hàng (Vật tư)</h2>
+                  <InventoryManagementTool inventory={inventory} onUpdateSuccess={fetchData} showNotification={showNotification} confirmDelete={confirmDelete} />
+                  <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 mt-8">
+                    <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập hàng hóa từ Excel (Bulk Import)</h3>
+                    <p className="text-sm text-slate-500 mb-6">
+                      Copy danh sách từ Excel và dán vào đây.<br/>
+                      <b>Thứ tự cột yêu cầu:</b> Mã hàng | Tên vật tư | Model máy | Tồn kho
+                    </p>
+                    <BulkImportInventoryTool onImportSuccess={fetchData} showNotification={showNotification} />
+                  </div>
+                </>
+              )}
+              {khoTab === "dat_hang" && (
+                <DatHangTool inventory={inventory} nhaCungCapOptions={dmOptions('nha_cung_cap')} onUpdateSuccess={fetchData} showNotification={showNotification} />
+              )}
+              {khoTab === "thong_ke" && (
+                <NhapHangThangTool showNotification={showNotification} />
+              )}
             </div>
           </div>
         )}
@@ -1810,11 +1832,252 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
   )
 }
 
+function NhapHangThangTool({ showNotification }: { showNotification: (type: 'success' | 'error', msg: string) => void }) {
+  const [thang, setThang] = useState("")
+  const [rows, setRows] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const fetchRows = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/nhap-hang-thang' + (thang ? `?thang_nam=${thang}` : ''))
+      const json = await res.json()
+      setRows(json.data || [])
+    } catch { showNotification('error', "Không tải được thống kê") }
+    finally { setLoading(false) }
+  }
+  useEffect(() => { fetchRows() }, [thang])
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-end gap-3 flex-wrap">
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-slate-600">Lọc theo tháng (để trống = tất cả)</label>
+          <input type="month" value={thang} onChange={(e) => setThang(e.target.value)} className="h-10 px-3 rounded-md border border-slate-200 text-sm outline-none bg-white block" />
+        </div>
+        {thang && <Button variant="outline" onClick={() => setThang("")} className="h-10">Xem tất cả</Button>}
+      </div>
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[480px] overflow-y-auto">
+        <table className="w-full text-left text-sm text-slate-600">
+          <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 shadow-sm z-10">
+            <tr><th className="px-4 py-3 font-semibold">Tháng</th><th className="px-4 py-3 font-semibold">Mã hàng</th><th className="px-4 py-3 font-semibold">Tên vật tư</th><th className="px-4 py-3 font-semibold text-center">SL nhập</th></tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {loading ? (
+              <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Đang tải...</td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Chưa có dữ liệu nhập.</td></tr>
+            ) : rows.map(r => (
+              <tr key={r.id} className="hover:bg-slate-50">
+                <td className="px-4 py-2.5 font-mono text-xs">{r.thang_nam.split('-').reverse().join('/')}</td>
+                <td className="px-4 py-2.5 font-mono font-medium text-slate-700">{r.ma_hang}</td>
+                <td className="px-4 py-2.5">{r.soct_kho_hang?.ten_hang || ''}</td>
+                <td className="px-4 py-2.5 text-center font-bold text-emerald-600">{r.so_luong_nhap}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotification }: { inventory: any[], nhaCungCapOptions: string[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+  const [form, setForm] = useState({ ngay_dat: new Date().toISOString().split('T')[0], nha_cung_cap: "", so_don_hang: "", da_dat: false })
+  const [lines, setLines] = useState<{ ma_hang: string, sl_dat: string }[]>([{ ma_hang: "", sl_dat: "1" }])
+  const [orders, setOrders] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [receiving, setReceiving] = useState<{ ctId: string, ngay_nhan: string, so_luong_nhan: string } | null>(null)
+  const [delId, setDelId] = useState<string | null>(null)
+
+  const fetchOrders = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/dat-hang')
+      const json = await res.json()
+      setOrders(json.data || [])
+    } catch { showNotification('error', "Không tải được đơn đặt hàng") }
+    finally { setLoading(false) }
+  }
+  useEffect(() => { fetchOrders() }, [])
+
+  const addLine = () => setLines(p => [...p, { ma_hang: "", sl_dat: "1" }])
+  const updLine = (i: number, f: 'ma_hang' | 'sl_dat', v: string) => setLines(p => p.map((l, idx) => idx === i ? { ...l, [f]: v } : l))
+  const rmLine = (i: number) => setLines(p => p.filter((_, idx) => idx !== i))
+
+  const handleCreate = async () => {
+    const valid = lines.filter(l => l.ma_hang && parseInt(l.sl_dat) > 0)
+    if (valid.length === 0) return showNotification('error', "Thêm ít nhất một dòng hàng hợp lệ")
+    setSaving(true)
+    try {
+      const res = await fetch('/api/admin/dat-hang', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, lines: valid }) })
+      if (res.ok) {
+        showNotification('success', "Đã tạo đơn đặt hàng.")
+        setForm({ ngay_dat: new Date().toISOString().split('T')[0], nha_cung_cap: "", so_don_hang: "", da_dat: false })
+        setLines([{ ma_hang: "", sl_dat: "1" }]); fetchOrders()
+      } else { const err = await res.json(); showNotification('error', err.error) }
+    } catch { showNotification('error', "Lỗi kết nối!") }
+    finally { setSaving(false) }
+  }
+
+  const toggleDaDat = async (o: any) => {
+    const res = await fetch('/api/admin/dat-hang', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: o.id, da_dat: !o.da_dat }) })
+    if (res.ok) fetchOrders(); else showNotification('error', "Cập nhật không thành công")
+  }
+  const deleteOrder = async (id: string) => {
+    const res = await fetch(`/api/admin/dat-hang?id=${id}`, { method: 'DELETE' })
+    setDelId(null)
+    if (res.ok) { showNotification('success', "Đã xóa đơn (hoàn tồn kho các đợt đã nhận)."); onUpdateSuccess(); fetchOrders() }
+    else showNotification('error', "Xóa không thành công")
+  }
+  const saveReceipt = async () => {
+    if (!receiving || !(parseInt(receiving.so_luong_nhan) > 0)) return showNotification('error', "Nhập số lượng nhận")
+    const res = await fetch('/api/admin/hang-ve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(receiving.ctId ? { id_dat_hang_ct: receiving.ctId, ngay_nhan: receiving.ngay_nhan, so_luong_nhan: receiving.so_luong_nhan } : {}) })
+    if (res.ok) { showNotification('success', "Đã ghi hàng về (tồn kho tự cộng)."); setReceiving(null); onUpdateSuccess(); fetchOrders() }
+    else { const err = await res.json(); showNotification('error', err.error) }
+  }
+  const deleteReceipt = async (id: string) => {
+    const res = await fetch(`/api/admin/hang-ve?id=${id}`, { method: 'DELETE' })
+    if (res.ok) { onUpdateSuccess(); fetchOrders() } else showNotification('error', "Xóa đợt hàng về không thành công")
+  }
+
+  const fmtDate = (s: string) => { if (!s) return ''; const d = new Date(s); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` }
+  const daNhan = (line: any) => (line.soct_hang_ve_dot || []).reduce((s: number, h: any) => s + h.so_luong_nhan, 0)
+
+  return (
+    <div className="space-y-6">
+      {/* FORM TẠO ĐƠN */}
+      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+        <h3 className="text-lg font-semibold text-slate-700">Tạo đơn đặt hàng</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Ngày đặt</label>
+            <Input type="date" value={form.ngay_dat} onChange={(e) => setForm({ ...form, ngay_dat: e.target.value })} className="bg-white" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Nhà cung cấp</label>
+            <Input list="dh-ncc-list" placeholder="Chọn hoặc gõ NCC" value={form.nha_cung_cap} onChange={(e) => setForm({ ...form, nha_cung_cap: e.target.value })} className="bg-white" />
+            <datalist id="dh-ncc-list">{nhaCungCapOptions.map(o => <option key={o} value={o} />)}</datalist>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Số đơn hàng</label>
+            <Input placeholder="VD: PO-2026-001" value={form.so_don_hang} onChange={(e) => setForm({ ...form, so_don_hang: e.target.value })} className="bg-white" />
+          </div>
+        </div>
+
+        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+          <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex justify-between items-center">
+            <h4 className="text-sm font-semibold text-slate-700">Dòng hàng đặt</h4>
+            <Button type="button" variant="outline" size="sm" onClick={addLine} className="h-8 text-xs gap-1"><Plus className="w-3 h-3" /> Thêm dòng</Button>
+          </div>
+          <div className="p-4 space-y-2">
+            {lines.map((l, i) => (
+              <div key={i} className="flex gap-2 items-end">
+                <div className="flex-1 min-w-0">
+                  <label className="text-xs font-medium text-slate-500 mb-1 block">Mã hàng</label>
+                  <MaterialCombobox inventory={inventory} value={l.ma_hang} onChange={(v) => updLine(i, 'ma_hang', v)} />
+                </div>
+                <div className="w-28">
+                  <label className="text-xs font-medium text-slate-500 mb-1 block">SL đặt</label>
+                  <Input type="number" min="1" className="h-9 bg-white" value={l.sl_dat} onChange={(e) => updLine(i, 'sl_dat', e.target.value)} />
+                </div>
+                <button type="button" onClick={() => rmLine(i)} className="text-slate-400 hover:text-red-500 p-2 shrink-0 h-9"><Trash2 className="w-4 h-4" /></button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
+            <input type="checkbox" checked={form.da_dat} onChange={(e) => setForm({ ...form, da_dat: e.target.checked })} className="w-4 h-4 accent-blue-600" />
+            Đã đặt (đã gửi NCC) — bỏ trống nếu còn nháp
+          </label>
+          <Button onClick={handleCreate} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">{saving ? "Đang lưu..." : "Tạo đơn"}</Button>
+        </div>
+      </div>
+
+      {/* DANH SÁCH ĐƠN */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-bold text-slate-700 px-1">Danh sách đơn đặt hàng ({orders.length})</h3>
+        {loading ? <p className="text-sm text-slate-400 text-center py-8">Đang tải...</p>
+          : orders.length === 0 ? <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">Chưa có đơn đặt hàng nào.</div>
+          : orders.map(o => (
+            <div key={o.id} className={`bg-white rounded-lg border p-4 space-y-3 ${o.hoan_thanh ? 'border-slate-200 opacity-80' : 'border-slate-200'}`}>
+              <div className="flex justify-between items-start gap-3 flex-wrap">
+                <div>
+                  <div className="font-medium text-slate-800">{o.nha_cung_cap || 'Chưa có NCC'} {o.so_don_hang && <span className="text-slate-400 font-normal">· {o.so_don_hang}</span>}</div>
+                  <div className="text-xs text-slate-500">Ngày đặt {fmtDate(o.ngay_dat)}</div>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button onClick={() => toggleDaDat(o)} className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${o.da_dat ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{o.da_dat ? 'Đã đặt' : 'Nháp'}</button>
+                  {o.hoan_thanh && <span className="px-2.5 py-1 rounded-full text-xs font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200">Đã đủ hàng</span>}
+                  {delId === o.id ? (
+                    <span className="flex items-center gap-1 text-xs">
+                      <button onClick={() => deleteOrder(o.id)} className="text-red-600 font-semibold px-2 py-1 bg-red-50 rounded">Xác nhận xóa</button>
+                      <button onClick={() => setDelId(null)} className="text-slate-500 px-2 py-1">Hủy</button>
+                    </span>
+                  ) : (
+                    <button onClick={() => setDelId(o.id)} className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 hover:bg-red-100 rounded-md" title="Xóa đơn"><Trash2 className="w-4 h-4" /></button>
+                  )}
+                </div>
+              </div>
+
+              <div className="border border-slate-100 rounded-md overflow-hidden">
+                <table className="w-full text-left text-xs text-slate-600">
+                  <thead className="bg-slate-50 text-slate-500"><tr><th className="px-3 py-2 font-medium">Mã hàng</th><th className="px-3 py-2 font-medium text-center">Đặt</th><th className="px-3 py-2 font-medium text-center">Đã nhận</th><th className="px-3 py-2 font-medium text-center">Còn thiếu</th><th className="px-3 py-2 font-medium">Đợt hàng về</th><th className="px-3 py-2"></th></tr></thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(o.soct_dat_hang_ct || []).map((line: any) => {
+                      const nhan = daNhan(line); const thieu = line.sl_dat - nhan
+                      return (
+                        <tr key={line.id} className={line.hoan_thanh ? 'bg-emerald-50/40' : ''}>
+                          <td className="px-3 py-2"><span className="font-mono font-medium text-slate-700">{line.ma_hang}</span> <span className="text-slate-500">{line.soct_kho_hang?.ten_hang || ''}</span></td>
+                          <td className="px-3 py-2 text-center">{line.sl_dat}</td>
+                          <td className="px-3 py-2 text-center font-medium text-emerald-600">{nhan}</td>
+                          <td className={`px-3 py-2 text-center font-medium ${thieu > 0 ? 'text-amber-600' : 'text-slate-400'}`}>{thieu > 0 ? thieu : '—'}</td>
+                          <td className="px-3 py-2">
+                            <div className="flex flex-wrap gap-1">
+                              {(line.soct_hang_ve_dot || []).map((h: any) => (
+                                <span key={h.id} className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5">
+                                  {fmtDate(h.ngay_nhan)}: <b>{h.so_luong_nhan}</b>
+                                  <button onClick={() => deleteReceipt(h.id)} className="text-slate-400 hover:text-red-500" title="Xóa đợt này">✕</button>
+                                </span>
+                              ))}
+                            </div>
+                            {receiving && receiving.ctId === line.id && (
+                              <div className="flex items-end gap-1.5 mt-1.5">
+                                <Input type="date" value={receiving.ngay_nhan} onChange={(e) => setReceiving({ ...receiving, ngay_nhan: e.target.value })} className="h-8 bg-white w-36" />
+                                <Input type="number" min="1" placeholder="SL nhận" value={receiving.so_luong_nhan} onChange={(e) => setReceiving({ ...receiving, so_luong_nhan: e.target.value })} className="h-8 bg-white w-24" />
+                                <Button onClick={saveReceipt} className="h-8 text-xs px-3 bg-emerald-600 hover:bg-emerald-700">Lưu</Button>
+                                <Button variant="outline" onClick={() => setReceiving(null)} className="h-8 text-xs px-3">Hủy</Button>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            {!line.hoan_thanh && (!receiving || receiving.ctId !== line.id) && (
+                              <button onClick={() => setReceiving({ ctId: line.id, ngay_nhan: new Date().toISOString().split('T')[0], so_luong_nhan: "" })} className="text-blue-600 hover:text-blue-800 text-xs font-medium whitespace-nowrap">+ Ghi hàng về</button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {o.ghi_chu && <div className="text-xs text-slate-500 italic">Ghi chú: {o.ghi_chu}</div>}
+            </div>
+          ))}
+      </div>
+    </div>
+  )
+}
+
 const DANH_MUC_NHOMS = [
   { key: 'loai_cong_viec', label: 'Loại công việc' },
   { key: 'loai_hd', label: 'Loại hợp đồng' },
   { key: 'ktv_giam_dinh', label: 'KTV giám định' },
   { key: 'tinh_trang_may', label: 'Tình trạng máy' },
+  { key: 'nha_cung_cap', label: 'Nhà cung cấp' },
 ]
 
 function DanhMucTool({ danhMuc, cauHinh, onUpdateSuccess, showNotification }: { danhMuc: any[], cauHinh: Record<string, string>, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
