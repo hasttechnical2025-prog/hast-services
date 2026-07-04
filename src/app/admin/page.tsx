@@ -1196,6 +1196,12 @@ function InventoryManagementTool({ inventory, onUpdateSuccess, showNotification,
   })
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [highlightMH, setHighlightMH] = useState("")
+
+  // Cảnh báo trùng: đang thêm mới mà mã hàng đã có trong kho
+  const dupItem = !isEditing && formData.ma_hang.trim()
+    ? inventory.find(i => i.ma_hang === formData.ma_hang.trim().toUpperCase())
+    : undefined
 
   const resetForm = () => {
     setFormData({ ma_hang: "", ten_hang: "", model: "", hang: "", ton_kho: 0 })
@@ -1244,7 +1250,13 @@ function InventoryManagementTool({ inventory, onUpdateSuccess, showNotification,
       <form onSubmit={handleSave} className="bg-slate-50 p-4 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="space-y-1 lg:col-span-1">
           <label className="text-xs font-semibold text-slate-600">Mã hàng *</label>
-          <Input required value={formData.ma_hang} onChange={(e) => setFormData({...formData, ma_hang: e.target.value.toUpperCase()})} disabled={isEditing} placeholder="VD: DR017" className="bg-white" />
+          <Input required value={formData.ma_hang} onChange={(e) => setFormData({...formData, ma_hang: e.target.value.toUpperCase()})} disabled={isEditing} placeholder="VD: DR017" className={`bg-white ${dupItem ? 'border-amber-400 focus:ring-amber-400' : ''}`} />
+          {dupItem && (
+            <div className="text-xs text-amber-600 flex items-center gap-1 flex-wrap">
+              ⚠ Mã đã tồn tại.
+              <button type="button" onClick={() => { setHighlightMH(dupItem.ma_hang); setTimeout(() => document.getElementById('inv-' + dupItem.ma_hang)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 0) }} className="underline font-medium">Xem dòng</button>
+            </div>
+          )}
         </div>
         <div className="space-y-1 lg:col-span-2">
           <label className="text-xs font-semibold text-slate-600">Tên hàng / Vật tư *</label>
@@ -1280,7 +1292,7 @@ function InventoryManagementTool({ inventory, onUpdateSuccess, showNotification,
             {inventory.length === 0 ? (
               <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Kho hàng đang trống.</td></tr>
             ) : inventory.map((item) => (
-              <tr key={item.ma_hang} className="hover:bg-slate-50 transition-colors">
+              <tr key={item.ma_hang} id={'inv-' + item.ma_hang} className={`transition-colors ${highlightMH === item.ma_hang ? 'bg-amber-100' : 'hover:bg-slate-50'}`}>
                 <td className="px-4 py-3 font-mono font-medium text-slate-700">{item.ma_hang}</td>
                 <td className="px-4 py-3 font-medium text-slate-800">{item.ten_hang}</td>
                 <td className="px-4 py-3">{item.model || <span className="text-slate-400 italic">Dùng chung</span>}</td>
@@ -2187,6 +2199,8 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
   const customerByMaMay = new Map(customers.filter(c => c.ma_may).map(c => [String(c.ma_may).toLowerCase(), c]))
   const kept = preview ? preview.filter(p => !p.excluded) : []
   const unknownKept = kept.filter(p => !p.cust).length
+  const daBaoTriSet = new Set(records.map((r: any) => String(r.ma_may).toLowerCase()))
+  const dupKept = kept.filter(p => daBaoTriSet.has(p.ma_may.toLowerCase())).length
 
   const fetchRecords = async (thang: string) => {
     setLoading(true)
@@ -2290,7 +2304,8 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
           <div className="space-y-3">
             <div className="flex items-center gap-3 flex-wrap text-sm">
               <span className="text-emerald-700 font-medium">{kept.length} mã sẽ lưu</span>
-              {unknownKept > 0 && <span className="text-red-600 font-medium">⚠ trong đó {unknownKept} mã lạ (không khớp khách hàng — kiểm tra nhập sai)</span>}
+              {unknownKept > 0 && <span className="text-red-600 font-medium">⚠ {unknownKept} mã lạ (không khớp khách hàng)</span>}
+              {dupKept > 0 && <span className="text-amber-600 font-medium">⚠ {dupKept} mã đã bảo trì tháng này (trùng)</span>}
               {preview.length - kept.length > 0 && <span className="text-slate-400">· {preview.length - kept.length} mã đã bỏ</span>}
             </div>
             <div className="border border-slate-200 rounded-lg overflow-hidden max-h-64 overflow-y-auto bg-white">
@@ -2299,16 +2314,19 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
                   <tr><th className="px-3 py-2 font-medium text-center w-12">Bỏ</th><th className="px-3 py-2 font-medium">Mã máy</th><th className="px-3 py-2 font-medium">Khách hàng</th><th className="px-3 py-2 font-medium">HĐBT</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {preview.map((p, i) => (
-                    <tr key={i} className={p.excluded ? 'opacity-40 line-through' : (p.cust ? '' : 'bg-red-50')}>
+                  {preview.map((p, i) => {
+                    const daBaoTri = daBaoTriSet.has(p.ma_may.toLowerCase())
+                    return (
+                    <tr key={i} className={p.excluded ? 'opacity-40 line-through' : (!p.cust ? 'bg-red-50' : (daBaoTri ? 'bg-amber-50' : ''))}>
                       <td className="px-3 py-2 text-center">
                         <input type="checkbox" checked={p.excluded} onChange={() => toggleExclude(i)} className="w-4 h-4 accent-red-500 no-underline" title="Tick để bỏ mã này, không lưu" />
                       </td>
-                      <td className="px-3 py-2 font-mono font-medium">{p.ma_may}</td>
+                      <td className="px-3 py-2 font-mono font-medium">{p.ma_may}{daBaoTri && <span className="ml-1.5 text-amber-600 font-normal">(đã bảo trì)</span>}</td>
                       <td className="px-3 py-2">{p.cust ? p.cust.ten_khach_hang : <span className="text-red-600 font-medium">Không khớp — có thể nhập sai</span>}</td>
                       <td className="px-3 py-2">{p.cust ? (p.cust.loai_hd || <span className="text-slate-300">—</span>) : ''}</td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -2381,6 +2399,12 @@ function CustomerListTool({ customers, loaiHdOptions, hdbtCanhBaoThang, onUpdate
   const [filterOpen, setFilterOpen] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
   const [saving, setSaving] = useState(false)
+  const [highlightCust, setHighlightCust] = useState("")
+
+  // Trùng mã máy: mã máy đang sửa đã có ở khách khác
+  const dupCust = editing && (editing.ma_may || "").trim()
+    ? customers.find(c => c.ma_may && c.id !== editing.id && c.ma_may.toLowerCase() === editing.ma_may.trim().toLowerCase())
+    : undefined
 
   const filterLabel = hdFilter === 'all' ? 'Tất cả'
     : hdFilter === 'has' ? 'Có hợp đồng'
@@ -2499,7 +2523,7 @@ function CustomerListTool({ customers, loaiHdOptions, hdbtCanhBaoThang, onUpdate
             ) : filtered.map((c) => {
               const hd = hdbtStatus(c.ngay_het_han_hdbt)
               return (
-                <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                <tr key={c.id} id={'kh-' + c.id} className={`transition-colors ${highlightCust === c.id ? 'bg-amber-100' : 'hover:bg-slate-50'}`}>
                   <td className="px-4 py-3 font-mono font-medium text-slate-700">{c.ma_may || <span className="text-slate-400 italic">—</span>}</td>
                   <td className="px-4 py-3 font-medium text-slate-800">{c.ten_khach_hang}<div className="text-xs text-slate-400 font-normal truncate max-w-xs" title={c.dia_chi}>{c.dia_chi}</div></td>
                   <td className="px-4 py-3">{c.model || <span className="text-slate-400 italic">—</span>}</td>
@@ -2533,7 +2557,13 @@ function CustomerListTool({ customers, loaiHdOptions, hdbtCanhBaoThang, onUpdate
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Mã máy</label>
-                <Input value={editing.ma_may || ""} onChange={(e) => setEditing({ ...editing, ma_may: e.target.value })} className="bg-white" />
+                <Input value={editing.ma_may || ""} onChange={(e) => setEditing({ ...editing, ma_may: e.target.value })} className={`bg-white ${dupCust ? 'border-amber-400 focus:ring-amber-400' : ''}`} />
+                {dupCust && (
+                  <div className="text-xs text-amber-600 flex items-center gap-1 flex-wrap">
+                    ⚠ Trùng mã của: {dupCust.ten_khach_hang}.
+                    <button type="button" onClick={() => { setEditing(null); setHighlightCust(dupCust.id); setTimeout(() => document.getElementById('kh-' + dupCust.id)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50) }} className="underline font-medium">Xem dòng</button>
+                  </div>
+                )}
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Model</label>
