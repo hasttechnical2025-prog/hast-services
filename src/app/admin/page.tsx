@@ -1022,14 +1022,14 @@ export default function AdminDashboard() {
             </div>
 
             <form onSubmit={handleCreateJob} className="p-6 space-y-6">
-              {/* Cụm: Ngày & Kỹ thuật viên */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Cụm: Ngày (hẹp) & Kỹ thuật viên (rộng) — cân đối với Mã máy/Khách hàng */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700">Ngày</label>
                   <DateField value={formData.ngay} onChange={(v) => setFormData({...formData, ngay: v})} />
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-2">
                   <label className="text-sm font-medium text-slate-700">Kỹ thuật viên</label>
                   <select
                     className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
@@ -1155,9 +1155,9 @@ export default function AdminDashboard() {
                 )
               })()}
 
-              {/* Dòng: Loại công việc | Số phiếu | Khoảng cách */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
+              {/* Dòng: Loại công việc | Số lượng | Số phiếu | Khoảng cách */}
+              <div className="grid grid-cols-2 md:grid-cols-12 gap-4">
+                <div className="space-y-2 col-span-2 md:col-span-4">
                   <label className="text-sm font-medium text-slate-700">Loại công việc <span className="text-red-500">*</span></label>
                   <select
                     className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
@@ -1170,7 +1170,18 @@ export default function AdminDashboard() {
                   </select>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 col-span-1 md:col-span-2">
+                  <label className="text-sm font-medium text-slate-700">Số lượng</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    className="bg-white"
+                    value={formData.so_luong}
+                    onChange={(e) => setFormData({ ...formData, so_luong: parseInt(e.target.value) || 1 })}
+                  />
+                </div>
+
+                <div className="space-y-2 col-span-2 md:col-span-4">
                   <label className="text-sm font-medium text-slate-700">Số phiếu (Report)</label>
                   <Input
                     placeholder="VD: RP-2026-001"
@@ -1179,7 +1190,7 @@ export default function AdminDashboard() {
                   />
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 col-span-1 md:col-span-2">
                   <label className="text-sm font-medium text-slate-700">Khoảng cách (KM)</label>
                   <div className="relative">
                     <Input
@@ -1195,20 +1206,8 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                   {formData.id_khach_hang && customers.find(c => c.id === formData.id_khach_hang)?.km_mac_dinh === null && (
-                    <span className="text-xs text-amber-600 italic mt-1 block">Hệ thống sẽ tự tính tọa độ & KM khi lưu</span>
+                    <span className="text-xs text-amber-600 italic mt-1 block">Hệ thống sẽ tự tính KM khi lưu</span>
                   )}
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Số lượng</label>
-                  <Input
-                    type="number"
-                    min="1"
-                    className="bg-white"
-                    value={formData.so_luong}
-                    onChange={(e) => setFormData({ ...formData, so_luong: parseInt(e.target.value) || 1 })}
-                  />
-                  <span className="text-xs text-slate-400">VD: 1 phiếu lắp 2 máy → nhập 2 (dùng cho báo cáo tháng)</span>
                 </div>
               </div>
 
