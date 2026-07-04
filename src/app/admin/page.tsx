@@ -1265,21 +1265,32 @@ interface BulkImportToolProps {
   showNotification: (type: 'success' | 'error', msg: string) => void
 }
 
-// Dropdown chọn nhiều (checkbox) — dùng chung cho các bộ lọc
+// Dropdown chọn nhiều (checkbox) — dùng chung cho các bộ lọc.
+// Danh sách render qua portal để không bị khuất bởi thẻ overflow-hidden.
 function MultiCheckDropdown({ label, options, selected, onChange }: { label: string, options: string[], selected: string[], onChange: (vals: string[]) => void }) {
   const [open, setOpen] = useState(false)
+  const [rect, setRect] = useState<DOMRect | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const updateRect = useCallback(() => { if (btnRef.current) setRect(btnRef.current.getBoundingClientRect()) }, [])
+  useEffect(() => {
+    if (!open) return
+    updateRect()
+    window.addEventListener('scroll', updateRect, true)
+    window.addEventListener('resize', updateRect)
+    return () => { window.removeEventListener('scroll', updateRect, true); window.removeEventListener('resize', updateRect) }
+  }, [open, updateRect])
   const toggle = (v: string) => onChange(selected.includes(v) ? selected.filter(x => x !== v) : [...selected, v])
   return (
-    <div className="relative shrink-0">
-      <button type="button" onClick={() => setOpen(o => !o)} className={`h-9 px-3 rounded-md border text-sm bg-white flex items-center gap-1.5 hover:border-slate-300 ${selected.length > 0 ? 'border-blue-300' : 'border-slate-200'}`}>
+    <div className="shrink-0">
+      <button ref={btnRef} type="button" onClick={() => setOpen(o => !o)} className={`h-9 px-3 rounded-md border text-sm bg-white flex items-center gap-1.5 hover:border-slate-300 ${selected.length > 0 ? 'border-blue-300' : 'border-slate-200'}`}>
         <span>{label}</span>
         {selected.length > 0 && <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-1.5 rounded-full">{selected.length}</span>}
         <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
       </button>
-      {open && (
+      {open && rect && createPortal(
         <>
-          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute z-40 mt-1 min-w-[11rem] max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg py-1">
+          <div className="fixed inset-0 z-[45]" onClick={() => setOpen(false)} />
+          <div style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, zIndex: 46 }} className="min-w-[11rem] max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg py-1">
             {options.map(o => (
               <label key={o} className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50 cursor-pointer text-sm text-slate-700">
                 <input type="checkbox" checked={selected.includes(o)} onChange={() => toggle(o)} className="w-4 h-4 accent-blue-600" />
@@ -1287,7 +1298,8 @@ function MultiCheckDropdown({ label, options, selected, onChange }: { label: str
               </label>
             ))}
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   )
@@ -1760,9 +1772,22 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [closing, setClosing] = useState<{ id: string, so_report: string, ngay_thay: string } | null>(null)
+  // Bộ lọc BBGĐ — mặc định Chờ thay + Chưa báo giá
+  const [gdFilters, setGdFilters] = useState({ maMay: "", trangThai: "cho_thay", baoGia: "chua" })
 
   const cust = form.ma_may.trim() ? customers.find(c => c.ma_may && c.ma_may.toLowerCase() === form.ma_may.trim().toLowerCase()) : undefined
   const filteredInventory = onlyModel && cust?.model ? inventory.filter(i => matchModelGD(i.model, cust.model)) : inventory
+
+  const filteredRecords = records.filter(r => {
+    const f = gdFilters
+    if (f.maMay && !(r.ma_may || '').toLowerCase().includes(f.maMay.trim().toLowerCase())) return false
+    if (f.trangThai === 'cho_thay' && r.da_thay) return false
+    if (f.trangThai === 'da_thay' && !r.da_thay) return false
+    if (f.baoGia === 'co' && !r.da_bao_gia) return false
+    if (f.baoGia === 'chua' && r.da_bao_gia) return false
+    return true
+  })
+  const gdFilterActive = !!(gdFilters.maMay || gdFilters.trangThai !== 'cho_thay' || gdFilters.baoGia !== 'chua')
 
   const fetchRecords = async () => {
     setLoading(true)
@@ -1817,6 +1842,11 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
       if (res.ok) { showNotification('success', "Đã đóng biên bản (đã thay)."); setClosing(null); fetchRecords() }
       else { const err = await res.json(); showNotification('error', err.error) }
     } catch { showNotification('error', "Lỗi kết nối!") }
+  }
+
+  const toggleBaoGia = async (r: any) => {
+    const res = await fetch('/api/admin/giam-dinh', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: r.id, da_bao_gia: !r.da_bao_gia }) })
+    if (res.ok) fetchRecords(); else showNotification('error', "Cập nhật không thành công")
   }
 
   const fmtDate = (s: string) => { if (!s) return ''; const d = new Date(s); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` }
@@ -1909,26 +1939,50 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
         </div>
       </div>
 
-      {/* DANH SÁCH BIÊN BẢN */}
+      {/* DANH SÁCH BIÊN BẢN + BỘ LỌC */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 px-1">
           <h3 className="text-sm font-bold text-slate-700">Danh sách biên bản giám định</h3>
-          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">{records.length}</span>
+          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">{filteredRecords.length}/{records.length}</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 px-1">
+          <div className="relative w-full sm:w-56">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input placeholder="Lọc theo mã máy..." className="pl-9 bg-white h-9" value={gdFilters.maMay} onChange={(e) => setGdFilters({ ...gdFilters, maMay: e.target.value })} />
+          </div>
+          <select value={gdFilters.trangThai} onChange={(e) => setGdFilters({ ...gdFilters, trangThai: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none">
+            <option value="">Trạng thái: Tất cả</option>
+            <option value="cho_thay">Chờ thay</option>
+            <option value="da_thay">Đã thay</option>
+          </select>
+          <select value={gdFilters.baoGia} onChange={(e) => setGdFilters({ ...gdFilters, baoGia: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none">
+            <option value="">Báo giá: Tất cả</option>
+            <option value="chua">Chưa báo giá</option>
+            <option value="co">Đã báo giá</option>
+          </select>
+          {gdFilterActive && <button onClick={() => setGdFilters({ maMay: "", trangThai: "", baoGia: "" })} className="text-xs text-red-600 hover:underline font-medium">Bỏ lọc</button>}
         </div>
         {loading ? (
           <p className="text-sm text-slate-400 text-center py-8">Đang tải...</p>
         ) : records.length === 0 ? (
           <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">Chưa có biên bản giám định nào.</div>
-        ) : records.map((r) => (
+        ) : filteredRecords.length === 0 ? (
+          <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">Không có biên bản khớp bộ lọc.</div>
+        ) : filteredRecords.map((r) => (
           <div key={r.id} className={`bg-white rounded-lg border p-4 space-y-2 ${r.da_thay ? 'border-slate-200 opacity-75' : 'border-amber-200'}`}>
             <div className="flex justify-between items-start gap-3 flex-wrap">
               <div>
                 <div className="font-medium text-slate-800">{r.soct_khach_hang?.ten_khach_hang || 'Không rõ khách hàng'}</div>
                 <div className="text-xs text-slate-500">Mã máy <span className="font-mono">{r.ma_may}</span> · {r.soct_khach_hang?.model || '-'} · GĐ {fmtDate(r.ngay_giam_dinh)}{r.ktv_giam_dinh ? ` · ${r.ktv_giam_dinh}` : ''}</div>
               </div>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${r.da_thay ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                {r.da_thay ? `Đã thay${r.so_report ? ` · ${r.so_report}` : ''}` : 'Chờ thay'}
-              </span>
+              <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${r.da_bao_gia ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                  {r.da_bao_gia ? 'Đã báo giá' : 'Chưa báo giá'}
+                </span>
+                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${r.da_thay ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                  {r.da_thay ? `Đã thay${r.so_report ? ` · ${r.so_report}` : ''}` : 'Chờ thay'}
+                </span>
+              </div>
             </div>
 
             {r.tinh_trang_may && <div className="text-xs text-slate-600">Tình trạng: {r.tinh_trang_may}{r.so_dem ? ` · Số đếm ${Number(r.so_dem).toLocaleString('vi-VN')}` : ''}</div>}
@@ -1952,6 +2006,7 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
               </div>
             ) : (
               <div className="flex justify-end gap-2 border-t border-slate-100 pt-2">
+                <Button variant="outline" onClick={() => toggleBaoGia(r)} className={`h-8 text-xs ${r.da_bao_gia ? 'text-slate-600' : 'border-blue-200 text-blue-700 hover:bg-blue-50'}`}>{r.da_bao_gia ? 'Bỏ đánh dấu báo giá' : 'Đánh dấu đã báo giá'}</Button>
                 {!r.da_thay && <Button variant="outline" onClick={() => setClosing({ id: r.id, so_report: r.so_report || "", ngay_thay: new Date().toISOString().split('T')[0] })} className="h-8 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50">Đóng (đã thay)</Button>}
                 <button onClick={() => handleDelete(r.id)} className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 hover:bg-red-100 rounded-md transition"><Trash2 className="w-4 h-4" /></button>
               </div>
@@ -2050,6 +2105,7 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
   const [saving, setSaving] = useState(false)
   const [receiving, setReceiving] = useState<{ ctId: string, ngay_nhan: string, so_luong_nhan: string } | null>(null)
   const [delId, setDelId] = useState<string | null>(null)
+  const [orderFilters, setOrderFilters] = useState({ maHang: "", conThieu: true, hvTu: "", hvDen: "" })
 
   const fetchOrders = async () => {
     setLoading(true)
@@ -2061,6 +2117,34 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
     finally { setLoading(false) }
   }
   useEffect(() => { fetchOrders() }, [])
+
+  // Sinh số đơn mặc định PO-YYMMDD-NNN theo ngày + số thứ tự trong ngày
+  const genSoDon = (ngay: string) => {
+    const d = new Date(ngay)
+    const p = `PO-${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-`
+    let max = 0
+    for (const o of orders) if (o.so_don_hang?.startsWith(p)) { const n = parseInt(o.so_don_hang.slice(p.length)) || 0; if (n > max) max = n }
+    return p + String(max + 1).padStart(3, '0')
+  }
+  // Điền số đơn tự động khi trống hoặc đang là mã tự sinh (giữ nguyên nếu người dùng gõ số khác)
+  useEffect(() => {
+    setForm(f => (!f.so_don_hang || /^PO-\d{6}-\d{3}$/.test(f.so_don_hang)) ? { ...f, so_don_hang: genSoDon(f.ngay_dat) } : f)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders, form.ngay_dat])
+
+  const filteredOrders = orders.filter(o => {
+    const of = orderFilters
+    if (of.conThieu && o.hoan_thanh) return false
+    if (of.maHang) {
+      const q = of.maHang.trim().toLowerCase()
+      if (!(o.soct_dat_hang_ct || []).some((l: any) => (l.ma_hang || '').toLowerCase().includes(q) || (l.soct_kho_hang?.ten_hang || '').toLowerCase().includes(q))) return false
+    }
+    if (of.hvTu || of.hvDen) {
+      const receipts = (o.soct_dat_hang_ct || []).flatMap((l: any) => l.soct_hang_ve_dot || [])
+      if (!receipts.some((h: any) => (!of.hvTu || h.ngay_nhan >= of.hvTu) && (!of.hvDen || h.ngay_nhan <= of.hvDen))) return false
+    }
+    return true
+  })
 
   const addLine = () => setLines(p => [...p, { ma_hang: "", sl_dat: "1" }])
   const updLine = (i: number, f: 'ma_hang' | 'sl_dat', v: string) => setLines(p => p.map((l, idx) => idx === i ? { ...l, [f]: v } : l))
@@ -2104,6 +2188,20 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
 
   const fmtDate = (s: string) => { if (!s) return ''; const d = new Date(s); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` }
   const daNhan = (line: any) => (line.soct_hang_ve_dot || []).reduce((s: number, h: any) => s + h.so_luong_nhan, 0)
+
+  const exportOrdersCsv = () => {
+    const headers = ['Ngày đặt', 'Nhà cung cấp', 'Số đơn', 'Trạng thái', 'Mã hàng', 'Tên hàng', 'SL đặt', 'Đã nhận', 'Còn thiếu']
+    const cell = (v: any) => { const s = v == null ? '' : String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s }
+    const rows: any[][] = []
+    for (const o of filteredOrders) for (const l of (o.soct_dat_hang_ct || [])) {
+      const nhan = daNhan(l)
+      rows.push([fmtDate(o.ngay_dat), o.nha_cung_cap, o.so_don_hang, o.da_dat ? 'Đã đặt' : 'Nháp', l.ma_hang, l.soct_kho_hang?.ten_hang, l.sl_dat, nhan, l.sl_dat - nhan])
+    }
+    const csv = [headers, ...rows].map(r => r.map(cell).join(',')).join('\r\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob); const a = document.createElement('a')
+    a.href = url; a.download = `dat-hang-${new Date().toISOString().split('T')[0]}.csv`; a.click(); URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="space-y-6">
@@ -2157,12 +2255,35 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
         </div>
       </div>
 
-      {/* DANH SÁCH ĐƠN */}
+      {/* DANH SÁCH ĐƠN + BỘ LỌC */}
       <div className="space-y-3">
-        <h3 className="text-sm font-bold text-slate-700 px-1">Danh sách đơn đặt hàng ({orders.length})</h3>
+        <div className="flex items-center justify-between gap-2 flex-wrap px-1">
+          <h3 className="text-sm font-bold text-slate-700">Danh sách đơn đặt hàng ({filteredOrders.length}/{orders.length})</h3>
+          <Button variant="outline" onClick={exportOrdersCsv} className="gap-2 h-9 text-xs"><Download className="w-4 h-4" /> Xuất CSV</Button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 px-1">
+          <div className="relative w-full sm:w-56">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input placeholder="Lọc theo mã hàng / tên..." className="pl-9 bg-white h-9" value={orderFilters.maHang} onChange={(e) => setOrderFilters({ ...orderFilters, maHang: e.target.value })} />
+          </div>
+          <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none h-9">
+            <input type="checkbox" checked={orderFilters.conThieu} onChange={(e) => setOrderFilters({ ...orderFilters, conThieu: e.target.checked })} className="w-4 h-4 accent-blue-600" />
+            Chỉ đơn còn thiếu
+          </label>
+          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+            <span>Hàng về</span>
+            <input type="date" value={orderFilters.hvTu} onChange={(e) => setOrderFilters({ ...orderFilters, hvTu: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none" />
+            <span>–</span>
+            <input type="date" value={orderFilters.hvDen} onChange={(e) => setOrderFilters({ ...orderFilters, hvDen: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none" />
+          </div>
+          {(orderFilters.maHang || !orderFilters.conThieu || orderFilters.hvTu || orderFilters.hvDen) && (
+            <button onClick={() => setOrderFilters({ maHang: "", conThieu: true, hvTu: "", hvDen: "" })} className="text-xs text-red-600 hover:underline font-medium">Bỏ lọc</button>
+          )}
+        </div>
         {loading ? <p className="text-sm text-slate-400 text-center py-8">Đang tải...</p>
           : orders.length === 0 ? <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">Chưa có đơn đặt hàng nào.</div>
-          : orders.map(o => (
+          : filteredOrders.length === 0 ? <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">Không có đơn khớp bộ lọc.</div>
+          : filteredOrders.map(o => (
             <div key={o.id} className={`bg-white rounded-lg border p-4 space-y-3 ${o.hoan_thanh ? 'border-slate-200 opacity-80' : 'border-slate-200'}`}>
               <div className="flex justify-between items-start gap-3 flex-wrap">
                 <div>
