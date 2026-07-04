@@ -2722,7 +2722,9 @@ function BaoCaoThangTool({ showNotification }: { showNotification: (type: 'succe
       else { const j = await res.json(); showNotification('error', j.error) }
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setDsoSaving(false) }
   }
-  const editDso = (r: any) => setDsoForm({ thang: r.thang_nam, thuc_te: String(r.thuc_te ?? ''), ke_hoach: String(r.ke_hoach ?? '') })
+  const editDso = (r: any) => setDsoForm({ thang: r.thang_nam, thuc_te: String(Math.round(Number(r.thuc_te) || 0)), ke_hoach: String(Math.round(Number(r.ke_hoach) || 0)) })
+  const fmtVnd = (s: string) => s ? Number(s).toLocaleString('vi-VN') : ''
+  const onlyDigits = (s: string) => s.replace(/[^\d]/g, '')
   const delDso = async (tn: string) => {
     const res = await fetch(`/api/admin/doanh-so?thang_nam=${tn}`, { method: 'DELETE' })
     if (res.ok) { fetchDso(nam); loadPreview(thang) } else showNotification('error', 'Xóa không thành công')
@@ -2832,11 +2834,11 @@ function BaoCaoThangTool({ showNotification }: { showNotification: (type: 'succe
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Thực tế</label>
-                <Input className="bg-white w-44" inputMode="numeric" value={dsoForm.thuc_te} onChange={(e) => setDsoForm({ ...dsoForm, thuc_te: e.target.value })} placeholder="VD: 150000000" />
+                <Input className="bg-white w-44 text-right" inputMode="numeric" value={fmtVnd(dsoForm.thuc_te)} onChange={(e) => setDsoForm({ ...dsoForm, thuc_te: onlyDigits(e.target.value) })} placeholder="VD: 150.000.000" />
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Kế hoạch</label>
-                <Input className="bg-white w-44" inputMode="numeric" value={dsoForm.ke_hoach} onChange={(e) => setDsoForm({ ...dsoForm, ke_hoach: e.target.value })} placeholder="VD: 200000000" />
+                <Input className="bg-white w-44 text-right" inputMode="numeric" value={fmtVnd(dsoForm.ke_hoach)} onChange={(e) => setDsoForm({ ...dsoForm, ke_hoach: onlyDigits(e.target.value) })} placeholder="VD: 200.000.000" />
               </div>
               <Button onClick={saveDso} disabled={dsoSaving} className="h-9">{dsoSaving ? 'Đang lưu...' : 'Lưu tháng'}</Button>
             </div>
