@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { createPortal } from "react-dom"
-import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power } from "lucide-react"
+import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download } from "lucide-react"
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -86,6 +86,11 @@ export default function AdminDashboard() {
   // Tab con bên trong "Kho hàng"
   const [khoTab, setKhoTab] = useState<"ton_kho" | "dat_hang" | "thong_ke">("ton_kho")
   const [hdbtOpen, setHdbtOpen] = useState(false)
+  // Bộ lọc Sổ công tác (mặc định: việc hôm nay)
+  const [jobFilters, setJobFilters] = useState<{ search: string, tuNgay: string, denNgay: string, loaiViec: string[], ktvId: string, hoaDon: string, trangThai: string[] }>(() => {
+    const t = new Date().toISOString().split('T')[0]
+    return { search: "", tuNgay: t, denNgay: t, loaiViec: [], ktvId: "", hoaDon: "", trangThai: [] }
+  })
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -426,6 +431,54 @@ export default function AdminDashboard() {
     return `${day}/${month}/${year}`;
   }
 
+  // Tổng tiền + trạng thái hóa đơn của một việc (tính từ dòng vật tư)
+  const jobTien = (job: any) => {
+    const vt = job.soct_chi_tiet_vat_tu || []
+    const tong = vt.reduce((s: number, v: any) => s + (Number(v.thanh_tien) || 0) + (v.hoa_don ? (Number(v.thanh_tien) || 0) * (Number(v.vat) || 0) / 100 : 0), 0)
+    return { tong: Math.round(tong), coHD: vt.some((v: any) => v.hoa_don) }
+  }
+
+  // Sổ công tác sau khi áp bộ lọc (kết hợp AND giữa các nhóm)
+  const filteredJobs = jobs.filter(j => {
+    const f = jobFilters
+    if (f.search) {
+      const q = f.search.trim().toLowerCase()
+      const hay = `${j.soct_khach_hang?.ten_khach_hang || ''} ${j.soct_khach_hang?.dia_chi || ''} ${j.ma_may || ''}`.toLowerCase()
+      if (!hay.includes(q)) return false
+    }
+    if (f.tuNgay && j.ngay < f.tuNgay) return false
+    if (f.denNgay && j.ngay > f.denNgay) return false
+    if (f.loaiViec.length && !f.loaiViec.includes(j.loai_cong_viec)) return false
+    if (f.ktvId === 'none' && (j as any).ktv_id) return false
+    if (f.ktvId && f.ktvId !== 'none' && (j as any).ktv_id !== f.ktvId) return false
+    if (f.hoaDon) {
+      const { tong, coHD } = jobTien(j)
+      if (f.hoaDon === 'co' && !coHD) return false
+      if (f.hoaDon === 'chua' && (coHD || tong <= 0)) return false
+      if (f.hoaDon === 'co_tien' && tong <= 0) return false
+    }
+    if (f.trangThai.length && !f.trangThai.includes(j.ket_qua)) return false
+    return true
+  })
+
+  const clearJobFilters = () => setJobFilters({ search: "", tuNgay: "", denNgay: "", loaiViec: [], ktvId: "", hoaDon: "", trangThai: [] })
+  const jobFilterActive = !!(jobFilters.search || jobFilters.tuNgay || jobFilters.denNgay || jobFilters.loaiViec.length || jobFilters.ktvId || jobFilters.hoaDon || jobFilters.trangThai.length)
+
+  const exportJobsCsv = () => {
+    const headers = ['Ngày', 'Khách hàng', 'Địa chỉ', 'Mã máy', 'Loại việc', 'KTV', 'KM', 'Số phiếu', 'Tiền', 'Hóa đơn', 'Trạng thái']
+    const cell = (v: any) => { const s = v == null ? '' : String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s }
+    const rows = filteredJobs.map(j => {
+      const { tong, coHD } = jobTien(j)
+      return [formatDate(j.ngay), j.soct_khach_hang?.ten_khach_hang, j.soct_khach_hang?.dia_chi, j.ma_may, j.loai_cong_viec, j.soct_users?.full_name || 'Chưa giao', j.km, j.report, tong, coHD ? 'Có HĐ' : 'Chưa HĐ', j.ket_qua]
+    })
+    const csv = [headers, ...rows].map(r => r.map(cell).join(',')).join('\r\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `so-cong-tac-${new Date().toISOString().split('T')[0]}.csv`
+    a.click(); URL.revokeObjectURL(url)
+  }
+
   const handleExecuteDelete = async () => {
     const { id, type } = confirmDialog
     if (!id) return
@@ -602,16 +655,42 @@ export default function AdminDashboard() {
 
         {activeTab === "cong_viec" && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            {/* Toolbar */}
-            <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/50">
-              <div className="relative w-full sm:w-72">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input placeholder="Tìm mã máy, tên khách hàng..." className="pl-9 bg-white" />
+            {/* Toolbar + Bộ lọc */}
+            <div className="p-4 border-b border-slate-200 space-y-3 bg-slate-50/50">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div className="relative w-full sm:w-72">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input placeholder="Tìm mã máy, tên khách hàng..." className="pl-9 bg-white" value={jobFilters.search} onChange={(e) => setJobFilters({ ...jobFilters, search: e.target.value })} />
+                </div>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <Button variant="outline" onClick={exportJobsCsv} className="gap-2"><Download className="w-4 h-4" /> Xuất CSV</Button>
+                  <Button onClick={() => setIsModalOpen(true)} className="gap-2"><Plus className="w-4 h-4" /> Giao việc mới</Button>
+                </div>
               </div>
-              {/* Tất cả role văn phòng (admin, tech_admin, staff) đều được giao việc cho KTV */}
-              <Button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto gap-2">
-                <Plus className="w-4 h-4" /> Giao việc mới
-              </Button>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <span>Ngày</span>
+                  <input type="date" value={jobFilters.tuNgay} onChange={(e) => setJobFilters({ ...jobFilters, tuNgay: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500" />
+                  <span>–</span>
+                  <input type="date" value={jobFilters.denNgay} onChange={(e) => setJobFilters({ ...jobFilters, denNgay: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <MultiCheckDropdown label="Loại việc" options={dmOptions('loai_cong_viec', ['Lắp máy','Sửa máy','Giao mực','Thay vật tư','Bảo trì','Bảo hành','Hỗ trợ thầu','Hỗ trợ đại lý','Khiếu nại','Kiểm tra','Khác'])} selected={jobFilters.loaiViec} onChange={(v) => setJobFilters({ ...jobFilters, loaiViec: v })} />
+                <select value={jobFilters.ktvId} onChange={(e) => setJobFilters({ ...jobFilters, ktvId: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">KTV: Tất cả</option>
+                  <option value="none">Chưa giao</option>
+                  {technicians.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
+                </select>
+                <select value={jobFilters.hoaDon} onChange={(e) => setJobFilters({ ...jobFilters, hoaDon: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">HĐ: Tất cả</option>
+                  <option value="co">Có hóa đơn</option>
+                  <option value="chua">Chưa hóa đơn</option>
+                  <option value="co_tien">Có phát sinh tiền</option>
+                </select>
+                <MultiCheckDropdown label="Trạng thái" options={['Chờ nhận', 'Đang làm', 'Hoàn thành', 'Lắp tiếp']} selected={jobFilters.trangThai} onChange={(v) => setJobFilters({ ...jobFilters, trangThai: v })} />
+                {jobFilterActive && <button onClick={clearJobFilters} className="text-xs text-red-600 hover:underline font-medium px-1">Bỏ lọc</button>}
+                <span className="text-xs text-slate-500 ml-auto whitespace-nowrap">{filteredJobs.length} / {jobs.length} việc</span>
+              </div>
             </div>
 
             {/* Table */}
@@ -633,10 +712,10 @@ export default function AdminDashboard() {
                 <tbody className="divide-y divide-slate-200">
                   {loading ? (
                     <tr><td colSpan={currentUserRole === 'staff' ? 8 : 9} className="text-center py-8 text-slate-400">Đang tải dữ liệu...</td></tr>
-                  ) : jobs.length === 0 ? (
-                    <tr><td colSpan={currentUserRole === 'staff' ? 8 : 9} className="text-center py-8 text-slate-400">Chưa có công việc nào</td></tr>
+                  ) : filteredJobs.length === 0 ? (
+                    <tr><td colSpan={currentUserRole === 'staff' ? 8 : 9} className="text-center py-8 text-slate-400">{jobs.length === 0 ? 'Chưa có công việc nào' : 'Không có việc khớp bộ lọc'}{jobs.length > 0 && jobFilterActive && <button onClick={clearJobFilters} className="text-blue-600 hover:underline ml-1">— Bỏ lọc</button>}</td></tr>
                   ) : (
-                    jobs.map((job) => (
+                    filteredJobs.map((job) => (
                       <tr key={job.id} className="hover:bg-slate-50/80 transition">
                         <td className="px-4 py-3 whitespace-nowrap">{formatDate(job.ngay)}</td>
                         <td className="px-4 py-3">
@@ -1184,6 +1263,34 @@ export default function AdminDashboard() {
 interface BulkImportToolProps {
   onImportSuccess: () => void
   showNotification: (type: 'success' | 'error', msg: string) => void
+}
+
+// Dropdown chọn nhiều (checkbox) — dùng chung cho các bộ lọc
+function MultiCheckDropdown({ label, options, selected, onChange }: { label: string, options: string[], selected: string[], onChange: (vals: string[]) => void }) {
+  const [open, setOpen] = useState(false)
+  const toggle = (v: string) => onChange(selected.includes(v) ? selected.filter(x => x !== v) : [...selected, v])
+  return (
+    <div className="relative shrink-0">
+      <button type="button" onClick={() => setOpen(o => !o)} className={`h-9 px-3 rounded-md border text-sm bg-white flex items-center gap-1.5 hover:border-slate-300 ${selected.length > 0 ? 'border-blue-300' : 'border-slate-200'}`}>
+        <span>{label}</span>
+        {selected.length > 0 && <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-1.5 rounded-full">{selected.length}</span>}
+        <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div className="absolute z-40 mt-1 min-w-[11rem] max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg py-1">
+            {options.map(o => (
+              <label key={o} className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50 cursor-pointer text-sm text-slate-700">
+                <input type="checkbox" checked={selected.includes(o)} onChange={() => toggle(o)} className="w-4 h-4 accent-blue-600" />
+                {o}
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
 }
 
 function InventoryManagementTool({ inventory, onUpdateSuccess, showNotification, confirmDelete }: { inventory: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, confirmDelete: (id: string, type: 'job' | 'user' | 'inventory') => void }) {
