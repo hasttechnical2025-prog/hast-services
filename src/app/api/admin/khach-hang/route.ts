@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { ten_khach_hang, dia_chi, ma_may, model } = body
+    const { ten_khach_hang, dia_chi, ma_may, model, hang } = body
 
     if (!ten_khach_hang || !dia_chi) {
       return NextResponse.json({ error: 'Thiếu tên khách hàng hoặc địa chỉ' }, { status: 400 })
@@ -72,7 +72,8 @@ export async function POST(request: Request) {
         lng,
         km_mac_dinh,
         ma_may: ma_may || null,
-        model: model || null
+        model: model || null,
+        hang: hang || null
       })
       .select()
       .single()
@@ -100,7 +101,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Thiếu ID khách hàng' }, { status: 400 })
     }
 
-    const allowed = ['ten_khach_hang', 'ma_may', 'dia_chi', 'model', 'km_mac_dinh', 'loai_hd', 'ngay_het_han_hdbt']
+    const allowed = ['ten_khach_hang', 'ma_may', 'dia_chi', 'model', 'hang', 'km_mac_dinh', 'loai_hd', 'ngay_het_han_hdbt']
     const updates: any = {}
     for (const k of allowed) {
       if (body[k] === undefined) continue

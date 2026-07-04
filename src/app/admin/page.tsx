@@ -80,7 +80,7 @@ export default function AdminDashboard() {
 
   const [activeTab, setActiveTab] = useState("cong_viec")
   // Tab con bên trong "Hệ thống" (dễ mở rộng thêm sau)
-  const [systemTab, setSystemTab] = useState<"cai_dat" | "tai_khoan" | "khach_hang" | "danh_muc">("tai_khoan")
+  const [systemTab, setSystemTab] = useState<"cai_dat" | "tai_khoan" | "khach_hang" | "danh_muc" | "bao_cao">("tai_khoan")
   // Tab con bên trong "Theo dõi máy"
   const [monitorTab, setMonitorTab] = useState<"bao_tri" | "giam_dinh">("bao_tri")
   // Tab con bên trong "Kho hàng" (tech_admin không thấy Tồn kho -> mặc định Đặt hàng)
@@ -158,6 +158,7 @@ export default function AdminDashboard() {
     id_khach_hang: "",
     loai_cong_viec: "Kiểm tra",
     km: 0,
+    so_luong: 1,
     ktv_id: "",
     report: "",
     ghi_chu: "",
@@ -177,6 +178,7 @@ export default function AdminDashboard() {
       id_khach_hang: "",
       loai_cong_viec: "Kiểm tra",
       km: 0,
+      so_luong: 1,
       ktv_id: "",
       report: "",
       ghi_chu: "",
@@ -913,6 +915,12 @@ export default function AdminDashboard() {
                 >
                   Danh mục
                 </button>
+                <button
+                  onClick={() => setSystemTab("bao_cao")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'bao_cao' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Báo cáo tháng
+                </button>
               </div>
             </div>
 
@@ -937,7 +945,7 @@ export default function AdminDashboard() {
                   <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
                     <h3 className="text-lg font-semibold text-slate-700 mb-2">Danh sách Khách hàng (Điểm máy)</h3>
                     <p className="text-sm text-slate-500 mb-4">Toàn bộ khách hàng / điểm máy hiện có trong hệ thống.</p>
-                    <CustomerListTool customers={customers} loaiHdOptions={dmOptions('loai_hd', ['HĐBT','MF'])} hdbtCanhBaoThang={hdbtCanhBaoThang} onUpdateSuccess={fetchData} showNotification={showNotification} />
+                    <CustomerListTool customers={customers} loaiHdOptions={dmOptions('loai_hd', ['HĐBT','MF'])} hangOptions={dmOptions('hang', ['Konica','Fuji','Khác'])} hdbtCanhBaoThang={hdbtCanhBaoThang} onUpdateSuccess={fetchData} showNotification={showNotification} />
                   </div>
 
                   <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
@@ -957,6 +965,11 @@ export default function AdminDashboard() {
               {/* TAB CON: DANH MỤC */}
               {systemTab === "danh_muc" && (
                 <DanhMucTool danhMuc={danhMuc} onUpdateSuccess={fetchData} showNotification={showNotification} />
+              )}
+
+              {/* TAB CON: BÁO CÁO THÁNG */}
+              {systemTab === "bao_cao" && (
+                <BaoCaoThangTool showNotification={showNotification} />
               )}
             </div>
           </div>
@@ -1184,6 +1197,18 @@ export default function AdminDashboard() {
                   {formData.id_khach_hang && customers.find(c => c.id === formData.id_khach_hang)?.km_mac_dinh === null && (
                     <span className="text-xs text-amber-600 italic mt-1 block">Hệ thống sẽ tự tính tọa độ & KM khi lưu</span>
                   )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Số lượng</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    className="bg-white"
+                    value={formData.so_luong}
+                    onChange={(e) => setFormData({ ...formData, so_luong: parseInt(e.target.value) || 1 })}
+                  />
+                  <span className="text-xs text-slate-400">VD: 1 phiếu lắp 2 máy → nhập 2 (dùng cho báo cáo tháng)</span>
                 </div>
               </div>
 
@@ -2644,12 +2669,178 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
   )
 }
 
+const BC_CAT_LABELS: [string, string][] = [
+  ['LAP_MAY', 'Lắp máy'], ['SUA_MAY', 'Sửa máy'], ['GIAO_MUC', 'Giao mực'], ['THAY_VAT_TU', 'Thay vật tư'],
+  ['BAO_TRI', 'Bảo trì'], ['CSKH', 'CSKH (đến tận nơi)'], ['HO_TRO_THAU', 'Hỗ trợ thầu'],
+  ['HO_TRO_DAI_LY', 'Hỗ trợ đại lý'], ['KHAC', 'Khác'],
+]
+const BC_M2_ROWS: [string, string][] = [
+  ['HDBT_SUM', 'Số máy có HĐBT'], ['ALL_RP_SUM', 'Máy phát sinh DV trong tháng'],
+  ['LAP_MAY_SUM', 'Máy lắp trong tháng'], ['MAY_THUE_CPC_SUM', 'Máy thuê / CPC'], ['TONG_MAY', 'Tổng số máy dịch vụ'],
+]
+
+function BaoCaoThangTool({ showNotification }: { showNotification: (type: 'success' | 'error', msg: string) => void }) {
+  const now = new Date()
+  const [thang, setThang] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
+  const [preview, setPreview] = useState<Record<string, any> | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [manual, setManual] = useState({
+    DSO_MAY_THUE_CPC: '0', DSO_LUY_KE: '', TY_LE: '0',
+    TN6_1: '', TN6_2: '', TN6_3: '', TN7_1: '', TN7_2: '', TN7_3: '', TN7_4: '', KIEN_NGHI: '',
+  })
+  const setM = (k: string, v: string) => setManual(m => ({ ...m, [k]: v }))
+
+  const loadPreview = async (t: string) => {
+    setLoading(true); setPreview(null)
+    try {
+      const res = await fetch(`/api/admin/bao-cao?thang=${t}`)
+      const json = await res.json()
+      if (res.ok) { setPreview(json.data); setManual(m => ({ ...m, DSO_LUY_KE: json.data.dso_luy_ke_goi_y || '' })) }
+      else showNotification('error', json.error)
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setLoading(false) }
+  }
+  useEffect(() => { loadPreview(thang) }, [thang]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const exportDocx = async () => {
+    setExporting(true)
+    try {
+      const res = await fetch('/api/admin/bao-cao', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ thang, manual }),
+      })
+      if (!res.ok) { const j = await res.json().catch(() => ({})); showNotification('error', j.error || 'Xuất thất bại'); return }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob); const a = document.createElement('a')
+      const [y, m] = thang.split('-'); a.href = url; a.download = `Bao-cao-thang-${m}-${y}.docx`; a.click(); URL.revokeObjectURL(url)
+      showNotification('success', 'Đã xuất báo cáo .docx — mở file để in & nộp.')
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setExporting(false) }
+  }
+
+  const manualInput = (k: keyof typeof manual, label: string, hint?: string) => (
+    <div className="space-y-1">
+      <label className="text-xs font-semibold text-slate-600">{label}</label>
+      <Input value={manual[k]} onChange={(e) => setM(k, e.target.value)} className="bg-white" placeholder={hint} />
+    </div>
+  )
+
+  return (
+    <div className="space-y-6">
+      {/* Chọn tháng + xuất */}
+      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-slate-600">Tháng báo cáo</label>
+          <input type="month" value={thang} onChange={(e) => setThang(e.target.value)} className="h-10 px-3 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500 block" />
+          <p className="text-xs text-slate-400 max-w-md">Số liệu Mục 1–5 tự tính theo tháng. Mục 3 (máy thuê/CPC, tỉ lệ, lũy kế) và Mục 6–8 nhập tay bên dưới. Báo cáo chỉ để in & nộp, không lưu.</p>
+        </div>
+        <Button onClick={exportDocx} disabled={exporting || loading || !preview} className="gap-2 h-10 shrink-0">
+          <Download className="w-4 h-4" /> {exporting ? 'Đang xuất...' : 'Xuất báo cáo (.docx)'}
+        </Button>
+      </div>
+
+      {loading && <p className="text-sm text-slate-400 text-center py-6">Đang tính số liệu tháng...</p>}
+
+      {preview && (
+        <>
+          {/* MỤC 1 */}
+          <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+            <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200"><h4 className="text-sm font-bold text-slate-700">1. Dịch vụ kỹ thuật</h4></div>
+            <table className="w-full text-sm text-slate-600">
+              <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
+                <tr><th className="px-4 py-2 text-left">Công việc</th><th className="px-4 py-2 text-center">Số vụ việc</th><th className="px-4 py-2 text-center">Số lượng</th></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {BC_CAT_LABELS.map(([k, l]) => (
+                  <tr key={k}><td className="px-4 py-2">{l}</td><td className="px-4 py-2 text-center">{preview[`${k}_CNT`] ?? 0}</td><td className="px-4 py-2 text-center">{preview[`${k}_SUM`] ?? 0}</td></tr>
+                ))}
+                <tr className="font-bold bg-slate-50"><td className="px-4 py-2">TỔNG CỘNG</td><td className="px-4 py-2 text-center">{preview.VU_VIEC_SUM}</td><td className="px-4 py-2 text-center">{preview.SO_LUONG_SUM}</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* MỤC 2 */}
+          <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+            <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200"><h4 className="text-sm font-bold text-slate-700">2. Dịch vụ (theo hãng)</h4></div>
+            <table className="w-full text-sm text-slate-600">
+              <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
+                <tr><th className="px-4 py-2 text-left">Danh mục</th><th className="px-4 py-2 text-center">Konica</th><th className="px-4 py-2 text-center">Fuji</th><th className="px-4 py-2 text-center">Khác</th></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {BC_M2_ROWS.map(([k, l]) => (
+                  <tr key={k} className={k === 'TONG_MAY' ? 'font-bold bg-slate-50' : ''}>
+                    <td className="px-4 py-2">{l}</td>
+                    <td className="px-4 py-2 text-center">{preview[`KONICA_${k}`] ?? 0}</td>
+                    <td className="px-4 py-2 text-center">{preview[`FUJI_${k}`] ?? 0}</td>
+                    <td className="px-4 py-2 text-center">{preview[`KHAC_${k}`] ?? 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* MỤC 3 */}
+          <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+            <h4 className="text-sm font-bold text-slate-700">3. Doanh số</h4>
+            <div className="text-sm text-slate-600">Doanh số Mực, Vật tư (tự tính): <b className="text-slate-800">{preview.DSO_MUC_VAT_TU} đ</b></div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {manualInput('DSO_MAY_THUE_CPC', 'Doanh số máy thuê / CPC', '0')}
+              {manualInput('DSO_LUY_KE', 'Doanh số lũy kế (từ 01/01)', 'gợi ý theo vật tư')}
+              {manualInput('TY_LE', 'Tỉ lệ (%)', '0')}
+            </div>
+          </div>
+
+          {/* MỤC 4 & 5 (xem trước danh sách) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {([['4. Khiếu nại', 'khieu_nai'], ['5. Bảo hành vật tư', 'bao_hanh']] as const).map(([title, key]) => (
+              <div key={key} className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+                <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200"><h4 className="text-sm font-bold text-slate-700">{title}</h4></div>
+                {(preview[key] || []).length === 0 ? (
+                  <p className="text-xs text-slate-400 px-4 py-3">Không phát sinh trong tháng.</p>
+                ) : (
+                  <table className="w-full text-xs text-slate-600">
+                    <thead className="bg-slate-50 text-slate-500 uppercase tracking-wide border-b border-slate-200"><tr><th className="px-3 py-2 text-left">Khách hàng</th><th className="px-3 py-2 text-left">Nội dung</th><th className="px-3 py-2 text-left">Kết quả</th></tr></thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(preview[key] || []).map((r: any, i: number) => (
+                        <tr key={i}><td className="px-3 py-1.5">{r.khach}</td><td className="px-3 py-1.5">{r.noi_dung}</td><td className="px-3 py-1.5">{r.ket_qua}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* MỤC 6 & 7 & 8 (nhập tay) */}
+          <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+            <h4 className="text-sm font-bold text-slate-700">6. Tòa nhà 5 Nguyễn Ngọc Vũ <span className="font-normal text-slate-400">(để trống = &quot;Hoạt động ổn định&quot;)</span></h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {manualInput('TN6_1', 'Thang máy', 'Hoạt động ổn định')}
+              {manualInput('TN6_2', 'Điều hòa', 'Hoạt động ổn định')}
+              {manualInput('TN6_3', 'Hạng mục khác', 'Hoạt động ổn định')}
+            </div>
+            <h4 className="text-sm font-bold text-slate-700 pt-2">7. Công việc khác</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {manualInput('TN7_1', 'Hệ thống mạng nội bộ, internet', 'Hoạt động ổn định')}
+              {manualInput('TN7_2', 'Email Server và Web Server', 'Hoạt động ổn định')}
+              {manualInput('TN7_3', 'Tổng đài nội bộ', 'Hoạt động ổn định')}
+              {manualInput('TN7_4', 'PM Kế toán FAST và DVKT', 'Hoạt động ổn định')}
+            </div>
+            <h4 className="text-sm font-bold text-slate-700 pt-2">8. Kiến nghị / Đóng góp</h4>
+            <textarea value={manual.KIEN_NGHI} onChange={(e) => setM('KIEN_NGHI', e.target.value)} rows={3} className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhập kiến nghị (để trống nếu không có)..." />
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 const DANH_MUC_NHOMS = [
   { key: 'loai_cong_viec', label: 'Loại công việc' },
   { key: 'loai_hd', label: 'Loại hợp đồng' },
   { key: 'ktv_giam_dinh', label: 'KTV giám định' },
   { key: 'tinh_trang_may', label: 'Tình trạng máy' },
   { key: 'nha_cung_cap', label: 'Nhà cung cấp' },
+  { key: 'hang', label: 'Hãng máy' },
 ]
 
 function DanhMucTool({ danhMuc, onUpdateSuccess, showNotification }: { danhMuc: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
@@ -2939,7 +3130,7 @@ function hdbtStatus(dateStr: string | null) {
   return { label, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', note: 'Còn hạn' }
 }
 
-function CustomerListTool({ customers, loaiHdOptions, hdbtCanhBaoThang, onUpdateSuccess, showNotification }: { customers: any[], loaiHdOptions: string[], hdbtCanhBaoThang: number, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoThang, onUpdateSuccess, showNotification }: { customers: any[], loaiHdOptions: string[], hangOptions: string[], hdbtCanhBaoThang: number, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [search, setSearch] = useState("")
   const [hdFilter, setHdFilter] = useState("all")
   const [filterOpen, setFilterOpen] = useState(false)
@@ -2993,6 +3184,7 @@ function CustomerListTool({ customers, loaiHdOptions, hdbtCanhBaoThang, onUpdate
           ma_may: editing.ma_may,
           dia_chi: editing.dia_chi,
           model: editing.model,
+          hang: editing.hang,
           km_mac_dinh: editing.km_mac_dinh,
           loai_hd: editing.loai_hd,
           ngay_het_han_hdbt: editing.ngay_het_han_hdbt,
@@ -3136,6 +3328,13 @@ function CustomerListTool({ customers, loaiHdOptions, hdbtCanhBaoThang, onUpdate
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Model</label>
                 <Input value={editing.model || ""} onChange={(e) => setEditing({ ...editing, model: e.target.value })} className="bg-white" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Hãng máy</label>
+                <select className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" value={editing.hang || ""} onChange={(e) => setEditing({ ...editing, hang: e.target.value })}>
+                  <option value="">— Không —</option>
+                  {hangOptions.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
               </div>
               <div className="space-y-1 sm:col-span-2">
                 <label className="text-xs font-semibold text-slate-600">Địa chỉ</label>
