@@ -2120,7 +2120,7 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
   const [saving, setSaving] = useState(false)
   const [receiving, setReceiving] = useState<{ ctId: string, ngay_nhan: string, so_luong_nhan: string } | null>(null)
   const [delId, setDelId] = useState<string | null>(null)
-  const [orderFilters, setOrderFilters] = useState({ maHang: "", conThieu: true, hvTu: "", hvDen: "" })
+  const [orderFilters, setOrderFilters] = useState({ maHang: "", ncc: "", conThieu: true, hvTu: "", hvDen: "" })
 
   const fetchOrders = async () => {
     setLoading(true)
@@ -2150,6 +2150,7 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
   const filteredOrders = orders.filter(o => {
     const of = orderFilters
     if (of.conThieu && o.hoan_thanh) return false
+    if (of.ncc && o.nha_cung_cap !== of.ncc) return false
     if (of.maHang) {
       const q = of.maHang.trim().toLowerCase()
       if (!(o.soct_dat_hang_ct || []).some((l: any) => (l.ma_hang || '').toLowerCase().includes(q) || (l.soct_kho_hang?.ten_hang || '').toLowerCase().includes(q))) return false
@@ -2281,6 +2282,10 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input placeholder="Lọc theo mã hàng / tên..." className="pl-9 bg-white h-9" value={orderFilters.maHang} onChange={(e) => setOrderFilters({ ...orderFilters, maHang: e.target.value })} />
           </div>
+          <select value={orderFilters.ncc} onChange={(e) => setOrderFilters({ ...orderFilters, ncc: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none">
+            <option value="">NCC: Tất cả</option>
+            {nhaCungCapOptions.map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
           <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none h-9">
             <input type="checkbox" checked={orderFilters.conThieu} onChange={(e) => setOrderFilters({ ...orderFilters, conThieu: e.target.checked })} className="w-4 h-4 accent-blue-600" />
             Chỉ đơn còn thiếu
@@ -2291,8 +2296,8 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
             <span>–</span>
             <DateField value={orderFilters.hvDen} onChange={(v) => setOrderFilters({ ...orderFilters, hvDen: v })} heightClass="h-9" className="w-32" />
           </div>
-          {(orderFilters.maHang || !orderFilters.conThieu || orderFilters.hvTu || orderFilters.hvDen) && (
-            <button onClick={() => setOrderFilters({ maHang: "", conThieu: true, hvTu: "", hvDen: "" })} className="text-xs text-red-600 hover:underline font-medium">Bỏ lọc</button>
+          {(orderFilters.maHang || orderFilters.ncc || !orderFilters.conThieu || orderFilters.hvTu || orderFilters.hvDen) && (
+            <button onClick={() => setOrderFilters({ maHang: "", ncc: "", conThieu: true, hvTu: "", hvDen: "" })} className="text-xs text-red-600 hover:underline font-medium">Bỏ lọc</button>
           )}
         </div>
         {loading ? <p className="text-sm text-slate-400 text-center py-8">Đang tải...</p>
