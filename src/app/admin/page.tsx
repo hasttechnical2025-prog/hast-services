@@ -86,6 +86,31 @@ export default function AdminDashboard() {
   // Tab con bên trong "Kho hàng" (tech_admin không thấy Tồn kho -> mặc định Đặt hàng)
   const [khoTab, setKhoTab] = useState<"ton_kho" | "dat_hang" | "thong_ke">("ton_kho")
   const effectiveKhoTab = (currentUserRole !== 'admin' && khoTab === 'ton_kho') ? 'dat_hang' : khoTab
+  const [cauHinh, setCauHinh] = useState<Record<string, string>>({})
+
+  // Ẩn/hiện tab theo role (admin luôn thấy hết; Hệ thống khóa admin-only)
+  const DEFAULT_TAB_VIS: Record<string, Record<string, boolean>> = {
+    tech_admin: { kho_hang: true, theo_doi_may: true },
+    staff: { kho_hang: false, theo_doi_may: true },
+  }
+  const tabVisCfg: Record<string, Record<string, boolean>> = (() => { try { return JSON.parse(cauHinh.tab_visibility || '{}') } catch { return {} } })()
+  const tabVisible = (tab: string) => {
+    if (currentUserRole === 'admin') return true
+    if (tab === 'cong_viec') return true
+    if (tab === 'he_thong') return false
+    const roleCfg = { ...(DEFAULT_TAB_VIS[currentUserRole] || {}), ...(tabVisCfg[currentUserRole] || {}) }
+    return !!roleCfg[tab]
+  }
+  const repeatNgay = parseInt(cauHinh.repeat_ngay || '30') || 30
+  const nguongTonThap = parseInt(cauHinh.nguong_ton_thap || '0') || 0
+
+  // Nếu cấu hình tắt "mặc định hôm nay" -> bỏ lọc ngày mặc định (chạy một lần sau khi tải cấu hình)
+  const jobFilterInitRef = useRef(false)
+  useEffect(() => {
+    if (jobFilterInitRef.current || Object.keys(cauHinh).length === 0) return
+    jobFilterInitRef.current = true
+    if (cauHinh.mac_dinh_hom_nay === '0') setJobFilters(f => ({ ...f, tuNgay: '', denNgay: '' }))
+  }, [cauHinh])
   const [hdbtOpen, setHdbtOpen] = useState(false)
   // Bộ lọc Sổ công tác (mặc định: việc hôm nay)
   const [jobFilters, setJobFilters] = useState<{ search: string, tuNgay: string, denNgay: string, loaiViec: string[], ktvId: string, hoaDon: string, trangThai: string[] }>(() => {
@@ -101,7 +126,6 @@ export default function AdminDashboard() {
   const [technicians, setTechnicians] = useState<any[]>([])
   const [inventory, setInventory] = useState<any[]>([]) // Thêm state inventory
   const [danhMuc, setDanhMuc] = useState<{ id: string, nhom: string, gia_tri: string, thu_tu: number, active: boolean }[]>([])
-  const [cauHinh, setCauHinh] = useState<Record<string, string>>({})
   // Trạng thái máy cho phù hiệu trong form giao việc
   const [mayStatus, setMayStatus] = useState<{ bao_tri_thang: boolean, thang_nam: string, giam_dinh: any[] } | null>(null)
   const [dongGiamDinh, setDongGiamDinh] = useState(false)
@@ -575,7 +599,7 @@ export default function AdminDashboard() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="Logo" className="h-11 w-auto object-contain rounded-lg" />
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">Admin Dashboard</h1>
+              <h1 className="text-2xl font-bold text-slate-800">{cauHinh.app_ten || 'Admin Dashboard'}</h1>
               <p className="text-xs text-slate-400">Tài khoản: <span className="font-bold text-slate-700">{currentAdmin?.full_name}</span> (<span className="font-semibold text-slate-500 uppercase">{currentUserRole}</span>)</p>
             </div>
           </div>
@@ -588,7 +612,7 @@ export default function AdminDashboard() {
                 Sổ công tác
               </button>
 
-              {currentUserRole !== 'staff' && (
+              {tabVisible('kho_hang') && (
                 <button
                   onClick={() => setActiveTab("kho_hang")}
                   className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'kho_hang' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
@@ -597,13 +621,14 @@ export default function AdminDashboard() {
                 </button>
               )}
 
-              {/* Theo dõi máy: mọi role văn phòng (admin, tech_admin, staff) */}
-              <button
-                onClick={() => setActiveTab("theo_doi_may")}
-                className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'theo_doi_may' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-              >
-                Theo dõi máy
-              </button>
+              {tabVisible('theo_doi_may') && (
+                <button
+                  onClick={() => setActiveTab("theo_doi_may")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'theo_doi_may' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Theo dõi máy
+                </button>
+              )}
 
               {currentUserRole === 'admin' && (
                 <button
@@ -769,7 +794,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {activeTab === "kho_hang" && (
+        {activeTab === "kho_hang" && tabVisible('kho_hang') && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             {/* Thanh tab con của Kho hàng */}
             <div className="p-4 border-b border-slate-200 bg-slate-50/50">
@@ -786,7 +811,7 @@ export default function AdminDashboard() {
               {effectiveKhoTab === "ton_kho" && currentUserRole === 'admin' && (
                 <>
                   <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Quản lý Kho Hàng (Vật tư)</h2>
-                  <InventoryManagementTool inventory={inventory} onUpdateSuccess={fetchData} showNotification={showNotification} confirmDelete={confirmDelete} />
+                  <InventoryManagementTool inventory={inventory} lowStock={nguongTonThap} onUpdateSuccess={fetchData} showNotification={showNotification} confirmDelete={confirmDelete} />
                   <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 mt-8">
                     <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập hàng hóa từ Excel (Bulk Import)</h3>
                     <p className="text-sm text-slate-500 mb-6">
@@ -806,7 +831,7 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
-        {activeTab === "theo_doi_may" && (
+        {activeTab === "theo_doi_may" && tabVisible('theo_doi_may') && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             {/* Thanh tab con của Theo dõi máy */}
             <div className="p-4 border-b border-slate-200 bg-slate-50/50">
@@ -869,11 +894,9 @@ export default function AdminDashboard() {
             </div>
 
             <div className="p-6 space-y-6">
-              {/* TAB CON: CÀI ĐẶT HỆ THỐNG (để trống, bổ sung sau) */}
+              {/* TAB CON: CÀI ĐẶT HỆ THỐNG */}
               {systemTab === "cai_dat" && (
-                <div className="text-center text-slate-400 text-sm py-12 border border-dashed border-slate-200 rounded-lg">
-                  Chưa có cài đặt nào — sẽ bổ sung sau.
-                </div>
+                <CaiDatHeThongTool cauHinh={cauHinh} onUpdateSuccess={fetchData} showNotification={showNotification} />
               )}
 
               {/* TAB CON: TÀI KHOẢN */}
@@ -910,7 +933,7 @@ export default function AdminDashboard() {
 
               {/* TAB CON: DANH MỤC */}
               {systemTab === "danh_muc" && (
-                <DanhMucTool danhMuc={danhMuc} cauHinh={cauHinh} onUpdateSuccess={fetchData} showNotification={showNotification} />
+                <DanhMucTool danhMuc={danhMuc} onUpdateSuccess={fetchData} showNotification={showNotification} />
               )}
             </div>
           </div>
@@ -1061,7 +1084,7 @@ export default function AdminDashboard() {
                 const matched = mm ? customers.find(c => c.ma_may && c.ma_may.toLowerCase() === mm.toLowerCase()) : undefined
                 if (!matched) return null
                 const hd = hdbtStatus(matched.ngay_het_han_hdbt)
-                const recent = jobs.find(j => j.ma_may && j.ma_may.toLowerCase() === mm.toLowerCase() && j.ket_qua === 'Hoàn thành' && j.ngay && (Date.now() - new Date(j.ngay).getTime()) <= 30 * 86400000)
+                const recent = jobs.find(j => j.ma_may && j.ma_may.toLowerCase() === mm.toLowerCase() && j.ket_qua === 'Hoàn thành' && j.ngay && (Date.now() - new Date(j.ngay).getTime()) <= repeatNgay * 86400000)
                 const gd = mayStatus?.giam_dinh || []
                 const gdVatTu = gd.flatMap((g: any) => g.soct_giam_dinh_vat_tu || [])
                 const pill = 'px-2.5 py-1 rounded-full text-xs font-semibold border'
@@ -1325,7 +1348,7 @@ function MultiCheckDropdown({ label, options, selected, onChange }: { label: str
   )
 }
 
-function InventoryManagementTool({ inventory, onUpdateSuccess, showNotification, confirmDelete }: { inventory: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, confirmDelete: (id: string, type: 'job' | 'user' | 'inventory') => void }) {
+function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, showNotification, confirmDelete }: { inventory: any[], lowStock?: number, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, confirmDelete: (id: string, type: 'job' | 'user' | 'inventory') => void }) {
   const [formData, setFormData] = useState({
     ma_hang: "",
     ten_hang: "",
@@ -1448,7 +1471,7 @@ function InventoryManagementTool({ inventory, onUpdateSuccess, showNotification,
                 <td className="px-4 py-3 font-medium text-slate-800">{item.ten_hang}</td>
                 <td className="px-4 py-3">{item.model || <span className="text-slate-400 italic">Dùng chung</span>}</td>
                 <td className="px-4 py-3 text-center">
-                  <span className={`px-2 py-1 rounded-full text-xs font-bold ${item.ton_kho <= 0 ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'}`}>
+                  <span className={`px-2 py-1 rounded-full text-xs font-bold ${item.ton_kho <= lowStock ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'}`}>
                     {item.ton_kho}
                   </span>
                 </td>
@@ -2378,6 +2401,129 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
   )
 }
 
+const CAIDAT_TAB_ROWS: [string, string][] = [['kho_hang', 'Kho hàng'], ['theo_doi_may', 'Theo dõi máy']]
+const CAIDAT_TAB_COLS: [string, string][] = [['tech_admin', 'Tech Admin'], ['staff', 'Staff']]
+const CAIDAT_DEFAULT_VIS: Record<string, Record<string, boolean>> = {
+  tech_admin: { kho_hang: true, theo_doi_may: true },
+  staff: { kho_hang: false, theo_doi_may: true },
+}
+
+function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cauHinh: Record<string, string>, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+  const [cfg, setCfg] = useState({
+    app_ten: cauHinh.app_ten || '',
+    vp_lat: cauHinh.vp_lat || '',
+    vp_lng: cauHinh.vp_lng || '',
+    repeat_ngay: cauHinh.repeat_ngay || '30',
+    hdbt_canh_bao_thang: cauHinh.hdbt_canh_bao_thang || '2',
+    nguong_ton_thap: cauHinh.nguong_ton_thap || '0',
+    mac_dinh_hom_nay: (cauHinh.mac_dinh_hom_nay ?? '1') !== '0',
+    auto_bao_tri: (cauHinh.auto_bao_tri ?? '1') !== '0',
+  })
+  const [tabVis, setTabVis] = useState<Record<string, Record<string, boolean>>>(() => {
+    let parsed: any = {}; try { parsed = JSON.parse(cauHinh.tab_visibility || '{}') } catch {}
+    const merged: Record<string, Record<string, boolean>> = {}
+    for (const [role] of CAIDAT_TAB_COLS) merged[role] = { ...CAIDAT_DEFAULT_VIS[role], ...(parsed[role] || {}) }
+    return merged
+  })
+  const [saving, setSaving] = useState(false)
+  const toggleTab = (role: string, tab: string) => setTabVis(p => ({ ...p, [role]: { ...p[role], [tab]: !p[role][tab] } }))
+
+  const save = async () => {
+    setSaving(true)
+    const items = {
+      app_ten: cfg.app_ten, vp_lat: cfg.vp_lat, vp_lng: cfg.vp_lng,
+      repeat_ngay: String(parseInt(cfg.repeat_ngay) || 30),
+      hdbt_canh_bao_thang: String(parseInt(cfg.hdbt_canh_bao_thang) || 2),
+      nguong_ton_thap: String(parseInt(cfg.nguong_ton_thap) || 0),
+      mac_dinh_hom_nay: cfg.mac_dinh_hom_nay ? '1' : '0',
+      auto_bao_tri: cfg.auto_bao_tri ? '1' : '0',
+      tab_visibility: JSON.stringify(tabVis),
+    }
+    try {
+      const res = await fetch('/api/admin/cau-hinh', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }) })
+      if (res.ok) { showNotification('success', 'Đã lưu cài đặt hệ thống.'); onUpdateSuccess() }
+      else { const e = await res.json(); showNotification('error', e.error) }
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setSaving(false) }
+  }
+
+  const numField = (label: string, key: 'repeat_ngay' | 'hdbt_canh_bao_thang' | 'nguong_ton_thap' | 'vp_lat' | 'vp_lng', hint?: string, step?: string) => (
+    <div className="space-y-1">
+      <label className="text-xs font-semibold text-slate-600">{label}</label>
+      <Input value={(cfg as any)[key]} onChange={(e) => setCfg({ ...cfg, [key]: e.target.value })} className="bg-white" inputMode="decimal" {...(step ? { step } : {})} />
+      {hint && <p className="text-xs text-slate-400">{hint}</p>}
+    </div>
+  )
+
+  return (
+    <div className="space-y-6">
+      {/* CHUNG */}
+      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+        <h3 className="text-lg font-semibold text-slate-700">Chung</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-1 md:col-span-1">
+            <label className="text-xs font-semibold text-slate-600">Tên ứng dụng (tiêu đề)</label>
+            <Input value={cfg.app_ten} onChange={(e) => setCfg({ ...cfg, app_ten: e.target.value })} placeholder="VD: HAST Dashboard" className="bg-white" />
+          </div>
+          {numField('Vĩ độ VP (lat)', 'vp_lat', 'Dùng để tính KM tới khách', 'any')}
+          {numField('Kinh độ VP (lng)', 'vp_lng', 'VD: 105.809180', 'any')}
+        </div>
+      </div>
+
+      {/* NGHIỆP VỤ */}
+      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+        <h3 className="text-lg font-semibold text-slate-700">Nghiệp vụ</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {numField('Cửa sổ "đã sửa gần đây" (ngày)', 'repeat_ngay', 'Đánh dấu máy vừa sửa trong N ngày')}
+          {numField('Cảnh báo HĐBT trước (tháng)', 'hdbt_canh_bao_thang')}
+          {numField('Ngưỡng tồn thấp (đỏ khi ≤)', 'nguong_ton_thap')}
+        </div>
+        <div className="flex flex-wrap gap-6">
+          <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
+            <input type="checkbox" checked={cfg.mac_dinh_hom_nay} onChange={(e) => setCfg({ ...cfg, mac_dinh_hom_nay: e.target.checked })} className="w-4 h-4 accent-blue-600" />
+            Sổ công tác mặc định lọc việc hôm nay
+          </label>
+          <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
+            <input type="checkbox" checked={cfg.auto_bao_tri} onChange={(e) => setCfg({ ...cfg, auto_bao_tri: e.target.checked })} className="w-4 h-4 accent-blue-600" />
+            Tự đánh dấu bảo trì khi việc &quot;Bảo trì&quot; hoàn thành
+          </label>
+        </div>
+      </div>
+
+      {/* PHÂN QUYỀN TAB */}
+      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-3">
+        <h3 className="text-lg font-semibold text-slate-700">Phân quyền hiển thị tab</h3>
+        <p className="text-sm text-slate-500">Bật/tắt tab lớn cho từng role. <b>Admin luôn thấy tất cả</b>; <b>Sổ công tác</b> luôn hiện; <b>Hệ thống</b> chỉ admin; <b>KTV</b> chỉ dùng app mobile. Lưu ý: đây là ẩn/hiện giao diện — API vẫn kiểm quyền riêng.</p>
+        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden inline-block">
+          <table className="text-sm text-slate-600">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="px-4 py-2 text-left font-semibold">Tab</th>
+                {CAIDAT_TAB_COLS.map(([role, label]) => <th key={role} className="px-6 py-2 text-center font-semibold">{label}</th>)}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {CAIDAT_TAB_ROWS.map(([tab, label]) => (
+                <tr key={tab}>
+                  <td className="px-4 py-2 font-medium text-slate-800">{label}</td>
+                  {CAIDAT_TAB_COLS.map(([role]) => (
+                    <td key={role} className="px-6 py-2 text-center">
+                      <input type="checkbox" checked={!!tabVis[role]?.[tab]} onChange={() => toggleTab(role, tab)} className="w-4 h-4 accent-blue-600" />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <Button onClick={save} disabled={saving} className="h-10">{saving ? 'Đang lưu...' : 'Lưu cài đặt'}</Button>
+      </div>
+    </div>
+  )
+}
+
 const DANH_MUC_NHOMS = [
   { key: 'loai_cong_viec', label: 'Loại công việc' },
   { key: 'loai_hd', label: 'Loại hợp đồng' },
@@ -2386,12 +2532,11 @@ const DANH_MUC_NHOMS = [
   { key: 'nha_cung_cap', label: 'Nhà cung cấp' },
 ]
 
-function DanhMucTool({ danhMuc, cauHinh, onUpdateSuccess, showNotification }: { danhMuc: any[], cauHinh: Record<string, string>, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+function DanhMucTool({ danhMuc, onUpdateSuccess, showNotification }: { danhMuc: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [nhom, setNhom] = useState('loai_cong_viec')
   const [newVal, setNewVal] = useState("")
   const [editId, setEditId] = useState<string | null>(null)
   const [editVal, setEditVal] = useState("")
-  const [hdbtThang, setHdbtThang] = useState(cauHinh.hdbt_canh_bao_thang || "2")
 
   const items = danhMuc.filter(d => d.nhom === nhom)
 
@@ -2409,27 +2554,8 @@ function DanhMucTool({ danhMuc, cauHinh, onUpdateSuccess, showNotification }: { 
     if (!editId || !editVal.trim()) return
     if (await call('PUT', { id: editId, gia_tri: editVal.trim() })) setEditId(null)
   }
-  const saveHdbt = async () => {
-    const res = await fetch('/api/admin/cau-hinh', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ khoa: 'hdbt_canh_bao_thang', gia_tri: String(parseInt(hdbtThang) || 2) }) })
-    if (res.ok) { showNotification('success', "Đã lưu mốc cảnh báo HĐBT."); onUpdateSuccess() }
-    else showNotification('error', "Lưu không thành công")
-  }
-
   return (
     <div className="space-y-6">
-      {/* Cấu hình cảnh báo HĐBT */}
-      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
-        <h3 className="text-lg font-semibold text-slate-700 mb-2">Cấu hình cảnh báo HĐBT</h3>
-        <div className="flex items-end gap-3 flex-wrap">
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-600">Cảnh báo trước (tháng)</label>
-            <Input type="number" min="1" className="w-32 bg-white" value={hdbtThang} onChange={(e) => setHdbtThang(e.target.value)} />
-          </div>
-          <Button onClick={saveHdbt} className="h-10">Lưu</Button>
-          <p className="text-xs text-slate-500 flex-1 min-w-[200px]">Khách có ngày hết hạn HĐBT trong vòng số tháng này sẽ được cảnh báo trên Sổ công tác.</p>
-        </div>
-      </div>
-
       {/* Quản lý danh mục dropdown */}
       <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
         <h3 className="text-lg font-semibold text-slate-700">Danh mục dropdown</h3>

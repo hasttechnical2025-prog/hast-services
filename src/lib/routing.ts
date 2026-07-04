@@ -62,10 +62,9 @@ export async function calculateDistanceKM(
 // Hàm tiện ích: Tính khoảng cách từ điểm gốc (công ty) đến khách hàng
 export async function getDistanceFromOffice(
   destLat: number,
-  destLng: number
+  destLng: number,
+  officeLat: number = 21.011681,
+  officeLng: number = 105.809180
 ): Promise<number | null> {
-  const OFFICE_LAT = 21.011681
-  const OFFICE_LNG = 105.809180
-
-  return calculateDistanceKM(OFFICE_LAT, OFFICE_LNG, destLat, destLng)
+  return calculateDistanceKM(officeLat, officeLng, destLat, destLng)
 }

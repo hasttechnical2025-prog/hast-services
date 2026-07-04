@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { broadcastJobsChanged } from '@/lib/realtime'
+import { getCauHinh } from '@/lib/config'
 
 // Lấy danh sách công việc kèm thông tin khách hàng, kỹ thuật viên và vật tư liên quan
 // KTV thấy việc gán cho chính mình VÀ việc chưa gán ai (pool chờ nhận)
@@ -93,8 +94,10 @@ export async function POST(request: Request) {
     // Kiểm tra và đánh dấu repeat call tự động (nếu máy này sửa gần đây: 15-30 ngày)
     let repeat_call = false
     if (ma_may) {
+      const cfg = await getCauHinh()
+      const repeatNgay = parseInt(cfg.repeat_ngay || '30') || 30
       const dateLimit = new Date()
-      dateLimit.setDate(dateLimit.getDate() - 30)
+      dateLimit.setDate(dateLimit.getDate() - repeatNgay)
       const dateLimitStr = dateLimit.toISOString().split('T')[0]
 
       const { data: recentJobs } = await supabaseAdmin
@@ -245,7 +248,8 @@ export async function PUT(request: Request) {
     }
 
     // Cơ chế lai: công việc loại 'Bảo trì' vừa Hoàn thành -> tự đánh dấu máy đã bảo trì tháng đó
-    if (updates.ket_qua === 'Hoàn thành' && data.loai_cong_viec === 'Bảo trì' && data.ma_may) {
+    const cfgPut = await getCauHinh()
+    if (updates.ket_qua === 'Hoàn thành' && data.loai_cong_viec === 'Bảo trì' && data.ma_may && (cfgPut.auto_bao_tri ?? '1') !== '0') {
       const thang_nam = String(data.ngay).slice(0, 7) // YYYY-MM
       await supabaseAdmin
         .from('soct_bao_tri')

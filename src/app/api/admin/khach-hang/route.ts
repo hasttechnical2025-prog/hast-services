@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getCoordinatesFromAddress, getDistanceFromOffice } from '@/lib/routing'
 import { requireRole } from '@/lib/session'
+import { getCauHinh } from '@/lib/config'
 
 // Lấy danh sách khách hàng
 export async function GET() {
@@ -50,8 +51,11 @@ export async function POST(request: Request) {
     if (coords) {
       lat = coords.lat
       lng = coords.lng
-      // 2. Tính khoảng cách từ công ty đến địa điểm này thông qua OSRM API
-      const dist = await getDistanceFromOffice(lat, lng)
+      // 2. Tính khoảng cách từ công ty (tọa độ VP lấy từ cấu hình) qua OSRM
+      const cfg = await getCauHinh()
+      const vpLat = parseFloat(cfg.vp_lat || '') || 21.011681
+      const vpLng = parseFloat(cfg.vp_lng || '') || 105.809180
+      const dist = await getDistanceFromOffice(lat, lng, vpLat, vpLng)
       if (dist !== null) {
         // Làm tròn đến 1 chữ số thập phân
         km_mac_dinh = Math.round(dist * 10) / 10

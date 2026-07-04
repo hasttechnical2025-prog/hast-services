@@ -30,7 +30,18 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
     }
 
-    const { khoa, gia_tri } = await request.json()
+    const body = await request.json()
+
+    // Lưu nhiều khóa một lần: { items: { khoa: gia_tri, ... } }
+    if (body.items && typeof body.items === 'object') {
+      const rows = Object.entries(body.items).map(([khoa, gia_tri]) => ({ khoa, gia_tri: String(gia_tri) }))
+      if (rows.length === 0) return NextResponse.json({ data: {} })
+      const { error } = await supabaseAdmin.from('soct_cau_hinh').upsert(rows, { onConflict: 'khoa' })
+      if (error) throw error
+      return NextResponse.json({ success: true, count: rows.length })
+    }
+
+    const { khoa, gia_tri } = body
     if (!khoa) {
       return NextResponse.json({ error: 'Thiếu khóa cấu hình' }, { status: 400 })
     }
