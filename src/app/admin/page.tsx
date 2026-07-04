@@ -85,22 +85,28 @@ export default function AdminDashboard() {
   const [monitorTab, setMonitorTab] = useState<"bao_tri" | "giam_dinh">("bao_tri")
   // Tab con bên trong "Kho hàng" (tech_admin không thấy Tồn kho -> mặc định Đặt hàng)
   const [khoTab, setKhoTab] = useState<"ton_kho" | "dat_hang" | "thong_ke">("ton_kho")
-  const effectiveKhoTab = (currentUserRole !== 'admin' && khoTab === 'ton_kho') ? 'dat_hang' : khoTab
   const [cauHinh, setCauHinh] = useState<Record<string, string>>({})
 
-  // Ẩn/hiện tab theo role (admin luôn thấy hết; Hệ thống khóa admin-only)
-  const DEFAULT_TAB_VIS: Record<string, Record<string, boolean>> = {
-    tech_admin: { kho_hang: true, theo_doi_may: true },
-    staff: { kho_hang: false, theo_doi_may: true },
-  }
+  // Ẩn/hiện tab (lớn + con) theo role. Admin thấy hết; Hệ thống khóa admin-only.
   const tabVisCfg: Record<string, Record<string, boolean>> = (() => { try { return JSON.parse(cauHinh.tab_visibility || '{}') } catch { return {} } })()
+  const roleVis = (role: string) => ({ ...(DEFAULT_TAB_VIS[role] || {}), ...(tabVisCfg[role] || {}) })
   const tabVisible = (tab: string) => {
     if (currentUserRole === 'admin') return true
     if (tab === 'cong_viec') return true
     if (tab === 'he_thong') return false
-    const roleCfg = { ...(DEFAULT_TAB_VIS[currentUserRole] || {}), ...(tabVisCfg[currentUserRole] || {}) }
-    return !!roleCfg[tab]
+    return !!roleVis(currentUserRole)[tab]
   }
+  // Tab con: key "cha.con"; mặc định hiện nếu chưa cấu hình riêng
+  const subVisible = (parent: string, sub: string) => {
+    if (currentUserRole === 'admin') return true
+    const v = roleVis(currentUserRole)[`${parent}.${sub}`]
+    return v === undefined ? true : !!v
+  }
+  // Nếu tab con đang chọn bị ẩn -> nhảy về tab con hiện đầu tiên
+  const firstVisibleSub = (parent: string, subs: string[], current: string) =>
+    subVisible(parent, current) ? current : (subs.find(s => subVisible(parent, s)) || current)
+  const effectiveKhoTab = firstVisibleSub('kho_hang', ['ton_kho', 'dat_hang', 'thong_ke'], khoTab)
+  const effectiveMonitorTab = firstVisibleSub('theo_doi_may', ['bao_tri', 'giam_dinh'], monitorTab) as "bao_tri" | "giam_dinh"
   const repeatNgay = parseInt(cauHinh.repeat_ngay || '30') || 30
   const nguongTonThap = parseInt(cauHinh.nguong_ton_thap || '0') || 0
 
@@ -800,7 +806,7 @@ export default function AdminDashboard() {
             <div className="p-4 border-b border-slate-200 bg-slate-50/50">
               <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
                 {([['ton_kho','Tồn kho'],['dat_hang','Đặt hàng'],['thong_ke','Thống kê nhập']] as const)
-                  .filter(([k]) => k !== 'ton_kho' || currentUserRole === 'admin')
+                  .filter(([k]) => subVisible('kho_hang', k))
                   .map(([k,l]) => (
                   <button key={k} onClick={() => setKhoTab(k as any)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveKhoTab === k ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>{l}</button>
                 ))}
@@ -808,7 +814,7 @@ export default function AdminDashboard() {
             </div>
 
             <div className="p-6 space-y-6">
-              {effectiveKhoTab === "ton_kho" && currentUserRole === 'admin' && (
+              {effectiveKhoTab === "ton_kho" && (
                 <>
                   <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Quản lý Kho Hàng (Vật tư)</h2>
                   <InventoryManagementTool inventory={inventory} lowStock={nguongTonThap} onUpdateSuccess={fetchData} showNotification={showNotification} confirmDelete={confirmDelete} />
@@ -836,26 +842,19 @@ export default function AdminDashboard() {
             {/* Thanh tab con của Theo dõi máy */}
             <div className="p-4 border-b border-slate-200 bg-slate-50/50">
               <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
-                <button
-                  onClick={() => setMonitorTab("bao_tri")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${monitorTab === 'bao_tri' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  Bảo trì
-                </button>
-                <button
-                  onClick={() => setMonitorTab("giam_dinh")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${monitorTab === 'giam_dinh' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  Giám định
-                </button>
+                {([['bao_tri','Bảo trì'],['giam_dinh','Giám định']] as const)
+                  .filter(([k]) => subVisible('theo_doi_may', k))
+                  .map(([k,l]) => (
+                  <button key={k} onClick={() => setMonitorTab(k as any)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveMonitorTab === k ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>{l}</button>
+                ))}
               </div>
             </div>
 
             <div className="p-6">
-              {monitorTab === "bao_tri" && (
+              {effectiveMonitorTab === "bao_tri" && (
                 <BaoTriTool customers={customers} showNotification={showNotification} />
               )}
-              {monitorTab === "giam_dinh" && (
+              {effectiveMonitorTab === "giam_dinh" && (
                 <GiamDinhTool customers={customers} inventory={inventory} ktvOptions={dmOptions('ktv_giam_dinh')} tinhTrangOptions={dmOptions('tinh_trang_may')} showNotification={showNotification} />
               )}
             </div>
@@ -2401,11 +2400,16 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
   )
 }
 
-const CAIDAT_TAB_ROWS: [string, string][] = [['kho_hang', 'Kho hàng'], ['theo_doi_may', 'Theo dõi máy']]
-const CAIDAT_TAB_COLS: [string, string][] = [['tech_admin', 'Tech Admin'], ['staff', 'Staff']]
-const CAIDAT_DEFAULT_VIS: Record<string, Record<string, boolean>> = {
-  tech_admin: { kho_hang: true, theo_doi_may: true },
-  staff: { kho_hang: false, theo_doi_may: true },
+// Cây tab lớn + tab con để phân quyền hiển thị (dùng chung Cài đặt và gate hiển thị)
+const TAB_TREE: { key: string, label: string, subs: [string, string][] }[] = [
+  { key: 'kho_hang', label: 'Kho hàng', subs: [['ton_kho', 'Tồn kho'], ['dat_hang', 'Đặt hàng'], ['thong_ke', 'Thống kê nhập']] },
+  { key: 'theo_doi_may', label: 'Theo dõi máy', subs: [['bao_tri', 'Bảo trì'], ['giam_dinh', 'Giám định']] },
+]
+const TAB_ROLES: [string, string][] = [['tech_admin', 'Tech Admin'], ['staff', 'Staff']]
+// Mặc định hiển thị theo role; key tab con dạng "cha.con"
+const DEFAULT_TAB_VIS: Record<string, Record<string, boolean>> = {
+  tech_admin: { kho_hang: true, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': true, 'kho_hang.thong_ke': true, theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true },
+  staff: { kho_hang: false, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': false, 'kho_hang.thong_ke': false, theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true },
 }
 
 function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cauHinh: Record<string, string>, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
@@ -2422,7 +2426,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
   const [tabVis, setTabVis] = useState<Record<string, Record<string, boolean>>>(() => {
     let parsed: any = {}; try { parsed = JSON.parse(cauHinh.tab_visibility || '{}') } catch {}
     const merged: Record<string, Record<string, boolean>> = {}
-    for (const [role] of CAIDAT_TAB_COLS) merged[role] = { ...CAIDAT_DEFAULT_VIS[role], ...(parsed[role] || {}) }
+    for (const [role] of TAB_ROLES) merged[role] = { ...DEFAULT_TAB_VIS[role], ...(parsed[role] || {}) }
     return merged
   })
   const [saving, setSaving] = useState(false)
@@ -2492,26 +2496,39 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
       {/* PHÂN QUYỀN TAB */}
       <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-3">
         <h3 className="text-lg font-semibold text-slate-700">Phân quyền hiển thị tab</h3>
-        <p className="text-sm text-slate-500">Bật/tắt tab lớn cho từng role. <b>Admin luôn thấy tất cả</b>; <b>Sổ công tác</b> luôn hiện; <b>Hệ thống</b> chỉ admin; <b>KTV</b> chỉ dùng app mobile. Lưu ý: đây là ẩn/hiện giao diện — API vẫn kiểm quyền riêng.</p>
+        <p className="text-sm text-slate-500">Bật/tắt tab lớn <b>và tab con</b> cho từng role. <b>Admin luôn thấy tất cả</b>; <b>Sổ công tác</b> luôn hiện; <b>Hệ thống</b> chỉ admin; <b>KTV</b> chỉ dùng app mobile. Tắt tab lớn sẽ ẩn toàn bộ tab con. Lưu ý: đây là ẩn/hiện giao diện — API vẫn kiểm quyền riêng.</p>
         <div className="bg-white rounded-lg border border-slate-200 overflow-hidden inline-block">
           <table className="text-sm text-slate-600">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="px-4 py-2 text-left font-semibold">Tab</th>
-                {CAIDAT_TAB_COLS.map(([role, label]) => <th key={role} className="px-6 py-2 text-center font-semibold">{label}</th>)}
+                {TAB_ROLES.map(([role, label]) => <th key={role} className="px-6 py-2 text-center font-semibold">{label}</th>)}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {CAIDAT_TAB_ROWS.map(([tab, label]) => (
-                <tr key={tab}>
-                  <td className="px-4 py-2 font-medium text-slate-800">{label}</td>
-                  {CAIDAT_TAB_COLS.map(([role]) => (
+              {TAB_TREE.flatMap(t => [
+                <tr key={t.key}>
+                  <td className="px-4 py-2 font-semibold text-slate-800">{t.label}</td>
+                  {TAB_ROLES.map(([role]) => (
                     <td key={role} className="px-6 py-2 text-center">
-                      <input type="checkbox" checked={!!tabVis[role]?.[tab]} onChange={() => toggleTab(role, tab)} className="w-4 h-4 accent-blue-600" />
+                      <input type="checkbox" checked={!!tabVis[role]?.[t.key]} onChange={() => toggleTab(role, t.key)} className="w-4 h-4 accent-blue-600" />
                     </td>
                   ))}
-                </tr>
-              ))}
+                </tr>,
+                ...t.subs.map(([sub, subLabel]) => (
+                  <tr key={`${t.key}.${sub}`} className="bg-slate-50/40">
+                    <td className="pl-10 pr-4 py-2 text-slate-600">↳ {subLabel}</td>
+                    {TAB_ROLES.map(([role]) => {
+                      const parentOn = !!tabVis[role]?.[t.key]
+                      return (
+                        <td key={role} className="px-6 py-2 text-center">
+                          <input type="checkbox" disabled={!parentOn} checked={parentOn && (tabVis[role]?.[`${t.key}.${sub}`] ?? true)} onChange={() => toggleTab(role, `${t.key}.${sub}`)} className="w-4 h-4 accent-blue-600 disabled:opacity-40 disabled:cursor-not-allowed" />
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )),
+              ])}
             </tbody>
           </table>
         </div>
