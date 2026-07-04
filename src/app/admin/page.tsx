@@ -774,8 +774,8 @@ export default function AdminDashboard() {
                             )
                           })()}
                         </td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-medium border
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`inline-block whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-medium border
                             ${job.ket_qua === 'Hoàn thành' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                               job.ket_qua === 'Đang làm' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                               job.ket_qua === 'Lắp tiếp' ? 'bg-amber-50 text-amber-700 border-amber-200' :
@@ -1649,7 +1649,7 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
               <th className="px-4 py-2">Họ Tên</th>
               <th className="px-4 py-2">Tên đăng nhập</th>
               <th className="px-4 py-2">Role</th>
-              <th className="px-4 py-2 text-center">Trạng thái</th>
+              <th className="px-4 py-2 text-center whitespace-nowrap">Trạng thái</th>
               <th className="px-4 py-2 text-right">Thao tác</th>
             </tr>
           </thead>
@@ -1664,7 +1664,7 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
                   <span className={`px-2 py-0.5 rounded text-xs font-semibold ${u.role === 'admin' ? 'bg-red-50 text-red-600' : u.role === 'ktv' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600'}`}>{u.role}</span>
                 </td>
                 <td className="px-4 py-2 text-center">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${active ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
+                  <span className={`inline-block whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-semibold ${active ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
                     {active ? 'Hoạt động' : 'Ngừng'}
                   </span>
                 </td>
@@ -2018,10 +2018,10 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
                 <div className="text-xs text-slate-500">Mã máy <span className="font-mono">{r.ma_may}</span> · {r.soct_khach_hang?.model || '-'} · GĐ {fmtDate(r.ngay_giam_dinh)}{r.ktv_giam_dinh ? ` · ${r.ktv_giam_dinh}` : ''}</div>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${r.da_bao_gia ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                <span className={`whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold border ${r.da_bao_gia ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
                   {r.da_bao_gia ? 'Đã báo giá' : 'Chưa báo giá'}
                 </span>
-                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${r.da_thay ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                <span className={`whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold border ${r.da_thay ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
                   {r.da_thay ? `Đã thay${r.so_report ? ` · ${r.so_report}` : ''}` : 'Chờ thay'}
                 </span>
               </div>
@@ -2338,8 +2338,8 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
                   <div className="text-xs text-slate-500">Ngày đặt {fmtDate(o.ngay_dat)}</div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <button onClick={() => toggleDaDat(o)} className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${o.da_dat ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{o.da_dat ? 'Đã đặt' : 'Nháp'}</button>
-                  {o.hoan_thanh && <span className="px-2.5 py-1 rounded-full text-xs font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200">Đã đủ hàng</span>}
+                  <button onClick={() => toggleDaDat(o)} className={`whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold border ${o.da_dat ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{o.da_dat ? 'Đã đặt' : 'Nháp'}</button>
+                  {o.hoan_thanh && <span className="whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200">Đã đủ hàng</span>}
                   {delId === o.id ? (
                     <span className="flex items-center gap-1 text-xs">
                       <button onClick={() => deleteOrder(o.id)} className="text-red-600 font-semibold px-2 py-1 bg-red-50 rounded">Xác nhận xóa</button>
@@ -2590,7 +2590,7 @@ function DanhMucTool({ danhMuc, onUpdateSuccess, showNotification }: { danhMuc: 
         <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[400px] overflow-y-auto">
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50 sticky top-0 border-b border-slate-200">
-              <tr><th className="px-4 py-2 font-semibold">Giá trị</th><th className="px-4 py-2 font-semibold text-center w-24">Trạng thái</th><th className="px-4 py-2 font-semibold text-right w-28">Thao tác</th></tr>
+              <tr><th className="px-4 py-2 font-semibold">Giá trị</th><th className="px-4 py-2 font-semibold text-center w-28 whitespace-nowrap">Trạng thái</th><th className="px-4 py-2 font-semibold text-right w-28 whitespace-nowrap">Thao tác</th></tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {items.length === 0 ? (
@@ -2607,7 +2607,7 @@ function DanhMucTool({ danhMuc, onUpdateSuccess, showNotification }: { danhMuc: 
                     ) : <span className="font-medium text-slate-800">{it.gia_tri}</span>}
                   </td>
                   <td className="px-4 py-2 text-center">
-                    <button onClick={() => call('PUT', { id: it.id, active: !it.active })} className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${it.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                    <button onClick={() => call('PUT', { id: it.id, active: !it.active })} className={`inline-block whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-semibold border ${it.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
                       {it.active ? 'Đang dùng' : 'Đã ẩn'}
                     </button>
                   </td>
