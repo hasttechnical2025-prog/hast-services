@@ -35,9 +35,8 @@ const fmt = (x: number) => Math.round(x || 0).toLocaleString('vi-VN')
 const pad2 = (n: number) => String(n).padStart(2, '0')
 
 export type ManualFields = {
+  DSO_MUC_VAT_TU?: string   // số thực (kế toán) — ưu tiên hơn số tự tính từ vật tư
   DSO_MAY_THUE_CPC?: string
-  DSO_LUY_KE?: string
-  TY_LE?: string
   TN6_1?: string; TN6_2?: string; TN6_3?: string
   TN7_1?: string; TN7_2?: string; TN7_3?: string; TN7_4?: string
   KIEN_NGHI?: string
@@ -99,8 +98,9 @@ export async function buildReportData(thang: string, manual: ManualFields = {}) 
   for (const c of custs || []) {
     const b = brandKey(c.hang)
     tongMay[b] += 1
-    if (c.loai_hd === 'HĐBT') hdbt[b] += 1
-    if (c.loai_hd === 'MF' || c.loai_hd === 'Máy thuê' || c.loai_hd === 'Máy CPC') cpc[b] += 1
+    // MF = máy mới bán (bảo trì miễn phí 1 năm) -> tính vào nhóm HĐBT
+    if (c.loai_hd === 'HĐBT' || c.loai_hd === 'MF') hdbt[b] += 1
+    if (c.loai_hd === 'Máy thuê' || c.loai_hd === 'Máy CPC') cpc[b] += 1
   }
   // Máy phát sinh dịch vụ trong tháng / máy lắp trong tháng (đếm mã máy duy nhất theo hãng)
   const allRp: any = { KONICA: new Set(), FUJI: new Set(), KHAC: new Set() }
@@ -120,13 +120,28 @@ export async function buildReportData(thang: string, manual: ManualFields = {}) 
   }
 
   // ===== MỤC 3: Doanh số =====
-  const dsoThang = jobs.reduce((s: number, j: any) => s + jobMoney(j.soct_chi_tiet_vat_tu), 0)
-  const dsoYtd = (jobsYtd || []).reduce((s: number, j: any) => s + jobMoney(j.soct_chi_tiet_vat_tu), 0)
-  data.DSO_MUC_VAT_TU = fmt(dsoThang)
+  // Số Mực/Vật tư tự tính từ vật tư công việc (chỉ để gợi ý; báo cáo dùng số thực nhập tay nếu có)
+  const dsoThangGoiY = jobs.reduce((s: number, j: any) => s + jobMoney(j.soct_chi_tiet_vat_tu), 0)
+
+  // Doanh số thực tế + kế hoạch nhập từ kế toán (bảng soct_doanh_so_thang) -> % hoàn thành + lũy kế
+  const { data: dsoRows } = await supabaseAdmin
+    .from('soct_doanh_so_thang')
+    .select('thang_nam, thuc_te, ke_hoach')
+    .like('thang_nam', `${yStr}-%`)
+  const thisRow = (dsoRows || []).find(r => r.thang_nam === thang)
+  const thucTe = Number(thisRow?.thuc_te) || 0
+  const keHoach = Number(thisRow?.ke_hoach) || 0
+  const luyKe = (dsoRows || []).reduce((s, r) => s + (r.thang_nam <= thang ? (Number(r.thuc_te) || 0) : 0), 0)
+  const tyLe = keHoach > 0 ? Math.round(thucTe / keHoach * 100) : 0
+
+  data.DSO_MUC_VAT_TU = (manual.DSO_MUC_VAT_TU && manual.DSO_MUC_VAT_TU.trim()) ? manual.DSO_MUC_VAT_TU : fmt(dsoThangGoiY)
   data.DSO_MAY_THUE_CPC = manual.DSO_MAY_THUE_CPC ?? '0'
-  data.DSO_LUY_KE = manual.DSO_LUY_KE ?? fmt(dsoYtd)
-  data.TY_LE = manual.TY_LE ?? '0'
-  data.dso_luy_ke_goi_y = fmt(dsoYtd) // gợi ý cho màn hình
+  data.DSO_LUY_KE = fmt(luyKe)
+  data.TY_LE = String(tyLe)
+  // Gợi ý / hiển thị cho màn hình
+  data.dso_muc_vat_tu_goi_y = fmt(dsoThangGoiY)
+  data.dso_thuc_te = fmt(thucTe)
+  data.dso_ke_hoach = fmt(keHoach)
 
   // ===== MỤC 4 & 5: Khiếu nại / Bảo hành =====
   const toRow = (j: any) => ({

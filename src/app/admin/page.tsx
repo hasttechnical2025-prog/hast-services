@@ -2685,7 +2685,7 @@ function BaoCaoThangTool({ showNotification }: { showNotification: (type: 'succe
   const [loading, setLoading] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [manual, setManual] = useState({
-    DSO_MAY_THUE_CPC: '0', DSO_LUY_KE: '', TY_LE: '0',
+    DSO_MUC_VAT_TU: '', DSO_MAY_THUE_CPC: '0',
     TN6_1: '', TN6_2: '', TN6_3: '', TN7_1: '', TN7_2: '', TN7_3: '', TN7_4: '', KIEN_NGHI: '',
   })
   const setM = (k: string, v: string) => setManual(m => ({ ...m, [k]: v }))
@@ -2695,11 +2695,38 @@ function BaoCaoThangTool({ showNotification }: { showNotification: (type: 'succe
     try {
       const res = await fetch(`/api/admin/bao-cao?thang=${t}`)
       const json = await res.json()
-      if (res.ok) { setPreview(json.data); setManual(m => ({ ...m, DSO_LUY_KE: json.data.dso_luy_ke_goi_y || '' })) }
+      if (res.ok) setPreview(json.data)
       else showNotification('error', json.error)
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setLoading(false) }
   }
   useEffect(() => { loadPreview(thang) }, [thang]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ===== Doanh số theo tháng (nhập từ kế toán) — lưu DB =====
+  const nam = thang.split('-')[0]
+  const [dsoList, setDsoList] = useState<any[]>([])
+  const [dsoForm, setDsoForm] = useState({ thang, thuc_te: '', ke_hoach: '' })
+  const [dsoSaving, setDsoSaving] = useState(false)
+  const fetchDso = async (y: string) => {
+    try { const res = await fetch(`/api/admin/doanh-so?nam=${y}`); const j = await res.json(); if (res.ok) setDsoList(j.data || []) } catch { /* bỏ qua */ }
+  }
+  useEffect(() => { fetchDso(nam) }, [nam])
+  const saveDso = async () => {
+    if (!/^\d{4}-\d{2}$/.test(dsoForm.thang)) return showNotification('error', 'Chọn tháng hợp lệ')
+    setDsoSaving(true)
+    try {
+      const res = await fetch('/api/admin/doanh-so', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ thang_nam: dsoForm.thang, thuc_te: parseFloat(dsoForm.thuc_te) || 0, ke_hoach: parseFloat(dsoForm.ke_hoach) || 0 }),
+      })
+      if (res.ok) { showNotification('success', 'Đã lưu doanh số tháng.'); setDsoForm({ thang: dsoForm.thang, thuc_te: '', ke_hoach: '' }); fetchDso(nam); loadPreview(thang) }
+      else { const j = await res.json(); showNotification('error', j.error) }
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setDsoSaving(false) }
+  }
+  const editDso = (r: any) => setDsoForm({ thang: r.thang_nam, thuc_te: String(r.thuc_te ?? ''), ke_hoach: String(r.ke_hoach ?? '') })
+  const delDso = async (tn: string) => {
+    const res = await fetch(`/api/admin/doanh-so?thang_nam=${tn}`, { method: 'DELETE' })
+    if (res.ok) { fetchDso(nam); loadPreview(thang) } else showNotification('error', 'Xóa không thành công')
+  }
 
   const exportDocx = async () => {
     setExporting(true)
@@ -2780,11 +2807,67 @@ function BaoCaoThangTool({ showNotification }: { showNotification: (type: 'succe
           {/* MỤC 3 */}
           <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
             <h4 className="text-sm font-bold text-slate-700">3. Doanh số</h4>
-            <div className="text-sm text-slate-600">Doanh số Mực, Vật tư (tự tính): <b className="text-slate-800">{preview.DSO_MUC_VAT_TU} đ</b></div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Doanh số Mực, Vật tư (số thực)</label>
+                <Input value={manual.DSO_MUC_VAT_TU} onChange={(e) => setM('DSO_MUC_VAT_TU', e.target.value)} className="bg-white" placeholder={`tự tính: ${preview.dso_muc_vat_tu_goi_y} đ`} />
+                <p className="text-xs text-slate-400">Tự tính từ vật tư: {preview.dso_muc_vat_tu_goi_y} đ. Để trống → dùng số tự tính.</p>
+              </div>
               {manualInput('DSO_MAY_THUE_CPC', 'Doanh số máy thuê / CPC', '0')}
-              {manualInput('DSO_LUY_KE', 'Doanh số lũy kế (từ 01/01)', 'gợi ý theo vật tư')}
-              {manualInput('TY_LE', 'Tỉ lệ (%)', '0')}
+            </div>
+            <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-600 pt-1 border-t border-slate-200">
+              <span className="pt-2">Lũy kế (T1 → tháng này): <b className="text-slate-800">{preview.DSO_LUY_KE} đ</b></span>
+              <span className="pt-2">% hoàn thành: <b className="text-slate-800">{preview.TY_LE}%</b></span>
+              <span className="pt-2 text-slate-400">(tự tính từ bảng doanh số bên dưới)</span>
+            </div>
+          </div>
+
+          {/* BẢNG DOANH SỐ THEO THÁNG (KẾ TOÁN) */}
+          <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+            <h4 className="text-sm font-bold text-slate-700">Doanh số theo tháng (nhập từ kế toán) — năm {nam}</h4>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Tháng</label>
+                <input type="month" value={dsoForm.thang} onChange={(e) => setDsoForm({ ...dsoForm, thang: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white block" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Thực tế</label>
+                <Input className="bg-white w-44" inputMode="numeric" value={dsoForm.thuc_te} onChange={(e) => setDsoForm({ ...dsoForm, thuc_te: e.target.value })} placeholder="VD: 150000000" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Kế hoạch</label>
+                <Input className="bg-white w-44" inputMode="numeric" value={dsoForm.ke_hoach} onChange={(e) => setDsoForm({ ...dsoForm, ke_hoach: e.target.value })} placeholder="VD: 200000000" />
+              </div>
+              <Button onClick={saveDso} disabled={dsoSaving} className="h-9">{dsoSaving ? 'Đang lưu...' : 'Lưu tháng'}</Button>
+            </div>
+            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+              <table className="w-full text-sm text-slate-600">
+                <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
+                  <tr><th className="px-4 py-2 text-left">Tháng</th><th className="px-4 py-2 text-right">Thực tế</th><th className="px-4 py-2 text-right">Kế hoạch</th><th className="px-4 py-2 text-center">% HT</th><th className="px-4 py-2 text-right">Lũy kế</th><th className="px-4 py-2"></th></tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {dsoList.length === 0 ? (
+                    <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-400">Chưa nhập doanh số năm {nam}.</td></tr>
+                  ) : [...dsoList].sort((a, b) => a.thang_nam < b.thang_nam ? -1 : 1).map((r, _i, arr) => {
+                    const lk = arr.filter(x => x.thang_nam <= r.thang_nam).reduce((s, x) => s + (Number(x.thuc_te) || 0), 0)
+                    const pct = Number(r.ke_hoach) > 0 ? Math.round(Number(r.thuc_te) / Number(r.ke_hoach) * 100) : 0
+                    const [yy, mm] = r.thang_nam.split('-')
+                    return (
+                      <tr key={r.thang_nam} className="hover:bg-slate-50">
+                        <td className="px-4 py-2 whitespace-nowrap">{mm}/{yy}</td>
+                        <td className="px-4 py-2 text-right">{Number(r.thuc_te).toLocaleString('vi-VN')}</td>
+                        <td className="px-4 py-2 text-right">{Number(r.ke_hoach).toLocaleString('vi-VN')}</td>
+                        <td className="px-4 py-2 text-center">{pct}%</td>
+                        <td className="px-4 py-2 text-right font-semibold text-slate-800">{lk.toLocaleString('vi-VN')}</td>
+                        <td className="px-4 py-2 text-right whitespace-nowrap">
+                          <button onClick={() => editDso(r)} className="text-blue-500 hover:text-blue-700 p-1"><PenSquare className="w-4 h-4" /></button>
+                          <button onClick={() => delDso(r.thang_nam)} className="text-red-500 hover:text-red-700 p-1 ml-1"><Trash2 className="w-4 h-4" /></button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
 
