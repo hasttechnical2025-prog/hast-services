@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { createPortal } from "react-dom"
-import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet } from "lucide-react"
+import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes } from "lucide-react"
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -699,25 +699,12 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === "cong_viec" && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {[
-              { label: 'Tổng việc', value: jobStats.total.toLocaleString('vi-VN'), sub: `trên ${jobs.length.toLocaleString('vi-VN')} tất cả`, icon: ClipboardList, tint: 'text-blue-600 bg-blue-50 ring-blue-100' },
-              { label: 'Hoàn thành', value: jobStats.done.toLocaleString('vi-VN'), sub: jobStats.total ? `${Math.round(jobStats.done / jobStats.total * 100)}% khối lượng` : '—', icon: CheckCircle2, tint: 'text-emerald-600 bg-emerald-50 ring-emerald-100' },
-              { label: 'Đang làm / Chờ', value: (jobStats.doing + jobStats.waiting).toLocaleString('vi-VN'), sub: `${jobStats.unassigned.toLocaleString('vi-VN')} chưa giao`, icon: Clock, tint: 'text-amber-600 bg-amber-50 ring-amber-100' },
-              { label: 'Phát sinh tiền', value: `${jobStats.revenue.toLocaleString('vi-VN')} đ`, sub: `có HĐ: ${jobStats.revenueHD.toLocaleString('vi-VN')} đ`, icon: Wallet, tint: 'text-indigo-600 bg-indigo-50 ring-indigo-100' },
-            ].map((c) => (
-              <div key={c.label} className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex items-start gap-3">
-                <div className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ring-1 ${c.tint}`}>
-                  <c.icon className="w-5 h-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-medium text-slate-500">{c.label}</div>
-                  <div className="text-xl font-bold text-slate-800 leading-tight truncate" title={c.value}>{c.value}</div>
-                  <div className="text-[11px] text-slate-400 truncate">{c.sub}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <StatCards items={[
+            { label: 'Tổng việc', value: jobStats.total.toLocaleString('vi-VN'), sub: `trên ${jobs.length.toLocaleString('vi-VN')} tất cả`, icon: ClipboardList, tint: 'text-blue-600 bg-blue-50 ring-blue-100' },
+            { label: 'Hoàn thành', value: jobStats.done.toLocaleString('vi-VN'), sub: jobStats.total ? `${Math.round(jobStats.done / jobStats.total * 100)}% khối lượng` : '—', icon: CheckCircle2, tint: 'text-emerald-600 bg-emerald-50 ring-emerald-100' },
+            { label: 'Đang làm / Chờ', value: (jobStats.doing + jobStats.waiting).toLocaleString('vi-VN'), sub: `${jobStats.unassigned.toLocaleString('vi-VN')} chưa giao`, icon: Clock, tint: 'text-amber-600 bg-amber-50 ring-amber-100' },
+            { label: 'Phát sinh tiền', value: `${jobStats.revenue.toLocaleString('vi-VN')} đ`, sub: `có HĐ: ${jobStats.revenueHD.toLocaleString('vi-VN')} đ`, icon: Wallet, tint: 'text-indigo-600 bg-indigo-50 ring-indigo-100' },
+          ]} />
         )}
 
         {activeTab === "cong_viec" && (
@@ -1447,8 +1434,18 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
     }
   }
 
+  const invTon = inventory.reduce((s, i) => s + (Number(i.ton_kho) || 0), 0)
+  const invLow = lowStock > 0 ? inventory.filter(i => (Number(i.ton_kho) || 0) > 0 && (Number(i.ton_kho) || 0) <= lowStock).length : 0
+  const invOut = inventory.filter(i => (Number(i.ton_kho) || 0) <= 0).length
+
   return (
     <div className="space-y-6">
+      <StatCards items={[
+        { label: 'Mã hàng', value: inventory.length.toLocaleString('vi-VN'), sub: 'đầu mục vật tư', icon: Package, tint: 'text-blue-600 bg-blue-50 ring-blue-100' },
+        { label: 'Tổng tồn', value: invTon.toLocaleString('vi-VN'), sub: 'đơn vị trong kho', icon: Boxes, tint: 'text-indigo-600 bg-indigo-50 ring-indigo-100' },
+        { label: 'Sắp hết', value: invLow.toLocaleString('vi-VN'), sub: lowStock > 0 ? `tồn ≤ ${lowStock.toLocaleString('vi-VN')}` : 'chưa đặt ngưỡng', icon: AlertTriangle, tint: 'text-amber-600 bg-amber-50 ring-amber-100' },
+        { label: 'Hết hàng', value: invOut.toLocaleString('vi-VN'), sub: 'tồn = 0', icon: Trash2, tint: 'text-red-600 bg-red-50 ring-red-100' },
+      ]} />
       <form ref={formRef} onSubmit={handleSave} className="bg-slate-50 p-4 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="space-y-1 lg:col-span-1">
           <label className="text-xs font-semibold text-slate-600">Mã hàng *</label>
@@ -1489,7 +1486,7 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
       </div>
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[500px] overflow-y-auto">
         <table className="w-full text-left text-sm text-slate-600">
-          <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 shadow-sm z-10">
+          <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide sticky top-0 border-b border-slate-200 shadow-sm z-10">
             <tr>
               <th className="px-4 py-3 font-semibold">Mã hàng</th>
               <th className="px-4 py-3 font-semibold">Tên vật tư</th>
@@ -1649,8 +1646,16 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
     }
   }
 
+  const userActive = users.filter(u => u.is_active !== false).length
+  const userKtv = users.filter(u => u.role === 'ktv').length
+
   return (
     <div className="space-y-6">
+      <StatCards items={[
+        { label: 'Tài khoản', value: users.length.toLocaleString('vi-VN'), sub: 'tổng người dùng', icon: Users, tint: 'text-blue-600 bg-blue-50 ring-blue-100' },
+        { label: 'KTV', value: userKtv.toLocaleString('vi-VN'), sub: 'kỹ thuật viên', icon: Wrench, tint: 'text-indigo-600 bg-indigo-50 ring-indigo-100' },
+        { label: 'Đang hoạt động', value: userActive.toLocaleString('vi-VN'), sub: `${(users.length - userActive).toLocaleString('vi-VN')} ngừng`, icon: CheckCircle2, tint: 'text-emerald-600 bg-emerald-50 ring-emerald-100' },
+      ]} />
       <form onSubmit={handleSave} className="bg-white p-4 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="space-y-1">
           <label className="text-xs font-semibold text-slate-600">Họ và Tên *</label>
@@ -1681,7 +1686,7 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
 
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[400px] overflow-y-auto">
         <table className="w-full text-left text-sm text-slate-600">
-          <thead className="bg-slate-50 sticky top-0 border-b border-slate-200">
+          <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide sticky top-0 border-b border-slate-200">
             <tr>
               <th className="px-4 py-2">Họ Tên</th>
               <th className="px-4 py-2">Tên đăng nhập</th>
@@ -1867,6 +1872,12 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
     return true
   })
   const gdFilterActive = !!(gdFilters.maMay || gdFilters.trangThai !== 'cho_thay' || gdFilters.baoGia !== 'chua')
+  const gdStats = {
+    total: filteredRecords.length,
+    choThay: filteredRecords.filter(r => !r.da_thay).length,
+    daThay: filteredRecords.filter(r => r.da_thay).length,
+    daBaoGia: filteredRecords.filter(r => r.da_bao_gia).length,
+  }
 
   const fetchRecords = async () => {
     setLoading(true)
@@ -2020,6 +2031,12 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
 
       {/* DANH SÁCH BIÊN BẢN + BỘ LỌC */}
       <div className="space-y-3">
+        <StatCards items={[
+          { label: 'Biên bản', value: gdStats.total.toLocaleString('vi-VN'), sub: `trên ${records.length.toLocaleString('vi-VN')} tất cả`, icon: ClipboardCheck, tint: 'text-blue-600 bg-blue-50 ring-blue-100' },
+          { label: 'Chờ thay', value: gdStats.choThay.toLocaleString('vi-VN'), sub: 'chưa thay vật tư', icon: Clock, tint: 'text-amber-600 bg-amber-50 ring-amber-100' },
+          { label: 'Đã thay', value: gdStats.daThay.toLocaleString('vi-VN'), sub: 'đã xử lý xong', icon: CheckCircle2, tint: 'text-emerald-600 bg-emerald-50 ring-emerald-100' },
+          { label: 'Đã báo giá', value: gdStats.daBaoGia.toLocaleString('vi-VN'), sub: 'đã gửi khách', icon: Wallet, tint: 'text-indigo-600 bg-indigo-50 ring-indigo-100' },
+        ]} />
         <div className="flex items-center gap-2 px-1">
           <h3 className="text-sm font-bold text-slate-700">Danh sách biên bản giám định</h3>
           <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">{filteredRecords.length}/{records.length}</span>
@@ -2153,7 +2170,7 @@ function NhapHangThangTool({ showNotification }: { showNotification: (type: 'suc
       </div>
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[480px] overflow-y-auto">
         <table className="w-full text-left text-sm text-slate-600">
-          <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 shadow-sm z-10">
+          <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide sticky top-0 border-b border-slate-200 shadow-sm z-10">
             <tr><th className="px-4 py-3 font-semibold">Tháng</th><th className="px-4 py-3 font-semibold">Mã hàng</th><th className="px-4 py-3 font-semibold">Tên vật tư</th><th className="px-4 py-3 font-semibold text-center">SL nhập</th></tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -2283,8 +2300,24 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
     a.href = url; a.download = `dat-hang-${new Date().toISOString().split('T')[0]}.csv`; a.click(); URL.revokeObjectURL(url)
   }
 
+  const orderStats = (() => {
+    let daDat = 0, done = 0, thieu = 0
+    for (const o of filteredOrders) {
+      if (o.da_dat) daDat++
+      if (o.hoan_thanh) done++
+      for (const l of (o.soct_dat_hang_ct || [])) thieu += Math.max(0, (Number(l.sl_dat) || 0) - daNhan(l))
+    }
+    return { total: filteredOrders.length, daDat, done, thieu }
+  })()
+
   return (
     <div className="space-y-6">
+      <StatCards items={[
+        { label: 'Đơn hàng', value: orderStats.total.toLocaleString('vi-VN'), sub: `trên ${orders.length.toLocaleString('vi-VN')} tất cả`, icon: ShoppingCart, tint: 'text-blue-600 bg-blue-50 ring-blue-100' },
+        { label: 'Đã đặt NCC', value: orderStats.daDat.toLocaleString('vi-VN'), sub: `${(orderStats.total - orderStats.daDat).toLocaleString('vi-VN')} còn nháp`, icon: CheckCircle2, tint: 'text-indigo-600 bg-indigo-50 ring-indigo-100' },
+        { label: 'Đủ hàng', value: orderStats.done.toLocaleString('vi-VN'), sub: 'đã nhận đủ', icon: Package, tint: 'text-emerald-600 bg-emerald-50 ring-emerald-100' },
+        { label: 'Còn thiếu', value: orderStats.thieu.toLocaleString('vi-VN'), sub: 'đơn vị chưa về', icon: AlertTriangle, tint: 'text-amber-600 bg-amber-50 ring-amber-100' },
+      ]} />
       {/* FORM TẠO ĐƠN */}
       <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
         <h3 className="text-lg font-semibold text-slate-700">Tạo đơn đặt hàng</h3>
@@ -2437,6 +2470,26 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
   )
 }
 
+// Dải thẻ KPI tóm tắt dùng chung cho các tab (số liệu tính trên danh sách đã lọc).
+type StatCard = { label: string, value: string, sub?: string, icon: any, tint: string }
+function StatCards({ items }: { items: StatCard[] }) {
+  const cols = items.length <= 2 ? 'sm:grid-cols-2' : items.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-4'
+  return (
+    <div className={`grid grid-cols-2 ${cols} gap-3 sm:gap-4`}>
+      {items.map(c => (
+        <div key={c.label} className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex items-start gap-3">
+          <div className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ring-1 ${c.tint}`}><c.icon className="w-5 h-5" /></div>
+          <div className="min-w-0">
+            <div className="text-xs font-medium text-slate-500">{c.label}</div>
+            <div className="text-xl font-bold text-slate-800 leading-tight truncate" title={c.value}>{c.value}</div>
+            {c.sub && <div className="text-[11px] text-slate-400 truncate">{c.sub}</div>}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // Cây tab lớn + tab con để phân quyền hiển thị (dùng chung Cài đặt và gate hiển thị)
 const TAB_TREE: { key: string, label: string, subs: [string, string][] }[] = [
   { key: 'kho_hang', label: 'Kho hàng', subs: [['ton_kho', 'Tồn kho'], ['dat_hang', 'Đặt hàng'], ['thong_ke', 'Thống kê nhập']] },
@@ -2549,7 +2602,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
         <p className="text-sm text-slate-500">Bật/tắt tab lớn <b>và tab con</b> cho từng role. <b>Admin luôn thấy tất cả</b>; <b>Sổ công tác</b> luôn hiện; <b>Hệ thống</b> chỉ admin; <b>KTV</b> chỉ dùng app mobile. Tắt tab lớn sẽ ẩn toàn bộ tab con. Lưu ý: đây là ẩn/hiện giao diện — API vẫn kiểm quyền riêng.</p>
         <div className="bg-white rounded-lg border border-slate-200 overflow-hidden inline-block">
           <table className="text-sm text-slate-600">
-            <thead className="bg-slate-50 border-b border-slate-200">
+            <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
               <tr>
                 <th className="px-4 py-2 text-left font-semibold">Tab</th>
                 {TAB_ROLES.map(([role, label]) => <th key={role} className="px-6 py-2 text-center font-semibold">{label}</th>)}
@@ -2639,7 +2692,7 @@ function DanhMucTool({ danhMuc, onUpdateSuccess, showNotification }: { danhMuc: 
 
         <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[400px] overflow-y-auto">
           <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50 sticky top-0 border-b border-slate-200">
+            <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide sticky top-0 border-b border-slate-200">
               <tr><th className="px-4 py-2 font-semibold">Giá trị</th><th className="px-4 py-2 font-semibold text-center w-28 whitespace-nowrap">Trạng thái</th><th className="px-4 py-2 font-semibold text-right w-28 whitespace-nowrap">Thao tác</th></tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -2840,7 +2893,7 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
         </div>
         <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[420px] overflow-y-auto">
           <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 shadow-sm z-10">
+            <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide sticky top-0 border-b border-slate-200 shadow-sm z-10">
               <tr>
                 <th className="px-4 py-3 font-semibold">Mã máy</th>
                 <th className="px-4 py-3 font-semibold">Khách hàng</th>
@@ -2951,8 +3004,24 @@ function CustomerListTool({ customers, loaiHdOptions, hdbtCanhBaoThang, onUpdate
     finally { setSaving(false) }
   }
 
+  const custStats = (() => {
+    let hasHd = 0, expiring = 0, expired = 0
+    for (const c of filtered) {
+      if (c.loai_hd === 'HĐBT' || c.loai_hd === 'MF') hasHd++
+      const exp = c.ngay_het_han_hdbt ? new Date(c.ngay_het_han_hdbt) : null
+      if (exp) { if (exp < today) expired++; else if (exp <= limit) expiring++ }
+    }
+    return { total: filtered.length, hasHd, expiring, expired }
+  })()
+
   return (
     <div className="space-y-3">
+      <StatCards items={[
+        { label: 'Khách hàng', value: custStats.total.toLocaleString('vi-VN'), sub: `trên ${customers.length.toLocaleString('vi-VN')} tất cả`, icon: Users, tint: 'text-blue-600 bg-blue-50 ring-blue-100' },
+        { label: 'Có hợp đồng', value: custStats.hasHd.toLocaleString('vi-VN'), sub: 'HĐBT / MF', icon: ClipboardCheck, tint: 'text-emerald-600 bg-emerald-50 ring-emerald-100' },
+        { label: 'Sắp hết hạn', value: custStats.expiring.toLocaleString('vi-VN'), sub: `trong ${hdbtCanhBaoThang} tháng`, icon: Clock, tint: 'text-amber-600 bg-amber-50 ring-amber-100' },
+        { label: 'Đã hết hạn', value: custStats.expired.toLocaleString('vi-VN'), sub: 'cần ký tiếp', icon: AlertTriangle, tint: 'text-red-600 bg-red-50 ring-red-100' },
+      ]} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex gap-2 w-full sm:w-auto">
           <div className="relative w-full sm:w-72">
@@ -3003,7 +3072,7 @@ function CustomerListTool({ customers, loaiHdOptions, hdbtCanhBaoThang, onUpdate
 
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[500px] overflow-y-auto">
         <table className="w-full text-left text-sm text-slate-600">
-          <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 shadow-sm z-10">
+          <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide sticky top-0 border-b border-slate-200 shadow-sm z-10">
             <tr>
               <th className="px-4 py-3 font-semibold">Mã máy</th>
               <th className="px-4 py-3 font-semibold">Tên khách hàng</th>
