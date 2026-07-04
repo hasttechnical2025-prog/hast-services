@@ -83,8 +83,9 @@ export default function AdminDashboard() {
   const [systemTab, setSystemTab] = useState<"cai_dat" | "tai_khoan" | "khach_hang" | "danh_muc">("tai_khoan")
   // Tab con bên trong "Theo dõi máy"
   const [monitorTab, setMonitorTab] = useState<"bao_tri" | "giam_dinh">("bao_tri")
-  // Tab con bên trong "Kho hàng"
+  // Tab con bên trong "Kho hàng" (tech_admin không thấy Tồn kho -> mặc định Đặt hàng)
   const [khoTab, setKhoTab] = useState<"ton_kho" | "dat_hang" | "thong_ke">("ton_kho")
+  const effectiveKhoTab = (currentUserRole !== 'admin' && khoTab === 'ton_kho') ? 'dat_hang' : khoTab
   const [hdbtOpen, setHdbtOpen] = useState(false)
   // Bộ lọc Sổ công tác (mặc định: việc hôm nay)
   const [jobFilters, setJobFilters] = useState<{ search: string, tuNgay: string, denNgay: string, loaiViec: string[], ktvId: string, hoaDon: string, trangThai: string[] }>(() => {
@@ -571,9 +572,8 @@ export default function AdminDashboard() {
         {/* Header */}
         <header className="sticky top-0 z-30 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-xl shadow-md border border-slate-200 gap-4">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-600 p-2 rounded-lg">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="Logo" className="h-11 w-auto object-contain rounded-lg" />
             <div>
               <h1 className="text-2xl font-bold text-slate-800">Admin Dashboard</h1>
               <p className="text-xs text-slate-400">Tài khoản: <span className="font-bold text-slate-700">{currentAdmin?.full_name}</span> (<span className="font-semibold text-slate-500 uppercase">{currentUserRole}</span>)</p>
@@ -597,14 +597,13 @@ export default function AdminDashboard() {
                 </button>
               )}
 
-              {currentUserRole !== 'staff' && (
-                <button
-                  onClick={() => setActiveTab("theo_doi_may")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'theo_doi_may' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  Theo dõi máy
-                </button>
-              )}
+              {/* Theo dõi máy: mọi role văn phòng (admin, tech_admin, staff) */}
+              <button
+                onClick={() => setActiveTab("theo_doi_may")}
+                className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'theo_doi_may' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                Theo dõi máy
+              </button>
 
               {currentUserRole === 'admin' && (
                 <button
@@ -671,15 +670,15 @@ export default function AdminDashboard() {
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-1.5 text-xs text-slate-500">
                   <span>Ngày</span>
-                  <input type="date" value={jobFilters.tuNgay} onChange={(e) => setJobFilters({ ...jobFilters, tuNgay: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500" />
+                  <DateField value={jobFilters.tuNgay} onChange={(v) => setJobFilters({ ...jobFilters, tuNgay: v })} heightClass="h-9" className="w-32" />
                   <span>–</span>
-                  <input type="date" value={jobFilters.denNgay} onChange={(e) => setJobFilters({ ...jobFilters, denNgay: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500" />
+                  <DateField value={jobFilters.denNgay} onChange={(v) => setJobFilters({ ...jobFilters, denNgay: v })} heightClass="h-9" className="w-32" />
                 </div>
                 <MultiCheckDropdown label="Loại việc" options={dmOptions('loai_cong_viec', ['Lắp máy','Sửa máy','Giao mực','Thay vật tư','Bảo trì','Bảo hành','Hỗ trợ thầu','Hỗ trợ đại lý','Khiếu nại','Kiểm tra','Khác'])} selected={jobFilters.loaiViec} onChange={(v) => setJobFilters({ ...jobFilters, loaiViec: v })} />
                 <select value={jobFilters.ktvId} onChange={(e) => setJobFilters({ ...jobFilters, ktvId: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="">KTV: Tất cả</option>
                   <option value="none">Chưa giao</option>
-                  {technicians.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
+                  {technicians.filter(t => t.role !== 'admin').map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
                 </select>
                 <select value={jobFilters.hoaDon} onChange={(e) => setJobFilters({ ...jobFilters, hoaDon: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="">HĐ: Tất cả</option>
@@ -775,14 +774,16 @@ export default function AdminDashboard() {
             {/* Thanh tab con của Kho hàng */}
             <div className="p-4 border-b border-slate-200 bg-slate-50/50">
               <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
-                {[['ton_kho','Tồn kho'],['dat_hang','Đặt hàng'],['thong_ke','Thống kê nhập']].map(([k,l]) => (
-                  <button key={k} onClick={() => setKhoTab(k as any)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${khoTab === k ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>{l}</button>
+                {([['ton_kho','Tồn kho'],['dat_hang','Đặt hàng'],['thong_ke','Thống kê nhập']] as const)
+                  .filter(([k]) => k !== 'ton_kho' || currentUserRole === 'admin')
+                  .map(([k,l]) => (
+                  <button key={k} onClick={() => setKhoTab(k as any)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveKhoTab === k ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>{l}</button>
                 ))}
               </div>
             </div>
 
             <div className="p-6 space-y-6">
-              {khoTab === "ton_kho" && (
+              {effectiveKhoTab === "ton_kho" && currentUserRole === 'admin' && (
                 <>
                   <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Quản lý Kho Hàng (Vật tư)</h2>
                   <InventoryManagementTool inventory={inventory} onUpdateSuccess={fetchData} showNotification={showNotification} confirmDelete={confirmDelete} />
@@ -796,16 +797,16 @@ export default function AdminDashboard() {
                   </div>
                 </>
               )}
-              {khoTab === "dat_hang" && (
+              {effectiveKhoTab === "dat_hang" && (
                 <DatHangTool inventory={inventory} nhaCungCapOptions={dmOptions('nha_cung_cap')} onUpdateSuccess={fetchData} showNotification={showNotification} />
               )}
-              {khoTab === "thong_ke" && (
+              {effectiveKhoTab === "thong_ke" && (
                 <NhapHangThangTool showNotification={showNotification} />
               )}
             </div>
           </div>
         )}
-        {activeTab === "theo_doi_may" && currentUserRole !== 'staff' && (
+        {activeTab === "theo_doi_may" && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             {/* Thanh tab con của Theo dõi máy */}
             <div className="p-4 border-b border-slate-200 bg-slate-50/50">
@@ -991,7 +992,7 @@ export default function AdminDashboard() {
                     onChange={(e) => setFormData({...formData, ktv_id: e.target.value})}
                   >
                     <option value="">-- Chưa giao KTV --</option>
-                    {technicians.map(t => (
+                    {technicians.filter(t => t.role !== 'admin').map(t => (
                       <option key={t.id} value={t.id}>{t.full_name}</option>
                     ))}
                   </select>
@@ -1263,6 +1264,20 @@ export default function AdminDashboard() {
 interface BulkImportToolProps {
   onImportSuccess: () => void
   showNotification: (type: 'success' | 'error', msg: string) => void
+}
+
+// Ô chọn ngày hiển thị DD/MM/YYYY (native date ẩn opacity-0 nằm đè lên)
+function DateField({ value, onChange, className, heightClass = "h-10", placeholder = "dd/mm/yyyy" }: { value: string, onChange: (v: string) => void, className?: string, heightClass?: string, placeholder?: string }) {
+  const f = (s: string) => { if (!s) return ''; const d = new Date(s); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` }
+  return (
+    <div className={`relative ${className || ''}`}>
+      <div className={`flex ${heightClass} w-full items-center rounded-md border border-slate-200 bg-white px-3 text-sm ${value ? 'text-slate-700' : 'text-slate-400'}`}>
+        {value ? f(value) : placeholder}
+        <svg className="w-4 h-4 ml-auto text-slate-400 pointer-events-none shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+      </div>
+      <input type="date" value={value} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+    </div>
+  )
 }
 
 // Dropdown chọn nhiều (checkbox) — dùng chung cho các bộ lọc.
@@ -1879,7 +1894,7 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">Ngày giám định</label>
-            <Input type="date" value={form.ngay_giam_dinh} onChange={(e) => setForm({ ...form, ngay_giam_dinh: e.target.value })} className="bg-white" />
+            <DateField value={form.ngay_giam_dinh} onChange={(v) => setForm({ ...form, ngay_giam_dinh: v })} />
           </div>
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">KTV giám định</label>
@@ -2000,7 +2015,7 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
             {closing && closing.id === r.id ? (
               <div className="flex items-end gap-2 flex-wrap border-t border-slate-100 pt-2">
                 <div><label className="text-xs text-slate-500 block mb-1">Số phiếu *</label><Input value={closing.so_report} onChange={(e) => setClosing({ ...closing, so_report: e.target.value })} className="h-9 bg-white w-36" placeholder="VD: 956807" /></div>
-                <div><label className="text-xs text-slate-500 block mb-1">Ngày thay</label><Input type="date" value={closing.ngay_thay} onChange={(e) => setClosing({ ...closing, ngay_thay: e.target.value })} className="h-9 bg-white" /></div>
+                <div><label className="text-xs text-slate-500 block mb-1">Ngày thay</label><DateField value={closing.ngay_thay} onChange={(v) => setClosing({ ...closing, ngay_thay: v })} heightClass="h-9" className="w-36" /></div>
                 <Button onClick={handleClose} className="h-9 bg-emerald-600 hover:bg-emerald-700">Xác nhận đã thay</Button>
                 <Button variant="outline" onClick={() => setClosing(null)} className="h-9">Hủy</Button>
               </div>
@@ -2211,7 +2226,7 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">Ngày đặt</label>
-            <Input type="date" value={form.ngay_dat} onChange={(e) => setForm({ ...form, ngay_dat: e.target.value })} className="bg-white" />
+            <DateField value={form.ngay_dat} onChange={(v) => setForm({ ...form, ngay_dat: v })} />
           </div>
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">Nhà cung cấp</label>
@@ -2272,9 +2287,9 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
           </label>
           <div className="flex items-center gap-1.5 text-xs text-slate-500">
             <span>Hàng về</span>
-            <input type="date" value={orderFilters.hvTu} onChange={(e) => setOrderFilters({ ...orderFilters, hvTu: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none" />
+            <DateField value={orderFilters.hvTu} onChange={(v) => setOrderFilters({ ...orderFilters, hvTu: v })} heightClass="h-9" className="w-32" />
             <span>–</span>
-            <input type="date" value={orderFilters.hvDen} onChange={(e) => setOrderFilters({ ...orderFilters, hvDen: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none" />
+            <DateField value={orderFilters.hvDen} onChange={(v) => setOrderFilters({ ...orderFilters, hvDen: v })} heightClass="h-9" className="w-32" />
           </div>
           {(orderFilters.maHang || !orderFilters.conThieu || orderFilters.hvTu || orderFilters.hvDen) && (
             <button onClick={() => setOrderFilters({ maHang: "", conThieu: true, hvTu: "", hvDen: "" })} className="text-xs text-red-600 hover:underline font-medium">Bỏ lọc</button>
@@ -2327,7 +2342,7 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
                             </div>
                             {receiving && receiving.ctId === line.id && (
                               <div className="flex items-end gap-1.5 mt-1.5">
-                                <Input type="date" value={receiving.ngay_nhan} onChange={(e) => setReceiving({ ...receiving, ngay_nhan: e.target.value })} className="h-8 bg-white w-36" />
+                                <DateField value={receiving.ngay_nhan} onChange={(v) => setReceiving({ ...receiving, ngay_nhan: v })} heightClass="h-8" className="w-36" />
                                 <Input type="number" min="1" placeholder="SL nhận" value={receiving.so_luong_nhan} onChange={(e) => setReceiving({ ...receiving, so_luong_nhan: e.target.value })} className="h-8 bg-white w-24" />
                                 <Button onClick={saveReceipt} className="h-8 text-xs px-3 bg-emerald-600 hover:bg-emerald-700">Lưu</Button>
                                 <Button variant="outline" onClick={() => setReceiving(null)} className="h-8 text-xs px-3">Hủy</Button>
@@ -2867,7 +2882,7 @@ function CustomerListTool({ customers, loaiHdOptions, hdbtCanhBaoThang, onUpdate
               </div>
               <div className="space-y-1 sm:col-span-2">
                 <label className="text-xs font-semibold text-slate-600">Ngày hết hạn HĐBT</label>
-                <Input type="date" value={editing.ngay_het_han_hdbt || ""} onChange={(e) => setEditing({ ...editing, ngay_het_han_hdbt: e.target.value })} className="bg-white" />
+                <DateField value={editing.ngay_het_han_hdbt || ""} onChange={(v) => setEditing({ ...editing, ngay_het_han_hdbt: v })} />
               </div>
             </div>
             <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
