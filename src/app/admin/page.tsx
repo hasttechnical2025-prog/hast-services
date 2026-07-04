@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { createPortal } from "react-dom"
-import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download } from "lucide-react"
+import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet } from "lucide-react"
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -495,6 +495,21 @@ export default function AdminDashboard() {
   const clearJobFilters = () => setJobFilters({ search: "", tuNgay: "", denNgay: "", loaiViec: [], ktvId: "", hoaDon: "", trangThai: [] })
   const jobFilterActive = !!(jobFilters.search || jobFilters.tuNgay || jobFilters.denNgay || jobFilters.loaiViec.length || jobFilters.ktvId || jobFilters.hoaDon || jobFilters.trangThai.length)
 
+  // Thẻ KPI tóm tắt (tính trên danh sách đã lọc)
+  const jobStats = (() => {
+    let done = 0, doing = 0, waiting = 0, unassigned = 0, revenue = 0, revenueHD = 0
+    for (const j of filteredJobs) {
+      if (j.ket_qua === 'Hoàn thành') done++
+      else if (j.ket_qua === 'Đang làm') doing++
+      else if (j.ket_qua === 'Chờ nhận') waiting++
+      if (!(j as any).ktv_id) unassigned++
+      const { tong, coHD } = jobTien(j)
+      revenue += tong
+      if (coHD) revenueHD += tong
+    }
+    return { total: filteredJobs.length, done, doing, waiting, unassigned, revenue, revenueHD }
+  })()
+
   const exportJobsCsv = () => {
     const headers = ['Ngày', 'Khách hàng', 'Địa chỉ', 'Mã máy', 'Loại việc', 'KTV', 'KM', 'Số phiếu', 'Tiền', 'Hóa đơn', 'Trạng thái']
     const cell = (v: any) => { const s = v == null ? '' : String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s }
@@ -684,6 +699,28 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === "cong_viec" && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {[
+              { label: 'Tổng việc', value: jobStats.total.toLocaleString('vi-VN'), sub: `trên ${jobs.length.toLocaleString('vi-VN')} tất cả`, icon: ClipboardList, tint: 'text-blue-600 bg-blue-50 ring-blue-100' },
+              { label: 'Hoàn thành', value: jobStats.done.toLocaleString('vi-VN'), sub: jobStats.total ? `${Math.round(jobStats.done / jobStats.total * 100)}% khối lượng` : '—', icon: CheckCircle2, tint: 'text-emerald-600 bg-emerald-50 ring-emerald-100' },
+              { label: 'Đang làm / Chờ', value: (jobStats.doing + jobStats.waiting).toLocaleString('vi-VN'), sub: `${jobStats.unassigned.toLocaleString('vi-VN')} chưa giao`, icon: Clock, tint: 'text-amber-600 bg-amber-50 ring-amber-100' },
+              { label: 'Phát sinh tiền', value: `${jobStats.revenue.toLocaleString('vi-VN')} đ`, sub: `có HĐ: ${jobStats.revenueHD.toLocaleString('vi-VN')} đ`, icon: Wallet, tint: 'text-indigo-600 bg-indigo-50 ring-indigo-100' },
+            ].map((c) => (
+              <div key={c.label} className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex items-start gap-3">
+                <div className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ring-1 ${c.tint}`}>
+                  <c.icon className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-medium text-slate-500">{c.label}</div>
+                  <div className="text-xl font-bold text-slate-800 leading-tight truncate" title={c.value}>{c.value}</div>
+                  <div className="text-[11px] text-slate-400 truncate">{c.sub}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === "cong_viec" && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             {/* Toolbar + Bộ lọc */}
             <div className="p-4 border-b border-slate-200 space-y-3 bg-slate-50/50">
@@ -726,7 +763,7 @@ export default function AdminDashboard() {
             {/* Table */}
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm text-slate-600">
-                <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
+                <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
                   <tr>
                     <th className="px-4 py-3">Ngày</th>
                     <th className="px-4 py-3">Khách hàng</th>
