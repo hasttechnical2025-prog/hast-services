@@ -2420,6 +2420,8 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     repeat_ngay: cauHinh.repeat_ngay || '30',
     hdbt_canh_bao_thang: cauHinh.hdbt_canh_bao_thang || '2',
     nguong_ton_thap: cauHinh.nguong_ton_thap || '0',
+    phien_van_phong_ngay: cauHinh.phien_van_phong_ngay || '7',
+    phien_ktv_ngay: cauHinh.phien_ktv_ngay || '30',
     mac_dinh_hom_nay: (cauHinh.mac_dinh_hom_nay ?? '1') !== '0',
     auto_bao_tri: (cauHinh.auto_bao_tri ?? '1') !== '0',
   })
@@ -2439,6 +2441,8 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
       repeat_ngay: String(parseInt(cfg.repeat_ngay) || 30),
       hdbt_canh_bao_thang: String(parseInt(cfg.hdbt_canh_bao_thang) || 2),
       nguong_ton_thap: String(parseInt(cfg.nguong_ton_thap) || 0),
+      phien_van_phong_ngay: String(parseInt(cfg.phien_van_phong_ngay) || 7),
+      phien_ktv_ngay: String(parseInt(cfg.phien_ktv_ngay) || 30),
       mac_dinh_hom_nay: cfg.mac_dinh_hom_nay ? '1' : '0',
       auto_bao_tri: cfg.auto_bao_tri ? '1' : '0',
       tab_visibility: JSON.stringify(tabVis),
@@ -2450,7 +2454,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setSaving(false) }
   }
 
-  const numField = (label: string, key: 'repeat_ngay' | 'hdbt_canh_bao_thang' | 'nguong_ton_thap' | 'vp_lat' | 'vp_lng', hint?: string, step?: string) => (
+  const numField = (label: string, key: 'repeat_ngay' | 'hdbt_canh_bao_thang' | 'nguong_ton_thap' | 'vp_lat' | 'vp_lng' | 'phien_van_phong_ngay' | 'phien_ktv_ngay', hint?: string, step?: string) => (
     <div className="space-y-1">
       <label className="text-xs font-semibold text-slate-600">{label}</label>
       <Input value={(cfg as any)[key]} onChange={(e) => setCfg({ ...cfg, [key]: e.target.value })} className="bg-white" inputMode="decimal" {...(step ? { step } : {})} />
@@ -2490,6 +2494,15 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
             <input type="checkbox" checked={cfg.auto_bao_tri} onChange={(e) => setCfg({ ...cfg, auto_bao_tri: e.target.checked })} className="w-4 h-4 accent-blue-600" />
             Tự đánh dấu bảo trì khi việc &quot;Bảo trì&quot; hoàn thành
           </label>
+        </div>
+      </div>
+
+      {/* PHIÊN ĐĂNG NHẬP */}
+      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+        <h3 className="text-lg font-semibold text-slate-700">Phiên đăng nhập</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {numField('Văn phòng — giữ đăng nhập (ngày)', 'phien_van_phong_ngay', 'Admin / Tech Admin / Staff. Áp dụng cho lần đăng nhập kế tiếp')}
+          {numField('KTV (mật khẩu) — giữ đăng nhập (ngày)', 'phien_ktv_ngay', 'KTV đăng nhập bằng QR trên điện thoại vẫn giữ dài hạn riêng')}
         </div>
       </div>
 

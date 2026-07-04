@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyPassword, hashPassword } from '@/lib/password'
 import { setSessionCookie } from '@/lib/session'
+import { getSessionMaxAge } from '@/lib/config'
 
 export async function POST(request: Request) {
   try {
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
         .eq('id', data.id)
     }
 
-    await setSessionCookie({ id: data.id, full_name: data.full_name, role: 'ktv' })
+    await setSessionCookie({ id: data.id, full_name: data.full_name, role: 'ktv' }, await getSessionMaxAge('ktv'))
 
     return NextResponse.json({
       data: {
