@@ -1197,6 +1197,7 @@ function InventoryManagementTool({ inventory, onUpdateSuccess, showNotification,
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
   const [highlightMH, setHighlightMH] = useState("")
+  const formRef = useRef<HTMLFormElement>(null)
 
   // Cảnh báo trùng: đang thêm mới mà mã hàng đã có trong kho
   const dupItem = !isEditing && formData.ma_hang.trim()
@@ -1217,6 +1218,9 @@ function InventoryManagementTool({ inventory, onUpdateSuccess, showNotification,
       ton_kho: item.ton_kho || 0
     })
     setIsEditing(true)
+    setHighlightMH(item.ma_hang)
+    // Đưa form sửa vào tầm nhìn (form nằm phía trên, danh sách có thể đang cuộn xa)
+    setTimeout(() => formRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 0)
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -1247,14 +1251,15 @@ function InventoryManagementTool({ inventory, onUpdateSuccess, showNotification,
 
   return (
     <div className="space-y-6">
-      <form onSubmit={handleSave} className="bg-slate-50 p-4 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <form ref={formRef} onSubmit={handleSave} className="bg-slate-50 p-4 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="space-y-1 lg:col-span-1">
           <label className="text-xs font-semibold text-slate-600">Mã hàng *</label>
           <Input required value={formData.ma_hang} onChange={(e) => setFormData({...formData, ma_hang: e.target.value.toUpperCase()})} disabled={isEditing} placeholder="VD: DR017" className={`bg-white ${dupItem ? 'border-amber-400 focus:ring-amber-400' : ''}`} />
           {dupItem && (
-            <div className="text-xs text-amber-600 flex items-center gap-1 flex-wrap">
+            <div className="text-xs text-amber-600 flex items-center gap-2 flex-wrap">
               ⚠ Mã đã tồn tại.
-              <button type="button" onClick={() => { setHighlightMH(dupItem.ma_hang); setTimeout(() => document.getElementById('inv-' + dupItem.ma_hang)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 0) }} className="underline font-medium">Xem dòng</button>
+              <button type="button" onClick={() => handleEdit(dupItem)} className="underline font-medium">Sửa dòng này</button>
+              <button type="button" onClick={() => { setHighlightMH(dupItem.ma_hang); setTimeout(() => document.getElementById('inv-' + dupItem.ma_hang)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 0) }} className="underline text-slate-500">Xem dòng</button>
             </div>
           )}
         </div>
