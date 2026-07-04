@@ -124,3 +124,32 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
+
+// Xóa khách hàng: toàn bộ (?all=1, khi nhập lại dữ liệu) hoặc theo id
+export async function DELETE(request: Request) {
+  try {
+    const session = await requireRole('admin', 'tech_admin')
+    if (!session) {
+      return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    const all = searchParams.get('all') === '1'
+
+    if (!all && !id) {
+      return NextResponse.json({ error: 'Thiếu id khách hàng' }, { status: 400 })
+    }
+
+    const query = supabaseAdmin.from('soct_khach_hang').delete()
+    const { error } = all
+      ? await query.not('id', 'is', null)
+      : await query.eq('id', id)
+
+    if (error) throw error
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error('Error deleting customer:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}

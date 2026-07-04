@@ -70,15 +70,17 @@ export async function DELETE(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const ma_hang = searchParams.get('ma_hang')
+    const all = searchParams.get('all') === '1'
 
-    if (!ma_hang) {
+    if (!all && !ma_hang) {
       return NextResponse.json({ error: 'Thiếu mã hàng' }, { status: 400 })
     }
 
-    const { error } = await supabaseAdmin
-      .from('soct_kho_hang')
-      .delete()
-      .eq('ma_hang', ma_hang)
+    // Xóa cứng: toàn bộ (khi nhập lại dữ liệu) hoặc theo một mã
+    const query = supabaseAdmin.from('soct_kho_hang').delete()
+    const { error } = all
+      ? await query.not('ma_hang', 'is', null)
+      : await query.eq('ma_hang', ma_hang)
 
     if (error) throw error
 

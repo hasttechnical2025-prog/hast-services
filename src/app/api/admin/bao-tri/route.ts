@@ -85,9 +85,13 @@ export async function DELETE(request: Request) {
     const id = searchParams.get('id')
     const ma_may = searchParams.get('ma_may')
     const thang_nam = searchParams.get('thang_nam')
+    const all = searchParams.get('all') === '1'
 
     let query = supabaseAdmin.from('soct_bao_tri').delete()
-    if (id) {
+    if (all) {
+      // Xóa toàn bộ (nếu có thang_nam thì chỉ tháng đó)
+      query = thang_nam ? query.eq('thang_nam', thang_nam) : query.not('id', 'is', null)
+    } else if (id) {
       query = query.eq('id', id)
     } else if (ma_may && thang_nam) {
       query = query.eq('ma_may', ma_may).eq('thang_nam', thang_nam)

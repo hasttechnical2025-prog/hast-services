@@ -1277,6 +1277,13 @@ function InventoryManagementTool({ inventory, onUpdateSuccess, showNotification,
         </div>
       </form>
 
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm text-slate-500">{inventory.length} vật tư trong kho</span>
+        <ClearAllButton count={inventory.length} label="vật tư trong kho" onConfirm={async () => {
+          const res = await fetch('/api/admin/kho-hang?all=1', { method: 'DELETE' })
+          if (res.ok) { showNotification('success', 'Đã xóa toàn bộ vật tư.'); onUpdateSuccess() } else showNotification('error', 'Xóa không thành công')
+        }} />
+      </div>
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[500px] overflow-y-auto">
         <table className="w-full text-left text-sm text-slate-600">
           <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 shadow-sm z-10">
@@ -1844,6 +1851,35 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
   )
 }
 
+// Nút xóa cứng toàn bộ một danh sách — yêu cầu gõ "XÓA" để xác nhận
+function ClearAllButton({ count, label, onConfirm }: { count: number, label: string, onConfirm: () => Promise<void> }) {
+  const [open, setOpen] = useState(false)
+  const [txt, setTxt] = useState("")
+  const [busy, setBusy] = useState(false)
+  if (count === 0) return null
+  const ok = ['XÓA', 'XOA'].includes(txt.trim().toUpperCase())
+  return (
+    <>
+      <Button variant="outline" onClick={() => { setOpen(true); setTxt("") }} className="border-red-200 text-red-600 hover:bg-red-50 gap-1 h-9 text-xs shrink-0"><Trash2 className="w-3.5 h-3.5" /> Xóa toàn bộ</Button>
+      {open && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="p-6 space-y-3">
+              <h3 className="text-lg font-bold text-red-700 flex items-center gap-2"><Trash2 className="w-5 h-5" /> Xóa toàn bộ {label}</h3>
+              <p className="text-sm text-slate-600">Thao tác này xóa <b>{count}</b> bản ghi khỏi cơ sở dữ liệu (xóa cứng, <b>không thể hoàn tác</b>) cùng dữ liệu liên quan. Nhập <b>XÓA</b> để xác nhận.</p>
+              <Input value={txt} onChange={(e) => setTxt(e.target.value)} placeholder="Gõ XÓA" className="bg-white" autoFocus />
+            </div>
+            <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
+              <Button variant="outline" onClick={() => setOpen(false)}>Hủy</Button>
+              <Button variant="destructive" disabled={!ok || busy} onClick={async () => { setBusy(true); await onConfirm(); setBusy(false); setOpen(false) }}>{busy ? 'Đang xóa...' : 'Xác nhận xóa'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 function NhapHangThangTool({ showNotification }: { showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [thang, setThang] = useState("")
   const [rows, setRows] = useState<any[]>([])
@@ -2344,6 +2380,12 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
         <div className="flex items-center gap-2 mb-2 px-1">
           <h3 className="text-sm font-bold text-slate-700">Đã bảo trì tháng {thangNam.split('-').reverse().join('/')}</h3>
           <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">{records.length} máy</span>
+          <div className="ml-auto">
+            <ClearAllButton count={records.length} label={`bảo trì tháng ${thangNam.split('-').reverse().join('/')}`} onConfirm={async () => {
+              const res = await fetch(`/api/admin/bao-tri?all=1&thang_nam=${thangNam}`, { method: 'DELETE' })
+              if (res.ok) { showNotification('success', 'Đã xóa toàn bộ bảo trì tháng này.'); fetchRecords(thangNam) } else showNotification('error', 'Xóa không thành công')
+            }} />
+          </div>
         </div>
         <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[420px] overflow-y-auto">
           <table className="w-full text-left text-sm text-slate-600">
@@ -2497,9 +2539,15 @@ function CustomerListTool({ customers, loaiHdOptions, hdbtCanhBaoThang, onUpdate
             )}
           </div>
         </div>
-        <span className="text-sm text-slate-500 whitespace-nowrap">
-          {(q || hdFilter !== 'all') ? `${filtered.length} / ${customers.length}` : `Tổng: ${customers.length}`} khách hàng
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-slate-500 whitespace-nowrap">
+            {(q || hdFilter !== 'all') ? `${filtered.length} / ${customers.length}` : `Tổng: ${customers.length}`} khách hàng
+          </span>
+          <ClearAllButton count={customers.length} label="khách hàng" onConfirm={async () => {
+            const res = await fetch('/api/admin/khach-hang?all=1', { method: 'DELETE' })
+            if (res.ok) { showNotification('success', 'Đã xóa toàn bộ khách hàng.'); onUpdateSuccess() } else showNotification('error', 'Xóa không thành công')
+          }} />
+        </div>
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[500px] overflow-y-auto">
