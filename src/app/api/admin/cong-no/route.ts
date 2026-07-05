@@ -84,12 +84,17 @@ export async function POST(request: Request) {
     doc.render(data)
     const out = doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' })
 
-    const safe = (input.khach_hang || 'khach').replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'khach'
+    // Tên file ASCII cho filename (header chỉ nhận ByteString), kèm filename* UTF-8 cho tên có dấu
+    const ascii = (input.khach_hang || 'khach')
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+      .replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'khach'
+    const utf8 = encodeURIComponent(`Bao-gia-${input.khach_hang || 'khach'}.docx`)
     return new NextResponse(out as any, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'Content-Disposition': `attachment; filename="Bao-gia-${safe}.docx"`,
+        'Content-Disposition': `attachment; filename="Bao-gia-${ascii}.docx"; filename*=UTF-8''${utf8}`,
       },
     })
   } catch (error: any) {
