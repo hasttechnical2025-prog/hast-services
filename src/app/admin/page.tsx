@@ -3511,7 +3511,11 @@ function DoiMatKhauTool({ showNotification }: { showNotification: (type: 'succes
     try {
       const res = await fetch('/api/auth/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ old_password: oldPw, new_password: np }) })
       const j = await res.json()
-      if (res.ok) { showNotification('success', 'Đã đổi mật khẩu.'); setOldPw(''); setNp(''); setNp2('') }
+      if (res.ok) {
+        showNotification('success', 'Đã đổi mật khẩu. Vui lòng đăng nhập lại bằng mật khẩu mới.')
+        setOldPw(''); setNp(''); setNp2('')
+        setTimeout(() => { window.location.href = '/admin' }, 1600) // phiên đã bị xóa -> về màn đăng nhập
+      }
       else showNotification('error', j.error)
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setSaving(false) }
   }

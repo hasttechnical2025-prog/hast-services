@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { requireRole } from '@/lib/session'
+import { requireRole, clearSessionCookie } from '@/lib/session'
 import { verifyPassword, hashPassword } from '@/lib/password'
 import { logAudit } from '@/lib/audit'
 
@@ -34,6 +34,8 @@ export async function POST(request: Request) {
 
     if (error) throw error
     await logAudit(session, 'Đổi mật khẩu')
+    // Xóa phiên để buộc đăng nhập lại bằng mật khẩu mới
+    await clearSessionCookie()
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error changing password:', error)
