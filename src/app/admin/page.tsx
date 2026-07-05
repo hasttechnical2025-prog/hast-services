@@ -81,7 +81,7 @@ export default function AdminDashboard() {
 
   const [activeTab, setActiveTab] = useState("cong_viec")
   // Tab con bên trong "Hệ thống" (dễ mở rộng thêm sau)
-  const [systemTab, setSystemTab] = useState<"cai_dat" | "tai_khoan" | "khach_hang" | "danh_muc" | "bao_cao">("tai_khoan")
+  const [systemTab, setSystemTab] = useState<"cai_dat" | "tai_khoan" | "khach_hang" | "danh_muc" | "bao_cao" | "audit" | "doi_mat_khau">("tai_khoan")
   // Tab con bên trong "Theo dõi máy"
   const [monitorTab, setMonitorTab] = useState<"bao_tri" | "giam_dinh">("bao_tri")
   // Tab con bên trong "Kho hàng" (tech_admin không thấy Tồn kho -> mặc định Đặt hàng)
@@ -666,14 +666,12 @@ export default function AdminDashboard() {
                 </button>
               )}
 
-              {currentUserRole === 'admin' && (
-                <button
-                  onClick={() => setActiveTab("he_thong")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'he_thong' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  Hệ thống
-                </button>
-              )}
+              <button
+                onClick={() => setActiveTab("he_thong")}
+                className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'he_thong' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                Hệ thống
+              </button>
             </div>
 
             <Button onClick={handleLogout} variant="outline" className="text-slate-600 hover:text-red-600 hover:bg-red-50 gap-1 text-xs px-3 py-1">
@@ -924,11 +922,12 @@ export default function AdminDashboard() {
           <CongNoTool showNotification={showNotification} />
         )}
 
-        {activeTab === "he_thong" && currentUserRole === 'admin' && (
+        {activeTab === "he_thong" && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             {/* Thanh tab con của Hệ thống */}
             <div className="p-4 border-b border-slate-200 bg-slate-50/50">
               <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
+                {currentUserRole === 'admin' && (<>
                 <button
                   onClick={() => setSystemTab("cai_dat")}
                   className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'cai_dat' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
@@ -959,10 +958,24 @@ export default function AdminDashboard() {
                 >
                   Báo cáo tháng
                 </button>
+                <button
+                  onClick={() => setSystemTab("audit")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'audit' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Audit Logs
+                </button>
+                </>)}
+                <button
+                  onClick={() => setSystemTab("doi_mat_khau")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${(systemTab === 'doi_mat_khau' || currentUserRole !== 'admin') ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Đổi mật khẩu
+                </button>
               </div>
             </div>
 
             <div className="p-6 space-y-6">
+              {currentUserRole === 'admin' && (<>
               {/* TAB CON: CÀI ĐẶT HỆ THỐNG */}
               {systemTab === "cai_dat" && (
                 <CaiDatHeThongTool cauHinh={cauHinh} onUpdateSuccess={fetchData} showNotification={showNotification} />
@@ -1025,6 +1038,17 @@ export default function AdminDashboard() {
               {/* TAB CON: BÁO CÁO THÁNG */}
               {systemTab === "bao_cao" && (
                 <BaoCaoThangTool showNotification={showNotification} />
+              )}
+
+              {/* TAB CON: AUDIT LOGS */}
+              {systemTab === "audit" && (
+                <AuditLogsTool showNotification={showNotification} />
+              )}
+              </>)}
+
+              {/* TAB CON: ĐỔI MẬT KHẨU (mọi role) */}
+              {(currentUserRole !== 'admin' || systemTab === 'doi_mat_khau') && (
+                <DoiMatKhauTool showNotification={showNotification} />
               )}
             </div>
           </div>
@@ -3404,6 +3428,115 @@ function PhieuCungTool({ nguongNgay, showNotification }: { nguongNgay: number, s
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function DoiMatKhauTool({ showNotification }: { showNotification: (type: 'success' | 'error', msg: string) => void }) {
+  const [oldPw, setOldPw] = useState('')
+  const [np, setNp] = useState('')
+  const [np2, setNp2] = useState('')
+  const [saving, setSaving] = useState(false)
+  const save = async () => {
+    if (!oldPw || !np) return showNotification('error', 'Nhập đủ mật khẩu cũ và mới')
+    if (np.length < 6) return showNotification('error', 'Mật khẩu mới tối thiểu 6 ký tự')
+    if (np !== np2) return showNotification('error', 'Xác nhận mật khẩu mới không khớp')
+    setSaving(true)
+    try {
+      const res = await fetch('/api/auth/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ old_password: oldPw, new_password: np }) })
+      const j = await res.json()
+      if (res.ok) { showNotification('success', 'Đã đổi mật khẩu.'); setOldPw(''); setNp(''); setNp2('') }
+      else showNotification('error', j.error)
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setSaving(false) }
+  }
+  return (
+    <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 max-w-md space-y-4">
+      <h3 className="text-lg font-semibold text-slate-700">Đổi mật khẩu</h3>
+      <p className="text-sm text-slate-500">Nhập mật khẩu cũ → mật khẩu mới → xác nhận → Lưu.</p>
+      <div className="space-y-1">
+        <label className="text-xs font-semibold text-slate-600">Mật khẩu cũ</label>
+        <Input type="password" value={oldPw} onChange={e => setOldPw(e.target.value)} className="bg-white" />
+      </div>
+      <div className="space-y-1">
+        <label className="text-xs font-semibold text-slate-600">Mật khẩu mới</label>
+        <Input type="password" value={np} onChange={e => setNp(e.target.value)} className="bg-white" />
+      </div>
+      <div className="space-y-1">
+        <label className="text-xs font-semibold text-slate-600">Xác nhận mật khẩu mới</label>
+        <Input type="password" value={np2} onChange={e => setNp2(e.target.value)} className="bg-white" onKeyDown={e => { if (e.key === 'Enter') save() }} />
+      </div>
+      <Button onClick={save} disabled={saving} className="h-10">{saving ? 'Đang lưu...' : 'Lưu'}</Button>
+    </div>
+  )
+}
+
+function AuditLogsTool({ showNotification }: { showNotification: (type: 'success' | 'error', msg: string) => void }) {
+  const [logs, setLogs] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [limit, setLimit] = useState('50')
+
+  const fetchLogs = async (lim: string) => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/admin/audit-logs?limit=${lim === 'all' ? '0' : lim}`)
+      const j = await res.json()
+      if (res.ok) setLogs(j.data || []); else showNotification('error', j.error)
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setLoading(false) }
+  }
+  useEffect(() => { fetchLogs(limit) }, [limit])
+
+  const fmtTs = (s: string) => { const d = new Date(s); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}` }
+
+  const exportTxt = () => {
+    const lines = logs.map(l => `${fmtTs(l.created_at)}\t${l.user_name || ''} (${l.user_role || ''})\t${l.action}\t${l.detail || ''}`)
+    const txt = ['Thời gian\tNgười dùng\tHành động\tChi tiết', ...lines].join('\r\n')
+    const blob = new Blob(['﻿' + txt], { type: 'text/plain;charset=utf-8;' })
+    const url = URL.createObjectURL(blob); const a = document.createElement('a')
+    a.href = url; a.download = `audit-logs-${new Date().toISOString().split('T')[0]}.txt`; a.click(); URL.revokeObjectURL(url)
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-lg font-semibold text-slate-700">Audit Logs</h3>
+        <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">{logs.length}</span>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-xs text-slate-500">Hiển thị</span>
+          <select value={limit} onChange={e => setLimit(e.target.value)} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="10">10</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="all">Toàn bộ</option>
+          </select>
+          <Button variant="outline" onClick={exportTxt} className="gap-2 h-9"><Download className="w-4 h-4" /> Xuất .txt</Button>
+        </div>
+      </div>
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[560px] overflow-y-auto">
+        <table className="w-full text-left text-sm text-slate-600">
+          <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide sticky top-0 border-b border-slate-200">
+            <tr>
+              <th className="px-4 py-2 whitespace-nowrap">Thời gian</th>
+              <th className="px-4 py-2">Người dùng</th>
+              <th className="px-4 py-2">Hành động</th>
+              <th className="px-4 py-2">Chi tiết</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {loading ? (
+              <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Đang tải...</td></tr>
+            ) : logs.length === 0 ? (
+              <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Chưa có log nào.</td></tr>
+            ) : logs.map(l => (
+              <tr key={l.id} className="hover:bg-slate-50">
+                <td className="px-4 py-2 whitespace-nowrap text-xs">{fmtTs(l.created_at)}</td>
+                <td className="px-4 py-2 whitespace-nowrap">{l.user_name || '—'} <span className="text-xs text-slate-400 uppercase">{l.user_role}</span></td>
+                <td className="px-4 py-2 font-medium text-slate-700 whitespace-nowrap">{l.action}</td>
+                <td className="px-4 py-2 text-xs text-slate-500">{l.detail}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )

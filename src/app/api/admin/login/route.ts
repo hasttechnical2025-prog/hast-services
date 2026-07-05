@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyPassword, hashPassword } from '@/lib/password'
 import { setSessionCookie, type Role } from '@/lib/session'
 import { getSessionMaxAge } from '@/lib/config'
+import { logAudit } from '@/lib/audit'
 
 export async function POST(request: Request) {
   try {
@@ -39,6 +40,7 @@ export async function POST(request: Request) {
 
     const user = { id: data.id, full_name: data.full_name, role: data.role as Role }
     await setSessionCookie(user, await getSessionMaxAge('van_phong'))
+    await logAudit(user, 'Đăng nhập', `@${username}`)
 
     return NextResponse.json({ data: user })
   } catch (error: any) {

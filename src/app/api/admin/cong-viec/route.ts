@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { broadcastJobsChanged } from '@/lib/realtime'
 import { getCauHinh } from '@/lib/config'
+import { logAudit } from '@/lib/audit'
 
 // Lấy danh sách công việc kèm thông tin khách hàng, kỹ thuật viên và vật tư liên quan
 // KTV thấy việc gán cho chính mình VÀ việc chưa gán ai (pool chờ nhận)
@@ -165,6 +166,7 @@ export async function POST(request: Request) {
     // đến /api/webhook/supabase để gửi thông báo Telegram cho KTV
 
     await broadcastJobsChanged()
+    await logAudit(session, 'Tạo công việc', `${loai_cong_viec}${ma_may ? ` — máy ${ma_may}` : ''}`)
 
     return NextResponse.json({ data })
   } catch (error: any) {
@@ -290,6 +292,7 @@ export async function DELETE(request: Request) {
     if (error) throw error
 
     await broadcastJobsChanged()
+    await logAudit(session, 'Xóa công việc', `id ${id}`)
 
     return NextResponse.json({ success: true })
   } catch (error: any) {

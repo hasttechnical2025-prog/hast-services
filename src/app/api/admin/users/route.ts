@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { hashPassword } from '@/lib/password'
 import { requireRole } from '@/lib/session'
+import { logAudit } from '@/lib/audit'
 
 // GET: Lấy danh sách toàn bộ nhân viên (phục vụ quản lý của Admin)
 // Các role không phải admin chỉ nhận id/full_name/role (đủ cho dropdown giao việc)
@@ -70,6 +71,7 @@ export async function POST(request: Request) {
       throw error
     }
 
+    await logAudit(session, 'Tạo tài khoản', `${full_name} (@${username}, ${role})`)
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error creating user:', error)
@@ -118,6 +120,7 @@ export async function PUT(request: Request) {
       throw error
     }
 
+    await logAudit(session, 'Sửa tài khoản', `${data.full_name} (@${data.username})${password ? ' — đổi mật khẩu' : ''}${is_active !== undefined ? (is_active ? ' — kích hoạt' : ' — ngừng') : ''}`)
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error updating user:', error)
@@ -151,6 +154,7 @@ export async function DELETE(request: Request) {
 
     if (error) throw error
 
+    await logAudit(session, 'Xóa tài khoản', `id ${id}`)
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error deleting user:', error)

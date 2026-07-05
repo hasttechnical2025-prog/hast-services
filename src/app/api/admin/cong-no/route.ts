@@ -6,6 +6,7 @@ import Docxtemplater from 'docxtemplater'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireTab } from '@/lib/session'
 import { buildQuoteData, type QuoteInput } from '@/lib/report/bao-gia'
+import { logAudit } from '@/lib/audit'
 
 export const runtime = 'nodejs'
 
@@ -53,6 +54,7 @@ export async function PUT(request: Request) {
       await supabaseAdmin.from('soct_chi_tiet_vat_tu').update({ hoa_don: true }).in('id_cong_viec', ids)
     }
 
+    await logAudit(session, 'Cập nhật trạng thái hóa đơn', `${ids.length} phiếu → ${trang_thai_hd}`)
     return NextResponse.json({ success: true, count: ids.length })
   } catch (error: any) {
     console.error('Error updating cong no status:', error)
