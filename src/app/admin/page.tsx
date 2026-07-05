@@ -1253,8 +1253,8 @@ export default function AdminDashboard() {
                 return (
                   <div className="space-y-2">
                     <div className="flex flex-wrap gap-2">
-                      {/* Chỉ theo dõi bảo trì tháng với máy CÓ hợp đồng (loai_hd trống = không cần bảo trì) */}
-                      {matched.loai_hd && mayStatus && (mayStatus.bao_tri_thang
+                      {/* Chỉ theo dõi bảo trì tháng với máy HĐBT hoặc MF (máy mới bảo trì free 1 năm); loại khác không hiện */}
+                      {['HĐBT', 'MF'].includes(matched.loai_hd) && mayStatus && (mayStatus.bao_tri_thang
                         ? <span className={`${pill} bg-emerald-50 text-emerald-700 border-emerald-200`}>✓ Đã bảo trì T{mayStatus.thang_nam.split('-')[1]}</span>
                         : <span className={`${pill} bg-amber-50 text-amber-700 border-amber-200`}>Chưa bảo trì tháng này</span>)}
                       {hd && <span className={`${pill} ${hd.cls}`}>HĐBT: {hd.note} ({hd.label})</span>}
