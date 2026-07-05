@@ -653,6 +653,15 @@ export default function AdminDashboard() {
                 </button>
               )}
 
+              {tabVisible('hoan_phieu') && (
+                <button
+                  onClick={() => setActiveTab("hoan_phieu")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'hoan_phieu' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Hoàn phiếu
+                </button>
+              )}
+
               {currentUserRole === 'admin' && (
                 <button
                   onClick={() => setActiveTab("he_thong")}
@@ -902,6 +911,11 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {activeTab === "hoan_phieu" && tabVisible('hoan_phieu') && (
+          <PhieuCungTool nguongNgay={parseInt(cauHinh.phieu_cung_canh_bao_ngay || '3') || 3} showNotification={showNotification} />
+        )}
+
         {activeTab === "he_thong" && currentUserRole === 'admin' && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             {/* Thanh tab con của Hệ thống */}
@@ -2664,12 +2678,13 @@ function StatCards({ items }: { items: StatCard[] }) {
 const TAB_TREE: { key: string, label: string, subs: [string, string][] }[] = [
   { key: 'kho_hang', label: 'Kho hàng', subs: [['ton_kho', 'Tồn kho'], ['dat_hang', 'Đặt hàng'], ['thong_ke', 'Thống kê nhập']] },
   { key: 'theo_doi_may', label: 'Theo dõi máy', subs: [['bao_tri', 'Bảo trì'], ['giam_dinh', 'Giám định']] },
+  { key: 'hoan_phieu', label: 'Hoàn phiếu', subs: [] },
 ]
 const TAB_ROLES: [string, string][] = [['tech_admin', 'Tech Admin'], ['staff', 'Staff']]
 // Mặc định hiển thị theo role; key tab con dạng "cha.con"
 const DEFAULT_TAB_VIS: Record<string, Record<string, boolean>> = {
-  tech_admin: { kho_hang: true, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': true, 'kho_hang.thong_ke': true, theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true },
-  staff: { kho_hang: false, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': false, 'kho_hang.thong_ke': false, theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true },
+  tech_admin: { kho_hang: true, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': true, 'kho_hang.thong_ke': true, theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true, hoan_phieu: true },
+  staff: { kho_hang: false, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': false, 'kho_hang.thong_ke': false, theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true, hoan_phieu: true },
 }
 
 function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cauHinh: Record<string, string>, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
@@ -2680,6 +2695,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     repeat_ngay: cauHinh.repeat_ngay || '30',
     hdbt_canh_bao_thang: cauHinh.hdbt_canh_bao_thang || '2',
     nguong_ton_thap: cauHinh.nguong_ton_thap || '0',
+    phieu_cung_canh_bao_ngay: cauHinh.phieu_cung_canh_bao_ngay || '3',
     phien_van_phong_ngay: cauHinh.phien_van_phong_ngay || '7',
     phien_ktv_ngay: cauHinh.phien_ktv_ngay || '30',
     mac_dinh_hom_nay: (cauHinh.mac_dinh_hom_nay ?? '1') !== '0',
@@ -2702,6 +2718,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
       repeat_ngay: String(parseInt(cfg.repeat_ngay) || 30),
       hdbt_canh_bao_thang: String(parseInt(cfg.hdbt_canh_bao_thang) || 2),
       nguong_ton_thap: String(parseInt(cfg.nguong_ton_thap) || 0),
+      phieu_cung_canh_bao_ngay: String(parseInt(cfg.phieu_cung_canh_bao_ngay) || 3),
       phien_van_phong_ngay: String(parseInt(cfg.phien_van_phong_ngay) || 7),
       phien_ktv_ngay: String(parseInt(cfg.phien_ktv_ngay) || 30),
       mac_dinh_hom_nay: cfg.mac_dinh_hom_nay ? '1' : '0',
@@ -2716,7 +2733,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setSaving(false) }
   }
 
-  const numField = (label: string, key: 'repeat_ngay' | 'hdbt_canh_bao_thang' | 'nguong_ton_thap' | 'vp_lat' | 'vp_lng' | 'phien_van_phong_ngay' | 'phien_ktv_ngay', hint?: string, step?: string) => (
+  const numField = (label: string, key: 'repeat_ngay' | 'hdbt_canh_bao_thang' | 'nguong_ton_thap' | 'vp_lat' | 'vp_lng' | 'phien_van_phong_ngay' | 'phien_ktv_ngay' | 'phieu_cung_canh_bao_ngay', hint?: string, step?: string) => (
     <div className="space-y-1">
       <label className="text-xs font-semibold text-slate-600">{label}</label>
       <Input value={(cfg as any)[key]} onChange={(e) => setCfg({ ...cfg, [key]: e.target.value })} className="bg-white" inputMode="decimal" {...(step ? { step } : {})} />
@@ -2746,6 +2763,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
           {numField('Cửa sổ "đã sửa gần đây" (ngày)', 'repeat_ngay', 'Đánh dấu máy vừa sửa trong N ngày')}
           {numField('Cảnh báo HĐBT trước (tháng)', 'hdbt_canh_bao_thang')}
           {numField('Ngưỡng tồn thấp (đỏ khi ≤)', 'nguong_ton_thap')}
+          {numField('Cảnh báo trễ nộp phiếu (ngày)', 'phieu_cung_canh_bao_ngay')}
         </div>
         <div className="flex flex-wrap gap-6">
           <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
@@ -3066,6 +3084,122 @@ function BaoCaoThangTool({ showNotification }: { showNotification: (type: 'succe
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+function PhieuCungTool({ nguongNgay, showNotification }: { nguongNgay: number, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+  const [list, setList] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [reminding, setReminding] = useState(false)
+  const [fKtv, setFKtv] = useState('')
+  const [fChuaNop, setFChuaNop] = useState(true)
+  const [search, setSearch] = useState('')
+
+  const fetchList = async () => {
+    setLoading(true)
+    try { const res = await fetch('/api/admin/phieu-cung'); const j = await res.json(); if (res.ok) setList(j.data || []); else showNotification('error', j.error) }
+    catch { showNotification('error', 'Lỗi kết nối!') } finally { setLoading(false) }
+  }
+  useEffect(() => { fetchList() }, [])
+
+  const fmt = (s: string) => { if (!s) return ''; const d = new Date(s); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` }
+  const daysOf = (s: string) => Math.floor((Date.now() - new Date(s).getTime()) / 86400000)
+
+  const toggle = async (r: any) => {
+    const res = await fetch('/api/admin/phieu-cung', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: r.id, da_nop_phieu: !r.da_nop_phieu }) })
+    if (res.ok) fetchList(); else showNotification('error', 'Cập nhật không thành công')
+  }
+
+  const remind = async () => {
+    setReminding(true)
+    try {
+      const res = await fetch('/api/admin/phieu-cung', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
+      const j = await res.json()
+      if (res.ok) showNotification('success', j.message || `Đã nhắc ${j.sent} KTV qua Telegram${j.skipped ? `, bỏ qua ${j.skipped} (chưa liên kết)` : ''}.`)
+      else showNotification('error', j.error)
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setReminding(false) }
+  }
+
+  const ktvs = Array.from(new Map(list.filter(r => r.ktv_id).map(r => [r.ktv_id, r.soct_users?.full_name || '—'])).entries())
+  const filtered = list.filter(r => {
+    if (fChuaNop && r.da_nop_phieu) return false
+    if (fKtv === 'none' && r.ktv_id) return false
+    if (fKtv && fKtv !== 'none' && r.ktv_id !== fKtv) return false
+    if (search && !(r.report || '').toLowerCase().includes(search.trim().toLowerCase())) return false
+    return true
+  })
+  const chuaNop = list.filter(r => !r.da_nop_phieu)
+  const quaHan = chuaNop.filter(r => daysOf(r.ngay) >= nguongNgay)
+  const ktvNo = new Set(chuaNop.filter(r => r.ktv_id).map(r => r.ktv_id)).size
+
+  return (
+    <div className="space-y-6">
+      <StatCards items={[
+        { label: 'Chưa nộp', value: chuaNop.length.toLocaleString('vi-VN'), sub: 'phiếu cần thu', icon: ClipboardList, tint: 'text-blue-600 bg-blue-50 ring-blue-100' },
+        { label: 'Quá hạn', value: quaHan.length.toLocaleString('vi-VN'), sub: `tồn ≥ ${nguongNgay} ngày`, icon: AlertTriangle, tint: 'text-red-600 bg-red-50 ring-red-100' },
+        { label: 'KTV còn nợ', value: ktvNo.toLocaleString('vi-VN'), sub: 'kỹ thuật viên', icon: Users, tint: 'text-amber-600 bg-amber-50 ring-amber-100' },
+      ]} />
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-56">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input placeholder="Tìm số phiếu..." className="pl-9 bg-white" value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+          <select value={fKtv} onChange={e => setFKtv(e.target.value)} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">KTV: Tất cả</option>
+            <option value="none">Chưa giao</option>
+            {ktvs.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+          </select>
+          <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
+            <input type="checkbox" checked={fChuaNop} onChange={e => setFChuaNop(e.target.checked)} className="w-4 h-4 accent-blue-600" /> Chỉ chưa nộp
+          </label>
+          <span className="text-xs text-slate-500 ml-auto whitespace-nowrap">{filtered.length} phiếu</span>
+          <Button onClick={remind} disabled={reminding || chuaNop.length === 0} variant="outline" className="gap-2 h-9">{reminding ? 'Đang nhắc...' : 'Nhắc KTV qua Telegram'}</Button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-slate-600">
+            <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
+              <tr>
+                <th className="px-4 py-3">Ngày</th>
+                <th className="px-4 py-3">Số phiếu</th>
+                <th className="px-4 py-3">Khách hàng</th>
+                <th className="px-4 py-3">Loại việc</th>
+                <th className="px-4 py-3">KTV</th>
+                <th className="px-4 py-3 text-center whitespace-nowrap">Tồn (ngày)</th>
+                <th className="px-4 py-3 text-center">Đã nộp</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
+                <tr><td colSpan={7} className="text-center py-8 text-slate-400">Đang tải...</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={7} className="text-center py-8 text-slate-400">Không có phiếu.</td></tr>
+              ) : filtered.map(r => {
+                const d = daysOf(r.ngay); const tre = !r.da_nop_phieu && d >= nguongNgay
+                return (
+                  <tr key={r.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-3 whitespace-nowrap">{fmt(r.ngay)}</td>
+                    <td className="px-4 py-3 font-medium text-slate-800">{r.report}</td>
+                    <td className="px-4 py-3">{r.soct_khach_hang?.ten_khach_hang || '—'}</td>
+                    <td className="px-4 py-3">{r.loai_cong_viec}</td>
+                    <td className="px-4 py-3">{r.soct_users?.full_name || <span className="text-amber-600 italic">Chưa giao</span>}</td>
+                    <td className={`px-4 py-3 text-center font-semibold ${tre ? 'text-red-600' : 'text-slate-500'}`}>{r.da_nop_phieu ? '—' : `${d}${tre ? ' ⚠️' : ''}`}</td>
+                    <td className="px-4 py-3 text-center">
+                      {r.da_nop_phieu ? (
+                        <button onClick={() => toggle(r)} className="inline-block whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200" title={r.ngay_nop_phieu ? `Nộp ${fmt(r.ngay_nop_phieu)}` : ''}>Đã nộp</button>
+                      ) : (
+                        <button onClick={() => toggle(r)} className="inline-block whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-semibold border bg-slate-100 text-slate-500 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200">Đánh dấu nộp</button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }

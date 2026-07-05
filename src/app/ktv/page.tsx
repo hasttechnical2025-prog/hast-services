@@ -22,6 +22,7 @@ type Job = {
   ket_qua: string
   ghi_chu: string
   report?: string
+  da_nop_phieu?: boolean
   ktv_id: string | null
   soct_khach_hang: { ten_khach_hang: string; dia_chi: string; km_mac_dinh: number }
   soct_chi_tiet_vat_tu: Array<{
@@ -207,6 +208,10 @@ export default function KtvMobileWeb() {
     ? jobs.filter(j => j.ktv_id === currentKtv.id && j.ket_qua !== 'Hoàn thành')
     : []
   const poolJobs = jobs.filter(j => !j.ktv_id && j.ket_qua !== 'Hoàn thành')
+  // Phiếu cứng đã hoàn thành nhưng chưa nộp bản giấy về VP
+  const unreturned = currentKtv
+    ? jobs.filter(j => j.ktv_id === currentKtv.id && j.ket_qua === 'Hoàn thành' && j.report && !j.da_nop_phieu)
+    : []
 
   const statusBadge = (status: string) =>
     `${status === 'Hoàn thành' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
@@ -343,6 +348,22 @@ export default function KtvMobileWeb() {
 
             {!activeJob ? (
               <>
+                {/* NHẮC: PHIẾU CỨNG CHƯA NỘP */}
+                {unreturned.length > 0 && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <svg className="w-4 h-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                      <h4 className="font-bold text-amber-800 text-sm">Còn {unreturned.length} phiếu chưa nộp bản cứng</h4>
+                    </div>
+                    <p className="text-xs text-amber-700 mb-2">Vui lòng hoàn trả phiếu giấy về văn phòng cho người phụ trách.</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {unreturned.map(j => (
+                        <span key={j.id} className="text-xs font-mono bg-white text-amber-800 border border-amber-200 px-2 py-0.5 rounded">{j.report}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* MỤC 1: VIỆC CỦA TÔI */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 px-1">
