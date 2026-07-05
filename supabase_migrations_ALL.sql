@@ -1,7 +1,8 @@
 -- ============================================================
--- GỘP TOÀN BỘ MIGRATION 02 -> 12 (chạy 1 lần trên Supabase SQL Editor)
+-- GỘP TOÀN BỘ MIGRATION 02 -> 12 (idempotent, AN TOÀN DỮ LIỆU)
+-- Chạy 1 lần trên Supabase SQL Editor. Chạy lại KHÔNG mất dữ liệu.
 -- DB MỚI: chạy supabase_schema.sql TRƯỚC, rồi chạy file này.
--- DB ĐANG DÙNG: chạy thẳng file này (idempotent, chạy lại không lỗi).
+-- DB ĐANG DÙNG: chạy thẳng file này cũng được (chỉ thêm cái còn thiếu).
 -- ============================================================
 
 
@@ -162,16 +163,12 @@ ON CONFLICT (khoa) DO NOTHING;
 -- ─────────────────────────────────────────────
 -- supabase_migration_06_dat_hang.sql
 -- ─────────────────────────────────────────────
--- MIGRATION 06: Đặt hàng nhiều mã trên một đơn (tái cấu trúc + viết lại trigger)
--- AN TOÀN: các bảng đặt hàng đang rỗng nên dựng lại được. Chạy trong Supabase SQL Editor.
-
--- 1. Bỏ trigger cũ + 2 bảng cũ (rỗng)
-DROP TRIGGER IF EXISTS soct_tr_handle_hang_ve_dot ON public.soct_hang_ve_dot;
-DROP TABLE IF EXISTS public.soct_hang_ve_dot CASCADE;
-DROP TABLE IF EXISTS public.soct_dat_hang CASCADE;
+-- MIGRATION 06: Đặt hàng nhiều mã trên một đơn (bảng + trigger)
+-- IDEMPOTENT + AN TOÀN DỮ LIỆU: dùng IF NOT EXISTS, KHÔNG drop bảng để chạy lại
+-- không mất dữ liệu Đặt hàng / Hàng về. Chạy trong Supabase SQL Editor.
 
 -- 2. Đơn đặt hàng (header)
-CREATE TABLE public.soct_dat_hang (
+CREATE TABLE IF NOT EXISTS public.soct_dat_hang (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     ngay_dat DATE NOT NULL DEFAULT CURRENT_DATE,
     nha_cung_cap TEXT,
@@ -183,7 +180,7 @@ CREATE TABLE public.soct_dat_hang (
 );
 
 -- 3. Chi tiết dòng hàng của đơn
-CREATE TABLE public.soct_dat_hang_ct (
+CREATE TABLE IF NOT EXISTS public.soct_dat_hang_ct (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     id_dat_hang UUID NOT NULL REFERENCES public.soct_dat_hang(id) ON DELETE CASCADE,
     ma_hang TEXT NOT NULL REFERENCES public.soct_kho_hang(ma_hang) ON DELETE CASCADE,
@@ -191,17 +188,17 @@ CREATE TABLE public.soct_dat_hang_ct (
     hoan_thanh BOOLEAN NOT NULL DEFAULT FALSE,   -- tự động: dòng này nhận đủ
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
-CREATE INDEX idx_dat_hang_ct_don ON public.soct_dat_hang_ct(id_dat_hang);
+CREATE INDEX IF NOT EXISTS idx_dat_hang_ct_don ON public.soct_dat_hang_ct(id_dat_hang);
 
 -- 4. Các đợt hàng về (theo từng dòng hàng)
-CREATE TABLE public.soct_hang_ve_dot (
+CREATE TABLE IF NOT EXISTS public.soct_hang_ve_dot (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     id_dat_hang_ct UUID NOT NULL REFERENCES public.soct_dat_hang_ct(id) ON DELETE CASCADE,
     ngay_nhan DATE NOT NULL DEFAULT CURRENT_DATE,
     so_luong_nhan INT NOT NULL CHECK (so_luong_nhan > 0),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
-CREATE INDEX idx_hang_ve_ct ON public.soct_hang_ve_dot(id_dat_hang_ct);
+CREATE INDEX IF NOT EXISTS idx_hang_ve_ct ON public.soct_hang_ve_dot(id_dat_hang_ct);
 
 -- 5. Trigger: hàng về -> cộng tồn kho + thống kê tháng + tự đánh dấu dòng/đơn hoàn thành
 CREATE OR REPLACE FUNCTION public.soct_fn_handle_hang_ve_dot()

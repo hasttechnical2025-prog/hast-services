@@ -20,7 +20,9 @@
 
 ## 2. Chạy migrations trên DB production (Supabase → SQL Editor, đúng thứ tự)
 
-> **Nhanh nhất:** DB mới → chạy `supabase_schema.sql` rồi `supabase_migrations_ALL.sql` (đã gộp 02→12). DB đang dùng → chỉ cần chạy `supabase_migrations_ALL.sql`. Idempotent, chạy lại không lỗi.
+> **Nhanh nhất:** DB mới → chạy `supabase_schema.sql` rồi `supabase_migrations_ALL.sql` (đã gộp 02→12). DB đang dùng → chỉ cần chạy `supabase_migrations_ALL.sql`.
+>
+> ✅ **AN TOÀN DỮ LIỆU:** toàn bộ dùng `IF NOT EXISTS` / `ON CONFLICT`, KHÔNG có `DROP TABLE`/`DELETE`. Chạy lại trên DB đang có dữ liệu chỉ thêm cái còn thiếu, **không mất dữ liệu**. (Migration 03 có `DROP COLUMN IF EXISTS so_tien, loai_thanh_toan` — chỉ bỏ 2 cột cũ không dùng, vô hại.)
 
 Chi tiết từng file (nếu muốn chạy lẻ):
 
