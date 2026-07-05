@@ -968,7 +968,8 @@ export default function AdminDashboard() {
                     <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập / Xuất khách hàng (CSV)</h3>
                     <p className="text-sm text-slate-500 mb-4">
                       Quy trình: <b>Xóa toàn bộ</b> (nút phía trên) → <b>Xuất CSV</b> để lấy đúng cấu trúc cột → dán dữ liệu vào file → <b>Chọn file CSV để nhập</b>.<br />
-                      <b>Cột:</b> Mã máy | Tên khách hàng | Địa chỉ | Model | Hãng | Km | Loại HĐ | Ngày hết hạn HĐBT (DD/MM/YYYY). Trùng Mã máy sẽ được cập nhật.
+                      <b>Cột:</b> Mã máy | Tên khách hàng | Địa chỉ | Model | Hãng | Km | Loại HĐ | Ngày hết hạn HĐBT (DD/MM/YYYY). Trùng Mã máy sẽ được cập nhật.<br />
+                      <span className="text-xs text-slate-400">Để trống cột <b>Km</b> → hệ thống tự tính tọa độ &amp; KM từ địa chỉ (chạy tuần tự ~1s/dòng, danh sách lớn sẽ hơi lâu). Dòng đã có Km giữ nguyên.</span>
                     </p>
                     <CsvTool
                       rows={customers}
@@ -1428,7 +1429,7 @@ function CsvTool({ columns, rows, filename, endpoint, payloadKey, requiredKeys, 
     setImporting(true)
     try {
       const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [payloadKey]: parsed }) })
-      if (res.ok) { const d = await res.json(); showNotification('success', `Đã import ${d.count} ${unit}.`); setParsed(null); onSuccess() }
+      if (res.ok) { const d = await res.json(); showNotification('success', `Đã import ${d.count} ${unit}.` + (d.geocoded ? ` Tự tính KM cho ${d.geocoded} dòng.` : '')); setParsed(null); onSuccess() }
       else { const err = await res.json(); showNotification('error', 'Lỗi import: ' + err.error) }
     } catch { showNotification('error', 'Lỗi kết nối khi import.') }
     finally { setImporting(false) }
