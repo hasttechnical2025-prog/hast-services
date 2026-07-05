@@ -185,10 +185,56 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { id, claim, ket_qua, ktv_id, report, ghi_chu } = body
+    const { id, claim, ket_qua, ktv_id, report, ghi_chu, edit } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
+    }
+
+    // SỬA TOÀN PHẦN phiếu (admin/tech_admin/staff) — chỉ khi KTV chưa nhận (ket_qua = 'Chờ nhận')
+    if (edit) {
+      if (!['admin', 'tech_admin', 'staff'].includes(session.role)) {
+        return NextResponse.json({ error: 'Không có quyền sửa phiếu' }, { status: 403 })
+      }
+      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('ket_qua').eq('id', id).single()
+      if (!cur) return NextResponse.json({ error: 'Không tìm thấy công việc' }, { status: 404 })
+      if (cur.ket_qua !== 'Chờ nhận') {
+        return NextResponse.json({ error: 'KTV đã nhận việc — không thể sửa phiếu này' }, { status: 403 })
+      }
+
+      const { ngay, ma_may, id_khach_hang, loai_cong_viec, km, so_luong, vat_tu } = body
+      if (!id_khach_hang || !loai_cong_viec) {
+        return NextResponse.json({ error: 'Thiếu thông tin bắt buộc' }, { status: 400 })
+      }
+      const { error: upErr } = await supabaseAdmin
+        .from('soct_cong_viec')
+        .update({
+          ngay: ngay || new Date().toISOString().split('T')[0],
+          ma_may: ma_may || null, id_khach_hang, loai_cong_viec,
+          km: km || 0, so_luong: parseInt(so_luong) || 1,
+          ktv_id: ktv_id || null, report: report || null, ghi_chu,
+        })
+        .eq('id', id)
+      if (upErr) throw upErr
+
+      // Thay toàn bộ vật tư của phiếu
+      await supabaseAdmin.from('soct_chi_tiet_vat_tu').delete().eq('id_cong_viec', id)
+      if (Array.isArray(vat_tu) && vat_tu.length > 0) {
+        const valid = vat_tu.filter((v: any) => v.ma_hang && v.so_luong > 0)
+        if (valid.length > 0) {
+          const inserts = valid.map((v: any) => {
+            const sl = parseInt(v.so_luong, 10) || 0
+            const dg = parseFloat(v.don_gia) || 0
+            return { id_cong_viec: id, ma_hang: v.ma_hang, so_luong: sl, don_gia: dg, vat: parseFloat(v.vat) || 0, thanh_tien: dg * sl, hoa_don: !!v.hoa_don }
+          })
+          const { error: vtErr } = await supabaseAdmin.from('soct_chi_tiet_vat_tu').insert(inserts)
+          if (vtErr) console.error('Lỗi cập nhật vật tư:', vtErr)
+        }
+      }
+
+      await broadcastJobsChanged()
+      await logAudit(session, 'Sửa công việc', `id ${id}${ma_may ? ` — máy ${ma_may}` : ''}`)
+      return NextResponse.json({ success: true })
     }
 
     if (session.role === 'staff') {

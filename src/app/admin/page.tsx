@@ -129,6 +129,7 @@ export default function AdminDashboard() {
 
   // States for Add Job Modal
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingJobId, setEditingJobId] = useState<string | null>(null)
   const [customers, setCustomers] = useState<any[]>([])
   const [technicians, setTechnicians] = useState<any[]>([])
   const [inventory, setInventory] = useState<any[]>([]) // Thêm state inventory
@@ -173,6 +174,8 @@ export default function AdminDashboard() {
   // Đóng modal & reset form
   const closeAndResetModal = () => {
     setIsModalOpen(false)
+    setEditingJobId(null)
+    setDongGiamDinh(false)
     setFormData({
       ngay: new Date().toISOString().split('T')[0],
       ma_may: "",
@@ -188,6 +191,28 @@ export default function AdminDashboard() {
       dia_chi_moi: "",
       model_moi: ""
     })
+  }
+
+  // Mở modal sửa phiếu (chỉ khi KTV chưa nhận việc)
+  const handleEditJob = (job: any) => {
+    if (job.ket_qua !== 'Chờ nhận') { showNotification('error', 'KTV đã nhận việc — không thể sửa phiếu này'); return }
+    setEditingJobId(job.id)
+    setDongGiamDinh(false)
+    setMayStatus(null)
+    setFormData({
+      ngay: job.ngay || new Date().toISOString().split('T')[0],
+      ma_may: job.ma_may || '',
+      id_khach_hang: job.id_khach_hang || '',
+      loai_cong_viec: job.loai_cong_viec || 'Kiểm tra',
+      km: job.km || 0,
+      so_luong: job.so_luong || 1,
+      ktv_id: job.ktv_id || '',
+      report: job.report || '',
+      ghi_chu: job.ghi_chu || '',
+      vat_tu: (job.soct_chi_tiet_vat_tu || []).map((v: any) => ({ ma_hang: v.ma_hang, so_luong: String(v.so_luong), don_gia: String(v.don_gia ?? ''), vat: String(v.vat ?? ''), hoa_don: !!v.hoa_don })),
+      ten_khach_hang_moi: "", dia_chi_moi: "", model_moi: ""
+    })
+    setIsModalOpen(true)
   }
 
   // Fetch data
@@ -370,12 +395,11 @@ export default function AdminDashboard() {
 
     try {
       const res = await fetch('/api/admin/cong-viec', {
-        method: 'POST',
+        method: editingJobId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          id_khach_hang: finalCustomerId
-        })
+        body: JSON.stringify(editingJobId
+          ? { ...formData, id: editingJobId, id_khach_hang: finalCustomerId, edit: true }
+          : { ...formData, id_khach_hang: finalCustomerId })
       })
 
       if (res.ok) {
@@ -392,8 +416,9 @@ export default function AdminDashboard() {
             ))
           }
         }
+        const wasEdit = !!editingJobId
         closeAndResetModal()
-        showNotification('success', "Tạo và giao công việc mới thành công!")
+        showNotification('success', wasEdit ? "Đã cập nhật công việc!" : "Tạo và giao công việc mới thành công!")
         fetchData() // Refresh list
       } else {
         const err = await res.json()
@@ -773,14 +798,14 @@ export default function AdminDashboard() {
                     <th className="px-4 py-3 text-center">KM</th>
                     <th className="px-4 py-3">Báo cáo HĐ</th>
                     <th className="px-4 py-3">Trạng thái</th>
-                    {currentUserRole !== 'staff' && <th className="px-4 py-3 text-right">Thao tác</th>}
+                    <th className="px-4 py-3 text-right">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {loading ? (
-                    <tr><td colSpan={currentUserRole === 'staff' ? 8 : 9} className="text-center py-8 text-slate-400">Đang tải dữ liệu...</td></tr>
+                    <tr><td colSpan={9} className="text-center py-8 text-slate-400">Đang tải dữ liệu...</td></tr>
                   ) : filteredJobs.length === 0 ? (
-                    <tr><td colSpan={currentUserRole === 'staff' ? 8 : 9} className="text-center py-8 text-slate-400">{jobs.length === 0 ? 'Chưa có công việc nào' : 'Không có việc khớp bộ lọc'}{jobs.length > 0 && jobFilterActive && <button onClick={clearJobFilters} className="text-blue-600 hover:underline ml-1">— Bỏ lọc</button>}</td></tr>
+                    <tr><td colSpan={9} className="text-center py-8 text-slate-400">{jobs.length === 0 ? 'Chưa có công việc nào' : 'Không có việc khớp bộ lọc'}{jobs.length > 0 && jobFilterActive && <button onClick={clearJobFilters} className="text-blue-600 hover:underline ml-1">— Bỏ lọc</button>}</td></tr>
                   ) : (
                     filteredJobs.map((job) => (
                       <tr key={job.id} className="hover:bg-slate-50/80 transition">
@@ -821,13 +846,18 @@ export default function AdminDashboard() {
                             {job.ket_qua}
                           </span>
                         </td>
-                        {currentUserRole !== 'staff' && (
-                          <td className="px-4 py-3 text-right">
-                            <button onClick={() => confirmDelete(job.id)} className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition">
+                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                          {job.ket_qua === 'Chờ nhận' && (
+                            <button onClick={() => handleEditJob(job)} title="Sửa phiếu" className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 transition">
+                              <PenSquare className="w-4 h-4" />
+                            </button>
+                          )}
+                          {currentUserRole !== 'staff' && (
+                            <button onClick={() => confirmDelete(job.id)} title="Xóa phiếu" className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition ml-1">
                               <Trash2 className="w-4 h-4" />
                             </button>
-                          </td>
-                        )}
+                          )}
+                        </td>
                       </tr>
                     ))
                   )}
@@ -1094,7 +1124,7 @@ export default function AdminDashboard() {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
-              <h2 className="text-xl font-bold text-slate-800">Giao công việc mới</h2>
+              <h2 className="text-xl font-bold text-slate-800">{editingJobId ? 'Sửa công việc' : 'Giao công việc mới'}</h2>
               <button onClick={closeAndResetModal} className="text-slate-400 hover:text-slate-600">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
               </button>
@@ -1385,7 +1415,7 @@ export default function AdminDashboard() {
 
               <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
                 <Button type="button" variant="outline" onClick={closeAndResetModal}>Hủy</Button>
-                <Button type="submit">Lưu công việc & Báo KTV</Button>
+                <Button type="submit">{editingJobId ? 'Cập nhật công việc' : 'Lưu công việc & Báo KTV'}</Button>
               </div>
             </form>
           </div>
