@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { createPortal } from "react-dom"
-import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes } from "lucide-react"
+import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload } from "lucide-react"
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -845,12 +845,28 @@ export default function AdminDashboard() {
                   <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Quản lý Kho Hàng (Vật tư)</h2>
                   <InventoryManagementTool inventory={inventory} lowStock={nguongTonThap} onUpdateSuccess={fetchData} showNotification={showNotification} confirmDelete={confirmDelete} />
                   <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 mt-8">
-                    <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập hàng hóa từ Excel (Bulk Import)</h3>
-                    <p className="text-sm text-slate-500 mb-6">
-                      Copy danh sách từ Excel và dán vào đây.<br/>
-                      <b>Thứ tự cột yêu cầu:</b> Mã hàng | Tên vật tư | Model máy | Tồn kho
+                    <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập / Xuất kho hàng (CSV)</h3>
+                    <p className="text-sm text-slate-500 mb-4">
+                      Quy trình: <b>Xóa toàn bộ</b> (nút phía trên) → <b>Xuất CSV</b> để lấy đúng cấu trúc cột → dán dữ liệu vào file → <b>Chọn file CSV để nhập</b>.<br />
+                      <b>Cột:</b> Mã hàng | Tên vật tư | Model | Hãng | Tồn kho. Trùng Mã hàng sẽ được cập nhật.
                     </p>
-                    <BulkImportInventoryTool onImportSuccess={fetchData} showNotification={showNotification} />
+                    <CsvTool
+                      rows={inventory}
+                      filename="kho-hang"
+                      endpoint="/api/admin/kho-hang/bulk"
+                      payloadKey="items"
+                      unit="vật tư"
+                      requiredKeys={['ma_hang', 'ten_hang']}
+                      columns={[
+                        { header: 'Mã hàng', key: 'ma_hang', parse: (s) => s ? s.toUpperCase() : null },
+                        { header: 'Tên vật tư', key: 'ten_hang' },
+                        { header: 'Model', key: 'model' },
+                        { header: 'Hãng', key: 'hang' },
+                        { header: 'Tồn kho', key: 'ton_kho', parse: (s) => parseInt(s) || 0 },
+                      ]}
+                      onSuccess={fetchData}
+                      showNotification={showNotification}
+                    />
                   </div>
                 </>
               )}
@@ -949,15 +965,31 @@ export default function AdminDashboard() {
                   </div>
 
                   <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
-                    <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập dữ liệu Khách Hàng (Bulk Import)</h3>
-                    <p className="text-sm text-slate-500 mb-6">
-                      Hỗ trợ 2 định dạng copy-paste:<br/>
-                      - <b>Copy từ Excel (Tab-separated):</b> TT | Mã máy | Tên Khách hàng | Địa chỉ | Model | km<br/>
-                      - <b>Danh sách Text thô:</b> VD: <code>158 _Ban Nội chính TW #Tòa 4A Nguyễn Cảnh Chân, Hà Nội @Apeos 7580 !7</code><br/>
-                      <span className="text-xs text-slate-400">(số đầu = mã khách; sau <b>_</b> = tên KH; sau <b>#</b> = địa chỉ; sau <b>@</b> = model; sau <b>!</b> = số km)</span>
+                    <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập / Xuất khách hàng (CSV)</h3>
+                    <p className="text-sm text-slate-500 mb-4">
+                      Quy trình: <b>Xóa toàn bộ</b> (nút phía trên) → <b>Xuất CSV</b> để lấy đúng cấu trúc cột → dán dữ liệu vào file → <b>Chọn file CSV để nhập</b>.<br />
+                      <b>Cột:</b> Mã máy | Tên khách hàng | Địa chỉ | Model | Hãng | Km | Loại HĐ | Ngày hết hạn HĐBT (DD/MM/YYYY). Trùng Mã máy sẽ được cập nhật.
                     </p>
-
-                    <BulkImportTool onImportSuccess={fetchData} showNotification={showNotification} />
+                    <CsvTool
+                      rows={customers}
+                      filename="khach-hang"
+                      endpoint="/api/admin/khach-hang/bulk"
+                      payloadKey="customers"
+                      unit="khách hàng"
+                      requiredKeys={['ma_may', 'ten_khach_hang', 'dia_chi']}
+                      columns={[
+                        { header: 'Mã máy', key: 'ma_may' },
+                        { header: 'Tên khách hàng', key: 'ten_khach_hang' },
+                        { header: 'Địa chỉ', key: 'dia_chi' },
+                        { header: 'Model', key: 'model' },
+                        { header: 'Hãng', key: 'hang' },
+                        { header: 'Km', key: 'km_mac_dinh', parse: (s) => s ? (parseFloat(s.replace(',', '.')) || 0) : null },
+                        { header: 'Loại HĐ', key: 'loai_hd' },
+                        { header: 'Ngày hết hạn HĐBT', key: 'ngay_het_han_hdbt', toCsv: (v) => v ? formatDate(v) : '', parse: (s) => parseDDMMYYYY(s) },
+                      ]}
+                      onSuccess={fetchData}
+                      showNotification={showNotification}
+                    />
                   </div>
                 </>
               )}
@@ -1317,9 +1349,122 @@ export default function AdminDashboard() {
   )
 }
 
-interface BulkImportToolProps {
-  onImportSuccess: () => void
-  showNotification: (type: 'success' | 'error', msg: string) => void
+// ===== Công cụ Export / Import CSV dùng chung (Khách hàng, Kho hàng) =====
+type CsvCol = { header: string; key: string; toCsv?: (v: any) => string; parse?: (raw: string) => any }
+
+// Parser CSV chuẩn: hỗ trợ dấu ngoặc kép, phẩy trong ô, xuống dòng, BOM
+function parseCsv(text: string): string[][] {
+  text = text.replace(/^﻿/, '')
+  const rows: string[][] = []
+  let row: string[] = [], field = '', inQ = false
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (inQ) {
+      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++ } else inQ = false }
+      else field += c
+    } else {
+      if (c === '"') inQ = true
+      else if (c === ',') { row.push(field); field = '' }
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = '' }
+      else if (c === '\r') { /* bỏ qua */ }
+      else field += c
+    }
+  }
+  if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row) }
+  return rows
+}
+
+// DD/MM/YYYY -> YYYY-MM-DD (null nếu rỗng/sai)
+function parseDDMMYYYY(s: string): string | null {
+  const m = (s || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : null
+}
+
+function CsvTool({ columns, rows, filename, endpoint, payloadKey, requiredKeys, unit, onSuccess, showNotification }: {
+  columns: CsvCol[]; rows: any[]; filename: string; endpoint: string; payloadKey: string;
+  requiredKeys: string[]; unit: string; onSuccess: () => void; showNotification: (type: 'success' | 'error', msg: string) => void
+}) {
+  const [parsed, setParsed] = useState<any[] | null>(null)
+  const [importing, setImporting] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const csvCell = (v: any) => { const s = v == null ? '' : String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s }
+  const cellText = (r: any, c: CsvCol) => c.toCsv ? c.toCsv(r[c.key]) : (r[c.key] ?? '')
+
+  const exportCsv = () => {
+    const head = columns.map(c => c.header)
+    const body = rows.map(r => columns.map(c => csvCell(cellText(r, c))))
+    const csv = [head.map(csvCell), ...body].map(r => r.join(',')).join('\r\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob); const a = document.createElement('a')
+    a.href = url; a.download = `${filename}-${new Date().toISOString().split('T')[0]}.csv`; a.click(); URL.revokeObjectURL(url)
+  }
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return
+    try {
+      const grid = parseCsv(await file.text()).filter(r => r.some(c => c.trim() !== ''))
+      if (grid.length < 2) { showNotification('error', 'File CSV trống hoặc chỉ có dòng tiêu đề.'); setParsed(null); return }
+      const headers = grid[0].map(h => h.trim().toLowerCase())
+      const colIdx = columns.map(c => headers.indexOf(c.header.toLowerCase()))
+      const recs: any[] = []
+      for (let i = 1; i < grid.length; i++) {
+        const line = grid[i]
+        const obj: any = {}
+        columns.forEach((c, ci) => {
+          const raw = ((colIdx[ci] >= 0 ? line[colIdx[ci]] : line[ci]) ?? '').trim()
+          obj[c.key] = c.parse ? c.parse(raw) : (raw || null)
+        })
+        if (requiredKeys.every(k => obj[k] != null && String(obj[k]).trim() !== '')) recs.push(obj)
+      }
+      if (recs.length === 0) { showNotification('error', 'Không có dòng hợp lệ (thiếu cột bắt buộc).'); setParsed(null); return }
+      setParsed(recs)
+    } catch { showNotification('error', 'Không đọc được file CSV.') }
+    finally { if (fileRef.current) fileRef.current.value = '' }
+  }
+
+  const doImport = async () => {
+    if (!parsed) return
+    setImporting(true)
+    try {
+      const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [payloadKey]: parsed }) })
+      if (res.ok) { const d = await res.json(); showNotification('success', `Đã import ${d.count} ${unit}.`); setParsed(null); onSuccess() }
+      else { const err = await res.json(); showNotification('error', 'Lỗi import: ' + err.error) }
+    } catch { showNotification('error', 'Lỗi kết nối khi import.') }
+    finally { setImporting(false) }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" onClick={exportCsv} className="gap-2"><Download className="w-4 h-4" /> Xuất CSV ({rows.length})</Button>
+        <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={onFile} className="hidden" />
+        <Button variant="outline" onClick={() => fileRef.current?.click()} className="gap-2"><Upload className="w-4 h-4" /> Chọn file CSV để nhập</Button>
+      </div>
+      {parsed && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm text-slate-600">Đã đọc <b>{parsed.length}</b> dòng hợp lệ.</span>
+            <Button onClick={doImport} disabled={importing} className="bg-emerald-600 hover:bg-emerald-700 h-9">{importing ? 'Đang nhập...' : `Xác nhận nhập ${parsed.length} ${unit}`}</Button>
+            <button onClick={() => setParsed(null)} className="text-xs text-slate-500 hover:underline">Hủy</button>
+          </div>
+          <div className="border border-slate-200 rounded-lg overflow-hidden max-h-80 overflow-y-auto">
+            <table className="w-full text-left text-xs text-slate-600">
+              <thead className="bg-slate-100 text-slate-600 font-medium sticky top-0 border-b border-slate-200">
+                <tr>{columns.map(c => <th key={c.key} className="px-3 py-2">{c.header}</th>)}</tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {parsed.slice(0, 50).map((r, i) => (
+                  <tr key={i} className="hover:bg-slate-50">{columns.map(c => <td key={c.key} className="px-3 py-2">{cellText(r, c)}</td>)}</tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {parsed.length > 50 && <p className="text-xs text-slate-400">Xem trước 50/{parsed.length} dòng đầu.</p>}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // Ô chọn ngày: gõ tay DD/MM/YYYY (ô text) + nút lịch mở native picker (showPicker).
@@ -3450,278 +3595,3 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
     </div>
   )
 }
-
-function BulkImportInventoryTool({ onImportSuccess, showNotification }: BulkImportToolProps) {
-  const [text, setText] = useState("")
-  const [records, setRecords] = useState<any[]>([])
-  const [importing, setImporting] = useState(false)
-
-  const handleParse = () => {
-    if (!text.trim()) return showNotification('error', "Vui lòng nhập dữ liệu để phân tích")
-
-    const lines = text.split("\n")
-    const parsed: any[] = []
-
-    for (let line of lines) {
-      const cleanLine = line.trim()
-      if (!cleanLine) continue
-
-      if (cleanLine.includes("\t")) {
-        // Định dạng Excel (Tab separated)
-        const cols = cleanLine.split("\t")
-
-        // Bỏ qua dòng tiêu đề nếu người dùng copy cả tiêu đề
-        if (cols[0]?.toLowerCase().includes("mã hàng") || cols[1]?.toLowerCase().includes("vật tư")) {
-          continue
-        }
-
-        const ma_hang = cols[0]?.trim().toUpperCase() || ""
-        const ten_hang = cols[1]?.trim() || ""
-        const model = cols[2]?.trim() || ""
-        const ton_kho_raw = cols[3]?.trim() || "0"
-
-        if (ma_hang && ten_hang) {
-          parsed.push({
-            ma_hang,
-            ten_hang,
-            model,
-            hang: "",
-            ton_kho: parseInt(ton_kho_raw) || 0
-          })
-        }
-      } else {
-        // Định dạng thô cho vật tư chưa hỗ trợ regex
-      }
-    }
-
-    if (parsed.length === 0) {
-      showNotification('error', "Không tìm thấy dòng dữ liệu nào đúng định dạng. Đảm bảo copy Excel đúng 4 cột: Mã hàng | Tên vật tư | Model | Tồn kho.")
-    } else {
-      setRecords(parsed)
-    }
-  }
-
-  const handleSave = async () => {
-    if (records.length === 0) return
-    setImporting(true)
-
-    try {
-      const res = await fetch("/api/admin/kho-hang/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: records })
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        showNotification('success', `Đã lưu thành công ${data.count} vật tư vào cơ sở dữ liệu!`)
-        setText("")
-        setRecords([])
-        onImportSuccess()
-      } else {
-        const err = await res.json()
-        showNotification('error', "Lỗi khi import: " + err.error)
-      }
-    } catch (error) {
-      console.error(error)
-      showNotification('error', "Lỗi kết nối khi import dữ liệu")
-    } finally {
-      setImporting(false)
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <textarea
-          rows={6}
-          className="w-full p-3 rounded-md border border-slate-200 text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none"
-          placeholder="Dán dữ liệu Excel (gồm các cột Mã hàng, Tên vật tư, Model, Tồn kho) vào đây..."
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-        ></textarea>
-      </div>
-
-      <div className="flex gap-2">
-        <Button onClick={handleParse} variant="outline">
-          Phân tích dữ liệu ({text.split("\n").filter(l => l.trim()).length} dòng)
-        </Button>
-        {records.length > 0 && (
-          <Button onClick={handleSave} disabled={importing} className="bg-emerald-600 hover:bg-emerald-700">
-            {importing ? "Đang lưu..." : `Xác nhận nạp ${records.length} vật tư vào CSDL`}
-          </Button>
-        )}
-      </div>
-
-      {records.length > 0 && (
-        <div className="border border-slate-200 rounded-lg overflow-hidden max-h-80 overflow-y-auto mt-4">
-          <table className="w-full text-left text-xs text-slate-600">
-            <thead className="bg-slate-100 text-slate-600 font-medium sticky top-0 border-b border-slate-200">
-              <tr>
-                <th className="px-3 py-2">Mã hàng</th>
-                <th className="px-3 py-2">Tên vật tư</th>
-                <th className="px-3 py-2">Model máy</th>
-                <th className="px-3 py-2 text-center">Tồn kho</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {records.map((rec, idx) => (
-                <tr key={idx} className="hover:bg-slate-50">
-                  <td className="px-3 py-2 font-mono font-medium">{rec.ma_hang}</td>
-                  <td className="px-3 py-2 font-medium text-slate-800">{rec.ten_hang}</td>
-                  <td className="px-3 py-2">{rec.model}</td>
-                  <td className="px-3 py-2 text-center font-bold text-emerald-600">{rec.ton_kho}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function BulkImportTool({ onImportSuccess, showNotification }: BulkImportToolProps) {
-  const [text, setText] = useState("")
-  const [records, setRecords] = useState<any[]>([])
-  const [importing, setImporting] = useState(false)
-
-  const handleParse = () => {
-    if (!text.trim()) return showNotification('error', "Vui lòng nhập dữ liệu để phân tích")
-
-    const lines = text.split("\n")
-    const parsed: any[] = []
-
-    for (let line of lines) {
-      const cleanLine = line.trim()
-      if (!cleanLine) continue
-
-      if (cleanLine.includes("\t")) {
-        // Định dạng Excel (Tab separated): TT | Mã máy | Tên KH | Địa chỉ | Model | km
-        const cols = cleanLine.split("\t")
-
-        // Bỏ qua dòng tiêu đề nếu người dùng copy cả tiêu đề
-        if (cols[1]?.toLowerCase().includes("mã máy") || cols[2]?.toLowerCase().includes("khách")) {
-          continue
-        }
-
-        const ma_may = cols[1]?.trim() || ""
-        const ten_khach_hang = cols[2]?.trim() || ""
-        const dia_chi = cols[3]?.trim() || ""
-        const model = cols[4]?.trim() || ""
-        const km_raw = cols[5]?.trim() || "0"
-
-        if (ma_may && ten_khach_hang && dia_chi) {
-          parsed.push({
-            ma_may,
-            ten_khach_hang,
-            dia_chi,
-            model,
-            km_mac_dinh: parseFloat(km_raw) || 0
-          })
-        }
-      } else {
-        // Định dạng thô: "<mã khách> _<Tên KH> #<Địa chỉ> @<Model> !<km>"
-        // km (phần sau dấu !) là tùy chọn.
-        const match = cleanLine.match(/^(.*?)_(.+?)#(.+?)@(.+?)(?:\s*!\s*([\d.]+))?\s*$/)
-        if (match) {
-          parsed.push({
-            ma_may: match[1]?.trim() || "",
-            ten_khach_hang: match[2]?.trim() || "",
-            dia_chi: match[3]?.trim() || "",
-            model: match[4]?.trim() || "",
-            km_mac_dinh: match[5] ? (parseFloat(match[5]) || 0) : 0
-          })
-        }
-      }
-    }
-
-    if (parsed.length === 0) {
-      showNotification('error', "Không tìm thấy dòng dữ liệu nào đúng định dạng. Vui lòng kiểm tra lại.")
-    } else {
-      setRecords(parsed)
-    }
-  }
-
-  const handleSave = async () => {
-    if (records.length === 0) return
-    setImporting(true)
-
-    try {
-      const res = await fetch("/api/admin/khach-hang/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customers: records })
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        showNotification('success', `Đã lưu thành công ${data.count} khách hàng vào cơ sở dữ liệu!`)
-        setText("")
-        setRecords([])
-        onImportSuccess()
-      } else {
-        const err = await res.json()
-        showNotification('error', "Lỗi khi import: " + err.error)
-      }
-    } catch (error) {
-      console.error(error)
-      showNotification('error', "Lỗi kết nối khi import dữ liệu")
-    } finally {
-      setImporting(false)
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <textarea
-          rows={8}
-          className="w-full p-3 rounded-md border border-slate-200 text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none"
-          placeholder="Dán dữ liệu Excel (gồm các cột) hoặc Danh sách thô vào đây..."
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-        ></textarea>
-      </div>
-
-      <div className="flex gap-2">
-        <Button onClick={handleParse} variant="outline">
-          Phân tích dữ liệu ({text.split("\n").filter(l => l.trim()).length} dòng)
-        </Button>
-        {records.length > 0 && (
-          <Button onClick={handleSave} disabled={importing} className="bg-emerald-600 hover:bg-emerald-700">
-            {importing ? "Đang lưu..." : `Xác nhận lưu ${records.length} bản ghi vào CSDL`}
-          </Button>
-        )}
-      </div>
-
-      {records.length > 0 && (
-        <div className="border border-slate-200 rounded-lg overflow-hidden max-h-80 overflow-y-auto">
-          <table className="w-full text-left text-xs text-slate-600">
-            <thead className="bg-slate-100 text-slate-600 font-medium sticky top-0 border-b border-slate-200">
-              <tr>
-                <th className="px-3 py-2">Mã máy</th>
-                <th className="px-3 py-2">Khách hàng</th>
-                <th className="px-3 py-2">Địa chỉ</th>
-                <th className="px-3 py-2">Model</th>
-                <th className="px-3 py-2 text-center">KM</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {records.map((rec, idx) => (
-                <tr key={idx} className="hover:bg-slate-50">
-                  <td className="px-3 py-2 font-mono">{rec.ma_may}</td>
-                  <td className="px-3 py-2 font-medium text-slate-800">{rec.ten_khach_hang}</td>
-                  <td className="px-3 py-2">{rec.dia_chi}</td>
-                  <td className="px-3 py-2">{rec.model}</td>
-                  <td className="px-3 py-2 text-center">{rec.km_mac_dinh} km</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
-}
-
