@@ -26,6 +26,7 @@ export async function POST(request: Request) {
     const cfg = await getCauHinh()
     const vpLat = parseFloat(cfg.vp_lat || '') || 21.011681
     const vpLng = parseFloat(cfg.vp_lng || '') || 105.809180
+    const geocodeOn = (cfg.geocode_import ?? '1') !== '0' // admin bật/tắt tính KM khi import
 
     // Chỉ geocode dòng THIẾU KM (km_mac_dinh rỗng/null). Dòng đã có KM giữ nguyên.
     // Chạy tuần tự, giãn ~1.1s giữa các lần gọi để tôn trọng giới hạn Nominatim (~1 req/s).
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
     for (const c of customers) {
       const row: any = { ...c }
       const missingKm = row.km_mac_dinh == null || row.km_mac_dinh === ''
-      if (missingKm && row.dia_chi) {
+      if (geocodeOn && missingKm && row.dia_chi) {
         const coords = await getCoordinatesFromAddress(row.dia_chi)
         if (coords) {
           row.lat = coords.lat

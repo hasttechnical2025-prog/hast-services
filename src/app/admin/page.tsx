@@ -2684,6 +2684,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     phien_ktv_ngay: cauHinh.phien_ktv_ngay || '30',
     mac_dinh_hom_nay: (cauHinh.mac_dinh_hom_nay ?? '1') !== '0',
     auto_bao_tri: (cauHinh.auto_bao_tri ?? '1') !== '0',
+    geocode_import: (cauHinh.geocode_import ?? '1') !== '0',
   })
   const [tabVis, setTabVis] = useState<Record<string, Record<string, boolean>>>(() => {
     let parsed: any = {}; try { parsed = JSON.parse(cauHinh.tab_visibility || '{}') } catch {}
@@ -2705,6 +2706,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
       phien_ktv_ngay: String(parseInt(cfg.phien_ktv_ngay) || 30),
       mac_dinh_hom_nay: cfg.mac_dinh_hom_nay ? '1' : '0',
       auto_bao_tri: cfg.auto_bao_tri ? '1' : '0',
+      geocode_import: cfg.geocode_import ? '1' : '0',
       tab_visibility: JSON.stringify(tabVis),
     }
     try {
@@ -2753,6 +2755,10 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
           <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
             <input type="checkbox" checked={cfg.auto_bao_tri} onChange={(e) => setCfg({ ...cfg, auto_bao_tri: e.target.checked })} className="w-4 h-4 accent-blue-600" />
             Tự đánh dấu bảo trì khi việc &quot;Bảo trì&quot; hoàn thành
+          </label>
+          <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
+            <input type="checkbox" checked={cfg.geocode_import} onChange={(e) => setCfg({ ...cfg, geocode_import: e.target.checked })} className="w-4 h-4 accent-blue-600" />
+            Tự tính tọa độ &amp; KM khi import CSV khách hàng (dòng thiếu Km)
           </label>
         </div>
       </div>
