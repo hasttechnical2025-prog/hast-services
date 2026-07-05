@@ -863,12 +863,12 @@ export default function AdminDashboard() {
                   <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Quản lý Kho Hàng (Vật tư)</h2>
                   <InventoryManagementTool inventory={inventory} lowStock={nguongTonThap} onUpdateSuccess={fetchData} showNotification={showNotification} confirmDelete={confirmDelete} />
                   <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 mt-8">
-                    <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập / Xuất kho hàng (CSV)</h3>
+                    <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập / Xuất kho hàng (Excel)</h3>
                     <p className="text-sm text-slate-500 mb-4">
-                      Quy trình: <b>Xóa toàn bộ</b> (nút phía trên) → <b>Xuất CSV</b> để lấy đúng cấu trúc cột → dán dữ liệu vào file → <b>Chọn file CSV để nhập</b>.<br />
+                      Quy trình: <b>Xóa toàn bộ</b> (nút phía trên) → <b>Xuất Excel</b> để lấy đúng cấu trúc cột → nhập dữ liệu vào file .xlsx → <b>Nhập từ Excel</b>.<br />
                       <b>Cột:</b> Mã hàng | Tên vật tư | Model | Hãng | Tồn kho. Trùng Mã hàng sẽ được cập nhật.
                     </p>
-                    <CsvTool
+                    <ExcelTool
                       rows={inventory}
                       filename="kho-hang"
                       endpoint="/api/admin/kho-hang/bulk"
@@ -992,13 +992,13 @@ export default function AdminDashboard() {
                   </div>
 
                   <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
-                    <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập / Xuất khách hàng (CSV)</h3>
+                    <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập / Xuất khách hàng (Excel)</h3>
                     <p className="text-sm text-slate-500 mb-4">
-                      Quy trình: <b>Xóa toàn bộ</b> (nút phía trên) → <b>Xuất CSV</b> để lấy đúng cấu trúc cột → dán dữ liệu vào file → <b>Chọn file CSV để nhập</b>.<br />
+                      Quy trình: <b>Xóa toàn bộ</b> (nút phía trên) → <b>Xuất Excel</b> để lấy đúng cấu trúc cột → nhập dữ liệu vào file .xlsx → <b>Nhập từ Excel</b>.<br />
                       <b>Cột:</b> Mã máy | Tên khách hàng | Địa chỉ | Model | Hãng | Km | Loại HĐ | Ngày hết hạn HĐBT (DD/MM/YYYY). Trùng Mã máy sẽ được cập nhật.<br />
                       <span className="text-xs text-slate-400">Để trống cột <b>Km</b> → hệ thống tự tính tọa độ &amp; KM từ địa chỉ (chạy tuần tự ~1s/dòng, danh sách lớn sẽ hơi lâu). Dòng đã có Km giữ nguyên.</span>
                     </p>
-                    <CsvTool
+                    <ExcelTool
                       rows={customers}
                       filename="khach-hang"
                       endpoint="/api/admin/khach-hang/bulk"
@@ -1377,30 +1377,8 @@ export default function AdminDashboard() {
   )
 }
 
-// ===== Công cụ Export / Import CSV dùng chung (Khách hàng, Kho hàng) =====
-type CsvCol = { header: string; key: string; toCsv?: (v: any) => string; parse?: (raw: string) => any }
-
-// Parser CSV chuẩn: hỗ trợ dấu ngoặc kép, phẩy trong ô, xuống dòng, BOM
-function parseCsv(text: string): string[][] {
-  text = text.replace(/^﻿/, '')
-  const rows: string[][] = []
-  let row: string[] = [], field = '', inQ = false
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i]
-    if (inQ) {
-      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++ } else inQ = false }
-      else field += c
-    } else {
-      if (c === '"') inQ = true
-      else if (c === ',') { row.push(field); field = '' }
-      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = '' }
-      else if (c === '\r') { /* bỏ qua */ }
-      else field += c
-    }
-  }
-  if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row) }
-  return rows
-}
+// ===== Công cụ Import / Export Excel (.xlsx) dùng chung (Khách hàng, Kho hàng) =====
+type ExcelCol = { header: string; key: string; toCsv?: (v: any) => string; parse?: (raw: string) => any }
 
 // DD/MM/YYYY -> YYYY-MM-DD (null nếu rỗng/sai)
 function parseDDMMYYYY(s: string): string | null {
@@ -1408,36 +1386,71 @@ function parseDDMMYYYY(s: string): string | null {
   return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : null
 }
 
-function CsvTool({ columns, rows, filename, endpoint, payloadKey, requiredKeys, unit, onSuccess, showNotification }: {
-  columns: CsvCol[]; rows: any[]; filename: string; endpoint: string; payloadKey: string;
+function ExcelTool({ columns, rows, filename, endpoint, payloadKey, requiredKeys, unit, onSuccess, showNotification }: {
+  columns: ExcelCol[]; rows: any[]; filename: string; endpoint: string; payloadKey: string;
   requiredKeys: string[]; unit: string; onSuccess: () => void; showNotification: (type: 'success' | 'error', msg: string) => void
 }) {
   const [parsed, setParsed] = useState<any[] | null>(null)
   const [importing, setImporting] = useState(false)
+  const [busy, setBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const csvCell = (v: any) => { const s = v == null ? '' : String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s }
-  const cellText = (r: any, c: CsvCol) => c.toCsv ? c.toCsv(r[c.key]) : (r[c.key] ?? '')
+  const cellText = (r: any, c: ExcelCol) => c.toCsv ? c.toCsv(r[c.key]) : (r[c.key] ?? '')
+  // Giá trị ghi ra Excel: có toCsv -> chuỗi (VD ngày); còn lại giữ nguyên (số vẫn là số)
+  const exportVal = (r: any, c: ExcelCol) => c.toCsv ? c.toCsv(r[c.key]) : (r[c.key] == null ? '' : r[c.key])
+  // Đọc 1 ô Excel ra chuỗi: Date -> DD/MM/YYYY; object (rich text/công thức) -> text
+  const cellToStr = (v: any): string => {
+    if (v == null) return ''
+    if (v instanceof Date) return `${String(v.getDate()).padStart(2, '0')}/${String(v.getMonth() + 1).padStart(2, '0')}/${v.getFullYear()}`
+    if (typeof v === 'object') {
+      if ('text' in v) return String((v as any).text)
+      if ('result' in v) return String((v as any).result)
+      if ('richText' in v) return (v as any).richText.map((t: any) => t.text).join('')
+      return ''
+    }
+    return String(v)
+  }
 
-  const exportCsv = () => {
-    const head = columns.map(c => c.header)
-    const body = rows.map(r => columns.map(c => csvCell(cellText(r, c))))
-    const csv = [head.map(csvCell), ...body].map(r => r.join(',')).join('\r\n')
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob); const a = document.createElement('a')
-    a.href = url; a.download = `${filename}-${new Date().toISOString().split('T')[0]}.csv`; a.click(); URL.revokeObjectURL(url)
+  const exportExcel = async () => {
+    setBusy(true)
+    try {
+      const mod: any = await import('exceljs')
+      const ExcelJS = mod.default ?? mod
+      const wb = new ExcelJS.Workbook()
+      const ws = wb.addWorksheet('Data')
+      const head = ws.addRow(columns.map(c => c.header)); head.font = { bold: true }
+      for (const r of rows) ws.addRow(columns.map(c => exportVal(r, c)))
+      columns.forEach((c, i) => { ws.getColumn(i + 1).width = Math.max(12, c.header.length + 4) })
+      const buf = await wb.xlsx.writeBuffer()
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob); const a = document.createElement('a')
+      a.href = url; a.download = `${filename}-${new Date().toISOString().split('T')[0]}.xlsx`; a.click(); URL.revokeObjectURL(url)
+    } catch { showNotification('error', 'Không tạo được file Excel.') }
+    finally { setBusy(false) }
   }
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return
+    setBusy(true)
     try {
-      const grid = parseCsv(await file.text()).filter(r => r.some(c => c.trim() !== ''))
-      if (grid.length < 2) { showNotification('error', 'File CSV trống hoặc chỉ có dòng tiêu đề.'); setParsed(null); return }
+      const mod: any = await import('exceljs')
+      const ExcelJS = mod.default ?? mod
+      const wb = new ExcelJS.Workbook()
+      await wb.xlsx.load(await file.arrayBuffer())
+      const ws = wb.worksheets[0]
+      if (!ws) { showNotification('error', 'File Excel không có dữ liệu.'); setParsed(null); return }
+      const grid: string[][] = []
+      ws.eachRow({ includeEmpty: false }, (row: any) => {
+        const vals = row.values as any[] // 1-indexed
+        grid.push(columns.map((_, i) => cellToStr(vals[i + 1])))
+      })
+      if (grid.length < 2) { showNotification('error', 'File Excel trống hoặc chỉ có dòng tiêu đề.'); setParsed(null); return }
       const headers = grid[0].map(h => h.trim().toLowerCase())
       const colIdx = columns.map(c => headers.indexOf(c.header.toLowerCase()))
       const recs: any[] = []
       for (let i = 1; i < grid.length; i++) {
         const line = grid[i]
+        if (!line.some(c => c.trim() !== '')) continue
         const obj: any = {}
         columns.forEach((c, ci) => {
           const raw = ((colIdx[ci] >= 0 ? line[colIdx[ci]] : line[ci]) ?? '').trim()
@@ -1447,8 +1460,8 @@ function CsvTool({ columns, rows, filename, endpoint, payloadKey, requiredKeys, 
       }
       if (recs.length === 0) { showNotification('error', 'Không có dòng hợp lệ (thiếu cột bắt buộc).'); setParsed(null); return }
       setParsed(recs)
-    } catch { showNotification('error', 'Không đọc được file CSV.') }
-    finally { if (fileRef.current) fileRef.current.value = '' }
+    } catch { showNotification('error', 'Không đọc được file Excel.') }
+    finally { setBusy(false); if (fileRef.current) fileRef.current.value = '' }
   }
 
   const doImport = async () => {
@@ -1465,9 +1478,9 @@ function CsvTool({ columns, rows, filename, endpoint, payloadKey, requiredKeys, 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" onClick={exportCsv} className="gap-2"><Download className="w-4 h-4" /> Xuất CSV ({rows.length})</Button>
-        <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={onFile} className="hidden" />
-        <Button variant="outline" onClick={() => fileRef.current?.click()} className="gap-2"><Upload className="w-4 h-4" /> Chọn file CSV để nhập</Button>
+        <Button variant="outline" onClick={exportExcel} disabled={busy} className="gap-2"><Download className="w-4 h-4" /> Xuất Excel ({rows.length})</Button>
+        <input ref={fileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={onFile} className="hidden" />
+        <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={busy} className="gap-2"><Upload className="w-4 h-4" /> Nhập từ Excel</Button>
       </div>
       {parsed && (
         <div className="space-y-3">
