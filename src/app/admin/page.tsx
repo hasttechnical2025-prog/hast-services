@@ -635,6 +635,15 @@ export default function AdminDashboard() {
                 Sổ công tác
               </button>
 
+              {tabVisible('hoan_phieu') && (
+                <button
+                  onClick={() => setActiveTab("hoan_phieu")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'hoan_phieu' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Hoàn phiếu
+                </button>
+              )}
+
               {tabVisible('kho_hang') && (
                 <button
                   onClick={() => setActiveTab("kho_hang")}
@@ -650,15 +659,6 @@ export default function AdminDashboard() {
                   className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'theo_doi_may' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                 >
                   Theo dõi máy
-                </button>
-              )}
-
-              {tabVisible('hoan_phieu') && (
-                <button
-                  onClick={() => setActiveTab("hoan_phieu")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'hoan_phieu' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  Hoàn phiếu
                 </button>
               )}
 
@@ -1875,6 +1875,7 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
               <th className="px-4 py-2">Họ Tên</th>
               <th className="px-4 py-2">Tên đăng nhập</th>
               <th className="px-4 py-2">Role</th>
+              <th className="px-4 py-2 text-center whitespace-nowrap">Telegram</th>
               <th className="px-4 py-2 text-center whitespace-nowrap">Trạng thái</th>
               <th className="px-4 py-2 text-right">Thao tác</th>
             </tr>
@@ -1888,6 +1889,13 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
                 <td className="px-4 py-2 font-mono text-xs">{u.username || <span className="text-slate-400 italic">N/A</span>}</td>
                 <td className="px-4 py-2">
                   <span className={`px-2 py-0.5 rounded text-xs font-semibold ${u.role === 'admin' ? 'bg-red-50 text-red-600' : u.role === 'ktv' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600'}`}>{u.role}</span>
+                </td>
+                <td className="px-4 py-2 text-center">
+                  {u.role === 'ktv'
+                    ? (u.telegram_id
+                      ? <span className="inline-block whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">Đã liên kết</span>
+                      : <span className="inline-block whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">Chưa liên kết</span>)
+                    : <span className="text-slate-300">—</span>}
                 </td>
                 <td className="px-4 py-2 text-center">
                   <span className={`inline-block whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-semibold ${active ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
