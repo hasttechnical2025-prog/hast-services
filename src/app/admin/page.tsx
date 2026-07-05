@@ -3172,11 +3172,14 @@ function BaoCaoThangTool({ showNotification }: { showNotification: (type: 'succe
 function CongNoTool({ showNotification }: { showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [list, setList] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [selKhach, setSelKhach] = useState('')
+  const [selIds, setSelIds] = useState<string[]>([])
   const [gop, setGop] = useState(true)
   const [rows, setRows] = useState<{ ten: string, dvt: string, sl: number, gia: number, vat: number, gc: string }[]>([])
   const [markups, setMarkups] = useState({ a: '3', b: '5', c: '6' })
   const [nam, setNam] = useState(String(new Date().getFullYear()))
+  const [khTen, setKhTen] = useState('')
+  const [khDiaChi, setKhDiaChi] = useState('')
+  const [khSearch, setKhSearch] = useState('')
   const [exporting, setExporting] = useState(false)
   const [working, setWorking] = useState(false)
 
@@ -3187,17 +3190,18 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
   }
   useEffect(() => { fetchList() }, [])
 
-  // Gom phiếu theo khách hàng
+  // Gom phiếu theo điểm máy (mỗi khách = 1 máy)
   const custs = Array.from(list.reduce((m: Map<string, any>, t: any) => {
     const k = t.id_khach_hang
     if (!m.has(k)) m.set(k, { id: k, ten: t.soct_khach_hang?.ten_khach_hang || '—', dia_chi: t.soct_khach_hang?.dia_chi || '', tickets: [] })
     m.get(k).tickets.push(t)
     return m
   }, new Map<string, any>()).values())
-  const cur = custs.find(c => c.id === selKhach)
+  const selCusts = custs.filter(c => selIds.includes(c.id))
+  const selTickets = selCusts.flatMap(c => c.tickets)
 
-  const buildRows = (c: any, gopMa: boolean) => {
-    const lines = (c?.tickets || []).flatMap((t: any) => (t.soct_chi_tiet_vat_tu || []).map((v: any) => ({
+  const buildRows = (tickets: any[], gopMa: boolean) => {
+    const lines = tickets.flatMap((t: any) => (t.soct_chi_tiet_vat_tu || []).map((v: any) => ({
       ten: v.soct_kho_hang?.ten_hang || v.ma_hang || '', sl: Number(v.so_luong) || 0, gia: Number(v.don_gia) || 0, vat: Number(v.vat) || 0,
     })))
     if (!gopMa) return lines.map((l: any) => ({ ...l, dvt: 'Cái', gc: '' }))
@@ -3205,7 +3209,17 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
     for (const l of lines) { const k = `${l.ten}|${l.gia}|${l.vat}`; if (!m.has(k)) m.set(k, { ...l, dvt: 'Cái', gc: '' }); else m.get(k).sl += l.sl }
     return [...m.values()]
   }
-  useEffect(() => { setRows(cur ? buildRows(cur, gop) : []) }, [selKhach, gop]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setRows(buildRows(selTickets, gop)) }, [selIds, gop]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Gợi ý "Kính gửi" theo điểm máy đầu tiên khi bắt đầu chọn
+  const toggleSel = (c: any) => {
+    setSelIds(prev => {
+      const has = prev.includes(c.id)
+      const next = has ? prev.filter(x => x !== c.id) : [...prev, c.id]
+      if (!has && prev.length === 0) { setKhTen(c.ten); setKhDiaChi(c.dia_chi) }
+      if (next.length === 0) { setKhTen(''); setKhDiaChi('') }
+      return next
+    })
+  }
 
   const fmtN = (x: any) => (Number(x) || 0).toLocaleString('vi-VN')
   const digits = (s: string) => s.replace(/[^\d]/g, '')
@@ -3216,28 +3230,30 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
   const baseCong = rows.reduce((s, r) => s + (Number(r.sl) || 0) * (Number(r.gia) || 0), 0)
   const baseThue = Math.round(rows.reduce((s, r) => s + (Number(r.sl) || 0) * (Number(r.gia) || 0) * (Number(r.vat) || 0) / 100, 0))
 
+  const asciiFile = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'khach'
+
   const exportQuote = async () => {
-    if (!cur || rows.length === 0) return showNotification('error', 'Chưa có dữ liệu báo giá.')
+    if (selCusts.length === 0 || rows.length === 0) return showNotification('error', 'Chưa có dữ liệu báo giá.')
     setExporting(true)
     try {
       const res = await fetch('/api/admin/cong-no', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ khach_hang: cur.ten, dia_chi: cur.dia_chi, nam, rows, markups: [parseFloat(markups.a) || 0, parseFloat(markups.b) || 0, parseFloat(markups.c) || 0] }),
+        body: JSON.stringify({ khach_hang: khTen, dia_chi: khDiaChi, nam, rows, markups: [parseFloat(markups.a) || 0, parseFloat(markups.b) || 0, parseFloat(markups.c) || 0] }),
       })
       if (!res.ok) { const j = await res.json().catch(() => ({})); showNotification('error', j.error || 'Xuất thất bại'); return }
       const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a')
-      a.href = url; a.download = `Bao-gia-${cur.ten}.docx`; a.click(); URL.revokeObjectURL(url)
+      a.href = url; a.download = `Bao-gia-${asciiFile(khTen)}.docx`; a.click(); URL.revokeObjectURL(url)
       showNotification('success', 'Đã xuất báo giá .docx.')
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setExporting(false) }
   }
 
   const setStatus = async (trang_thai_hd: string) => {
-    if (!cur) return
-    const ids = cur.tickets.map((t: any) => t.id)
+    const ids = selTickets.map((t: any) => t.id)
+    if (ids.length === 0) return
     setWorking(true)
     try {
       const res = await fetch('/api/admin/cong-no', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, trang_thai_hd }) })
-      if (res.ok) { showNotification('success', `Đã cập nhật ${ids.length} phiếu → ${trang_thai_hd}.`); setSelKhach(''); fetchList() }
+      if (res.ok) { showNotification('success', `Đã cập nhật ${ids.length} phiếu → ${trang_thai_hd}.`); setSelIds([]); setKhTen(''); setKhDiaChi(''); fetchList() }
       else { const j = await res.json(); showNotification('error', j.error) }
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setWorking(false) }
   }
@@ -3252,46 +3268,65 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
         { label: 'Tổng tiền (chưa VAT)', value: `${fmtN(tongTien)} đ`, sub: 'giá gốc vật tư', icon: Wallet, tint: 'text-indigo-600 bg-indigo-50 ring-indigo-100' },
       ]} />
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-wrap items-end gap-3">
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-slate-600">Khách hàng (có công nợ)</label>
-          <select value={selKhach} onChange={e => setSelKhach(e.target.value)} className="h-10 px-3 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500 min-w-[16rem]">
-            <option value="">— Chọn khách hàng —</option>
-            {custs.map(c => <option key={c.id} value={c.id}>{c.ten} ({c.tickets.length} phiếu)</option>)}
-          </select>
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="text-sm font-semibold text-slate-600">Chọn điểm máy (có thể chọn nhiều để gộp 1 đơn vị)</label>
+          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">{selIds.length} chọn · {selTickets.length} phiếu</span>
+          <div className="relative w-full sm:w-64 ml-auto">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input placeholder="Tìm tên khách..." className="pl-9 bg-white h-9" value={khSearch} onChange={e => setKhSearch(e.target.value)} />
+          </div>
         </div>
-        {cur && (
-          <>
-            <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
-              <input type="checkbox" checked={gop} onChange={e => setGop(e.target.checked)} className="w-4 h-4 accent-blue-600" /> Gộp theo mặt hàng
+        <div className="border border-slate-200 rounded-lg max-h-52 overflow-y-auto divide-y divide-slate-100">
+          {custs.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-4">Không có công nợ.</p>
+          ) : custs.filter(c => !khSearch || c.ten.toLowerCase().includes(khSearch.trim().toLowerCase())).map(c => (
+            <label key={c.id} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 cursor-pointer text-sm">
+              <input type="checkbox" checked={selIds.includes(c.id)} onChange={() => toggleSel(c)} className="w-4 h-4 accent-blue-600" />
+              <span className="flex-1 text-slate-700">{c.ten}</span>
+              <span className="text-xs text-slate-400 whitespace-nowrap">{c.tickets.length} phiếu · {c.tickets.map((t: any) => t.report).join(', ')}</span>
             </label>
-            <div className="text-xs text-slate-500">Phiếu: {cur.tickets.map((t: any) => t.report).join(', ')}</div>
-          </>
-        )}
+          ))}
+        </div>
       </div>
 
       {loading ? (
         <p className="text-sm text-slate-400 text-center py-6">Đang tải công nợ...</p>
-      ) : !cur ? (
-        <p className="text-sm text-slate-400 text-center py-6">Chọn một khách hàng để lập báo giá.</p>
+      ) : selCusts.length === 0 ? (
+        <p className="text-sm text-slate-400 text-center py-6">Chọn một hoặc nhiều điểm máy để lập báo giá.</p>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-wrap items-end gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-600">Năm báo giá</label>
-              <Input value={nam} onChange={e => setNam(digits(e.target.value))} className="bg-white w-24" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-600">% cạnh tranh (3 báo giá)</label>
-              <div className="flex gap-1">
-                <Input value={markups.a} onChange={e => setMarkups({ ...markups, a: e.target.value })} className="bg-white w-16 text-center" />
-                <Input value={markups.b} onChange={e => setMarkups({ ...markups, b: e.target.value })} className="bg-white w-16 text-center" />
-                <Input value={markups.c} onChange={e => setMarkups({ ...markups, c: e.target.value })} className="bg-white w-16 text-center" />
+          <div className="p-4 border-b border-slate-200 bg-slate-50/50 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Kính gửi (tên đơn vị)</label>
+                <Input value={khTen} onChange={e => setKhTen(e.target.value)} className="bg-white" placeholder="Tên hiển thị trên báo giá" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Địa chỉ</label>
+                <Input value={khDiaChi} onChange={e => setKhDiaChi(e.target.value)} className="bg-white" />
               </div>
             </div>
-            <Button variant="outline" onClick={addRow} className="gap-1 h-9"><Plus className="w-4 h-4" /> Thêm dòng</Button>
-            <div className="ml-auto flex gap-2">
-              <Button onClick={exportQuote} disabled={exporting} className="gap-2 h-9"><Download className="w-4 h-4" /> {exporting ? 'Đang xuất...' : 'Xuất báo giá (.docx)'}</Button>
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none h-9">
+                <input type="checkbox" checked={gop} onChange={e => setGop(e.target.checked)} className="w-4 h-4 accent-blue-600" /> Gộp theo mặt hàng
+              </label>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Năm báo giá</label>
+                <Input value={nam} onChange={e => setNam(digits(e.target.value))} className="bg-white w-24" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">% cạnh tranh (3 báo giá)</label>
+                <div className="flex gap-1">
+                  <Input value={markups.a} onChange={e => setMarkups({ ...markups, a: e.target.value })} className="bg-white w-16 text-center" />
+                  <Input value={markups.b} onChange={e => setMarkups({ ...markups, b: e.target.value })} className="bg-white w-16 text-center" />
+                  <Input value={markups.c} onChange={e => setMarkups({ ...markups, c: e.target.value })} className="bg-white w-16 text-center" />
+                </div>
+              </div>
+              <Button variant="outline" onClick={addRow} className="gap-1 h-9"><Plus className="w-4 h-4" /> Thêm dòng</Button>
+              <div className="ml-auto">
+                <Button onClick={exportQuote} disabled={exporting} className="gap-2 h-9"><Download className="w-4 h-4" /> {exporting ? 'Đang xuất...' : 'Xuất báo giá (.docx)'}</Button>
+              </div>
             </div>
           </div>
 
