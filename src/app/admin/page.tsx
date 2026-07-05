@@ -7,6 +7,11 @@ import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { TAB_TREE, TAB_ROLES, DEFAULT_TAB_VIS } from "@/lib/tabs"
+import { supabase } from "@/lib/supabase"
+
+// Kênh realtime (đồng bộ với lib/realtime.ts + app KTV): server phát broadcast sau mỗi thay đổi việc
+const JOBS_TOPIC = "soct_jobs"
+const JOBS_EVENT = "changed"
 
 // Types
 type VatTuChiTiet = {
@@ -261,6 +266,18 @@ export default function AdminDashboard() {
       fetchData()
     }
   }, [isMounted, currentAdmin])
+
+  // Realtime: KTV nhận/đổi trạng thái việc -> trang office tự cập nhật (không cần F5)
+  const fetchDataRef = useRef(fetchData)
+  fetchDataRef.current = fetchData
+  useEffect(() => {
+    if (!currentAdmin) return
+    const channel = supabase
+      .channel(JOBS_TOPIC)
+      .on('broadcast', { event: JOBS_EVENT }, () => { fetchDataRef.current() })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [currentAdmin])
 
   // Tìm kiếm theo mã máy để điền tự động
   const handleMaMayChange = (val: string) => {
@@ -1236,7 +1253,8 @@ export default function AdminDashboard() {
                 return (
                   <div className="space-y-2">
                     <div className="flex flex-wrap gap-2">
-                      {mayStatus && (mayStatus.bao_tri_thang
+                      {/* Chỉ theo dõi bảo trì tháng với máy CÓ hợp đồng (loai_hd trống = không cần bảo trì) */}
+                      {matched.loai_hd && mayStatus && (mayStatus.bao_tri_thang
                         ? <span className={`${pill} bg-emerald-50 text-emerald-700 border-emerald-200`}>✓ Đã bảo trì T{mayStatus.thang_nam.split('-')[1]}</span>
                         : <span className={`${pill} bg-amber-50 text-amber-700 border-amber-200`}>Chưa bảo trì tháng này</span>)}
                       {hd && <span className={`${pill} ${hd.cls}`}>HĐBT: {hd.note} ({hd.label})</span>}
