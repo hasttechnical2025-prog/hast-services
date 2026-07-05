@@ -512,19 +512,13 @@ export default function AdminDashboard() {
     return { total: filteredJobs.length, done, doing, waiting, unassigned, revenue, revenueHD }
   })()
 
-  const exportJobsCsv = () => {
+  const exportJobsExcel = () => {
     const headers = ['Ngày', 'Khách hàng', 'Địa chỉ', 'Mã máy', 'Loại việc', 'KTV', 'KM', 'Số phiếu', 'Tiền', 'Hóa đơn', 'Trạng thái']
-    const cell = (v: any) => { const s = v == null ? '' : String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s }
     const rows = filteredJobs.map(j => {
       const { tong, coHD } = jobTien(j)
       return [formatDate(j.ngay), j.soct_khach_hang?.ten_khach_hang, j.soct_khach_hang?.dia_chi, j.ma_may, j.loai_cong_viec, j.soct_users?.full_name || 'Chưa giao', j.km, j.report, tong, coHD ? 'Có HĐ' : 'Chưa HĐ', j.ket_qua]
     })
-    const csv = [headers, ...rows].map(r => r.map(cell).join(',')).join('\r\n')
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = `so-cong-tac-${new Date().toISOString().split('T')[0]}.csv`
-    a.click(); URL.revokeObjectURL(url)
+    exportRowsToExcel('so-cong-tac', headers, rows)
   }
 
   const handleExecuteDelete = async () => {
@@ -644,6 +638,15 @@ export default function AdminDashboard() {
                 </button>
               )}
 
+              {tabVisible('cong_no') && (
+                <button
+                  onClick={() => setActiveTab("cong_no")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'cong_no' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Công nợ
+                </button>
+              )}
+
               {tabVisible('kho_hang') && (
                 <button
                   onClick={() => setActiveTab("kho_hang")}
@@ -659,15 +662,6 @@ export default function AdminDashboard() {
                   className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'theo_doi_may' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                 >
                   Theo dõi máy
-                </button>
-              )}
-
-              {tabVisible('cong_no') && (
-                <button
-                  onClick={() => setActiveTab("cong_no")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'cong_no' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  Công nợ
                 </button>
               )}
 
@@ -737,7 +731,7 @@ export default function AdminDashboard() {
                   <Input placeholder="Tìm mã máy, tên khách hàng..." className="pl-9 bg-white" value={jobFilters.search} onChange={(e) => setJobFilters({ ...jobFilters, search: e.target.value })} />
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
-                  <Button variant="outline" onClick={exportJobsCsv} className="gap-2"><Download className="w-4 h-4" /> Xuất CSV</Button>
+                  <Button variant="outline" onClick={exportJobsExcel} className="gap-2"><Download className="w-4 h-4" /> Xuất Excel</Button>
                   <Button onClick={() => setIsModalOpen(true)} className="gap-2"><Plus className="w-4 h-4" /> Giao việc mới</Button>
                 </div>
               </div>
@@ -1384,6 +1378,21 @@ type ExcelCol = { header: string; key: string; toCsv?: (v: any) => string; parse
 function parseDDMMYYYY(s: string): string | null {
   const m = (s || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
   return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : null
+}
+
+// Xuất một danh sách (đã lọc) ra file .xlsx với tiêu đề in đậm
+async function exportRowsToExcel(filename: string, headers: string[], rows: any[][]) {
+  const mod: any = await import('exceljs')
+  const ExcelJS = mod.default ?? mod
+  const wb = new ExcelJS.Workbook()
+  const ws = wb.addWorksheet('Data')
+  const h = ws.addRow(headers); h.font = { bold: true }
+  for (const r of rows) ws.addRow(r.map(v => v == null ? '' : v))
+  headers.forEach((hd, i) => { ws.getColumn(i + 1).width = Math.max(12, String(hd).length + 4) })
+  const buf = await wb.xlsx.writeBuffer()
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+  const url = URL.createObjectURL(blob); const a = document.createElement('a')
+  a.href = url; a.download = `${filename}-${new Date().toISOString().split('T')[0]}.xlsx`; a.click(); URL.revokeObjectURL(url)
 }
 
 function ExcelTool({ columns, rows, filename, endpoint, payloadKey, requiredKeys, unit, onSuccess, showNotification }: {
@@ -2504,18 +2513,14 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
   const fmtDate = (s: string) => { if (!s) return ''; const d = new Date(s); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` }
   const daNhan = (line: any) => (line.soct_hang_ve_dot || []).reduce((s: number, h: any) => s + h.so_luong_nhan, 0)
 
-  const exportOrdersCsv = () => {
+  const exportOrdersExcel = () => {
     const headers = ['Ngày đặt', 'Nhà cung cấp', 'Số đơn', 'Trạng thái', 'Mã hàng', 'Tên hàng', 'SL đặt', 'Đã nhận', 'Còn thiếu']
-    const cell = (v: any) => { const s = v == null ? '' : String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s }
     const rows: any[][] = []
     for (const o of filteredOrders) for (const l of (o.soct_dat_hang_ct || [])) {
       const nhan = daNhan(l)
       rows.push([fmtDate(o.ngay_dat), o.nha_cung_cap, o.so_don_hang, o.da_dat ? 'Đã đặt' : 'Nháp', l.ma_hang, l.soct_kho_hang?.ten_hang, l.sl_dat, nhan, l.sl_dat - nhan])
     }
-    const csv = [headers, ...rows].map(r => r.map(cell).join(',')).join('\r\n')
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob); const a = document.createElement('a')
-    a.href = url; a.download = `dat-hang-${new Date().toISOString().split('T')[0]}.csv`; a.click(); URL.revokeObjectURL(url)
+    exportRowsToExcel('dat-hang', headers, rows)
   }
 
   const orderStats = (() => {
@@ -2590,7 +2595,7 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap px-1">
           <h3 className="text-sm font-bold text-slate-700">Danh sách đơn đặt hàng ({filteredOrders.length}/{orders.length})</h3>
-          <Button variant="outline" onClick={exportOrdersCsv} className="gap-2 h-9 text-xs"><Download className="w-4 h-4" /> Xuất CSV</Button>
+          <Button variant="outline" onClick={exportOrdersExcel} className="gap-2 h-9 text-xs"><Download className="w-4 h-4" /> Xuất Excel</Button>
         </div>
         <div className="flex flex-wrap items-center gap-2 px-1">
           <div className="relative w-full sm:w-56">
