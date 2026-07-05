@@ -30,10 +30,13 @@ export async function POST(request: Request) {
 
     // Chỉ geocode dòng THIẾU KM (km_mac_dinh rỗng/null). Dòng đã có KM giữ nguyên.
     // Chạy tuần tự, giãn ~1.1s giữa các lần gọi để tôn trọng giới hạn Nominatim (~1 req/s).
+    // Chỉ nhận các cột hợp lệ (chống mass-assignment: bỏ id, created_at, cột lạ...)
+    const ALLOWED = ['ten_khach_hang', 'dia_chi', 'ma_may', 'model', 'hang', 'km_mac_dinh', 'loai_hd', 'ngay_het_han_hdbt']
     let geocoded = 0
     const rows: any[] = []
     for (const c of customers) {
-      const row: any = { ...c }
+      const row: any = {}
+      for (const k of ALLOWED) if (c[k] !== undefined) row[k] = c[k]
       const missingKm = row.km_mac_dinh == null || row.km_mac_dinh === ''
       if (geocodeOn && missingKm && row.dia_chi) {
         const coords = await getCoordinatesFromAddress(row.dia_chi)

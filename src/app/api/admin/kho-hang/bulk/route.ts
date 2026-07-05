@@ -15,10 +15,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Không có dữ liệu để import' }, { status: 400 })
     }
 
+    // Chỉ nhận cột hợp lệ (chống mass-assignment)
+    const ALLOWED = ['ma_hang', 'ten_hang', 'model', 'hang', 'ton_kho']
+    const rows = items.map((it: any) => {
+      const r: any = {}
+      for (const k of ALLOWED) if (it[k] !== undefined) r[k] = it[k]
+      return r
+    })
+
     // Insert/Upsert các bản ghi kho hàng dựa vào khoá chính `ma_hang`
     const { data, error } = await supabaseAdmin
       .from('soct_kho_hang')
-      .upsert(items, { onConflict: 'ma_hang' })
+      .upsert(rows, { onConflict: 'ma_hang' })
       .select()
 
     if (error) {

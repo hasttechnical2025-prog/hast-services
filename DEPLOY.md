@@ -20,6 +20,10 @@
 
 ## 2. Chạy migrations trên DB production (Supabase → SQL Editor, đúng thứ tự)
 
+> **Nhanh nhất:** DB mới → chạy `supabase_schema.sql` rồi `supabase_migrations_ALL.sql` (đã gộp 02→12). DB đang dùng → chỉ cần chạy `supabase_migrations_ALL.sql`. Idempotent, chạy lại không lỗi.
+
+Chi tiết từng file (nếu muốn chạy lẻ):
+
 1. `supabase_schema.sql` (schema gốc — chỉ chạy nếu DB mới)
 2. `supabase_migration_02_pool_workflow.sql`
 3. `supabase_migration_03_vattu_financials.sql`

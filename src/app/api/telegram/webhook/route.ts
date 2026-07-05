@@ -5,7 +5,13 @@ export async function POST(request: Request) {
   try {
     // Xác thực request đến từ Telegram (secret_token đặt khi gọi setWebhook)
     const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET
-    if (webhookSecret && request.headers.get('x-telegram-bot-api-secret-token') !== webhookSecret) {
+    if (!webhookSecret) {
+      // Fail-closed ở production: bắt buộc cấu hình secret để tránh giả mạo /start cướp telegram_id
+      if (process.env.NODE_ENV === 'production') {
+        console.error('TELEGRAM_WEBHOOK_SECRET chưa đặt — từ chối webhook ở production')
+        return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 401 })
+      }
+    } else if (request.headers.get('x-telegram-bot-api-secret-token') !== webhookSecret) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
