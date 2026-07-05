@@ -4,7 +4,7 @@ import path from 'path'
 import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { requireRole } from '@/lib/session'
+import { requireTab } from '@/lib/session'
 import { buildQuoteData, type QuoteInput } from '@/lib/report/bao-gia'
 
 export const runtime = 'nodejs'
@@ -12,7 +12,7 @@ export const runtime = 'nodejs'
 // Danh sách phiếu công nợ: có số phiếu + chưa lên hóa đơn (Chưa hóa đơn / Đã báo giá)
 export async function GET() {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireTab('cong_no')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
     const { data, error } = await supabaseAdmin
@@ -36,7 +36,7 @@ export async function GET() {
 // Cập nhật trạng thái hóa đơn hàng loạt. 'Đã lên hóa đơn' -> đồng bộ cờ hoa_don các dòng vật tư.
 export async function PUT(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireTab('cong_no')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const { ids, trang_thai_hd } = await request.json()
@@ -63,7 +63,7 @@ export async function PUT(request: Request) {
 // Xuất báo giá .docx (4 trang: giá gốc + 3 báo giá cạnh tranh). Không lưu.
 export async function POST(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireTab('cong_no')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const body = await request.json()

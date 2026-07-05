@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { requireRole } from '@/lib/session'
+import { requireTab } from '@/lib/session'
 
 export async function POST(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin')
+    const session = await requireTab('kho_hang', 'kho_hang.ton_kho')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
     }

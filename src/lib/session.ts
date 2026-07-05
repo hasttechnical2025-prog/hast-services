@@ -1,6 +1,8 @@
 import crypto from 'crypto'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { getCauHinh } from '@/lib/config'
+import { roleCanTab } from '@/lib/tabs'
 
 // Phiên đăng nhập dùng cookie httpOnly có ký HMAC-SHA256.
 // Token dạng: base64url(payload).signature — client không thể tự sửa role.
@@ -101,4 +103,15 @@ export async function requireRole(...roles: Role[]): Promise<SessionPayload | nu
   if (!data || data.role !== session.role || data.is_active === false) return null
 
   return session
+}
+
+// Yêu cầu đăng nhập (văn phòng) VÀ role đó được phép xem tab theo ma trận phân quyền
+// (Cài đặt hệ thống). Admin luôn qua. Trả về session nếu hợp lệ, ngược lại null.
+// Nhờ vậy khi admin bật/tắt tab cho role, quyền API tự đổi theo — không cần sửa code.
+export async function requireTab(tabKey: string, subKey?: string): Promise<SessionPayload | null> {
+  const session = await requireRole('admin', 'tech_admin', 'staff')
+  if (!session) return null
+  if (session.role === 'admin') return session
+  const cfg = await getCauHinh()
+  return roleCanTab(session.role, tabKey, cfg.tab_visibility, subKey) ? session : null
 }

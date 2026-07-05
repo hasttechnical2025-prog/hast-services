@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { requireRole } from '@/lib/session'
+import { requireTab } from '@/lib/session'
 import { sendTelegramMessage } from '@/lib/telegram'
 import { getCauHinh } from '@/lib/config'
 
 // Danh sách phiếu cần kiểm soát: có số phiếu + đã Hoàn thành (cả đã/chưa nộp)
 export async function GET() {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireTab('hoan_phieu')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
     const { data, error } = await supabaseAdmin
@@ -31,7 +31,7 @@ export async function GET() {
 // Đánh dấu đã nộp / chưa nộp (chỉ người phụ trách: admin/tech_admin/staff)
 export async function PUT(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireTab('hoan_phieu')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const { id, da_nop_phieu } = await request.json()
@@ -56,7 +56,7 @@ export async function PUT(request: Request) {
 // Nhắc KTV còn nợ phiếu qua Telegram (DM tới từng KTV đã liên kết)
 export async function POST(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireTab('hoan_phieu')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const body = await request.json().catch(() => ({}))

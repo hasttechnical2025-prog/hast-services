@@ -6,6 +6,7 @@ import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Down
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { TAB_TREE, TAB_ROLES, DEFAULT_TAB_VIS } from "@/lib/tabs"
 
 // Types
 type VatTuChiTiet = {
@@ -2711,20 +2712,6 @@ function StatCards({ items }: { items: StatCard[] }) {
       ))}
     </div>
   )
-}
-
-// Cây tab lớn + tab con để phân quyền hiển thị (dùng chung Cài đặt và gate hiển thị)
-const TAB_TREE: { key: string, label: string, subs: [string, string][] }[] = [
-  { key: 'kho_hang', label: 'Kho hàng', subs: [['ton_kho', 'Tồn kho'], ['dat_hang', 'Đặt hàng'], ['thong_ke', 'Thống kê nhập']] },
-  { key: 'theo_doi_may', label: 'Theo dõi máy', subs: [['bao_tri', 'Bảo trì'], ['giam_dinh', 'Giám định']] },
-  { key: 'hoan_phieu', label: 'Hoàn phiếu', subs: [] },
-  { key: 'cong_no', label: 'Công nợ', subs: [] },
-]
-const TAB_ROLES: [string, string][] = [['tech_admin', 'Tech Admin'], ['staff', 'Staff']]
-// Mặc định hiển thị theo role; key tab con dạng "cha.con"
-const DEFAULT_TAB_VIS: Record<string, Record<string, boolean>> = {
-  tech_admin: { kho_hang: true, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': true, 'kho_hang.thong_ke': true, theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true, hoan_phieu: true, cong_no: true },
-  staff: { kho_hang: false, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': false, 'kho_hang.thong_ke': false, theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true, hoan_phieu: true, cong_no: false },
 }
 
 function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cauHinh: Record<string, string>, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {

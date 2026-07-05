@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { requireRole } from '@/lib/session'
+import { requireTab } from '@/lib/session'
 
 // Lấy danh sách biên bản giám định kèm vật tư đề xuất
 export async function GET(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireTab('theo_doi_may', 'theo_doi_may.giam_dinh')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
     }
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 // Tạo biên bản giám định mới (kèm các dòng vật tư đề xuất)
 export async function POST(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireTab('theo_doi_may', 'theo_doi_may.giam_dinh')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
     }
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
 // Cập nhật biên bản: sửa thông tin, đóng (đã thay), và/hoặc thay danh sách vật tư
 export async function PUT(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireTab('theo_doi_may', 'theo_doi_may.giam_dinh')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
     }
@@ -133,7 +133,7 @@ export async function PUT(request: Request) {
 // Xóa biên bản giám định (kéo theo vật tư nhờ ON DELETE CASCADE)
 export async function DELETE(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireTab('theo_doi_may', 'theo_doi_may.giam_dinh')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
     }

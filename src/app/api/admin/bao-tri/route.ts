@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { requireRole } from '@/lib/session'
+import { requireTab } from '@/lib/session'
 
 // Lấy danh sách máy đã bảo trì trong một tháng (YYYY-MM)
 export async function GET(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireTab('theo_doi_may', 'theo_doi_may.bao_tri')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
     }
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 // Nhập nhanh: đánh dấu 1 hoặc nhiều mã máy đã bảo trì trong tháng
 export async function POST(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireTab('theo_doi_may', 'theo_doi_may.bao_tri')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
     }
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
 // Bỏ đánh dấu bảo trì (theo id, hoặc theo ma_may + thang_nam)
 export async function DELETE(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireTab('theo_doi_may', 'theo_doi_may.bao_tri')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
     }

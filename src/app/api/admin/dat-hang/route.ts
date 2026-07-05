@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { requireRole } from '@/lib/session'
+import { requireTab } from '@/lib/session'
 
 // Danh sách đơn đặt hàng kèm dòng chi tiết + các đợt hàng về
 export async function GET() {
   try {
-    const session = await requireRole('admin', 'tech_admin')
+    const session = await requireTab('kho_hang', 'kho_hang.dat_hang')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
     }
@@ -33,7 +33,7 @@ export async function GET() {
 // Tạo đơn đặt hàng mới (nhiều dòng mã hàng)
 export async function POST(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin')
+    const session = await requireTab('kho_hang', 'kho_hang.dat_hang')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
     }
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
 // Sửa thông tin đơn (bao gồm chuyển nháp -> đã đặt)
 export async function PUT(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin')
+    const session = await requireTab('kho_hang', 'kho_hang.dat_hang')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
     }
@@ -116,7 +116,7 @@ export async function PUT(request: Request) {
 // Xóa đơn: xóa các đợt hàng về trước (hoàn tồn kho đúng) rồi xóa đơn
 export async function DELETE(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin')
+    const session = await requireTab('kho_hang', 'kho_hang.dat_hang')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
     }

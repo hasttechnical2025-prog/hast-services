@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { requireRole } from '@/lib/session'
+import { requireTab } from '@/lib/session'
 
 // Ghi một đợt hàng về cho một dòng đơn (trigger tự cộng tồn kho + đánh dấu hoàn thành)
 export async function POST(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin')
+    const session = await requireTab('kho_hang', 'kho_hang.dat_hang')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
     }
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
 // Xóa một đợt hàng về (trigger tự hoàn tồn kho)
 export async function DELETE(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin')
+    const session = await requireTab('kho_hang', 'kho_hang.dat_hang')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
     }

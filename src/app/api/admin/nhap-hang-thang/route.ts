@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { requireRole } from '@/lib/session'
+import { requireTab } from '@/lib/session'
 
 // Thống kê nhập hàng theo tháng (kế toán) — tùy chọn lọc theo tháng
 export async function GET(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin')
+    const session = await requireTab('kho_hang', 'kho_hang.thong_ke')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
     }
