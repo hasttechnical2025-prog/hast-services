@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Be_Vietnam_Pro, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -17,6 +17,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "HAST — Sổ công tác & Kho hàng",
   description: "Hệ thống quản lý giao việc, kho hàng, bảo trì và giám định",
+  // iOS: khi "Add to Home Screen" — chạy toàn màn hình, tên ngắn "HAST"
+  appleWebApp: { capable: true, title: "HAST", statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#1e3a8a",
 };
 
 export default function RootLayout({
