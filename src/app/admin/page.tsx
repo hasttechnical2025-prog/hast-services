@@ -662,6 +662,15 @@ export default function AdminDashboard() {
                 </button>
               )}
 
+              {tabVisible('cong_no') && (
+                <button
+                  onClick={() => setActiveTab("cong_no")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'cong_no' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Công nợ
+                </button>
+              )}
+
               {currentUserRole === 'admin' && (
                 <button
                   onClick={() => setActiveTab("he_thong")}
@@ -914,6 +923,10 @@ export default function AdminDashboard() {
 
         {activeTab === "hoan_phieu" && tabVisible('hoan_phieu') && (
           <PhieuCungTool nguongNgay={parseInt(cauHinh.phieu_cung_canh_bao_ngay || '3') || 3} showNotification={showNotification} />
+        )}
+
+        {activeTab === "cong_no" && tabVisible('cong_no') && (
+          <CongNoTool showNotification={showNotification} />
         )}
 
         {activeTab === "he_thong" && currentUserRole === 'admin' && (
@@ -2687,12 +2700,13 @@ const TAB_TREE: { key: string, label: string, subs: [string, string][] }[] = [
   { key: 'kho_hang', label: 'Kho hàng', subs: [['ton_kho', 'Tồn kho'], ['dat_hang', 'Đặt hàng'], ['thong_ke', 'Thống kê nhập']] },
   { key: 'theo_doi_may', label: 'Theo dõi máy', subs: [['bao_tri', 'Bảo trì'], ['giam_dinh', 'Giám định']] },
   { key: 'hoan_phieu', label: 'Hoàn phiếu', subs: [] },
+  { key: 'cong_no', label: 'Công nợ', subs: [] },
 ]
 const TAB_ROLES: [string, string][] = [['tech_admin', 'Tech Admin'], ['staff', 'Staff']]
 // Mặc định hiển thị theo role; key tab con dạng "cha.con"
 const DEFAULT_TAB_VIS: Record<string, Record<string, boolean>> = {
-  tech_admin: { kho_hang: true, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': true, 'kho_hang.thong_ke': true, theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true, hoan_phieu: true },
-  staff: { kho_hang: false, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': false, 'kho_hang.thong_ke': false, theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true, hoan_phieu: true },
+  tech_admin: { kho_hang: true, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': true, 'kho_hang.thong_ke': true, theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true, hoan_phieu: true, cong_no: true },
+  staff: { kho_hang: false, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': false, 'kho_hang.thong_ke': false, theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true, hoan_phieu: true, cong_no: false },
 }
 
 function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cauHinh: Record<string, string>, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
@@ -3091,6 +3105,184 @@ function BaoCaoThangTool({ showNotification }: { showNotification: (type: 'succe
             <textarea value={manual.KIEN_NGHI} onChange={(e) => setM('KIEN_NGHI', e.target.value)} rows={3} className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhập kiến nghị (để trống nếu không có)..." />
           </div>
         </>
+      )}
+    </div>
+  )
+}
+
+function CongNoTool({ showNotification }: { showNotification: (type: 'success' | 'error', msg: string) => void }) {
+  const [list, setList] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selKhach, setSelKhach] = useState('')
+  const [gop, setGop] = useState(true)
+  const [rows, setRows] = useState<{ ten: string, dvt: string, sl: number, gia: number, vat: number, gc: string }[]>([])
+  const [markups, setMarkups] = useState({ a: '3', b: '5', c: '6' })
+  const [nam, setNam] = useState(String(new Date().getFullYear()))
+  const [exporting, setExporting] = useState(false)
+  const [working, setWorking] = useState(false)
+
+  const fetchList = async () => {
+    setLoading(true)
+    try { const res = await fetch('/api/admin/cong-no'); const j = await res.json(); if (res.ok) setList(j.data || []); else showNotification('error', j.error) }
+    catch { showNotification('error', 'Lỗi kết nối!') } finally { setLoading(false) }
+  }
+  useEffect(() => { fetchList() }, [])
+
+  // Gom phiếu theo khách hàng
+  const custs = Array.from(list.reduce((m: Map<string, any>, t: any) => {
+    const k = t.id_khach_hang
+    if (!m.has(k)) m.set(k, { id: k, ten: t.soct_khach_hang?.ten_khach_hang || '—', dia_chi: t.soct_khach_hang?.dia_chi || '', tickets: [] })
+    m.get(k).tickets.push(t)
+    return m
+  }, new Map<string, any>()).values())
+  const cur = custs.find(c => c.id === selKhach)
+
+  const buildRows = (c: any, gopMa: boolean) => {
+    const lines = (c?.tickets || []).flatMap((t: any) => (t.soct_chi_tiet_vat_tu || []).map((v: any) => ({
+      ten: v.soct_kho_hang?.ten_hang || v.ma_hang || '', sl: Number(v.so_luong) || 0, gia: Number(v.don_gia) || 0, vat: Number(v.vat) || 0,
+    })))
+    if (!gopMa) return lines.map((l: any) => ({ ...l, dvt: 'Cái', gc: '' }))
+    const m = new Map<string, any>()
+    for (const l of lines) { const k = `${l.ten}|${l.gia}|${l.vat}`; if (!m.has(k)) m.set(k, { ...l, dvt: 'Cái', gc: '' }); else m.get(k).sl += l.sl }
+    return [...m.values()]
+  }
+  useEffect(() => { setRows(cur ? buildRows(cur, gop) : []) }, [selKhach, gop]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fmtN = (x: any) => (Number(x) || 0).toLocaleString('vi-VN')
+  const digits = (s: string) => s.replace(/[^\d]/g, '')
+  const upd = (i: number, f: string, v: any) => setRows(rs => rs.map((r, idx) => idx === i ? { ...r, [f]: v } : r))
+  const addRow = () => setRows(rs => [...rs, { ten: '', dvt: 'Cái', sl: 1, gia: 0, vat: 8, gc: '' }])
+  const delRow = (i: number) => setRows(rs => rs.filter((_, idx) => idx !== i))
+
+  const baseCong = rows.reduce((s, r) => s + (Number(r.sl) || 0) * (Number(r.gia) || 0), 0)
+  const baseThue = Math.round(rows.reduce((s, r) => s + (Number(r.sl) || 0) * (Number(r.gia) || 0) * (Number(r.vat) || 0) / 100, 0))
+
+  const exportQuote = async () => {
+    if (!cur || rows.length === 0) return showNotification('error', 'Chưa có dữ liệu báo giá.')
+    setExporting(true)
+    try {
+      const res = await fetch('/api/admin/cong-no', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ khach_hang: cur.ten, dia_chi: cur.dia_chi, nam, rows, markups: [parseFloat(markups.a) || 0, parseFloat(markups.b) || 0, parseFloat(markups.c) || 0] }),
+      })
+      if (!res.ok) { const j = await res.json().catch(() => ({})); showNotification('error', j.error || 'Xuất thất bại'); return }
+      const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a')
+      a.href = url; a.download = `Bao-gia-${cur.ten}.docx`; a.click(); URL.revokeObjectURL(url)
+      showNotification('success', 'Đã xuất báo giá .docx.')
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setExporting(false) }
+  }
+
+  const setStatus = async (trang_thai_hd: string) => {
+    if (!cur) return
+    const ids = cur.tickets.map((t: any) => t.id)
+    setWorking(true)
+    try {
+      const res = await fetch('/api/admin/cong-no', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, trang_thai_hd }) })
+      if (res.ok) { showNotification('success', `Đã cập nhật ${ids.length} phiếu → ${trang_thai_hd}.`); setSelKhach(''); fetchList() }
+      else { const j = await res.json(); showNotification('error', j.error) }
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setWorking(false) }
+  }
+
+  const tongTien = list.reduce((s: number, t: any) => s + (t.soct_chi_tiet_vat_tu || []).reduce((a: number, v: any) => a + (Number(v.don_gia) || 0) * (Number(v.so_luong) || 0), 0), 0)
+
+  return (
+    <div className="space-y-6">
+      <StatCards items={[
+        { label: 'Khách có công nợ', value: custs.length.toLocaleString('vi-VN'), sub: 'chưa lên hóa đơn', icon: Users, tint: 'text-blue-600 bg-blue-50 ring-blue-100' },
+        { label: 'Phiếu chưa HĐ', value: list.length.toLocaleString('vi-VN'), sub: 'có số phiếu', icon: ClipboardList, tint: 'text-amber-600 bg-amber-50 ring-amber-100' },
+        { label: 'Tổng tiền (chưa VAT)', value: `${fmtN(tongTien)} đ`, sub: 'giá gốc vật tư', icon: Wallet, tint: 'text-indigo-600 bg-indigo-50 ring-indigo-100' },
+      ]} />
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-wrap items-end gap-3">
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-slate-600">Khách hàng (có công nợ)</label>
+          <select value={selKhach} onChange={e => setSelKhach(e.target.value)} className="h-10 px-3 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500 min-w-[16rem]">
+            <option value="">— Chọn khách hàng —</option>
+            {custs.map(c => <option key={c.id} value={c.id}>{c.ten} ({c.tickets.length} phiếu)</option>)}
+          </select>
+        </div>
+        {cur && (
+          <>
+            <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
+              <input type="checkbox" checked={gop} onChange={e => setGop(e.target.checked)} className="w-4 h-4 accent-blue-600" /> Gộp theo mặt hàng
+            </label>
+            <div className="text-xs text-slate-500">Phiếu: {cur.tickets.map((t: any) => t.report).join(', ')}</div>
+          </>
+        )}
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-slate-400 text-center py-6">Đang tải công nợ...</p>
+      ) : !cur ? (
+        <p className="text-sm text-slate-400 text-center py-6">Chọn một khách hàng để lập báo giá.</p>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-wrap items-end gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">Năm báo giá</label>
+              <Input value={nam} onChange={e => setNam(digits(e.target.value))} className="bg-white w-24" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">% cạnh tranh (3 báo giá)</label>
+              <div className="flex gap-1">
+                <Input value={markups.a} onChange={e => setMarkups({ ...markups, a: e.target.value })} className="bg-white w-16 text-center" />
+                <Input value={markups.b} onChange={e => setMarkups({ ...markups, b: e.target.value })} className="bg-white w-16 text-center" />
+                <Input value={markups.c} onChange={e => setMarkups({ ...markups, c: e.target.value })} className="bg-white w-16 text-center" />
+              </div>
+            </div>
+            <Button variant="outline" onClick={addRow} className="gap-1 h-9"><Plus className="w-4 h-4" /> Thêm dòng</Button>
+            <div className="ml-auto flex gap-2">
+              <Button onClick={exportQuote} disabled={exporting} className="gap-2 h-9"><Download className="w-4 h-4" /> {exporting ? 'Đang xuất...' : 'Xuất báo giá (.docx)'}</Button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-600">
+              <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
+                <tr>
+                  <th className="px-3 py-2 w-8">TT</th>
+                  <th className="px-3 py-2">Tên hàng hóa</th>
+                  <th className="px-3 py-2 w-20">ĐVT</th>
+                  <th className="px-3 py-2 w-16 text-center">SL</th>
+                  <th className="px-3 py-2 w-32 text-right">Đơn giá</th>
+                  <th className="px-3 py-2 w-16 text-center">VAT%</th>
+                  <th className="px-3 py-2 w-32 text-right">Thành tiền</th>
+                  <th className="px-3 py-2">Ghi chú</th>
+                  <th className="px-3 py-2 w-8"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {rows.length === 0 ? (
+                  <tr><td colSpan={9} className="px-4 py-6 text-center text-slate-400">Khách này chưa có vật tư trong các phiếu. Thêm dòng thủ công nếu cần.</td></tr>
+                ) : rows.map((r, i) => (
+                  <tr key={i} className="hover:bg-slate-50">
+                    <td className="px-3 py-1.5 text-slate-400">{i + 1}</td>
+                    <td className="px-3 py-1.5"><Input value={r.ten} onChange={e => upd(i, 'ten', e.target.value)} className="h-8 bg-white" /></td>
+                    <td className="px-3 py-1.5"><Input value={r.dvt} onChange={e => upd(i, 'dvt', e.target.value)} className="h-8 bg-white" /></td>
+                    <td className="px-3 py-1.5"><Input value={String(r.sl)} onChange={e => upd(i, 'sl', parseInt(digits(e.target.value)) || 0)} className="h-8 bg-white text-center" /></td>
+                    <td className="px-3 py-1.5"><Input value={fmtN(r.gia)} onChange={e => upd(i, 'gia', parseInt(digits(e.target.value)) || 0)} className="h-8 bg-white text-right" /></td>
+                    <td className="px-3 py-1.5"><Input value={String(r.vat)} onChange={e => upd(i, 'vat', parseFloat(e.target.value.replace(',', '.')) || 0)} className="h-8 bg-white text-center" /></td>
+                    <td className="px-3 py-1.5 text-right font-medium text-slate-700 whitespace-nowrap">{fmtN((Number(r.sl) || 0) * (Number(r.gia) || 0))}</td>
+                    <td className="px-3 py-1.5"><Input value={r.gc} onChange={e => upd(i, 'gc', e.target.value)} className="h-8 bg-white" /></td>
+                    <td className="px-3 py-1.5 text-center"><button onClick={() => delRow(i)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="p-4 border-t border-slate-200 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-600">
+              <span>Cộng: <b className="text-slate-800">{fmtN(baseCong)} đ</b></span>
+              <span>Thuế GTGT: <b className="text-slate-800">{fmtN(baseThue)} đ</b></span>
+              <span>Tổng cộng: <b className="text-slate-800">{fmtN(baseCong + baseThue)} đ</b></span>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setStatus('Đã báo giá')} disabled={working} className="h-9">Đánh dấu đã báo giá</Button>
+              <Button onClick={() => setStatus('Đã lên hóa đơn')} disabled={working} className="h-9 bg-emerald-600 hover:bg-emerald-700">Đã lên hóa đơn</Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
