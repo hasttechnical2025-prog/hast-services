@@ -519,7 +519,8 @@ export default function AdminDashboard() {
 
   // Tổng tiền + trạng thái hóa đơn của một việc (tính từ dòng vật tư)
   const jobTien = (job: any) => {
-    const vt = job.soct_chi_tiet_vat_tu || []
+    // Bỏ vật tư đã trả về kho khỏi tiền (khách không lấy -> không phát sinh)
+    const vt = (job.soct_chi_tiet_vat_tu || []).filter((v: any) => !v.da_tra)
     const tong = vt.reduce((s: number, v: any) => s + (Number(v.thanh_tien) || 0) + (v.hoa_don ? (Number(v.thanh_tien) || 0) * (Number(v.vat) || 0) / 100 : 0), 0)
     return { tong: Math.round(tong), coHD: vt.some((v: any) => v.hoa_don) }
   }
@@ -545,6 +546,10 @@ export default function AdminDashboard() {
     }
     if (f.trangThai.length && !f.trangThai.includes(j.ket_qua)) return false
     return true
+  }).sort((a, b) => {
+    // Mới nhất -> cũ nhất: theo ngày giảm dần, cùng ngày thì số phiếu giảm dần
+    if (a.ngay !== b.ngay) return a.ngay < b.ngay ? 1 : -1
+    return String(b.report || '').localeCompare(String(a.report || ''), undefined, { numeric: true })
   })
 
   const clearJobFilters = () => setJobFilters({ search: "", tuNgay: "", denNgay: "", loaiViec: [], ktvId: "", hoaDon: "", trangThai: [] })
@@ -855,14 +860,21 @@ export default function AdminDashboard() {
                         <td className="px-4 py-3 text-xs">
                           {job.report && <div className="text-slate-700">Phiếu: {job.report}</div>}
                           {(() => {
-                            const vt = job.soct_chi_tiet_vat_tu || []
-                            if (vt.length === 0) return null
-                            const tong = vt.reduce((s, v) => s + (Number(v.thanh_tien) || 0) + (v.hoa_don ? (Number(v.thanh_tien) || 0) * (Number(v.vat) || 0) / 100 : 0), 0)
-                            const coHD = vt.some(v => v.hoa_don)
+                            const allVt = job.soct_chi_tiet_vat_tu || []
+                            if (allVt.length === 0) return null
+                            const active = allVt.filter(v => !(v as any).da_tra)
+                            const returned = allVt.length - active.length
+                            const tong = active.reduce((s, v) => s + (Number(v.thanh_tien) || 0) + (v.hoa_don ? (Number(v.thanh_tien) || 0) * (Number(v.vat) || 0) / 100 : 0), 0)
+                            const coHD = active.some(v => v.hoa_don)
                             return (
-                              <div className={coHD ? 'text-emerald-600' : 'text-amber-600'}>
-                                {coHD ? 'Có HĐ' : 'Chưa HĐ'}{tong > 0 ? `: ${Math.round(tong).toLocaleString('vi-VN')} đ` : ''}
-                              </div>
+                              <>
+                                {active.length > 0 && (
+                                  <div className={coHD ? 'text-emerald-600' : 'text-amber-600'}>
+                                    {coHD ? 'Có HĐ' : 'Chưa HĐ'}: {Math.round(tong).toLocaleString('vi-VN')} đ
+                                  </div>
+                                )}
+                                {returned > 0 && <div className="text-indigo-600 text-[11px] font-medium">↩ Đã trả kho {returned}/{allVt.length}</div>}
+                              </>
                             )
                           })()}
                         </td>
