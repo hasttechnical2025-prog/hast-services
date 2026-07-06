@@ -40,6 +40,7 @@ export async function GET(request: Request) {
           vat,
           thanh_tien,
           hoa_don,
+          da_tra,
           soct_kho_hang (
             ten_hang
           )

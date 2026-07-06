@@ -135,6 +135,7 @@ export default function AdminDashboard() {
   // States for Add Job Modal
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingJobId, setEditingJobId] = useState<string | null>(null)
+  const [traJobId, setTraJobId] = useState<string | null>(null)
   const [customers, setCustomers] = useState<any[]>([])
   const [technicians, setTechnicians] = useState<any[]>([])
   const [inventory, setInventory] = useState<any[]>([]) // Thêm state inventory
@@ -218,6 +219,15 @@ export default function AdminDashboard() {
       ten_khach_hang_moi: "", dia_chi_moi: "", model_moi: ""
     })
     setIsModalOpen(true)
+  }
+
+  // Trả / hủy trả 1 dòng vật tư về kho (phiếu đã Hoàn thành)
+  const handleTraVatTu = async (lineId: string, want: boolean) => {
+    try {
+      const res = await fetch('/api/admin/cong-viec/tra-vat-tu', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: lineId, da_tra: want }) })
+      if (res.ok) { showNotification('success', want ? 'Đã trả vật tư về kho (cộng tồn).' : 'Đã hủy trả (trừ tồn lại).'); fetchData() }
+      else { const j = await res.json(); showNotification('error', j.error) }
+    } catch { showNotification('error', 'Lỗi kết nối!') }
   }
 
   // Fetch data
@@ -872,6 +882,11 @@ export default function AdminDashboard() {
                               <PenSquare className="w-4 h-4" />
                             </button>
                           )}
+                          {currentUserRole !== 'staff' && job.ket_qua === 'Hoàn thành' && (job.soct_chi_tiet_vat_tu || []).length > 0 && (
+                            <button onClick={() => setTraJobId(job.id)} title="Vật tư / Trả về kho" className="text-indigo-500 hover:text-indigo-700 p-1 rounded hover:bg-indigo-50 transition ml-1">
+                              <Boxes className="w-4 h-4" />
+                            </button>
+                          )}
                           {currentUserRole !== 'staff' && (
                             <button onClick={() => confirmDelete(job.id)} title="Xóa phiếu" className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition ml-1">
                               <Trash2 className="w-4 h-4" />
@@ -1104,6 +1119,42 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {/* Modal: Vật tư đã dùng / Trả về kho (phiếu Hoàn thành) */}
+      {traJobId && (() => {
+        const tj = jobs.find(j => j.id === traJobId)
+        if (!tj) return null
+        const vts = (tj as any).soct_chi_tiet_vat_tu || []
+        return (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+              <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-800">Vật tư đã dùng {tj.report ? `— Phiếu ${tj.report}` : ''}</h2>
+                  <p className="text-xs text-slate-500">{tj.soct_khach_hang?.ten_khach_hang}{tj.ma_may ? ` · Máy ${tj.ma_may}` : ''}</p>
+                </div>
+                <button onClick={() => setTraJobId(null)} className="text-slate-400 hover:text-slate-600"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+              </div>
+              <div className="p-5 space-y-2">
+                <p className="text-xs text-slate-500">Khách không lấy vật tư nào thì bấm <b>Trả về kho</b> — tồn kho sẽ cộng lại. Dòng đã trả được giữ để đối soát (có thể Hủy trả nếu nhầm).</p>
+                {vts.length === 0 ? <p className="text-sm text-slate-400 text-center py-3">Không có vật tư.</p> : vts.map((v: any) => (
+                  <div key={v.id} className={`flex items-center gap-3 p-3 rounded-lg border ${v.da_tra ? 'bg-slate-50 border-slate-200' : 'border-slate-200'}`}>
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-sm font-medium truncate ${v.da_tra ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{v.soct_kho_hang?.ten_hang || v.ma_hang}</div>
+                      <div className="text-xs text-slate-500">SL: {v.so_luong} · <span className="font-mono">{v.ma_hang}</span>{v.da_tra ? ' · đã trả về kho' : ''}</div>
+                    </div>
+                    {v.da_tra ? (
+                      <Button variant="outline" onClick={() => handleTraVatTu(v.id, false)} className="h-8 text-xs shrink-0">Hủy trả</Button>
+                    ) : (
+                      <Button onClick={() => handleTraVatTu(v.id, true)} className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 gap-1 shrink-0"><Boxes className="w-3.5 h-3.5" /> Trả về kho</Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Thông báo (Notification Banner) */}
       {notification && (

@@ -391,3 +391,15 @@ CREATE INDEX IF NOT EXISTS idx_audit_created ON public.soct_audit_log(created_at
 -- RLS: chặn anon như các bảng khác
 ALTER TABLE public.soct_audit_log ENABLE ROW LEVEL SECURITY;
 
+-- ─────────────────────────────────────────────
+-- supabase_migration_13_tra_vat_tu.sql
+-- ─────────────────────────────────────────────
+-- MIGRATION 13: Trả vật tư về kho (khách không lấy nữa sau khi phiếu Hoàn thành)
+-- Chạy trong Supabase SQL Editor. Idempotent.
+
+-- Cờ đánh dấu dòng vật tư đã được trả về kho (giữ dòng để đối soát) + ngày trả
+ALTER TABLE public.soct_chi_tiet_vat_tu
+    ADD COLUMN IF NOT EXISTS da_tra BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.soct_chi_tiet_vat_tu
+    ADD COLUMN IF NOT EXISTS ngay_tra DATE;
+
