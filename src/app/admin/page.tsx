@@ -773,7 +773,7 @@ export default function AdminDashboard() {
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
                   <Button variant="outline" onClick={exportJobsExcel} className="gap-2"><Download className="w-4 h-4" /> Xuất Excel</Button>
-                  {currentUserRole !== 'staff' && (
+                  {currentUserRole === 'admin' && (
                     <ImportJobsTool customers={customers} technicians={technicians} inventory={inventory} onSuccess={fetchData} showNotification={showNotification} />
                   )}
                   <Button onClick={() => setIsModalOpen(true)} className="gap-2"><Plus className="w-4 h-4" /> Giao việc mới</Button>
