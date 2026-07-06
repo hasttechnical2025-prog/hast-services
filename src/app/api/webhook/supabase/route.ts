@@ -52,6 +52,12 @@ export async function POST(request: Request) {
 
     const ktvId = record.ktv_id
 
+    // Chỉ báo cho việc ĐANG CHỜ NHẬN. Việc đã Hoàn thành/Đang làm/Lắp tiếp
+    // (VD import lịch sử hàng loạt) -> KHÔNG bắn Telegram, tránh spam.
+    if (record.ket_qua && record.ket_qua !== 'Chờ nhận') {
+      return NextResponse.json({ message: 'Not a pending job, skip notify' })
+    }
+
     // 3. Xác định loại thông báo cần gửi
     // - INSERT + đã gán KTV  -> nhắn riêng KTV đó
     // - INSERT + chưa gán    -> bắn vào group chung (pool chờ nhận)

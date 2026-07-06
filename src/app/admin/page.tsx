@@ -773,6 +773,9 @@ export default function AdminDashboard() {
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
                   <Button variant="outline" onClick={exportJobsExcel} className="gap-2"><Download className="w-4 h-4" /> Xuất Excel</Button>
+                  {currentUserRole !== 'staff' && (
+                    <ImportJobsTool customers={customers} technicians={technicians} inventory={inventory} onSuccess={fetchData} showNotification={showNotification} />
+                  )}
                   <Button onClick={() => setIsModalOpen(true)} className="gap-2"><Plus className="w-4 h-4" /> Giao việc mới</Button>
                 </div>
               </div>
@@ -3513,6 +3516,167 @@ function PhieuCungTool({ nguongNgay, showNotification }: { nguongNgay: number, s
         </div>
       </div>
     </div>
+  )
+}
+
+const IMPORT_JOB_COLS = ['Ngày', 'Mã máy', 'Loại việc', 'KTV', 'Số phiếu', 'Số lượng', 'KM', 'Ghi chú', 'Trạng thái', 'Mã hàng', 'SL vật tư', 'Đơn giá', 'VAT', 'HĐ']
+
+function ImportJobsTool({ customers, technicians, inventory, onSuccess, showNotification }: {
+  customers: any[]; technicians: any[]; inventory: any[]; onSuccess: () => void; showNotification: (type: 'success' | 'error', msg: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [parsed, setParsed] = useState<{ jobs: any[]; errors: string[]; matCount: number } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const cellToStr = (v: any): string => {
+    if (v == null) return ''
+    if (v instanceof Date) return `${String(v.getDate()).padStart(2, '0')}/${String(v.getMonth() + 1).padStart(2, '0')}/${v.getFullYear()}`
+    if (typeof v === 'object') { if ('text' in v) return String((v as any).text); if ('result' in v) return String((v as any).result); if ('richText' in v) return (v as any).richText.map((t: any) => t.text).join(''); return '' }
+    return String(v)
+  }
+  const digits = (s: any) => String(s).replace(/[^\d]/g, '')
+  const truthy = (s: any) => ['x', '1', 'có', 'co', 'yes', 'true', '✓'].includes(String(s).trim().toLowerCase())
+
+  const downloadTemplate = async () => {
+    try {
+      const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
+      const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Phieu')
+      ws.addRow(IMPORT_JOB_COLS).font = { bold: true }
+      ws.addRow(['01/01/2026', '35953', 'Thay vật tư', 'Trần Kiên', 'RP-001', '1', '6', '', 'Hoàn thành', 'DR017', '1', '788000', '8', 'x'])
+      ws.addRow(['01/01/2026', '35953', 'Thay vật tư', 'Trần Kiên', 'RP-001', '1', '6', '', 'Hoàn thành', 'TN326', '2', '500000', '8', 'x'])
+      ws.addRow(['02/01/2026', '36151', 'Kiểm tra', '', '', '1', '5', 'Khách báo lỗi', 'Hoàn thành', '', '', '', '', ''])
+      IMPORT_JOB_COLS.forEach((c, i) => { ws.getColumn(i + 1).width = Math.max(10, c.length + 3) })
+      const buf = await wb.xlsx.writeBuffer()
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'mau-phieu-giao-viec.xlsx'; a.click(); URL.revokeObjectURL(url)
+    } catch { showNotification('error', 'Không tạo được file mẫu.') }
+  }
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return
+    setBusy(true)
+    try {
+      const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
+      const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer())
+      const ws = wb.worksheets[0]
+      if (!ws) { showNotification('error', 'File Excel không có dữ liệu.'); return }
+      const grid: string[][] = []
+      ws.eachRow({ includeEmpty: false }, (row: any) => { const vals = row.values as any[]; grid.push(IMPORT_JOB_COLS.map((_, i) => cellToStr(vals[i + 1]))) })
+      if (grid.length < 2) { showNotification('error', 'File trống hoặc chỉ có tiêu đề.'); return }
+      const headers = grid[0].map(h => h.trim().toLowerCase())
+      const cidx = IMPORT_JOB_COLS.map(c => headers.indexOf(c.toLowerCase()))
+      const get = (line: string[], ci: number) => ((cidx[ci] >= 0 ? line[cidx[ci]] : line[ci]) ?? '').trim()
+
+      // Gộp theo Số phiếu (col 4); phiếu không số -> mỗi dòng 1 phiếu
+      const groups = new Map<string, string[][]>()
+      for (let i = 1; i < grid.length; i++) {
+        const line = grid[i]
+        if (!line.some(c => c.trim() !== '')) continue
+        const report = get(line, 4)
+        const key = report || `__row_${i}`
+        if (!groups.has(key)) groups.set(key, [])
+        groups.get(key)!.push(line)
+      }
+
+      const custByMa = new Map(customers.filter(c => c.ma_may).map(c => [String(c.ma_may).toLowerCase(), c]))
+      const ktvByName = new Map(technicians.filter(t => t.role === 'ktv').map(t => [String(t.full_name).trim().toLowerCase(), t]))
+      const invSet = new Set(inventory.map(i => String(i.ma_hang).toLowerCase()))
+      const jobs: any[] = []; const errors: string[] = []; let matCount = 0
+
+      for (const [key, rows] of groups) {
+        const first = rows[0]
+        const maMay = get(first, 1)
+        const cust = maMay ? custByMa.get(maMay.toLowerCase()) : undefined
+        const loai = get(first, 2)
+        if (!maMay || !cust) { errors.push(`Phiếu "${key}": mã máy "${maMay}" không có trong Khách hàng — bỏ qua`); continue }
+        if (!loai) { errors.push(`Phiếu "${key}": thiếu Loại việc — bỏ qua`); continue }
+        const ktvName = get(first, 3)
+        const ktv = ktvName ? ktvByName.get(ktvName.toLowerCase()) : undefined
+        if (ktvName && !ktv) errors.push(`Phiếu "${key}": KTV "${ktvName}" không khớp — để trống KTV`)
+        const vat_tu: any[] = []
+        for (const r of rows) {
+          const mh = get(r, 9)
+          if (!mh) continue
+          if (!invSet.has(mh.toLowerCase())) { errors.push(`Phiếu "${key}": mã hàng "${mh}" không có trong Kho — bỏ dòng vật tư`); continue }
+          vat_tu.push({ ma_hang: mh, so_luong: parseInt(digits(get(r, 10))) || 1, don_gia: parseInt(digits(get(r, 11))) || 0, vat: parseFloat(String(get(r, 12)).replace(',', '.')) || 0, hoa_don: truthy(get(r, 13)) })
+        }
+        matCount += vat_tu.length
+        const hasHD = vat_tu.some(v => v.hoa_don)
+        jobs.push({
+          ngay: parseDDMMYYYY(get(first, 0)) || new Date().toISOString().split('T')[0],
+          ma_may: maMay, id_khach_hang: cust.id, loai_cong_viec: loai,
+          km: parseFloat(String(get(first, 6)).replace(',', '.')) || 0,
+          so_luong: parseInt(digits(get(first, 5))) || 1,
+          ktv_id: ktv?.id || null,
+          report: get(first, 4) || null,
+          ghi_chu: get(first, 7) || null,
+          ket_qua: get(first, 8),
+          trang_thai_hd: hasHD ? 'Đã lên hóa đơn' : 'Chưa hóa đơn',
+          vat_tu,
+        })
+      }
+      setParsed({ jobs, errors, matCount })
+      if (jobs.length === 0) showNotification('error', 'Không có phiếu hợp lệ — xem danh sách lỗi.')
+    } catch { showNotification('error', 'Không đọc được file Excel.') }
+    finally { setBusy(false); if (fileRef.current) fileRef.current.value = '' }
+  }
+
+  const doImport = async () => {
+    if (!parsed || parsed.jobs.length === 0) return
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/cong-viec/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobs: parsed.jobs }) })
+      const j = await res.json()
+      if (res.ok) { showNotification('success', `Đã import ${j.count} phiếu, ${j.vatTu} dòng vật tư.`); setParsed(null); setOpen(false); onSuccess() }
+      else showNotification('error', j.error)
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setBusy(false) }
+  }
+
+  return (
+    <>
+      <Button variant="outline" onClick={() => setOpen(true)} className="gap-2"><Upload className="w-4 h-4" /> Nhập Excel</Button>
+      {open && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
+              <h2 className="text-lg font-bold text-slate-800">Nhập phiếu giao việc từ Excel</h2>
+              <button onClick={() => { setOpen(false); setParsed(null) }} className="text-slate-400 hover:text-slate-600"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="text-sm text-slate-500 space-y-1">
+                <p><b>Quan trọng:</b> import <b>Khách hàng</b> + <b>Kho hàng</b> trước (phiếu tham chiếu Mã máy & Mã hàng).</p>
+                <p><b>Cột:</b> {IMPORT_JOB_COLS.join(' | ')}. Nhiều dòng <b>cùng Số phiếu</b> = 1 phiếu nhiều vật tư (thông tin phiếu lấy ở dòng đầu). Phiếu không có vật tư → để trống Mã hàng.</p>
+                <p>Cột <b>HĐ</b>: ghi <code>x</code> nếu vật tư đã có hóa đơn. Trạng thái: Chờ nhận/Đang làm/Hoàn thành/Lắp tiếp (trống = Hoàn thành).</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={downloadTemplate} className="gap-2"><Download className="w-4 h-4" /> Tải file mẫu</Button>
+                <input ref={fileRef} type="file" accept=".xlsx" onChange={onFile} className="hidden" />
+                <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={busy} className="gap-2"><Upload className="w-4 h-4" /> Chọn file Excel</Button>
+              </div>
+              {parsed && (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    <span className="text-emerald-700 font-semibold">✓ {parsed.jobs.length} phiếu hợp lệ</span>
+                    <span className="text-slate-600">{parsed.matCount} dòng vật tư</span>
+                    {parsed.errors.length > 0 && <span className="text-amber-700 font-semibold">⚠ {parsed.errors.length} cảnh báo</span>}
+                  </div>
+                  {parsed.errors.length > 0 && (
+                    <div className="border border-amber-200 bg-amber-50 rounded-lg p-3 max-h-40 overflow-y-auto text-xs text-amber-800 space-y-0.5">
+                      {parsed.errors.slice(0, 100).map((e, i) => <div key={i}>• {e}</div>)}
+                      {parsed.errors.length > 100 && <div>… và {parsed.errors.length - 100} cảnh báo khác</div>}
+                    </div>
+                  )}
+                  {parsed.jobs.length > 0 && (
+                    <Button onClick={doImport} disabled={busy} className="bg-emerald-600 hover:bg-emerald-700 gap-2">{busy ? 'Đang nhập...' : `Xác nhận nhập ${parsed.jobs.length} phiếu`}</Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
