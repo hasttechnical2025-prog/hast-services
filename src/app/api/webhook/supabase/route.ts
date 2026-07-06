@@ -2,6 +2,16 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendTelegramMessage } from '@/lib/telegram'
 
+// Escape HTML để dữ liệu người dùng không phá parse_mode='HTML' của Telegram
+function esc(s: any): string {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+function fmtDate(s: any): string {
+  if (!s) return ''
+  const d = new Date(s)
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+}
+
 // Xây nội dung tin nhắn cho một công việc
 function buildJobMessage(
   heading: string,
@@ -10,16 +20,22 @@ function buildJobMessage(
   appUrl: string,
   extraLine?: string
 ) {
-  return `
-${heading}
-${extraLine ? extraLine + '\n' : ''}📌 <b>Loại công việc:</b> ${record.loai_cong_viec}
-Khách hàng: ${khachHang?.ten_khach_hang || 'Không rõ'}
-Địa chỉ: ${khachHang?.dia_chi || 'Không rõ'}
-Mã máy: ${record.ma_may || 'N/A'}
-Ghi chú: ${record.ghi_chu || 'Không'}
-
-👉 <a href="${appUrl}/ktv">Mở App KTV</a>
-`
+  const lines: (string | null)[] = [
+    heading,
+    extraLine ?? null,
+    `🗓 <b>Ngày thực hiện:</b> ${fmtDate(record.ngay)}`,
+    `📌 <b>Loại công việc:</b> ${esc(record.loai_cong_viec)}`,
+    `🏢 <b>Khách hàng:</b> ${esc(khachHang?.ten_khach_hang || 'Không rõ')}`,
+    `📍 <b>Địa chỉ:</b> ${esc(khachHang?.dia_chi || 'Không rõ')}`,
+    `🖨 <b>Mã máy:</b> ${esc(record.ma_may || 'N/A')}`,
+    `📝 <b>Ghi chú:</b> ${esc(record.ghi_chu || 'Không')}`,
+    '',
+    `👉 <a href="${appUrl}/ktv">Mở App KTV</a>`,
+    '',
+    '<b>HAST — Sổ công tác</b>',
+    'Hệ thống quản lý giao việc tự động',
+  ]
+  return lines.filter(l => l !== null).join('\n')
 }
 
 export async function POST(request: Request) {
@@ -97,7 +113,7 @@ export async function POST(request: Request) {
           record,
           khachHang,
           appUrl,
-          `Xin chào ${user.full_name}, bạn có một công việc!`
+          `Xin chào ${esc(user.full_name)}, bạn có một công việc!`
         )
         await sendTelegramMessage(user.telegram_id, msg)
       }
@@ -114,8 +130,7 @@ export async function POST(request: Request) {
         '🆕 <b>CÔNG VIỆC MỚI — CHỜ NHẬN</b>',
         record,
         khachHang,
-        appUrl,
-        'Mời KTV rảnh vào nhận việc.'
+        appUrl
       )
       await sendTelegramMessage(groupChatId, msg)
       return NextResponse.json({ success: true, sent: 'group' })
