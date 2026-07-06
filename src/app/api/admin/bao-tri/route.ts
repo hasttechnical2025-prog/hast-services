@@ -12,6 +12,8 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const thang_nam = searchParams.get('thang_nam')
+    const ma_may = searchParams.get('ma_may')   // tra cứu lịch sử theo mã máy
+    const nam = searchParams.get('nam')         // lọc theo năm (YYYY)
 
     let query = supabaseAdmin
       .from('soct_bao_tri')
@@ -19,6 +21,8 @@ export async function GET(request: Request) {
       .order('ngay', { ascending: false })
 
     if (thang_nam) query = query.eq('thang_nam', thang_nam)
+    if (ma_may) query = query.eq('ma_may', ma_may)
+    if (nam && /^\d{4}$/.test(nam)) query = query.like('thang_nam', `${nam}-%`)
 
     const { data, error } = await query
     if (error) throw error

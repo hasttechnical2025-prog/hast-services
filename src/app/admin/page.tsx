@@ -3936,6 +3936,22 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
   const [records, setRecords] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  // Tra cứu lịch sử bảo trì theo 1 mã máy trong 1 năm
+  const [traMa, setTraMa] = useState('')
+  const [traNam, setTraNam] = useState(String(new Date().getFullYear()))
+  const [traRes, setTraRes] = useState<{ ma_may: string, months: Set<number> } | null>(null)
+  const [traLoading, setTraLoading] = useState(false)
+  const tracuu = async () => {
+    const ma = traMa.trim()
+    if (!ma) return showNotification('error', 'Nhập mã máy để tra cứu')
+    setTraLoading(true)
+    try {
+      const res = await fetch(`/api/admin/bao-tri?ma_may=${encodeURIComponent(ma)}&nam=${traNam}`)
+      const j = await res.json()
+      if (res.ok) setTraRes({ ma_may: ma, months: new Set((j.data || []).map((r: any) => parseInt(String(r.thang_nam).split('-')[1]))) })
+      else showNotification('error', j.error)
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setTraLoading(false) }
+  }
 
   const customerByMaMay = new Map(customers.filter(c => c.ma_may).map(c => [String(c.ma_may).toLowerCase(), c]))
   const kept = preview ? preview.filter(p => !p.excluded) : []
@@ -4021,6 +4037,41 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
 
   return (
     <div className="space-y-6">
+      {/* Tra cứu lịch sử bảo trì theo mã máy (12 tháng của 1 năm) */}
+      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+        <h3 className="text-sm font-bold text-slate-700">Tra cứu lịch sử bảo trì theo mã máy</h3>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Mã máy</label>
+            <Input value={traMa} onChange={e => setTraMa(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') tracuu() }} placeholder="VD: 35816" className="bg-white w-40" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Năm</label>
+            <Input value={traNam} onChange={e => setTraNam(e.target.value.replace(/[^\d]/g, '').slice(0, 4))} className="bg-white w-24" />
+          </div>
+          <Button onClick={tracuu} disabled={traLoading} className="h-10 gap-2"><Search className="w-4 h-4" /> {traLoading ? 'Đang tra...' : 'Tra cứu'}</Button>
+        </div>
+        {traRes && (() => {
+          const cust = customerByMaMay.get(traRes.ma_may.toLowerCase())
+          return (
+            <div className="space-y-2">
+              <div className="text-sm text-slate-600">Máy <b className="font-mono">{traRes.ma_may}</b>{cust ? ` — ${cust.ten_khach_hang}` : ' — (không có trong Khách hàng)'} · năm {traNam} · <b className="text-emerald-700">{traRes.months.size}/12 tháng</b></div>
+              <div className="grid grid-cols-6 sm:grid-cols-12 gap-1.5">
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
+                  const ok = traRes.months.has(m)
+                  return (
+                    <div key={m} className={`rounded-md border text-center py-2 ${ok ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
+                      <div className="text-[10px] font-semibold">T{m}</div>
+                      <div className="text-sm font-bold">{ok ? '✓' : '✗'}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
+      </div>
+
       <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-end gap-4">
           <div className="space-y-1">
