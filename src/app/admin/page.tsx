@@ -135,6 +135,7 @@ export default function AdminDashboard() {
   // States for Add Job Modal
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingJobId, setEditingJobId] = useState<string | null>(null)
+  const [editingKetQua, setEditingKetQua] = useState<string>('')
   const [traJobId, setTraJobId] = useState<string | null>(null)
   const [customers, setCustomers] = useState<any[]>([])
   const [technicians, setTechnicians] = useState<any[]>([])
@@ -181,6 +182,7 @@ export default function AdminDashboard() {
   const closeAndResetModal = () => {
     setIsModalOpen(false)
     setEditingJobId(null)
+    setEditingKetQua('')
     setDongGiamDinh(false)
     setFormData({
       ngay: new Date().toISOString().split('T')[0],
@@ -199,10 +201,12 @@ export default function AdminDashboard() {
     })
   }
 
-  // Mở modal sửa phiếu (chỉ khi KTV chưa nhận việc)
+  // Mở modal sửa phiếu. Admin sửa được mọi trạng thái (kể cả đã Hoàn thành);
+  // vai trò khác chỉ sửa khi KTV chưa nhận việc.
   const handleEditJob = (job: any) => {
-    if (job.ket_qua !== 'Chờ nhận') { showNotification('error', 'KTV đã nhận việc — không thể sửa phiếu này'); return }
+    if (job.ket_qua !== 'Chờ nhận' && currentUserRole !== 'admin') { showNotification('error', 'KTV đã nhận việc — không thể sửa phiếu này'); return }
     setEditingJobId(job.id)
+    setEditingKetQua(job.ket_qua || '')
     setDongGiamDinh(false)
     setMayStatus(null)
     setFormData({
@@ -791,7 +795,18 @@ export default function AdminDashboard() {
                   {currentUserRole === 'admin' && (
                     <ImportJobsTool customers={customers} technicians={technicians} inventory={inventory} onSuccess={fetchData} showNotification={showNotification} />
                   )}
-                  <Button onClick={() => setIsModalOpen(true)} className="gap-2"><Plus className="w-4 h-4" /> Giao việc mới</Button>
+                  {currentUserRole === 'admin' && (
+                    <ClearAllButton count={jobs.length} label="phiếu giao việc" onConfirm={async () => {
+                      try {
+                        const res = await fetch('/api/admin/cong-viec?all=1', { method: 'DELETE' })
+                        const j = await res.json().catch(() => ({}))
+                        if (!res.ok) throw new Error(j.error || 'Không xóa được')
+                        showNotification('success', 'Đã xóa toàn bộ phiếu giao việc')
+                        fetchData()
+                      } catch (e: any) { showNotification('error', e.message || 'Không xóa được') }
+                    }} />
+                  )}
+                  <Button onClick={() => { setEditingJobId(null); setEditingKetQua(''); setIsModalOpen(true) }} className="gap-2"><Plus className="w-4 h-4" /> Giao việc mới</Button>
                 </div>
               </div>
 
@@ -889,8 +904,8 @@ export default function AdminDashboard() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right whitespace-nowrap">
-                          {job.ket_qua === 'Chờ nhận' && (
-                            <button onClick={() => handleEditJob(job)} title="Sửa phiếu" className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 transition">
+                          {(job.ket_qua === 'Chờ nhận' || currentUserRole === 'admin') && (
+                            <button onClick={() => handleEditJob(job)} title={job.ket_qua === 'Chờ nhận' ? 'Sửa phiếu' : 'Sửa phiếu (admin)'} className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 transition">
                               <PenSquare className="w-4 h-4" />
                             </button>
                           )}
@@ -1214,6 +1229,12 @@ export default function AdminDashboard() {
             </div>
 
             <form onSubmit={handleCreateJob} className="p-6 space-y-6">
+              {editingJobId && editingKetQua && editingKetQua !== 'Chờ nhận' && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  <b>Sửa phiếu đã "{editingKetQua}" (quyền admin).</b> Sửa phiếu này <u>không</u> tự điều chỉnh tồn kho.
+                  Nếu thay đổi vật tư của phiếu đã trừ kho, hãy chỉnh tồn ở tab Kho hàng hoặc dùng nút "Trả vật tư" cho đúng.
+                </div>
+              )}
               {/* Cụm: Ngày (hẹp) & Kỹ thuật viên (rộng) — cân đối với Mã máy/Khách hàng */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">

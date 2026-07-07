@@ -199,7 +199,8 @@ export async function PUT(request: Request) {
       }
       const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('ket_qua').eq('id', id).single()
       if (!cur) return NextResponse.json({ error: 'Không tìm thấy công việc' }, { status: 404 })
-      if (cur.ket_qua !== 'Chờ nhận') {
+      // Admin sửa được mọi trạng thái; tech_admin/staff chỉ sửa khi KTV chưa nhận
+      if (cur.ket_qua !== 'Chờ nhận' && session.role !== 'admin') {
         return NextResponse.json({ error: 'KTV đã nhận việc — không thể sửa phiếu này' }, { status: 403 })
       }
 
@@ -326,6 +327,19 @@ export async function DELETE(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
+    const all = searchParams.get('all') === '1'
+
+    // Xóa TOÀN BỘ phiếu (chỉ admin) — dùng khi cần import lại từ đầu
+    if (all) {
+      if (session.role !== 'admin') {
+        return NextResponse.json({ error: 'Chỉ admin được xóa toàn bộ phiếu' }, { status: 403 })
+      }
+      const { error } = await supabaseAdmin.from('soct_cong_viec').delete().not('id', 'is', null)
+      if (error) throw error
+      await broadcastJobsChanged()
+      await logAudit(session, 'Xóa TOÀN BỘ phiếu công việc', '')
+      return NextResponse.json({ success: true })
+    }
 
     if (!id) {
       return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
