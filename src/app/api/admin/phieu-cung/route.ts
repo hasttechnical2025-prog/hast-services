@@ -34,7 +34,26 @@ export async function PUT(request: Request) {
     const session = await requireTab('hoan_phieu')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
-    const { id, da_nop_phieu } = await request.json()
+    const { id, da_nop_phieu, all } = await request.json()
+
+    // Nộp toàn bộ / bỏ nộp toàn bộ (chỉ admin): áp cho mọi phiếu Hoàn thành có số phiếu
+    if (all) {
+      if (session.role !== 'admin') {
+        return NextResponse.json({ error: 'Chỉ admin được nộp toàn bộ' }, { status: 403 })
+      }
+      const nop = da_nop_phieu === false ? false : true
+      const { data, error, count } = await supabaseAdmin
+        .from('soct_cong_viec')
+        .update({ da_nop_phieu: nop, ngay_nop_phieu: nop ? new Date().toISOString().split('T')[0] : null }, { count: 'exact' })
+        .not('report', 'is', null)
+        .neq('report', '')
+        .eq('ket_qua', 'Hoàn thành')
+        .eq('da_nop_phieu', !nop)
+        .select('id')
+      if (error) throw error
+      return NextResponse.json({ success: true, count: count ?? (data?.length ?? 0) })
+    }
+
     if (!id) return NextResponse.json({ error: 'Thiếu ID phiếu' }, { status: 400 })
 
     const nop = !!da_nop_phieu

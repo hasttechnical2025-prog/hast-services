@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { createPortal } from "react-dom"
-import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload } from "lucide-react"
+import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight } from "lucide-react"
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,6 +37,108 @@ type Job = {
   soct_users: { full_name: string } | null
   soct_chi_tiet_vat_tu?: VatTuChiTiet[]
 }
+
+// ————————————————————————————————————————————————————————————————
+// Phân trang: 20 dòng/trang cho mọi danh sách (tránh cuộn vô tận)
+const PAGE_SIZE = 20
+function usePaged<T>(items: T[], perPage = PAGE_SIZE) {
+  const [page, setPage] = useState(1)
+  const pageCount = Math.max(1, Math.ceil(items.length / perPage))
+  useEffect(() => { setPage(p => Math.min(p, pageCount)) }, [pageCount])
+  const pageItems = items.slice((page - 1) * perPage, page * perPage)
+  return { page, setPage, pageCount, pageItems, total: items.length, perPage }
+}
+
+// Thanh điều hướng trang — chỉ hiện khi có >1 trang
+function Pagination({ page, pageCount, total, perPage, onPage }: { page: number, pageCount: number, total: number, perPage: number, onPage: (p: number) => void }) {
+  if (pageCount <= 1) return null
+  const from = (page - 1) * perPage + 1
+  const to = Math.min(page * perPage, total)
+  // Tính dải số trang gọn gàng quanh trang hiện tại
+  const nums: number[] = []
+  const push = (n: number) => { if (n >= 1 && n <= pageCount && !nums.includes(n)) nums.push(n) }
+  push(1); push(2)
+  for (let i = page - 1; i <= page + 1; i++) push(i)
+  push(pageCount - 1); push(pageCount)
+  nums.sort((a, b) => a - b)
+  const btn = "h-8 min-w-8 px-2 rounded-md border text-sm transition"
+  return (
+    <div className="flex items-center justify-between gap-3 flex-wrap px-1 pt-3 pb-1">
+      <span className="text-xs text-slate-500">Hiển thị <b>{from}</b>–<b>{to}</b> / {total.toLocaleString('vi-VN')} dòng</span>
+      <div className="flex items-center gap-1">
+        <button className={`${btn} border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed`} disabled={page <= 1} onClick={() => onPage(page - 1)}><ChevronLeft className="w-4 h-4" /></button>
+        {nums.map((n, i) => (
+          <span key={n} className="flex items-center">
+            {i > 0 && n - nums[i - 1] > 1 && <span className="px-1 text-slate-400">…</span>}
+            <button className={`${btn} ${n === page ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`} onClick={() => onPage(n)}>{n}</button>
+          </span>
+        ))}
+        <button className={`${btn} border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed`} disabled={page >= pageCount} onClick={() => onPage(page + 1)}><ChevronRight className="w-4 h-4" /></button>
+      </div>
+    </div>
+  )
+}
+
+// ————————————————————————————————————————————————————————————————
+// Tùy biến hiển thị cột: mỗi bảng khai báo danh sách cột, cột locked không tắt được.
+type ColDef = { key: string, label: string, locked?: boolean }
+function useColView(storageKey: string, defs: ColDef[]) {
+  const lockedKeys = defs.filter(d => d.locked).map(d => d.key)
+  const [hidden, setHidden] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('colview:' + storageKey)
+      if (raw) setHidden(new Set((JSON.parse(raw) as string[]).filter(k => !lockedKeys.includes(k))))
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey])
+  const persist = (s: Set<string>) => { try { localStorage.setItem('colview:' + storageKey, JSON.stringify([...s])) } catch { /* ignore */ } }
+  const toggle = (k: string) => setHidden(prev => {
+    if (lockedKeys.includes(k)) return prev
+    const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); persist(n); return n
+  })
+  const reset = () => { setHidden(new Set()); persist(new Set()) }
+  const show = (k: string) => !hidden.has(k)
+  return { show, toggle, reset, defs }
+}
+
+// Nút "Cột" mở menu tick chọn cột hiển thị
+function ColumnMenu({ view }: { view: ReturnType<typeof useColView> }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="relative shrink-0">
+      <Button variant="outline" onClick={() => setOpen(o => !o)} className="gap-1.5 h-9 text-sm"><SlidersHorizontal className="w-4 h-4" /> Cột</Button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-2 max-h-96 overflow-auto">
+            <div className="text-xs font-semibold text-slate-500 px-3 pb-1">Hiển thị cột</div>
+            {view.defs.map(d => (
+              <label key={d.key} className={`flex items-center gap-2 px-3 py-1.5 text-sm ${d.locked ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-50 cursor-pointer'}`}>
+                <input type="checkbox" checked={view.show(d.key)} disabled={d.locked} onChange={() => view.toggle(d.key)} className="w-4 h-4 accent-blue-600" />
+                <span className="flex-1">{d.label}</span>
+                {d.locked && <span className="text-[10px] text-slate-400">khóa</span>}
+              </label>
+            ))}
+            <button onClick={view.reset} className="w-full text-left text-xs text-blue-600 hover:underline px-3 pt-1.5">Hiện tất cả</button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+const JOBS_COLS: ColDef[] = [
+  { key: 'ngay', label: 'Ngày', locked: true },
+  { key: 'khach', label: 'Khách hàng', locked: true },
+  { key: 'ma_may', label: 'Mã máy' },
+  { key: 'loai', label: 'Loại việc' },
+  { key: 'ktv', label: 'KTV' },
+  { key: 'km', label: 'KM' },
+  { key: 'bao_cao', label: 'Báo cáo HĐ' },
+  { key: 'trang_thai', label: 'Trạng thái' },
+  { key: 'thaotac', label: 'Thao tác', locked: true },
+]
 
 export default function AdminDashboard() {
   const [currentAdmin, setCurrentAdmin] = useState<{ id: string, full_name: string, role: string } | null>(null)
@@ -558,6 +660,8 @@ export default function AdminDashboard() {
 
   const clearJobFilters = () => setJobFilters({ search: "", tuNgay: "", denNgay: "", loaiViec: [], ktvId: "", hoaDon: "", trangThai: [] })
   const jobFilterActive = !!(jobFilters.search || jobFilters.tuNgay || jobFilters.denNgay || jobFilters.loaiViec.length || jobFilters.ktvId || jobFilters.hoaDon || jobFilters.trangThai.length)
+  const jobsCol = useColView('jobs', JOBS_COLS)
+  const jobsPaged = usePaged(filteredJobs)
 
   // Thẻ KPI tóm tắt (tính trên danh sách đã lọc)
   const jobStats = (() => {
@@ -832,6 +936,7 @@ export default function AdminDashboard() {
                 <MultiCheckDropdown label="Trạng thái" options={['Chờ nhận', 'Đang làm', 'Hoàn thành', 'Lắp tiếp']} selected={jobFilters.trangThai} onChange={(v) => setJobFilters({ ...jobFilters, trangThai: v })} />
                 {jobFilterActive && <button onClick={clearJobFilters} className="text-xs text-red-600 hover:underline font-medium px-1">Bỏ lọc</button>}
                 <span className="text-xs text-slate-500 ml-auto whitespace-nowrap">{filteredJobs.length} / {jobs.length} việc</span>
+                <ColumnMenu view={jobsCol} />
               </div>
             </div>
 
@@ -840,15 +945,15 @@ export default function AdminDashboard() {
               <table className="w-full text-left text-sm text-slate-600">
                 <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
                   <tr>
-                    <th className="px-4 py-3">Ngày</th>
-                    <th className="px-4 py-3">Khách hàng</th>
-                    <th className="px-4 py-3">Mã máy</th>
-                    <th className="px-4 py-3">Loại việc</th>
-                    <th className="px-4 py-3">KTV</th>
-                    <th className="px-4 py-3 text-center">KM</th>
-                    <th className="px-4 py-3">Báo cáo HĐ</th>
-                    <th className="px-4 py-3">Trạng thái</th>
-                    <th className="px-4 py-3 text-right">Thao tác</th>
+                    {jobsCol.show('ngay') && <th className="px-4 py-3">Ngày</th>}
+                    {jobsCol.show('khach') && <th className="px-4 py-3">Khách hàng</th>}
+                    {jobsCol.show('ma_may') && <th className="px-4 py-3">Mã máy</th>}
+                    {jobsCol.show('loai') && <th className="px-4 py-3">Loại việc</th>}
+                    {jobsCol.show('ktv') && <th className="px-4 py-3">KTV</th>}
+                    {jobsCol.show('km') && <th className="px-4 py-3 text-center">KM</th>}
+                    {jobsCol.show('bao_cao') && <th className="px-4 py-3">Báo cáo HĐ</th>}
+                    {jobsCol.show('trang_thai') && <th className="px-4 py-3">Trạng thái</th>}
+                    {jobsCol.show('thaotac') && <th className="px-4 py-3 text-right">Thao tác</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -857,22 +962,22 @@ export default function AdminDashboard() {
                   ) : filteredJobs.length === 0 ? (
                     <tr><td colSpan={9} className="text-center py-8 text-slate-400">{jobs.length === 0 ? 'Chưa có công việc nào' : 'Không có việc khớp bộ lọc'}{jobs.length > 0 && jobFilterActive && <button onClick={clearJobFilters} className="text-blue-600 hover:underline ml-1">— Bỏ lọc</button>}</td></tr>
                   ) : (
-                    filteredJobs.map((job) => (
+                    jobsPaged.pageItems.map((job) => (
                       <tr key={job.id} className="hover:bg-slate-50/80 transition">
-                        <td className="px-4 py-3 whitespace-nowrap">{formatDate(job.ngay)}</td>
-                        <td className="px-4 py-3">
+                        {jobsCol.show('ngay') && <td className="px-4 py-3 whitespace-nowrap">{formatDate(job.ngay)}</td>}
+                        {jobsCol.show('khach') && <td className="px-4 py-3">
                           <div className="font-medium text-slate-800">{job.soct_khach_hang?.ten_khach_hang}</div>
                           <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                             <MapPin className="w-3 h-3" /> {job.soct_khach_hang?.dia_chi}
                           </div>
-                        </td>
-                        <td className="px-4 py-3 font-mono text-xs">{job.ma_may || '-'}</td>
-                        <td className="px-4 py-3">{job.loai_cong_viec}</td>
-                        <td className="px-4 py-3">{job.soct_users?.full_name || <span className="text-amber-600 italic">Chưa giao</span>}</td>
-                        <td className="px-4 py-3 text-center text-xs">
+                        </td>}
+                        {jobsCol.show('ma_may') && <td className="px-4 py-3 font-mono text-xs">{job.ma_may || '-'}</td>}
+                        {jobsCol.show('loai') && <td className="px-4 py-3">{job.loai_cong_viec}</td>}
+                        {jobsCol.show('ktv') && <td className="px-4 py-3">{job.soct_users?.full_name || <span className="text-amber-600 italic">Chưa giao</span>}</td>}
+                        {jobsCol.show('km') && <td className="px-4 py-3 text-center text-xs">
                           {job.km ? `${job.km.toLocaleString('vi-VN')} km` : '0 km'}
-                        </td>
-                        <td className="px-4 py-3 text-xs">
+                        </td>}
+                        {jobsCol.show('bao_cao') && <td className="px-4 py-3 text-xs">
                           {job.report && <div className="text-slate-700">Phiếu: {job.report}</div>}
                           {(() => {
                             const allVt = job.soct_chi_tiet_vat_tu || []
@@ -892,8 +997,8 @@ export default function AdminDashboard() {
                               </>
                             )
                           })()}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        </td>}
+                        {jobsCol.show('trang_thai') && <td className="px-4 py-3 whitespace-nowrap">
                           <span className={`inline-block whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-medium border
                             ${job.ket_qua === 'Hoàn thành' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                               job.ket_qua === 'Đang làm' ? 'bg-blue-50 text-blue-700 border-blue-200' :
@@ -902,8 +1007,8 @@ export default function AdminDashboard() {
                           >
                             {job.ket_qua}
                           </span>
-                        </td>
-                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                        </td>}
+                        {jobsCol.show('thaotac') && <td className="px-4 py-3 text-right whitespace-nowrap">
                           {(job.ket_qua === 'Chờ nhận' || currentUserRole === 'admin') && (
                             <button onClick={() => handleEditJob(job)} title={job.ket_qua === 'Chờ nhận' ? 'Sửa phiếu' : 'Sửa phiếu (admin)'} className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 transition">
                               <PenSquare className="w-4 h-4" />
@@ -919,12 +1024,15 @@ export default function AdminDashboard() {
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )}
-                        </td>
+                        </td>}
                       </tr>
                     ))
                   )}
                 </tbody>
               </table>
+            </div>
+            <div className="px-4 pb-2">
+              <Pagination page={jobsPaged.page} pageCount={jobsPaged.pageCount} total={jobsPaged.total} perPage={jobsPaged.perPage} onPage={jobsPaged.setPage} />
             </div>
           </div>
         )}
@@ -1007,7 +1115,7 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === "hoan_phieu" && tabVisible('hoan_phieu') && (
-          <PhieuCungTool nguongNgay={parseInt(cauHinh.phieu_cung_canh_bao_ngay || '3') || 3} showNotification={showNotification} />
+          <PhieuCungTool nguongNgay={parseInt(cauHinh.phieu_cung_canh_bao_ngay || '3') || 3} currentUserRole={currentUserRole} showNotification={showNotification} />
         )}
 
         {activeTab === "cong_no" && tabVisible('cong_no') && (
@@ -1750,7 +1858,18 @@ function MultiCheckDropdown({ label, options, selected, onChange }: { label: str
   )
 }
 
+const INVENTORY_COLS: ColDef[] = [
+  { key: 'ma_hang', label: 'Mã hàng', locked: true },
+  { key: 'ten_hang', label: 'Tên vật tư', locked: true },
+  { key: 'model', label: 'Model máy' },
+  { key: 'hang', label: 'Hãng' },
+  { key: 'ton_kho', label: 'Tồn kho' },
+  { key: 'thaotac', label: 'Thao tác', locked: true },
+]
+
 function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, showNotification, confirmDelete }: { inventory: any[], lowStock?: number, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, confirmDelete: (id: string, type: 'job' | 'user' | 'inventory') => void }) {
+  const col = useColView('inventory', INVENTORY_COLS)
+  const paged = usePaged(inventory)
   const [formData, setFormData] = useState({
     ma_hang: "",
     ten_hang: "",
@@ -1856,53 +1975,74 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
         </div>
       </form>
 
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <span className="text-sm text-slate-500">{inventory.length} vật tư trong kho</span>
-        <ClearAllButton count={inventory.length} label="vật tư trong kho" onConfirm={async () => {
-          const res = await fetch('/api/admin/kho-hang?all=1', { method: 'DELETE' })
-          if (res.ok) { showNotification('success', 'Đã xóa toàn bộ vật tư.'); onUpdateSuccess() } else showNotification('error', 'Xóa không thành công')
-        }} />
+        <div className="flex items-center gap-2">
+          <ColumnMenu view={col} />
+          <ClearAllButton count={inventory.length} label="vật tư trong kho" onConfirm={async () => {
+            const res = await fetch('/api/admin/kho-hang?all=1', { method: 'DELETE' })
+            if (res.ok) { showNotification('success', 'Đã xóa toàn bộ vật tư.'); onUpdateSuccess() } else showNotification('error', 'Xóa không thành công')
+          }} />
+        </div>
       </div>
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[500px] overflow-y-auto">
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-slate-600">
-          <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide sticky top-0 border-b border-slate-200 shadow-sm z-10">
+          <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200 shadow-sm">
             <tr>
-              <th className="px-4 py-3 font-semibold">Mã hàng</th>
-              <th className="px-4 py-3 font-semibold">Tên vật tư</th>
-              <th className="px-4 py-3 font-semibold">Model máy</th>
-              <th className="px-4 py-3 font-semibold text-center">Tồn kho</th>
-              <th className="px-4 py-3 font-semibold text-center w-24">Thao tác</th>
+              {col.show('ma_hang') && <th className="px-4 py-3 font-semibold">Mã hàng</th>}
+              {col.show('ten_hang') && <th className="px-4 py-3 font-semibold">Tên vật tư</th>}
+              {col.show('model') && <th className="px-4 py-3 font-semibold">Model máy</th>}
+              {col.show('hang') && <th className="px-4 py-3 font-semibold">Hãng</th>}
+              {col.show('ton_kho') && <th className="px-4 py-3 font-semibold text-center">Tồn kho</th>}
+              {col.show('thaotac') && <th className="px-4 py-3 font-semibold text-center w-24">Thao tác</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {inventory.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Kho hàng đang trống.</td></tr>
-            ) : inventory.map((item) => (
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Kho hàng đang trống.</td></tr>
+            ) : paged.pageItems.map((item) => (
               <tr key={item.ma_hang} id={'inv-' + item.ma_hang} className={`transition-colors ${highlightMH === item.ma_hang ? 'bg-amber-100' : 'hover:bg-slate-50'}`}>
-                <td className="px-4 py-3 font-mono font-medium text-slate-700">{item.ma_hang}</td>
-                <td className="px-4 py-3 font-medium text-slate-800">{item.ten_hang}</td>
-                <td className="px-4 py-3">{item.model || <span className="text-slate-400 italic">Dùng chung</span>}</td>
-                <td className="px-4 py-3 text-center">
+                {col.show('ma_hang') && <td className="px-4 py-3 font-mono font-medium text-slate-700">{item.ma_hang}</td>}
+                {col.show('ten_hang') && <td className="px-4 py-3 font-medium text-slate-800">{item.ten_hang}</td>}
+                {col.show('model') && <td className="px-4 py-3">{item.model || <span className="text-slate-400 italic">Dùng chung</span>}</td>}
+                {col.show('hang') && <td className="px-4 py-3">{item.hang || <span className="text-slate-400 italic">—</span>}</td>}
+                {col.show('ton_kho') && <td className="px-4 py-3 text-center">
                   <span className={`px-2 py-1 rounded-full text-xs font-bold ${item.ton_kho <= lowStock ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'}`}>
                     {item.ton_kho}
                   </span>
-                </td>
-                <td className="px-4 py-3">
+                </td>}
+                {col.show('thaotac') && <td className="px-4 py-3">
                   <div className="flex items-center justify-center gap-2 whitespace-nowrap">
                     <button onClick={() => handleEdit(item)} title="Sửa" className="text-blue-500 hover:text-blue-700 p-1.5 bg-blue-50 hover:bg-blue-100 rounded-md transition"><PenSquare className="w-4 h-4" /></button>
                     <button onClick={() => confirmDelete(item.ma_hang, 'inventory')} title="Xóa" className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 hover:bg-red-100 rounded-md transition"><Trash2 className="w-4 h-4" /></button>
                   </div>
-                </td>
+                </td>}
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
+        <div className="px-4 pb-2">
+          <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
+        </div>
       </div>
     </div>
   )
 }
 
+const USER_COLS: ColDef[] = [
+  { key: 'ho_ten', label: 'Họ Tên', locked: true },
+  { key: 'username', label: 'Tên đăng nhập', locked: true },
+  { key: 'role', label: 'Role' },
+  { key: 'telegram', label: 'Telegram' },
+  { key: 'trang_thai', label: 'Trạng thái' },
+  { key: 'thaotac', label: 'Thao tác', locked: true },
+]
+
 function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmDelete }: { users: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, confirmDelete: (id: string, type: 'job' | 'user' | 'inventory') => void }) {
+  const col = useColView('users', USER_COLS)
+  const paged = usePaged(users)
   const [formData, setFormData] = useState({
     id: "",
     full_name: "",
@@ -2063,41 +2203,46 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
         </div>
       </form>
 
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[400px] overflow-y-auto">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <span className="text-sm text-slate-500">{users.length} tài khoản</span>
+        <ColumnMenu view={col} />
+      </div>
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-slate-600">
-          <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide sticky top-0 border-b border-slate-200">
+          <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
             <tr>
-              <th className="px-4 py-2">Họ Tên</th>
-              <th className="px-4 py-2">Tên đăng nhập</th>
-              <th className="px-4 py-2">Role</th>
-              <th className="px-4 py-2 text-center whitespace-nowrap">Telegram</th>
-              <th className="px-4 py-2 text-center whitespace-nowrap">Trạng thái</th>
-              <th className="px-4 py-2 text-right">Thao tác</th>
+              {col.show('ho_ten') && <th className="px-4 py-2">Họ Tên</th>}
+              {col.show('username') && <th className="px-4 py-2">Tên đăng nhập</th>}
+              {col.show('role') && <th className="px-4 py-2">Role</th>}
+              {col.show('telegram') && <th className="px-4 py-2 text-center whitespace-nowrap">Telegram</th>}
+              {col.show('trang_thai') && <th className="px-4 py-2 text-center whitespace-nowrap">Trạng thái</th>}
+              {col.show('thaotac') && <th className="px-4 py-2 text-right">Thao tác</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {users.map((u) => {
+            {paged.pageItems.map((u) => {
               const active = u.is_active !== false
               return (
               <tr key={u.id} className={`hover:bg-slate-50 ${!active ? 'opacity-60' : ''}`}>
-                <td className="px-4 py-2 font-medium text-slate-800">{u.full_name}</td>
-                <td className="px-4 py-2 font-mono text-xs">{u.username || <span className="text-slate-400 italic">N/A</span>}</td>
-                <td className="px-4 py-2">
+                {col.show('ho_ten') && <td className="px-4 py-2 font-medium text-slate-800">{u.full_name}</td>}
+                {col.show('username') && <td className="px-4 py-2 font-mono text-xs">{u.username || <span className="text-slate-400 italic">N/A</span>}</td>}
+                {col.show('role') && <td className="px-4 py-2">
                   <span className={`px-2 py-0.5 rounded text-xs font-semibold ${u.role === 'admin' ? 'bg-red-50 text-red-600' : u.role === 'ktv' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600'}`}>{u.role}</span>
-                </td>
-                <td className="px-4 py-2 text-center">
+                </td>}
+                {col.show('telegram') && <td className="px-4 py-2 text-center">
                   {u.role === 'ktv'
                     ? (u.telegram_id
                       ? <span className="inline-block whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">Đã liên kết</span>
                       : <span className="inline-block whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">Chưa liên kết</span>)
                     : <span className="text-slate-300">—</span>}
-                </td>
-                <td className="px-4 py-2 text-center">
+                </td>}
+                {col.show('trang_thai') && <td className="px-4 py-2 text-center">
                   <span className={`inline-block whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-semibold ${active ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
                     {active ? 'Hoạt động' : 'Ngừng'}
                   </span>
-                </td>
-                <td className="px-4 py-2 text-right whitespace-nowrap">
+                </td>}
+                {col.show('thaotac') && <td className="px-4 py-2 text-right whitespace-nowrap">
                   {u.role === 'ktv' && (
                     <button
                       onClick={() => handleGenerateQr(u, false)}
@@ -2117,12 +2262,16 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
                   </button>
                   <button onClick={() => handleEdit(u)} className="text-blue-500 hover:text-blue-700 p-1"><PenSquare className="w-4 h-4" /></button>
                   <button onClick={() => confirmDelete(u.id, 'user')} className="text-red-500 hover:text-red-700 p-1 ml-2"><Trash2 className="w-4 h-4" /></button>
-                </td>
+                </td>}
               </tr>
               )
             })}
           </tbody>
         </table>
+        </div>
+        <div className="px-4 pb-2">
+          <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
+        </div>
       </div>
 
       {/* Modal hiển thị QR đăng nhập KTV */}
@@ -2259,6 +2408,7 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
     return true
   })
   const gdFilterActive = !!(gdFilters.maMay || gdFilters.trangThai !== 'cho_thay' || gdFilters.baoGia !== 'chua')
+  const gdPaged = usePaged(filteredRecords)
   const gdStats = {
     total: filteredRecords.length,
     choThay: filteredRecords.filter(r => !r.da_thay).length,
@@ -2451,7 +2601,7 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
           <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">Chưa có biên bản giám định nào.</div>
         ) : filteredRecords.length === 0 ? (
           <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">Không có biên bản khớp bộ lọc.</div>
-        ) : filteredRecords.map((r) => (
+        ) : gdPaged.pageItems.map((r) => (
           <div key={r.id} className={`bg-white rounded-lg border p-4 space-y-2 ${r.da_thay ? 'border-slate-200 opacity-75' : 'border-amber-200'}`}>
             <div className="flex justify-between items-start gap-3 flex-wrap">
               <div>
@@ -2496,6 +2646,7 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
             )}
           </div>
         ))}
+        <Pagination page={gdPaged.page} pageCount={gdPaged.pageCount} total={gdPaged.total} perPage={gdPaged.perPage} onPage={gdPaged.setPage} />
       </div>
     </div>
   )
@@ -2629,6 +2780,7 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
     }
     return true
   })
+  const dhPaged = usePaged(filteredOrders)
 
   const addLine = () => setLines(p => [...p, { ma_hang: "", sl_dat: "1" }])
   const updLine = (i: number, f: 'ma_hang' | 'sl_dat', v: string) => setLines(p => p.map((l, idx) => idx === i ? { ...l, [f]: v } : l))
@@ -2783,7 +2935,7 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
         {loading ? <p className="text-sm text-slate-400 text-center py-8">Đang tải...</p>
           : orders.length === 0 ? <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">Chưa có đơn đặt hàng nào.</div>
           : filteredOrders.length === 0 ? <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">Không có đơn khớp bộ lọc.</div>
-          : filteredOrders.map(o => (
+          : dhPaged.pageItems.map(o => (
             <div key={o.id} className={`bg-white rounded-lg border p-4 space-y-3 ${o.hoan_thanh ? 'border-slate-200 opacity-80' : 'border-slate-200'}`}>
               <div className="flex justify-between items-start gap-3 flex-wrap">
                 <div>
@@ -2848,6 +3000,9 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
               {o.ghi_chu && <div className="text-xs text-slate-500 italic">Ghi chú: {o.ghi_chu}</div>}
             </div>
           ))}
+        {!loading && filteredOrders.length > 0 && (
+          <Pagination page={dhPaged.page} pageCount={dhPaged.pageCount} total={dhPaged.total} perPage={dhPaged.perPage} onPage={dhPaged.setPage} />
+        )}
       </div>
     </div>
   )
@@ -3487,13 +3642,25 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
   )
 }
 
-function PhieuCungTool({ nguongNgay, showNotification }: { nguongNgay: number, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+const PHIEU_CUNG_COLS: ColDef[] = [
+  { key: 'ngay', label: 'Ngày', locked: true },
+  { key: 'report', label: 'Số phiếu', locked: true },
+  { key: 'khach', label: 'Khách hàng' },
+  { key: 'loai', label: 'Loại việc' },
+  { key: 'ktv', label: 'KTV' },
+  { key: 'ton', label: 'Tồn (ngày)' },
+  { key: 'nop', label: 'Đã nộp', locked: true },
+]
+
+function PhieuCungTool({ nguongNgay, currentUserRole, showNotification }: { nguongNgay: number, currentUserRole: string, showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [list, setList] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [reminding, setReminding] = useState(false)
+  const [submittingAll, setSubmittingAll] = useState(false)
   const [fKtv, setFKtv] = useState('')
   const [fChuaNop, setFChuaNop] = useState(true)
   const [search, setSearch] = useState('')
+  const col = useColView('phieu_cung', PHIEU_CUNG_COLS)
 
   const fetchList = async () => {
     setLoading(true)
@@ -3520,6 +3687,16 @@ function PhieuCungTool({ nguongNgay, showNotification }: { nguongNgay: number, s
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setReminding(false) }
   }
 
+  const submitAll = async () => {
+    setSubmittingAll(true)
+    try {
+      const res = await fetch('/api/admin/phieu-cung', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ all: true, da_nop_phieu: true }) })
+      const j = await res.json()
+      if (res.ok) { showNotification('success', `Đã đánh dấu nộp ${j.count} phiếu.`); fetchList() }
+      else showNotification('error', j.error)
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setSubmittingAll(false) }
+  }
+
   const ktvs = Array.from(new Map(list.filter(r => r.ktv_id).map(r => [r.ktv_id, r.soct_users?.full_name || '—'])).entries())
   const filtered = list.filter(r => {
     if (fChuaNop && r.da_nop_phieu) return false
@@ -3531,6 +3708,7 @@ function PhieuCungTool({ nguongNgay, showNotification }: { nguongNgay: number, s
   const chuaNop = list.filter(r => !r.da_nop_phieu)
   const quaHan = chuaNop.filter(r => daysOf(r.ngay) >= nguongNgay)
   const ktvNo = new Set(chuaNop.filter(r => r.ktv_id).map(r => r.ktv_id)).size
+  const paged = usePaged(filtered)
 
   return (
     <div className="space-y-6">
@@ -3555,19 +3733,23 @@ function PhieuCungTool({ nguongNgay, showNotification }: { nguongNgay: number, s
             <input type="checkbox" checked={fChuaNop} onChange={e => setFChuaNop(e.target.checked)} className="w-4 h-4 accent-blue-600" /> Chỉ chưa nộp
           </label>
           <span className="text-xs text-slate-500 ml-auto whitespace-nowrap">{filtered.length} phiếu</span>
+          <ColumnMenu view={col} />
+          {currentUserRole === 'admin' && (
+            <Button onClick={submitAll} disabled={submittingAll || chuaNop.length === 0} variant="outline" className="gap-2 h-9 border-emerald-200 text-emerald-700 hover:bg-emerald-50">{submittingAll ? 'Đang nộp...' : 'Nộp toàn bộ'}</Button>
+          )}
           <Button onClick={remind} disabled={reminding || chuaNop.length === 0} variant="outline" className="gap-2 h-9">{reminding ? 'Đang nhắc...' : 'Nhắc KTV qua Telegram'}</Button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3">Ngày</th>
-                <th className="px-4 py-3">Số phiếu</th>
-                <th className="px-4 py-3">Khách hàng</th>
-                <th className="px-4 py-3">Loại việc</th>
-                <th className="px-4 py-3">KTV</th>
-                <th className="px-4 py-3 text-center whitespace-nowrap">Tồn (ngày)</th>
-                <th className="px-4 py-3 text-center">Đã nộp</th>
+                {col.show('ngay') && <th className="px-4 py-3">Ngày</th>}
+                {col.show('report') && <th className="px-4 py-3">Số phiếu</th>}
+                {col.show('khach') && <th className="px-4 py-3">Khách hàng</th>}
+                {col.show('loai') && <th className="px-4 py-3">Loại việc</th>}
+                {col.show('ktv') && <th className="px-4 py-3">KTV</th>}
+                {col.show('ton') && <th className="px-4 py-3 text-center whitespace-nowrap">Tồn (ngày)</th>}
+                {col.show('nop') && <th className="px-4 py-3 text-center">Đã nộp</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -3575,28 +3757,31 @@ function PhieuCungTool({ nguongNgay, showNotification }: { nguongNgay: number, s
                 <tr><td colSpan={7} className="text-center py-8 text-slate-400">Đang tải...</td></tr>
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={7} className="text-center py-8 text-slate-400">Không có phiếu.</td></tr>
-              ) : filtered.map(r => {
+              ) : paged.pageItems.map(r => {
                 const d = daysOf(r.ngay); const tre = !r.da_nop_phieu && d >= nguongNgay
                 return (
                   <tr key={r.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 whitespace-nowrap">{fmt(r.ngay)}</td>
-                    <td className="px-4 py-3 font-medium text-slate-800">{r.report}</td>
-                    <td className="px-4 py-3">{r.soct_khach_hang?.ten_khach_hang || '—'}</td>
-                    <td className="px-4 py-3">{r.loai_cong_viec}</td>
-                    <td className="px-4 py-3">{r.soct_users?.full_name || <span className="text-amber-600 italic">Chưa giao</span>}</td>
-                    <td className={`px-4 py-3 text-center font-semibold ${tre ? 'text-red-600' : 'text-slate-500'}`}>{r.da_nop_phieu ? '—' : `${d}${tre ? ' ⚠️' : ''}`}</td>
-                    <td className="px-4 py-3 text-center">
+                    {col.show('ngay') && <td className="px-4 py-3 whitespace-nowrap">{fmt(r.ngay)}</td>}
+                    {col.show('report') && <td className="px-4 py-3 font-medium text-slate-800">{r.report}</td>}
+                    {col.show('khach') && <td className="px-4 py-3">{r.soct_khach_hang?.ten_khach_hang || '—'}</td>}
+                    {col.show('loai') && <td className="px-4 py-3">{r.loai_cong_viec}</td>}
+                    {col.show('ktv') && <td className="px-4 py-3">{r.soct_users?.full_name || <span className="text-amber-600 italic">Chưa giao</span>}</td>}
+                    {col.show('ton') && <td className={`px-4 py-3 text-center font-semibold ${tre ? 'text-red-600' : 'text-slate-500'}`}>{r.da_nop_phieu ? '—' : `${d}${tre ? ' ⚠️' : ''}`}</td>}
+                    {col.show('nop') && <td className="px-4 py-3 text-center">
                       {r.da_nop_phieu ? (
                         <button onClick={() => toggle(r)} className="inline-block whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200" title={r.ngay_nop_phieu ? `Nộp ${fmt(r.ngay_nop_phieu)}` : ''}>Đã nộp</button>
                       ) : (
                         <button onClick={() => toggle(r)} className="inline-block whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-semibold border bg-slate-100 text-slate-500 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200">Đánh dấu nộp</button>
                       )}
-                    </td>
+                    </td>}
                   </tr>
                 )
               })}
             </tbody>
           </table>
+        </div>
+        <div className="px-4 pb-2">
+          <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
         </div>
       </div>
     </div>
@@ -3806,10 +3991,19 @@ function DoiMatKhauTool({ showNotification }: { showNotification: (type: 'succes
   )
 }
 
+const AUDIT_COLS: ColDef[] = [
+  { key: 'thoi_gian', label: 'Thời gian', locked: true },
+  { key: 'nguoi_dung', label: 'Người dùng' },
+  { key: 'hanh_dong', label: 'Hành động', locked: true },
+  { key: 'chi_tiet', label: 'Chi tiết' },
+]
+
 function AuditLogsTool({ showNotification }: { showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [logs, setLogs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [limit, setLimit] = useState('50')
+  const col = useColView('audit', AUDIT_COLS)
+  const paged = usePaged(logs)
 
   const fetchLogs = async (lim: string) => {
     setLoading(true)
@@ -3844,17 +4038,19 @@ function AuditLogsTool({ showNotification }: { showNotification: (type: 'success
             <option value="100">100</option>
             <option value="all">Toàn bộ</option>
           </select>
+          <ColumnMenu view={col} />
           <Button variant="outline" onClick={exportTxt} className="gap-2 h-9"><Download className="w-4 h-4" /> Xuất .txt</Button>
         </div>
       </div>
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[560px] overflow-y-auto">
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-slate-600">
-          <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide sticky top-0 border-b border-slate-200">
+          <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
             <tr>
-              <th className="px-4 py-2 whitespace-nowrap">Thời gian</th>
-              <th className="px-4 py-2">Người dùng</th>
-              <th className="px-4 py-2">Hành động</th>
-              <th className="px-4 py-2">Chi tiết</th>
+              {col.show('thoi_gian') && <th className="px-4 py-2 whitespace-nowrap">Thời gian</th>}
+              {col.show('nguoi_dung') && <th className="px-4 py-2">Người dùng</th>}
+              {col.show('hanh_dong') && <th className="px-4 py-2">Hành động</th>}
+              {col.show('chi_tiet') && <th className="px-4 py-2">Chi tiết</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -3862,16 +4058,20 @@ function AuditLogsTool({ showNotification }: { showNotification: (type: 'success
               <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Đang tải...</td></tr>
             ) : logs.length === 0 ? (
               <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Chưa có log nào.</td></tr>
-            ) : logs.map(l => (
+            ) : paged.pageItems.map(l => (
               <tr key={l.id} className="hover:bg-slate-50">
-                <td className="px-4 py-2 whitespace-nowrap text-xs">{fmtTs(l.created_at)}</td>
-                <td className="px-4 py-2 whitespace-nowrap">{l.user_name || '—'} <span className="text-xs text-slate-400 uppercase">{l.user_role}</span></td>
-                <td className="px-4 py-2 font-medium text-slate-700 whitespace-nowrap">{l.action}</td>
-                <td className="px-4 py-2 text-xs text-slate-500">{l.detail}</td>
+                {col.show('thoi_gian') && <td className="px-4 py-2 whitespace-nowrap text-xs">{fmtTs(l.created_at)}</td>}
+                {col.show('nguoi_dung') && <td className="px-4 py-2 whitespace-nowrap">{l.user_name || '—'} <span className="text-xs text-slate-400 uppercase">{l.user_role}</span></td>}
+                {col.show('hanh_dong') && <td className="px-4 py-2 font-medium text-slate-700 whitespace-nowrap">{l.action}</td>}
+                {col.show('chi_tiet') && <td className="px-4 py-2 text-xs text-slate-500">{l.detail}</td>}
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
+        <div className="px-4 pb-2">
+          <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
+        </div>
       </div>
     </div>
   )
@@ -3962,7 +4162,15 @@ function DanhMucTool({ danhMuc, onUpdateSuccess, showNotification }: { danhMuc: 
   )
 }
 
+const BAOTRI_COLS: ColDef[] = [
+  { key: 'ma_may', label: 'Mã máy', locked: true },
+  { key: 'khach', label: 'Khách hàng' },
+  { key: 'ngay', label: 'Ngày' },
+  { key: 'xoa', label: 'Xóa', locked: true },
+]
+
 function BaoTriTool({ customers, showNotification }: { customers: any[], showNotification: (type: 'success' | 'error', msg: string) => void }) {
+  const col = useColView('bao_tri', BAOTRI_COLS)
   const [thangNam, setThangNam] = useState(new Date().toISOString().slice(0, 7))
   const [text, setText] = useState("")
   const [preview, setPreview] = useState<{ ma_may: string, cust: any, excluded: boolean }[] | null>(null)
@@ -4006,6 +4214,7 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
   }
 
   useEffect(() => { fetchRecords(thangNam) }, [thangNam])
+  const paged = usePaged(records)
 
   const handleAnalyze = () => {
     const raw = text.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean)
@@ -4169,21 +4378,23 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
         <div className="flex items-center gap-2 mb-2 px-1">
           <h3 className="text-sm font-bold text-slate-700">Đã bảo trì tháng {thangNam.split('-').reverse().join('/')}</h3>
           <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">{records.length} máy</span>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <ColumnMenu view={col} />
             <ClearAllButton count={records.length} label={`bảo trì tháng ${thangNam.split('-').reverse().join('/')}`} onConfirm={async () => {
               const res = await fetch(`/api/admin/bao-tri?all=1&thang_nam=${thangNam}`, { method: 'DELETE' })
               if (res.ok) { showNotification('success', 'Đã xóa toàn bộ bảo trì tháng này.'); fetchRecords(thangNam) } else showNotification('error', 'Xóa không thành công')
             }} />
           </div>
         </div>
-        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[420px] overflow-y-auto">
+        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide sticky top-0 border-b border-slate-200 shadow-sm z-10">
+            <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200 shadow-sm">
               <tr>
-                <th className="px-4 py-3 font-semibold">Mã máy</th>
-                <th className="px-4 py-3 font-semibold">Khách hàng</th>
-                <th className="px-4 py-3 font-semibold">Ngày</th>
-                <th className="px-4 py-3 font-semibold text-center w-16">Xóa</th>
+                {col.show('ma_may') && <th className="px-4 py-3 font-semibold">Mã máy</th>}
+                {col.show('khach') && <th className="px-4 py-3 font-semibold">Khách hàng</th>}
+                {col.show('ngay') && <th className="px-4 py-3 font-semibold">Ngày</th>}
+                {col.show('xoa') && <th className="px-4 py-3 font-semibold text-center w-16">Xóa</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -4191,21 +4402,25 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
                 <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Đang tải...</td></tr>
               ) : records.length === 0 ? (
                 <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Chưa có máy nào được đánh dấu bảo trì tháng này.</td></tr>
-              ) : records.map((r) => {
+              ) : paged.pageItems.map((r) => {
                 const kh = customerByMaMay.get(String(r.ma_may).toLowerCase())
                 return (
                   <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 font-mono font-medium text-slate-700">{r.ma_may}</td>
-                    <td className="px-4 py-3">{kh ? kh.ten_khach_hang : <span className="text-slate-400 italic">Không khớp khách hàng</span>}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">{formatDate(r.ngay)}</td>
-                    <td className="px-4 py-3 text-center">
+                    {col.show('ma_may') && <td className="px-4 py-3 font-mono font-medium text-slate-700">{r.ma_may}</td>}
+                    {col.show('khach') && <td className="px-4 py-3">{kh ? kh.ten_khach_hang : <span className="text-slate-400 italic">Không khớp khách hàng</span>}</td>}
+                    {col.show('ngay') && <td className="px-4 py-3 whitespace-nowrap">{formatDate(r.ngay)}</td>}
+                    {col.show('xoa') && <td className="px-4 py-3 text-center">
                       <button onClick={() => handleDelete(r.id)} className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 hover:bg-red-100 rounded-md transition"><Trash2 className="w-4 h-4" /></button>
-                    </td>
+                    </td>}
                   </tr>
                 )
               })}
             </tbody>
           </table>
+          </div>
+          <div className="px-4 pb-2">
+            <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
+          </div>
         </div>
       </div>
     </div>
@@ -4224,7 +4439,19 @@ function hdbtStatus(dateStr: string | null) {
   return { label, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', note: 'Còn hạn' }
 }
 
+const CUSTOMER_COLS: ColDef[] = [
+  { key: 'ma_may', label: 'Mã máy', locked: true },
+  { key: 'ten', label: 'Tên khách hàng', locked: true },
+  { key: 'model', label: 'Model' },
+  { key: 'hang', label: 'Hãng' },
+  { key: 'km', label: 'KM' },
+  { key: 'loai_hd', label: 'Loại HĐ' },
+  { key: 'het_han', label: 'Hết hạn HĐBT' },
+  { key: 'sua', label: 'Sửa', locked: true },
+]
+
 function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoThang, onUpdateSuccess, showNotification }: { customers: any[], loaiHdOptions: string[], hangOptions: string[], hdbtCanhBaoThang: number, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+  const col = useColView('customers', CUSTOMER_COLS)
   const [search, setSearch] = useState("")
   const [hdFilter, setHdFilter] = useState("all")
   const [filterOpen, setFilterOpen] = useState(false)
@@ -4300,6 +4527,8 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
     return { total: filtered.length, hasHd, expiring, expired }
   })()
 
+  const paged = usePaged(filtered)
+
   return (
     <div className="space-y-3">
       <StatCards items={[
@@ -4349,6 +4578,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
           <span className="text-sm text-slate-500 whitespace-nowrap">
             {(q || hdFilter !== 'all') ? `${filtered.length} / ${customers.length}` : `Tổng: ${customers.length}`} khách hàng
           </span>
+          <ColumnMenu view={col} />
           <ClearAllButton count={customers.length} label="khách hàng" onConfirm={async () => {
             const res = await fetch('/api/admin/khach-hang?all=1', { method: 'DELETE' })
             if (res.ok) { showNotification('success', 'Đã xóa toàn bộ khách hàng.'); onUpdateSuccess() } else showNotification('error', 'Xóa không thành công')
@@ -4356,44 +4586,51 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[500px] overflow-y-auto">
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-slate-600">
-          <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide sticky top-0 border-b border-slate-200 shadow-sm z-10">
+          <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200 shadow-sm">
             <tr>
-              <th className="px-4 py-3 font-semibold">Mã máy</th>
-              <th className="px-4 py-3 font-semibold">Tên khách hàng</th>
-              <th className="px-4 py-3 font-semibold">Model</th>
-              <th className="px-4 py-3 font-semibold text-center">KM</th>
-              <th className="px-4 py-3 font-semibold text-center">Loại HĐ</th>
-              <th className="px-4 py-3 font-semibold text-center">Hết hạn HĐBT</th>
-              <th className="px-4 py-3 font-semibold text-center w-16">Sửa</th>
+              {col.show('ma_may') && <th className="px-4 py-3 font-semibold">Mã máy</th>}
+              {col.show('ten') && <th className="px-4 py-3 font-semibold">Tên khách hàng</th>}
+              {col.show('model') && <th className="px-4 py-3 font-semibold">Model</th>}
+              {col.show('hang') && <th className="px-4 py-3 font-semibold">Hãng</th>}
+              {col.show('km') && <th className="px-4 py-3 font-semibold text-center">KM</th>}
+              {col.show('loai_hd') && <th className="px-4 py-3 font-semibold text-center">Loại HĐ</th>}
+              {col.show('het_han') && <th className="px-4 py-3 font-semibold text-center">Hết hạn HĐBT</th>}
+              {col.show('sua') && <th className="px-4 py-3 font-semibold text-center w-16">Sửa</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {customers.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Chưa có khách hàng nào. Nhập dữ liệu ở mục bên dưới.</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">Chưa có khách hàng nào. Nhập dữ liệu ở mục bên dưới.</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Không tìm thấy khách hàng khớp từ khóa.</td></tr>
-            ) : filtered.map((c) => {
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">Không tìm thấy khách hàng khớp từ khóa.</td></tr>
+            ) : paged.pageItems.map((c) => {
               const hd = hdbtStatus(c.ngay_het_han_hdbt)
               return (
                 <tr key={c.id} id={'kh-' + c.id} className={`transition-colors ${highlightCust === c.id ? 'bg-amber-100' : 'hover:bg-slate-50'}`}>
-                  <td className="px-4 py-3 font-mono font-medium text-slate-700">{c.ma_may || <span className="text-slate-400 italic">—</span>}</td>
-                  <td className="px-4 py-3 font-medium text-slate-800">{c.ten_khach_hang}<div className="text-xs text-slate-400 font-normal truncate max-w-xs" title={c.dia_chi}>{c.dia_chi}</div></td>
-                  <td className="px-4 py-3">{c.model || <span className="text-slate-400 italic">—</span>}</td>
-                  <td className="px-4 py-3 text-center whitespace-nowrap">{c.km_mac_dinh != null ? `${Number(c.km_mac_dinh).toLocaleString('vi-VN')}` : '—'}</td>
-                  <td className="px-4 py-3 text-center">{c.loai_hd || <span className="text-slate-300">—</span>}</td>
-                  <td className="px-4 py-3 text-center whitespace-nowrap">
+                  {col.show('ma_may') && <td className="px-4 py-3 font-mono font-medium text-slate-700">{c.ma_may || <span className="text-slate-400 italic">—</span>}</td>}
+                  {col.show('ten') && <td className="px-4 py-3 font-medium text-slate-800">{c.ten_khach_hang}<div className="text-xs text-slate-400 font-normal truncate max-w-xs" title={c.dia_chi}>{c.dia_chi}</div></td>}
+                  {col.show('model') && <td className="px-4 py-3">{c.model || <span className="text-slate-400 italic">—</span>}</td>}
+                  {col.show('hang') && <td className="px-4 py-3">{c.hang || <span className="text-slate-400 italic">—</span>}</td>}
+                  {col.show('km') && <td className="px-4 py-3 text-center whitespace-nowrap">{c.km_mac_dinh != null ? `${Number(c.km_mac_dinh).toLocaleString('vi-VN')}` : '—'}</td>}
+                  {col.show('loai_hd') && <td className="px-4 py-3 text-center">{c.loai_hd || <span className="text-slate-300">—</span>}</td>}
+                  {col.show('het_han') && <td className="px-4 py-3 text-center whitespace-nowrap">
                     {hd ? <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${hd.cls}`} title={hd.note}>{hd.label}</span> : <span className="text-slate-300">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-center">
+                  </td>}
+                  {col.show('sua') && <td className="px-4 py-3 text-center">
                     <button onClick={() => setEditing({ ...c, ngay_het_han_hdbt: c.ngay_het_han_hdbt || "" })} className="text-blue-500 hover:text-blue-700 p-1.5 bg-blue-50 hover:bg-blue-100 rounded-md transition"><PenSquare className="w-4 h-4" /></button>
-                  </td>
+                  </td>}
                 </tr>
               )
             })}
           </tbody>
         </table>
+        </div>
+        <div className="px-4 pb-2">
+          <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
+        </div>
       </div>
 
       {/* Modal sửa khách hàng */}
