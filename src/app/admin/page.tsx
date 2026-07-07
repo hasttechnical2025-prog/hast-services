@@ -1419,20 +1419,21 @@ export default function AdminDashboard() {
                         Khách hàng <span className="text-red-500">*</span>
                         {isLocked && <span className="text-slate-400 font-normal text-xs italic ml-1">(khóa theo mã máy)</span>}
                       </label>
-                      <select
-                        className={`w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none ${isLocked ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : 'bg-white'}`}
-                        value={formData.id_khach_hang}
-                        onChange={(e) => setFormData({...formData, id_khach_hang: e.target.value})}
-                        required
-                        disabled={isLocked}
-                        title={isLocked ? 'Khách hàng được xác định theo mã máy. Sửa/xóa mã máy để chọn khách khác.' : undefined}
-                      >
-                        <option value="">-- Chọn khách hàng --</option>
-                        <option value="NEW" className="font-semibold text-blue-600">+ Tạo khách hàng (máy) mới</option>
-                        {customers.map(c => (
-                          <option key={c.id} value={c.id}>{c.ten_khach_hang}</option>
-                        ))}
-                      </select>
+                      {isLocked ? (
+                        <div
+                          className="w-full h-10 px-3 rounded-md border border-slate-200 bg-slate-100 text-slate-600 text-sm flex items-center cursor-not-allowed"
+                          title="Khách hàng được xác định theo mã máy. Sửa/xóa mã máy để chọn khách khác."
+                        >
+                          <span className="truncate">{lockedCustomer?.ten_khach_hang}{lockedCustomer?.ma_may ? ` — ${lockedCustomer.ma_may}` : ''}</span>
+                        </div>
+                      ) : (
+                        <CustomerCombobox
+                          customers={customers}
+                          value={formData.id_khach_hang === 'NEW' ? '' : formData.id_khach_hang}
+                          onPick={(id) => setFormData(prev => ({ ...prev, id_khach_hang: id }))}
+                          onCreateNew={() => setFormData(prev => ({ ...prev, id_khach_hang: 'NEW' }))}
+                        />
+                      )}
                       {selected && (selected.model || selected.dia_chi) && (
                         <div className="flex flex-wrap gap-2 text-xs pt-1">
                           {selected.model && <span className="text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100">Model: <b>{selected.model}</b></span>}
@@ -1907,7 +1908,21 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
   const [highlightMH, setHighlightMH] = useState("")
+  const [pendingScroll, setPendingScroll] = useState("")
   const formRef = useRef<HTMLFormElement>(null)
+
+  // Nhảy tới dòng cần xem: chuyển sang đúng trang chứa dòng rồi cuộn tới (sau khi render)
+  const viewRow = (ma_hang: string) => {
+    const idx = inventory.findIndex(i => i.ma_hang === ma_hang)
+    if (idx >= 0) paged.setPage(Math.floor(idx / paged.perPage) + 1)
+    setHighlightMH(ma_hang)
+    setPendingScroll(ma_hang)
+  }
+  useEffect(() => {
+    if (!pendingScroll) return
+    const el = document.getElementById('inv-' + pendingScroll)
+    if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); setPendingScroll("") }
+  }, [pendingScroll, paged.page, inventory])
 
   // Cảnh báo trùng: đang thêm mới mà mã hàng đã có trong kho
   const dupItem = !isEditing && formData.ma_hang.trim()
@@ -1979,7 +1994,7 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
             <div className="text-xs text-amber-600 flex items-center gap-2 flex-wrap">
               ⚠ Mã đã tồn tại.
               <button type="button" onClick={() => handleEdit(dupItem)} className="underline font-medium">Sửa dòng này</button>
-              <button type="button" onClick={() => { setHighlightMH(dupItem.ma_hang); setTimeout(() => document.getElementById('inv-' + dupItem.ma_hang)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 0) }} className="underline text-slate-500">Xem dòng</button>
+              <button type="button" onClick={() => viewRow(dupItem.ma_hang)} className="underline text-slate-500">Xem dòng</button>
             </div>
           )}
         </div>
@@ -2389,6 +2404,78 @@ function MaterialCombobox({ inventory, value, onChange }: { inventory: any[], va
             >
               <span className="truncate"><span className="font-mono font-medium text-slate-700">{item.ma_hang}</span> <span className="text-slate-500">- {item.ten_hang}</span></span>
               <span className={`text-xs shrink-0 ${item.ton_kho <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>Tồn: {item.ton_kho}</span>
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </>
+  )
+}
+
+// Combobox tìm khách hàng theo tên / mã máy / địa chỉ / model.
+// Mỗi dòng khách = 1 MÁY (một khách lớn có nhiều máy) -> hiển thị kèm mã máy + địa chỉ
+// để chọn ĐÚNG máy. Menu render qua portal (fixed) để không bị modal cắt khuất.
+function CustomerCombobox({ customers, value, onPick, onCreateNew }: {
+  customers: any[], value: string, onPick: (id: string) => void, onCreateNew: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
+  const [rect, setRect] = useState<DOMRect | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const updateRect = useCallback(() => { if (inputRef.current) setRect(inputRef.current.getBoundingClientRect()) }, [])
+  useEffect(() => {
+    if (!open) return
+    updateRect()
+    window.addEventListener('scroll', updateRect, true)
+    window.addEventListener('resize', updateRect)
+    return () => { window.removeEventListener('scroll', updateRect, true); window.removeEventListener('resize', updateRect) }
+  }, [open, updateRect])
+
+  const selected = customers.find(c => c.id === value)
+  const selectedLabel = selected ? `${selected.ten_khach_hang}${selected.ma_may ? ` — ${selected.ma_may}` : ''}` : ""
+  const q = query.trim().toLowerCase()
+  const results = (q
+    ? customers.filter(c =>
+        (c.ten_khach_hang || "").toLowerCase().includes(q) ||
+        (c.ma_may || "").toLowerCase().includes(q) ||
+        (c.dia_chi || "").toLowerCase().includes(q) ||
+        (c.model || "").toLowerCase().includes(q))
+    : customers
+  ).slice(0, 50)
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+        placeholder="Gõ tên khách / mã máy / địa chỉ để tìm..."
+        value={open ? query : selectedLabel}
+        onFocus={() => { setOpen(true); setQuery("") }}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
+      />
+      {open && rect && createPortal(
+        <div style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, width: rect.width, zIndex: 100 }}
+          className="max-h-72 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg">
+          <button type="button"
+            onMouseDown={(e) => { e.preventDefault(); onCreateNew(); setQuery(""); setOpen(false) }}
+            className="w-full text-left px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 border-b border-slate-100">
+            + Tạo khách hàng (máy) mới
+          </button>
+          {results.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-slate-400">Không tìm thấy khách hàng khớp.</div>
+          ) : results.map(c => (
+            <button type="button" key={c.id}
+              onMouseDown={(e) => { e.preventDefault(); onPick(c.id); setQuery(""); setOpen(false) }}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${c.id === value ? 'bg-blue-50' : ''}`}>
+              <div className="font-medium text-slate-700 truncate">{c.ten_khach_hang}</div>
+              <div className="text-xs text-slate-400 flex gap-2 flex-wrap">
+                {c.ma_may && <span className="font-mono">Mã: {c.ma_may}</span>}
+                {c.model && <span>· {c.model}</span>}
+                {c.dia_chi && <span className="truncate max-w-[16rem]">· {c.dia_chi}</span>}
+              </div>
             </button>
           ))}
         </div>,
@@ -4555,6 +4642,25 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
   })()
 
   const paged = usePaged(filtered)
+  const [pendingScroll, setPendingScroll] = useState("")
+
+  // Nhảy tới dòng khách cần xem: bỏ lọc để dòng không bị ẩn, sang đúng trang rồi cuộn tới
+  const viewRow = (id: string) => {
+    setEditing(null)
+    setSearch(""); setHdFilter("all")
+    setHighlightCust(id)
+    setPendingScroll(id)
+  }
+  useEffect(() => {
+    if (!pendingScroll) return
+    const el = document.getElementById('kh-' + pendingScroll)
+    if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); setPendingScroll(""); return }
+    const idx = filtered.findIndex(c => c.id === pendingScroll)
+    if (idx >= 0) {
+      const target = Math.floor(idx / paged.perPage) + 1
+      if (paged.page !== target) paged.setPage(target)
+    }
+  }, [pendingScroll, paged.page, filtered])
 
   return (
     <div className="space-y-3">
@@ -4679,7 +4785,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
                 {dupCust && (
                   <div className="text-xs text-amber-600 flex items-center gap-1 flex-wrap">
                     ⚠ Trùng mã của: {dupCust.ten_khach_hang}.
-                    <button type="button" onClick={() => { setEditing(null); setHighlightCust(dupCust.id); setTimeout(() => document.getElementById('kh-' + dupCust.id)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50) }} className="underline font-medium">Xem dòng</button>
+                    <button type="button" onClick={() => viewRow(dupCust.id)} className="underline font-medium">Xem dòng</button>
                   </div>
                 )}
               </div>
