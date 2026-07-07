@@ -821,7 +821,7 @@ export default function AdminDashboard() {
                 <select value={jobFilters.ktvId} onChange={(e) => setJobFilters({ ...jobFilters, ktvId: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="">KTV: Tất cả</option>
                   <option value="none">Chưa giao</option>
-                  {technicians.filter(t => t.role !== 'admin').map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
+                  {technicians.filter(t => t.role === 'ktv').map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
                 </select>
                 <select value={jobFilters.hoaDon} onChange={(e) => setJobFilters({ ...jobFilters, hoaDon: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="">HĐ: Tất cả</option>
