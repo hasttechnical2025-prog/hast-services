@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { createPortal } from "react-dom"
-import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight } from "lucide-react"
+import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, Copy } from "lucide-react"
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -252,9 +252,9 @@ export default function AdminDashboard() {
   }, [cauHinh])
   const [hdbtOpen, setHdbtOpen] = useState(false)
   // Bộ lọc Sổ công tác (mặc định: việc hôm nay)
-  const [jobFilters, setJobFilters] = useState<{ search: string, tuNgay: string, denNgay: string, loaiViec: string[], ktvId: string, hoaDon: string, trangThai: string[] }>(() => {
+  const [jobFilters, setJobFilters] = useState<{ search: string, report: string, tuNgay: string, denNgay: string, loaiViec: string[], ktvId: string, hoaDon: string, trangThai: string[] }>(() => {
     const t = new Date().toISOString().split('T')[0]
-    return { search: "", tuNgay: t, denNgay: t, loaiViec: [], ktvId: "", hoaDon: "", trangThai: [] }
+    return { search: "", report: "", tuNgay: t, denNgay: t, loaiViec: [], ktvId: "", hoaDon: "", trangThai: [] }
   })
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
@@ -664,6 +664,7 @@ export default function AdminDashboard() {
       const hay = `${j.soct_khach_hang?.ten_khach_hang || ''} ${j.soct_khach_hang?.dia_chi || ''} ${j.ma_may || ''}`.toLowerCase()
       if (!hay.includes(q)) return false
     }
+    if (f.report && !(j.report || '').toLowerCase().includes(f.report.trim().toLowerCase())) return false
     if (f.tuNgay && j.ngay < f.tuNgay) return false
     if (f.denNgay && j.ngay > f.denNgay) return false
     if (f.loaiViec.length && !f.loaiViec.includes(j.loai_cong_viec)) return false
@@ -683,8 +684,8 @@ export default function AdminDashboard() {
     return String(b.report || '').localeCompare(String(a.report || ''), undefined, { numeric: true })
   })
 
-  const clearJobFilters = () => setJobFilters({ search: "", tuNgay: "", denNgay: "", loaiViec: [], ktvId: "", hoaDon: "", trangThai: [] })
-  const jobFilterActive = !!(jobFilters.search || jobFilters.tuNgay || jobFilters.denNgay || jobFilters.loaiViec.length || jobFilters.ktvId || jobFilters.hoaDon || jobFilters.trangThai.length)
+  const clearJobFilters = () => setJobFilters({ search: "", report: "", tuNgay: "", denNgay: "", loaiViec: [], ktvId: "", hoaDon: "", trangThai: [] })
+  const jobFilterActive = !!(jobFilters.search || jobFilters.report || jobFilters.tuNgay || jobFilters.denNgay || jobFilters.loaiViec.length || jobFilters.ktvId || jobFilters.hoaDon || jobFilters.trangThai.length)
   const jobsCol = useColView('jobs', JOBS_COLS)
   const jobsPaged = usePaged(filteredJobs)
 
@@ -916,14 +917,23 @@ export default function AdminDashboard() {
             {/* Toolbar + Bộ lọc */}
             <div className="p-4 border-b border-slate-200 space-y-3 bg-slate-50/50">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <div className="relative w-full sm:w-72">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <Input placeholder="Tìm mã máy, tên khách hàng..." className="pl-9 bg-white" value={jobFilters.search} onChange={(e) => setJobFilters({ ...jobFilters, search: e.target.value })} />
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Input placeholder="Tìm mã máy, tên khách hàng..." className="pl-9 bg-white" value={jobFilters.search} onChange={(e) => setJobFilters({ ...jobFilters, search: e.target.value })} />
+                  </div>
+                  <div className="relative w-full sm:w-40">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Input placeholder="Số phiếu..." className="pl-9 bg-white" value={jobFilters.report} onChange={(e) => setJobFilters({ ...jobFilters, report: e.target.value })} />
+                  </div>
                 </div>
-                <div className="flex gap-2 w-full sm:w-auto">
+                <div className="flex gap-2 w-full sm:w-auto flex-wrap">
                   <Button variant="outline" onClick={exportJobsExcel} className="gap-2"><Download className="w-4 h-4" /> Xuất Excel</Button>
                   {currentUserRole === 'admin' && (
                     <ImportJobsTool customers={customers} technicians={technicians} inventory={inventory} onSuccess={fetchData} showNotification={showNotification} />
+                  )}
+                  {currentUserRole === 'admin' && (
+                    <DedupeReportsTool onSuccess={fetchData} showNotification={showNotification} />
                   )}
                   {currentUserRole === 'admin' && (
                     <ClearAllButton count={jobs.length} label="phiếu giao việc" onConfirm={async () => {
@@ -2767,6 +2777,64 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
 }
 
 // Nút xóa cứng toàn bộ một danh sách — yêu cầu gõ "XÓA" để xác nhận
+// Dọn phiếu trùng SỐ PHIẾU (report) — chỉ admin. Quét trước, xác nhận rồi xóa phần thừa.
+function DedupeReportsTool({ onSuccess, showNotification }: { onSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [info, setInfo] = useState<{ groups: number, extras: number } | null>(null)
+
+  const openModal = async () => {
+    setOpen(true); setInfo(null); setLoading(true)
+    try {
+      const res = await fetch('/api/admin/cong-viec/dedupe')
+      const j = await res.json()
+      if (res.ok) setInfo({ groups: j.groups, extras: j.extras })
+      else { showNotification('error', j.error); setOpen(false) }
+    } catch { showNotification('error', 'Lỗi kết nối!'); setOpen(false) } finally { setLoading(false) }
+  }
+
+  const run = async () => {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/cong-viec/dedupe', { method: 'POST' })
+      const j = await res.json()
+      if (res.ok) { showNotification('success', `Đã xóa ${j.removed} phiếu trùng (${j.groups} số phiếu).`); setOpen(false); onSuccess() }
+      else showNotification('error', j.error)
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setBusy(false) }
+  }
+
+  return (
+    <>
+      <Button variant="outline" onClick={openModal} className="gap-2 border-amber-200 text-amber-700 hover:bg-amber-50"><Copy className="w-4 h-4" /> Dọn trùng</Button>
+      {open && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="p-6 space-y-3">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Copy className="w-5 h-5 text-amber-600" /> Dọn phiếu trùng số phiếu</h3>
+              {loading ? (
+                <p className="text-sm text-slate-400">Đang quét phiếu trùng...</p>
+              ) : info ? (
+                info.extras === 0 ? (
+                  <p className="text-sm text-slate-600">Không tìm thấy phiếu nào bị trùng số phiếu. 👍</p>
+                ) : (
+                  <p className="text-sm text-slate-600">Tìm thấy <b>{info.groups.toLocaleString('vi-VN')}</b> số phiếu bị trùng, sẽ xóa <b className="text-red-600">{info.extras.toLocaleString('vi-VN')}</b> phiếu thừa. Giữ lại <b>1 phiếu</b> cho mỗi số phiếu (bản tạo sớm nhất); vật tư của phiếu thừa bị xóa theo. <b>Không thể hoàn tác.</b></p>
+                )
+              ) : null}
+            </div>
+            <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
+              <Button variant="outline" onClick={() => setOpen(false)}>Đóng</Button>
+              {info && info.extras > 0 && (
+                <Button variant="destructive" disabled={busy} onClick={run}>{busy ? 'Đang dọn...' : `Xóa ${info.extras.toLocaleString('vi-VN')} phiếu thừa`}</Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 function ClearAllButton({ count, label, onConfirm }: { count: number, label: string, onConfirm: () => Promise<void> }) {
   const [open, setOpen] = useState(false)
   const [txt, setTxt] = useState("")
