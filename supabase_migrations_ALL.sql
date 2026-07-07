@@ -431,3 +431,10 @@ UPDATE public.soct_cong_viec c SET trang_thai_hd = 'Đã lên hóa đơn'
  WHERE c.trang_thai_hd IS DISTINCT FROM 'Đã lên hóa đơn'
    AND EXISTS (SELECT 1 FROM public.soct_chi_tiet_vat_tu v WHERE v.id_cong_viec = c.id AND v.hoa_don = TRUE);
 
+-- ─────────────────────────────────────────────
+-- supabase_migration_16_created_by.sql
+-- ─────────────────────────────────────────────
+-- MIGRATION 16: Lưu người tạo phiếu (hiển thị trong tin nhắn Telegram)
+ALTER TABLE public.soct_cong_viec
+    ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES public.soct_users(id) ON DELETE SET NULL;
+

@@ -52,6 +52,7 @@ export async function POST(request: Request) {
         ghi_chu: j.ghi_chu || null,
         ket_qua,
         trang_thai_hd,
+        created_by: session.id,
       })
       jobVatTu.push(Array.isArray(j.vat_tu) ? j.vat_tu : [])
     }

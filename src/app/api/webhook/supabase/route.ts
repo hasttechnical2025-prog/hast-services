@@ -18,7 +18,8 @@ function buildJobMessage(
   record: any,
   khachHang: { ten_khach_hang?: string; dia_chi?: string } | null,
   appUrl: string,
-  extraLine?: string
+  extraLine?: string,
+  creatorName?: string,
 ) {
   const lines: (string | null)[] = [
     heading,
@@ -29,6 +30,7 @@ function buildJobMessage(
     `📍 <b>Địa chỉ:</b> ${esc(khachHang?.dia_chi || 'Không rõ')}`,
     `🖨 <b>Mã máy:</b> ${esc(record.ma_may || 'N/A')}`,
     `📝 <b>Ghi chú:</b> ${esc(record.ghi_chu || 'Không')}`,
+    creatorName ? `👤 <b>Người tạo phiếu:</b> ${esc(creatorName)}` : null,
     '',
     `👉 <a href="${appUrl}/ktv">Mở App KTV</a>`,
     '',
@@ -99,6 +101,17 @@ export async function POST(request: Request) {
       .eq('id', record.id_khach_hang)
       .single()
 
+    // Người tạo phiếu (để hiển thị trong tin nhắn)
+    let creatorName = ''
+    if (record.created_by) {
+      const { data: creator } = await supabaseAdmin
+        .from('soct_users')
+        .select('full_name')
+        .eq('id', record.created_by)
+        .single()
+      creatorName = creator?.full_name || ''
+    }
+
     // 5a. Gửi tin nhắn riêng cho KTV được gán/đã nhận
     if (target === 'dm') {
       const { data: user } = await supabaseAdmin
@@ -113,7 +126,8 @@ export async function POST(request: Request) {
           record,
           khachHang,
           appUrl,
-          `Xin chào ${esc(user.full_name)}, bạn có một công việc!`
+          `Xin chào ${esc(user.full_name)}, bạn có một công việc!`,
+          creatorName
         )
         await sendTelegramMessage(user.telegram_id, msg)
       }
@@ -130,7 +144,9 @@ export async function POST(request: Request) {
         '🆕 <b>CÔNG VIỆC MỚI — CHỜ NHẬN</b>',
         record,
         khachHang,
-        appUrl
+        appUrl,
+        undefined,
+        creatorName
       )
       await sendTelegramMessage(groupChatId, msg)
       return NextResponse.json({ success: true, sent: 'group' })

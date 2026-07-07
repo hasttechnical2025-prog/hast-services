@@ -147,6 +147,7 @@ export async function POST(request: Request) {
         report: reportNorm || null,
         ghi_chu,
         repeat_call,
+        created_by: session.id,
         // Gán KTV ngay khi tạo -> 'Đã nhận'; chưa gán -> 'Chờ nhận' (vào pool)
         ket_qua: ktv_id ? 'Đã nhận' : 'Chờ nhận',
         trang_thai_hd: hasHD ? 'Đã lên hóa đơn' : 'Chưa hóa đơn',
@@ -318,7 +319,7 @@ export async function PUT(request: Request) {
         .eq('id', id)
         .eq('ktv_id', session.id)
         .in('ket_qua', ['Đã nhận', 'Chờ nhận'])
-        .select('id, ngay, ma_may, report, loai_cong_viec, soct_khach_hang ( ten_khach_hang, dia_chi )')
+        .select('id, ngay, ma_may, report, loai_cong_viec, created_by, soct_khach_hang ( ten_khach_hang, dia_chi )')
         .single()
 
       if (error) {
@@ -334,6 +335,12 @@ export async function PUT(request: Request) {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://techservice.app'
         const kh = (data as any).soct_khach_hang
         const reasonText = reason ? String(reason).trim() : ''
+        // Người tạo phiếu (để hiển thị trong tin nhắn)
+        let creatorName = ''
+        if ((data as any).created_by) {
+          const { data: creator } = await supabaseAdmin.from('soct_users').select('full_name').eq('id', (data as any).created_by).single()
+          creatorName = creator?.full_name || ''
+        }
         const msg = [
           '🔄 <b>VIỆC BỊ HỦY NHẬN — CHỜ NHẬN LẠI</b>',
           `${esc(session.full_name)} đã hủy nhận việc.`,
@@ -343,6 +350,7 @@ export async function PUT(request: Request) {
           `🏢 <b>Khách hàng:</b> ${esc(kh?.ten_khach_hang || 'Không rõ')}`,
           `📍 <b>Địa chỉ:</b> ${esc(kh?.dia_chi || 'Không rõ')}`,
           `🖨 <b>Mã máy:</b> ${esc(data.ma_may || 'N/A')}`,
+          creatorName ? `👤 <b>Người tạo phiếu:</b> ${esc(creatorName)}` : null,
           '',
           `👉 <a href="${appUrl}/ktv">Mở App KTV để nhận việc</a>`,
         ].filter(l => l !== null).join('\n')
