@@ -4,6 +4,17 @@ import { requireRole } from '@/lib/session'
 import { broadcastJobsChanged } from '@/lib/realtime'
 import { getCauHinh } from '@/lib/config'
 import { logAudit } from '@/lib/audit'
+import { sendTelegramMessage } from '@/lib/telegram'
+
+// Escape HTML để dữ liệu người dùng không phá parse_mode='HTML' của Telegram
+function esc(s: any): string {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+function fmtDate(s: any): string {
+  if (!s) return ''
+  const d = new Date(s)
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+}
 
 // Lấy danh sách công việc kèm thông tin khách hàng, kỹ thuật viên và vật tư liên quan
 // KTV thấy việc gán cho chính mình VÀ việc chưa gán ai (pool chờ nhận)
@@ -198,7 +209,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { id, claim, ket_qua, ktv_id, report, ghi_chu, edit } = body
+    const { id, claim, release, reason, ket_qua, ktv_id, report, ghi_chu, edit } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
@@ -295,6 +306,51 @@ export async function PUT(request: Request) {
       }
 
       await broadcastJobsChanged()
+      return NextResponse.json({ data })
+    }
+
+    // KTV HỦY NHẬN việc: chỉ khi việc thuộc về mình & CHƯA bắt đầu (Đã nhận / Chờ nhận).
+    // -> trả về pool (ktv_id null, 'Chờ nhận'), bắn lại group Telegram để người khác nhận.
+    if (session.role === 'ktv' && release === true) {
+      const { data, error } = await supabaseAdmin
+        .from('soct_cong_viec')
+        .update({ ktv_id: null, ket_qua: 'Chờ nhận' })
+        .eq('id', id)
+        .eq('ktv_id', session.id)
+        .in('ket_qua', ['Đã nhận', 'Chờ nhận'])
+        .select('id, ngay, ma_may, report, loai_cong_viec, soct_khach_hang ( ten_khach_hang, dia_chi )')
+        .single()
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return NextResponse.json({ error: 'Chỉ hủy được việc bạn đã nhận và chưa bắt đầu.' }, { status: 409 })
+        }
+        throw error
+      }
+
+      // Bắn group: có việc chờ nhận lại (kèm lý do) — KTV khác vào nhận / Office phân công
+      const groupChatId = process.env.TELEGRAM_GROUP_CHAT_ID
+      if (groupChatId) {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://techservice.app'
+        const kh = (data as any).soct_khach_hang
+        const reasonText = reason ? String(reason).trim() : ''
+        const msg = [
+          '🔄 <b>VIỆC BỊ HỦY NHẬN — CHỜ NHẬN LẠI</b>',
+          `${esc(session.full_name)} đã hủy nhận việc.`,
+          reasonText ? `📝 <b>Lý do:</b> ${esc(reasonText)}` : null,
+          `🗓 <b>Ngày:</b> ${fmtDate(data.ngay)}`,
+          `📌 <b>Loại việc:</b> ${esc(data.loai_cong_viec)}`,
+          `🏢 <b>Khách hàng:</b> ${esc(kh?.ten_khach_hang || 'Không rõ')}`,
+          `📍 <b>Địa chỉ:</b> ${esc(kh?.dia_chi || 'Không rõ')}`,
+          `🖨 <b>Mã máy:</b> ${esc(data.ma_may || 'N/A')}`,
+          '',
+          `👉 <a href="${appUrl}/ktv">Mở App KTV để nhận việc</a>`,
+        ].filter(l => l !== null).join('\n')
+        await sendTelegramMessage(groupChatId, msg)
+      }
+
+      await broadcastJobsChanged()
+      await logAudit(session, 'Hủy nhận việc', `phiếu ${data.report || id}${reason && String(reason).trim() ? ` — lý do: ${String(reason).trim()}` : ''}`)
       return NextResponse.json({ data })
     }
 

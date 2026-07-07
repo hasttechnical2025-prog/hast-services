@@ -47,6 +47,10 @@ export default function KtvMobileWeb() {
   const [loading, setLoading] = useState(false)
   const [activeJob, setActiveJob] = useState<Job | null>(null)
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null)
+  // Modal hủy nhận việc (kèm lý do tùy chọn)
+  const [releaseTarget, setReleaseTarget] = useState<Job | null>(null)
+  const [releaseReason, setReleaseReason] = useState("")
+  const [releasing, setReleasing] = useState(false)
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message })
@@ -190,6 +194,31 @@ export default function KtvMobileWeb() {
     } catch (error) {
       console.error(error)
       showNotification('error', "Lỗi kết nối mạng")
+    }
+  }
+
+  // Hủy nhận việc (chỉ khi 'Đã nhận'): trả việc về pool + báo group cho người khác nhận
+  const handleRelease = async () => {
+    if (!releaseTarget) return
+    setReleasing(true)
+    try {
+      const res = await fetch('/api/admin/cong-viec', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: releaseTarget.id, release: true, reason: releaseReason.trim() })
+      })
+      if (res.ok) {
+        showNotification('success', "Đã hủy nhận việc — việc quay lại danh sách chờ nhận.")
+        setReleaseTarget(null); setReleaseReason(""); setActiveJob(null); fetchKtvJobs()
+      } else {
+        const err = await res.json()
+        showNotification('error', "Lỗi: " + (err.error || 'Không hủy được'))
+      }
+    } catch (error) {
+      console.error(error)
+      showNotification('error', "Lỗi kết nối mạng")
+    } finally {
+      setReleasing(false)
     }
   }
 
@@ -483,12 +512,21 @@ export default function KtvMobileWeb() {
 
                     {/* Việc của mình, đã nhận nhưng chưa bắt đầu (gồm cả dữ liệu cũ còn 'Chờ nhận') */}
                     {activeJob.ktv_id && (activeJob.ket_qua === 'Đã nhận' || activeJob.ket_qua === 'Chờ nhận') && (
-                      <Button
-                        onClick={() => handleUpdateStatus(activeJob.id, 'Đang làm')}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white gap-2 h-11 text-sm rounded-lg"
-                      >
-                        <Play className="w-4 h-4" /> Bắt đầu làm việc
-                      </Button>
+                      <>
+                        <Button
+                          onClick={() => handleUpdateStatus(activeJob.id, 'Đang làm')}
+                          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white gap-2 h-11 text-sm rounded-lg"
+                        >
+                          <Play className="w-4 h-4" /> Bắt đầu làm việc
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => { setReleaseTarget(activeJob); setReleaseReason("") }}
+                          className="border-red-200 text-red-600 hover:bg-red-50 gap-1.5 h-11 text-sm rounded-lg px-3 shrink-0"
+                        >
+                          <RefreshCw className="w-4 h-4" /> Hủy nhận
+                        </Button>
+                      </>
                     )}
 
                     {activeJob.ktv_id && activeJob.ket_qua === 'Đang làm' && (
@@ -524,6 +562,35 @@ export default function KtvMobileWeb() {
           </div>
         )}
       </main>
+
+      {/* Modal xác nhận hủy nhận việc (lý do tùy chọn) */}
+      {releaseTarget && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="p-5 space-y-3">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <RefreshCw className="w-5 h-5 text-red-500" /> Hủy nhận việc
+              </h3>
+              <p className="text-sm text-slate-600">
+                Việc sẽ quay lại danh sách <b>chờ nhận</b> để KTV khác nhận hoặc văn phòng phân công lại. Nhập lý do (không bắt buộc) để văn phòng nắm được.
+              </p>
+              <textarea
+                rows={3}
+                className="w-full p-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-red-400 outline-none"
+                placeholder="VD: bận việc khác, ở xa, hết ca..."
+                value={releaseReason}
+                onChange={(e) => setReleaseReason(e.target.value)}
+              />
+            </div>
+            <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
+              <Button variant="outline" onClick={() => { setReleaseTarget(null); setReleaseReason("") }} disabled={releasing}>Đóng</Button>
+              <Button onClick={handleRelease} disabled={releasing} className="bg-red-600 hover:bg-red-700 text-white">
+                {releasing ? 'Đang hủy...' : 'Xác nhận hủy nhận'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
