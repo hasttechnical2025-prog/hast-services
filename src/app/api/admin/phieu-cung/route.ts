@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireTab } from '@/lib/session'
 import { sendTelegramMessage } from '@/lib/telegram'
 import { getCauHinh } from '@/lib/config'
@@ -10,7 +10,7 @@ export async function GET() {
     const session = await requireTab('hoan_phieu')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
-    const { data, error } = await supabaseAdmin
+    const data = await selectAll((from, to) => supabaseAdmin
       .from('soct_cong_viec')
       .select(`id, ngay, report, loai_cong_viec, ket_qua, da_nop_phieu, ngay_nop_phieu, ktv_id,
         soct_khach_hang ( ten_khach_hang ),
@@ -19,8 +19,8 @@ export async function GET() {
       .neq('report', '')
       .eq('ket_qua', 'Hoàn thành')
       .order('ngay', { ascending: true })
+      .range(from, to))
 
-    if (error) throw error
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error fetching phieu cung:', error)

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireTab } from '@/lib/session'
 
 // Danh sách đơn đặt hàng kèm dòng chi tiết + các đợt hàng về
@@ -10,7 +10,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
     }
 
-    const { data, error } = await supabaseAdmin
+    const data = await selectAll((from, to) => supabaseAdmin
       .from('soct_dat_hang')
       .select(`
         *,
@@ -21,8 +21,8 @@ export async function GET() {
         )
       `)
       .order('created_at', { ascending: false })
+      .range(from, to))
 
-    if (error) throw error
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error fetching dat_hang:', error)

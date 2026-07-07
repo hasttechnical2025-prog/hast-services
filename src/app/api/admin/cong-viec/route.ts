@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { broadcastJobsChanged } from '@/lib/realtime'
 import { getCauHinh } from '@/lib/config'
@@ -17,49 +17,50 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const dateStr = searchParams.get('date') // Định dạng YYYY-MM-DD nếu lọc theo ngày
 
-    let query = supabaseAdmin
-      .from('soct_cong_viec')
-      .select(`
-        *,
-        soct_khach_hang (
-          ten_khach_hang,
-          dia_chi,
-          lat,
-          lng,
-          km_mac_dinh
-        ),
-        soct_users (
-          full_name,
-          telegram_id
-        ),
-        soct_chi_tiet_vat_tu (
-          id,
-          ma_hang,
-          so_luong,
-          don_gia,
-          vat,
-          thanh_tien,
-          hoa_don,
-          da_tra,
-          soct_kho_hang (
-            ten_hang
+    // Lấy TOÀN BỘ phiếu (lặp .range vì Supabase giới hạn ~1000 dòng/request);
+    // nếu không, danh sách chỉ hiện 1000 phiếu mới nhất -> phiếu cũ "biến mất".
+    const data = await selectAll((from, to) => {
+      let query = supabaseAdmin
+        .from('soct_cong_viec')
+        .select(`
+          *,
+          soct_khach_hang (
+            ten_khach_hang,
+            dia_chi,
+            lat,
+            lng,
+            km_mac_dinh
+          ),
+          soct_users (
+            full_name,
+            telegram_id
+          ),
+          soct_chi_tiet_vat_tu (
+            id,
+            ma_hang,
+            so_luong,
+            don_gia,
+            vat,
+            thanh_tien,
+            hoa_don,
+            da_tra,
+            soct_kho_hang (
+              ten_hang
+            )
           )
-        )
-      `)
-      .order('created_at', { ascending: false })
+        `)
+        .order('created_at', { ascending: false })
+        .range(from, to)
 
-    if (session.role === 'ktv') {
-      // Việc của mình + việc trong pool (chưa gán KTV)
-      query = query.or(`ktv_id.eq.${session.id},ktv_id.is.null`)
-    }
-
-    if (dateStr) {
-      query = query.eq('ngay', dateStr)
-    }
-
-    const { data, error } = await query
-
-    if (error) throw error
+      if (session.role === 'ktv') {
+        // Việc của mình + việc trong pool (chưa gán KTV)
+        query = query.or(`ktv_id.eq.${session.id},ktv_id.is.null`)
+      }
+      if (dateStr) {
+        query = query.eq('ngay', dateStr)
+      }
+      return query
+    })
 
     return NextResponse.json({ data })
   } catch (error: any) {

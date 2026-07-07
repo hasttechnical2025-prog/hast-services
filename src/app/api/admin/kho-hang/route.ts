@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireRole, requireTab } from '@/lib/session'
 
 // Lấy danh sách hàng hóa trong kho
@@ -10,12 +10,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
     }
 
-    const { data, error } = await supabaseAdmin
+    // Lấy toàn bộ (kho hàng có thể vượt 1000 mã)
+    const data = await selectAll((from, to) => supabaseAdmin
       .from('soct_kho_hang')
       .select('*')
       .order('ma_hang')
-
-    if (error) throw error
+      .range(from, to))
 
     return NextResponse.json({ data })
   } catch (error: any) {

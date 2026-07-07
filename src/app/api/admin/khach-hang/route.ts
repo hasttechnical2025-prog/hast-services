@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { getCoordinatesFromAddress, getDistanceFromOffice } from '@/lib/routing'
 import { requireRole } from '@/lib/session'
 import { getCauHinh } from '@/lib/config'
@@ -12,12 +12,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
     }
 
-    const { data, error } = await supabaseAdmin
+    // Lấy toàn bộ (khách hàng/máy có thể vượt 1000 dòng)
+    const data = await selectAll((from, to) => supabaseAdmin
       .from('soct_khach_hang')
       .select('*')
       .order('ten_khach_hang')
-
-    if (error) throw error
+      .range(from, to))
 
     return NextResponse.json({ data })
   } catch (error: any) {

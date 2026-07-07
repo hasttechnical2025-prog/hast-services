@@ -11,3 +11,22 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
     autoRefreshToken: false,
   },
 })
+
+// Supabase giới hạn ~1000 dòng/mỗi request. Helper này lặp .range() để lấy TOÀN BỘ
+// dòng (dùng cho các danh sách có thể vượt 1000 như phiếu giao việc, khách hàng...).
+// `build(from, to)` phải trả về 1 query đã .range(from, to).
+export async function selectAll<T = any>(
+  build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>,
+  pageSize = 1000,
+): Promise<T[]> {
+  const all: T[] = []
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await build(from, from + pageSize - 1)
+    if (error) throw error
+    const batch = data || []
+    all.push(...batch)
+    if (batch.length < pageSize) break
+    if (all.length >= 100000) break // chặn an toàn, tránh vòng lặp vô hạn
+  }
+  return all
+}

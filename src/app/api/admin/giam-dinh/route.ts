@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireTab } from '@/lib/session'
 
 // Lấy danh sách biên bản giám định kèm vật tư đề xuất
@@ -14,24 +14,25 @@ export async function GET(request: Request) {
     const ma_may = searchParams.get('ma_may')
     const chuaThay = searchParams.get('chua_thay') // '1' -> chỉ lấy biên bản chưa thay
 
-    let query = supabaseAdmin
-      .from('soct_giam_dinh')
-      .select(`
-        *,
-        soct_khach_hang ( ten_khach_hang, dia_chi, model ),
-        soct_giam_dinh_vat_tu (
-          id, ma_hang, so_luong, ghi_chu,
-          soct_kho_hang ( ten_hang, model, ton_kho )
-        )
-      `)
-      .order('ngay_giam_dinh', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: false })
+    const data = await selectAll((from, to) => {
+      let query = supabaseAdmin
+        .from('soct_giam_dinh')
+        .select(`
+          *,
+          soct_khach_hang ( ten_khach_hang, dia_chi, model ),
+          soct_giam_dinh_vat_tu (
+            id, ma_hang, so_luong, ghi_chu,
+            soct_kho_hang ( ten_hang, model, ton_kho )
+          )
+        `)
+        .order('ngay_giam_dinh', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false })
+        .range(from, to)
 
-    if (ma_may) query = query.eq('ma_may', ma_may)
-    if (chuaThay === '1') query = query.eq('da_thay', false)
-
-    const { data, error } = await query
-    if (error) throw error
+      if (ma_may) query = query.eq('ma_may', ma_may)
+      if (chuaThay === '1') query = query.eq('da_thay', false)
+      return query
+    })
 
     return NextResponse.json({ data })
   } catch (error: any) {

@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireTab } from '@/lib/session'
 import { buildQuoteData, type QuoteInput } from '@/lib/report/bao-gia'
 import { logAudit } from '@/lib/audit'
@@ -16,7 +16,7 @@ export async function GET() {
     const session = await requireTab('cong_no')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
-    const { data, error } = await supabaseAdmin
+    const data = await selectAll((from, to) => supabaseAdmin
       .from('soct_cong_viec')
       .select(`id, ngay, report, loai_cong_viec, trang_thai_hd, id_khach_hang,
         soct_khach_hang ( ten_khach_hang, dia_chi ),
@@ -25,8 +25,8 @@ export async function GET() {
       .neq('report', '')
       .neq('trang_thai_hd', 'Đã lên hóa đơn')
       .order('ngay', { ascending: true })
+      .range(from, to))
 
-    if (error) throw error
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error fetching cong no:', error)
