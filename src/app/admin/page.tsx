@@ -3114,14 +3114,27 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
                 />
               </div>
 
-              <select
-                value={leftModel}
-                onChange={(e) => setLeftModel(e.target.value)}
-                className="h-8 px-2 rounded-md border border-slate-200 text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="">Model: Tất cả</option>
-                {modelOptions.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
+              <div className="relative w-44">
+                <Input
+                  list="dh-model-list"
+                  placeholder="Tìm / gõ model..."
+                  className="h-8 text-xs bg-white pr-6"
+                  value={leftModel}
+                  onChange={(e) => setLeftModel(e.target.value)}
+                />
+                {leftModel && (
+                  <button
+                    onClick={() => setLeftModel("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                    title="Xóa bộ lọc model"
+                  >
+                    ✕
+                  </button>
+                )}
+                <datalist id="dh-model-list">
+                  {modelOptions.map(m => <option key={m} value={m} />)}
+                </datalist>
+              </div>
 
               <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none h-8">
                 <input
@@ -3136,13 +3149,13 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
           </div>
 
           <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
-            <table className="w-full text-left text-xs text-slate-600">
+            <table className="w-full text-left text-xs text-slate-600 min-w-[550px]">
               <thead className="bg-slate-50 text-slate-500 font-semibold uppercase sticky top-0 border-b border-slate-200 z-10">
                 <tr>
-                  <th className="px-3 py-2">Vật tư</th>
-                  <th className="px-3 py-2 text-center w-16">Model</th>
+                  <th className="px-3 py-2 min-w-[200px]">Vật tư</th>
+                  <th className="px-3 py-2 text-center w-28">Model</th>
                   <th className="px-3 py-2 text-center w-14">Tồn</th>
-                  <th className="px-3 py-2 text-center w-24">SL đặt</th>
+                  <th className="px-3 py-2 text-center w-24 min-w-[80px]">SL đặt</th>
                   <th className="px-3 py-2 text-center w-16">Nhặt</th>
                 </tr>
               </thead>
@@ -3154,7 +3167,7 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
                       const match = (item.ma_hang || '').toLowerCase().includes(q) || (item.ten_hang || '').toLowerCase().includes(q)
                       if (!match) return false
                     }
-                    if (leftModel && String(item.model || '').trim() !== leftModel) return false
+                    if (leftModel && String(item.model || '').trim().toLowerCase() !== leftModel.trim().toLowerCase()) return false
                     if (leftLowStock && item.ton_kho > 0) return false
                     return true
                   })
@@ -3170,18 +3183,21 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
                       <tr key={item.ma_hang} className="hover:bg-slate-50/80 transition-colors">
                         <td className="px-3 py-2.5">
                           <div className="font-mono font-bold text-slate-700">{item.ma_hang}</div>
-                          <div className="text-slate-500 font-normal line-clamp-1">{item.ten_hang}</div>
+                          <div className="text-slate-500 font-normal leading-relaxed">{item.ten_hang}</div>
                         </td>
-                        <td className="px-3 py-2.5 text-center text-slate-500 whitespace-nowrap">{item.model || '—'}</td>
+                        <td className="px-3 py-2.5 text-center text-slate-500">{item.model || '—'}</td>
                         <td className={`px-3 py-2.5 text-center font-bold ${isOut ? 'text-red-500 bg-red-50/50' : 'text-slate-600'}`}>{item.ton_kho}</td>
                         <td className="px-3 py-2.5">
                           <Input
-                            type="number"
-                            min="1"
-                            placeholder="Số lượng"
-                            className="h-7 text-xs bg-white text-center"
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="Đặt SL"
+                            className="h-7 text-xs bg-white text-center w-full min-w-[64px]"
                             value={tempQty}
-                            onChange={(e) => setLeftQuantities({ ...leftQuantities, [item.ma_hang]: e.target.value })}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '') // Chỉ cho phép nhập số
+                              setLeftQuantities({ ...leftQuantities, [item.ma_hang]: val })
+                            }}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 e.preventDefault()
@@ -3194,7 +3210,7 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
                           <Button
                             type="button"
                             onClick={() => addToCart(item.ma_hang, tempQty)}
-                            className="h-7 px-2.5 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-0.5 rounded"
+                            className="h-7 px-2.5 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-0.5 rounded whitespace-nowrap"
                           >
                             + Nhặt
                           </Button>
