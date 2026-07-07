@@ -2950,13 +2950,36 @@ function NhapHangThangTool({ showNotification }: { showNotification: (type: 'suc
 
 function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotification }: { inventory: any[], nhaCungCapOptions: string[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [form, setForm] = useState({ ngay_dat: new Date().toISOString().split('T')[0], nha_cung_cap: "", so_don_hang: "", da_dat: false })
-  const [lines, setLines] = useState<{ ma_hang: string, sl_dat: string }[]>([{ ma_hang: "", sl_dat: "1" }])
+  const [lines, setLines] = useState<{ ma_hang: string, sl_dat: string }[]>([])
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [receiving, setReceiving] = useState<{ ctId: string, ngay_nhan: string, so_luong_nhan: string } | null>(null)
   const [delId, setDelId] = useState<string | null>(null)
   const [orderFilters, setOrderFilters] = useState({ maHang: "", ncc: "", conThieu: true, hvTu: "", hvDen: "" })
+
+  // State phục vụ rà soát tồn kho & nhặt giỏ hàng bên trái
+  const [leftSearch, setLeftSearch] = useState("")
+  const [leftModel, setLeftModel] = useState("")
+  const [leftLowStock, setLeftLowStock] = useState(false)
+  const [leftQuantities, setLeftQuantities] = useState<Record<string, string>>({})
+
+  // Trích xuất danh sách model máy duy nhất từ kho để lọc
+  const modelOptions = Array.from(new Set(inventory.map(i => i.model).filter(Boolean).map(m => String(m).trim()))).sort()
+
+  const addToCart = (ma_hang: string, qtyStr: string) => {
+    const qty = parseInt(qtyStr, 10) || 0
+    if (qty <= 0) return showNotification('error', "Nhập số lượng lớn hơn 0")
+    setLines(prev => {
+      const existing = prev.find(l => l.ma_hang === ma_hang)
+      if (existing) {
+        return prev.map(l => l.ma_hang === ma_hang ? { ...l, sl_dat: String(Number(l.sl_dat) + qty) } : l)
+      }
+      return [...prev, { ma_hang, sl_dat: String(qty) }]
+    })
+    setLeftQuantities(prev => ({ ...prev, [ma_hang]: "" }))
+    showNotification('success', `Đã nhặt vật tư vào giỏ hàng.`)
+  }
 
   const fetchOrders = async () => {
     setLoading(true)
@@ -3070,54 +3093,229 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
         { label: 'Đủ hàng', value: orderStats.done.toLocaleString('vi-VN'), sub: 'đã nhận đủ', icon: Package, tint: 'text-emerald-600 bg-emerald-50 ring-emerald-100' },
         { label: 'Còn thiếu', value: orderStats.thieu.toLocaleString('vi-VN'), sub: 'đơn vị chưa về', icon: AlertTriangle, tint: 'text-amber-600 bg-amber-50 ring-amber-100' },
       ]} />
-      {/* FORM TẠO ĐƠN */}
-      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
-        <h3 className="text-lg font-semibold text-slate-700">Tạo đơn đặt hàng</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-600">Ngày đặt</label>
-            <DateField value={form.ngay_dat} onChange={(v) => setForm({ ...form, ngay_dat: v })} />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-600">Nhà cung cấp</label>
-            <Input list="dh-ncc-list" placeholder="Chọn hoặc gõ NCC" value={form.nha_cung_cap} onChange={(e) => setForm({ ...form, nha_cung_cap: e.target.value })} className="bg-white" />
-            <datalist id="dh-ncc-list">{nhaCungCapOptions.map(o => <option key={o} value={o} />)}</datalist>
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-600">Số đơn hàng</label>
-            <Input placeholder="VD: PO-2026-001" value={form.so_don_hang} onChange={(e) => setForm({ ...form, so_don_hang: e.target.value })} className="bg-white" />
-          </div>
-        </div>
+      {/* FORM TẠO ĐƠN - SHOPPING CART UX */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
-        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
-          <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex justify-between items-center">
-            <h4 className="text-sm font-semibold text-slate-700">Dòng hàng đặt</h4>
-            <Button type="button" variant="outline" size="sm" onClick={addLine} className="h-8 text-xs gap-1"><Plus className="w-3 h-3" /> Thêm dòng</Button>
-          </div>
-          <div className="p-4 space-y-2">
-            {lines.map((l, i) => (
-              <div key={i} className="flex gap-2 items-end">
-                <div className="flex-1 min-w-0">
-                  <label className="text-xs font-medium text-slate-500 mb-1 block">Mã hàng</label>
-                  <MaterialCombobox inventory={inventory} value={l.ma_hang} onChange={(v) => updLine(i, 'ma_hang', v)} />
-                </div>
-                <div className="w-28">
-                  <label className="text-xs font-medium text-slate-500 mb-1 block">SL đặt</label>
-                  <Input type="number" min="1" className="h-9 bg-white" value={l.sl_dat} onChange={(e) => updLine(i, 'sl_dat', e.target.value)} />
-                </div>
-                <button type="button" onClick={() => rmLine(i)} className="text-slate-400 hover:text-red-500 p-2 shrink-0 h-9"><Trash2 className="w-4 h-4" /></button>
+        {/* BÊN TRÁI: RÀ SOÁT TỒN KHO & CHỌN VẬT TƯ (3/5) */}
+        <div className="lg:col-span-3 border border-slate-200 rounded-xl bg-white overflow-hidden flex flex-col shadow-sm">
+          <div className="bg-slate-50 p-4 border-b border-slate-200 space-y-3">
+            <h3 className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+              <Search className="w-4 h-4 text-slate-500" /> Rà soát kho & Chọn vật tư đặt hàng
+            </h3>
+
+            <div className="flex flex-wrap gap-2">
+              <div className="relative flex-1 min-w-[160px]">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                <Input
+                  placeholder="Gõ mã / tên vật tư..."
+                  className="pl-8 h-8 text-xs bg-white"
+                  value={leftSearch}
+                  onChange={(e) => setLeftSearch(e.target.value)}
+                />
               </div>
-            ))}
+
+              <select
+                value={leftModel}
+                onChange={(e) => setLeftModel(e.target.value)}
+                className="h-8 px-2 rounded-md border border-slate-200 text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="">Model: Tất cả</option>
+                {modelOptions.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+
+              <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none h-8">
+                <input
+                  type="checkbox"
+                  checked={leftLowStock}
+                  onChange={(e) => setLeftLowStock(e.target.checked)}
+                  className="w-3.5 h-3.5 accent-blue-600"
+                />
+                Hết hàng (Tồn = 0)
+              </label>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+            <table className="w-full text-left text-xs text-slate-600">
+              <thead className="bg-slate-50 text-slate-500 font-semibold uppercase sticky top-0 border-b border-slate-200 z-10">
+                <tr>
+                  <th className="px-3 py-2">Vật tư</th>
+                  <th className="px-3 py-2 text-center w-16">Model</th>
+                  <th className="px-3 py-2 text-center w-14">Tồn</th>
+                  <th className="px-3 py-2 text-center w-24">SL đặt</th>
+                  <th className="px-3 py-2 text-center w-16">Nhặt</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {(() => {
+                  const filtered = inventory.filter(item => {
+                    if (leftSearch) {
+                      const q = leftSearch.trim().toLowerCase()
+                      const match = (item.ma_hang || '').toLowerCase().includes(q) || (item.ten_hang || '').toLowerCase().includes(q)
+                      if (!match) return false
+                    }
+                    if (leftModel && String(item.model || '').trim() !== leftModel) return false
+                    if (leftLowStock && item.ton_kho > 0) return false
+                    return true
+                  })
+
+                  if (filtered.length === 0) {
+                    return <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400 italic">Không tìm thấy vật tư khớp bộ lọc.</td></tr>
+                  }
+
+                  return filtered.map(item => {
+                    const tempQty = leftQuantities[item.ma_hang] || ""
+                    const isOut = item.ton_kho <= 0
+                    return (
+                      <tr key={item.ma_hang} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="px-3 py-2.5">
+                          <div className="font-mono font-bold text-slate-700">{item.ma_hang}</div>
+                          <div className="text-slate-500 font-normal line-clamp-1">{item.ten_hang}</div>
+                        </td>
+                        <td className="px-3 py-2.5 text-center text-slate-500 whitespace-nowrap">{item.model || '—'}</td>
+                        <td className={`px-3 py-2.5 text-center font-bold ${isOut ? 'text-red-500 bg-red-50/50' : 'text-slate-600'}`}>{item.ton_kho}</td>
+                        <td className="px-3 py-2.5">
+                          <Input
+                            type="number"
+                            min="1"
+                            placeholder="Số lượng"
+                            className="h-7 text-xs bg-white text-center"
+                            value={tempQty}
+                            onChange={(e) => setLeftQuantities({ ...leftQuantities, [item.ma_hang]: e.target.value })}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                addToCart(item.ma_hang, tempQty)
+                              }
+                            }}
+                          />
+                        </td>
+                        <td className="px-3 py-2.5 text-center">
+                          <Button
+                            type="button"
+                            onClick={() => addToCart(item.ma_hang, tempQty)}
+                            className="h-7 px-2.5 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-0.5 rounded"
+                          >
+                            + Nhặt
+                          </Button>
+                        </td>
+                      </tr>
+                    )
+                  })
+                })()}
+              </tbody>
+            </table>
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
-            <input type="checkbox" checked={form.da_dat} onChange={(e) => setForm({ ...form, da_dat: e.target.checked })} className="w-4 h-4 accent-blue-600" />
-            Đã đặt (đã gửi NCC) — bỏ trống nếu còn nháp
-          </label>
-          <Button onClick={handleCreate} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">{saving ? "Đang lưu..." : "Tạo đơn"}</Button>
+        {/* BÊN PHẢI: GIỎ HÀNG & THÔNG TIN ĐƠN (2/5) */}
+        <div className="lg:col-span-2 border border-slate-200 rounded-xl p-5 bg-slate-50/50 space-y-4 flex flex-col shadow-sm justify-between">
+          <div className="space-y-4">
+            <h3 className="text-base font-bold text-slate-700">Giỏ hàng đặt</h3>
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Ngày đặt</label>
+                <DateField value={form.ngay_dat} onChange={(v) => setForm({ ...form, ngay_dat: v })} heightClass="h-9" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">Nhà cung cấp</label>
+                  <Input
+                    list="dh-ncc-list"
+                    placeholder="Chọn / gõ NCC"
+                    value={form.nha_cung_cap}
+                    onChange={(e) => setForm({ ...form, nha_cung_cap: e.target.value })}
+                    className="bg-white h-9"
+                  />
+                  <datalist id="dh-ncc-list">{nhaCungCapOptions.map(o => <option key={o} value={o} />)}</datalist>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">Số đơn hàng</label>
+                  <Input
+                    placeholder="PO-YYMMDD-NNN"
+                    value={form.so_don_hang}
+                    onChange={(e) => setForm({ ...form, so_don_hang: e.target.value })}
+                    className="bg-white h-9 font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* BẢNG GIỎ HÀNG */}
+            <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+              <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 flex justify-between items-center">
+                <h4 className="text-xs font-bold text-slate-600 uppercase">Danh sách đã chọn ({lines.length})</h4>
+                {lines.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setLines([])}
+                    className="text-[10px] text-red-500 font-bold hover:underline"
+                  >
+                    Xóa hết
+                  </button>
+                )}
+              </div>
+              <div className="p-3 space-y-2 max-h-[220px] overflow-y-auto">
+                {lines.length === 0 ? (
+                  <div className="text-center text-slate-400 py-6 text-xs italic">
+                    Chưa nhặt vật tư nào. Nhập số lượng bên trái và bấm &quot;Nhặt&quot;.
+                  </div>
+                ) : (
+                  lines.map((l, i) => {
+                    const item = inventory.find(inv => inv.ma_hang === l.ma_hang)
+                    return (
+                      <div key={l.ma_hang} className="flex gap-2 items-center justify-between bg-slate-50/50 p-2 rounded border border-slate-100">
+                        <div className="flex-1 min-w-0 pr-1">
+                          <div className="font-mono font-bold text-xs text-slate-700">{l.ma_hang}</div>
+                          <div className="text-[10px] text-slate-500 truncate" title={item?.ten_hang}>{item?.ten_hang || '—'}</div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Input
+                            type="number"
+                            min="1"
+                            className="h-7 w-16 text-xs bg-white text-center"
+                            value={l.sl_dat}
+                            onChange={(e) => updLine(i, 'sl_dat', e.target.value)}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => rmLine(i)}
+                            className="text-slate-400 hover:text-red-500 p-1 rounded hover:bg-red-50 transition"
+                            title="Xóa dòng"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 pt-2 border-t border-slate-200">
+            <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={form.da_dat}
+                onChange={(e) => setForm({ ...form, da_dat: e.target.checked })}
+                className="w-3.5 h-3.5 accent-blue-600"
+              />
+              Đã đặt (đã gửi NCC) — bỏ trống nếu còn nháp
+            </label>
+            <Button
+              onClick={handleCreate}
+              disabled={saving || lines.length === 0}
+              className={`w-full h-10 font-bold ${saving || lines.length === 0 ? 'bg-slate-300' : 'bg-emerald-600 hover:bg-emerald-700'} text-white rounded-lg`}
+            >
+              {saving ? "Đang lưu..." : "Tạo đơn đặt hàng"}
+            </Button>
+          </div>
         </div>
+
       </div>
 
       {/* DANH SÁCH ĐƠN + BỘ LỌC */}

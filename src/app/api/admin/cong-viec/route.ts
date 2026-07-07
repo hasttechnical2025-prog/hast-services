@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { broadcastJobsChanged } from '@/lib/realtime'
 import { getCauHinh } from '@/lib/config'
@@ -31,57 +31,51 @@ export async function GET(request: Request) {
     const tuNgay = searchParams.get('tuNgay') || ''   // lọc từ ngày (YYYY-MM-DD)
     const denNgay = searchParams.get('denNgay') || '' // lọc đến ngày
 
-    let query = supabaseAdmin
-      .from('soct_cong_viec')
-      .select(`
-        *,
-        soct_khach_hang (
-          ten_khach_hang,
-          dia_chi,
-          lat,
-          lng,
-          km_mac_dinh
-        ),
-        soct_users!ktv_id (
-          full_name,
-          telegram_id
-        ),
-        soct_chi_tiet_vat_tu (
-          id,
-          ma_hang,
-          so_luong,
-          don_gia,
-          vat,
-          thanh_tien,
-          hoa_don,
-          da_tra,
-          soct_kho_hang (
-            ten_hang
+    const data = await selectAll((from, to) => {
+      let query = supabaseAdmin
+        .from('soct_cong_viec')
+        .select(`
+          id, ngay, ma_may, loai_cong_viec, km, ket_qua, report, ghi_chu, ktv_id, so_luong, created_by, da_nop_phieu,
+          soct_khach_hang (
+            ten_khach_hang,
+            dia_chi
+          ),
+          soct_users!ktv_id (
+            full_name
+          ),
+          soct_chi_tiet_vat_tu (
+            id,
+            ma_hang,
+            so_luong,
+            don_gia,
+            vat,
+            thanh_tien,
+            hoa_don,
+            da_tra,
+            soct_kho_hang (
+              ten_hang
+            )
           )
-        )
-      `)
-      .order('created_at', { ascending: false })
+        `)
+        .order('ngay', { ascending: false })
+        .order('created_at', { ascending: false })
+        .range(from, to)
 
-    if (session.role === 'ktv') {
-      // Việc của mình + việc trong pool (chưa gán KTV)
-      query = query.or(`ktv_id.eq.${session.id},ktv_id.is.null`)
-    }
-    if (dateStr) query = query.eq('ngay', dateStr)
-    // Tìm theo Số phiếu là tìm TOÀN CỤC (bỏ qua lọc ngày) để luôn thấy phiếu cũ;
-    // nếu không tìm số phiếu thì áp lọc khoảng ngày. Đều lọc phía server -> thấy được phiếu cũ.
-    if (report) {
-      query = query.ilike('report', `%${report}%`)
-    } else {
-      if (tuNgay) query = query.gte('ngay', tuNgay)
-      if (denNgay) query = query.lte('ngay', denNgay)
-    }
-
-    // Giới hạn 1000 dòng/response để không vượt giới hạn payload (~4.5MB) của serverless.
-    // Cần thấy phiếu cũ -> lọc theo Số phiếu hoặc khoảng Ngày (đã lọc phía server ở trên).
-    query = query.range(0, 999)
-
-    const { data, error } = await query
-    if (error) throw error
+      if (session.role === 'ktv') {
+        // Việc của mình + việc trong pool (chưa gán KTV)
+        query = query.or(`ktv_id.eq.${session.id},ktv_id.is.null`)
+      }
+      if (dateStr) query = query.eq('ngay', dateStr)
+      // Tìm theo Số phiếu là tìm TOÀN CỤC (bỏ qua lọc ngày) để luôn thấy phiếu cũ;
+      // nếu không tìm số phiếu thì áp lọc khoảng ngày. Đều lọc phía server -> thấy được phiếu cũ.
+      if (report) {
+        query = query.ilike('report', `%${report}%`)
+      } else {
+        if (tuNgay) query = query.gte('ngay', tuNgay)
+        if (denNgay) query = query.lte('ngay', denNgay)
+      }
+      return query
+    })
 
     return NextResponse.json({ data })
   } catch (error: any) {
