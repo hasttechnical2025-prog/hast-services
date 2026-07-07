@@ -1250,7 +1250,7 @@ export default function AdminDashboard() {
                     onChange={(e) => setFormData({...formData, ktv_id: e.target.value})}
                   >
                     <option value="">-- Chưa giao KTV --</option>
-                    {technicians.filter(t => t.role !== 'admin').map(t => (
+                    {technicians.filter(t => t.role === 'ktv').map(t => (
                       <option key={t.id} value={t.id}>{t.full_name}</option>
                     ))}
                   </select>
