@@ -416,3 +416,18 @@ UPDATE public.soct_cong_viec
    SET ket_qua = 'Đã nhận'
  WHERE ktv_id IS NOT NULL AND ket_qua = 'Chờ nhận';
 
+-- ─────────────────────────────────────────────
+-- supabase_migration_15_unique_report_sync_hd.sql
+-- ─────────────────────────────────────────────
+-- MIGRATION 15: UNIQUE số phiếu + đồng bộ trang_thai_hd với cờ hoa_don
+UPDATE public.soct_cong_viec SET report = trim(report)
+ WHERE report IS NOT NULL AND report <> trim(report);
+DELETE FROM public.soct_cong_viec a USING public.soct_cong_viec b
+ WHERE a.report IS NOT NULL AND a.report <> '' AND a.report = b.report
+   AND (a.created_at, a.ctid) > (b.created_at, b.ctid);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_soct_cong_viec_report
+    ON public.soct_cong_viec (report) WHERE report IS NOT NULL AND report <> '';
+UPDATE public.soct_cong_viec c SET trang_thai_hd = 'Đã lên hóa đơn'
+ WHERE c.trang_thai_hd IS DISTINCT FROM 'Đã lên hóa đơn'
+   AND EXISTS (SELECT 1 FROM public.soct_chi_tiet_vat_tu v WHERE v.id_cong_viec = c.id AND v.hoa_don = TRUE);
+

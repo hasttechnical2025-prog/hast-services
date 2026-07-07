@@ -116,6 +116,11 @@ export async function POST(request: Request) {
       }
     }
 
+    // Số phiếu chuẩn hóa (bỏ khoảng trắng); rỗng -> null (không tính trùng)
+    const reportNorm = report ? String(report).trim() : ''
+    // Trạng thái hóa đơn (công nợ) đồng bộ với cờ hoa_don của vật tư
+    const hasHD = Array.isArray(vat_tu) && vat_tu.some((v: any) => v.hoa_don && v.ma_hang && Number(v.so_luong) > 0)
+
     // Insert công việc mới
     const { data, error } = await supabaseAdmin
       .from('soct_cong_viec')
@@ -127,15 +132,20 @@ export async function POST(request: Request) {
         km: km || 0,
         so_luong: parseInt(so_luong) || 1,
         ktv_id: ktv_id || null,
-        report: report || null,
+        report: reportNorm || null,
         ghi_chu,
         repeat_call,
         // Gán KTV ngay khi tạo -> 'Đã nhận'; chưa gán -> 'Chờ nhận' (vào pool)
-        ket_qua: ktv_id ? 'Đã nhận' : 'Chờ nhận'
+        ket_qua: ktv_id ? 'Đã nhận' : 'Chờ nhận',
+        trang_thai_hd: hasHD ? 'Đã lên hóa đơn' : 'Chưa hóa đơn',
       })
       .select()
       .single()
 
+    // Trùng số phiếu (unique index) -> báo lỗi thân thiện, không lưu
+    if (error?.code === '23505') {
+      return NextResponse.json({ error: `Số phiếu "${reportNorm}" đã tồn tại — không thể lưu trùng.` }, { status: 409 })
+    }
     if (error) throw error
 
     // Insert vật tư nếu có
@@ -198,7 +208,7 @@ export async function PUT(request: Request) {
       if (!['admin', 'tech_admin', 'staff'].includes(session.role)) {
         return NextResponse.json({ error: 'Không có quyền sửa phiếu' }, { status: 403 })
       }
-      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('ket_qua').eq('id', id).single()
+      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('ket_qua, trang_thai_hd').eq('id', id).single()
       if (!cur) return NextResponse.json({ error: 'Không tìm thấy công việc' }, { status: 404 })
       // Admin sửa được mọi trạng thái; tech_admin/staff chỉ sửa khi phiếu chưa bắt đầu
       // (Chờ nhận / Đã nhận) — sau khi KTV bấm Đang làm thì không cho sửa nữa
@@ -214,16 +224,31 @@ export async function PUT(request: Request) {
       // Nếu phiếu còn ở giai đoạn tiền-xử lý: gán KTV -> 'Đã nhận', bỏ gán -> 'Chờ nhận'.
       // Nếu đã Đang làm/Hoàn thành/Lắp tiếp (admin sửa): giữ nguyên trạng thái.
       const nextKetQua = preWork ? (ktv_id ? 'Đã nhận' : 'Chờ nhận') : cur.ket_qua
+      const reportNorm = report ? String(report).trim() : ''
+
+      // Đồng bộ trạng thái hóa đơn (công nợ) với cờ hoa_don của vật tư:
+      //  - có vật tư đã HĐ  -> 'Đã lên hóa đơn' (ra khỏi công nợ)
+      //  - không có         -> nếu trước đó đã lên HĐ thì trả về 'Chưa hóa đơn' (bỏ HĐ),
+      //                        ngược lại giữ nguyên (giữ mốc 'Đã báo giá')
+      const hasHD = Array.isArray(vat_tu) && vat_tu.some((v: any) => v.hoa_don && v.ma_hang && Number(v.so_luong) > 0)
+      const nextTrangThaiHd = hasHD
+        ? 'Đã lên hóa đơn'
+        : (cur.trang_thai_hd === 'Đã lên hóa đơn' ? 'Chưa hóa đơn' : (cur.trang_thai_hd || 'Chưa hóa đơn'))
+
       const { error: upErr } = await supabaseAdmin
         .from('soct_cong_viec')
         .update({
           ngay: ngay || new Date().toISOString().split('T')[0],
           ma_may: ma_may || null, id_khach_hang, loai_cong_viec,
           km: km || 0, so_luong: parseInt(so_luong) || 1,
-          ktv_id: ktv_id || null, report: report || null, ghi_chu,
+          ktv_id: ktv_id || null, report: reportNorm || null, ghi_chu,
           ket_qua: nextKetQua,
+          trang_thai_hd: nextTrangThaiHd,
         })
         .eq('id', id)
+      if (upErr?.code === '23505') {
+        return NextResponse.json({ error: `Số phiếu "${reportNorm}" đã tồn tại — không thể lưu trùng.` }, { status: 409 })
+      }
       if (upErr) throw upErr
 
       // Thay toàn bộ vật tư của phiếu

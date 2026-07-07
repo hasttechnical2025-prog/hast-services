@@ -49,10 +49,13 @@ export async function PUT(request: Request) {
     const { error } = await supabaseAdmin.from('soct_cong_viec').update({ trang_thai_hd }).in('id', ids)
     if (error) throw error
 
-    if (trang_thai_hd === 'Đã lên hóa đơn') {
-      // đồng bộ hóa đơn ở cấp dòng vật tư để Sổ công tác hiển thị "Có HĐ"
-      await supabaseAdmin.from('soct_chi_tiet_vat_tu').update({ hoa_don: true }).in('id_cong_viec', ids)
-    }
+    // Đồng bộ cờ hoa_don ở cấp dòng vật tư để Sổ công tác khớp với công nợ (2 chiều):
+    //  - 'Đã lên hóa đơn'      -> hoa_don = true  (Sổ công tác hiện "Có HĐ")
+    //  - 'Chưa hóa đơn'/'Đã báo giá' -> hoa_don = false (quay lại "Chưa HĐ", vào công nợ)
+    await supabaseAdmin
+      .from('soct_chi_tiet_vat_tu')
+      .update({ hoa_don: trang_thai_hd === 'Đã lên hóa đơn' })
+      .in('id_cong_viec', ids)
 
     await logAudit(session, 'Cập nhật trạng thái hóa đơn', `${ids.length} phiếu → ${trang_thai_hd}`)
     return NextResponse.json({ success: true, count: ids.length })

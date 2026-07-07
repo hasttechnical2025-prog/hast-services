@@ -4079,7 +4079,7 @@ function ImportJobsTool({ customers, technicians, inventory, onSuccess, showNoti
     try {
       const res = await fetch('/api/admin/cong-viec/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobs: parsed.jobs }) })
       const j = await res.json()
-      if (res.ok) { showNotification('success', `Đã import ${j.count} phiếu, ${j.vatTu} dòng vật tư.`); setParsed(null); setOpen(false); onSuccess() }
+      if (res.ok) { showNotification('success', `Đã import ${j.count} phiếu, ${j.vatTu} dòng vật tư${j.skipped ? `, bỏ ${j.skipped} phiếu trùng số phiếu` : ''}.`); setParsed(null); setOpen(false); onSuccess() }
       else showNotification('error', j.error)
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setBusy(false) }
   }

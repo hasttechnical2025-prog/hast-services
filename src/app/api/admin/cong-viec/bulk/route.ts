@@ -20,11 +20,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Không có dữ liệu để import' }, { status: 400 })
     }
 
+    // Số phiếu đã có trong DB -> chặn trùng khi import
+    const { data: existing } = await supabaseAdmin
+      .from('soct_cong_viec').select('report').not('report', 'is', null).neq('report', '')
+    const existingReports = new Set((existing || []).map((r: any) => String(r.report).trim().toLowerCase()))
+    const seenReports = new Set<string>()   // chống trùng ngay trong file import
+    let skippedDup = 0
+
     // Chuẩn hoá + validate từng phiếu
     const jobRows: any[] = []
     const jobVatTu: any[][] = [] // vật tư tương ứng theo index
     for (const j of jobs) {
       if (!j.id_khach_hang || !j.loai_cong_viec) continue // bỏ dòng thiếu bắt buộc
+      const reportNorm = j.report ? String(j.report).trim() : ''
+      const key = reportNorm.toLowerCase()
+      if (key) {
+        if (existingReports.has(key) || seenReports.has(key)) { skippedDup++; continue } // trùng số phiếu -> bỏ qua
+        seenReports.add(key)
+      }
       const ket_qua = KET_QUA.includes(j.ket_qua) ? j.ket_qua : 'Hoàn thành'
       const trang_thai_hd = TT_HD.includes(j.trang_thai_hd) ? j.trang_thai_hd : 'Chưa hóa đơn'
       jobRows.push({
@@ -35,7 +48,7 @@ export async function POST(request: Request) {
         km: Number(j.km) || 0,
         so_luong: parseInt(j.so_luong) || 1,
         ktv_id: j.ktv_id || null,
-        report: j.report || null,
+        report: reportNorm || null,
         ghi_chu: j.ghi_chu || null,
         ket_qua,
         trang_thai_hd,
@@ -44,7 +57,10 @@ export async function POST(request: Request) {
     }
 
     if (jobRows.length === 0) {
-      return NextResponse.json({ error: 'Không có phiếu hợp lệ (thiếu mã máy/khách hoặc loại việc)' }, { status: 400 })
+      const msg = skippedDup > 0
+        ? `Tất cả ${skippedDup} phiếu đã tồn tại (trùng số phiếu) — không có phiếu nào được import.`
+        : 'Không có phiếu hợp lệ (thiếu mã máy/khách hoặc loại việc)'
+      return NextResponse.json({ error: msg }, { status: 400 })
     }
 
     // Insert phiếu (trả về theo đúng thứ tự để gắn vật tư)
@@ -52,6 +68,9 @@ export async function POST(request: Request) {
       .from('soct_cong_viec')
       .insert(jobRows)
       .select('id')
+    if (error?.code === '23505') {
+      return NextResponse.json({ error: 'Có số phiếu bị trùng trong lúc import (đã có người tạo). Vui lòng thử lại.' }, { status: 409 })
+    }
     if (error) throw error
 
     // Gắn vật tư cho từng phiếu vừa tạo
@@ -76,8 +95,8 @@ export async function POST(request: Request) {
       else vatTuCount = count || vatTuRows.length
     }
 
-    await logAudit(session, 'Import phiếu giao việc', `${inserted!.length} phiếu, ${vatTuCount} dòng vật tư`)
-    return NextResponse.json({ success: true, count: inserted!.length, vatTu: vatTuCount })
+    await logAudit(session, 'Import phiếu giao việc', `${inserted!.length} phiếu, ${vatTuCount} dòng vật tư${skippedDup ? `, bỏ ${skippedDup} trùng` : ''}`)
+    return NextResponse.json({ success: true, count: inserted!.length, vatTu: vatTuCount, skipped: skippedDup })
   } catch (error: any) {
     console.error('Lỗi bulk import cong-viec:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
