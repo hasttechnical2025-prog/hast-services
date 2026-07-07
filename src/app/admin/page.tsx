@@ -362,11 +362,32 @@ export default function AdminDashboard() {
   }
 
   // Fetch data
+  // Lọc số phiếu / khoảng ngày ở PHÍA SERVER (để tìm được phiếu cũ ngoài 1000 dòng mới nhất);
+  // các bộ lọc còn lại (loại việc, KTV, HĐ, trạng thái) vẫn lọc phía client trên tập trả về.
+  const buildJobsUrl = () => {
+    const p = new URLSearchParams()
+    if (jobFilters.report.trim()) p.set('report', jobFilters.report.trim())
+    if (jobFilters.tuNgay) p.set('tuNgay', jobFilters.tuNgay)
+    if (jobFilters.denNgay) p.set('denNgay', jobFilters.denNgay)
+    const qs = p.toString()
+    return '/api/admin/cong-viec' + (qs ? `?${qs}` : '')
+  }
+
+  // Chỉ tải lại danh sách phiếu (khi đổi bộ lọc số phiếu / ngày) — không tải lại mọi thứ
+  const fetchJobsOnly = async () => {
+    try {
+      const res = await fetch(buildJobsUrl())
+      if (res.status === 401) { setCurrentAdmin(null); return }
+      const j = await res.json()
+      if (j.data) setJobs(j.data)
+    } catch { /* giữ nguyên danh sách hiện tại nếu lỗi mạng */ }
+  }
+
   const fetchData = async () => {
     setLoading(true)
     try {
       const [jobsRes, customersRes, usersRes, inventoryRes, danhMucRes, cauHinhRes] = await Promise.all([
-        fetch('/api/admin/cong-viec'),
+        fetch(buildJobsUrl()),
         fetch('/api/admin/khach-hang'),
         fetch('/api/admin/users'),
         fetch('/api/admin/kho-hang'),
@@ -407,6 +428,16 @@ export default function AdminDashboard() {
       fetchData()
     }
   }, [isMounted, currentAdmin])
+
+  // Đổi bộ lọc Số phiếu / Ngày -> tải lại danh sách phiếu từ server (debounce), bỏ qua lần mount đầu
+  const jobsFilterFirst = useRef(true)
+  useEffect(() => {
+    if (!isMounted || !currentAdmin) return
+    if (jobsFilterFirst.current) { jobsFilterFirst.current = false; return }
+    const t = setTimeout(() => { fetchJobsOnly() }, 400)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobFilters.report, jobFilters.tuNgay, jobFilters.denNgay])
 
   // Realtime: KTV nhận/đổi trạng thái việc -> trang office tự cập nhật (không cần F5)
   const fetchDataRef = useRef(fetchData)
@@ -664,9 +695,13 @@ export default function AdminDashboard() {
       const hay = `${j.soct_khach_hang?.ten_khach_hang || ''} ${j.soct_khach_hang?.dia_chi || ''} ${j.ma_may || ''}`.toLowerCase()
       if (!hay.includes(q)) return false
     }
-    if (f.report && !(j.report || '').toLowerCase().includes(f.report.trim().toLowerCase())) return false
-    if (f.tuNgay && j.ngay < f.tuNgay) return false
-    if (f.denNgay && j.ngay > f.denNgay) return false
+    // Tìm theo số phiếu -> tìm toàn cục, bỏ qua lọc ngày (khớp với phía server)
+    if (f.report) {
+      if (!(j.report || '').toLowerCase().includes(f.report.trim().toLowerCase())) return false
+    } else {
+      if (f.tuNgay && j.ngay < f.tuNgay) return false
+      if (f.denNgay && j.ngay > f.denNgay) return false
+    }
     if (f.loaiViec.length && !f.loaiViec.includes(j.loai_cong_viec)) return false
     if (f.ktvId === 'none' && (j as any).ktv_id) return false
     if (f.ktvId && f.ktvId !== 'none' && (j as any).ktv_id !== f.ktvId) return false

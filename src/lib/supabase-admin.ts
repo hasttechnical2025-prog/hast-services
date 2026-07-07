@@ -22,7 +22,12 @@ export async function selectAll<T = any>(
   const all: T[] = []
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await build(from, from + pageSize - 1)
-    if (error) throw error
+    if (error) {
+      // PostgREST trả lỗi "range not satisfiable" khi offset vượt số dòng (VD tổng dòng
+      // đúng bội số của pageSize) -> coi như đã hết, không phải lỗi thật
+      if (error.code === 'PGRST103' || /range not satisfiable/i.test(error.message || '')) break
+      throw error
+    }
     const batch = data || []
     all.push(...batch)
     if (batch.length < pageSize) break
