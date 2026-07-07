@@ -102,28 +102,53 @@ function useColView(storageKey: string, defs: ColDef[]) {
   return { show, toggle, reset, defs }
 }
 
-// Nút "Cột" mở menu tick chọn cột hiển thị
+// Nút "Cột" mở menu tick chọn cột hiển thị.
+// Menu render qua portal (position: fixed) để không bị cắt bởi overflow của bảng/thẻ.
 function ColumnMenu({ view }: { view: ReturnType<typeof useColView> }) {
   const [open, setOpen] = useState(false)
+  const anchorRef = useRef<HTMLDivElement>(null)
+  const [rect, setRect] = useState<DOMRect | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const update = () => { if (anchorRef.current) setRect(anchorRef.current.getBoundingClientRect()) }
+    update()
+    window.addEventListener('scroll', update, true)
+    window.addEventListener('resize', update)
+    return () => { window.removeEventListener('scroll', update, true); window.removeEventListener('resize', update) }
+  }, [open])
+
+  const W = 224 // w-56
+  const menu = open && rect ? createPortal(
+    <>
+      <div className="fixed inset-0 z-[90]" onClick={() => setOpen(false)} />
+      <div
+        className="fixed z-[91] bg-white border border-slate-200 rounded-lg shadow-lg py-2 overflow-auto"
+        style={{
+          top: rect.bottom + 4,
+          left: Math.max(8, Math.min(rect.right - W, window.innerWidth - W - 8)),
+          width: W,
+          maxHeight: Math.max(160, window.innerHeight - rect.bottom - 16),
+        }}
+      >
+        <div className="text-xs font-semibold text-slate-500 px-3 pb-1">Hiển thị cột</div>
+        {view.defs.map(d => (
+          <label key={d.key} className={`flex items-center gap-2 px-3 py-1.5 text-sm ${d.locked ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-50 cursor-pointer'}`}>
+            <input type="checkbox" checked={view.show(d.key)} disabled={d.locked} onChange={() => view.toggle(d.key)} className="w-4 h-4 accent-blue-600" />
+            <span className="flex-1">{d.label}</span>
+            {d.locked && <span className="text-[10px] text-slate-400">khóa</span>}
+          </label>
+        ))}
+        <button onClick={view.reset} className="w-full text-left text-xs text-blue-600 hover:underline px-3 pt-1.5">Hiện tất cả</button>
+      </div>
+    </>,
+    document.body
+  ) : null
+
   return (
-    <div className="relative shrink-0">
+    <div ref={anchorRef} className="shrink-0 inline-flex">
       <Button variant="outline" onClick={() => setOpen(o => !o)} className="gap-1.5 h-9 text-sm"><SlidersHorizontal className="w-4 h-4" /> Cột</Button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-2 max-h-96 overflow-auto">
-            <div className="text-xs font-semibold text-slate-500 px-3 pb-1">Hiển thị cột</div>
-            {view.defs.map(d => (
-              <label key={d.key} className={`flex items-center gap-2 px-3 py-1.5 text-sm ${d.locked ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-50 cursor-pointer'}`}>
-                <input type="checkbox" checked={view.show(d.key)} disabled={d.locked} onChange={() => view.toggle(d.key)} className="w-4 h-4 accent-blue-600" />
-                <span className="flex-1">{d.label}</span>
-                {d.locked && <span className="text-[10px] text-slate-400">khóa</span>}
-              </label>
-            ))}
-            <button onClick={view.reset} className="w-full text-left text-xs text-blue-600 hover:underline px-3 pt-1.5">Hiện tất cả</button>
-          </div>
-        </>
-      )}
+      {menu}
     </div>
   )
 }
