@@ -5,7 +5,7 @@ import { logAudit } from '@/lib/audit'
 
 export const maxDuration = 120
 
-const KET_QUA = ['Chờ nhận', 'Đang làm', 'Hoàn thành', 'Lắp tiếp']
+const KET_QUA = ['Chờ nhận', 'Đã nhận', 'Đang làm', 'Hoàn thành', 'Lắp tiếp']
 const TT_HD = ['Chưa hóa đơn', 'Đã báo giá', 'Đã lên hóa đơn']
 
 // Import hàng loạt phiếu giao việc (lịch sử) kèm vật tư. Client đã resolve

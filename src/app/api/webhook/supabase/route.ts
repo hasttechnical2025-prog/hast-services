@@ -68,10 +68,10 @@ export async function POST(request: Request) {
 
     const ktvId = record.ktv_id
 
-    // Chỉ báo cho việc ĐANG CHỜ NHẬN. Việc đã Hoàn thành/Đang làm/Lắp tiếp
-    // (VD import lịch sử hàng loạt) -> KHÔNG bắn Telegram, tránh spam.
-    if (record.ket_qua && record.ket_qua !== 'Chờ nhận') {
-      return NextResponse.json({ message: 'Not a pending job, skip notify' })
+    // Chỉ báo cho việc mới giao: 'Chờ nhận' (vào pool) hoặc 'Đã nhận' (gán KTV lúc tạo).
+    // Việc đã Đang làm/Hoàn thành/Lắp tiếp (VD import lịch sử) -> KHÔNG bắn, tránh spam.
+    if (record.ket_qua && !['Chờ nhận', 'Đã nhận'].includes(record.ket_qua)) {
+      return NextResponse.json({ message: 'Not a new job, skip notify' })
     }
 
     // 3. Xác định loại thông báo cần gửi

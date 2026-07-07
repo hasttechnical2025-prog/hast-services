@@ -217,6 +217,7 @@ export default function KtvMobileWeb() {
     `${status === 'Hoàn thành' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
       status === 'Đang làm' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
       status === 'Lắp tiếp' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
+      status === 'Đã nhận' ? 'bg-violet-50 text-violet-700 border border-violet-100' :
       'bg-slate-100 text-slate-600'}`
 
   const JobCard = ({ job, inPool }: { job: Job; inPool: boolean }) => (
@@ -418,6 +419,7 @@ export default function KtvMobileWeb() {
                       ${activeJob.ket_qua === 'Hoàn thành' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                         activeJob.ket_qua === 'Đang làm' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                         activeJob.ket_qua === 'Lắp tiếp' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                        (activeJob.ktv_id && activeJob.ket_qua === 'Đã nhận') ? 'bg-violet-50 text-violet-700 border-violet-200' :
                         'bg-slate-100 text-slate-700 border-slate-200'}`}
                     >
                       {!activeJob.ktv_id ? 'Chờ nhận' : activeJob.ket_qua}
@@ -479,8 +481,8 @@ export default function KtvMobileWeb() {
                       </Button>
                     )}
 
-                    {/* Việc của mình, chưa bắt đầu */}
-                    {activeJob.ktv_id && activeJob.ket_qua === 'Chờ nhận' && (
+                    {/* Việc của mình, đã nhận nhưng chưa bắt đầu (gồm cả dữ liệu cũ còn 'Chờ nhận') */}
+                    {activeJob.ktv_id && (activeJob.ket_qua === 'Đã nhận' || activeJob.ket_qua === 'Chờ nhận') && (
                       <Button
                         onClick={() => handleUpdateStatus(activeJob.id, 'Đang làm')}
                         className="w-full bg-blue-600 hover:bg-blue-700 text-white gap-2 h-11 text-sm rounded-lg"

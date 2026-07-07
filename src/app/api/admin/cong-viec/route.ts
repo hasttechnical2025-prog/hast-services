@@ -130,7 +130,8 @@ export async function POST(request: Request) {
         report: report || null,
         ghi_chu,
         repeat_call,
-        ket_qua: 'Chờ nhận'
+        // Gán KTV ngay khi tạo -> 'Đã nhận'; chưa gán -> 'Chờ nhận' (vào pool)
+        ket_qua: ktv_id ? 'Đã nhận' : 'Chờ nhận'
       })
       .select()
       .single()
@@ -199,15 +200,20 @@ export async function PUT(request: Request) {
       }
       const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('ket_qua').eq('id', id).single()
       if (!cur) return NextResponse.json({ error: 'Không tìm thấy công việc' }, { status: 404 })
-      // Admin sửa được mọi trạng thái; tech_admin/staff chỉ sửa khi KTV chưa nhận
-      if (cur.ket_qua !== 'Chờ nhận' && session.role !== 'admin') {
-        return NextResponse.json({ error: 'KTV đã nhận việc — không thể sửa phiếu này' }, { status: 403 })
+      // Admin sửa được mọi trạng thái; tech_admin/staff chỉ sửa khi phiếu chưa bắt đầu
+      // (Chờ nhận / Đã nhận) — sau khi KTV bấm Đang làm thì không cho sửa nữa
+      const preWork = ['Chờ nhận', 'Đã nhận'].includes(cur.ket_qua)
+      if (!preWork && session.role !== 'admin') {
+        return NextResponse.json({ error: 'KTV đã bắt đầu việc — không thể sửa phiếu này' }, { status: 403 })
       }
 
       const { ngay, ma_may, id_khach_hang, loai_cong_viec, km, so_luong, vat_tu } = body
       if (!id_khach_hang || !loai_cong_viec) {
         return NextResponse.json({ error: 'Thiếu thông tin bắt buộc' }, { status: 400 })
       }
+      // Nếu phiếu còn ở giai đoạn tiền-xử lý: gán KTV -> 'Đã nhận', bỏ gán -> 'Chờ nhận'.
+      // Nếu đã Đang làm/Hoàn thành/Lắp tiếp (admin sửa): giữ nguyên trạng thái.
+      const nextKetQua = preWork ? (ktv_id ? 'Đã nhận' : 'Chờ nhận') : cur.ket_qua
       const { error: upErr } = await supabaseAdmin
         .from('soct_cong_viec')
         .update({
@@ -215,6 +221,7 @@ export async function PUT(request: Request) {
           ma_may: ma_may || null, id_khach_hang, loai_cong_viec,
           km: km || 0, so_luong: parseInt(so_luong) || 1,
           ktv_id: ktv_id || null, report: report || null, ghi_chu,
+          ket_qua: nextKetQua,
         })
         .eq('id', id)
       if (upErr) throw upErr
@@ -244,10 +251,11 @@ export async function PUT(request: Request) {
     }
 
     // KTV nhận việc từ pool: chỉ nhận được nếu việc còn trống (atomic, chống tranh chấp)
+    // Nhận việc -> chuyển 'Chờ nhận' sang 'Đã nhận' (chưa di chuyển nên chưa Đang làm)
     if (session.role === 'ktv' && claim === true) {
       const { data, error } = await supabaseAdmin
         .from('soct_cong_viec')
-        .update({ ktv_id: session.id })
+        .update({ ktv_id: session.id, ket_qua: 'Đã nhận' })
         .eq('id', id)
         .is('ktv_id', null)
         .select()

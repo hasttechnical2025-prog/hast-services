@@ -331,7 +331,7 @@ export default function AdminDashboard() {
   // Mở modal sửa phiếu. Admin sửa được mọi trạng thái (kể cả đã Hoàn thành);
   // vai trò khác chỉ sửa khi KTV chưa nhận việc.
   const handleEditJob = (job: any) => {
-    if (job.ket_qua !== 'Chờ nhận' && currentUserRole !== 'admin') { showNotification('error', 'KTV đã nhận việc — không thể sửa phiếu này'); return }
+    if (!['Chờ nhận', 'Đã nhận'].includes(job.ket_qua) && currentUserRole !== 'admin') { showNotification('error', 'KTV đã bắt đầu việc — không thể sửa phiếu này'); return }
     setEditingJobId(job.id)
     setEditingKetQua(job.ket_qua || '')
     setDongGiamDinh(false)
@@ -693,7 +693,8 @@ export default function AdminDashboard() {
     let done = 0, doing = 0, waiting = 0, unassigned = 0, revenue = 0, revenueHD = 0
     for (const j of filteredJobs) {
       if (j.ket_qua === 'Hoàn thành') done++
-      else if (j.ket_qua === 'Đang làm') doing++
+      // 'Đang làm' và 'Đã nhận' đều là việc đang trong luồng xử lý
+      else if (j.ket_qua === 'Đang làm' || j.ket_qua === 'Đã nhận') doing++
       else if (j.ket_qua === 'Chờ nhận') waiting++
       if (!(j as any).ktv_id) unassigned++
       const { tong, coHD } = jobTien(j)
@@ -958,7 +959,7 @@ export default function AdminDashboard() {
                   <option value="chua">Chưa hóa đơn</option>
                   <option value="co_tien">Có phát sinh tiền</option>
                 </select>
-                <MultiCheckDropdown label="Trạng thái" options={['Chờ nhận', 'Đang làm', 'Hoàn thành', 'Lắp tiếp']} selected={jobFilters.trangThai} onChange={(v) => setJobFilters({ ...jobFilters, trangThai: v })} />
+                <MultiCheckDropdown label="Trạng thái" options={['Chờ nhận', 'Đã nhận', 'Đang làm', 'Hoàn thành', 'Lắp tiếp']} selected={jobFilters.trangThai} onChange={(v) => setJobFilters({ ...jobFilters, trangThai: v })} />
                 {jobFilterActive && <button onClick={clearJobFilters} className="text-xs text-red-600 hover:underline font-medium px-1">Bỏ lọc</button>}
                 <span className="text-xs text-slate-500 ml-auto whitespace-nowrap">{filteredJobs.length} / {jobs.length} việc</span>
                 <ColumnMenu view={jobsCol} />
@@ -1028,14 +1029,15 @@ export default function AdminDashboard() {
                             ${job.ket_qua === 'Hoàn thành' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                               job.ket_qua === 'Đang làm' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                               job.ket_qua === 'Lắp tiếp' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                              job.ket_qua === 'Đã nhận' ? 'bg-violet-50 text-violet-700 border-violet-200' :
                               'bg-slate-100 text-slate-700 border-slate-200'}`}
                           >
                             {job.ket_qua}
                           </span>
                         </td>}
                         {jobsCol.show('thaotac') && <td className="px-4 py-3 text-right whitespace-nowrap">
-                          {(job.ket_qua === 'Chờ nhận' || currentUserRole === 'admin') && (
-                            <button onClick={() => handleEditJob(job)} title={job.ket_qua === 'Chờ nhận' ? 'Sửa phiếu' : 'Sửa phiếu (admin)'} className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 transition">
+                          {(['Chờ nhận', 'Đã nhận'].includes(job.ket_qua) || currentUserRole === 'admin') && (
+                            <button onClick={() => handleEditJob(job)} title={['Chờ nhận', 'Đã nhận'].includes(job.ket_qua) ? 'Sửa phiếu' : 'Sửa phiếu (admin)'} className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 transition">
                               <PenSquare className="w-4 h-4" />
                             </button>
                           )}
@@ -1362,7 +1364,7 @@ export default function AdminDashboard() {
             </div>
 
             <form onSubmit={handleCreateJob} className="p-6 space-y-6">
-              {editingJobId && editingKetQua && editingKetQua !== 'Chờ nhận' && (
+              {editingJobId && editingKetQua && !['Chờ nhận', 'Đã nhận'].includes(editingKetQua) && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                   <b>Sửa phiếu đã "{editingKetQua}" (quyền admin).</b> Sửa phiếu này <u>không</u> tự điều chỉnh tồn kho.
                   Nếu thay đổi vật tư của phiếu đã trừ kho, hãy chỉnh tồn ở tab Kho hàng hoặc dùng nút "Trả vật tư" cho đúng.
@@ -3941,7 +3943,7 @@ function ImportJobsTool({ customers, technicians, inventory, onSuccess, showNoti
               <div className="text-sm text-slate-500 space-y-1">
                 <p><b>Quan trọng:</b> import <b>Khách hàng</b> + <b>Kho hàng</b> trước (phiếu tham chiếu Mã máy & Mã hàng).</p>
                 <p><b>Cột:</b> {IMPORT_JOB_COLS.join(' | ')}. Nhiều dòng <b>cùng Số phiếu</b> = 1 phiếu nhiều vật tư (thông tin phiếu lấy ở dòng đầu). Phiếu không có vật tư → để trống Mã hàng.</p>
-                <p>Cột <b>HĐ</b>: ghi <code>x</code> nếu vật tư đã có hóa đơn. Trạng thái: Chờ nhận/Đang làm/Hoàn thành/Lắp tiếp (trống = Hoàn thành).</p>
+                <p>Cột <b>HĐ</b>: ghi <code>x</code> nếu vật tư đã có hóa đơn. Trạng thái: Chờ nhận/Đã nhận/Đang làm/Hoàn thành/Lắp tiếp (trống = Hoàn thành).</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={downloadTemplate} className="gap-2"><Download className="w-4 h-4" /> Tải file mẫu</Button>

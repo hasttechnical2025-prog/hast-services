@@ -403,3 +403,16 @@ ALTER TABLE public.soct_chi_tiet_vat_tu
 ALTER TABLE public.soct_chi_tiet_vat_tu
     ADD COLUMN IF NOT EXISTS ngay_tra DATE;
 
+-- ─────────────────────────────────────────────
+-- supabase_migration_14_da_nhan.sql
+-- ─────────────────────────────────────────────
+-- MIGRATION 14: Thêm trạng thái "Đã nhận" (Chờ nhận -> Đã nhận -> Đang làm -> Hoàn thành/Lắp tiếp)
+ALTER TABLE public.soct_cong_viec DROP CONSTRAINT IF EXISTS soct_cong_viec_ket_qua_check;
+ALTER TABLE public.soct_cong_viec
+  ADD CONSTRAINT soct_cong_viec_ket_qua_check
+  CHECK (ket_qua IN ('Chờ nhận', 'Đã nhận', 'Đang làm', 'Hoàn thành', 'Lắp tiếp'));
+
+UPDATE public.soct_cong_viec
+   SET ket_qua = 'Đã nhận'
+ WHERE ktv_id IS NOT NULL AND ket_qua = 'Chờ nhận';
+

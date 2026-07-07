@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS public.soct_cong_viec (
     so_tien NUMERIC(15, 2) DEFAULT 0, -- Số tiền
     loai_thanh_toan TEXT DEFAULT 'Hóa đơn' CHECK (loai_thanh_toan IN ('Hóa đơn', 'Chưa hóa đơn')),
     ktv_id UUID REFERENCES public.soct_users(id) ON DELETE SET NULL,
-    ket_qua TEXT NOT NULL DEFAULT 'Chờ nhận' CHECK (ket_qua IN ('Chờ nhận', 'Đang làm', 'Hoàn thành', 'Lắp tiếp')),
+    ket_qua TEXT NOT NULL DEFAULT 'Chờ nhận' CHECK (ket_qua IN ('Chờ nhận', 'Đã nhận', 'Đang làm', 'Hoàn thành', 'Lắp tiếp')),
     ghi_chu TEXT,
     repeat_call BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
