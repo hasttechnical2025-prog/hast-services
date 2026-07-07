@@ -42,7 +42,7 @@ export async function GET(request: Request) {
           lng,
           km_mac_dinh
         ),
-        soct_users (
+        soct_users!ktv_id (
           full_name,
           telegram_id
         ),

@@ -14,7 +14,7 @@ export async function GET() {
       .from('soct_cong_viec')
       .select(`id, ngay, report, loai_cong_viec, ket_qua, da_nop_phieu, ngay_nop_phieu, ktv_id,
         soct_khach_hang ( ten_khach_hang ),
-        soct_users ( full_name )`)
+        soct_users!ktv_id ( full_name )`)
       .not('report', 'is', null)
       .neq('report', '')
       .eq('ket_qua', 'Hoàn thành')
