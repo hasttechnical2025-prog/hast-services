@@ -13,7 +13,7 @@ export async function GET() {
     const data = await selectAll((from, to) => supabaseAdmin
       .from('soct_dat_hang')
       .select(`
-        id, ngay_dat, nha_cung_cap, so_don_hang, da_dat, ghi_chu,
+        id, ngay_dat, nha_cung_cap, so_don_hang, da_dat, hoan_thanh, ghi_chu,
         soct_dat_hang_ct (
           id, ma_hang, sl_dat, hoan_thanh,
           soct_kho_hang ( ten_hang, ton_kho ),
