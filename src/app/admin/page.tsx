@@ -1474,8 +1474,8 @@ export default function AdminDashboard() {
               </div>
 
               {/* Cụm: Mã máy (hẹp) & Khách hàng (rộng) */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2">
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                <div className="space-y-2 lg:col-span-1">
                   <label className="text-sm font-medium text-slate-700">Mã máy <span className="text-amber-500 font-normal text-xs italic ml-1">(Gõ mã để điền KH)</span></label>
                   <Input
                     placeholder="VD: 35953"
@@ -1495,7 +1495,7 @@ export default function AdminDashboard() {
                     ? customers.find(c => c.id === formData.id_khach_hang)
                     : undefined
                   return (
-                    <div className="space-y-2 md:col-span-2">
+                    <div className="space-y-2 lg:col-span-4">
                       <label className="text-sm font-medium text-slate-700">
                         Khách hàng <span className="text-red-500">*</span>
                         {isLocked && <span className="text-slate-400 font-normal text-xs italic ml-1">(khóa theo mã máy)</span>}
@@ -1527,7 +1527,7 @@ export default function AdminDashboard() {
 
                 {/* Phần thêm mới khách hàng/máy */}
                 {formData.id_khach_hang === "NEW" && (
-                  <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4 bg-blue-50/50 p-4 rounded-lg border border-blue-100">
+                  <div className="lg:col-span-5 grid grid-cols-1 md:grid-cols-3 gap-4 bg-blue-50/50 p-4 rounded-lg border border-blue-100">
                     <div className="space-y-2">
                        <label className="text-sm font-medium text-slate-700">Tên Khách Hàng mới <span className="text-red-500">*</span></label>
                        <Input placeholder="Nhập tên khách hàng" value={formData.ten_khach_hang_moi} onChange={(e) => setFormData({...formData, ten_khach_hang_moi: e.target.value})} required={formData.id_khach_hang === "NEW"} />
@@ -3246,7 +3246,8 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
                           <Button
                             type="button"
                             onClick={() => addToCart(item.ma_hang, tempQty)}
-                            className="h-7 px-2.5 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-0.5 rounded whitespace-nowrap"
+                            disabled={!tempQty || parseInt(tempQty, 10) <= 0}
+                            className="h-7 px-2.5 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-0.5 rounded whitespace-nowrap disabled:bg-slate-300 disabled:cursor-not-allowed"
                           >
                             + Nhặt
                           </Button>
