@@ -370,19 +370,20 @@ export default function AdminDashboard() {
   // Fetch data
   // Lọc số phiếu / khoảng ngày ở PHÍA SERVER (để tìm được phiếu cũ ngoài 1000 dòng mới nhất);
   // các bộ lọc còn lại (loại việc, KTV, HĐ, trạng thái) vẫn lọc phía client trên tập trả về.
-  const buildJobsUrl = () => {
+  const buildJobsUrl = (customFilters?: typeof jobFilters) => {
+    const f = customFilters || jobFilters
     const p = new URLSearchParams()
-    if (jobFilters.report.trim()) p.set('report', jobFilters.report.trim())
-    if (jobFilters.tuNgay) p.set('tuNgay', jobFilters.tuNgay)
-    if (jobFilters.denNgay) p.set('denNgay', jobFilters.denNgay)
+    if (f.report.trim()) p.set('report', f.report.trim())
+    if (f.tuNgay) p.set('tuNgay', f.tuNgay)
+    if (f.denNgay) p.set('denNgay', f.denNgay)
     const qs = p.toString()
     return '/api/admin/cong-viec' + (qs ? `?${qs}` : '')
   }
 
   // Chỉ tải lại danh sách phiếu (khi đổi bộ lọc số phiếu / ngày) — không tải lại mọi thứ
-  const fetchJobsOnly = async () => {
+  const fetchJobsOnly = async (customFilters?: typeof jobFilters) => {
     try {
-      const res = await fetch(buildJobsUrl())
+      const res = await fetch(buildJobsUrl(customFilters))
       if (res.status === 401) { setCurrentAdmin(null); return }
       const j = await res.json()
       if (j.data) setJobs(j.data)
@@ -730,7 +731,11 @@ export default function AdminDashboard() {
     return 0
   })
 
-  const clearJobFilters = () => setJobFilters({ search: "", report: "", tuNgay: "", denNgay: "", loaiViec: [], ktvId: "", hoaDon: "", trangThai: [] })
+  const clearJobFilters = () => {
+    const empty = { search: "", report: "", tuNgay: "", denNgay: "", loaiViec: [], ktvId: "", hoaDon: "", trangThai: [] }
+    setJobFilters(empty)
+    fetchJobsOnly(empty)
+  }
   const jobFilterActive = !!(jobFilters.search || jobFilters.report || jobFilters.tuNgay || jobFilters.denNgay || jobFilters.loaiViec.length || jobFilters.ktvId || jobFilters.hoaDon || jobFilters.trangThai.length)
   const jobsCol = useColView('jobs', JOBS_COLS)
   const jobsPaged = usePaged(filteredJobs)
