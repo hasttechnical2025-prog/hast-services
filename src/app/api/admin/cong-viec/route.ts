@@ -35,7 +35,7 @@ export async function GET(request: Request) {
       let query = supabaseAdmin
         .from('soct_cong_viec')
         .select(`
-          id, ngay, ma_may, loai_cong_viec, km, ket_qua, report, ghi_chu, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu,
+          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu,
           soct_khach_hang (
             ten_khach_hang,
             dia_chi
