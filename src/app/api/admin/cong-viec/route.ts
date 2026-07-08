@@ -382,11 +382,24 @@ export async function PUT(request: Request) {
           const { data: creator } = await supabaseAdmin.from('soct_users').select('full_name').eq('id', (data as any).created_by).single()
           creatorName = creator?.full_name || ''
         }
+        // Lấy tên người phụ trách còn lại (nếu có)
+        let assigneeText = ''
+        if (next_ktv_id) {
+          const { data: u1 } = await supabaseAdmin.from('soct_users').select('full_name').eq('id', next_ktv_id).single()
+          let txt = `👤 <b>Phụ trách:</b> ${esc(u1?.full_name || 'Không rõ')}`
+          if (next_ktv2_id) {
+            const { data: u2 } = await supabaseAdmin.from('soct_users').select('full_name').eq('id', next_ktv2_id).single()
+            txt = `👥 <b>Phụ trách:</b> ${esc(u1?.full_name || 'Không rõ')} (chính), ${esc(u2?.full_name || 'Không rõ')} (kèm)`
+          }
+          assigneeText = txt
+        }
+
         const msg = [
           '🔄 <b>VIỆC BỊ HỦY NHẬN</b>',
           `${esc(session.full_name)} đã rút khỏi công việc này.`,
           reasonText ? `📝 <b>Lý do:</b> ${esc(reasonText)}` : null,
-          next_ktv_id === null ? `⚠️ <b>Trạng thái:</b> Chờ nhận lại` : `✅ <b>Trạng thái:</b> Đã có người khác phụ trách`,
+          next_ktv_id === null ? `⚠️ <b>Trạng thái:</b> Chờ nhận lại` : `✅ <b>Trạng thái:</b> Đã có người phụ trách`,
+          assigneeText ? assigneeText : null,
           `🗓 <b>Ngày:</b> ${fmtDate(data.ngay)}`,
           `📌 <b>Loại việc:</b> ${esc(data.loai_cong_viec)}`,
           `🏢 <b>Khách hàng:</b> ${esc(kh?.ten_khach_hang || 'Không rõ')}`,

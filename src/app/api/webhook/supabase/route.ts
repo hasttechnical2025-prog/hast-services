@@ -20,10 +20,12 @@ function buildJobMessage(
   appUrl: string,
   extraLine?: string,
   creatorName?: string,
+  assigneeText?: string,
 ) {
   const lines: (string | null)[] = [
     heading,
     extraLine ?? null,
+    assigneeText ?? null,
     `🗓 <b>Ngày thực hiện:</b> ${fmtDate(record.ngay)}`,
     `📌 <b>Loại công việc:</b> ${esc(record.loai_cong_viec)}`,
     `🏢 <b>Khách hàng:</b> ${esc(khachHang?.ten_khach_hang || 'Không rõ')}`,
@@ -69,6 +71,7 @@ export async function POST(request: Request) {
     const groupChatId = process.env.TELEGRAM_GROUP_CHAT_ID
 
     const ktvId = record.ktv_id
+    const ktv2Id = record.ktv2_id
 
     // Chỉ báo cho việc mới giao: 'Chờ nhận' (vào pool) hoặc 'Đã nhận' (gán KTV lúc tạo).
     // Việc đã Đang làm/Hoàn thành/Lắp tiếp (VD import lịch sử) -> KHÔNG bắn, tránh spam.
@@ -77,79 +80,84 @@ export async function POST(request: Request) {
     }
 
     // 3. Xác định loại thông báo cần gửi
-    // - INSERT + đã gán KTV  -> nhắn riêng KTV đó
-    // - INSERT + chưa gán    -> bắn vào group chung (pool chờ nhận)
-    // - UPDATE + ktv_id đổi sang người mới -> nhắn riêng người mới (gán/nhận việc)
-    let target: 'dm' | 'group' | null = null
+    let sendToGroup = false
+    let sendDmToKtv1 = false
+    let sendDmToKtv2 = false
 
     if (type === 'INSERT') {
-      target = ktvId ? 'dm' : 'group'
+      if (!ktvId) sendToGroup = true
+      if (ktvId) sendDmToKtv1 = true
+      if (ktv2Id) sendDmToKtv2 = true
     } else if (type === 'UPDATE') {
-      if (ktvId && ktvId !== old_record?.ktv_id) {
-        target = 'dm'
-      }
+      if (ktvId && ktvId !== old_record?.ktv_id) sendDmToKtv1 = true
+      if (ktv2Id && ktv2Id !== old_record?.ktv2_id) sendDmToKtv2 = true
     }
 
-    if (!target) {
+    if (!sendToGroup && !sendDmToKtv1 && !sendDmToKtv2) {
       return NextResponse.json({ message: 'No notification needed' })
     }
 
-    // 4. Lấy thông tin khách hàng
+    // 4. Lấy thông tin phụ (Khách hàng, Người tạo, Tên KTV)
     const { data: khachHang } = await supabaseAdmin
       .from('soct_khach_hang')
       .select('ten_khach_hang, dia_chi')
       .eq('id', record.id_khach_hang)
       .single()
 
-    // Người tạo phiếu (để hiển thị trong tin nhắn)
     let creatorName = ''
     if (record.created_by) {
-      const { data: creator } = await supabaseAdmin
-        .from('soct_users')
-        .select('full_name')
-        .eq('id', record.created_by)
-        .single()
+      const { data: creator } = await supabaseAdmin.from('soct_users').select('full_name').eq('id', record.created_by).single()
       creatorName = creator?.full_name || ''
     }
 
-    // 5a. Gửi tin nhắn riêng cho KTV được gán/đã nhận
-    if (target === 'dm') {
-      const { data: user } = await supabaseAdmin
-        .from('soct_users')
-        .select('telegram_id, full_name')
-        .eq('id', ktvId)
-        .single()
-
-      if (user?.telegram_id) {
-        const msg = buildJobMessage(
-          '🔔 <b>CÔNG VIỆC ĐƯỢC GIAO</b>',
-          record,
-          khachHang,
-          appUrl,
-          `Xin chào ${esc(user.full_name)}, bạn có một công việc!`,
-          creatorName
-        )
-        await sendTelegramMessage(user.telegram_id, msg)
-      }
-      return NextResponse.json({ success: true, sent: 'dm' })
+    let ktv1Name = '', ktv1Tg = ''
+    if (ktvId) {
+      const { data: u1 } = await supabaseAdmin.from('soct_users').select('full_name, telegram_id').eq('id', ktvId).single()
+      if (u1) { ktv1Name = u1.full_name; ktv1Tg = u1.telegram_id || '' }
     }
 
-    // 5b. Bắn vào group chung: việc mới chưa gán, KTV nào rảnh vào nhận
-    if (target === 'group') {
-      if (!groupChatId) {
-        console.error('Missing TELEGRAM_GROUP_CHAT_ID for group notification')
-        return NextResponse.json({ message: 'Group chat id not configured' })
-      }
+    let ktv2Name = '', ktv2Tg = ''
+    if (ktv2Id) {
+      const { data: u2 } = await supabaseAdmin.from('soct_users').select('full_name, telegram_id').eq('id', ktv2Id).single()
+      if (u2) { ktv2Name = u2.full_name; ktv2Tg = u2.telegram_id || '' }
+    }
+
+    let assigneeText = ''
+    if (ktv1Name && ktv2Name) assigneeText = `👥 <b>Phân công:</b> ${esc(ktv1Name)} (chính), ${esc(ktv2Name)} (kèm)`
+    else if (ktv1Name) assigneeText = `👤 <b>Phân công:</b> ${esc(ktv1Name)}`
+    else if (ktv2Name) assigneeText = `👤 <b>Phân công:</b> ${esc(ktv2Name)} (kèm)`
+
+    // 5. Bắn thông báo
+    // Gửi DM cho KTV 1
+    if (sendDmToKtv1 && ktv1Tg) {
+      const msg = buildJobMessage(
+        '🔔 <b>CÔNG VIỆC ĐƯỢC GIAO</b>',
+        record, khachHang, appUrl,
+        `Xin chào ${esc(ktv1Name)}, bạn có một công việc!`,
+        creatorName, assigneeText
+      )
+      await sendTelegramMessage(ktv1Tg, msg)
+    }
+
+    // Gửi DM cho KTV 2
+    if (sendDmToKtv2 && ktv2Tg) {
+      const msg = buildJobMessage(
+        '🔔 <b>CÔNG VIỆC ĐI KÈM ĐƯỢC GIAO</b>',
+        record, khachHang, appUrl,
+        `Xin chào ${esc(ktv2Name)}, bạn được gán làm KTV kèm cho một công việc!`,
+        creatorName, assigneeText
+      )
+      await sendTelegramMessage(ktv2Tg, msg)
+    }
+
+    // Gửi Group chung
+    if (sendToGroup && groupChatId) {
       const msg = buildJobMessage(
         '🆕 <b>CÔNG VIỆC MỚI — CHỜ NHẬN</b>',
-        record,
-        khachHang,
-        appUrl,
-        undefined,
-        creatorName
+        record, khachHang, appUrl,
+        undefined, creatorName, assigneeText
       )
       await sendTelegramMessage(groupChatId, msg)
-      return NextResponse.json({ success: true, sent: 'group' })
     }
 
     return NextResponse.json({ success: true })
