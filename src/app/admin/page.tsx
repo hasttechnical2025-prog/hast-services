@@ -720,9 +720,14 @@ export default function AdminDashboard() {
     if (f.trangThai.length && !f.trangThai.includes(j.ket_qua)) return false
     return true
   }).sort((a, b) => {
-    // Mới nhất -> cũ nhất: theo ngày giảm dần, cùng ngày thì số phiếu giảm dần
-    if (a.ngay !== b.ngay) return a.ngay < b.ngay ? 1 : -1
-    return String(b.report || '').localeCompare(String(a.report || ''), undefined, { numeric: true })
+    // Sắp xếp: Thời gian tạo mới nhất lên đầu tiên.
+    // Dữ liệu từ API đã sắp xếp sẵn theo `created_at` DESC.
+    // Nếu muốn đảm bảo tuyệt đối, chúng ta có thể dùng `id` (UUIDv4 mặc định không sort được theo time tốt bằng created_at).
+    // Ở API (/api/admin/cong-viec) đã có `.order('created_at', { ascending: false })`.
+    // Do đó, ta chỉ cần giữ nguyên thứ tự ban đầu từ API (hoặc sort theo created_at nếu có ở frontend).
+    // Vì frontend không load `created_at` để tối ưu payload, ta có thể bỏ sort ở frontend
+    // và tin tưởng vào thứ tự trả về từ server (đã sort `ngay DESC, created_at DESC`).
+    return 0
   })
 
   const clearJobFilters = () => setJobFilters({ search: "", report: "", tuNgay: "", denNgay: "", loaiViec: [], ktvId: "", hoaDon: "", trangThai: [] })
