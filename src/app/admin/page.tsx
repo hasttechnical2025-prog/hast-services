@@ -3005,9 +3005,6 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
   const [leftLowStock, setLeftLowStock] = useState(false)
   const [leftQuantities, setLeftQuantities] = useState<Record<string, string>>({})
 
-  // Trích xuất danh sách model máy duy nhất từ kho để lọc
-  const modelOptions = Array.from(new Set(inventory.map(i => i.model).filter(Boolean).map(m => String(m).trim()))).sort()
-
   const addToCart = (ma_hang: string, qtyStr: string) => {
     const qty = parseInt(qtyStr, 10) || 0
     if (qty <= 0) return showNotification('error', "Nhập số lượng lớn hơn 0")
@@ -3157,7 +3154,6 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
 
               <div className="relative w-44">
                 <Input
-                  list="dh-model-list"
                   placeholder="Tìm / gõ model..."
                   className="h-8 text-xs bg-white pr-6"
                   value={leftModel}
@@ -3172,9 +3168,6 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
                     ✕
                   </button>
                 )}
-                <datalist id="dh-model-list">
-                  {modelOptions.map(m => <option key={m} value={m} />)}
-                </datalist>
               </div>
 
               <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none h-8">
