@@ -3918,6 +3918,10 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
   const [exporting, setExporting] = useState(false)
   const [working, setWorking] = useState(false)
 
+  // State phục vụ Modal xác nhận Đã lên hóa đơn
+  const [confirmInvoiceOpen, setConfirmInvoiceOpen] = useState(false)
+  const [confirmInvoiceTxt, setConfirmInvoiceTxt] = useState("")
+
   const fetchList = async () => {
     setLoading(true)
     try { const res = await fetch('/api/admin/cong-no'); const j = await res.json(); if (res.ok) setList(j.data || []); else showNotification('error', j.error) }
@@ -4019,7 +4023,21 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
             <label key={c.id} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 cursor-pointer text-sm">
               <input type="checkbox" checked={selIds.includes(c.id)} onChange={() => toggleSel(c)} className="w-4 h-4 accent-blue-600" />
               <span className="flex-1 text-slate-700">{c.ten}</span>
-              <span className="text-xs text-slate-400 whitespace-nowrap">{c.tickets.length} phiếu · {c.tickets.map((t: any) => t.report).join(', ')}</span>
+              <span className="text-xs text-slate-400 whitespace-nowrap">
+                {c.tickets.length} phiếu · {c.tickets.map((t: any, idx: number) => (
+                  <span key={t.id}>
+                    {idx > 0 && ', '}
+                    <span className={t.trang_thai_hd === 'Đã báo giá' ? 'text-blue-600 font-semibold' : ''}>
+                      {t.report}
+                    </span>
+                    {t.trang_thai_hd === 'Đã báo giá' && (
+                      <span className="ml-1 px-1 py-[1px] text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded relative -top-0.5">
+                        Đã BG
+                      </span>
+                    )}
+                  </span>
+                ))}
+              </span>
             </label>
           ))}
         </div>
@@ -4108,7 +4126,37 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setStatus('Đã báo giá')} disabled={working} className="h-9">Đánh dấu đã báo giá</Button>
-              <Button onClick={() => setStatus('Đã lên hóa đơn')} disabled={working} className="h-9 bg-emerald-600 hover:bg-emerald-700">Đã lên hóa đơn</Button>
+              <Button onClick={() => { setConfirmInvoiceTxt(""); setConfirmInvoiceOpen(true) }} disabled={working} className="h-9 bg-emerald-600 hover:bg-emerald-700">Đã lên hóa đơn</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal xác nhận Đã lên hóa đơn */}
+      {confirmInvoiceOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="p-6 space-y-3">
+              <h3 className="text-lg font-bold text-red-700 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" /> Cảnh báo: Lên hóa đơn
+              </h3>
+              <p className="text-sm text-slate-600">
+                Tất cả các phiếu lựa chọn sẽ được chuyển sang trạng thái <b>Đã lên hóa đơn</b> và biến mất khỏi Công nợ khách hàng. Hãy cẩn trọng!<br/><br/>Nhập chữ <b>ĐÃ LÊN HÓA ĐƠN</b> để xác nhận.
+              </p>
+              <Input value={confirmInvoiceTxt} onChange={(e) => setConfirmInvoiceTxt(e.target.value)} placeholder="Gõ ĐÃ LÊN HÓA ĐƠN" className="bg-white font-semibold" autoFocus />
+            </div>
+            <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
+              <Button variant="outline" onClick={() => setConfirmInvoiceOpen(false)}>Hủy</Button>
+              <Button
+                variant="destructive"
+                disabled={!['ĐÃ LÊN HÓA ĐƠN', 'DA LEN HOA DON', 'ĐA LÊN HOÁ ĐƠN'].includes(confirmInvoiceTxt.trim().toUpperCase().replace(/\s+/g, ' ')) || working}
+                onClick={async () => {
+                  await setStatus('Đã lên hóa đơn')
+                  setConfirmInvoiceOpen(false)
+                }}
+              >
+                {working ? 'Đang xử lý...' : 'Xác nhận lên hóa đơn'}
+              </Button>
             </div>
           </div>
         </div>
