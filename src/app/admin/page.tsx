@@ -515,7 +515,7 @@ export default function AdminDashboard() {
   const handleAddVatTu = () => {
     setFormData(prev => ({
       ...prev,
-      vat_tu: [...prev.vat_tu, { ma_hang: "", so_luong: "1", don_gia: "", vat: "", hoa_don: true }]
+      vat_tu: [...prev.vat_tu, { ma_hang: "", so_luong: "1", don_gia: "", vat: "8", hoa_don: true }]
     }))
   }
 
@@ -523,7 +523,7 @@ export default function AdminDashboard() {
   const handleAddGiamDinhVatTu = () => {
     if (!mayStatus) return
     const lines = mayStatus.giam_dinh.flatMap((g: any) =>
-      (g.soct_giam_dinh_vat_tu || []).map((v: any) => ({ ma_hang: v.ma_hang, so_luong: String(v.so_luong), don_gia: "", vat: "", hoa_don: true }))
+      (g.soct_giam_dinh_vat_tu || []).map((v: any) => ({ ma_hang: v.ma_hang, so_luong: String(v.so_luong), don_gia: "", vat: "8", hoa_don: true }))
     )
     if (lines.length === 0) return
     // Bỏ dòng trống mặc định, tránh trùng mã đã có
