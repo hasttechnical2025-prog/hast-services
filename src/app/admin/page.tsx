@@ -3208,7 +3208,11 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
                       const match = (item.ma_hang || '').toLowerCase().includes(q) || (item.ten_hang || '').toLowerCase().includes(q)
                       if (!match) return false
                     }
-                    if (leftModel && String(item.model || '').trim().toLowerCase() !== leftModel.trim().toLowerCase()) return false
+                    if (leftModel) {
+                      const qModel = leftModel.trim().toLowerCase()
+                      const itemModel = String(item.model || '').toLowerCase()
+                      if (!itemModel.includes(qModel)) return false
+                    }
                     if (leftLowStock && item.ton_kho > 0) return false
                     return true
                   })
