@@ -35,12 +35,15 @@ export async function GET(request: Request) {
       let query = supabaseAdmin
         .from('soct_cong_viec')
         .select(`
-          id, ngay, ma_may, loai_cong_viec, km, ket_qua, report, ghi_chu, ktv_id, so_luong, created_by, da_nop_phieu,
+          id, ngay, ma_may, loai_cong_viec, km, ket_qua, report, ghi_chu, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu,
           soct_khach_hang (
             ten_khach_hang,
             dia_chi
           ),
           soct_users!ktv_id (
+            full_name
+          ),
+          ktv2:soct_users!ktv2_id (
             full_name
           ),
           soct_chi_tiet_vat_tu (
@@ -101,6 +104,7 @@ export async function POST(request: Request) {
       km,
       so_luong,
       ktv_id,
+      ktv2_id,
       report,
       ghi_chu,
       vat_tu // mảng: [{ ma_hang, so_luong, don_gia, vat, hoa_don }]
@@ -148,6 +152,7 @@ export async function POST(request: Request) {
         km: km || 0,
         so_luong: parseInt(so_luong) || 1,
         ktv_id: ktv_id || null,
+        ktv2_id: ktv2_id || null,
         report: reportNorm || null,
         ghi_chu,
         repeat_call,
@@ -214,7 +219,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { id, claim, release, reason, ket_qua, ktv_id, report, ghi_chu, edit } = body
+    const { id, claim, release, reason, ket_qua, ktv_id, ktv2_id, report, ghi_chu, edit } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
@@ -258,7 +263,9 @@ export async function PUT(request: Request) {
           ngay: ngay || new Date().toISOString().split('T')[0],
           ma_may: ma_may || null, id_khach_hang, loai_cong_viec,
           km: km || 0, so_luong: parseInt(so_luong) || 1,
-          ktv_id: ktv_id || null, report: reportNorm || null, ghi_chu,
+          ktv_id: ktv_id || null,
+          ktv2_id: ktv2_id || null,
+          report: reportNorm || null, ghi_chu,
           ket_qua: nextKetQua,
           trang_thai_hd: nextTrangThaiHd,
         })
@@ -377,6 +384,7 @@ export async function PUT(request: Request) {
     } else {
       if (ket_qua !== undefined) updates.ket_qua = ket_qua
       if (ktv_id !== undefined) updates.ktv_id = ktv_id || null
+      if (ktv2_id !== undefined) updates.ktv2_id = ktv2_id || null
       if (report !== undefined) updates.report = report
       if (ghi_chu !== undefined) updates.ghi_chu = ghi_chu
     }

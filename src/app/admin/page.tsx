@@ -33,8 +33,11 @@ type Job = {
   ket_qua: string
   ghi_chu: string
   report?: string
+  ktv_id: string | null
+  ktv2_id: string | null
   soct_khach_hang: { ten_khach_hang: string; dia_chi: string; km_mac_dinh: number }
   soct_users: { full_name: string } | null
+  ktv2: { full_name: string } | null
   soct_chi_tiet_vat_tu?: VatTuChiTiet[]
 }
 
@@ -296,6 +299,7 @@ export default function AdminDashboard() {
     km: 0,
     so_luong: 1,
     ktv_id: "",
+    ktv2_id: "",
     report: "",
     ghi_chu: "",
     vat_tu: [] as {ma_hang: string, so_luong: string, don_gia: string, vat: string, hoa_don: boolean}[],
@@ -319,6 +323,7 @@ export default function AdminDashboard() {
       km: 0,
       so_luong: 1,
       ktv_id: "",
+      ktv2_id: "",
       report: "",
       ghi_chu: "",
       vat_tu: [],
@@ -344,6 +349,7 @@ export default function AdminDashboard() {
       km: job.km || 0,
       so_luong: job.so_luong || 1,
       ktv_id: job.ktv_id || '',
+      ktv2_id: job.ktv2_id || '',
       report: job.report || '',
       ghi_chu: job.ghi_chu || '',
       vat_tu: (job.soct_chi_tiet_vat_tu || []).map((v: any) => ({ ma_hang: v.ma_hang, so_luong: String(v.so_luong), don_gia: String(v.don_gia ?? ''), vat: String(v.vat ?? ''), hoa_don: !!v.hoa_don })),
@@ -1044,7 +1050,20 @@ export default function AdminDashboard() {
                         </td>}
                         {jobsCol.show('ma_may') && <td className="px-4 py-3 font-mono text-xs">{job.ma_may || '-'}</td>}
                         {jobsCol.show('loai') && <td className="px-4 py-3">{job.loai_cong_viec}</td>}
-                        {jobsCol.show('ktv') && <td className="px-4 py-3">{job.soct_users?.full_name || <span className="text-amber-600 italic">Chưa giao</span>}</td>}
+                        {jobsCol.show('ktv') && <td className="px-4 py-3">
+                          {job.soct_users?.full_name ? (
+                            <div>
+                              <div className="font-medium text-slate-800">{job.soct_users.full_name}</div>
+                              {job.ktv2?.full_name && (
+                                <div className="text-[11px] text-slate-500 mt-0.5">
+                                  + {job.ktv2.full_name} <span className="text-[10px] text-slate-400 italic">(kèm)</span>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-amber-600 italic">Chưa giao</span>
+                          )}
+                        </td>}
                         {jobsCol.show('km') && <td className="px-4 py-3 text-center text-xs">
                           {job.km ? `${job.km.toLocaleString('vi-VN')} km` : '0 km'}
                         </td>}
@@ -1415,22 +1434,39 @@ export default function AdminDashboard() {
                   Nếu thay đổi vật tư của phiếu đã trừ kho, hãy chỉnh tồn ở tab Kho hàng hoặc dùng nút "Trả vật tư" cho đúng.
                 </div>
               )}
-              {/* Cụm: Ngày (hẹp) & Kỹ thuật viên (rộng) — cân đối với Mã máy/Khách hàng */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2">
+              {/* Cụm: Ngày (20%) & KTV chính (40%) & KTV kèm (40%) */}
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                <div className="space-y-2 lg:col-span-1">
                   <label className="text-sm font-medium text-slate-700">Ngày</label>
                   <DateField value={formData.ngay} onChange={(v) => setFormData({...formData, ngay: v})} />
                 </div>
 
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-sm font-medium text-slate-700">Kỹ thuật viên</label>
+                <div className="space-y-2 lg:col-span-2">
+                  <label className="text-sm font-medium text-slate-700">Kỹ thuật viên (chính)</label>
                   <select
                     className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
                     value={formData.ktv_id}
-                    onChange={(e) => setFormData({...formData, ktv_id: e.target.value})}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      setFormData(prev => ({ ...prev, ktv_id: v, ktv2_id: prev.ktv2_id === v ? "" : prev.ktv2_id }))
+                    }}
                   >
-                    <option value="">-- Chưa giao KTV --</option>
+                    <option value="">-- Chưa giao --</option>
                     {technicians.filter(t => t.role === 'ktv').map(t => (
+                      <option key={t.id} value={t.id}>{t.full_name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2 lg:col-span-2">
+                  <label className="text-sm font-medium text-slate-700">Kỹ thuật viên (kèm)</label>
+                  <select
+                    className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                    value={formData.ktv2_id}
+                    onChange={(e) => setFormData({...formData, ktv2_id: e.target.value})}
+                  >
+                    <option value="">-- Không có người đi kèm --</option>
+                    {technicians.filter(t => t.role === 'ktv' && t.id !== formData.ktv_id).map(t => (
                       <option key={t.id} value={t.id}>{t.full_name}</option>
                     ))}
                   </select>
