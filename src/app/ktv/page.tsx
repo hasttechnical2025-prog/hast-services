@@ -24,7 +24,9 @@ type Job = {
   report?: string
   da_nop_phieu?: boolean
   ktv_id: string | null
+  ktv2_id: string | null
   soct_khach_hang: { ten_khach_hang: string; dia_chi: string; km_mac_dinh: number }
+  ktv2: { full_name: string } | null
   soct_chi_tiet_vat_tu: Array<{
     id: string
     ma_hang: string
@@ -234,7 +236,7 @@ export default function KtvMobileWeb() {
 
   // Phân loại: việc của tôi (đang hoạt động) và pool chờ nhận; ẩn việc đã Hoàn thành
   const myJobs = currentKtv
-    ? jobs.filter(j => j.ktv_id === currentKtv.id && j.ket_qua !== 'Hoàn thành')
+    ? jobs.filter(j => (j.ktv_id === currentKtv.id || j.ktv2_id === currentKtv.id) && j.ket_qua !== 'Hoàn thành')
     : []
   const poolJobs = jobs.filter(j => !j.ktv_id && j.ket_qua !== 'Hoàn thành')
   // Phiếu cứng đã hoàn thành nhưng chưa nộp bản giấy về VP
@@ -465,6 +467,13 @@ export default function KtvMobileWeb() {
                     </div>
                   </div>
 
+                  {activeJob.ktv2 && (
+                    <div className="bg-violet-50 text-violet-700 px-3 py-2 rounded-lg border border-violet-100 text-xs flex items-center gap-2">
+                      <div className="w-6 h-6 bg-violet-200 rounded-full flex items-center justify-center shrink-0">👥</div>
+                      <div><b>Phân công:</b> Bạn đi làm cùng <b>{activeJob.ktv2.full_name}</b> (KTV kèm)</div>
+                    </div>
+                  )}
+
                   {/* Job Specs */}
                   <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-100 text-xs text-slate-600">
                     <div>Mã máy: <span className="font-bold text-slate-700 font-mono">{activeJob.ma_may || '-'}</span></div>
@@ -501,7 +510,7 @@ export default function KtvMobileWeb() {
                   {/* NÚT THAO TÁC CỦA KTV */}
                   <div className="pt-2 border-t border-slate-100 flex gap-2">
                     {/* Việc trong pool: nút nhận việc */}
-                    {!activeJob.ktv_id && (
+                    {(!activeJob.ktv_id && !activeJob.ktv2_id) && (
                       <Button
                         onClick={() => handleClaim(activeJob.id)}
                         className="w-full bg-amber-500 hover:bg-amber-600 text-white gap-2 h-11 text-sm rounded-lg"
@@ -511,7 +520,7 @@ export default function KtvMobileWeb() {
                     )}
 
                     {/* Việc của mình, đã nhận nhưng chưa bắt đầu (gồm cả dữ liệu cũ còn 'Chờ nhận') */}
-                    {activeJob.ktv_id && (activeJob.ket_qua === 'Đã nhận' || activeJob.ket_qua === 'Chờ nhận') && (
+                    {(activeJob.ktv_id === currentKtv?.id || activeJob.ktv2_id === currentKtv?.id) && (activeJob.ket_qua === 'Đã nhận' || activeJob.ket_qua === 'Chờ nhận') && (
                       <>
                         <Button
                           onClick={() => handleUpdateStatus(activeJob.id, 'Đang làm')}
@@ -529,7 +538,7 @@ export default function KtvMobileWeb() {
                       </>
                     )}
 
-                    {activeJob.ktv_id && activeJob.ket_qua === 'Đang làm' && (
+                    {(activeJob.ktv_id === currentKtv?.id || activeJob.ktv2_id === currentKtv?.id) && activeJob.ket_qua === 'Đang làm' && (
                       <>
                         <Button
                           onClick={() => handleUpdateStatus(activeJob.id, 'Lắp tiếp')}
@@ -547,7 +556,7 @@ export default function KtvMobileWeb() {
                       </>
                     )}
 
-                    {activeJob.ktv_id && activeJob.ket_qua === 'Lắp tiếp' && (
+                    {(activeJob.ktv_id === currentKtv?.id || activeJob.ktv2_id === currentKtv?.id) && activeJob.ket_qua === 'Lắp tiếp' && (
                       <Button
                         onClick={() => handleUpdateStatus(activeJob.id, 'Hoàn thành')}
                         className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2 h-11 text-sm rounded-lg"

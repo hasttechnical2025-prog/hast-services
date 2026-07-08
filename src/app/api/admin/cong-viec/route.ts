@@ -322,25 +322,55 @@ export async function PUT(request: Request) {
     }
 
     // KTV HỦY NHẬN việc: chỉ khi việc thuộc về mình & CHƯA bắt đầu (Đã nhận / Chờ nhận).
-    // -> trả về pool (ktv_id null, 'Chờ nhận'), bắn lại group Telegram để người khác nhận.
+    // KTV1 hủy -> KTV2 lên làm chính (nếu có), không có -> về pool. KTV2 hủy -> bỏ KTV2.
     if (session.role === 'ktv' && release === true) {
+      // 1. Lấy thông tin phiếu hiện tại
+      const { data: curJob, error: fetchErr } = await supabaseAdmin
+        .from('soct_cong_viec')
+        .select('id, ktv_id, ktv2_id, ket_qua, ngay, ma_may, report, loai_cong_viec, created_by, soct_khach_hang ( ten_khach_hang, dia_chi )')
+        .eq('id', id)
+        .in('ket_qua', ['Đã nhận', 'Chờ nhận'])
+        .single()
+
+      if (fetchErr || !curJob) {
+        return NextResponse.json({ error: 'Chỉ hủy được việc bạn đã nhận và chưa bắt đầu.' }, { status: 409 })
+      }
+      if (curJob.ktv_id !== session.id && curJob.ktv2_id !== session.id) {
+        return NextResponse.json({ error: 'Bạn không có trong danh sách phân công của việc này.' }, { status: 403 })
+      }
+
+      // 2. Xử lý logic hủy 2 KTV
+      let next_ktv_id = curJob.ktv_id
+      let next_ktv2_id = curJob.ktv2_id
+      let next_ket_qua = curJob.ket_qua
+
+      if (curJob.ktv_id === session.id) {
+        // KTV chính hủy
+        if (curJob.ktv2_id) {
+          next_ktv_id = curJob.ktv2_id // KTV kèm lên chính
+          next_ktv2_id = null
+        } else {
+          next_ktv_id = null // Về pool
+          next_ket_qua = 'Chờ nhận'
+        }
+      } else if (curJob.ktv2_id === session.id) {
+        // KTV kèm hủy
+        next_ktv2_id = null
+      }
+
+      // 3. Cập nhật db
       const { data, error } = await supabaseAdmin
         .from('soct_cong_viec')
-        .update({ ktv_id: null, ket_qua: 'Chờ nhận' })
+        .update({ ktv_id: next_ktv_id, ktv2_id: next_ktv2_id, ket_qua: next_ket_qua })
         .eq('id', id)
-        .eq('ktv_id', session.id)
-        .in('ket_qua', ['Đã nhận', 'Chờ nhận'])
         .select('id, ngay, ma_may, report, loai_cong_viec, created_by, soct_khach_hang ( ten_khach_hang, dia_chi )')
         .single()
 
       if (error) {
-        if (error.code === 'PGRST116') {
-          return NextResponse.json({ error: 'Chỉ hủy được việc bạn đã nhận và chưa bắt đầu.' }, { status: 409 })
-        }
-        throw error
+        return NextResponse.json({ error: 'Không thể hủy nhận việc lúc này.' }, { status: 500 })
       }
 
-      // Bắn group: có việc chờ nhận lại (kèm lý do) — KTV khác vào nhận / Office phân công
+      // Bắn group: có việc bị hủy (kèm lý do) — để team/văn phòng biết
       const groupChatId = process.env.TELEGRAM_GROUP_CHAT_ID
       if (groupChatId) {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://techservice.app'
@@ -353,17 +383,17 @@ export async function PUT(request: Request) {
           creatorName = creator?.full_name || ''
         }
         const msg = [
-          '🔄 <b>VIỆC BỊ HỦY NHẬN — CHỜ NHẬN LẠI</b>',
-          `${esc(session.full_name)} đã hủy nhận việc.`,
+          '🔄 <b>VIỆC BỊ HỦY NHẬN</b>',
+          `${esc(session.full_name)} đã rút khỏi công việc này.`,
           reasonText ? `📝 <b>Lý do:</b> ${esc(reasonText)}` : null,
+          next_ktv_id === null ? `⚠️ <b>Trạng thái:</b> Chờ nhận lại` : `✅ <b>Trạng thái:</b> Đã có người khác phụ trách`,
           `🗓 <b>Ngày:</b> ${fmtDate(data.ngay)}`,
           `📌 <b>Loại việc:</b> ${esc(data.loai_cong_viec)}`,
           `🏢 <b>Khách hàng:</b> ${esc(kh?.ten_khach_hang || 'Không rõ')}`,
           `📍 <b>Địa chỉ:</b> ${esc(kh?.dia_chi || 'Không rõ')}`,
           `🖨 <b>Mã máy:</b> ${esc(data.ma_may || 'N/A')}`,
           creatorName ? `👤 <b>Người tạo phiếu:</b> ${esc(creatorName)}` : null,
-          '',
-          `👉 <a href="${appUrl}/ktv">Mở App KTV để nhận việc</a>`,
+          next_ktv_id === null ? `\n👉 <a href="${appUrl}/ktv">Mở App KTV để nhận việc</a>` : null,
         ].filter(l => l !== null).join('\n')
         await sendTelegramMessage(groupChatId, msg)
       }
@@ -394,9 +424,9 @@ export async function PUT(request: Request) {
       .update(updates)
       .eq('id', id)
 
-    // KTV chỉ được cập nhật công việc gán cho chính mình
+    // KTV chỉ được cập nhật công việc gán cho chính mình HOẶC mình làm kèm
     if (session.role === 'ktv') {
-      query = query.eq('ktv_id', session.id)
+      query = query.or(`ktv_id.eq.${session.id},ktv2_id.eq.${session.id}`)
     }
 
     const { data, error } = await query.select().single()
