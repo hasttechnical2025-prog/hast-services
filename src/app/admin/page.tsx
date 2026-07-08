@@ -3010,9 +3010,31 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
   const [leftLowStock, setLeftLowStock] = useState(false)
   const [leftQuantities, setLeftQuantities] = useState<Record<string, string>>({})
 
+  // Tính số lượng hàng "Chờ về" (đang đặt từ NCC nhưng chưa nhận đủ)
+  const getPendingInfo = (ma_hang: string) => {
+    let pendingQty = 0
+    const details: string[] = []
+    for (const o of orders) {
+      if (o.hoan_thanh) continue
+      const line = (o.soct_dat_hang_ct || []).find((l: any) => l.ma_hang === ma_hang)
+      if (line) {
+        const nhan = (line.soct_hang_ve_dot || []).reduce((s: number, h: any) => s + h.so_luong_nhan, 0)
+        const thieu = line.sl_dat - nhan
+        if (thieu > 0) {
+          pendingQty += thieu
+          details.push(`• Đơn ${o.so_don_hang || 'nháp'} (${o.nha_cung_cap || 'Chưa có NCC'}): thiếu ${thieu} cái`)
+        }
+      }
+    }
+    return { pendingQty, tooltip: details.length > 0 ? `HÀNG CHỜ VỀ:\n${details.join('\n')}` : "" }
+  }
+
   const addToCart = (ma_hang: string, qtyStr: string) => {
     const qty = parseInt(qtyStr, 10) || 0
     if (qty <= 0) return showNotification('error', "Nhập số lượng lớn hơn 0")
+
+    const { pendingQty } = getPendingInfo(ma_hang)
+
     setLines(prev => {
       const existing = prev.find(l => l.ma_hang === ma_hang)
       if (existing) {
@@ -3021,7 +3043,12 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
       return [...prev, { ma_hang, sl_dat: String(qty) }]
     })
     setLeftQuantities(prev => ({ ...prev, [ma_hang]: "" }))
-    showNotification('success', `Đã nhặt vật tư vào giỏ hàng.`)
+
+    if (pendingQty > 0) {
+      showNotification('error', `Lưu ý: Mã này vẫn còn ${pendingQty} cái đang chờ giao từ các đơn cũ. Đã thêm ${qty} cái vào giỏ hàng.`)
+    } else {
+      showNotification('success', `Đã nhặt vật tư vào giỏ hàng.`)
+    }
   }
 
   const fetchOrders = async () => {
@@ -3070,6 +3097,7 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
   const rmLine = (i: number) => setLines(p => p.filter((_, idx) => idx !== i))
 
   const handleCreate = async () => {
+    if (!form.nha_cung_cap.trim()) return showNotification('error', "Vui lòng chọn hoặc nhập Nhà cung cấp")
     const valid = lines.filter(l => l.ma_hang && parseInt(l.sl_dat) > 0)
     if (valid.length === 0) return showNotification('error', "Thêm ít nhất một dòng hàng hợp lệ")
     setSaving(true)
@@ -3078,7 +3106,7 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
       if (res.ok) {
         showNotification('success', "Đã tạo đơn đặt hàng.")
         setForm({ ngay_dat: new Date().toISOString().split('T')[0], nha_cung_cap: "", so_don_hang: "", da_dat: false })
-        setLines([{ ma_hang: "", sl_dat: "1" }]); fetchOrders()
+        setLines([]); fetchOrders()
       } else { const err = await res.json(); showNotification('error', err.error) }
     } catch { showNotification('error', "Lỗi kết nối!") }
     finally { setSaving(false) }
@@ -3191,11 +3219,12 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
             <table className="w-full text-left text-xs text-slate-600 min-w-[550px]">
               <thead className="bg-slate-50 text-slate-500 font-semibold uppercase sticky top-0 border-b border-slate-200 z-10">
                 <tr>
-                  <th className="px-3 py-2 min-w-[200px]">Vật tư</th>
-                  <th className="px-3 py-2 text-center w-28">Model</th>
-                  <th className="px-3 py-2 text-center w-14">Tồn</th>
-                  <th className="px-3 py-2 text-center w-24 min-w-[80px]">SL đặt</th>
-                  <th className="px-3 py-2 text-center w-16">Nhặt</th>
+                  <th className="px-3 py-2 min-w-[180px]">Vật tư</th>
+                  <th className="px-3 py-2 text-center w-24">Model</th>
+                  <th className="px-3 py-2 text-center w-12">Tồn</th>
+                  <th className="px-3 py-2 text-center w-14">Chờ về</th>
+                  <th className="px-3 py-2 text-center w-20 min-w-[70px]">SL đặt</th>
+                  <th className="px-3 py-2 text-center w-10"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -3216,20 +3245,34 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
                   })
 
                   if (filtered.length === 0) {
-                    return <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400 italic">Không tìm thấy vật tư khớp bộ lọc.</td></tr>
+                    return <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400 italic">Không tìm thấy vật tư khớp bộ lọc.</td></tr>
                   }
 
                   return filtered.map(item => {
                     const tempQty = leftQuantities[item.ma_hang] || ""
                     const isOut = item.ton_kho <= 0
+                    const { pendingQty, tooltip } = getPendingInfo(item.ma_hang)
+
                     return (
                       <tr key={item.ma_hang} className="hover:bg-slate-50/80 transition-colors">
                         <td className="px-3 py-2.5">
                           <div className="font-mono font-bold text-slate-700">{item.ma_hang}</div>
                           <div className="text-slate-500 font-normal leading-relaxed">{item.ten_hang}</div>
                         </td>
-                        <td className="px-3 py-2.5 text-center text-slate-500">{item.model || '—'}</td>
+                        <td className="px-3 py-2.5 text-center text-[11px] text-slate-500 leading-tight">{item.model || '—'}</td>
                         <td className={`px-3 py-2.5 text-center font-bold ${isOut ? 'text-red-500 bg-red-50/50' : 'text-slate-600'}`}>{item.ton_kho}</td>
+                        <td className="px-3 py-2.5 text-center">
+                          {pendingQty > 0 ? (
+                            <span
+                              className="font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 cursor-help"
+                              title={tooltip}
+                            >
+                              {pendingQty}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300">—</span>
+                          )}
+                        </td>
                         <td className="px-3 py-2.5">
                           <Input
                             type="text"
@@ -3249,14 +3292,15 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
                             }}
                           />
                         </td>
-                        <td className="px-3 py-2.5 text-center">
+                        <td className="px-2 py-2.5 text-center">
                           <Button
                             type="button"
                             onClick={() => addToCart(item.ma_hang, tempQty)}
                             disabled={!tempQty || parseInt(tempQty, 10) <= 0}
-                            className="h-7 px-2.5 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-0.5 rounded whitespace-nowrap disabled:bg-slate-300 disabled:cursor-not-allowed"
+                            className="h-7 w-7 p-0 bg-blue-600 hover:bg-blue-700 text-white rounded disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center justify-center mx-auto"
+                            title="Nhặt vào giỏ hàng"
                           >
-                            + Nhặt
+                            <Plus className="w-4 h-4" />
                           </Button>
                         </td>
                       </tr>
@@ -3281,7 +3325,7 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-600">Nhà cung cấp</label>
+                  <label className="text-xs font-semibold text-slate-600">Nhà cung cấp <span className="text-red-500">*</span></label>
                   <Input
                     list="dh-ncc-list"
                     placeholder="Chọn / gõ NCC"
