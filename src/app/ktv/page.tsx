@@ -61,6 +61,7 @@ export default function KtvMobileWeb() {
   const [extraInput, setExtraInput] = useState("")
   const [savingReport, setSavingReport] = useState<string | null>(null) // Lưu id công việc đang bấm Lưu
   const [submittingReport, setSubmittingReport] = useState(false)
+  const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false)
   const [reportStatusByDate, setReportStatusByDate] = useState<Record<string, boolean>>({}) // lưu da_nop theo ngày để vẽ màu lịch nhanh
 
   // Tải thông tin báo cáo cho ngày cụ thể
@@ -199,7 +200,6 @@ export default function KtvMobileWeb() {
 
   // Chốt báo cáo ngày
   const handleSubmitDailyReport = async () => {
-    if (!confirm("Bạn có chắc chắn muốn chốt nộp báo cáo cho ngày này? Sau khi chốt, toàn bộ thông tin báo cáo ngày đó sẽ KHÔNG thể chỉnh sửa tiếp.")) return
     setSubmittingReport(true)
     try {
       const res = await fetch('/api/ktv/bao-cao', {
@@ -210,6 +210,7 @@ export default function KtvMobileWeb() {
       if (res.ok) {
         showNotification('success', "Đã nộp báo cáo ngày thành công!")
         fetchReportData(selectedReportDate)
+        setConfirmSubmitOpen(false)
       } else {
         const err = await res.json()
         showNotification('error', err.error)
@@ -743,11 +744,10 @@ export default function KtvMobileWeb() {
                         {!reportData.da_nop && (
                           <div className="pt-2">
                             <Button
-                              onClick={handleSubmitDailyReport}
-                              disabled={submittingReport}
+                              onClick={() => setConfirmSubmitOpen(true)}
                               className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-sm shadow-sm transition"
                             >
-                              {submittingReport ? 'Đang gửi...' : '🚀 Chốt và Gửi báo cáo ngày'}
+                              🚀 Chốt và Gửi báo cáo ngày
                             </Button>
                           </div>
                         )}
@@ -921,6 +921,29 @@ export default function KtvMobileWeb() {
               <Button variant="outline" onClick={() => { setReleaseTarget(null); setReleaseReason("") }} disabled={releasing}>Đóng</Button>
               <Button onClick={handleRelease} disabled={releasing} className="bg-red-600 hover:bg-red-700 text-white">
                 {releasing ? 'Đang hủy...' : 'Xác nhận hủy nhận'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal xác nhận chốt nộp báo cáo ngày */}
+      {confirmSubmitOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="p-5 space-y-3">
+              <h3 className="text-base font-bold text-amber-600 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" /> Xác nhận chốt báo cáo
+              </h3>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Bạn có chắc chắn muốn chốt nộp báo cáo cho ngày này? <br/><br/>
+                <b>Lưu ý:</b> Sau khi chốt, toàn bộ thông tin báo cáo ngày đó sẽ <b>KHÔNG</b> thể chỉnh sửa hoặc thêm bớt được nữa.
+              </p>
+            </div>
+            <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
+              <Button variant="outline" onClick={() => setConfirmSubmitOpen(false)} disabled={submittingReport}>Quay lại</Button>
+              <Button onClick={handleSubmitDailyReport} disabled={submittingReport} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                {submittingReport ? 'Đang xử lý...' : '🚀 Xác nhận nộp'}
               </Button>
             </div>
           </div>

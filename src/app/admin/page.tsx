@@ -203,7 +203,7 @@ export default function AdminDashboard() {
     isOpen: false,
     id: "",
     message: "",
-    type: "job" as "job" | "user" | "inventory"
+    type: "job" as "job" | "user" | "inventory" | "dat_hang_ct"
   })
 
   const showNotification = (type: 'success' | 'error', message: string) => {
@@ -666,10 +666,11 @@ export default function AdminDashboard() {
     }
   }
 
-  const confirmDelete = (id: string, type: "job" | "user" | "inventory" = "job") => {
+  const confirmDelete = (id: string, type: "job" | "user" | "inventory" | "dat_hang_ct" = "job") => {
     let message = "Bạn có chắc chắn muốn xóa công việc này khỏi sổ công tác không?"
     if (type === "user") message = "Bạn có chắc chắn muốn xóa tài khoản nhân viên này?"
     if (type === "inventory") message = "Bạn có chắc chắn muốn xóa vật tư này khỏi kho?"
+    if (type === "dat_hang_ct") message = "Bạn có chắc chắn muốn xóa mục vật tư này khỏi đơn đặt hàng? Thao tác này sẽ tự động hoàn tồn kho các đợt đã nhận."
 
     setConfirmDialog({
       isOpen: true,
@@ -780,6 +781,8 @@ export default function AdminDashboard() {
         res = await fetch(`/api/admin/users?id=${id}`, { method: 'DELETE' })
       } else if (type === "inventory") {
         res = await fetch(`/api/admin/kho-hang?ma_hang=${encodeURIComponent(id)}`, { method: 'DELETE' })
+      } else if (type === "dat_hang_ct") {
+        res = await fetch(`/api/admin/dat-hang?line_id=${id}`, { method: 'DELETE' })
       }
 
       if (res && res.ok) {
@@ -1195,7 +1198,7 @@ export default function AdminDashboard() {
                 </>
               )}
               {effectiveKhoTab === "dat_hang" && (
-                <DatHangTool inventory={inventory} nhaCungCapOptions={dmOptions('nha_cung_cap')} onUpdateSuccess={fetchData} showNotification={showNotification} currentUserRole={currentUserRole} />
+                <DatHangTool inventory={inventory} nhaCungCapOptions={dmOptions('nha_cung_cap')} onUpdateSuccess={fetchData} showNotification={showNotification} currentUserRole={currentUserRole} confirmDelete={confirmDelete} />
               )}
               {effectiveKhoTab === "thong_ke" && (
                 <NhapHangThangTool showNotification={showNotification} />
@@ -3035,7 +3038,7 @@ function NhapHangThangTool({ showNotification }: { showNotification: (type: 'suc
   )
 }
 
-function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotification, currentUserRole }: { inventory: any[], nhaCungCapOptions: string[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, currentUserRole: string }) {
+function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotification, currentUserRole, confirmDelete }: { inventory: any[], nhaCungCapOptions: string[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, currentUserRole: string, confirmDelete: (id: string, type: 'job' | 'user' | 'inventory' | 'dat_hang_ct') => void }) {
   const [form, setForm] = useState({ ngay_dat: new Date().toISOString().split('T')[0], nha_cung_cap: "", so_don_hang: "", da_dat: false })
   const [lines, setLines] = useState<{ ma_hang: string, sl_dat: string }[]>([])
   const [orders, setOrders] = useState<any[]>([])
@@ -3703,9 +3706,7 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
                               )}
                               <button
                                 onClick={() => {
-                                  if (confirm(`Bạn có chắc chắn muốn xóa mục hàng "${line.ma_hang}" khỏi đơn đặt hàng? Thao tác này sẽ xóa các đợt nhận hàng liên quan và tự động hoàn tồn kho.`)) {
-                                    deleteLineItem(line.id)
-                                  }
+                                  confirmDelete(line.id, 'dat_hang_ct')
                                 }}
                                 className="text-red-500 hover:text-red-700 p-1 bg-red-50 hover:bg-red-100 rounded-md transition"
                                 title="Xóa mục hàng này"
