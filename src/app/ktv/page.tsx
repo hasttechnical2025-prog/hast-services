@@ -162,29 +162,6 @@ export default function KtvMobileWeb() {
     }
   }, [currentKtv, ktvTab, selectedReportDate, fetchReportData])
 
-  // Hàm xử lý lưu báo cáo cho từng phiếu (counter, ghi_chu_ktv)
-  const handleSaveJobReport = async (jobId: string, counter: string, ghiChuKtv: string) => {
-    setSavingReport(jobId)
-    try {
-      const res = await fetch('/api/ktv/bao-cao', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: jobId, counter, ghi_chu_ktv: ghiChuKtv })
-      })
-      if (res.ok) {
-        showNotification('success', "Đã lưu báo cáo ca máy.")
-        fetchReportData(selectedReportDate)
-      } else {
-        const err = await res.json()
-        showNotification('error', err.error)
-      }
-    } catch {
-      showNotification('error', "Lỗi kết nối!")
-    } finally {
-      setSavingReport(null)
-    }
-  }
-
   // Thêm việc ngoài luồng
   const handleAddExtraJob = async () => {
     if (!extraInput.trim()) return
