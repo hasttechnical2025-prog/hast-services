@@ -256,7 +256,7 @@ export async function POST(request: Request) {
         })
         const results = await Promise.all(updatePromises)
         const err = results.find(r => r.error)
-        if (err) {
+        if (err && err.error) {
           console.error("Lỗi cập nhật ca máy khi chốt nộp:", err.error)
           return NextResponse.json({ error: 'Lỗi lưu thông tin ca máy: ' + err.error.message }, { status: 500 })
         }
