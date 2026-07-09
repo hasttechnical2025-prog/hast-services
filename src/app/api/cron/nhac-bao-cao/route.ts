@@ -104,8 +104,9 @@ export async function GET(request: Request) {
         const ktvJobs = (jobs || []).filter(j =>
           j.ngay === d.ymd && (j.ktv_id === ktv.id || j.ktv2_id === ktv.id)
         )
-        // Check xem có ca nào chưa nạp counter hoặc ghi_chu_ktv không
-        const hasEmptyReport = ktvJobs.some(j => j.counter === null || !j.ghi_chu_ktv || !j.ghi_chu_ktv.trim())
+        // Check xem có ca nào chưa chọn tình trạng máy (ghi_chu_ktv rỗng) hay không
+        // Cột counter rỗng không bị coi là thiếu báo cáo
+        const hasEmptyReport = ktvJobs.some(j => !j.ghi_chu_ktv || !j.ghi_chu_ktv.trim())
 
         if (!hasSubmitted) {
           missingDays.push(d.label) // Thêm ngày bị thiếu hoàn toàn

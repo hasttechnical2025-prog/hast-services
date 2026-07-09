@@ -774,32 +774,10 @@ export default function KtvMobileWeb() {
                           )}
                         </div>
 
-                        {/* PHẦN SÁT XÁC NHẬN CHỐT NỘP (CHECKLIST CA MÁY) */}
-                        {!reportData.da_nop && reportData.jobs.length > 0 && (
-                          <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
-                            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Xác nhận ca máy trong ngày</div>
-                            <p className="text-[11px] text-slate-400 px-1">Để nộp báo cáo, bạn bắt buộc phải kiểm tra và tích xác nhận hoàn thành từng việc sửa máy dưới đây:</p>
-                            <div className="space-y-2 pt-1">
-                              {reportData.jobs.map(j => (
-                                <label key={j.id} className="flex items-start gap-2.5 p-2.5 rounded-lg border border-slate-100 hover:bg-slate-50 cursor-pointer text-xs transition">
-                                  <input
-                                    type="checkbox"
-                                    checked={!!checkedJobs[j.id]}
-                                    onChange={(e) => setCheckedJobs({ ...checkedJobs, [j.id]: e.target.checked })}
-                                    className="w-4 h-4 accent-emerald-600 shrink-0 mt-0.5"
-                                  />
-                                  <span className="text-slate-700 leading-snug">
-                                    Tôi xác nhận đã hoàn thành ca tại <b>{j.soct_khach_hang?.ten_khach_hang}</b> (Mã: {j.ma_may || '—'}, SL Counter: {j.counter != null ? j.counter.toLocaleString('vi-VN') : 'chưa điền'})
-                                  </span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
                         {/* NÚT CHỐT NỘP BÁO CÁO NGÀY */}
                         {!reportData.da_nop && (() => {
-                          const canSubmit = reportData.jobs.every(j => checkedJobs[j.id])
+                          // KTV bắt buộc phải chọn tình trạng máy (có dữ liệu ghi_chu_ktv) cho MỌI ca máy
+                          const canSubmit = reportData.jobs.every(j => !!(j.ghi_chu_ktv && j.ghi_chu_ktv.trim()))
                           return (
                             <div className="pt-2">
                               <Button
@@ -810,7 +788,7 @@ export default function KtvMobileWeb() {
                                 🚀 Chốt và Gửi báo cáo ngày
                               </Button>
                               {!canSubmit && (
-                                <p className="text-[10px] text-center text-red-500 mt-1 font-medium">Bạn chưa tích xác nhận hết các ca máy phía trên.</p>
+                                <p className="text-[10px] text-center text-red-500 mt-1 font-medium">Bạn chưa chọn tình trạng máy cho một số ca phía trên.</p>
                               )}
                             </div>
                           )
@@ -1076,15 +1054,18 @@ function JobReportCard({ job, readOnly, saving, onSave }: { job: any, readOnly: 
           />
         </div>
         <div className="col-span-2 space-y-1">
-          <label className="text-[10px] font-semibold text-slate-500 uppercase block">Báo cáo tình trạng máy</label>
-          <Input
-            type="text"
+          <label className="text-[10px] font-semibold text-slate-500 uppercase block">Báo cáo tình trạng máy *</label>
+          <select
             disabled={readOnly}
-            placeholder="VD: Thay cụm sấy chạy tốt"
-            className="h-8 text-xs bg-slate-50 border-slate-200"
+            className="w-full h-8 px-2 rounded-md border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 text-slate-700 font-medium"
             value={ghiChuKtv}
             onChange={(e) => setGhiChuKtv(e.target.value)}
-          />
+          >
+            <option value="">-- Chọn tình trạng máy --</option>
+            <option value="HĐBT">HĐBT (Hoạt động bình thường)</option>
+            <option value="Kém">Kém</option>
+            <option value="Theo dõi thêm">Theo dõi thêm</option>
+          </select>
         </div>
       </div>
 
