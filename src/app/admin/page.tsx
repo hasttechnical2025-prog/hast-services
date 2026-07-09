@@ -1195,7 +1195,7 @@ export default function AdminDashboard() {
                 </>
               )}
               {effectiveKhoTab === "dat_hang" && (
-                <DatHangTool inventory={inventory} nhaCungCapOptions={dmOptions('nha_cung_cap')} onUpdateSuccess={fetchData} showNotification={showNotification} />
+                <DatHangTool inventory={inventory} nhaCungCapOptions={dmOptions('nha_cung_cap')} onUpdateSuccess={fetchData} showNotification={showNotification} currentUserRole={currentUserRole} />
               )}
               {effectiveKhoTab === "thong_ke" && (
                 <NhapHangThangTool showNotification={showNotification} />
@@ -3018,7 +3018,7 @@ function NhapHangThangTool({ showNotification }: { showNotification: (type: 'suc
   )
 }
 
-function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotification }: { inventory: any[], nhaCungCapOptions: string[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotification, currentUserRole }: { inventory: any[], nhaCungCapOptions: string[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, currentUserRole: string }) {
   const [form, setForm] = useState({ ngay_dat: new Date().toISOString().split('T')[0], nha_cung_cap: "", so_don_hang: "", da_dat: false })
   const [lines, setLines] = useState<{ ma_hang: string, sl_dat: string }[]>([])
   const [orders, setOrders] = useState<any[]>([])
@@ -3033,6 +3033,10 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
   const [leftModel, setLeftModel] = useState("")
   const [leftLowStock, setLeftLowStock] = useState(false)
   const [leftQuantities, setLeftQuantities] = useState<Record<string, string>>({})
+
+  // State phục vụ lưu nháp & sửa đơn nháp
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null)
+  const [excelSuccessModal, setExcelSuccessModal] = useState<{ isOpen: boolean, order: any } | null>(null)
 
   // Tính số lượng hàng "Chờ về" (đang đặt từ NCC nhưng chưa nhận đủ)
   const getPendingInfo = (ma_hang: string) => {
@@ -3120,20 +3124,114 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
   const updLine = (i: number, f: 'ma_hang' | 'sl_dat', v: string) => setLines(p => p.map((l, idx) => idx === i ? { ...l, [f]: v } : l))
   const rmLine = (i: number) => setLines(p => p.filter((_, idx) => idx !== i))
 
-  const handleCreate = async () => {
+  // Sửa/xóa một dòng chi tiết vật tư của đơn hàng
+  const deleteLineItem = async (lineId: string) => {
+    try {
+      const res = await fetch(`/api/admin/dat-hang?line_id=${lineId}`, { method: 'DELETE' })
+      if (res.ok) {
+        showNotification('success', "Đã xóa mục hàng thành công (hoàn tồn kho đợt đã nhận).")
+        onUpdateSuccess()
+        fetchOrders()
+      } else {
+        const j = await res.json()
+        showNotification('error', j.error || "Xóa mục hàng thất bại.")
+      }
+    } catch {
+      showNotification('error', "Lỗi kết nối!")
+    }
+  }
+
+  // Xuất file Excel của 1 đơn hàng cụ thể
+  const exportSingleOrderExcel = (o: any) => {
+    const headers = ['Mã hàng', 'Tên hàng', 'Model', 'SL đặt', 'Đã nhận', 'Còn thiếu', 'Các đợt hàng về']
+    const rows = (o.soct_dat_hang_ct || []).map((l: any) => {
+      const nhan = daNhan(l)
+      const receipts = (l.soct_hang_ve_dot || []).map((h: any) => `${fmtDate(h.ngay_nhan)}: ${h.so_luong_nhan}`).join(', ')
+      return [l.ma_hang, l.soct_kho_hang?.ten_hang || '', l.soct_kho_hang?.model || '—', l.sl_dat, nhan, l.sl_dat - nhan, receipts]
+    })
+    exportRowsToExcel(`Don-hang-${o.so_don_hang || 'nhap'}`, headers, rows)
+  }
+
+  // Xuất báo cáo toàn bộ vật tư chưa về (nợ đọng) của mọi đơn hàng
+  const exportPendingItemsExcel = () => {
+    const pendingLines: any[][] = []
+    const headers = ['Số đơn', 'Ngày đặt', 'Nhà cung cấp', 'Mã hàng', 'Tên hàng', 'Model', 'SL đặt', 'Đã nhận', 'Còn thiếu']
+
+    for (const o of orders) {
+      if (o.hoan_thanh) continue
+      for (const l of (o.soct_dat_hang_ct || [])) {
+        const nhan = daNhan(l)
+        const thieu = l.sl_dat - nhan
+        if (thieu > 0) {
+          pendingLines.push([
+            o.so_don_hang || 'Nháp',
+            fmtDate(o.ngay_dat),
+            o.nha_cung_cap || 'Chưa có NCC',
+            l.ma_hang,
+            l.soct_kho_hang?.ten_hang || '',
+            l.soct_kho_hang?.model || '—',
+            l.sl_dat,
+            nhan,
+            thieu
+          ])
+        }
+      }
+    }
+
+    if (pendingLines.length === 0) {
+      return showNotification('error', "Không có vật tư nào còn nợ chờ về.")
+    }
+    exportRowsToExcel('Danh-sach-hang-cho-ve', headers, pendingLines)
+  }
+
+  const handleCreate = async (isDaDat: boolean) => {
     if (!form.nha_cung_cap.trim()) return showNotification('error', "Vui lòng chọn hoặc nhập Nhà cung cấp")
     const valid = lines.filter(l => l.ma_hang && parseInt(l.sl_dat) > 0)
     if (valid.length === 0) return showNotification('error', "Thêm ít nhất một dòng hàng hợp lệ")
     setSaving(true)
     try {
-      const res = await fetch('/api/admin/dat-hang', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, lines: valid }) })
+      const payload = { ...form, da_dat: isDaDat, lines: valid }
+      let res;
+      if (editingDraftId) {
+        // Cập nhật đơn hàng (PUT)
+        res = await fetch('/api/admin/dat-hang', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...payload, id: editingDraftId })
+        })
+      } else {
+        // Tạo đơn hàng mới (POST)
+        res = await fetch('/api/admin/dat-hang', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+      }
+
       if (res.ok) {
-        showNotification('success', "Đã tạo đơn đặt hàng.")
+        const resJson = await res.json()
+        showNotification('success', editingDraftId ? "Đã cập nhật đơn hàng!" : "Đã tạo đơn đặt hàng thành công.")
+
+        const createdOrder = resJson.data || form
+        // Reset form & giỏ hàng
         setForm({ ngay_dat: new Date().toISOString().split('T')[0], nha_cung_cap: "", so_don_hang: "", da_dat: false })
-        setLines([]); fetchOrders()
-      } else { const err = await res.json(); showNotification('error', err.error) }
-    } catch { showNotification('error', "Lỗi kết nối!") }
-    finally { setSaving(false) }
+        setLines([])
+        setEditingDraftId(null)
+        fetchOrders()
+
+        // Mở popup gợi ý xuất Excel luôn nếu là đơn chốt Đã đặt
+        if (isDaDat) {
+          setExcelSuccessModal({ isOpen: true, order: createdOrder })
+        }
+      } else {
+        const err = await res.json()
+        showNotification('error', err.error)
+      }
+    } catch {
+      showNotification('error', "Lỗi kết nối!")
+    } finally {
+      setSaving(false)
+    }
   }
 
   const toggleDaDat = async (o: any) => {
@@ -3143,8 +3241,15 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
   const deleteOrder = async (id: string) => {
     const res = await fetch(`/api/admin/dat-hang?id=${id}`, { method: 'DELETE' })
     setDelId(null)
-    if (res.ok) { showNotification('success', "Đã xóa đơn (hoàn tồn kho các đợt đã nhận)."); onUpdateSuccess(); fetchOrders() }
-    else showNotification('error', "Xóa không thành công")
+    if (res.ok) {
+      showNotification('success', "Đã xóa đơn (hoàn tồn kho các đợt đã nhận).")
+      onUpdateSuccess()
+      fetchOrders()
+      if (editingDraftId === id) {
+        setEditingDraftId(null)
+        setLines([])
+      }
+    } else showNotification('error', "Xóa không thành công")
   }
   const saveReceipt = async () => {
     if (!receiving || !(parseInt(receiving.so_luong_nhan) > 0)) return showNotification('error', "Nhập số lượng nhận")
@@ -3425,22 +3530,38 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
           </div>
 
           <div className="flex flex-col gap-2 pt-2 border-t border-slate-200">
-            <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={form.da_dat}
-                onChange={(e) => setForm({ ...form, da_dat: e.target.checked })}
-                className="w-3.5 h-3.5 accent-blue-600"
-              />
-              Đã đặt (đã gửi NCC) — bỏ trống nếu còn nháp
-            </label>
-            <Button
-              onClick={handleCreate}
-              disabled={saving || lines.length === 0}
-              className={`w-full h-10 font-bold ${saving || lines.length === 0 ? 'bg-slate-300' : 'bg-emerald-600 hover:bg-emerald-700'} text-white rounded-lg`}
-            >
-              {saving ? "Đang lưu..." : "Tạo đơn đặt hàng"}
-            </Button>
+            {editingDraftId && (
+              <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 p-2 rounded flex justify-between items-center mb-1">
+                <span>Đang sửa đơn nháp: <b>{form.so_don_hang}</b></span>
+                <button
+                  onClick={() => {
+                    setEditingDraftId(null)
+                    setForm({ ngay_dat: new Date().toISOString().split('T')[0], nha_cung_cap: "", so_don_hang: "", da_dat: false })
+                    setLines([])
+                  }}
+                  className="font-bold hover:underline text-red-600 text-[10px]"
+                >
+                  Huỷ sửa
+                </button>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button
+                onClick={() => handleCreate(false)}
+                disabled={saving || lines.length === 0}
+                variant="outline"
+                className="w-1/2 h-10 font-bold border-blue-200 text-blue-700 hover:bg-blue-50"
+              >
+                {saving ? "..." : editingDraftId ? "Lưu đè nháp" : "💾 Lưu đơn nháp"}
+              </Button>
+              <Button
+                onClick={() => handleCreate(true)}
+                disabled={saving || lines.length === 0}
+                className="w-1/2 h-10 font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {saving ? "..." : editingDraftId ? "Chốt & Gửi" : "🚀 Chốt đơn & Gửi"}
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -3450,7 +3571,14 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap px-1">
           <h3 className="text-sm font-bold text-slate-700">Danh sách đơn đặt hàng ({filteredOrders.length}/{orders.length})</h3>
-          <Button variant="outline" onClick={exportOrdersExcel} className="gap-2 h-9 text-xs"><Download className="w-4 h-4" /> Xuất Excel</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={exportPendingItemsExcel} className="gap-2 h-9 text-xs border-amber-200 text-amber-700 hover:bg-amber-50">
+              <AlertTriangle className="w-4 h-4" /> Xuất hàng chưa về
+            </Button>
+            <Button variant="outline" onClick={exportOrdersExcel} className="gap-2 h-9 text-xs border-blue-200 text-blue-700 hover:bg-blue-50">
+              <Download className="w-4 h-4" /> Xuất danh sách đang lọc
+            </Button>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 px-1">
           <div className="relative w-full sm:w-56">
@@ -3488,6 +3616,26 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
                 <div className="flex items-center gap-2 flex-wrap">
                   <button onClick={() => toggleDaDat(o)} className={`whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold border ${o.da_dat ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{o.da_dat ? 'Đã đặt' : 'Nháp'}</button>
                   {o.hoan_thanh && <span className="whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200">Đã đủ hàng</span>}
+
+                  <button onClick={() => exportSingleOrderExcel(o)} className="text-blue-600 hover:text-blue-800 p-1.5 bg-blue-50 hover:bg-blue-100 rounded-md transition" title="Xuất file Excel đơn này">
+                    <Download className="w-4 h-4" />
+                  </button>
+
+                  {!o.da_dat && (
+                    <button
+                      onClick={() => {
+                        setEditingDraftId(o.id)
+                        setForm({ ngay_dat: o.ngay_dat, nha_cung_cap: o.nha_cung_cap || "", so_don_hang: o.so_don_hang || "", da_dat: false })
+                        setLines((o.soct_dat_hang_ct || []).map((l: any) => ({ ma_hang: l.ma_hang, sl_dat: String(l.sl_dat) })))
+                        window.scrollTo({ top: 0, behavior: 'smooth' })
+                      }}
+                      className="text-slate-600 hover:text-slate-800 p-1.5 bg-slate-100 hover:bg-slate-200 rounded-md transition"
+                      title="Sửa đơn nháp"
+                    >
+                      <PenSquare className="w-4 h-4" />
+                    </button>
+                  )}
+
                   {delId === o.id ? (
                     <span className="flex items-center gap-1 text-xs">
                       <button onClick={() => deleteOrder(o.id)} className="text-red-600 font-semibold px-2 py-1 bg-red-50 rounded">Xác nhận xóa</button>
@@ -3501,7 +3649,7 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
 
               <div className="border border-slate-100 rounded-md overflow-hidden">
                 <table className="w-full text-left text-xs text-slate-600">
-                  <thead className="bg-slate-50 text-slate-500"><tr><th className="px-3 py-2 font-medium">Mã hàng</th><th className="px-3 py-2 font-medium text-center">Đặt</th><th className="px-3 py-2 font-medium text-center">Đã nhận</th><th className="px-3 py-2 font-medium text-center">Còn thiếu</th><th className="px-3 py-2 font-medium">Đợt hàng về</th><th className="px-3 py-2"></th></tr></thead>
+                  <thead className="bg-slate-50 text-slate-500"><tr><th className="px-3 py-2 font-medium">Mã hàng</th><th className="px-3 py-2 font-medium text-center">Đặt</th><th className="px-3 py-2 font-medium text-center">Đã nhận</th><th className="px-3 py-2 font-medium text-center">Còn thiếu</th><th className="px-3 py-2 font-medium">Đợt hàng về</th><th className="px-3 py-2">Thao tác</th></tr></thead>
                   <tbody className="divide-y divide-slate-100">
                     {(o.soct_dat_hang_ct || []).map((line: any) => {
                       const nhan = daNhan(line); const thieu = line.sl_dat - nhan
@@ -3516,7 +3664,9 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
                               {(line.soct_hang_ve_dot || []).map((h: any) => (
                                 <span key={h.id} className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5">
                                   {fmtDate(h.ngay_nhan)}: <b>{h.so_luong_nhan}</b>
-                                  <button onClick={() => deleteReceipt(h.id)} className="text-slate-400 hover:text-red-500" title="Xóa đợt này">✕</button>
+                                  {currentUserRole === 'admin' && (
+                                    <button onClick={() => deleteReceipt(h.id)} className="text-slate-400 hover:text-red-500" title="Xóa đợt này">✕</button>
+                                  )}
                                 </span>
                               ))}
                             </div>
@@ -3529,10 +3679,23 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
                               </div>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-right">
-                            {!line.hoan_thanh && (!receiving || receiving.ctId !== line.id) && (
-                              <button onClick={() => setReceiving({ ctId: line.id, ngay_nhan: new Date().toISOString().split('T')[0], so_luong_nhan: "" })} className="text-blue-600 hover:text-blue-800 text-xs font-medium whitespace-nowrap">+ Ghi hàng về</button>
-                            )}
+                          <td className="px-3 py-2 whitespace-nowrap text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {currentUserRole === 'admin' && !line.hoan_thanh && (!receiving || receiving.ctId !== line.id) && (
+                                <button onClick={() => setReceiving({ ctId: line.id, ngay_nhan: new Date().toISOString().split('T')[0], so_luong_nhan: "" })} className="text-blue-600 hover:text-blue-800 text-xs font-medium whitespace-nowrap">+ Ghi hàng về</button>
+                              )}
+                              <button
+                                onClick={() => {
+                                  if (confirm(`Bạn có chắc chắn muốn xóa mục hàng "${line.ma_hang}" khỏi đơn đặt hàng? Thao tác này sẽ xóa các đợt nhận hàng liên quan và tự động hoàn tồn kho.`)) {
+                                    deleteLineItem(line.id)
+                                  }
+                                }}
+                                className="text-red-500 hover:text-red-700 p-1 bg-red-50 hover:bg-red-100 rounded-md transition"
+                                title="Xóa mục hàng này"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       )
@@ -3547,6 +3710,34 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
           <Pagination page={dhPaged.page} pageCount={dhPaged.pageCount} total={dhPaged.total} perPage={dhPaged.perPage} onPage={dhPaged.setPage} />
         )}
       </div>
+
+      {excelSuccessModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="p-6 space-y-4">
+              <div className="mx-auto w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div className="text-center space-y-1">
+                <h3 className="text-lg font-bold text-slate-800">Lưu thành công!</h3>
+                <p className="text-sm text-slate-500">Đơn đặt hàng <b className="text-slate-700">{excelSuccessModal.order.so_don_hang || 'nháp'}</b> đã được ghi nhận.</p>
+              </div>
+            </div>
+            <div className="bg-slate-50 p-4 flex flex-col gap-2 border-t border-slate-100">
+              <Button
+                onClick={() => {
+                  exportSingleOrderExcel(excelSuccessModal.order)
+                  setExcelSuccessModal(null)
+                }}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+              >
+                <Download className="w-4 h-4" /> Xuất Excel đơn này ngay
+              </Button>
+              <Button variant="outline" onClick={() => setExcelSuccessModal(null)} className="w-full text-slate-500 hover:text-slate-700">Đóng</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
