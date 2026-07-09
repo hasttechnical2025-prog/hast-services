@@ -67,6 +67,9 @@ export default function KtvMobileWeb() {
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false)
   const [reportStatusByDate, setReportStatusByDate] = useState<Record<string, boolean>>({}) // lưu da_nop theo ngày để vẽ màu lịch nhanh
 
+  // Hộp kiểm xác nhận từng việc trước khi chốt nộp
+  const [checkedJobs, setCheckedJobs] = useState<Record<string, boolean>>({})
+
   // Tải thông tin báo cáo cho ngày cụ thể
   const fetchReportData = useCallback(async (ngay: string) => {
     try {
@@ -74,7 +77,11 @@ export default function KtvMobileWeb() {
       if (res.ok) {
         const json = await res.json()
         setReportData(json.data)
-        setReportStatusByDate(prev => ({ ...prev, [ngay]: json.data.da_nop }))
+        if (json.data.statuses) {
+          setReportStatusByDate(json.data.statuses)
+        }
+        // Reset checklist xác nhận khi đổi ngày chọn
+        setCheckedJobs({})
       }
     } catch (err) {
       console.error(err)
@@ -222,6 +229,27 @@ export default function KtvMobileWeb() {
       showNotification('error', "Lỗi kết nối!")
     } finally {
       setSubmittingReport(false)
+    }
+  }
+
+  // Mở lại báo cáo ngày (chuyển da_nop về false để sửa đổi)
+  const handleOpenDailyReport = async () => {
+    if (!confirm("Bạn có chắc chắn muốn mở lại báo cáo ngày này để bổ sung/chỉnh sửa tiếp?")) return
+    try {
+      const res = await fetch('/api/ktv/bao-cao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'open_daily', ngay: selectedReportDate })
+      })
+      if (res.ok) {
+        showNotification('success', "Đã mở lại báo cáo ngày.")
+        fetchReportData(selectedReportDate)
+      } else {
+        const err = await res.json()
+        showNotification('error', err.error)
+      }
+    } catch {
+      showNotification('error', "Lỗi kết nối!")
     }
   }
 
@@ -746,17 +774,67 @@ export default function KtvMobileWeb() {
                           )}
                         </div>
 
-                        {/* NÚT CHỐT NỘP BÁO CÁO NGÀY */}
-                        {!reportData.da_nop && (
-                          <div className="pt-2">
-                            <Button
-                              onClick={() => setConfirmSubmitOpen(true)}
-                              className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-sm shadow-sm transition"
-                            >
-                              🚀 Chốt và Gửi báo cáo ngày
-                            </Button>
+                        {/* PHẦN SÁT XÁC NHẬN CHỐT NỘP (CHECKLIST CA MÁY) */}
+                        {!reportData.da_nop && reportData.jobs.length > 0 && (
+                          <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Xác nhận ca máy trong ngày</div>
+                            <p className="text-[11px] text-slate-400 px-1">Để nộp báo cáo, bạn bắt buộc phải kiểm tra và tích xác nhận hoàn thành từng việc sửa máy dưới đây:</p>
+                            <div className="space-y-2 pt-1">
+                              {reportData.jobs.map(j => (
+                                <label key={j.id} className="flex items-start gap-2.5 p-2.5 rounded-lg border border-slate-100 hover:bg-slate-50 cursor-pointer text-xs transition">
+                                  <input
+                                    type="checkbox"
+                                    checked={!!checkedJobs[j.id]}
+                                    onChange={(e) => setCheckedJobs({ ...checkedJobs, [j.id]: e.target.checked })}
+                                    className="w-4 h-4 accent-emerald-600 shrink-0 mt-0.5"
+                                  />
+                                  <span className="text-slate-700 leading-snug">
+                                    Tôi xác nhận đã hoàn thành ca tại <b>{j.soct_khach_hang?.ten_khach_hang}</b> (Mã: {j.ma_may || '—'}, SL Counter: {j.counter != null ? j.counter.toLocaleString('vi-VN') : 'chưa điền'})
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
                           </div>
                         )}
+
+                        {/* NÚT CHỐT NỘP BÁO CÁO NGÀY */}
+                        {!reportData.da_nop && (() => {
+                          const canSubmit = reportData.jobs.every(j => checkedJobs[j.id])
+                          return (
+                            <div className="pt-2">
+                              <Button
+                                onClick={() => setConfirmSubmitOpen(true)}
+                                disabled={!canSubmit}
+                                className={`w-full h-11 font-bold text-sm shadow-sm transition rounded-lg text-white ${canSubmit ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300 cursor-not-allowed'}`}
+                              >
+                                🚀 Chốt và Gửi báo cáo ngày
+                              </Button>
+                              {!canSubmit && (
+                                <p className="text-[10px] text-center text-red-500 mt-1 font-medium">Bạn chưa tích xác nhận hết các ca máy phía trên.</p>
+                              )}
+                            </div>
+                          )
+                        })()}
+
+                        {/* NÚT MỞ LẠI BÁO CÁO (CHỈ CHO PHÉP HÔM NAY VÀ HÔM QUA) */}
+                        {reportData.da_nop && (() => {
+                          const today = new Date(); today.setHours(0,0,0,0)
+                          const reportD = new Date(selectedReportDate); reportD.setHours(0,0,0,0)
+                          const diff = Math.round((today.getTime() - reportD.getTime()) / 86400000)
+                          if (diff >= 0 && diff <= 1) { // chỉ cho phép hôm nay (0) và hôm qua (1)
+                            return (
+                              <div className="pt-2">
+                                <Button
+                                  onClick={handleOpenDailyReport}
+                                  className="w-full h-11 border-blue-200 text-blue-700 hover:bg-blue-50 bg-white border font-semibold text-sm shadow-sm transition rounded-lg"
+                                >
+                                  🔓 Mở lại báo cáo ngày để bổ sung
+                                </Button>
+                              </div>
+                            )
+                          }
+                          return null
+                        })()}
                       </div>
                     ) : (
                       <p className="text-xs text-slate-400 text-center py-8">Đang đồng bộ báo cáo...</p>

@@ -17,13 +17,33 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Ngày không hợp lệ (YYYY-MM-DD)' }, { status: 400 })
     }
 
-    // 1. Lấy trạng thái nộp báo cáo của KTV trong ngày đó
-    const { data: ttReport } = await supabaseAdmin
+    // 1. Tính toán danh sách 8 ngày gần nhất để lấy trạng thái nộp báo cáo hàng loạt
+    const datesToCheck: string[] = []
+    const refDate = new Date(ngay)
+    refDate.setHours(0,0,0,0)
+    for (let i = 0; i < 8; i++) {
+      const d = new Date(refDate.getTime() - i * 86400000)
+      datesToCheck.push(d.toISOString().split('T')[0])
+    }
+
+    // Lấy trạng thái chốt nộp của 8 ngày này
+    const { data: ttList } = await supabaseAdmin
       .from('soct_trang_thai_bao_cao')
-      .select('da_nop, thoi_gian_nop')
+      .select('ngay_bao_cao, da_nop, thoi_gian_nop')
       .eq('ktv_id', session.id)
-      .eq('ngay_bao_cao', ngay)
-      .single()
+      .in('ngay_bao_cao', datesToCheck)
+
+    const statuses: Record<string, boolean> = {}
+    datesToCheck.forEach(d => { statuses[d] = false })
+    let ttReport: any = null
+    if (ttList) {
+      for (const t of ttList) {
+        statuses[t.ngay_bao_cao] = !!t.da_nop
+        if (t.ngay_bao_cao === ngay) {
+          ttReport = t
+        }
+      }
+    }
 
     // 2. Lấy danh sách việc trong Sổ công tác của KTV trong ngày (KTV chính OR KTV kèm)
     // Lấy trạng thái Đang làm, Hoàn thành, Lắp tiếp, Đã nhận
@@ -62,7 +82,8 @@ export async function GET(request: Request) {
         thoi_gian_nop: ttReport?.thoi_gian_nop || null,
         jobs: jobs || [],
         extraJobs: extraJobs || [],
-        ngayNghi: (ngayNghi || []).map(n => n.ngay)
+        ngayNghi: (ngayNghi || []).map(n => n.ngay),
+        statuses
       }
     })
   } catch (error: any) {
@@ -142,7 +163,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Thiếu ngày hoặc ngày không hợp lệ' }, { status: 400 })
     }
 
-    // Kiểm tra xem ngày đó đã chốt chưa
+    // 0. Hành động mở lại báo cáo (chỉ cho phép hôm nay & hôm qua)
+    if (action === 'open_daily') {
+      const today = new Date()
+      today.setHours(0,0,0,0)
+      const targetDate = new Date(ngay)
+      targetDate.setHours(0,0,0,0)
+      const diffDays = Math.round((today.getTime() - targetDate.getTime()) / 86400000)
+
+      // Cho phép mở lại trong vòng 2 ngày (hôm nay = 0, hôm qua = 1)
+      if (diffDays < 0 || diffDays > 1) {
+        return NextResponse.json({ error: 'Chỉ được tự mở lại báo cáo của ngày hôm nay hoặc hôm qua.' }, { status: 400 })
+      }
+
+      const { data, error } = await supabaseAdmin
+        .from('soct_trang_thai_bao_cao')
+        .update({ da_nop: false })
+        .eq('ktv_id', session.id)
+        .eq('ngay_bao_cao', ngay)
+        .select()
+        .single()
+
+      if (error) throw error
+      return NextResponse.json({ data })
+    }
+
+    // Kiểm tra xem ngày đó đã chốt chưa (chỉ áp cho ghi dữ liệu)
     const { data: tt } = await supabaseAdmin
       .from('soct_trang_thai_bao_cao')
       .select('da_nop')

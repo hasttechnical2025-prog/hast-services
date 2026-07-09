@@ -84,6 +84,13 @@ export async function GET(request: Request) {
     // Đưa vào Set để tra cứu nhanh: `ktvId_ngay`
     const submittedSet = new Set((submitted || []).map(s => `${s.ktv_id}_${s.ngay_bao_cao}`))
 
+    // Lấy tất cả ca máy thuộc các ngày quét để check xem ca nào chưa điền counter/ghi chú KTV
+    const { data: jobs } = await supabaseAdmin
+      .from('soct_cong_viec')
+      .select('id, ngay, ktv_id, ktv2_id, counter, ghi_chu_ktv')
+      .in('ngay', validDateStrs)
+      .in('ket_qua', ['Hoàn thành', 'Đang làm', 'Lắp tiếp'])
+
     // 5. Đối chiếu KTV nợ báo cáo
     const missingReports: { ktvName: string, days: string[] }[] = []
 
@@ -91,8 +98,19 @@ export async function GET(request: Request) {
       const missingDays: string[] = []
       // Duyệt qua từng ngày (đã loại cuối tuần và ngày lễ, sắp xếp từ gần đến xa)
       for (const d of validDates) {
-        if (!submittedSet.has(`${ktv.id}_${d.ymd}`)) {
-          missingDays.push(d.label) // Thêm ngày bị thiếu (VD: '08/07')
+        const hasSubmitted = submittedSet.has(`${ktv.id}_${d.ymd}`)
+
+        // Tìm các ca máy của KTV này trong ngày d
+        const ktvJobs = (jobs || []).filter(j =>
+          j.ngay === d.ymd && (j.ktv_id === ktv.id || j.ktv2_id === ktv.id)
+        )
+        // Check xem có ca nào chưa nạp counter hoặc ghi_chu_ktv không
+        const hasEmptyReport = ktvJobs.some(j => j.counter === null || !j.ghi_chu_ktv || !j.ghi_chu_ktv.trim())
+
+        if (!hasSubmitted) {
+          missingDays.push(d.label) // Thêm ngày bị thiếu hoàn toàn
+        } else if (hasEmptyReport) {
+          missingDays.push(`${d.label} (chưa báo ca máy)`) // Thêm ngày bị thiếu nội dung ca máy phát sinh
         }
       }
 
