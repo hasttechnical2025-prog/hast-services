@@ -231,7 +231,7 @@ export default function AdminDashboard() {
   const tabVisible = (tab: string) => {
     if (currentUserRole === 'admin') return true
     if (tab === 'cong_viec') return true
-    if (tab === 'he_thong' || tab === 'quan_ly') return false // 2 tab này admin-only (hiện tại)
+    if (tab === 'he_thong') return false // tab Hệ thống luôn admin-only
     return !!roleVis(currentUserRole)[tab]
   }
   // Tab con: key "cha.con"; mặc định hiện nếu chưa cấu hình riêng
