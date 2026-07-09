@@ -4527,6 +4527,7 @@ function BaoCaoKtvTool({ technicians, showNotification }: { technicians: any[], 
 
   const [data, setData] = useState<{ trang_thai: any[], jobs: any[], extras: any[] }>({ trang_thai: [], jobs: [], extras: [] })
   const [loading, setLoading] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const fetchData = async () => {
     setLoading(true)
@@ -4545,7 +4546,40 @@ function BaoCaoKtvTool({ technicians, showNotification }: { technicians: any[], 
     } catch {
       showNotification('error', 'Lỗi kết nối khi tải báo cáo!')
     } finally {
+      setData(prev => prev)
       setLoading(false)
+    }
+  }
+
+  const exportReportDocx = async () => {
+    if (!ktvId) return showNotification('error', 'Vui lòng chọn 1 KTV để xuất báo cáo')
+    if (tuNgay !== denNgay) return showNotification('error', 'Báo cáo in ấn ký giấy yêu cầu chọn xuất theo từng ngày cụ thể (Từ ngày và Đến ngày phải trùng nhau)')
+    setExporting(true)
+    try {
+      const res = await fetch('/api/admin/bao-cao-ktv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ktv_id: ktvId, ngay: tuNgay })
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        showNotification('error', j.error || 'Xuất báo cáo thất bại')
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const ktvObj = technicians.find(t => t.id === ktvId)
+      const ktvName = ktvObj ? ktvObj.full_name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^A-Za-z0-9]+/g, '-') : 'ktv'
+      a.download = `Bao-cao-nhat-ky-${ktvName}-${tuNgay.split('-').reverse().join('-')}.docx`
+      a.click()
+      URL.revokeObjectURL(url)
+      showNotification('success', 'Đã xuất báo cáo KTV .docx thành công')
+    } catch {
+      showNotification('error', 'Lỗi kết nối khi xuất báo cáo!')
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -4590,10 +4624,22 @@ function BaoCaoKtvTool({ technicians, showNotification }: { technicians: any[], 
           <DateField value={denNgay} onChange={setDenNgay} />
         </div>
 
-        <Button onClick={fetchData} disabled={loading} className="h-10 gap-1">
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Tải lại
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={fetchData} disabled={loading} className="h-10 gap-1">
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Tải lại
+          </Button>
+
+          <Button
+            onClick={exportReportDocx}
+            disabled={exporting || !ktvId || tuNgay !== denNgay}
+            className={`h-10 gap-1 ${!ktvId || tuNgay !== denNgay ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'}`}
+            title={!ktvId ? 'Vui lòng chọn 1 KTV' : tuNgay !== denNgay ? 'Ngày từ và đến phải trùng nhau' : 'Xuất bản in Word cho KTV này'}
+          >
+            <Download className="w-4 h-4" />
+            {exporting ? 'Đang xuất...' : 'Xuất Word (.docx)'}
+          </Button>
+        </div>
       </div>
 
       {loading ? (
