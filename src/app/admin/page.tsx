@@ -4768,6 +4768,7 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
   const [records, setRecords] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [subTab, setSubTab] = useState<'da_bao_tri' | 'chua_bao_tri'>('da_bao_tri')
   // Tra cứu lịch sử bảo trì theo 1 mã máy trong 1 năm
   const [traMa, setTraMa] = useState('')
   const [traNam, setTraNam] = useState(String(new Date().getFullYear()))
@@ -4791,6 +4792,10 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
   const daBaoTriSet = new Set(records.map((r: any) => String(r.ma_may).toLowerCase()))
   const dupKept = kept.filter(p => daBaoTriSet.has(p.ma_may.toLowerCase())).length
 
+  // Danh sách máy cần bảo trì và máy chưa bảo trì trong tháng
+  const mayCanBaoTri = customers.filter(c => ['HĐBT', 'MF'].includes(c.loai_hd) && c.ma_may)
+  const chuaBaoTri = mayCanBaoTri.filter(c => !daBaoTriSet.has(String(c.ma_may).toLowerCase()))
+
   const fetchRecords = async (thang: string) => {
     setLoading(true)
     try {
@@ -4806,6 +4811,7 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
 
   useEffect(() => { fetchRecords(thangNam) }, [thangNam])
   const paged = usePaged(records)
+  const chuaBaoTriPaged = usePaged(chuaBaoTri)
 
   const handleAnalyze = () => {
     const raw = text.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean)
@@ -4966,53 +4972,108 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
       </div>
 
       <div>
-        <div className="flex items-center gap-2 mb-2 px-1">
-          <h3 className="text-sm font-bold text-slate-700">Đã bảo trì tháng {thangNam.split('-').reverse().join('/')}</h3>
-          <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">{records.length} máy</span>
-          <div className="ml-auto flex items-center gap-2">
-            <ColumnMenu view={col} />
-            <ClearAllButton count={records.length} label={`bảo trì tháng ${thangNam.split('-').reverse().join('/')}`} onConfirm={async () => {
-              const res = await fetch(`/api/admin/bao-tri?all=1&thang_nam=${thangNam}`, { method: 'DELETE' })
-              if (res.ok) { showNotification('success', 'Đã xóa toàn bộ bảo trì tháng này.'); fetchRecords(thangNam) } else showNotification('error', 'Xóa không thành công')
-            }} />
-          </div>
+        <div className="flex gap-1 border-b border-slate-200 mb-4 overflow-x-auto w-full max-w-full">
+          <button
+            onClick={() => setSubTab('da_bao_tri')}
+            className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${subTab === 'da_bao_tri' ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+          >
+            Đã bảo trì tháng {thangNam.split('-').reverse().join('/')} ({records.length} máy)
+          </button>
+          <button
+            onClick={() => setSubTab('chua_bao_tri')}
+            className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${subTab === 'chua_bao_tri' ? 'border-amber-500 text-amber-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+          >
+            Chưa bảo trì tháng {thangNam.split('-').reverse().join('/')} ({chuaBaoTri.length} máy)
+          </button>
         </div>
-        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-          <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200 shadow-sm">
-              <tr>
-                {col.show('ma_may') && <th className="px-4 py-3 font-semibold">Mã máy</th>}
-                {col.show('khach') && <th className="px-4 py-3 font-semibold">Khách hàng</th>}
-                {col.show('ngay') && <th className="px-4 py-3 font-semibold">Ngày</th>}
-                {col.show('xoa') && <th className="px-4 py-3 font-semibold text-center w-16">Xóa</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Đang tải...</td></tr>
-              ) : records.length === 0 ? (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Chưa có máy nào được đánh dấu bảo trì tháng này.</td></tr>
-              ) : paged.pageItems.map((r) => {
-                const kh = customerByMaMay.get(String(r.ma_may).toLowerCase())
-                return (
-                  <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                    {col.show('ma_may') && <td className="px-4 py-3 font-mono font-medium text-slate-700">{r.ma_may}</td>}
-                    {col.show('khach') && <td className="px-4 py-3">{kh ? kh.ten_khach_hang : <span className="text-slate-400 italic">Không khớp khách hàng</span>}</td>}
-                    {col.show('ngay') && <td className="px-4 py-3 whitespace-nowrap">{formatDate(r.ngay)}</td>}
-                    {col.show('xoa') && <td className="px-4 py-3 text-center">
-                      <button onClick={() => handleDelete(r.id)} className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 hover:bg-red-100 rounded-md transition"><Trash2 className="w-4 h-4" /></button>
-                    </td>}
+
+        {subTab === 'da_bao_tri' ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 px-1">
+              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">{records.length} máy</span>
+              <div className="ml-auto flex items-center gap-2">
+                <ColumnMenu view={col} />
+                <ClearAllButton count={records.length} label={`bảo trì tháng ${thangNam.split('-').reverse().join('/')}`} onConfirm={async () => {
+                  const res = await fetch(`/api/admin/bao-tri?all=1&thang_nam=${thangNam}`, { method: 'DELETE' })
+                  if (res.ok) { showNotification('success', 'Đã xóa toàn bộ bảo trì tháng này.'); fetchRecords(thangNam) } else showNotification('error', 'Xóa không thành công')
+                }} />
+              </div>
+            </div>
+            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+              <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm text-slate-600">
+                <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200 shadow-sm">
+                  <tr>
+                    {col.show('ma_may') && <th className="px-4 py-3 font-semibold">Mã máy</th>}
+                    {col.show('khach') && <th className="px-4 py-3 font-semibold">Khách hàng</th>}
+                    {col.show('ngay') && <th className="px-4 py-3 font-semibold">Ngày</th>}
+                    {col.show('xoa') && <th className="px-4 py-3 font-semibold text-center w-16">Xóa</th>}
                   </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {loading ? (
+                    <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Đang tải...</td></tr>
+                  ) : records.length === 0 ? (
+                    <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Chưa có máy nào được đánh dấu bảo trì tháng này.</td></tr>
+                  ) : paged.pageItems.map((r) => {
+                    const kh = customerByMaMay.get(String(r.ma_may).toLowerCase())
+                    return (
+                      <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                        {col.show('ma_may') && <td className="px-4 py-3 font-mono font-medium text-slate-700">{r.ma_may}</td>}
+                        {col.show('khach') && <td className="px-4 py-3">{kh ? kh.ten_khach_hang : <span className="text-slate-400 italic">Không khớp khách hàng</span>}</td>}
+                        {col.show('ngay') && <td className="px-4 py-3 whitespace-nowrap">{formatDate(r.ngay)}</td>}
+                        {col.show('xoa') && <td className="px-4 py-3 text-center">
+                          <button onClick={() => handleDelete(r.id)} className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 hover:bg-red-100 rounded-md transition"><Trash2 className="w-4 h-4" /></button>
+                        </td>}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              </div>
+              <div className="px-4 pb-2">
+                <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
+              </div>
+            </div>
           </div>
-          <div className="px-4 pb-2">
-            <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 px-1">
+              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">{chuaBaoTri.length} máy</span>
+            </div>
+            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+              <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm text-slate-600">
+                <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200 shadow-sm">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Mã máy</th>
+                    <th className="px-4 py-3 font-semibold">Khách hàng</th>
+                    <th className="px-4 py-3 font-semibold">Model</th>
+                    <th className="px-4 py-3 font-semibold">Loại HĐ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {chuaBaoTri.length === 0 ? (
+                    <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Tất cả các máy đã được bảo trì trong tháng này!</td></tr>
+                  ) : chuaBaoTriPaged.pageItems.map((kh) => (
+                    <tr key={kh.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 font-mono font-medium text-slate-700">{kh.ma_may}</td>
+                      <td className="px-4 py-3 font-medium text-slate-800">{kh.ten_khach_hang}</td>
+                      <td className="px-4 py-3 text-slate-500">{kh.model || '—'}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold border bg-blue-50 text-blue-700 border-blue-100">{kh.loai_hd}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              </div>
+              <div className="px-4 pb-2">
+                <Pagination page={chuaBaoTriPaged.page} pageCount={chuaBaoTriPaged.pageCount} total={chuaBaoTriPaged.total} perPage={chuaBaoTriPaged.perPage} onPage={chuaBaoTriPaged.setPage} />
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
