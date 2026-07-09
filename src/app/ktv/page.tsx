@@ -62,13 +62,12 @@ export default function KtvMobileWeb() {
   })
   const [reportData, setReportData] = useState<{ da_nop: boolean, thoi_gian_nop: string | null, jobs: any[], extraJobs: any[], ngayNghi: string[] } | null>(null)
   const [extraInput, setExtraInput] = useState("")
-  const [savingReport, setSavingReport] = useState<string | null>(null) // Lưu id công việc đang bấm Lưu
   const [submittingReport, setSubmittingReport] = useState(false)
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false)
   const [reportStatusByDate, setReportStatusByDate] = useState<Record<string, boolean>>({}) // lưu da_nop theo ngày để vẽ màu lịch nhanh
 
-  // Hộp kiểm xác nhận từng việc trước khi chốt nộp
-  const [checkedJobs, setCheckedJobs] = useState<Record<string, boolean>>({})
+  // State lưu trữ dữ liệu điền báo cáo tạm thời trong RAM (counter & ghi_chu_ktv)
+  const [draftReports, setDraftReports] = useState<Record<string, { counter: string, ghi_chu_ktv: string }>>({})
 
   // Tải thông tin báo cáo cho ngày cụ thể
   const fetchReportData = useCallback(async (ngay: string) => {
@@ -80,13 +79,33 @@ export default function KtvMobileWeb() {
         if (json.data.statuses) {
           setReportStatusByDate(json.data.statuses)
         }
-        // Reset checklist xác nhận khi đổi ngày chọn
-        setCheckedJobs({})
+        // Nạp dữ liệu các ca máy hiện có vào draftReports để sửa
+        const initialDrafts: Record<string, { counter: string, ghi_chu_ktv: string }> = {}
+        if (json.data.jobs) {
+          json.data.jobs.forEach((j: any) => {
+            initialDrafts[j.id] = {
+              counter: j.counter != null ? String(j.counter) : "",
+              ghi_chu_ktv: j.ghi_chu_ktv || ""
+            }
+          })
+        }
+        setDraftReports(initialDrafts)
       }
     } catch (err) {
       console.error(err)
     }
   }, [])
+
+  // Cập nhật nháp cục bộ trong RAM trước khi chốt nộp
+  const handleUpdateDraftReport = (jobId: string, field: 'counter' | 'ghi_chu_ktv', value: string) => {
+    setDraftReports(prev => ({
+      ...prev,
+      [jobId]: {
+        ...prev[jobId] || { counter: "", ghi_chu_ktv: "" },
+        [field]: value
+      }
+    }))
+  }
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message })
@@ -212,10 +231,20 @@ export default function KtvMobileWeb() {
   const handleSubmitDailyReport = async () => {
     setSubmittingReport(true)
     try {
+      const jobsToSend = Object.entries(draftReports).map(([id, val]) => ({
+        id,
+        counter: val.counter,
+        ghi_chu_ktv: val.ghi_chu_ktv
+      }))
+
       const res = await fetch('/api/ktv/bao-cao', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'submit_daily', ngay: selectedReportDate })
+        body: JSON.stringify({
+          action: 'submit_daily',
+          ngay: selectedReportDate,
+          jobs: jobsToSend
+        })
       })
       if (res.ok) {
         showNotification('success', "Đã nộp báo cáo ngày thành công!")
@@ -717,8 +746,8 @@ export default function KtvMobileWeb() {
                                 key={j.id}
                                 job={j}
                                 readOnly={reportData.da_nop}
-                                saving={savingReport === j.id}
-                                onSave={(ct, gc) => handleSaveJobReport(j.id, ct, gc)}
+                                draftVal={draftReports[j.id] || { counter: "", ghi_chu_ktv: "" }}
+                                onValueChange={(field, val) => handleUpdateDraftReport(j.id, field, val)}
                               />
                             ))
                           )}
@@ -776,8 +805,11 @@ export default function KtvMobileWeb() {
 
                         {/* NÚT CHỐT NỘP BÁO CÁO NGÀY */}
                         {!reportData.da_nop && (() => {
-                          // KTV bắt buộc phải chọn tình trạng máy (có dữ liệu ghi_chu_ktv) cho MỌI ca máy
-                          const canSubmit = reportData.jobs.every(j => !!(j.ghi_chu_ktv && j.ghi_chu_ktv.trim()))
+                          // KTV bắt buộc phải chọn tình trạng máy (có dữ liệu ghi_chu_ktv trong draftReports) cho MỌI ca máy
+                          const canSubmit = reportData.jobs.every(j => {
+                            const val = draftReports[j.id]
+                            return !!(val && val.ghi_chu_ktv && val.ghi_chu_ktv.trim())
+                          })
                           return (
                             <div className="pt-2">
                               <Button
@@ -1015,17 +1047,7 @@ export default function KtvMobileWeb() {
   )
 }
 
-function JobReportCard({ job, readOnly, saving, onSave }: { job: any, readOnly: boolean, saving: boolean, onSave: (counter: string, ghiChuKtv: string) => void }) {
-  const [counter, setCounter] = useState(job.counter != null ? String(job.counter) : "")
-  const [ghiChuKtv, setGhiChuKtv] = useState(job.ghi_chu_ktv || "")
-
-  useEffect(() => {
-    setCounter(job.counter != null ? String(job.counter) : "")
-    setGhiChuKtv(job.ghi_chu_ktv || "")
-  }, [job])
-
-  const isChanged = (job.counter != null ? String(job.counter) : "") !== counter || (job.ghi_chu_ktv || "") !== ghiChuKtv
-
+function JobReportCard({ job, readOnly, draftVal, onValueChange }: { job: any, readOnly: boolean, draftVal: { counter: string, ghi_chu_ktv: string }, onValueChange: (field: 'counter' | 'ghi_chu_ktv', value: string) => void }) {
   return (
     <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
       <div className="flex justify-between items-start">
@@ -1049,8 +1071,8 @@ function JobReportCard({ job, readOnly, saving, onSave }: { job: any, readOnly: 
             disabled={readOnly}
             placeholder="Gõ số"
             className="h-8 text-xs text-center bg-slate-50 border-slate-200"
-            value={counter}
-            onChange={(e) => setCounter(e.target.value.replace(/\D/g, ''))}
+            value={draftVal.counter}
+            onChange={(e) => onValueChange('counter', e.target.value.replace(/\D/g, ''))}
           />
         </div>
         <div className="col-span-2 space-y-1">
@@ -1058,8 +1080,8 @@ function JobReportCard({ job, readOnly, saving, onSave }: { job: any, readOnly: 
           <select
             disabled={readOnly}
             className="w-full h-8 px-2 rounded-md border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 text-slate-700 font-medium"
-            value={ghiChuKtv}
-            onChange={(e) => setGhiChuKtv(e.target.value)}
+            value={draftVal.ghi_chu_ktv}
+            onChange={(e) => onValueChange('ghi_chu_ktv', e.target.value)}
           >
             <option value="">-- Chọn tình trạng máy --</option>
             <option value="HĐBT">HĐBT (Hoạt động bình thường)</option>
@@ -1068,19 +1090,6 @@ function JobReportCard({ job, readOnly, saving, onSave }: { job: any, readOnly: 
           </select>
         </div>
       </div>
-
-      {!readOnly && isChanged && (
-        <div className="flex justify-end pt-1">
-          <Button
-            size="sm"
-            onClick={() => onSave(counter, ghiChuKtv)}
-            disabled={saving}
-            className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white px-3"
-          >
-            {saving ? 'Lưu...' : 'Lưu lại'}
-          </Button>
-        </div>
-      )}
     </div>
   )
 }

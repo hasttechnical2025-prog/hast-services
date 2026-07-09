@@ -238,6 +238,30 @@ export async function POST(request: Request) {
 
     // 3. Thao tác chốt nộp báo cáo ngày
     if (action === 'submit_daily') {
+      const bodyData = await request.json().catch(() => ({}))
+      const { jobs } = bodyData
+
+      // Nếu có truyền kèm danh sách các ca máy cần lưu
+      if (Array.isArray(jobs) && jobs.length > 0) {
+        // Cập nhật song song thông tin counter và ghi_chu_ktv cho từng ca
+        const updatePromises = jobs.map(j => {
+          const countVal = j.counter === '' || j.counter == null ? null : (parseInt(j.counter, 10) || null)
+          return supabaseAdmin
+            .from('soct_cong_viec')
+            .update({
+              counter: countVal,
+              ghi_chu_ktv: j.ghi_chu_ktv || null
+            })
+            .eq('id', j.id)
+        })
+        const results = await Promise.all(updatePromises)
+        const err = results.find(r => r.error)
+        if (err) {
+          console.error("Lỗi cập nhật ca máy khi chốt nộp:", err.error)
+          return NextResponse.json({ error: 'Lỗi lưu thông tin ca máy: ' + err.error.message }, { status: 500 })
+        }
+      }
+
       // Xác nhận chốt báo cáo cho KTV
       const { data, error } = await supabaseAdmin
         .from('soct_trang_thai_bao_cao')
