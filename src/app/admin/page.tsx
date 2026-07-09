@@ -4756,7 +4756,7 @@ function DanhMucTool({ danhMuc, onUpdateSuccess, showNotification }: { danhMuc: 
 const BAOTRI_COLS: ColDef[] = [
   { key: 'ma_may', label: 'Mã máy', locked: true },
   { key: 'khach', label: 'Khách hàng' },
-  { key: 'ngay', label: 'Ngày' },
+  { key: 'model', label: 'Model' },
   { key: 'xoa', label: 'Xóa', locked: true },
 ]
 
@@ -5006,7 +5006,7 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
                   <tr>
                     {col.show('ma_may') && <th className="px-4 py-3 font-semibold">Mã máy</th>}
                     {col.show('khach') && <th className="px-4 py-3 font-semibold">Khách hàng</th>}
-                    {col.show('ngay') && <th className="px-4 py-3 font-semibold">Ngày</th>}
+                    {col.show('model') && <th className="px-4 py-3 font-semibold">Model</th>}
                     {col.show('xoa') && <th className="px-4 py-3 font-semibold text-center w-16">Xóa</th>}
                   </tr>
                 </thead>
@@ -5021,7 +5021,7 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
                       <tr key={r.id} className="hover:bg-slate-50 transition-colors">
                         {col.show('ma_may') && <td className="px-4 py-3 font-mono font-medium text-slate-700">{r.ma_may}</td>}
                         {col.show('khach') && <td className="px-4 py-3">{kh ? kh.ten_khach_hang : <span className="text-slate-400 italic">Không khớp khách hàng</span>}</td>}
-                        {col.show('ngay') && <td className="px-4 py-3 whitespace-nowrap">{formatDate(r.ngay)}</td>}
+                        {col.show('model') && <td className="px-4 py-3 text-slate-500">{kh ? kh.model || '—' : '—'}</td>}
                         {col.show('xoa') && <td className="px-4 py-3 text-center">
                           <button onClick={() => handleDelete(r.id)} className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 hover:bg-red-100 rounded-md transition"><Trash2 className="w-4 h-4" /></button>
                         </td>}
