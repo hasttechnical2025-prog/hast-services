@@ -56,7 +56,10 @@ export default function KtvMobileWeb() {
 
   // State phục vụ nghiệp vụ Báo cáo & Nhật ký KTV
   const [ktvTab, setKtvTab] = useState<"jobs" | "report">("jobs")
-  const [selectedReportDate, setSelectedReportDate] = useState(new Date().toISOString().split('T')[0])
+  const [selectedReportDate, setSelectedReportDate] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })
   const [reportData, setReportData] = useState<{ da_nop: boolean, thoi_gian_nop: string | null, jobs: any[], extraJobs: any[], ngayNghi: string[] } | null>(null)
   const [extraInput, setExtraInput] = useState("")
   const [savingReport, setSavingReport] = useState<string | null>(null) // Lưu id công việc đang bấm Lưu
@@ -587,12 +590,15 @@ export default function KtvMobileWeb() {
                           // Tạo danh sách 8 ngày gần nhất
                           for (let i = 0; i < 8; i++) {
                             const d = new Date(today.getTime() - i * 86400000)
-                            const ymd = d.toISOString().split('T')[0]
+                            const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
                             const dayOfWeek = d.getDay()
                             const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
                             const isHoliday = ngayNghiSet.has(ymd)
                             const label = `${d.getDate()}/${d.getMonth() + 1}`
-                            const isReportToday = ymd === new Date().toISOString().split('T')[0]
+                            const isReportToday = ymd === (() => {
+                              const now = new Date()
+                              return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+                            })()
 
                             list.push({
                               ymd,
