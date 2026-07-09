@@ -19,11 +19,12 @@ export async function GET(request: Request) {
 
     // 1. Tính toán danh sách 8 ngày gần nhất để lấy trạng thái nộp báo cáo hàng loạt
     const datesToCheck: string[] = []
-    const refDate = new Date(ngay)
+    const refDate = new Date()
     refDate.setHours(0,0,0,0)
     for (let i = 0; i < 8; i++) {
       const d = new Date(refDate.getTime() - i * 86400000)
-      datesToCheck.push(d.toISOString().split('T')[0])
+      const ymdStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      datesToCheck.push(ymdStr)
     }
 
     // Lấy trạng thái chốt nộp của 8 ngày này

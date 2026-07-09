@@ -65,12 +65,14 @@ export default function KtvMobileWeb() {
   const [submittingReport, setSubmittingReport] = useState(false)
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false)
   const [reportStatusByDate, setReportStatusByDate] = useState<Record<string, boolean>>({}) // lưu da_nop theo ngày để vẽ màu lịch nhanh
+  const [loadingReport, setLoadingReport] = useState(false) // State loading khi chuyển ngày nộp báo cáo
 
   // State lưu trữ dữ liệu điền báo cáo tạm thời trong RAM (counter & ghi_chu_ktv)
   const [draftReports, setDraftReports] = useState<Record<string, { counter: string, ghi_chu_ktv: string }>>({})
 
   // Tải thông tin báo cáo cho ngày cụ thể
   const fetchReportData = useCallback(async (ngay: string) => {
+    setLoadingReport(true)
     try {
       const res = await fetch(`/api/ktv/bao-cao?ngay=${ngay}`)
       if (res.ok) {
@@ -93,6 +95,8 @@ export default function KtvMobileWeb() {
       }
     } catch (err) {
       console.error(err)
+    } finally {
+      setLoadingReport(false)
     }
   }, [])
 
@@ -162,25 +166,38 @@ export default function KtvMobileWeb() {
     }
   }, [currentKtv, ktvTab, selectedReportDate, fetchReportData])
 
-  // Thêm việc ngoài luồng
+  // Thêm việc ngoài luồng (Optimistic UI: hiện ngay trên list rồi mới lưu)
   const handleAddExtraJob = async () => {
     if (!extraInput.trim()) return
+    const tempId = 'temp_' + Date.now()
+    const textToSave = extraInput.trim()
+
+    // Cập nhật giao diện ngay lập tức
+    setExtraInput("")
+    if (reportData) {
+      setReportData({
+        ...reportData,
+        extraJobs: [...reportData.extraJobs, { id: tempId, noi_dung: textToSave }]
+      })
+    }
+
     try {
       const res = await fetch('/api/ktv/bao-cao', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'add_extra', ngay: selectedReportDate, noi_dung: extraInput })
+        body: JSON.stringify({ action: 'add_extra', ngay: selectedReportDate, noi_dung: textToSave })
       })
       if (res.ok) {
-        setExtraInput("")
+        // Tải lại để lấy ID thực tế từ database
         fetchReportData(selectedReportDate)
-        showNotification('success', "Đã thêm công việc khác.")
       } else {
         const err = await res.json()
         showNotification('error', err.error)
+        fetchReportData(selectedReportDate) // Rollback nếu lỗi
       }
     } catch {
       showNotification('error', "Lỗi kết nối!")
+      fetchReportData(selectedReportDate) // Rollback nếu lỗi
     }
   }
 
@@ -688,7 +705,7 @@ export default function KtvMobileWeb() {
                     </div>
 
                     {reportData ? (
-                      <div className="space-y-4">
+                      <div className={`space-y-4 transition-opacity duration-200 ${loadingReport ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
                         {/* TRẠNG THÁI NỘP BÁO CÁO */}
                         {reportData.da_nop ? (
                           <div className="bg-emerald-50 text-emerald-800 px-4 py-3 rounded-xl border border-emerald-100 text-sm flex items-center gap-2">
@@ -705,7 +722,7 @@ export default function KtvMobileWeb() {
                             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
                             <div>
                               <div className="font-bold">Báo cáo ngày chưa được chốt!</div>
-                              <div className="text-xs text-amber-600">Vui lòng điền counter ca máy và ghi thêm việc vặt rồi bấm Chốt ở dưới cùng.</div>
+                              <div className="text-xs text-amber-600">Vui lòng nhập BÁO CÁO TÌNH TRẠNG MÁY và ghi thêm công việc khác (nếu có).</div>
                             </div>
                           </div>
                         )}
