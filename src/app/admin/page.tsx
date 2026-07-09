@@ -222,7 +222,7 @@ export default function AdminDashboard() {
   // Tab con bên trong "Kho hàng" (tech_admin không thấy Tồn kho -> mặc định Đặt hàng)
   const [khoTab, setKhoTab] = useState<"ton_kho" | "dat_hang" | "thong_ke">("ton_kho")
   // Tab con bên trong "Quản lý"
-  const [quanLyTab, setQuanLyTab] = useState<"khach_hang" | "bao_cao">("khach_hang")
+  const [quanLyTab, setQuanLyTab] = useState<"nhat_ky" | "khach_hang" | "bao_cao">("nhat_ky")
   const [cauHinh, setCauHinh] = useState<Record<string, string>>({})
 
   // Ẩn/hiện tab (lớn + con) theo role. Admin thấy hết; Hệ thống khóa admin-only.
@@ -245,7 +245,7 @@ export default function AdminDashboard() {
     subVisible(parent, current) ? current : (subs.find(s => subVisible(parent, s)) || current)
   const effectiveKhoTab = firstVisibleSub('kho_hang', ['ton_kho', 'dat_hang', 'thong_ke'], khoTab)
   const effectiveMonitorTab = firstVisibleSub('theo_doi_may', ['bao_tri', 'giam_dinh'], monitorTab) as "bao_tri" | "giam_dinh"
-  const effectiveQuanLyTab = firstVisibleSub('quan_ly', ['khach_hang', 'bao_cao'], quanLyTab) as "khach_hang" | "bao_cao"
+  const effectiveQuanLyTab = firstVisibleSub('quan_ly', ['nhat_ky', 'khach_hang', 'bao_cao'], quanLyTab) as "nhat_ky" | "khach_hang" | "bao_cao"
   const repeatNgay = parseInt(cauHinh.repeat_ngay || '30') || 30
   const nguongTonThap = parseInt(cauHinh.nguong_ton_thap || '0') || 0
 
@@ -1240,22 +1240,39 @@ export default function AdminDashboard() {
             {/* Thanh tab con của Quản lý */}
             <div className="p-4 border-b border-slate-200 bg-slate-50/50">
               <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
-                <button
-                  onClick={() => setQuanLyTab("khach_hang")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${quanLyTab === 'khach_hang' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  Danh sách khách hàng
-                </button>
-                <button
-                  onClick={() => setQuanLyTab("bao_cao")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${quanLyTab === 'bao_cao' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  Báo cáo tháng
-                </button>
+                {subVisible('quan_ly', 'nhat_ky') && (
+                  <button
+                    onClick={() => setQuanLyTab("nhat_ky" as any)}
+                    className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveQuanLyTab === 'nhat_ky' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    Báo cáo KTV
+                  </button>
+                )}
+                {subVisible('quan_ly', 'khach_hang') && (
+                  <button
+                    onClick={() => setQuanLyTab("khach_hang" as any)}
+                    className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveQuanLyTab === 'khach_hang' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    Danh sách khách hàng
+                  </button>
+                )}
+                {subVisible('quan_ly', 'bao_cao') && (
+                  <button
+                    onClick={() => setQuanLyTab("bao_cao" as any)}
+                    className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveQuanLyTab === 'bao_cao' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    Báo cáo tháng (KH)
+                  </button>
+                )}
               </div>
             </div>
 
             <div className="p-6 space-y-6">
+              {/* TAB CON: NHẬT KÝ KTV */}
+              {effectiveQuanLyTab === "nhat_ky" && (
+                <BaoCaoKtvTool technicians={technicians} showNotification={showNotification} />
+              )}
+
               {/* TAB CON: DANH SÁCH KHÁCH HÀNG */}
               {effectiveQuanLyTab === "khach_hang" && (
                 <>
@@ -3786,6 +3803,52 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
   const [saving, setSaving] = useState(false)
   const toggleTab = (role: string, tab: string) => setTabVis(p => ({ ...p, [role]: { ...p[role], [tab]: !p[role][tab] } }))
 
+  // Quản lý ngày nghỉ lễ
+  const [ngayNghiList, setNgayNghiList] = useState<{ ngay: string, ghi_chu: string }[]>([])
+  const [newNgayNghi, setNewNgayNghi] = useState("")
+  const [newGhiChuNghi, setNewGhiChuNghi] = useState("")
+  const [loadingNghi, setLoadingNghi] = useState(false)
+
+  const fetchNgayNghi = async () => {
+    setLoadingNghi(true)
+    try {
+      const res = await fetch('/api/admin/ngay-nghi')
+      const j = await res.json()
+      if (res.ok) setNgayNghiList(j.data || [])
+    } catch { console.error('Lỗi lấy ngày nghỉ') }
+    finally { setLoadingNghi(false) }
+  }
+  useEffect(() => { fetchNgayNghi() }, [])
+
+  const handleAddNgayNghi = async () => {
+    if (!newNgayNghi) return showNotification('error', 'Vui lòng chọn ngày')
+    try {
+      const res = await fetch('/api/admin/ngay-nghi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ngay: newNgayNghi, ghi_chu: newGhiChuNghi })
+      })
+      if (res.ok) {
+        showNotification('success', 'Đã thêm ngày nghỉ lễ')
+        setNewNgayNghi(""); setNewGhiChuNghi("")
+        fetchNgayNghi()
+      } else {
+        const err = await res.json()
+        showNotification('error', err.error)
+      }
+    } catch { showNotification('error', 'Lỗi kết nối') }
+  }
+
+  const handleDeleteNgayNghi = async (ngay: string) => {
+    try {
+      const res = await fetch(`/api/admin/ngay-nghi?ngay=${ngay}`, { method: 'DELETE' })
+      if (res.ok) {
+        showNotification('success', 'Đã xóa ngày nghỉ lễ')
+        fetchNgayNghi()
+      }
+    } catch { showNotification('error', 'Lỗi kết nối') }
+  }
+
   const save = async () => {
     setSaving(true)
     const items = {
@@ -3853,6 +3916,38 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
             <input type="checkbox" checked={cfg.geocode_import} onChange={(e) => setCfg({ ...cfg, geocode_import: e.target.checked })} className="w-4 h-4 accent-blue-600" />
             Tự tính tọa độ &amp; KM khi import CSV khách hàng (dòng thiếu Km)
           </label>
+        </div>
+      </div>
+
+      {/* CẤU HÌNH NGÀY NGHỈ LỄ */}
+      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+        <h3 className="text-lg font-semibold text-slate-700">Ngày nghỉ Lễ / Tết</h3>
+        <p className="text-sm text-slate-500">Các ngày KTV không đi làm (trừ T7, CN). Dùng để ẩn trên lịch nộp báo cáo KTV và bỏ qua khi bot nhắc nhở.</p>
+
+        <div className="flex gap-2 items-end">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Ngày nghỉ</label>
+            <DateField value={newNgayNghi} onChange={setNewNgayNghi} />
+          </div>
+          <div className="space-y-1 flex-1 max-w-sm">
+            <label className="text-xs font-semibold text-slate-600">Lý do nghỉ (Tùy chọn)</label>
+            <Input placeholder="VD: Nghỉ lễ 30/4" value={newGhiChuNghi} onChange={(e) => setNewGhiChuNghi(e.target.value)} className="bg-white h-10" />
+          </div>
+          <Button onClick={handleAddNgayNghi} className="h-10 bg-emerald-600 hover:bg-emerald-700">
+            <Plus className="w-4 h-4 mr-1" /> Thêm ngày
+          </Button>
+        </div>
+
+        <div className="flex flex-wrap gap-2 pt-2">
+          {loadingNghi ? <span className="text-sm text-slate-400">Đang tải...</span> : ngayNghiList.length === 0 ? <span className="text-sm text-slate-400">Chưa khai báo ngày nghỉ nào.</span> : ngayNghiList.map((n) => (
+            <div key={n.ngay} className="flex items-center gap-1 bg-white border border-slate-200 px-2 py-1 rounded-md text-sm shadow-sm">
+              <span className="font-semibold text-slate-700">{n.ngay.split('-').reverse().join('/')}</span>
+              {n.ghi_chu && <span className="text-slate-400 text-xs">— {n.ghi_chu}</span>}
+              <button onClick={() => handleDeleteNgayNghi(n.ngay)} className="ml-1 text-slate-400 hover:text-red-500" title="Xóa">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -4418,6 +4513,195 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
               </Button>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function BaoCaoKtvTool({ technicians, showNotification }: { technicians: any[], showNotification: (type: 'success' | 'error', msg: string) => void }) {
+  const [ktvId, setKtvId] = useState('')
+  const [tuNgay, setTuNgay] = useState(new Date().toISOString().split('T')[0])
+  const [denNgay, setDenNgay] = useState(new Date().toISOString().split('T')[0])
+
+  const [data, setData] = useState<{ trang_thai: any[], jobs: any[], extras: any[] }>({ trang_thai: [], jobs: [], extras: [] })
+  const [loading, setLoading] = useState(false)
+
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      const q = new URLSearchParams()
+      if (ktvId) q.set('ktv_id', ktvId)
+      if (tuNgay) q.set('tu_ngay', tuNgay)
+      if (denNgay) q.set('den_ngay', denNgay)
+      const res = await fetch(`/api/admin/bao-cao-ktv?${q.toString()}`)
+      const j = await res.json()
+      if (res.ok) {
+        setData(j.data)
+      } else {
+        showNotification('error', j.error)
+      }
+    } catch {
+      showNotification('error', 'Lỗi kết nối khi tải báo cáo!')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchData()
+  }, [ktvId, tuNgay, denNgay]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fmt = (s: string) => { if (!s) return ''; const d = new Date(s); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` }
+
+  // Nhóm dữ liệu theo Ngày -> KTV
+  const reportDays = Array.from(new Set([
+    ...data.trang_thai.map(t => t.ngay_bao_cao),
+    ...data.jobs.map(j => j.ngay),
+    ...data.extras.map(e => e.ngay)
+  ])).sort().reverse()
+
+  return (
+    <div className="space-y-4">
+      {/* Bộ lọc */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-wrap items-end gap-3 shadow-sm">
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-slate-600">Kỹ thuật viên</label>
+          <select
+            value={ktvId}
+            onChange={(e) => setKtvId(e.target.value)}
+            className="h-10 px-3 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500 w-44"
+          >
+            <option value="">Tất cả KTV</option>
+            {technicians.filter(t => t.role === 'ktv').map(t => (
+              <option key={t.id} value={t.id}>{t.full_name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-slate-600">Từ ngày</label>
+          <DateField value={tuNgay} onChange={setTuNgay} />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-slate-600">Đến ngày</label>
+          <DateField value={denNgay} onChange={setDenNgay} />
+        </div>
+
+        <Button onClick={fetchData} disabled={loading} className="h-10 gap-1">
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          Tải lại
+        </Button>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-slate-400 text-center py-8">Đang tải nhật ký...</p>
+      ) : reportDays.length === 0 ? (
+        <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">
+          Không có dữ liệu nhật ký báo cáo trong khoảng thời gian này.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {reportDays.map(day => {
+            // Lọc ra các KTV có dữ liệu trong ngày này
+            const ktvIdsOfDay = Array.from(new Set([
+              ...data.trang_thai.filter(t => t.ngay_bao_cao === day).map(t => t.ktv_id),
+              ...data.jobs.filter(j => j.ngay === day).flatMap(j => [j.ktv_id, j.ktv2_id].filter(Boolean)),
+              ...data.extras.filter(e => e.ngay === day).map(e => e.ktv_id)
+            ]))
+
+            return (
+              <div key={day} className="space-y-3">
+                <div className="text-sm font-bold text-slate-800 border-l-4 border-blue-600 pl-2">
+                  Ngày {fmt(day)}
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  {ktvIdsOfDay.map(kId => {
+                    const ktvInfo = technicians.find(t => t.id === kId)
+                    if (!ktvInfo) return null
+
+                    const status = data.trang_thai.find(t => t.ktv_id === kId && t.ngay_bao_cao === day)
+                    const jobsOfDay = data.jobs.filter(j => j.ngay === day && (j.ktv_id === kId || j.ktv2_id === kId))
+                    const extrasOfDay = data.extras.filter(e => e.ngay === day && e.ktv_id === kId)
+
+                    return (
+                      <div key={kId} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+                        <div className="flex justify-between items-center flex-wrap gap-2 border-b border-slate-100 pb-3">
+                          <h4 className="font-bold text-slate-800 text-base">{ktvInfo.full_name}</h4>
+                          {status?.da_nop ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200" title={`Nộp lúc: ${new Date(status.thoi_gian_nop).toLocaleString('vi-VN')}`}>
+                              ✓ Đã chốt nộp
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+                              ⚠️ Chưa nộp
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Phiếu sửa chữa */}
+                        <div className="space-y-2">
+                          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Phiếu sửa chữa ({jobsOfDay.length})</div>
+                          {jobsOfDay.length === 0 ? (
+                            <p className="text-xs text-slate-400 italic">Không có ca sửa máy.</p>
+                          ) : (
+                            <div className="border border-slate-100 rounded-lg overflow-hidden">
+                              <table className="w-full text-left text-xs text-slate-600">
+                                <thead className="bg-slate-50 text-slate-500">
+                                  <tr>
+                                    <th className="px-3 py-2">Khách hàng</th>
+                                    <th className="px-3 py-2">Mã máy</th>
+                                    <th className="px-3 py-2">Loại việc</th>
+                                    <th className="px-3 py-2 text-center w-24">Số counter</th>
+                                    <th className="px-3 py-2">Báo cáo KTV</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {jobsOfDay.map(j => {
+                                    const isKtv2 = j.ktv2_id === kId
+                                    return (
+                                      <tr key={j.id} className="hover:bg-slate-50/50">
+                                        <td className="px-3 py-2.5 font-medium text-slate-800">{j.soct_khach_hang?.ten_khach_hang}</td>
+                                        <td className="px-3 py-2.5 font-mono text-slate-500">{j.ma_may || '—'}</td>
+                                        <td className="px-3 py-2.5">
+                                          {j.loai_cong_viec}
+                                          {isKtv2 && <span className="ml-1 text-[10px] text-slate-400 italic">(kèm)</span>}
+                                        </td>
+                                        <td className="px-3 py-2.5 text-center font-bold text-blue-700 font-mono">
+                                          {j.counter != null ? j.counter.toLocaleString('vi-VN') : '—'}
+                                        </td>
+                                        <td className="px-3 py-2.5 text-slate-500 italic leading-relaxed">{j.ghi_chu_ktv || '—'}</td>
+                                      </tr>
+                                    )
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Việc ngoài luồng */}
+                        <div className="space-y-2 pt-1">
+                          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Công việc khác ngoài luồng ({extrasOfDay.length})</div>
+                          {extrasOfDay.length === 0 ? (
+                            <p className="text-xs text-slate-400 italic">Không có việc khác.</p>
+                          ) : (
+                            <ul className="list-disc pl-5 text-xs text-slate-600 space-y-1">
+                              {extrasOfDay.map(e => (
+                                <li key={e.id} className="leading-relaxed">{e.noi_dung}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
