@@ -95,7 +95,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Thiếu thông tin KTV hoặc ngày không hợp lệ' }, { status: 400 })
     }
 
-    // 1. Lấy thông tin KTV
+    // 1. Kiểm tra trạng thái nộp báo cáo
+    const { data: ttReport } = await supabaseAdmin
+      .from('soct_trang_thai_bao_cao')
+      .select('da_nop')
+      .eq('ktv_id', ktv_id)
+      .eq('ngay_bao_cao', ngay)
+      .single()
+
+    if (!ttReport || !ttReport.da_nop) {
+      return NextResponse.json({ error: 'Báo cáo ngày này chưa được KTV chốt nộp. Không thể xuất báo cáo!' }, { status: 400 })
+    }
+
+    // 2. Lấy thông tin KTV
     const { data: ktv } = await supabaseAdmin
       .from('soct_users')
       .select('full_name')
@@ -106,7 +118,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Không tìm thấy kỹ thuật viên' }, { status: 404 })
     }
 
-    // 2. Lấy dữ liệu công việc trong Sổ công tác của KTV ngày đó (chính & phụ)
+    // 3. Lấy dữ liệu công việc trong Sổ công tác của KTV ngày đó (chính & phụ)
     const { data: dbJobs, error: jErr } = await supabaseAdmin
       .from('soct_cong_viec')
       .select(`
@@ -177,15 +189,7 @@ export async function POST(request: Request) {
     // 6. Nạp file template Word từ thư mục dự án
     const templatePath = path.join(process.cwd(), 'src', 'lib', 'report', 'bao-cao-ktv-template.docx')
     if (!fs.existsSync(templatePath)) {
-      // Dự phòng: nếu không tìm thấy trong src/lib/report, tìm ở thư mục gốc (nơi user paste)
-      const fallbackPath = path.join(process.cwd(), 'bao-cao-ktv-template.docx')
-      if (fs.existsSync(fallbackPath)) {
-        // Tự động copy sang src/lib/report cho đúng kiến trúc
-        fs.mkdirSync(path.dirname(templatePath), { recursive: true })
-        fs.copyFileSync(fallbackPath, templatePath)
-      } else {
-        return NextResponse.json({ error: 'Không tìm thấy file mẫu bao-cao-ktv-template.docx trong hệ thống. Vui lòng kiểm tra lại.' }, { status: 404 })
-      }
+      return NextResponse.json({ error: 'Không tìm thấy file mẫu bao-cao-ktv-template.docx trong hệ thống. Vui lòng kiểm tra lại.' }, { status: 404 })
     }
 
     const zip = new PizZip(fs.readFileSync(templatePath))
