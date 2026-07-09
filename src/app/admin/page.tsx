@@ -216,11 +216,13 @@ export default function AdminDashboard() {
 
   const [activeTab, setActiveTab] = useState("cong_viec")
   // Tab con bên trong "Hệ thống" (dễ mở rộng thêm sau)
-  const [systemTab, setSystemTab] = useState<"cai_dat" | "tai_khoan" | "khach_hang" | "danh_muc" | "bao_cao" | "audit" | "doi_mat_khau">("tai_khoan")
+  const [systemTab, setSystemTab] = useState<"cai_dat" | "tai_khoan" | "danh_muc" | "audit" | "doi_mat_khau">("tai_khoan")
   // Tab con bên trong "Theo dõi máy"
   const [monitorTab, setMonitorTab] = useState<"bao_tri" | "giam_dinh">("bao_tri")
   // Tab con bên trong "Kho hàng" (tech_admin không thấy Tồn kho -> mặc định Đặt hàng)
   const [khoTab, setKhoTab] = useState<"ton_kho" | "dat_hang" | "thong_ke">("ton_kho")
+  // Tab con bên trong "Quản lý"
+  const [quanLyTab, setQuanLyTab] = useState<"khach_hang" | "bao_cao">("khach_hang")
   const [cauHinh, setCauHinh] = useState<Record<string, string>>({})
 
   // Ẩn/hiện tab (lớn + con) theo role. Admin thấy hết; Hệ thống khóa admin-only.
@@ -229,7 +231,7 @@ export default function AdminDashboard() {
   const tabVisible = (tab: string) => {
     if (currentUserRole === 'admin') return true
     if (tab === 'cong_viec') return true
-    if (tab === 'he_thong') return false
+    if (tab === 'he_thong' || tab === 'quan_ly') return false // 2 tab này admin-only (hiện tại)
     return !!roleVis(currentUserRole)[tab]
   }
   // Tab con: key "cha.con"; mặc định hiện nếu chưa cấu hình riêng
@@ -243,6 +245,7 @@ export default function AdminDashboard() {
     subVisible(parent, current) ? current : (subs.find(s => subVisible(parent, s)) || current)
   const effectiveKhoTab = firstVisibleSub('kho_hang', ['ton_kho', 'dat_hang', 'thong_ke'], khoTab)
   const effectiveMonitorTab = firstVisibleSub('theo_doi_may', ['bao_tri', 'giam_dinh'], monitorTab) as "bao_tri" | "giam_dinh"
+  const effectiveQuanLyTab = firstVisibleSub('quan_ly', ['khach_hang', 'bao_cao'], quanLyTab) as "khach_hang" | "bao_cao"
   const repeatNgay = parseInt(cauHinh.repeat_ngay || '30') || 30
   const nguongTonThap = parseInt(cauHinh.nguong_ton_thap || '0') || 0
 
@@ -909,6 +912,15 @@ export default function AdminDashboard() {
                 </button>
               )}
 
+              {tabVisible('quan_ly') && (
+                <button
+                  onClick={() => setActiveTab("quan_ly")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'quan_ly' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Quản lý
+                </button>
+              )}
+
               <button
                 onClick={() => setActiveTab("he_thong")}
                 className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'he_thong' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
@@ -1223,76 +1235,29 @@ export default function AdminDashboard() {
           <CongNoTool showNotification={showNotification} />
         )}
 
-        {activeTab === "he_thong" && (
+        {activeTab === "quan_ly" && tabVisible('quan_ly') && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            {/* Thanh tab con của Hệ thống */}
+            {/* Thanh tab con của Quản lý */}
             <div className="p-4 border-b border-slate-200 bg-slate-50/50">
               <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
-                {currentUserRole === 'admin' && (<>
                 <button
-                  onClick={() => setSystemTab("cai_dat")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'cai_dat' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  Cài đặt hệ thống
-                </button>
-                <button
-                  onClick={() => setSystemTab("tai_khoan")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'tai_khoan' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  Tài khoản
-                </button>
-                <button
-                  onClick={() => setSystemTab("khach_hang")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'khach_hang' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  onClick={() => setQuanLyTab("khach_hang")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${quanLyTab === 'khach_hang' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                 >
                   Danh sách khách hàng
                 </button>
                 <button
-                  onClick={() => setSystemTab("danh_muc")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'danh_muc' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  Danh mục
-                </button>
-                <button
-                  onClick={() => setSystemTab("bao_cao")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'bao_cao' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  onClick={() => setQuanLyTab("bao_cao")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${quanLyTab === 'bao_cao' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                 >
                   Báo cáo tháng
-                </button>
-                <button
-                  onClick={() => setSystemTab("audit")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'audit' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  Audit Logs
-                </button>
-                </>)}
-                <button
-                  onClick={() => setSystemTab("doi_mat_khau")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${(systemTab === 'doi_mat_khau' || currentUserRole !== 'admin') ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  Đổi mật khẩu
                 </button>
               </div>
             </div>
 
             <div className="p-6 space-y-6">
-              {currentUserRole === 'admin' && (<>
-              {/* TAB CON: CÀI ĐẶT HỆ THỐNG */}
-              {systemTab === "cai_dat" && (
-                <CaiDatHeThongTool cauHinh={cauHinh} onUpdateSuccess={fetchData} showNotification={showNotification} />
-              )}
-
-              {/* TAB CON: TÀI KHOẢN */}
-              {systemTab === "tai_khoan" && (
-                <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
-                  <h3 className="text-lg font-semibold text-slate-700 mb-2">Quản lý Tài khoản (KTV & Nhân viên)</h3>
-                  <p className="text-sm text-slate-500 mb-6">Thêm mới, cập nhật tên đăng nhập và mật khẩu cho Kỹ thuật viên.</p>
-                  <UserManagementTool users={technicians} onUpdateSuccess={fetchData} showNotification={showNotification} confirmDelete={confirmDelete} />
-                </div>
-              )}
-
               {/* TAB CON: DANH SÁCH KHÁCH HÀNG */}
-              {systemTab === "khach_hang" && (
+              {effectiveQuanLyTab === "khach_hang" && (
                 <>
                   <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
                     <h3 className="text-lg font-semibold text-slate-700 mb-2">Danh sách Khách hàng (Điểm máy)</h3>
@@ -1331,14 +1296,73 @@ export default function AdminDashboard() {
                 </>
               )}
 
+              {/* TAB CON: BÁO CÁO THÁNG */}
+              {effectiveQuanLyTab === "bao_cao" && (
+                <BaoCaoThangTool showNotification={showNotification} />
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "he_thong" && (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            {/* Thanh tab con của Hệ thống */}
+            <div className="p-4 border-b border-slate-200 bg-slate-50/50">
+              <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
+                {currentUserRole === 'admin' && (<>
+                <button
+                  onClick={() => setSystemTab("cai_dat")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'cai_dat' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Cài đặt hệ thống
+                </button>
+                <button
+                  onClick={() => setSystemTab("tai_khoan")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'tai_khoan' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Tài khoản
+                </button>
+                <button
+                  onClick={() => setSystemTab("danh_muc")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'danh_muc' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Danh mục
+                </button>
+                <button
+                  onClick={() => setSystemTab("audit")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'audit' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Audit Logs
+                </button>
+                </>)}
+                <button
+                  onClick={() => setSystemTab("doi_mat_khau")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${(systemTab === 'doi_mat_khau' || currentUserRole !== 'admin') ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Đổi mật khẩu
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {currentUserRole === 'admin' && (<>
+              {/* TAB CON: CÀI ĐẶT HỆ THỐNG */}
+              {systemTab === "cai_dat" && (
+                <CaiDatHeThongTool cauHinh={cauHinh} onUpdateSuccess={fetchData} showNotification={showNotification} />
+              )}
+
+              {/* TAB CON: TÀI KHOẢN */}
+              {systemTab === "tai_khoan" && (
+                <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
+                  <h3 className="text-lg font-semibold text-slate-700 mb-2">Quản lý Tài khoản (KTV & Nhân viên)</h3>
+                  <p className="text-sm text-slate-500 mb-6">Thêm mới, cập nhật tên đăng nhập và mật khẩu cho Kỹ thuật viên.</p>
+                  <UserManagementTool users={technicians} onUpdateSuccess={fetchData} showNotification={showNotification} confirmDelete={confirmDelete} />
+                </div>
+              )}
+
               {/* TAB CON: DANH MỤC */}
               {systemTab === "danh_muc" && (
                 <DanhMucTool danhMuc={danhMuc} onUpdateSuccess={fetchData} showNotification={showNotification} />
-              )}
-
-              {/* TAB CON: BÁO CÁO THÁNG */}
-              {systemTab === "bao_cao" && (
-                <BaoCaoThangTool showNotification={showNotification} />
               )}
 
               {/* TAB CON: AUDIT LOGS */}

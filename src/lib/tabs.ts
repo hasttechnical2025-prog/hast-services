@@ -6,14 +6,15 @@ export const TAB_TREE: { key: string, label: string, subs: [string, string][] }[
   { key: 'theo_doi_may', label: 'Theo dõi máy', subs: [['bao_tri', 'Bảo trì'], ['giam_dinh', 'Giám định']] },
   { key: 'hoan_phieu', label: 'Hoàn phiếu', subs: [] },
   { key: 'cong_no', label: 'Công nợ', subs: [] },
+  { key: 'quan_ly', label: 'Quản lý', subs: [['khach_hang', 'Danh sách khách hàng'], ['bao_cao', 'Báo cáo tháng']] },
 ]
 
 export const TAB_ROLES: [string, string][] = [['tech_admin', 'Tech Admin'], ['staff', 'Staff']]
 
 // Mặc định hiển thị theo role; key tab con dạng "cha.con".
 export const DEFAULT_TAB_VIS: Record<string, Record<string, boolean>> = {
-  tech_admin: { kho_hang: true, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': true, 'kho_hang.thong_ke': true, theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true, hoan_phieu: true, cong_no: true },
-  staff: { kho_hang: false, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': false, 'kho_hang.thong_ke': false, theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true, hoan_phieu: true, cong_no: false },
+  tech_admin: { kho_hang: true, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': true, 'kho_hang.thong_ke': true, theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true, hoan_phieu: true, cong_no: true, quan_ly: false, 'quan_ly.khach_hang': false, 'quan_ly.bao_cao': false },
+  staff: { kho_hang: false, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': false, 'kho_hang.thong_ke': false, theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true, hoan_phieu: true, cong_no: false, quan_ly: false, 'quan_ly.khach_hang': false, 'quan_ly.bao_cao': false },
 }
 
 // Một role có được xem tab (và tab con) không, theo cấu hình đã lưu (tab_visibility) + mặc định.
