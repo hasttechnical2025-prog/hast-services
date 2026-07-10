@@ -34,6 +34,7 @@
 - **Hoàn phiếu** (kiểm soát nộp phiếu cứng), **Công nợ** (báo giá .docx 4 trang; trang_thai_hd đồng bộ 2 chiều với cờ hoa_don).
 - **Quản lý**: Báo cáo KTV / Nhật ký ngày (chốt nộp, xuất .docx, cron nhắc `/api/cron/nhac-bao-cao` dùng `CRON_SECRET` — ⚠️ chưa gắn `vercel.json` chạy tự động), Danh sách khách hàng, Báo cáo tháng.
 - **Batch QR Maintenance Scheduler**: trang **`/admin/scan`** — quét QR mã máy bằng camera (html5-qrcode) → giao bảo trì hàng loạt cho 1 KTV (`/api/admin/cong-viec/bulk-scan`).
+- **Office Mobile `/m`**: bản gọn cho **admin/tech_admin** (chặn staff/ktv) trên điện thoại — 3 tab: Giao việc (không vật tư, bỏ Giao mực/Thay vật tư), Quét QR (→ /admin/scan), Đặt hàng (xem đơn; tech_admin tạo **đơn nháp**; ghi hàng về chỉ admin). Office trên mobile (trang chủ + Passkey) tự vào /m; PC giữ dashboard đầy đủ. KTV bị cấm /admin (login lọc role + trang /admin từ chối role ktv).
 - **Hệ thống**: phân quyền tab (tabs.ts), đổi mật khẩu, Audit logs, QR đăng nhập KTV.
 - **App KTV** `/ktv`: mobile, lịch chọn ngày, nhận/hủy việc, báo cáo ngày.
 - **Tự cập nhật**: `/api/version` + `UpdateChecker` (root layout) → banner khi có deploy mới.

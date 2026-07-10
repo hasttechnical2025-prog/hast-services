@@ -28,20 +28,23 @@ export default function OfficeMobile() {
 
   const [customers, setCustomers] = useState<any[]>([])
   const [technicians, setTechnicians] = useState<any[]>([])
+  const [inventory, setInventory] = useState<any[]>([])
   const [loaiOptions, setLoaiOptions] = useState<string[]>(DEFAULT_LOAI.filter(l => !EXCLUDE_LOAI.includes(l)))
+  const [nccOptions, setNccOptions] = useState<string[]>([])
 
   const fetchData = async () => {
     try {
-      const [c, u, d] = await Promise.all([
-        fetch('/api/admin/khach-hang'), fetch('/api/admin/users'), fetch('/api/admin/danh-muc'),
+      const [c, u, d, k] = await Promise.all([
+        fetch('/api/admin/khach-hang'), fetch('/api/admin/users'), fetch('/api/admin/danh-muc'), fetch('/api/admin/kho-hang'),
       ])
       const cj = await c.json(); if (cj.data) setCustomers(cj.data)
       const uj = await u.json(); if (uj.data) setTechnicians(uj.data)
+      const kj = await k.json(); if (kj.data) setInventory(kj.data)
       const dj = await d.json()
-      const list = Array.isArray(dj.data)
-        ? dj.data.filter((x: any) => x.nhom === 'loai_cong_viec' && x.active !== false).sort((a: any, b: any) => a.thu_tu - b.thu_tu).map((x: any) => x.gia_tri)
-        : []
+      const dm = Array.isArray(dj.data) ? dj.data : []
+      const list = dm.filter((x: any) => x.nhom === 'loai_cong_viec' && x.active !== false).sort((a: any, b: any) => a.thu_tu - b.thu_tu).map((x: any) => x.gia_tri)
       setLoaiOptions((list.length ? list : DEFAULT_LOAI).filter((l: string) => !EXCLUDE_LOAI.includes(l)))
+      setNccOptions(dm.filter((x: any) => x.nhom === 'nha_cung_cap' && x.active !== false).sort((a: any, b: any) => a.thu_tu - b.thu_tu).map((x: any) => x.gia_tri))
     } catch { notify('error', 'Không tải được dữ liệu') }
   }
 
@@ -136,9 +139,7 @@ export default function OfficeMobile() {
         )}
 
         {tab === 'dat' && (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 text-center text-slate-400 text-sm">
-            Kiểm đơn đặt hàng — đang phát triển (Stage 2).
-          </div>
+          <DatHangMobile inventory={inventory} nccOptions={nccOptions} role={user.role} notify={notify} />
         )}
       </main>
 
@@ -259,6 +260,169 @@ function GiaoViecMobile({ customers, technicians, loaiOptions, notify }: {
       </div>
 
       <Button onClick={submit} disabled={saving} className="w-full h-11 font-semibold">{saving ? 'Đang giao...' : 'Giao việc'}</Button>
+    </div>
+  )
+}
+
+// ── Tab Đặt hàng: xem đơn, tech_admin tạo NHÁP, admin ghi hàng về ──────────
+function DatHangMobile({ inventory, nccOptions, role, notify }: {
+  inventory: any[], nccOptions: string[], role: string, notify: (t: 'success' | 'error', m: string) => void
+}) {
+  const isAdmin = role === 'admin'
+  const today = new Date().toISOString().split('T')[0]
+  const [orders, setOrders] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [mode, setMode] = useState<'list' | 'create'>('list')
+  const [onlyPending, setOnlyPending] = useState(true)
+  const [receiving, setReceiving] = useState<{ ctId: string, sl: string } | null>(null)
+  const daNhan = (l: any) => (l.soct_hang_ve_dot || []).reduce((s: number, h: any) => s + (Number(h.so_luong_nhan) || 0), 0)
+
+  const fetchOrders = async () => {
+    setLoading(true)
+    try { const r = await fetch('/api/admin/dat-hang'); const j = await r.json(); if (j.data) setOrders(j.data) }
+    catch { notify('error', 'Không tải được đơn hàng') } finally { setLoading(false) }
+  }
+  useEffect(() => { fetchOrders() }, [])
+
+  // Ghi hàng về (chỉ admin)
+  const saveReceipt = async (ctId: string, sl: string) => {
+    if (!(parseInt(sl) > 0)) return notify('error', 'Nhập số lượng nhận')
+    try {
+      const r = await fetch('/api/admin/hang-ve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_dat_hang_ct: ctId, ngay_nhan: today, so_luong_nhan: sl }) })
+      const j = await r.json()
+      if (!r.ok) return notify('error', j.error || 'Không ghi được')
+      notify('success', 'Đã ghi hàng về.'); setReceiving(null); fetchOrders()
+    } catch { notify('error', 'Lỗi kết nối') }
+  }
+
+  const list = orders.filter(o => onlyPending ? !o.hoan_thanh : true)
+
+  if (mode === 'create') return <TaoDonNhap inventory={inventory} nccOptions={nccOptions} notify={notify} onDone={() => { setMode('list'); fetchOrders() }} onCancel={() => setMode('list')} />
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <label className="flex items-center gap-1.5 text-xs text-slate-600"><input type="checkbox" checked={onlyPending} onChange={e => setOnlyPending(e.target.checked)} className="w-4 h-4 accent-blue-600" /> Chỉ đơn chưa đủ hàng</label>
+        <Button onClick={() => setMode('create')} className="h-9 text-xs gap-1"><span className="text-base leading-none">+</span> Tạo đơn nháp</Button>
+      </div>
+
+      {loading ? <p className="text-center text-slate-400 text-sm py-8">Đang tải...</p>
+        : list.length === 0 ? <div className="bg-white rounded-xl border border-slate-200 p-6 text-center text-slate-400 text-sm">Không có đơn.</div>
+        : list.map(o => (
+          <div key={o.id} className="bg-white rounded-xl border border-slate-200 p-3 space-y-2">
+            <div className="flex justify-between items-start gap-2">
+              <div className="min-w-0">
+                <div className="font-semibold text-slate-800 text-sm truncate">{o.nha_cung_cap || 'Chưa có NCC'}{o.so_don_hang && <span className="text-slate-400 font-normal"> · {o.so_don_hang}</span>}</div>
+                <div className="text-[11px] text-slate-400">Đặt {fmtDate(o.ngay_dat)}</div>
+              </div>
+              <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${o.hoan_thanh ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : o.da_dat ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{o.hoan_thanh ? 'Đủ hàng' : o.da_dat ? 'Đã đặt' : 'Nháp'}</span>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {(o.soct_dat_hang_ct || []).map((l: any) => {
+                const nhan = daNhan(l); const thieu = l.sl_dat - nhan
+                return (
+                  <div key={l.id} className="py-1.5 text-xs">
+                    <div className="flex justify-between gap-2">
+                      <div className="min-w-0"><span className="font-mono font-medium text-slate-700">{l.ma_hang}</span> <span className="text-slate-500">{l.soct_kho_hang?.ten_hang || ''}</span></div>
+                      <div className="shrink-0 text-slate-500">Đặt {l.sl_dat} · Nhận {nhan} · <span className={thieu > 0 ? 'text-red-600 font-semibold' : 'text-emerald-600'}>Thiếu {thieu}</span></div>
+                    </div>
+                    {isAdmin && thieu > 0 && (
+                      receiving && receiving.ctId === l.id ? (
+                        <div className="flex items-center gap-2 mt-1">
+                          <Input type="number" min="1" placeholder="SL nhận" value={receiving.sl} onChange={e => setReceiving({ ctId: l.id, sl: e.target.value })} className="h-8 w-24 bg-white" />
+                          <Button onClick={() => saveReceipt(l.id, receiving.sl)} className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700">Lưu</Button>
+                          <button onClick={() => setReceiving(null)} className="text-xs text-slate-400">Hủy</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setReceiving({ ctId: l.id, sl: String(thieu) })} className="mt-1 text-[11px] text-blue-600 font-medium">+ Ghi hàng về</button>
+                      )
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            {o.ghi_chu && <div className="text-[11px] text-slate-400 italic">Ghi chú: {o.ghi_chu}</div>}
+          </div>
+        ))}
+      {!isAdmin && <p className="text-[11px] text-slate-400 text-center pt-1">Ghi hàng về do Admin thực hiện. Bạn có thể tạo đơn nháp để về văn phòng hoàn thiện.</p>}
+    </div>
+  )
+}
+
+// Form tạo đơn NHÁP (admin + tech_admin) — để về PC sửa/hoàn thiện
+function TaoDonNhap({ inventory, nccOptions, notify, onDone, onCancel }: {
+  inventory: any[], nccOptions: string[], notify: (t: 'success' | 'error', m: string) => void, onDone: () => void, onCancel: () => void
+}) {
+  const [ncc, setNcc] = useState("")
+  const [soDon, setSoDon] = useState("")
+  const [lines, setLines] = useState<{ ma_hang: string, sl_dat: string }[]>([])
+  const [q, setQ] = useState("")
+  const [open, setOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const qq = q.trim().toLowerCase()
+  const results = (qq ? inventory.filter(i => `${i.ma_hang || ''} ${i.ten_hang || ''} ${i.model || ''}`.toLowerCase().includes(qq)) : inventory).slice(0, 25)
+  const addLine = (ma: string) => { setLines(prev => prev.some(l => l.ma_hang === ma) ? prev : [...prev, { ma_hang: ma, sl_dat: '1' }]); setOpen(false); setQ("") }
+  const setSl = (ma: string, v: string) => setLines(prev => prev.map(l => l.ma_hang === ma ? { ...l, sl_dat: v.replace(/\D/g, '') } : l))
+  const rm = (ma: string) => setLines(prev => prev.filter(l => l.ma_hang !== ma))
+
+  const save = async () => {
+    if (!ncc.trim()) return notify('error', 'Nhập nhà cung cấp')
+    const valid = lines.filter(l => l.ma_hang && parseInt(l.sl_dat) > 0)
+    if (valid.length === 0) return notify('error', 'Thêm ít nhất một mã hàng')
+    setSaving(true)
+    try {
+      const r = await fetch('/api/admin/dat-hang', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nha_cung_cap: ncc.trim(), so_don_hang: soDon.trim() || null, da_dat: false, lines: valid }) })
+      const j = await r.json()
+      if (!r.ok) return notify('error', j.error || 'Không lưu được')
+      notify('success', 'Đã lưu đơn nháp. Về văn phòng hoàn thiện trên PC.'); onDone()
+    } catch { notify('error', 'Lỗi kết nối') } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="font-bold text-slate-800">Tạo đơn nháp</h2>
+        <button onClick={onCancel} className="text-xs text-slate-400">← Danh sách</button>
+      </div>
+      <div className="space-y-1">
+        <label className="text-xs font-semibold text-slate-600">Nhà cung cấp <span className="text-red-500">*</span></label>
+        <Input list="m-ncc" placeholder="Gõ / chọn NCC" value={ncc} onChange={e => setNcc(e.target.value)} className="bg-white" />
+        <datalist id="m-ncc">{nccOptions.map(o => <option key={o} value={o} />)}</datalist>
+      </div>
+      <div className="space-y-1">
+        <label className="text-xs font-semibold text-slate-600">Số đơn (tùy chọn)</label>
+        <Input placeholder="PO-..." value={soDon} onChange={e => setSoDon(e.target.value)} className="bg-white font-mono" />
+      </div>
+      <div className="space-y-1 relative">
+        <label className="text-xs font-semibold text-slate-600">Thêm mã hàng</label>
+        <Input placeholder="Gõ mã / tên / model..." value={q} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 200)} onChange={e => { setQ(e.target.value); setOpen(true) }} className="bg-white" />
+        {open && (
+          <div className="absolute z-40 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg">
+            {results.length === 0 ? <div className="px-3 py-2 text-sm text-slate-400">Không tìm thấy.</div>
+              : results.map(i => (
+                <button type="button" key={i.ma_hang} onMouseDown={e => { e.preventDefault(); addLine(i.ma_hang) }} className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50">
+                  <span className="font-mono font-medium text-slate-700">{i.ma_hang}</span> <span className="text-slate-500">- {i.ten_hang}</span>
+                </button>
+              ))}
+          </div>
+        )}
+      </div>
+      {lines.length > 0 && (
+        <div className="border border-slate-200 rounded-lg divide-y divide-slate-100">
+          {lines.map(l => {
+            const inv = inventory.find(i => i.ma_hang === l.ma_hang)
+            return (
+              <div key={l.ma_hang} className="flex items-center gap-2 p-2">
+                <div className="flex-1 min-w-0"><div className="font-mono font-bold text-xs text-slate-700">{l.ma_hang}</div><div className="text-[10px] text-slate-400 truncate">{inv?.ten_hang || ''}</div></div>
+                <Input type="number" min="1" value={l.sl_dat} onChange={e => setSl(l.ma_hang, e.target.value)} className="h-8 w-16 text-center bg-white" />
+                <button onClick={() => rm(l.ma_hang)} className="text-slate-400 hover:text-red-500 text-lg leading-none px-1">×</button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+      <Button onClick={save} disabled={saving} className="w-full h-11 font-semibold">{saving ? 'Đang lưu...' : 'Lưu đơn nháp'}</Button>
     </div>
   )
 }
