@@ -57,7 +57,11 @@ export function PasskeyLoginButton({ className, onResult }: { className?: string
       })
       const j = await verRes.json()
       if (!verRes.ok) throw new Error(j.error || 'Đăng nhập thất bại')
-      window.location.href = j.data?.role === 'ktv' ? '/ktv' : '/admin'
+      const role = j.data?.role
+      if (role === 'ktv') { window.location.href = '/ktv'; return }
+      // Office: trên điện thoại vào thẳng màn quét QR giao việc (gọn), PC vào dashboard đầy đủ
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768
+      window.location.href = isMobile ? '/admin/scan' : '/admin'
     } catch (e: any) {
       if (e?.name === 'NotAllowedError') onResult?.('Đã hủy hoặc chưa có khóa trên thiết bị.', false)
       else onResult?.(e?.message || 'Không đăng nhập được.', false)
