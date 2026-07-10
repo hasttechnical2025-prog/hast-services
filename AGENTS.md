@@ -1,3 +1,6 @@
+# 📌 ĐỌC TRƯỚC: `PROJECT_STATUS.md`
+Trạng thái dự án, danh sách module, migration mới nhất, và các "gotcha" dễ vỡ nằm ở **`PROJECT_STATUS.md`** (thư mục gốc). Đọc file đó trước để nắm nhanh hiện trạng, không phải khảo sát lại toàn bộ. Lịch sử git đã bị viết lại nhiều lần → tin vào code hiện tại, không tra theo commit cũ.
+
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 
