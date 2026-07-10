@@ -1078,9 +1078,10 @@ function JobReportCard({ job, readOnly, draftVal, onValueChange }: { job: any, r
             onChange={(e) => onValueChange('ghi_chu_ktv', e.target.value)}
           >
             <option value="">-- Chọn tình trạng máy --</option>
-            <option value="HĐBT">HĐBT (Hoạt động bình thường)</option>
-            <option value="Kém">Kém</option>
+            <option value="HĐBT">HĐBT</option>
+            <option value="Làm giám định">Làm giám định</option>
             <option value="Theo dõi thêm">Theo dõi thêm</option>
+            <option value="Khác">Khác</option>
           </select>
         </div>
       </div>
