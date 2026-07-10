@@ -3198,7 +3198,7 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, onUpdateSuccess,
     }
   }
 
-  // Bộ cột chung cho MỌI file xuất đặt hàng (cột "Ghi chú" để trống, điền tay sau khi in)
+  // Bộ cột cho Đơn hàng gửi NCC (8 cột)
   const ORDER_XLSX_HEADERS = ['Số đơn', 'Ngày đặt', 'Nhà cung cấp', 'Mã hàng', 'Tên hàng', 'Model', 'SL đặt', 'Ghi chú']
   const orderLineRow = (o: any, l: any) => [
     o.so_don_hang || '',
@@ -3211,25 +3211,45 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, onUpdateSuccess,
     '', // Ghi chú — để trống
   ]
 
-  // Xuất file Excel của 1 đơn hàng cụ thể
+  // Bộ cột cho Báo cáo Nội bộ (11 cột)
+  const REPORT_XLSX_HEADERS = ['Số đơn', 'Ngày đặt', 'Nhà cung cấp', 'Mã hàng', 'Tên hàng', 'Model', 'SL đặt', 'Ghi chú', 'Đã nhận', 'Còn thiếu', 'Các đợt hàng về']
+  const reportLineRow = (o: any, l: any) => {
+    const nhan = daNhan(l)
+    const receipts = (l.soct_hang_ve_dot || []).map((h: any) => `${fmtDate(h.ngay_nhan)}: ${h.so_luong_nhan}`).join(', ')
+    return [
+      o.so_don_hang || '',
+      fmtDate(o.ngay_dat),
+      o.nha_cung_cap || '',
+      l.ma_hang,
+      l.soct_kho_hang?.ten_hang || '',
+      l.soct_kho_hang?.model || '',
+      l.sl_dat,
+      '', // Ghi chú — để trống
+      nhan,
+      l.sl_dat - nhan,
+      receipts || '—'
+    ]
+  }
+
+  // Xuất file Excel của 1 đơn hàng cụ thể (8 cột gửi NCC)
   const exportSingleOrderExcel = (o: any) => {
     const rows = (o.soct_dat_hang_ct || []).map((l: any) => orderLineRow(o, l))
     exportRowsToExcel(`Don-hang-${o.so_don_hang || 'nhap'}`, ORDER_XLSX_HEADERS, rows)
   }
 
-  // Xuất báo cáo toàn bộ vật tư chưa về (nợ đọng) của mọi đơn hàng
+  // Xuất báo cáo toàn bộ vật tư chưa về (nợ đọng) của mọi đơn hàng (11 cột nội bộ)
   const exportPendingItemsExcel = () => {
     const pendingLines: any[][] = []
     for (const o of orders) {
       if (o.hoan_thanh) continue
       for (const l of (o.soct_dat_hang_ct || [])) {
-        if (l.sl_dat - daNhan(l) > 0) pendingLines.push(orderLineRow(o, l))
+        if (l.sl_dat - daNhan(l) > 0) pendingLines.push(reportLineRow(o, l))
       }
     }
     if (pendingLines.length === 0) {
       return showNotification('error', "Không có vật tư nào còn nợ chờ về.")
     }
-    exportRowsToExcel('Danh-sach-hang-cho-ve', ORDER_XLSX_HEADERS, pendingLines)
+    exportRowsToExcel('Danh-sach-hang-cho-ve', REPORT_XLSX_HEADERS, pendingLines)
   }
 
   const handleCreate = async (isDaDat: boolean) => {
@@ -3316,9 +3336,9 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, onUpdateSuccess,
   const exportOrdersExcel = () => {
     const rows: any[][] = []
     for (const o of filteredOrders) for (const l of (o.soct_dat_hang_ct || [])) {
-      rows.push(orderLineRow(o, l))
+      rows.push(reportLineRow(o, l))
     }
-    exportRowsToExcel('dat-hang', ORDER_XLSX_HEADERS, rows)
+    exportRowsToExcel('dat-hang', REPORT_XLSX_HEADERS, rows)
   }
 
   const orderStats = (() => {
