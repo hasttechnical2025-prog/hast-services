@@ -258,8 +258,8 @@ export default function AdminBatchScanQR() {
         <h1 className="text-base font-bold flex items-center gap-2">
           <QrCode className="w-5 h-5" /> Quét sổ bảo trì
         </h1>
-        <Button variant="ghost" onClick={() => window.location.href = '/admin'} className="text-xs h-8 text-blue-100 hover:text-white hover:bg-blue-800 border border-blue-600">
-          Vào Dashboard PC
+        <Button variant="ghost" onClick={() => window.location.href = '/m'} className="text-xs h-8 text-blue-100 hover:text-white hover:bg-blue-800 border border-blue-600 gap-1">
+          <ArrowLeft className="w-4 h-4" /> Office Mobile
         </Button>
       </header>
 

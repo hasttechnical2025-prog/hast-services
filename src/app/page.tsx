@@ -11,7 +11,7 @@ export default function Home() {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768
     if (isMobile) {
       e.preventDefault()
-      window.location.href = '/admin/scan'
+      window.location.href = '/m'
     }
   }
 
