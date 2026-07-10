@@ -478,3 +478,8 @@ CREATE TABLE IF NOT EXISTS public.soct_trang_thai_bao_cao (
     CONSTRAINT soct_trang_thai_bao_cao_unique UNIQUE (ktv_id, ngay_bao_cao)
 );
 CREATE INDEX IF NOT EXISTS idx_tt_bao_cao ON public.soct_trang_thai_bao_cao(ktv_id, ngay_bao_cao);
+-- MIGRATION 19: Thêm cờ telegram_sent để chặn Webhook DB bắn trùng tin nhắn lẻ tẻ khi giao việc hàng loạt
+-- Chạy trong Supabase SQL Editor. Idempotent.
+
+ALTER TABLE public.soct_cong_viec
+    ADD COLUMN IF NOT EXISTS telegram_sent BOOLEAN NOT NULL DEFAULT FALSE;

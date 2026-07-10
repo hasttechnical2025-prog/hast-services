@@ -67,7 +67,8 @@ export async function POST(request: Request) {
           ktv_id: ktv_id,
           ket_qua: 'Đã nhận',
           trang_thai_hd: 'Chưa hóa đơn',
-          created_by: session.id
+          created_by: session.id,
+          telegram_sent: true // Đánh dấu đã gửi Telegram tổng hợp, webhook DB sẽ bỏ qua
         })
         messageDetails.push(`• <b>${cleanMa}</b> — ${esc(cust.ten_khach_hang)} (${esc(cust.dia_chi)})`)
       } else {

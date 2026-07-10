@@ -60,6 +60,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Ignored' })
     }
 
+    // Nếu record có cờ telegram_sent = true -> API tạo phiếu đã tự bắn Telegram tổng hợp rồi
+    // Webhook không cần bắn từng tin lẻ tẻ nữa để tránh spam
+    if (record.telegram_sent === true) {
+      return NextResponse.json({ message: 'Telegram already handled by external API, ignore Webhook' })
+    }
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
     if (!supabaseUrl || !supabaseServiceKey) {

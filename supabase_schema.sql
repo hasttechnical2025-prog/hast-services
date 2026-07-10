@@ -98,6 +98,7 @@ CREATE TABLE IF NOT EXISTS public.soct_cong_viec (
     counter INT, -- số đếm máy KTV điền
     ghi_chu_ktv TEXT, -- báo cáo tình trạng của KTV
     repeat_call BOOLEAN NOT NULL DEFAULT FALSE,
+    telegram_sent BOOLEAN NOT NULL DEFAULT FALSE, -- Cờ báo đã gửi Telegram ở luồng ngoài (chặn Webhook DB bắn trùng)
     created_by UUID REFERENCES public.soct_users(id) ON DELETE SET NULL, -- người tạo phiếu
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
