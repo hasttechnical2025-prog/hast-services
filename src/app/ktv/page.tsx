@@ -638,8 +638,8 @@ export default function KtvMobileWeb() {
                           today.setHours(0, 0, 0, 0)
                           const ngayNghiSet = new Set(reportData?.ngayNghi || [])
 
-                          // Tạo danh sách 8 ngày gần nhất
-                          for (let i = 0; i < 8; i++) {
+                          // Tạo danh sách 6 ngày gần nhất (Hôm nay + 5 ngày lùi)
+                          for (let i = 0; i < 6; i++) {
                             const d = new Date(today.getTime() - i * 86400000)
                             const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
                             const dayOfWeek = d.getDay()

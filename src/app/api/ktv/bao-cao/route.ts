@@ -17,17 +17,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Ngày không hợp lệ (YYYY-MM-DD)' }, { status: 400 })
     }
 
-    // 1. Tính toán danh sách 8 ngày gần nhất để lấy trạng thái nộp báo cáo hàng loạt
+    // 1. Tính toán danh sách 6 ngày gần nhất để lấy trạng thái nộp báo cáo hàng loạt
     const datesToCheck: string[] = []
     const refDate = new Date()
     refDate.setHours(0,0,0,0)
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 6; i++) {
       const d = new Date(refDate.getTime() - i * 86400000)
       const ymdStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
       datesToCheck.push(ymdStr)
     }
 
-    // Lấy trạng thái chốt nộp của 8 ngày này
+    // Lấy trạng thái chốt nộp của 6 ngày này
     const { data: ttList } = await supabaseAdmin
       .from('soct_trang_thai_bao_cao')
       .select('ngay_bao_cao, da_nop, thoi_gian_nop')
