@@ -483,3 +483,21 @@ CREATE INDEX IF NOT EXISTS idx_tt_bao_cao ON public.soct_trang_thai_bao_cao(ktv_
 
 ALTER TABLE public.soct_cong_viec
     ADD COLUMN IF NOT EXISTS telegram_sent BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- ─────────────────────────────────────────────
+-- supabase_migration_20_webauthn.sql
+-- ─────────────────────────────────────────────
+-- MIGRATION 20: Đăng nhập sinh trắc học (WebAuthn / Passkey)
+CREATE TABLE IF NOT EXISTS public.soct_webauthn_credentials (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.soct_users(id) ON DELETE CASCADE,
+    credential_id TEXT NOT NULL UNIQUE,
+    public_key TEXT NOT NULL,
+    counter BIGINT NOT NULL DEFAULT 0,
+    transports TEXT,
+    device_label TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    last_used_at TIMESTAMP WITH TIME ZONE
+);
+CREATE INDEX IF NOT EXISTS idx_webauthn_user ON public.soct_webauthn_credentials(user_id);
+ALTER TABLE public.soct_webauthn_credentials ENABLE ROW LEVEL SECURITY;

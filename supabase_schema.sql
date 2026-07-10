@@ -276,3 +276,17 @@ CREATE TABLE IF NOT EXISTS public.soct_trang_thai_bao_cao (
     CONSTRAINT soct_trang_thai_bao_cao_unique UNIQUE (ktv_id, ngay_bao_cao)
 );
 CREATE INDEX IF NOT EXISTS idx_tt_bao_cao ON public.soct_trang_thai_bao_cao(ktv_id, ngay_bao_cao);
+
+-- Đăng nhập sinh trắc học (WebAuthn / Passkey - vân tay, Face ID)
+CREATE TABLE IF NOT EXISTS public.soct_webauthn_credentials (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.soct_users(id) ON DELETE CASCADE,
+    credential_id TEXT NOT NULL UNIQUE,
+    public_key TEXT NOT NULL,
+    counter BIGINT NOT NULL DEFAULT 0,
+    transports TEXT,
+    device_label TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    last_used_at TIMESTAMP WITH TIME ZONE
+);
+CREATE INDEX IF NOT EXISTS idx_webauthn_user ON public.soct_webauthn_credentials(user_id);

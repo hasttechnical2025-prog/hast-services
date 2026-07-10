@@ -6,6 +6,7 @@ import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Down
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PasskeyLoginButton, PasskeyRegisterButton } from "@/components/PasskeyButtons"
 import { TAB_TREE, TAB_ROLES, DEFAULT_TAB_VIS } from "@/lib/tabs"
 import { supabase } from "@/lib/supabase"
 
@@ -856,6 +857,14 @@ export default function AdminDashboard() {
           <Button type="submit" disabled={loginLoading} className="w-full h-11 font-semibold">
             {loginLoading ? "Đang xác thực..." : "Đăng nhập"}
           </Button>
+
+          <div className="pt-3 border-t border-slate-100 text-center">
+            <PasskeyLoginButton
+              onResult={(m) => showNotification('error', m)}
+              className="w-full h-11 bg-slate-800 hover:bg-slate-900 text-white rounded-md font-semibold transition disabled:opacity-60"
+            />
+            <p className="text-[11px] text-slate-400 mt-2">Hoặc đăng nhập / chuyển vai trò bằng vân tay · Face ID</p>
+          </div>
         </form>
       </div>
     )
@@ -1397,7 +1406,17 @@ export default function AdminDashboard() {
 
               {/* TAB CON: ĐỔI MẬT KHẨU (mọi role) */}
               {(currentUserRole !== 'admin' || systemTab === 'doi_mat_khau') && (
-                <DoiMatKhauTool showNotification={showNotification} />
+                <>
+                  <DoiMatKhauTool showNotification={showNotification} />
+                  <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 max-w-md space-y-2 mt-4">
+                    <h3 className="text-lg font-semibold text-slate-700">Đăng nhập sinh trắc học</h3>
+                    <p className="text-sm text-slate-500">Bật vân tay / Face ID cho thiết bị này để lần sau đăng nhập & chuyển vai trò nhanh, không cần gõ mật khẩu.</p>
+                    <PasskeyRegisterButton
+                      onResult={(m, ok) => showNotification(ok ? 'success' : 'error', m)}
+                      className="h-10 px-4 bg-slate-800 hover:bg-slate-900 text-white rounded-md text-sm font-semibold transition disabled:opacity-60"
+                    />
+                  </div>
+                </>
               )}
             </div>
           </div>

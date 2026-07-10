@@ -5,6 +5,7 @@ import { MapPin, Clipboard, CheckCircle, Play, AlertTriangle, RefreshCw, Inbox, 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { supabase } from "@/lib/supabase"
+import { PasskeyLoginButton, PasskeyRegisterButton } from "@/components/PasskeyButtons"
 
 // Kênh realtime: đồng bộ với lib/realtime.ts (server phát broadcast sau mỗi thay đổi việc)
 const JOBS_TOPIC = "soct_jobs"
@@ -486,6 +487,7 @@ export default function KtvMobileWeb() {
       <main className="flex-1 p-4 max-w-md mx-auto w-full space-y-4">
         {/* MÀN HÌNH ĐĂNG NHẬP BAO MẬT */}
         {!currentKtv ? (
+          <>
           <form onSubmit={handleLogin} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
             <div className="text-center space-y-1">
               <h2 className="text-lg font-bold text-slate-800">KTV Đăng nhập nhận việc</h2>
@@ -523,18 +525,33 @@ export default function KtvMobileWeb() {
               </Button>
             </div>
           </form>
+
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 text-center">
+            <PasskeyLoginButton
+              onResult={(m) => showNotification('error', m)}
+              className="w-full h-11 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-semibold transition disabled:opacity-60"
+            />
+            <p className="text-[11px] text-slate-400 mt-2">Nhanh hơn: đăng nhập bằng vân tay / Face ID (cần bật trước sau khi vào ca).</p>
+          </div>
+          </>
         ) : (
           /* MÀN HÌNH KTV ĐÃ VÀO CA */
           <div className="space-y-4">
             {/* Header thông tin KTV */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
-              <div>
-                <p className="text-xs text-slate-400">Nhân viên kỹ thuật</p>
-                <h3 className="font-bold text-slate-800 text-base">{currentKtv.full_name}</h3>
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-xs text-slate-400">Nhân viên kỹ thuật</p>
+                  <h3 className="font-bold text-slate-800 text-base">{currentKtv.full_name}</h3>
+                </div>
+                <button onClick={() => fetchKtvJobs()} className="p-2 text-slate-400 hover:text-emerald-600 transition" title="Làm mới">
+                  <RefreshCw className="w-4 h-4" />
+                </button>
               </div>
-              <button onClick={() => fetchKtvJobs()} className="p-2 text-slate-400 hover:text-emerald-600 transition" title="Làm mới">
-                <RefreshCw className="w-4 h-4" />
-              </button>
+              <PasskeyRegisterButton
+                onResult={(m, ok) => showNotification(ok ? 'success' : 'error', m)}
+                className="w-full h-10 border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition disabled:opacity-60"
+              />
             </div>
 
             {/* Liên kết Telegram 1 chạm: chỉ hiện khi KTV chưa liên kết */}

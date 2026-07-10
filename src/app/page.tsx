@@ -1,8 +1,11 @@
 "use client"
 
 import Link from 'next/link'
+import { useState } from 'react'
+import { PasskeyLoginButton } from '@/components/PasskeyButtons'
 
 export default function Home() {
+  const [msg, setMsg] = useState<string | null>(null)
   const handleAdminLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     // Phát hiện thiết bị di động (Mobile User-Agent hoặc chiều rộng màn hình nhỏ)
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768
@@ -33,6 +36,15 @@ export default function Home() {
           >
             Sổ công tác Mobile (KTV)
           </Link>
+
+          <div className="pt-2 mt-1 border-t border-slate-100">
+            <PasskeyLoginButton
+              onResult={(m) => setMsg(m)}
+              className="w-full py-3 px-4 bg-slate-800 text-white rounded-md hover:bg-slate-900 transition font-medium disabled:opacity-60"
+            />
+            <p className="text-xs text-slate-400 mt-2">Đăng nhập nhanh & chuyển vai trò bằng vân tay / Face ID (cần bật trước trong app).</p>
+            {msg && <p className="text-xs text-amber-600 mt-1">{msg}</p>}
+          </div>
         </div>
       </div>
     </main>

@@ -37,10 +37,11 @@
 - **Hệ thống**: phân quyền tab (tabs.ts), đổi mật khẩu, Audit logs, QR đăng nhập KTV.
 - **App KTV** `/ktv`: mobile, lịch chọn ngày, nhận/hủy việc, báo cáo ngày.
 - **Tự cập nhật**: `/api/version` + `UpdateChecker` (root layout) → banner khi có deploy mới.
+- **Đăng nhập sinh trắc học (WebAuthn/Passkey)** (mig 20, `soct_webauthn_credentials`): vân tay/Face ID; đăng nhập **usernameless** → chọn tài khoản + Face ID → điều hướng theo vai trò (dùng chuyển office↔ktv nhanh). Passkey nằm ở iCloud Keychain nên **sống sót khi iOS xóa cookie/localStorage**. Thư viện `@simplewebauthn` (tự host, miễn phí). Routes `/api/auth/webauthn/{register,login}/{options,verify}`; nút ở màn đăng nhập + Hệ thống (office) + app KTV. rpID gắn theo domain (hast-services.vercel.app).
 
 ## Migration & env
-- **Migration mới nhất: 19** (`telegram_sent`). DB mới: chạy `supabase_schema.sql` rồi `supabase_migrations_ALL.sql`. DB đang chạy: chạy các migration mới lẻ (`supabase_migration_NN_*.sql`).
-- ⏳ **Việc thủ công của người dùng:** chạy `supabase_migration_19_telegram_sent.sql` trên Supabase SQL Editor.
+- **Migration mới nhất: 20** (`soct_webauthn_credentials`). DB mới: chạy `supabase_schema.sql` rồi `supabase_migrations_ALL.sql`. DB đang chạy: chạy các migration mới lẻ (`supabase_migration_NN_*.sql`).
+- ⏳ **Việc thủ công của người dùng:** chạy `supabase_migration_19_telegram_sent.sql` và `supabase_migration_20_webauthn.sql` trên Supabase SQL Editor.
 - Env cần: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_GROUP_CHAT_ID`, `NEXT_PUBLIC_APP_URL`, `WEBHOOK_SECRET` (webhook giao việc), `TELEGRAM_WEBHOOK_SECRET` (liên kết KTV), `CRON_SECRET` (nhắc báo cáo).
 
 ## Khi bắt đầu một phiên mới
