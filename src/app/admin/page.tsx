@@ -1202,7 +1202,7 @@ export default function AdminDashboard() {
                 </>
               )}
               {effectiveKhoTab === "dat_hang" && (
-                <DatHangTool inventory={inventory} committed={committed} nhaCungCapOptions={dmOptions('nha_cung_cap')} onUpdateSuccess={fetchData} showNotification={showNotification} currentUserRole={currentUserRole} confirmDelete={confirmDelete} />
+                <DatHangTool inventory={inventory} committed={committed} nhaCungCapOptions={dmOptions('nha_cung_cap')} hangOptions={dmOptions('hang', ['Konica', 'Fuji', 'Khác'])} onUpdateSuccess={fetchData} showNotification={showNotification} currentUserRole={currentUserRole} confirmDelete={confirmDelete} />
               )}
               {effectiveKhoTab === "thong_ke" && (
                 <NhapHangThangTool showNotification={showNotification} />
@@ -3075,7 +3075,7 @@ function NhapHangThangTool({ showNotification }: { showNotification: (type: 'suc
   )
 }
 
-function DatHangTool({ inventory, committed, nhaCungCapOptions, onUpdateSuccess, showNotification, currentUserRole, confirmDelete }: { inventory: any[], committed: Record<string, number>, nhaCungCapOptions: string[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, currentUserRole: string, confirmDelete: (id: string, type: 'job' | 'user' | 'inventory' | 'dat_hang_ct') => void }) {
+function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onUpdateSuccess, showNotification, currentUserRole, confirmDelete }: { inventory: any[], committed: Record<string, number>, nhaCungCapOptions: string[], hangOptions: string[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, currentUserRole: string, confirmDelete: (id: string, type: 'job' | 'user' | 'inventory' | 'dat_hang_ct') => void }) {
   const [form, setForm] = useState({ ngay_dat: new Date().toISOString().split('T')[0], nha_cung_cap: "", so_don_hang: "", da_dat: false })
   const [lines, setLines] = useState<{ ma_hang: string, sl_dat: string }[]>([])
   const [orders, setOrders] = useState<any[]>([])
@@ -3088,6 +3088,7 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, onUpdateSuccess,
   // State phục vụ rà soát tồn kho & nhặt giỏ hàng bên trái
   const [leftSearch, setLeftSearch] = useState("")
   const [leftModel, setLeftModel] = useState("")
+  const [leftHang, setLeftHang] = useState("")
   const [leftLowStock, setLeftLowStock] = useState(false)
   const [leftQuantities, setLeftQuantities] = useState<Record<string, string>>({})
 
@@ -3369,8 +3370,8 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, onUpdateSuccess,
               <Search className="w-4 h-4 text-slate-500" /> Rà soát kho & Chọn vật tư đặt hàng
             </h3>
 
-            <div className="flex flex-wrap gap-2">
-              <div className="relative flex-1 min-w-[160px]">
+            <div className="flex flex-wrap gap-2 items-center">
+              <div className="relative w-44">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                 <Input
                   placeholder="Gõ mã / tên vật tư..."
@@ -3380,7 +3381,7 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, onUpdateSuccess,
                 />
               </div>
 
-              <div className="relative w-44">
+              <div className="relative w-40">
                 <Input
                   placeholder="Tìm / gõ model..."
                   className="h-8 text-xs bg-white pr-6"
@@ -3397,6 +3398,15 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, onUpdateSuccess,
                   </button>
                 )}
               </div>
+
+              <select
+                value={leftHang}
+                onChange={(e) => setLeftHang(e.target.value)}
+                className="h-8 px-2 w-36 rounded-md border border-slate-200 text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="">Hãng: Tất cả</option>
+                {hangOptions.map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
 
               <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none h-8">
                 <input
@@ -3435,6 +3445,7 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, onUpdateSuccess,
                       const itemModel = String(item.model || '').toLowerCase()
                       if (!itemModel.includes(qModel)) return false
                     }
+                    if (leftHang && String(item.hang || '').trim().toLowerCase() !== leftHang.trim().toLowerCase()) return false
                     if (leftLowStock && item.ton_kho > 0) return false
                     return true
                   })
