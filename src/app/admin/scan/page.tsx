@@ -115,58 +115,71 @@ export default function AdminBatchScanQR() {
   useEffect(() => {
     if (!currentAdmin || !isScanning) return
 
-    const scanner = new Html5QrcodeScanner(
-      "qr-reader",
-      {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
-        rememberLastUsedCamera: true
-      },
-      false
-    )
+    let html5QrCode: any = null
 
-    scanner.render(
-      (decodedText) => {
-        // Chống quét trùng (Giữ camera ở 1 mã sẽ chỉ nhận 1 lần mỗi 3 giây)
-        const now = Date.now()
-        if (decodedText === lastScannedCode.current && (now - lastScannedTime.current < 3000)) {
-          return
-        }
-        lastScannedCode.current = decodedText
-        lastScannedTime.current = now
+    const timer = setTimeout(() => {
+      try {
+        const qrElement = document.getElementById("qr-reader")
+        if (!qrElement) return
 
-        // Phân tích mã (Ví dụ: "36110#Bảo trì")
-        // Chúng ta chỉ quan tâm phần mã máy
-        const parts = decodedText.split('#')
-        const maMayQuet = parts[0].trim().toUpperCase()
+        const { Html5Qrcode } = require("html5-qrcode")
+        html5QrCode = new Html5Qrcode("qr-reader")
 
-        if (!maMayQuet) return
+        html5QrCode.start(
+          { facingMode: "environment" }, // Chọn Camera sau của điện thoại
+          {
+            fps: 10,
+            qrbox: (width: number, height: number) => {
+              const size = Math.min(width, height) * 0.7
+              return { width: size, height: size }
+            }
+          },
+          (decodedText: string) => {
+            const now = Date.now()
+            if (decodedText === lastScannedCode.current && (now - lastScannedTime.current < 3000)) {
+              return
+            }
+            lastScannedCode.current = decodedText
+            lastScannedTime.current = now
 
-        // Rung nhẹ điện thoại để phản hồi (nếu thiết bị hỗ trợ)
-        if (navigator.vibrate) {
-          navigator.vibrate(100)
-        }
+            // Phân tích mã (Ví dụ: "36110#Bảo trì")
+            const parts = decodedText.split('#')
+            const maMayQuet = parts[0].trim().toUpperCase()
 
-        // Kiểm tra xem đã có trong giỏ hàng chưa
-        setScannedItems(prev => {
-          if (prev.some(item => item.ma_may === maMayQuet)) {
-            // Đã có -> bỏ qua không thêm
-            return prev
+            if (!maMayQuet) return
+
+            // Rung nhẹ phản hồi
+            if (navigator.vibrate) {
+              navigator.vibrate(100)
+            }
+
+            setScannedItems(prev => {
+              if (prev.some(item => item.ma_may === maMayQuet)) return prev
+              const cust = customers.find(c => c.ma_may && c.ma_may.toUpperCase() === maMayQuet) || null
+              return [...prev, { ma_may: maMayQuet, customer: cust }]
+            })
+          },
+          (errorMessage: string) => {
+            // silent errors
           }
-
-          // VLookup khách hàng
-          const cust = customers.find(c => c.ma_may && c.ma_may.toUpperCase() === maMayQuet) || null
-          return [...prev, { ma_may: maMayQuet, customer: cust }]
+        ).catch((err: any) => {
+          console.error("Camera init error:", err)
         })
-      },
-      (error) => {
-        // ignore error messages as they are spammy when searching for code
+      } catch (err) {
+        console.error("html5-qrcode error:", err)
       }
-    )
+    }, 400)
 
     return () => {
-      scanner.clear().catch(console.error)
+      clearTimeout(timer)
+      if (html5QrCode) {
+        // Tắt camera an toàn
+        try {
+          if (html5QrCode.isScanning) {
+            html5QrCode.stop().catch((err: any) => console.error("Lỗi stop camera:", err))
+          }
+        } catch (e) {}
+      }
     }
   }, [currentAdmin, isScanning, customers])
 
