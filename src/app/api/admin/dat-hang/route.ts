@@ -2,6 +2,16 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireTab } from '@/lib/session'
 
+// Câu select đơn hàng đầy đủ (kèm chi tiết + tên hàng/model + các đợt hàng về) — dùng chung
+const ORDER_SELECT = `
+  id, ngay_dat, nha_cung_cap, so_don_hang, da_dat, hoan_thanh, ghi_chu,
+  soct_dat_hang_ct (
+    id, ma_hang, sl_dat, hoan_thanh,
+    soct_kho_hang ( ten_hang, ton_kho, model ),
+    soct_hang_ve_dot ( id, ngay_nhan, so_luong_nhan )
+  )
+`
+
 // Danh sách đơn đặt hàng kèm dòng chi tiết + các đợt hàng về
 export async function GET() {
   try {
@@ -12,14 +22,7 @@ export async function GET() {
 
     const data = await selectAll((from, to) => supabaseAdmin
       .from('soct_dat_hang')
-      .select(`
-        id, ngay_dat, nha_cung_cap, so_don_hang, da_dat, hoan_thanh, ghi_chu,
-        soct_dat_hang_ct (
-          id, ma_hang, sl_dat, hoan_thanh,
-          soct_kho_hang ( ten_hang, ton_kho ),
-          soct_hang_ve_dot ( id, ngay_nhan, so_luong_nhan )
-        )
-      `)
+      .select(ORDER_SELECT)
       .order('created_at', { ascending: false })
       .range(from, to))
 
@@ -73,7 +76,9 @@ export async function POST(request: Request) {
       throw ctErr
     }
 
-    return NextResponse.json({ data: order })
+    // Trả về đơn ĐẦY ĐỦ (kèm chi tiết + tên hàng/model) để client xuất Excel ngay được
+    const { data: full } = await supabaseAdmin.from('soct_dat_hang').select(ORDER_SELECT).eq('id', order.id).single()
+    return NextResponse.json({ data: full || order })
   } catch (error: any) {
     console.error('Error creating dat_hang:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -134,7 +139,9 @@ export async function PUT(request: Request) {
       }
     }
 
-    return NextResponse.json({ data: order })
+    // Trả về đơn ĐẦY ĐỦ (kèm chi tiết + tên hàng/model)
+    const { data: full } = await supabaseAdmin.from('soct_dat_hang').select(ORDER_SELECT).eq('id', id).single()
+    return NextResponse.json({ data: full || order })
   } catch (error: any) {
     console.error('Error updating dat_hang:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })

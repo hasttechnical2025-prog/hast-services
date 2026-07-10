@@ -1811,19 +1811,37 @@ function parseDDMMYYYY(s: string): string | null {
   return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : null
 }
 
-// Xuất một danh sách (đã lọc) ra file .xlsx với tiêu đề in đậm
+// Xuất một danh sách (đã lọc) ra file .xlsx: header nền xanh nhạt + chữ đậm,
+// cột tự rộng theo nội dung, dòng tiêu đề "đóng băng" khi cuộn.
 async function exportRowsToExcel(filename: string, headers: string[], rows: any[][]) {
   const mod: any = await import('exceljs')
   const ExcelJS = mod.default ?? mod
   const wb = new ExcelJS.Workbook()
   const ws = wb.addWorksheet('Data')
-  const h = ws.addRow(headers); h.font = { bold: true }
+
+  const h = ws.addRow(headers)
+  h.font = { bold: true, color: { argb: 'FF1E3A8A' } }
+  h.alignment = { vertical: 'middle' }
+  h.eachCell((cell: any) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAF2FB' } } // xanh nhạt
+    cell.border = { bottom: { style: 'thin', color: { argb: 'FFB6CDE4' } } }
+  })
+
   for (const r of rows) ws.addRow(r.map(v => v == null ? '' : v))
-  headers.forEach((hd, i) => { ws.getColumn(i + 1).width = Math.max(12, String(hd).length + 4) })
+
+  // Cột tự rộng vừa với nội dung dài nhất (kể cả header), giới hạn 10..60
+  headers.forEach((hd, i) => {
+    let max = String(hd).length
+    for (const r of rows) { const v = r[i]; const len = v == null ? 0 : String(v).length; if (len > max) max = len }
+    ws.getColumn(i + 1).width = Math.min(60, Math.max(10, max + 2))
+  })
+  ws.views = [{ state: 'frozen', ySplit: 1 }]
+
   const buf = await wb.xlsx.writeBuffer()
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   const url = URL.createObjectURL(blob); const a = document.createElement('a')
-  a.href = url; a.download = `${filename}-${new Date().toISOString().split('T')[0]}.xlsx`; a.click(); URL.revokeObjectURL(url)
+  const safeName = String(filename).replace(/[\\/:*?"<>|]+/g, '-') // lọc ký tự không hợp lệ cho tên file
+  a.href = url; a.download = `${safeName}-${new Date().toISOString().split('T')[0]}.xlsx`; a.click(); URL.revokeObjectURL(url)
 }
 
 function ExcelTool({ columns, rows, filename, endpoint, payloadKey, requiredKeys, unit, onSuccess, showNotification }: {
@@ -3161,47 +3179,38 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
     }
   }
 
+  // Bộ cột chung cho MỌI file xuất đặt hàng (cột "Ghi chú" để trống, điền tay sau khi in)
+  const ORDER_XLSX_HEADERS = ['Số đơn', 'Ngày đặt', 'Nhà cung cấp', 'Mã hàng', 'Tên hàng', 'Model', 'SL đặt', 'Ghi chú']
+  const orderLineRow = (o: any, l: any) => [
+    o.so_don_hang || '',
+    fmtDate(o.ngay_dat),
+    o.nha_cung_cap || '',
+    l.ma_hang,
+    l.soct_kho_hang?.ten_hang || '',
+    l.soct_kho_hang?.model || '',
+    l.sl_dat,
+    '', // Ghi chú — để trống
+  ]
+
   // Xuất file Excel của 1 đơn hàng cụ thể
   const exportSingleOrderExcel = (o: any) => {
-    const headers = ['Mã hàng', 'Tên hàng', 'Model', 'SL đặt', 'Đã nhận', 'Còn thiếu', 'Các đợt hàng về']
-    const rows = (o.soct_dat_hang_ct || []).map((l: any) => {
-      const nhan = daNhan(l)
-      const receipts = (l.soct_hang_ve_dot || []).map((h: any) => `${fmtDate(h.ngay_nhan)}: ${h.so_luong_nhan}`).join(', ')
-      return [l.ma_hang, l.soct_kho_hang?.ten_hang || '', l.soct_kho_hang?.model || '—', l.sl_dat, nhan, l.sl_dat - nhan, receipts]
-    })
-    exportRowsToExcel(`Don-hang-${o.so_don_hang || 'nhap'}`, headers, rows)
+    const rows = (o.soct_dat_hang_ct || []).map((l: any) => orderLineRow(o, l))
+    exportRowsToExcel(`Don-hang-${o.so_don_hang || 'nhap'}`, ORDER_XLSX_HEADERS, rows)
   }
 
   // Xuất báo cáo toàn bộ vật tư chưa về (nợ đọng) của mọi đơn hàng
   const exportPendingItemsExcel = () => {
     const pendingLines: any[][] = []
-    const headers = ['Số đơn', 'Ngày đặt', 'Nhà cung cấp', 'Mã hàng', 'Tên hàng', 'Model', 'SL đặt', 'Đã nhận', 'Còn thiếu']
-
     for (const o of orders) {
       if (o.hoan_thanh) continue
       for (const l of (o.soct_dat_hang_ct || [])) {
-        const nhan = daNhan(l)
-        const thieu = l.sl_dat - nhan
-        if (thieu > 0) {
-          pendingLines.push([
-            o.so_don_hang || 'Nháp',
-            fmtDate(o.ngay_dat),
-            o.nha_cung_cap || 'Chưa có NCC',
-            l.ma_hang,
-            l.soct_kho_hang?.ten_hang || '',
-            l.soct_kho_hang?.model || '—',
-            l.sl_dat,
-            nhan,
-            thieu
-          ])
-        }
+        if (l.sl_dat - daNhan(l) > 0) pendingLines.push(orderLineRow(o, l))
       }
     }
-
     if (pendingLines.length === 0) {
       return showNotification('error', "Không có vật tư nào còn nợ chờ về.")
     }
-    exportRowsToExcel('Danh-sach-hang-cho-ve', headers, pendingLines)
+    exportRowsToExcel('Danh-sach-hang-cho-ve', ORDER_XLSX_HEADERS, pendingLines)
   }
 
   const handleCreate = async (isDaDat: boolean) => {
@@ -3286,13 +3295,11 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
   const daNhan = (line: any) => (line.soct_hang_ve_dot || []).reduce((s: number, h: any) => s + h.so_luong_nhan, 0)
 
   const exportOrdersExcel = () => {
-    const headers = ['Ngày đặt', 'Nhà cung cấp', 'Số đơn', 'Trạng thái', 'Mã hàng', 'Tên hàng', 'SL đặt', 'Đã nhận', 'Còn thiếu']
     const rows: any[][] = []
     for (const o of filteredOrders) for (const l of (o.soct_dat_hang_ct || [])) {
-      const nhan = daNhan(l)
-      rows.push([fmtDate(o.ngay_dat), o.nha_cung_cap, o.so_don_hang, o.da_dat ? 'Đã đặt' : 'Nháp', l.ma_hang, l.soct_kho_hang?.ten_hang, l.sl_dat, nhan, l.sl_dat - nhan])
+      rows.push(orderLineRow(o, l))
     }
-    exportRowsToExcel('dat-hang', headers, rows)
+    exportRowsToExcel('dat-hang', ORDER_XLSX_HEADERS, rows)
   }
 
   const orderStats = (() => {
