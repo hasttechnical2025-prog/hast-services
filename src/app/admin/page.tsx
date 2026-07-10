@@ -273,6 +273,7 @@ export default function AdminDashboard() {
   const [customers, setCustomers] = useState<any[]>([])
   const [technicians, setTechnicians] = useState<any[]>([])
   const [inventory, setInventory] = useState<any[]>([]) // Thêm state inventory
+  const [committed, setCommitted] = useState<Record<string, number>>({}) // "Đang giữ": SL vật tư của phiếu chưa Hoàn thành
   const [danhMuc, setDanhMuc] = useState<{ id: string, nhom: string, gia_tri: string, thu_tu: number, active: boolean }[]>([])
   // Trạng thái máy cho phù hiệu trong form giao việc
   const [mayStatus, setMayStatus] = useState<{ bao_tri_thang: boolean, thang_nam: string, giam_dinh: any[] } | null>(null)
@@ -396,13 +397,14 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [jobsRes, customersRes, usersRes, inventoryRes, danhMucRes, cauHinhRes] = await Promise.all([
+      const [jobsRes, customersRes, usersRes, inventoryRes, danhMucRes, cauHinhRes, dangGiuRes] = await Promise.all([
         fetch(buildJobsUrl()),
         fetch('/api/admin/khach-hang'),
         fetch('/api/admin/users'),
         fetch('/api/admin/kho-hang'),
         fetch('/api/admin/danh-muc'),
-        fetch('/api/admin/cau-hinh')
+        fetch('/api/admin/cau-hinh'),
+        fetch('/api/admin/kho-hang/dang-giu')
       ])
 
       // Phiên hết hạn hoặc bị thu hồi -> quay về màn hình đăng nhập
@@ -418,6 +420,7 @@ export default function AdminDashboard() {
       const inventoryData = await inventoryRes.json()
       const danhMucData = await danhMucRes.json()
       const cauHinhData = await cauHinhRes.json()
+      const dangGiuData = await dangGiuRes.json()
 
       if (jobsData.data) setJobs(jobsData.data)
       if (customersData.data) setCustomers(customersData.data)
@@ -425,6 +428,7 @@ export default function AdminDashboard() {
       if (inventoryData.data) setInventory(inventoryData.data)
       if (danhMucData.data) setDanhMuc(danhMucData.data)
       if (cauHinhData.data) setCauHinh(cauHinhData.data)
+      if (dangGiuData.data) setCommitted(dangGiuData.data)
     } catch (error) {
       console.error("Error fetching data:", error)
     } finally {
@@ -1198,7 +1202,7 @@ export default function AdminDashboard() {
                 </>
               )}
               {effectiveKhoTab === "dat_hang" && (
-                <DatHangTool inventory={inventory} nhaCungCapOptions={dmOptions('nha_cung_cap')} onUpdateSuccess={fetchData} showNotification={showNotification} currentUserRole={currentUserRole} confirmDelete={confirmDelete} />
+                <DatHangTool inventory={inventory} committed={committed} nhaCungCapOptions={dmOptions('nha_cung_cap')} onUpdateSuccess={fetchData} showNotification={showNotification} currentUserRole={currentUserRole} confirmDelete={confirmDelete} />
               )}
               {effectiveKhoTab === "thong_ke" && (
                 <NhapHangThangTool showNotification={showNotification} />
@@ -1719,7 +1723,7 @@ export default function AdminDashboard() {
                           <div className="flex gap-2 items-end">
                             <div className="flex-1 min-w-0">
                               <label className="text-xs font-medium text-slate-500 mb-1 block">Mã hàng hóa (Kho)</label>
-                              <MaterialCombobox inventory={inventory} value={vt.ma_hang} onChange={(v) => handleUpdateVatTu(index, 'ma_hang', v)} />
+                              <MaterialCombobox inventory={inventory} value={vt.ma_hang} onChange={(v) => handleUpdateVatTu(index, 'ma_hang', v)} committed={committed} />
                             </div>
                             <div className="w-16 shrink-0">
                               <label className="text-xs font-medium text-slate-500 mb-1 block">SL</label>
@@ -1746,12 +1750,21 @@ export default function AdminDashboard() {
                             </button>
                           </div>
 
-                          {/* Dòng thông tin tồn kho và model */}
-                          {selectedItem && (
-                            <div className="text-xs text-slate-500 bg-white px-2.5 py-1 rounded border border-slate-100 font-medium">
-                              Tồn kho: <span className={`font-semibold ${selectedItem.ton_kho <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>{selectedItem.ton_kho}</span> | Model máy tương thích: <span className="font-semibold text-slate-700">{selectedItem.model || 'Dùng chung'}</span>
-                            </div>
-                          )}
+                          {/* Dòng thông tin tồn kho / đang giữ / khả dụng và model */}
+                          {selectedItem && (() => {
+                            const giu = committed[selectedItem.ma_hang] || 0
+                            const kd = (Number(selectedItem.ton_kho) || 0) - giu // khả dụng
+                            const thieu = sl > kd // cảnh báo mềm: cần nhiều hơn khả dụng
+                            return (
+                              <div className={`text-xs px-2.5 py-1 rounded border font-medium ${thieu ? 'bg-red-50 border-red-200 text-red-700' : 'bg-white border-slate-100 text-slate-500'}`}>
+                                Tồn: <span className={`font-semibold ${selectedItem.ton_kho <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>{selectedItem.ton_kho}</span>
+                                {giu > 0 && <> · Đang giữ: <span className="font-semibold text-amber-600">{giu}</span></>}
+                                {' '}· Khả dụng: <span className={`font-semibold ${kd <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>{kd}</span>
+                                {' '}| Model: <span className="font-semibold text-slate-700">{selectedItem.model || 'Dùng chung'}</span>
+                                {thieu && <div className="mt-0.5 font-semibold">⚠ Cần {sl} nhưng chỉ còn {kd} khả dụng (đang giữ ở phiếu chưa hoàn thành). Vẫn lưu được — cân nhắc đặt thêm hàng.</div>}
+                              </div>
+                            )
+                          })()}
                         </div>
                       )
                     })
@@ -2499,7 +2512,7 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
 
 // Ô tìm kiếm vật tư kiểu "Google": gõ mã/tên/model để lọc, chọn từ danh sách gợi ý.
 // Danh sách gợi ý render qua portal (position: fixed) để không bị khuất bởi modal/thẻ overflow.
-function MaterialCombobox({ inventory, value, onChange }: { inventory: any[], value: string, onChange: (ma_hang: string) => void }) {
+function MaterialCombobox({ inventory, value, onChange, committed }: { inventory: any[], value: string, onChange: (ma_hang: string) => void, committed?: Record<string, number> }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [rect, setRect] = useState<DOMRect | null>(null)
@@ -2548,7 +2561,10 @@ function MaterialCombobox({ inventory, value, onChange }: { inventory: any[], va
         >
           {results.length === 0 ? (
             <div className="px-3 py-2 text-sm text-slate-400">Không tìm thấy vật tư khớp.</div>
-          ) : results.map(item => (
+          ) : results.map(item => {
+            const giu = committed?.[item.ma_hang] || 0
+            const kd = (Number(item.ton_kho) || 0) - giu // khả dụng = tồn - đang giữ
+            return (
             <button
               type="button"
               key={item.ma_hang}
@@ -2556,9 +2572,12 @@ function MaterialCombobox({ inventory, value, onChange }: { inventory: any[], va
               className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex justify-between items-center gap-2 ${item.ma_hang === value ? 'bg-blue-50' : ''}`}
             >
               <span className="truncate"><span className="font-mono font-medium text-slate-700">{item.ma_hang}</span> <span className="text-slate-500">- {item.ten_hang}</span></span>
-              <span className={`text-xs shrink-0 ${item.ton_kho <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>Tồn: {item.ton_kho}</span>
+              {committed
+                ? <span className={`text-xs shrink-0 text-right leading-tight ${kd <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>KD: {kd}{giu > 0 && <span className="block text-[10px] text-amber-600">Tồn {item.ton_kho} · giữ {giu}</span>}</span>
+                : <span className={`text-xs shrink-0 ${item.ton_kho <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>Tồn: {item.ton_kho}</span>}
             </button>
-          ))}
+            )
+          })}
         </div>,
         document.body
       )}
@@ -3056,7 +3075,7 @@ function NhapHangThangTool({ showNotification }: { showNotification: (type: 'suc
   )
 }
 
-function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotification, currentUserRole, confirmDelete }: { inventory: any[], nhaCungCapOptions: string[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, currentUserRole: string, confirmDelete: (id: string, type: 'job' | 'user' | 'inventory' | 'dat_hang_ct') => void }) {
+function DatHangTool({ inventory, committed, nhaCungCapOptions, onUpdateSuccess, showNotification, currentUserRole, confirmDelete }: { inventory: any[], committed: Record<string, number>, nhaCungCapOptions: string[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, currentUserRole: string, confirmDelete: (id: string, type: 'job' | 'user' | 'inventory' | 'dat_hang_ct') => void }) {
   const [form, setForm] = useState({ ngay_dat: new Date().toISOString().split('T')[0], nha_cung_cap: "", so_don_hang: "", da_dat: false })
   const [lines, setLines] = useState<{ ma_hang: string, sl_dat: string }[]>([])
   const [orders, setOrders] = useState<any[]>([])
@@ -3377,7 +3396,7 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
                 <tr>
                   <th className="px-3 py-2 min-w-[180px]">Vật tư</th>
                   <th className="px-3 py-2 text-center w-24">Model</th>
-                  <th className="px-3 py-2 text-center w-12">Tồn</th>
+                  <th className="px-3 py-2 text-center w-16">Tồn / KD</th>
                   <th className="px-3 py-2 text-center w-14">Chờ về</th>
                   <th className="px-3 py-2 text-center w-20 min-w-[70px]">SL đặt</th>
                   <th className="px-3 py-2 text-center w-10"></th>
@@ -3416,7 +3435,16 @@ function DatHangTool({ inventory, nhaCungCapOptions, onUpdateSuccess, showNotifi
                           <div className="text-slate-500 font-normal leading-relaxed">{item.ten_hang}</div>
                         </td>
                         <td className="px-3 py-2.5 text-center text-[11px] text-slate-500 leading-tight">{item.model || '—'}</td>
-                        <td className={`px-3 py-2.5 text-center font-bold ${isOut ? 'text-red-500 bg-red-50/50' : 'text-slate-600'}`}>{item.ton_kho}</td>
+                        {(() => {
+                          const giu = committed[item.ma_hang] || 0
+                          const kd = (Number(item.ton_kho) || 0) - giu
+                          return (
+                            <td className={`px-3 py-2.5 text-center font-bold leading-tight ${isOut ? 'bg-red-50/50' : ''}`} title={giu > 0 ? `Tồn ${item.ton_kho}, đang giữ ${giu} ở phiếu chưa hoàn thành` : undefined}>
+                              <span className={isOut ? 'text-red-500' : 'text-slate-600'}>{item.ton_kho}</span>
+                              {giu > 0 && <span className={`block text-[10px] font-semibold ${kd <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>KD {kd}</span>}
+                            </td>
+                          )
+                        })()}
                         <td className="px-3 py-2.5 text-center">
                           {pendingQty > 0 ? (
                             <span
