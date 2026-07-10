@@ -198,6 +198,22 @@ export async function DELETE(request: Request) {
         const { error: pErr } = await supabaseAdmin.from('soct_dat_hang').delete().eq('id', ctRow.id_dat_hang)
         if (pErr) throw pErr
         parentDeleted = true
+      } else {
+        // Đơn còn dòng chi tiết -> tính toán lại cờ hoan_thanh của đơn cha
+        const { data: remainingLines, error: linesErr } = await supabaseAdmin
+          .from('soct_dat_hang_ct')
+          .select('hoan_thanh')
+          .eq('id_dat_hang', ctRow.id_dat_hang)
+
+        if (linesErr) throw linesErr
+
+        const isParentComplete = (remainingLines || []).every((l: any) => l.hoan_thanh)
+        const { error: updErr } = await supabaseAdmin
+          .from('soct_dat_hang')
+          .update({ hoan_thanh: isParentComplete })
+          .eq('id', ctRow.id_dat_hang)
+
+        if (updErr) throw updErr
       }
 
       return NextResponse.json({ success: true, parentDeleted })
