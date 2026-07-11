@@ -24,6 +24,7 @@
 2. **`ket_qua` có CHECK constraint** (`'Chờ nhận','Đã nhận','Đang làm','Hoàn thành','Lắp tiếp'`). Thêm/đổi trạng thái BẮT BUỘC có migration DROP+ADD constraint.
 3. **Danh sách phiếu (GET cong-viec) giới hạn `.range(0,999)`/response** (tránh vượt payload ~4.5MB serverless). Tìm phiếu cũ = lọc **số phiếu (toàn cục)** hoặc **khoảng ngày** phía server (client gửi `report/tuNgay/denNgay`). Các list dài khác dùng helper `selectAll()` (lặp `.range`).
 4. **Trừ kho chỉ khi phiếu → 'Hoàn thành'** (trigger DB `soct_tr_handle_hoan_thanh_cong_viec`, AFTER UPDATE). Import (INSERT) không trừ. "Tồn khả dụng" = Tồn − "Đang giữ" (SL vật tư phiếu chưa hoàn thành) chỉ để hiển thị/cảnh báo — API `/api/admin/kho-hang/dang-giu`.
+4b. **Đặt hàng — bảo vệ tồn kho:** tồn kho CHỈ đổi qua `soct_hang_ve_dot` (trigger mig 06: hàng về +, xóa đợt −). Ghi/xóa **hàng về = admin-only**. Đơn/dòng **đã có hàng về bị KHÓA**: sửa cấu trúc & chuyển-về-Nháp bị chặn (mọi role, server `dat-hang` route); xóa dòng/đơn có hàng về chỉ admin + `window.confirm` nêu số bị trừ; tech_admin bị ẩn nút xóa khi đã có hàng về. ⚠️ `supabase_schema.sql` KHÔNG còn định nghĩa đặt-hàng (đã chuyển hẳn sang migration 06 — model header+ct; tránh model cũ 1 mã/đơn).
 5. **`telegram_sent`**: luồng giao việc hàng loạt (bulk-scan) tự bắn 1 tin Telegram tổng hợp và set cờ này = true; webhook DB bỏ qua record có cờ để không spam tin lẻ.
 6. Webhook Telegram chỉ bắn cho phiếu 'Chờ nhận'/'Đã nhận' (bỏ qua import lịch sử đã Hoàn thành).
 

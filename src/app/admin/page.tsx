@@ -3322,9 +3322,15 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
     }
   }
 
+  const orderReceived = (o: any) => (o.soct_dat_hang_ct || []).reduce((s: number, l: any) => s + daNhan(l), 0)
+
   const toggleDaDat = async (o: any) => {
+    // Không cho chuyển "Đã đặt" -> "Nháp" nếu đơn đã có hàng về (bảo vệ tồn kho)
+    if (o.da_dat && orderReceived(o) > 0) {
+      return showNotification('error', 'Đơn đã nhận hàng — không thể chuyển về Nháp.')
+    }
     const res = await fetch('/api/admin/dat-hang', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: o.id, da_dat: !o.da_dat }) })
-    if (res.ok) fetchOrders(); else showNotification('error', "Cập nhật không thành công")
+    if (res.ok) fetchOrders(); else { const j = await res.json().catch(() => ({})); showNotification('error', j.error || 'Cập nhật không thành công') }
   }
   const deleteOrder = async (id: string) => {
     const res = await fetch(`/api/admin/dat-hang?id=${id}`, { method: 'DELETE' })
@@ -3337,7 +3343,7 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
         setEditingDraftId(null)
         setLines([])
       }
-    } else showNotification('error', "Xóa không thành công")
+    } else { const j = await res.json().catch(() => ({})); showNotification('error', j.error || 'Xóa không thành công') }
   }
   const saveReceipt = async () => {
     if (!receiving || !(parseInt(receiving.so_luong_nhan) > 0)) return showNotification('error', "Nhập số lượng nhận")
@@ -3345,9 +3351,13 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
     if (res.ok) { showNotification('success', "Đã ghi hàng về (tồn kho tự cộng)."); setReceiving(null); onUpdateSuccess(); fetchOrders() }
     else { const err = await res.json(); showNotification('error', err.error) }
   }
-  const deleteReceipt = async (id: string) => {
+  const deleteReceipt = async (id: string, qty?: number, maHang?: string) => {
+    // Xác nhận rõ tác động tồn: xóa đợt hàng về sẽ TRỪ số đã nhận khỏi tồn kho
+    if (qty && qty > 0) {
+      if (!window.confirm(`Xóa đợt hàng về này sẽ TRỪ ${qty}${maHang ? ` (${maHang})` : ''} khỏi tồn kho.\nChỉ làm khi ghi NHẦM (hàng thực chưa về). Tiếp tục?`)) return
+    }
     const res = await fetch(`/api/admin/hang-ve?id=${id}`, { method: 'DELETE' })
-    if (res.ok) { onUpdateSuccess(); fetchOrders() } else showNotification('error', "Xóa đợt hàng về không thành công")
+    if (res.ok) { showNotification('success', 'Đã xóa đợt hàng về (trừ tồn tương ứng).'); onUpdateSuccess(); fetchOrders() } else showNotification('error', "Xóa đợt hàng về không thành công")
   }
 
   const fmtDate = (s: string) => { if (!s) return ''; const d = new Date(s); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` }
@@ -3747,7 +3757,17 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
                       <button onClick={() => setDelId(null)} className="text-slate-500 px-2 py-1">Hủy</button>
                     </span>
                   ) : (
-                    <button onClick={() => setDelId(o.id)} className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 hover:bg-red-100 rounded-md" title="Xóa đơn"><Trash2 className="w-4 h-4" /></button>
+                    /* Đơn đã nhận hàng: tech_admin bị ẩn nút xóa (chỉ admin, kèm cảnh báo trừ tồn) */
+                    !(orderReceived(o) > 0 && currentUserRole !== 'admin') && (
+                      <button
+                        onClick={() => {
+                          const recv = orderReceived(o)
+                          if (recv > 0 && !window.confirm(`Đơn này đã nhận tổng ${recv}. Xóa đơn sẽ TRỪ ${recv} khỏi tồn kho. Chỉ làm khi hàng chưa thực về / nhập nhầm. Tiếp tục?`)) return
+                          setDelId(o.id)
+                        }}
+                        className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 hover:bg-red-100 rounded-md" title="Xóa đơn"
+                      ><Trash2 className="w-4 h-4" /></button>
+                    )
                   )}
                 </div>
               </div>
@@ -3770,7 +3790,7 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
                                 <span key={h.id} className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5">
                                   {fmtDate(h.ngay_nhan)}: <b>{h.so_luong_nhan}</b>
                                   {currentUserRole === 'admin' && (
-                                    <button onClick={() => deleteReceipt(h.id)} className="text-slate-400 hover:text-red-500" title="Xóa đợt này">✕</button>
+                                    <button onClick={() => deleteReceipt(h.id, h.so_luong_nhan, line.ma_hang)} className="text-slate-400 hover:text-red-500" title="Xóa đợt này (trừ tồn)">✕</button>
                                   )}
                                 </span>
                               ))}
@@ -3789,15 +3809,19 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
                               {currentUserRole === 'admin' && !line.hoan_thanh && (!receiving || receiving.ctId !== line.id) && (
                                 <button onClick={() => setReceiving({ ctId: line.id, ngay_nhan: new Date().toISOString().split('T')[0], so_luong_nhan: "" })} className="text-blue-600 hover:text-blue-800 text-xs font-medium whitespace-nowrap">+ Ghi hàng về</button>
                               )}
-                              <button
-                                onClick={() => {
-                                  confirmDelete(line.id, 'dat_hang_ct')
-                                }}
-                                className="text-red-500 hover:text-red-700 p-1 bg-red-50 hover:bg-red-100 rounded-md transition"
-                                title="Xóa mục hàng này"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              {/* Có hàng về: tech_admin bị ẩn (chỉ admin xóa được, kèm cảnh báo trừ tồn) */}
+                              {!(nhan > 0 && currentUserRole !== 'admin') && (
+                                <button
+                                  onClick={() => {
+                                    if (nhan > 0 && !window.confirm(`Mục "${line.ma_hang}" đã nhận ${nhan}. Xóa sẽ TRỪ ${nhan} khỏi tồn kho. Chỉ làm khi hàng chưa thực về / ghi nhầm. Tiếp tục?`)) return
+                                    confirmDelete(line.id, 'dat_hang_ct')
+                                  }}
+                                  className="text-red-500 hover:text-red-700 p-1 bg-red-50 hover:bg-red-100 rounded-md transition"
+                                  title={nhan > 0 ? 'Xóa mục (đã nhận hàng — trừ tồn)' : 'Xóa mục hàng này'}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>

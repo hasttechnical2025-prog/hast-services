@@ -12,6 +12,15 @@ const ORDER_SELECT = `
   )
 `
 
+// Đếm số ĐỢT HÀNG VỀ của cả 1 đơn (mọi dòng) — bảo vệ tồn kho: có hàng về = đã đụng tồn.
+async function orderReceiptCount(id: string): Promise<number> {
+  const { data: cts } = await supabaseAdmin.from('soct_dat_hang_ct').select('id').eq('id_dat_hang', id)
+  const ctIds = (cts || []).map((c: any) => c.id)
+  if (ctIds.length === 0) return 0
+  const { count } = await supabaseAdmin.from('soct_hang_ve_dot').select('id', { count: 'exact', head: true }).in('id_dat_hang_ct', ctIds)
+  return count || 0
+}
+
 // Danh sách đơn đặt hàng kèm dòng chi tiết + các đợt hàng về
 export async function GET() {
   try {
@@ -97,6 +106,20 @@ export async function PUT(request: Request) {
     const { id, lines } = body
     if (!id) return NextResponse.json({ error: 'Thiếu ID đơn' }, { status: 400 })
 
+    // BẢO VỆ TỒN KHO: đơn đã có hàng về thì khóa sửa cấu trúc / chuyển về Nháp,
+    // tránh việc xóa+ghi lại dòng làm mất đợt hàng về và trừ oan tồn kho.
+    const editingLines = Array.isArray(lines)
+    const revertingToNhap = body.da_dat === false
+    if (editingLines || revertingToNhap) {
+      const rc = await orderReceiptCount(id)
+      if (rc > 0) {
+        if (editingLines) {
+          return NextResponse.json({ error: `Đơn đã nhận hàng (${rc} đợt) — không sửa được nội dung đặt. Admin hãy xóa các đợt hàng về trước rồi sửa.` }, { status: 400 })
+        }
+        return NextResponse.json({ error: 'Đơn đã nhận hàng — không thể chuyển về Nháp.' }, { status: 400 })
+      }
+    }
+
     const updates: any = {}
     for (const k of ['ngay_dat', 'nha_cung_cap', 'so_don_hang', 'ghi_chu']) {
       if (body[k] !== undefined) updates[k] = body[k] || null
@@ -176,6 +199,13 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: 'Không tìm thấy mục hàng cần xóa' }, { status: 404 })
       }
 
+      // BẢO VỆ TỒN KHO: mục đã có hàng về -> chỉ Admin được xóa (thao tác này trừ tồn kho)
+      const { count: rcLine } = await supabaseAdmin
+        .from('soct_hang_ve_dot').select('id', { count: 'exact', head: true }).eq('id_dat_hang_ct', lineId)
+      if ((rcLine || 0) > 0 && session.role !== 'admin') {
+        return NextResponse.json({ error: 'Mục hàng đã nhận hàng — chỉ Admin được xóa (thao tác này trừ tồn kho).' }, { status: 403 })
+      }
+
       // Xóa các đợt hàng về của dòng này trước (trigger tự động hoàn tồn kho thực tế)
       const { error: hvErr } = await supabaseAdmin.from('soct_hang_ve_dot').delete().eq('id_dat_hang_ct', lineId)
       if (hvErr) throw hvErr
@@ -220,6 +250,12 @@ export async function DELETE(request: Request) {
     }
 
     // Trường hợp 2: Xóa toàn bộ đơn đặt hàng
+    // BẢO VỆ TỒN KHO: đơn đã có hàng về -> chỉ Admin được xóa (thao tác này trừ tồn kho)
+    const rcOrder = await orderReceiptCount(id!)
+    if (rcOrder > 0 && session.role !== 'admin') {
+      return NextResponse.json({ error: 'Đơn đã nhận hàng — chỉ Admin được xóa (thao tác này trừ tồn kho).' }, { status: 403 })
+    }
+
     // Lấy các dòng chi tiết, xóa đợt hàng về của chúng trước (trigger hoàn tồn kho)
     const { data: cts } = await supabaseAdmin.from('soct_dat_hang_ct').select('id').eq('id_dat_hang', id)
     const ctIds = (cts || []).map(c => c.id)
