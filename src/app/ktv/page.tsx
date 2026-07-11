@@ -62,7 +62,7 @@ export default function KtvMobileWeb() {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   })
-  const [reportData, setReportData] = useState<{ da_nop: boolean, thoi_gian_nop: string | null, jobs: any[], extraJobs: any[], ngayNghi: string[] } | null>(null)
+  const [reportData, setReportData] = useState<{ da_nop: boolean, thoi_gian_nop: string | null, jobs: any[], extraJobs: any[], ngayNghi: string[], tinhTrangOptions?: string[] } | null>(null)
   const [extraInput, setExtraInput] = useState("")
   const [submittingReport, setSubmittingReport] = useState(false)
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false)
@@ -71,6 +71,19 @@ export default function KtvMobileWeb() {
 
   // State lưu trữ dữ liệu điền báo cáo tạm thời trong RAM (counter & ghi_chu_ktv)
   const [draftReports, setDraftReports] = useState<Record<string, { counter: string, ghi_chu_ktv: string }>>({})
+
+  // Lịch sử "lần gần nhất" (last call) của mã máy đang mở — hiển thị 1 dòng trong chi tiết ca
+  const [lastCall, setLastCall] = useState<{ ngay: string, loai_cong_viec: string | null, ghi_chu_ktv: string | null } | null>(null)
+  const [lastCallLoading, setLastCallLoading] = useState(false)
+
+  // Ngày báo cáo (theo giờ VN): chỉ HÔM NAY / HÔM QUA mới sửa được; T7/CN/lễ = ngày nghỉ (không báo cáo)
+  const vnTodayStr = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
+  const vnYesterdayStr = new Date(Date.now() + 7 * 3600 * 1000 - 86400000).toISOString().slice(0, 10)
+  const reportDow = new Date(selectedReportDate + 'T00:00:00Z').getUTCDay()
+  const isRestDay = reportDow === 0 || reportDow === 6 || (reportData?.ngayNghi || []).includes(selectedReportDate)
+  const reportDaysAgo = Math.round((Date.parse(vnTodayStr + 'T00:00:00Z') - Date.parse(selectedReportDate + 'T00:00:00Z')) / 86400000)
+  const reportEditable = (reportDaysAgo === 0 || reportDaysAgo === 1) && !isRestDay
+  const restDayLabel = reportDow === 0 ? 'Chủ Nhật' : reportDow === 6 ? 'Thứ 7' : 'Ngày lễ'
 
   // Tải thông tin báo cáo cho ngày cụ thể
   const fetchReportData = useCallback(async (ngay: string) => {
@@ -88,7 +101,7 @@ export default function KtvMobileWeb() {
         if (json.data.jobs) {
           json.data.jobs.forEach((j: any) => {
             initialDrafts[j.id] = {
-              counter: j.counter != null ? String(j.counter) : "",
+              counter: j.counter != null ? String(j.counter) : "1", // mặc định Số vụ việc = 1
               ghi_chu_ktv: j.ghi_chu_ktv || ""
             }
           })
@@ -167,6 +180,20 @@ export default function KtvMobileWeb() {
       fetchReportData(selectedReportDate)
     }
   }, [currentKtv, ktvTab, selectedReportDate, fetchReportData])
+
+  // Tải "lần gần nhất" của mã máy khi mở chi tiết một ca
+  useEffect(() => {
+    if (!activeJob || !activeJob.ma_may) { setLastCall(null); return }
+    let cancelled = false
+    setLastCall(null)
+    setLastCallLoading(true)
+    fetch(`/api/ktv/lich-su?ma_may=${encodeURIComponent(activeJob.ma_may)}&exclude=${activeJob.id}`)
+      .then(res => res.ok ? res.json() : { data: null })
+      .then(json => { if (!cancelled) setLastCall(json.data) })
+      .catch(() => { if (!cancelled) setLastCall(null) })
+      .finally(() => { if (!cancelled) setLastCallLoading(false) })
+    return () => { cancelled = true }
+  }, [activeJob])
 
   // Thêm việc ngoài luồng (Optimistic UI: hiện ngay trên list rồi mới lưu)
   const handleAddExtraJob = async () => {
@@ -633,84 +660,48 @@ export default function KtvMobileWeb() {
                 ) : (
                   /* TAB 2: BÁO CÁO NHẬT KÝ NGÀY */
                   <div className="space-y-4">
-                    {/* THANH KÉO CHỌN NGÀY */}
+                    {/* CHỌN NGÀY: hôm nay + lịch chọn ngày */}
                     <div className="bg-white p-3 rounded-xl shadow-sm border border-slate-200 space-y-2">
-                      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">Chọn ngày báo cáo</div>
-                      <div className="flex gap-2 overflow-x-auto pb-1 justify-between w-full">
-                        {(() => {
-                          const list = []
-                          const today = new Date()
-                          today.setHours(0, 0, 0, 0)
-                          const ngayNghiSet = new Set(reportData?.ngayNghi || [])
-
-                          // Tạo danh sách 6 ngày gần nhất (Hôm nay + 5 ngày lùi)
-                          for (let i = 0; i < 6; i++) {
-                            const d = new Date(today.getTime() - i * 86400000)
-                            const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-                            const dayOfWeek = d.getDay()
-                            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-                            const isHoliday = ngayNghiSet.has(ymd)
-                            const label = `${d.getDate()}/${d.getMonth() + 1}`
-                            const isReportToday = ymd === (() => {
-                              const now = new Date()
-                              return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-                            })()
-
-                            list.push({
-                              ymd,
-                              label,
-                              isWeekendOrHoliday: isWeekend || isHoliday,
-                              isToday: isReportToday,
-                              dayName: dayOfWeek === 0 ? 'CN' : dayOfWeek === 6 ? 'T7' : 'T' + (dayOfWeek + 1)
-                            })
-                          }
-
-                          return list.reverse().map(item => {
-                            const isSelected = item.ymd === selectedReportDate
-                            const hasSubmitted = reportStatusByDate[item.ymd] || (item.ymd === selectedReportDate && reportData?.da_nop)
-
-                            let borderClass = 'border-slate-200'
-                            let bgClass = 'bg-white hover:bg-slate-50'
-                            let textClass = 'text-slate-700'
-
-                            if (item.isWeekendOrHoliday) {
-                              bgClass = 'bg-slate-100 opacity-40 cursor-not-allowed'
-                              textClass = 'text-slate-400'
-                            } else if (isSelected) {
-                              borderClass = 'border-emerald-600 ring-2 ring-emerald-100'
-                              bgClass = 'bg-emerald-50'
-                              textClass = 'text-emerald-800'
-                            } else if (hasSubmitted) {
-                              borderClass = 'border-emerald-200'
-                              bgClass = 'bg-emerald-50/40'
-                              textClass = 'text-emerald-600'
-                            } else {
-                              borderClass = 'border-red-200'
-                              bgClass = 'bg-red-50/20 hover:bg-red-50/40'
-                              textClass = 'text-red-600'
-                            }
-
-                            return (
-                              <button
-                                key={item.ymd}
-                                disabled={item.isWeekendOrHoliday}
-                                onClick={() => setSelectedReportDate(item.ymd)}
-                                className={`flex flex-col items-center justify-center p-2 rounded-lg border text-center transition min-w-[45px] flex-1 ${borderClass} ${bgClass} ${textClass}`}
-                              >
-                                <span className="text-[9px] font-bold uppercase tracking-wider">{item.dayName}</span>
-                                <span className="text-xs font-bold mt-0.5">{item.label}</span>
-                                {!item.isWeekendOrHoliday && (
-                                  <span className={`w-1.5 h-1.5 rounded-full mt-1 ${hasSubmitted ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                                )}
-                              </button>
-                            )
-                          })
-                        })()}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Báo cáo ngày</div>
+                          <div className="font-bold text-slate-800 text-sm">
+                            {formatDate(selectedReportDate)}
+                            {reportDaysAgo === 0 && <span className="ml-1 text-emerald-600">· Hôm nay</span>}
+                            {reportDaysAgo === 1 && <span className="ml-1 text-slate-500">· Hôm qua</span>}
+                          </div>
+                        </div>
+                        <div className="relative shrink-0">
+                          <button type="button" className="h-9 px-3 rounded-lg border border-slate-200 text-slate-600 text-xs font-medium flex items-center gap-1.5 hover:bg-slate-50">
+                            <Calendar className="w-4 h-4" /> Chọn ngày
+                          </button>
+                          <input
+                            type="date"
+                            max={vnTodayStr}
+                            value={selectedReportDate}
+                            onChange={(e) => { if (e.target.value) setSelectedReportDate(e.target.value) }}
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                            aria-label="Chọn ngày báo cáo"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => setSelectedReportDate(vnTodayStr)} className={`flex-1 h-8 rounded-lg text-xs font-semibold border transition ${selectedReportDate === vnTodayStr ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>Hôm nay</button>
+                        <button type="button" onClick={() => setSelectedReportDate(vnYesterdayStr)} className={`flex-1 h-8 rounded-lg text-xs font-semibold border transition ${selectedReportDate === vnYesterdayStr ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>Hôm qua</button>
                       </div>
                     </div>
 
-                    {reportData ? (
+                    {isRestDay ? (
+                      <div className="bg-white p-6 rounded-xl border border-slate-200 text-center space-y-1">
+                        <div className="text-3xl">🌴</div>
+                        <div className="font-bold text-slate-700">{formatDate(selectedReportDate)} — {restDayLabel}</div>
+                        <div className="text-sm text-slate-500">Không phải làm báo cáo.</div>
+                      </div>
+                    ) : reportData ? (
                       <div className={`space-y-4 transition-opacity duration-200 ${loadingReport ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                        {!reportEditable && !reportData.da_nop && (
+                          <div className="bg-slate-100 text-slate-500 px-4 py-2 rounded-xl text-xs text-center">Chỉ xem — chỉ sửa được báo cáo hôm nay & hôm qua.</div>
+                        )}
                         {/* TRẠNG THÁI NỘP BÁO CÁO */}
                         {reportData.da_nop ? (
                           <div className="bg-emerald-50 text-emerald-800 px-4 py-3 rounded-xl border border-emerald-100 text-sm flex items-center gap-2">
@@ -744,9 +735,10 @@ export default function KtvMobileWeb() {
                               <JobReportCard
                                 key={j.id}
                                 job={j}
-                                readOnly={reportData.da_nop}
-                                draftVal={draftReports[j.id] || { counter: "", ghi_chu_ktv: "" }}
+                                readOnly={reportData.da_nop || !reportEditable}
+                                draftVal={draftReports[j.id] || { counter: "1", ghi_chu_ktv: "" }}
                                 onValueChange={(field, val) => handleUpdateDraftReport(j.id, field, val)}
+                                options={reportData.tinhTrangOptions || []}
                               />
                             ))
                           )}
@@ -757,7 +749,7 @@ export default function KtvMobileWeb() {
                           <div className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">2. Công việc khác (Ngoài sổ)</div>
 
                           {/* Form thêm việc khác */}
-                          {!reportData.da_nop && (
+                          {!reportData.da_nop && reportEditable && (
                             <div className="flex gap-2">
                               <Input
                                 placeholder="VD: Giao giấy tờ giúp TGĐ, trực VP..."
@@ -787,7 +779,7 @@ export default function KtvMobileWeb() {
                                     <span className="text-slate-400 font-bold">{index + 1}.</span>
                                     <span className="leading-relaxed">{ej.noi_dung}</span>
                                   </div>
-                                  {!reportData.da_nop && (
+                                  {!reportData.da_nop && reportEditable && (
                                     <button
                                       onClick={() => handleDeleteExtraJob(ej.id)}
                                       className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 shrink-0"
@@ -803,7 +795,7 @@ export default function KtvMobileWeb() {
                         </div>
 
                         {/* NÚT CHỐT NỘP BÁO CÁO NGÀY */}
-                        {!reportData.da_nop && (() => {
+                        {!reportData.da_nop && reportEditable && (() => {
                           // KTV bắt buộc phải chọn tình trạng máy (có dữ liệu ghi_chu_ktv trong draftReports) cho MỌI ca máy
                           const canSubmit = reportData.jobs.every(j => {
                             const val = draftReports[j.id]
@@ -900,6 +892,23 @@ export default function KtvMobileWeb() {
                     <div>Loại việc: <span className="font-bold text-slate-700">{activeJob.loai_cong_viec}</span></div>
                     <div>Số phiếu (RP): <span className="font-bold text-slate-700 font-mono">{activeJob.report || 'N/A'}</span></div>
                   </div>
+
+                  {/* Lần gần nhất (last call) của mã máy — lịch sử nhanh cho KTV */}
+                  {activeJob.ma_may && (
+                    <div className="text-xs bg-indigo-50/60 border border-indigo-100 rounded-lg px-3 py-2 text-slate-600 leading-relaxed">
+                      {lastCallLoading ? (
+                        <span className="text-slate-400 italic">Đang tra lịch sử máy…</span>
+                      ) : lastCall ? (
+                        <span>
+                          🕘 <b>Lần gần nhất:</b> {formatDate(lastCall.ngay)}
+                          {lastCall.loai_cong_viec && <> · {lastCall.loai_cong_viec}</>}
+                          {lastCall.ghi_chu_ktv && <> — <span className="italic">{lastCall.ghi_chu_ktv}</span></>}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 italic">🕘 Chưa có lịch sử cho mã máy này.</span>
+                      )}
+                    </div>
+                  )}
 
                   {/* Vật tư dự kiến đi kèm */}
                   <div className="space-y-2">
@@ -1048,7 +1057,8 @@ export default function KtvMobileWeb() {
   )
 }
 
-function JobReportCard({ job, readOnly, draftVal, onValueChange }: { job: any, readOnly: boolean, draftVal: { counter: string, ghi_chu_ktv: string }, onValueChange: (field: 'counter' | 'ghi_chu_ktv', value: string) => void }) {
+function JobReportCard({ job, readOnly, draftVal, onValueChange, options }: { job: any, readOnly: boolean, draftVal: { counter: string, ghi_chu_ktv: string }, onValueChange: (field: 'counter' | 'ghi_chu_ktv', value: string) => void, options: string[] }) {
+  const tinhTrangOpts = options.length ? options : ['HĐBT', 'Làm giám định', 'Theo dõi thêm', 'Khác'] // fallback nếu admin chưa cấu hình
   return (
     <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
       <div className="flex justify-between items-start">
@@ -1065,12 +1075,12 @@ function JobReportCard({ job, readOnly, draftVal, onValueChange }: { job: any, r
 
       <div className="grid grid-cols-3 gap-2 items-end pt-1">
         <div className="col-span-1 space-y-1">
-          <label className="text-[10px] font-semibold text-slate-500 uppercase block">Số counter</label>
+          <label className="text-[10px] font-semibold text-slate-500 uppercase block">Số vụ việc</label>
           <Input
             type="text"
             inputMode="numeric"
             disabled={readOnly}
-            placeholder="Gõ số"
+            placeholder="1"
             className="h-8 text-xs text-center bg-slate-50 border-slate-200"
             value={draftVal.counter}
             onChange={(e) => onValueChange('counter', e.target.value.replace(/\D/g, ''))}
@@ -1085,10 +1095,7 @@ function JobReportCard({ job, readOnly, draftVal, onValueChange }: { job: any, r
             onChange={(e) => onValueChange('ghi_chu_ktv', e.target.value)}
           >
             <option value="">-- Chọn tình trạng máy --</option>
-            <option value="HĐBT">HĐBT</option>
-            <option value="Làm giám định">Làm giám định</option>
-            <option value="Theo dõi thêm">Theo dõi thêm</option>
-            <option value="Khác">Khác</option>
+            {tinhTrangOpts.map(o => <option key={o} value={o}>{o}</option>)}
           </select>
         </div>
       </div>

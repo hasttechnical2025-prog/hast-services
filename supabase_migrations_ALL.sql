@@ -501,3 +501,13 @@ CREATE TABLE IF NOT EXISTS public.soct_webauthn_credentials (
 );
 CREATE INDEX IF NOT EXISTS idx_webauthn_user ON public.soct_webauthn_credentials(user_id);
 ALTER TABLE public.soct_webauthn_credentials ENABLE ROW LEVEL SECURITY;
+
+-- ─────────────────────────────────────────────
+-- supabase_migration_21_tinh_trang_bao_cao.sql
+-- ─────────────────────────────────────────────
+INSERT INTO public.soct_danh_muc (nhom, gia_tri, thu_tu) VALUES
+    ('tinh_trang_bao_cao', 'HĐBT', 1),
+    ('tinh_trang_bao_cao', 'Làm giám định', 2),
+    ('tinh_trang_bao_cao', 'Theo dõi thêm', 3),
+    ('tinh_trang_bao_cao', 'Khác', 4)
+ON CONFLICT (nhom, gia_tri) DO NOTHING;

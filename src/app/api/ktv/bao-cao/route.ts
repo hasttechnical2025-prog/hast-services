@@ -2,6 +2,18 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 
+// Ngày "hôm nay" theo giờ VN (UTC+7) — tránh lệch ngày do server chạy UTC
+function vnTodayStr(): string { return new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10) }
+// Số ngày `ngay` cách hôm nay (VN): 0 = hôm nay, 1 = hôm qua, âm = tương lai
+function daysAgo(ngay: string): number {
+  return Math.round((Date.parse(vnTodayStr() + 'T00:00:00Z') - Date.parse(ngay + 'T00:00:00Z')) / 86400000)
+}
+function isWeekend(ngay: string): boolean { const d = new Date(ngay + 'T00:00:00Z').getUTCDay(); return d === 0 || d === 6 }
+async function isHoliday(ngay: string): Promise<boolean> {
+  const { data } = await supabaseAdmin.from('soct_ngay_nghi').select('ngay').eq('ngay', ngay).maybeSingle()
+  return !!data
+}
+
 // GET: Lấy dữ liệu báo cáo của KTV trong 1 ngày cụ thể
 // Query params: ?ngay=YYYY-MM-DD
 export async function GET(request: Request) {
@@ -77,6 +89,14 @@ export async function GET(request: Request) {
 
     if (nnErr) throw nnErr
 
+    // 5. Danh mục "Tình trạng báo cáo KTV" (admin cấu hình) cho dropdown
+    const { data: ttOptions } = await supabaseAdmin
+      .from('soct_danh_muc')
+      .select('gia_tri')
+      .eq('nhom', 'tinh_trang_bao_cao')
+      .eq('active', true)
+      .order('thu_tu', { ascending: true })
+
     return NextResponse.json({
       data: {
         da_nop: ttReport?.da_nop || false,
@@ -84,6 +104,7 @@ export async function GET(request: Request) {
         jobs: jobs || [],
         extraJobs: extraJobs || [],
         ngayNghi: (ngayNghi || []).map(n => n.ngay),
+        tinhTrangOptions: (ttOptions || []).map((o: any) => o.gia_tri),
         statuses
       }
     })
@@ -165,18 +186,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Thiếu ngày hoặc ngày không hợp lệ' }, { status: 400 })
     }
 
-    // 0. Hành động mở lại báo cáo (chỉ cho phép hôm nay & hôm qua)
-    if (action === 'open_daily') {
-      const today = new Date()
-      today.setHours(0,0,0,0)
-      const targetDate = new Date(ngay)
-      targetDate.setHours(0,0,0,0)
-      const diffDays = Math.round((today.getTime() - targetDate.getTime()) / 86400000)
-
-      // Cho phép mở lại trong vòng 2 ngày (hôm nay = 0, hôm qua = 1)
-      if (diffDays < 0 || diffDays > 1) {
-        return NextResponse.json({ error: 'Chỉ được tự mở lại báo cáo của ngày hôm nay hoặc hôm qua.' }, { status: 400 })
+    // Chỉ cho GHI báo cáo (mở lại/thêm/xóa/chốt) ở HÔM NAY hoặc HÔM QUA, và KHÔNG phải ngày nghỉ.
+    if (['open_daily', 'add_extra', 'delete_extra', 'submit_daily'].includes(action)) {
+      const dd = daysAgo(ngay)
+      if (dd < 0 || dd > 1) {
+        return NextResponse.json({ error: 'Chỉ được sửa/nộp báo cáo của hôm nay hoặc hôm qua.' }, { status: 400 })
       }
+      if (isWeekend(ngay) || await isHoliday(ngay)) {
+        return NextResponse.json({ error: 'Ngày nghỉ (Thứ 7 / Chủ Nhật / lễ) — không phải làm báo cáo.' }, { status: 400 })
+      }
+    }
+
+    // 0. Hành động mở lại báo cáo
+    if (action === 'open_daily') {
 
       const { data, error } = await supabaseAdmin
         .from('soct_trang_thai_bao_cao')

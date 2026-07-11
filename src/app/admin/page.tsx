@@ -4791,7 +4791,7 @@ function BaoCaoKtvTool({ technicians, showNotification }: { technicians: any[], 
                                     <th className="px-3 py-2">Khách hàng</th>
                                     <th className="px-3 py-2">Mã máy</th>
                                     <th className="px-3 py-2">Loại việc</th>
-                                    <th className="px-3 py-2 text-center w-24">Số counter</th>
+                                    <th className="px-3 py-2 text-center w-24">Số vụ việc</th>
                                     <th className="px-3 py-2">Báo cáo KTV</th>
                                   </tr>
                                 </thead>
@@ -5285,6 +5285,7 @@ const DANH_MUC_NHOMS = [
   { key: 'loai_hd', label: 'Loại hợp đồng' },
   { key: 'ktv_giam_dinh', label: 'KTV giám định' },
   { key: 'tinh_trang_may', label: 'Tình trạng máy' },
+  { key: 'tinh_trang_bao_cao', label: 'Tình trạng báo cáo KTV' },
   { key: 'nha_cung_cap', label: 'Nhà cung cấp' },
   { key: 'hang', label: 'Hãng máy' },
 ]

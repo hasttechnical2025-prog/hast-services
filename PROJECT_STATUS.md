@@ -44,7 +44,7 @@
   - **Đăng ký/quản lý** trong **Cài đặt (⚙)** của app mobile `/m` và `/ktv` (component `AccountSettings` = `PasskeyManager` trạng thái "Đã bật ✓/Chưa bật" + Thêm/Gỡ, và **đổi mật khẩu** — đổi xong buộc đăng nhập lại, passkey KHÔNG bị ảnh hưởng). **PC `/admin` KHÔNG còn nút sinh trắc.**
 
 ## Migration & env
-- **Migration mới nhất: 20** (`soct_webauthn_credentials`). DB mới: chạy `supabase_schema.sql` rồi `supabase_migrations_ALL.sql`. DB đang chạy: chạy các migration mới lẻ (`supabase_migration_NN_*.sql`).
+- **Migration mới nhất: 21** (`tinh_trang_bao_cao` — seed danh mục dropdown "Tình trạng báo cáo KTV", admin cấu hình). DB mới: chạy `supabase_schema.sql` rồi `supabase_migrations_ALL.sql`. DB đang chạy: chạy các migration mới lẻ (`supabase_migration_NN_*.sql`).
 - ⏳ **Việc thủ công của người dùng:** chạy `supabase_migration_19_telegram_sent.sql` và `supabase_migration_20_webauthn.sql` trên Supabase SQL Editor.
 - Env cần: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_GROUP_CHAT_ID`, `NEXT_PUBLIC_APP_URL`, `WEBHOOK_SECRET` (webhook giao việc), `TELEGRAM_WEBHOOK_SECRET` (liên kết KTV), `CRON_SECRET` (nhắc báo cáo).
 
