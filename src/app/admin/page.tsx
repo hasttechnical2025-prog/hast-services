@@ -224,6 +224,10 @@ export default function AdminDashboard() {
   const [khoTab, setKhoTab] = useState<"ton_kho" | "dat_hang" | "thong_ke">("ton_kho")
   // Tab con bên trong "Quản lý"
   const [quanLyTab, setQuanLyTab] = useState<"nhat_ky" | "khach_hang" | "bao_cao">("nhat_ky")
+  // Tab con bên trong "Sổ công tác" (Giao việc / Hoàn phiếu)
+  const [congTacTab, setCongTacTab] = useState<"giao_viec" | "hoan_phieu">("giao_viec")
+  // Tab con bên trong "Tài chính" (Công nợ / Thuê-CPC)
+  const [taiChinhTab, setTaiChinhTab] = useState<"cong_no" | "thue_cpc">("cong_no")
   const [cauHinh, setCauHinh] = useState<Record<string, string>>({})
 
   // Ẩn/hiện tab (lớn + con) theo role. Admin thấy hết; Hệ thống khóa admin-only.
@@ -247,6 +251,8 @@ export default function AdminDashboard() {
   const effectiveKhoTab = firstVisibleSub('kho_hang', ['ton_kho', 'dat_hang', 'thong_ke'], khoTab)
   const effectiveMonitorTab = firstVisibleSub('theo_doi_may', ['bao_tri', 'giam_dinh'], monitorTab) as "bao_tri" | "giam_dinh"
   const effectiveQuanLyTab = firstVisibleSub('quan_ly', ['nhat_ky', 'khach_hang', 'bao_cao'], quanLyTab) as "nhat_ky" | "khach_hang" | "bao_cao"
+  const effectiveCongTacTab = firstVisibleSub('cong_viec', ['giao_viec', 'hoan_phieu'], congTacTab) as "giao_viec" | "hoan_phieu"
+  const effectiveTaiChinhTab = firstVisibleSub('tai_chinh', ['cong_no', 'thue_cpc'], taiChinhTab) as "cong_no" | "thue_cpc"
   const repeatNgay = parseInt(cauHinh.repeat_ngay || '30') || 30
   const nguongTonThap = parseInt(cauHinh.nguong_ton_thap || '0') || 0
 
@@ -884,30 +890,12 @@ export default function AdminDashboard() {
                 Sổ công tác
               </button>
 
-              {tabVisible('hoan_phieu') && (
+              {tabVisible('theo_doi_may') && (
                 <button
-                  onClick={() => setActiveTab("hoan_phieu")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'hoan_phieu' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  onClick={() => setActiveTab("theo_doi_may")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'theo_doi_may' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                 >
-                  Hoàn phiếu
-                </button>
-              )}
-
-              {tabVisible('cong_no') && (
-                <button
-                  onClick={() => setActiveTab("cong_no")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'cong_no' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  Công nợ
-                </button>
-              )}
-
-              {tabVisible('thue_cpc') && (
-                <button
-                  onClick={() => setActiveTab("thue_cpc")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'thue_cpc' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  Thuê / CPC
+                  Theo dõi máy
                 </button>
               )}
 
@@ -920,12 +908,12 @@ export default function AdminDashboard() {
                 </button>
               )}
 
-              {tabVisible('theo_doi_may') && (
+              {tabVisible('tai_chinh') && (
                 <button
-                  onClick={() => setActiveTab("theo_doi_may")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'theo_doi_may' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  onClick={() => setActiveTab("tai_chinh")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'tai_chinh' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                 >
-                  Theo dõi máy
+                  Tài chính
                 </button>
               )}
 
@@ -952,7 +940,15 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        {activeTab === "cong_viec" && hdbtExpiring.length > 0 && (
+        {/* Thanh tab con của Sổ công tác (chỉ hiện khi Hoàn phiếu được bật cho role) */}
+        {activeTab === "cong_viec" && subVisible('cong_viec', 'hoan_phieu') && (
+          <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
+            <button onClick={() => setCongTacTab("giao_viec")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveCongTacTab === 'giao_viec' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Giao việc</button>
+            <button onClick={() => setCongTacTab("hoan_phieu")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveCongTacTab === 'hoan_phieu' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Hoàn phiếu</button>
+          </div>
+        )}
+
+        {activeTab === "cong_viec" && effectiveCongTacTab === "giao_viec" && hdbtExpiring.length > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
             <button onClick={() => setHdbtOpen(o => !o)} className="w-full flex items-center gap-2 px-4 py-3 text-left">
               <svg className="w-5 h-5 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
@@ -983,7 +979,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {activeTab === "cong_viec" && (
+        {activeTab === "cong_viec" && effectiveCongTacTab === "giao_viec" && (
           <StatCards items={[
             { label: 'Tổng việc', value: jobStats.total.toLocaleString('vi-VN'), sub: `trên ${jobs.length.toLocaleString('vi-VN')} tất cả`, icon: ClipboardList, tint: 'text-blue-600 bg-blue-50 ring-blue-100' },
             { label: 'Hoàn thành', value: jobStats.done.toLocaleString('vi-VN'), sub: jobStats.total ? `${Math.round(jobStats.done / jobStats.total * 100)}% khối lượng` : '—', icon: CheckCircle2, tint: 'text-emerald-600 bg-emerald-50 ring-emerald-100' },
@@ -992,7 +988,7 @@ export default function AdminDashboard() {
           ]} />
         )}
 
-        {activeTab === "cong_viec" && (
+        {activeTab === "cong_viec" && effectiveCongTacTab === "giao_viec" && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             {/* Toolbar + Bộ lọc */}
             <div className="p-4 border-b border-slate-200 space-y-3 bg-slate-50/50">
@@ -1244,16 +1240,29 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {activeTab === "hoan_phieu" && tabVisible('hoan_phieu') && (
+        {/* Hoàn phiếu — tab con của Sổ công tác */}
+        {activeTab === "cong_viec" && effectiveCongTacTab === "hoan_phieu" && subVisible('cong_viec', 'hoan_phieu') && (
           <PhieuCungTool nguongNgay={parseInt(cauHinh.phieu_cung_canh_bao_ngay || '3') || 3} currentUserRole={currentUserRole} showNotification={showNotification} />
         )}
 
-        {activeTab === "cong_no" && tabVisible('cong_no') && (
-          <CongNoTool showNotification={showNotification} />
-        )}
-
-        {activeTab === "thue_cpc" && tabVisible('thue_cpc') && (
-          <ThueCpcModule showNotification={showNotification} />
+        {/* Tài chính — gộp Công nợ + Thuê/CPC */}
+        {activeTab === "tai_chinh" && tabVisible('tai_chinh') && (
+          <div className="space-y-4">
+            <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
+              {subVisible('tai_chinh', 'cong_no') && (
+                <button onClick={() => setTaiChinhTab("cong_no")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'cong_no' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Công nợ</button>
+              )}
+              {subVisible('tai_chinh', 'thue_cpc') && (
+                <button onClick={() => setTaiChinhTab("thue_cpc")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'thue_cpc' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Thuê / CPC</button>
+              )}
+            </div>
+            {effectiveTaiChinhTab === "cong_no" && subVisible('tai_chinh', 'cong_no') && (
+              <CongNoTool showNotification={showNotification} />
+            )}
+            {effectiveTaiChinhTab === "thue_cpc" && subVisible('tai_chinh', 'thue_cpc') && (
+              <ThueCpcModule showNotification={showNotification} />
+            )}
+          </div>
         )}
 
         {activeTab === "quan_ly" && tabVisible('quan_ly') && (
@@ -4080,10 +4089,10 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
             <tbody className="divide-y divide-slate-100">
               {TAB_TREE.flatMap(t => [
                 <tr key={t.key}>
-                  <td className="px-4 py-2 font-semibold text-slate-800">{t.label}</td>
+                  <td className="px-4 py-2 font-semibold text-slate-800">{t.label}{t.alwaysOn && <span className="ml-1 text-[10px] font-normal text-slate-400">(luôn hiện)</span>}</td>
                   {TAB_ROLES.map(([role]) => (
                     <td key={role} className="px-6 py-2 text-center">
-                      <input type="checkbox" checked={!!tabVis[role]?.[t.key]} onChange={() => toggleTab(role, t.key)} className="w-4 h-4 accent-blue-600" />
+                      <input type="checkbox" disabled={t.alwaysOn} checked={t.alwaysOn ? true : !!tabVis[role]?.[t.key]} onChange={() => toggleTab(role, t.key)} className="w-4 h-4 accent-blue-600 disabled:opacity-40 disabled:cursor-not-allowed" />
                     </td>
                   ))}
                 </tr>,
@@ -4091,7 +4100,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
                   <tr key={`${t.key}.${sub}`} className="bg-slate-50/40">
                     <td className="pl-10 pr-4 py-2 text-slate-600">↳ {subLabel}</td>
                     {TAB_ROLES.map(([role]) => {
-                      const parentOn = !!tabVis[role]?.[t.key]
+                      const parentOn = t.alwaysOn ? true : !!tabVis[role]?.[t.key]
                       return (
                         <td key={role} className="px-6 py-2 text-center">
                           <input type="checkbox" disabled={!parentOn} checked={parentOn && (tabVis[role]?.[`${t.key}.${sub}`] ?? true)} onChange={() => toggleTab(role, `${t.key}.${sub}`)} className="w-4 h-4 accent-blue-600 disabled:opacity-40 disabled:cursor-not-allowed" />
