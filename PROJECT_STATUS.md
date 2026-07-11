@@ -33,6 +33,7 @@
 - **Kho hàng**: Tồn kho, **Đặt hàng** (đơn nháp, hàng về, tồn khả dụng, xuất Excel 8 cột đơn lẻ / 11 cột báo cáo tổng, lọc hãng), Thống kê nhập.
 - **Theo dõi máy**: Bảo trì (+ tab "Chưa bảo trì tháng"), Giám định.
 - **Hoàn phiếu** (kiểm soát nộp phiếu cứng), **Công nợ** (báo giá .docx 4 trang; trang_thai_hd đồng bộ 2 chiều với cờ hoa_don).
+- **Thuê / CPC (billing)** (mig 22, admin-only, ⚠️ đang ở nhánh `feature/thue-cpc-billing`): billing máy thuê/CPC **độc lập hoàn toàn** với Sổ công tác. Áp cho `soct_khach_hang.loai_hd IN ('Máy thuê','Máy CPC')`. 4 tab (`ThueCpcModule.tsx`): Đơn giá HĐ (đơn giá/định mức/cam kết tối thiểu — loại trừ định mức miễn phí), Nhập counter (`soct_thue_cpc_counter`, upsert theo máy+tháng), Hợp đồng khung (`soct_thue_cpc_hop_dong_khung` gộp nhiều máy), Bảng kê (`soct_thue_cpc_bk`+`_ct`, xuất **Word** `bang-ke-thue-cpc-template.docx` qua docxtemplater, checkbox "Hiện chân trang chữ ký" → `{{#HIEN_CHAN_TRANG}}`). Công thức tính ở `src/lib/thue-cpc.ts`. **Giả định cần confirm**: (a) máy vừa có định mức miễn phí vừa cam kết tối thiểu → ưu tiên cam kết; (b) bảng kê gộp nhiều máy in gộp thành 1 dòng tổng (template chỉ có 1 dòng Đen/Màu).
 - **Quản lý**: Báo cáo KTV / Nhật ký ngày (chốt nộp, xuất .docx, cron nhắc `/api/cron/nhac-bao-cao` dùng `CRON_SECRET` — ⚠️ chưa gắn `vercel.json` chạy tự động), Danh sách khách hàng, Báo cáo tháng.
 - **Batch QR Maintenance Scheduler**: trang **`/admin/scan`** — quét QR mã máy bằng camera (html5-qrcode) → giao bảo trì hàng loạt cho 1 KTV (`/api/admin/cong-viec/bulk-scan`).
 - **Office Mobile `/m`**: bản gọn cho **admin/tech_admin** (chặn staff/ktv) trên điện thoại — 3 tab: Giao việc (không vật tư, bỏ Giao mực/Thay vật tư), Quét QR (→ /admin/scan), Đặt hàng (xem đơn; tech_admin tạo **đơn nháp**; ghi hàng về chỉ admin). Office trên mobile (trang chủ + Passkey) tự vào /m; PC giữ dashboard đầy đủ. KTV bị cấm /admin (login lọc role + trang /admin từ chối role ktv).
@@ -44,7 +45,7 @@
   - **Đăng ký/quản lý** trong **Cài đặt (⚙)** của app mobile `/m` và `/ktv` (component `AccountSettings` = `PasskeyManager` trạng thái "Đã bật ✓/Chưa bật" + Thêm/Gỡ, và **đổi mật khẩu** — đổi xong buộc đăng nhập lại, passkey KHÔNG bị ảnh hưởng). **PC `/admin` KHÔNG còn nút sinh trắc.**
 
 ## Migration & env
-- **Migration mới nhất: 21** (`tinh_trang_bao_cao` — seed danh mục dropdown "Tình trạng báo cáo KTV", admin cấu hình). DB mới: chạy `supabase_schema.sql` rồi `supabase_migrations_ALL.sql`. DB đang chạy: chạy các migration mới lẻ (`supabase_migration_NN_*.sql`).
+- **Migration mới nhất: 22** (`thue_cpc_billing` — mở rộng `soct_khach_hang` với field đơn giá/định mức/4 field in bảng kê + 4 bảng `soct_thue_cpc_*`; nhánh `feature/thue-cpc-billing`). DB mới: chạy `supabase_schema.sql` rồi `supabase_migrations_ALL.sql`. DB đang chạy: chạy các migration mới lẻ (`supabase_migration_NN_*.sql`).
 - ⏳ **Việc thủ công của người dùng:** chạy `supabase_migration_19_telegram_sent.sql` và `supabase_migration_20_webauthn.sql` trên Supabase SQL Editor.
 - Env cần: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_GROUP_CHAT_ID`, `NEXT_PUBLIC_APP_URL`, `WEBHOOK_SECRET` (webhook giao việc), `TELEGRAM_WEBHOOK_SECRET` (liên kết KTV), `CRON_SECRET` (nhắc báo cáo).
 

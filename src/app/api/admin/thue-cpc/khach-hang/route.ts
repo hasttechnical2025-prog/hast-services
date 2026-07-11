@@ -1,0 +1,74 @@
+import { NextResponse } from 'next/server'
+import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
+import { requireRole } from '@/lib/session'
+import { KH_NUMERIC_FIELDS, KH_TEXT_FIELDS } from '@/lib/thue-cpc'
+
+// Các máy thuộc diện billing thuê/CPC
+const LOAI_HD_BILLING = ['Máy thuê', 'Máy CPC']
+
+const BILLING_SELECT =
+  'id, ten_khach_hang, dia_chi, ma_may, model, hang, loai_hd, ' +
+  'phi_thue_thang, don_gia_bw, don_gia_mau, dinh_muc_mien_phi_bw, dinh_muc_mien_phi_mau, ' +
+  'cam_ket_toi_thieu_bw, cam_ket_toi_thieu_mau, vat_thue_cpc, trach_nhiem_ky_thuat, ' +
+  'ten_doi_tac_ky_thuat, ngay_chot_so, vi_tri_dat_may, nguoi_lien_he, email, ngay_lap_may, id_hop_dong_khung'
+
+// GET: danh sách máy loai_hd IN ('Máy thuê','Máy CPC') kèm toàn bộ field billing
+export async function GET() {
+  try {
+    const session = await requireRole('admin')
+    if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
+
+    const data = await selectAll((from, to) => supabaseAdmin
+      .from('soct_khach_hang')
+      .select(BILLING_SELECT)
+      .in('loai_hd', LOAI_HD_BILLING)
+      .order('ten_khach_hang')
+      .range(from, to))
+
+    return NextResponse.json({ data })
+  } catch (error: any) {
+    console.error('Error fetching thue-cpc customers:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+// PUT: cập nhật field billing / gán-bỏ gán HĐ khung cho 1 máy. Chỉ đụng field billing, không đụng field khác.
+export async function PUT(request: Request) {
+  try {
+    const session = await requireRole('admin')
+    if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
+
+    const body = await request.json()
+    const { id } = body
+    if (!id) return NextResponse.json({ error: 'Thiếu ID khách hàng' }, { status: 400 })
+
+    const updates: any = {}
+    for (const k of KH_NUMERIC_FIELDS) {
+      if (body[k] === undefined) continue
+      updates[k] = body[k] === '' || body[k] === null ? null : (parseFloat(body[k]) || 0)
+    }
+    for (const k of KH_TEXT_FIELDS) {
+      if (body[k] === undefined) continue
+      updates[k] = body[k] === '' ? null : body[k]
+    }
+    if (body.ngay_lap_may !== undefined) updates.ngay_lap_may = body.ngay_lap_may === '' ? null : body.ngay_lap_may
+    if (body.id_hop_dong_khung !== undefined) updates.id_hop_dong_khung = body.id_hop_dong_khung === '' ? null : body.id_hop_dong_khung
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'Không có dữ liệu cập nhật' }, { status: 400 })
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('soct_khach_hang')
+      .update(updates)
+      .eq('id', id)
+      .select(BILLING_SELECT)
+      .single()
+
+    if (error) throw error
+    return NextResponse.json({ data })
+  } catch (error: any) {
+    console.error('Error updating thue-cpc customer:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}

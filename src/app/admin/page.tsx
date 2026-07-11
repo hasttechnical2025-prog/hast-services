@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { TAB_TREE, TAB_ROLES, DEFAULT_TAB_VIS } from "@/lib/tabs"
 import { supabase } from "@/lib/supabase"
+import ThueCpcModule from "@/components/ThueCpcModule"
 
 // Kênh realtime (đồng bộ với lib/realtime.ts + app KTV): server phát broadcast sau mỗi thay đổi việc
 const JOBS_TOPIC = "soct_jobs"
@@ -901,6 +902,15 @@ export default function AdminDashboard() {
                 </button>
               )}
 
+              {tabVisible('thue_cpc') && (
+                <button
+                  onClick={() => setActiveTab("thue_cpc")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'thue_cpc' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Thuê / CPC
+                </button>
+              )}
+
               {tabVisible('kho_hang') && (
                 <button
                   onClick={() => setActiveTab("kho_hang")}
@@ -1240,6 +1250,10 @@ export default function AdminDashboard() {
 
         {activeTab === "cong_no" && tabVisible('cong_no') && (
           <CongNoTool showNotification={showNotification} />
+        )}
+
+        {activeTab === "thue_cpc" && tabVisible('thue_cpc') && (
+          <ThueCpcModule showNotification={showNotification} />
         )}
 
         {activeTab === "quan_ly" && tabVisible('quan_ly') && (
