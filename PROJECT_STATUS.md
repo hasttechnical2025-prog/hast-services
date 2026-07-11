@@ -39,7 +39,9 @@
 - **Hệ thống**: phân quyền tab (tabs.ts), đổi mật khẩu, Audit logs, QR đăng nhập KTV.
 - **App KTV** `/ktv`: mobile, lịch chọn ngày, nhận/hủy việc, báo cáo ngày.
 - **Tự cập nhật**: `/api/version` + `UpdateChecker` (root layout) → banner khi có deploy mới.
-- **Đăng nhập sinh trắc học (WebAuthn/Passkey)** (mig 20, `soct_webauthn_credentials`): vân tay/Face ID; đăng nhập **usernameless** → chọn tài khoản + Face ID → điều hướng theo vai trò (dùng chuyển office↔ktv nhanh). Passkey nằm ở iCloud Keychain nên **sống sót khi iOS xóa cookie/localStorage**. Thư viện `@simplewebauthn` (tự host, miễn phí). Routes `/api/auth/webauthn/{register,login}/{options,verify}`; nút ở màn đăng nhập + Hệ thống (office) + app KTV. rpID gắn theo domain (hast-services.vercel.app).
+- **Đăng nhập sinh trắc học (WebAuthn/Passkey)** (mig 20, `soct_webauthn_credentials`): vân tay/Face ID, **CHỈ MOBILE**. Passkey ở iCloud Keychain → sống sót khi iOS xóa cookie/localStorage. `@simplewebauthn` (tự host, miễn phí), rpID theo domain. Routes `/api/auth/webauthn/{register,login}/{options,verify}` + `/credentials` (GET count / DELETE gỡ hết).
+  - **Đăng nhập** (usernameless → chọn tài khoản → điều hướng theo vai trò, cũng là chuyển office↔ktv) CHỈ đặt ở màn chọn vai trò **`/`** (bỏ khỏi màn login /admin, /m, /ktv). **Đăng xuất /m & /ktv → về `/`**.
+  - **Đăng ký/quản lý** trong **Cài đặt (⚙)** của app mobile `/m` và `/ktv` (component `AccountSettings` = `PasskeyManager` trạng thái "Đã bật ✓/Chưa bật" + Thêm/Gỡ, và **đổi mật khẩu** — đổi xong buộc đăng nhập lại, passkey KHÔNG bị ảnh hưởng). **PC `/admin` KHÔNG còn nút sinh trắc.**
 
 ## Migration & env
 - **Migration mới nhất: 20** (`soct_webauthn_credentials`). DB mới: chạy `supabase_schema.sql` rồi `supabase_migrations_ALL.sql`. DB đang chạy: chạy các migration mới lẻ (`supabase_migration_NN_*.sql`).

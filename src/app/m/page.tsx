@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { QrCode, ClipboardList, ShoppingCart, LogOut, RefreshCw } from "lucide-react"
+import { QrCode, ClipboardList, ShoppingCart, LogOut, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { PasskeyLoginButton } from "@/components/PasskeyButtons"
+import AccountSettings from "@/components/AccountSettings"
 
 type User = { id: string, full_name: string, role: string }
 
@@ -20,6 +20,7 @@ export default function OfficeMobile() {
   const [loading, setLoading] = useState(true)
   const [denied, setDenied] = useState(false)
   const [tab, setTab] = useState<'qr' | 'giao' | 'dat'>('giao')
+  const [showSettings, setShowSettings] = useState(false)
   const [notif, setNotif] = useState<{ type: 'success' | 'error', msg: string } | null>(null)
   const notify = (type: 'success' | 'error', msg: string) => { setNotif({ type, msg }); setTimeout(() => setNotif(null), 4000) }
 
@@ -77,7 +78,7 @@ export default function OfficeMobile() {
     } catch { notify('error', 'Lỗi kết nối') } finally { setLoginLoading(false) }
   }
 
-  const logout = async () => { await fetch('/api/auth/logout', { method: 'POST' }); setUser(null) }
+  const logout = async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/' }
 
   const banner = notif && (
     <div className={`fixed top-3 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow text-sm font-medium ${notif.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}`}>{notif.msg}</div>
@@ -103,10 +104,7 @@ export default function OfficeMobile() {
         <Input required placeholder="Tên đăng nhập" value={loginForm.username} onChange={e => setLoginForm({ ...loginForm, username: e.target.value })} />
         <Input required type="password" placeholder="Mật khẩu" value={loginForm.password} onChange={e => setLoginForm({ ...loginForm, password: e.target.value })} />
         <Button type="submit" disabled={loginLoading} className="w-full h-11 font-semibold">{loginLoading ? 'Đang xác thực...' : 'Đăng nhập'}</Button>
-        <div className="pt-2 border-t border-slate-100">
-          <PasskeyLoginButton onResult={(m) => notify('error', m)} className="w-full h-11 bg-slate-800 hover:bg-slate-900 text-white rounded-md font-semibold disabled:opacity-60" />
-          <p className="text-[11px] text-slate-400 mt-2 text-center">Hoặc vân tay / Face ID</p>
-        </div>
+        <p className="text-[11px] text-slate-400 text-center">Đăng nhập vân tay / Face ID ở màn hình chọn vai trò (trang chủ).</p>
       </form>
     </main>
   )
@@ -119,8 +117,12 @@ export default function OfficeMobile() {
           <p className="text-[11px] text-slate-400">Office Mobile · <span className="uppercase">{user.role}</span></p>
           <h1 className="font-bold text-slate-800 text-sm">{user.full_name}</h1>
         </div>
-        <button onClick={logout} className="text-slate-400 hover:text-red-500 p-2" title="Đăng xuất"><LogOut className="w-5 h-5" /></button>
+        <div className="flex items-center">
+          <button onClick={() => setShowSettings(true)} className="text-slate-400 hover:text-blue-600 p-2" title="Cài đặt"><Settings className="w-5 h-5" /></button>
+          <button onClick={logout} className="text-slate-400 hover:text-red-500 p-2" title="Đăng xuất"><LogOut className="w-5 h-5" /></button>
+        </div>
       </header>
+      {showSettings && <AccountSettings notify={(m, ok) => notify(ok ? 'success' : 'error', m)} onClose={() => setShowSettings(false)} />}
 
       <main className="flex-1 p-4 max-w-md mx-auto w-full">
         {tab === 'qr' && (
