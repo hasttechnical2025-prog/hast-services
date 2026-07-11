@@ -8,7 +8,7 @@ const LOAI_HD_BILLING = ['Máy thuê', 'Máy CPC']
 // GET ?thang_nam=YYYY-MM : danh sách máy billing + counter kỳ này & kỳ trước (đầu kỳ tham khảo)
 export async function GET(request: Request) {
   try {
-    const session = await requireRole('admin')
+    const session = await requireRole('admin', 'tech_admin', 'staff')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
 // POST: upsert counter 1 máy 1 kỳ. Body { id_khach_hang, thang_nam, so_bw, so_mau, ghi_chu }
 export async function POST(request: Request) {
   try {
-    const session = await requireRole('admin')
+    const session = await requireRole('admin', 'tech_admin', 'staff')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const body = await request.json()

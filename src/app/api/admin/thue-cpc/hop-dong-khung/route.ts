@@ -5,7 +5,7 @@ import { requireRole } from '@/lib/session'
 // GET: danh sách hợp đồng khung kèm danh sách máy đã gán
 export async function GET() {
   try {
-    const session = await requireRole('admin')
+    const session = await requireRole('admin', 'tech_admin', 'staff')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
     const { data: khung, error } = await supabaseAdmin
@@ -38,7 +38,7 @@ export async function GET() {
 // POST: tạo mới
 export async function POST(request: Request) {
   try {
-    const session = await requireRole('admin')
+    const session = await requireRole('admin', 'tech_admin', 'staff')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const body = await request.json()
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
 // PUT: cập nhật
 export async function PUT(request: Request) {
   try {
-    const session = await requireRole('admin')
+    const session = await requireRole('admin', 'tech_admin', 'staff')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const body = await request.json()
@@ -96,7 +96,7 @@ export async function PUT(request: Request) {
 // DELETE ?id : xóa khung (FK trên soct_khach_hang tự SET NULL)
 export async function DELETE(request: Request) {
   try {
-    const session = await requireRole('admin')
+    const session = await requireRole('admin', 'tech_admin', 'staff')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const { searchParams } = new URL(request.url)

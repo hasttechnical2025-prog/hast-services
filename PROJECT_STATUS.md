@@ -29,7 +29,7 @@
 6. Webhook Telegram chỉ bắn cho phiếu 'Chờ nhận'/'Đã nhận' (bỏ qua import lịch sử đã Hoàn thành).
 
 ## Điều hướng admin (IA — Phương án A, nhánh `feature/thue-cpc-billing`)
-6 tab cha: **Sổ công tác** (con: Giao việc · Hoàn phiếu), **Theo dõi máy** (Bảo trì · Giám định), **Kho hàng** (Tồn kho · Đặt hàng · Thống kê nhập), **Tài chính** (Công nợ · Thuê/CPC), **Quản lý** (Báo cáo KTV · Khách hàng · Báo cáo tháng), **Hệ thống**. Hoàn phiếu = sub của Sổ công tác; Công nợ + Thuê/CPC gộp vào "Tài chính". Bảng phân quyền (`tabs.ts` TAB_TREE) khớp cấu trúc này; `cong_viec` có cờ `alwaysOn` (ô cha khóa, con Hoàn phiếu vẫn bật/tắt được). ⚠️ Route `/api/admin/thue-cpc/*` hiện `requireRole('admin')` — nếu giao Thuê/CPC cho staff cần nới role API.
+6 tab cha: **Sổ công tác** (con: Giao việc · Hoàn phiếu), **Theo dõi máy** (Bảo trì · Giám định), **Kho hàng** (Tồn kho · Đặt hàng · Thống kê nhập), **Tài chính** (Công nợ · Thuê/CPC), **Quản lý** (Báo cáo KTV · Khách hàng · Báo cáo tháng), **Hệ thống**. Hoàn phiếu = sub của Sổ công tác; Công nợ + Thuê/CPC gộp vào "Tài chính". Bảng phân quyền (`tabs.ts` TAB_TREE) khớp cấu trúc này; `cong_viec` có cờ `alwaysOn` (ô cha khóa, con Hoàn phiếu vẫn bật/tắt được). Route `/api/admin/thue-cpc/*` mở cho `admin + tech_admin + staff` (ai *thấy* tab thì admin tự bật trong bảng phân quyền; mặc định staff tắt Tài chính).
 
 ## Module chính
 - **Sổ công tác** (giao việc): pool + nhận việc, 4 trạng thái Chờ nhận→Đã nhận→Đang làm→Hoàn thành/Lắp tiếp, KTV hủy nhận, **KTV2** (đi cùng, chỉ office gán), realtime (Supabase Broadcast topic `soct_jobs`).

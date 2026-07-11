@@ -15,7 +15,7 @@ const BILLING_SELECT =
 // GET: danh sách máy loai_hd IN ('Máy thuê','Máy CPC') kèm toàn bộ field billing
 export async function GET() {
   try {
-    const session = await requireRole('admin')
+    const session = await requireRole('admin', 'tech_admin', 'staff')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
     const data = await selectAll((from, to) => supabaseAdmin
@@ -35,7 +35,7 @@ export async function GET() {
 // PUT: cập nhật field billing / gán-bỏ gán HĐ khung cho 1 máy. Chỉ đụng field billing, không đụng field khác.
 export async function PUT(request: Request) {
   try {
-    const session = await requireRole('admin')
+    const session = await requireRole('admin', 'tech_admin', 'staff')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const body = await request.json()

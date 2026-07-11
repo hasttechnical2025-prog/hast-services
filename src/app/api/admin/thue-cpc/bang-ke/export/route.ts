@@ -23,7 +23,7 @@ const dinhMucHienThi = (mienPhi: any, camKet: any) => (Number(camKet) > 0 ? Numb
 // GET ?id=&chan_trang=1|0 : xuất bảng kê .docx từ template
 export async function GET(request: Request) {
   try {
-    const session = await requireRole('admin')
+    const session = await requireRole('admin', 'tech_admin', 'staff')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
     const { searchParams } = new URL(request.url)

@@ -11,7 +11,7 @@ const MAY_BILLING_SELECT =
 // GET: danh sách bảng kê (?thang_nam) hoặc chi tiết 1 bảng kê (?id)
 export async function GET(request: Request) {
   try {
-    const session = await requireRole('admin')
+    const session = await requireRole('admin', 'tech_admin', 'staff')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
 // POST: tính & lưu bảng kê. Body { thang_nam, loai:'rieng'|'gop', id_khach_hang?|id_hop_dong_khung?, so_hoa_don_ke_toan? }
 export async function POST(request: Request) {
   try {
-    const session = await requireRole('admin')
+    const session = await requireRole('admin', 'tech_admin', 'staff')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const body = await request.json()
@@ -145,7 +145,7 @@ export async function POST(request: Request) {
 // PUT: cập nhật số hóa đơn kế toán. Body { id, so_hoa_don_ke_toan }
 export async function PUT(request: Request) {
   try {
-    const session = await requireRole('admin')
+    const session = await requireRole('admin', 'tech_admin', 'staff')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
     const body = await request.json()
     if (!body.id) return NextResponse.json({ error: 'Thiếu ID bảng kê' }, { status: 400 })
@@ -166,7 +166,7 @@ export async function PUT(request: Request) {
 // DELETE ?id : xóa bảng kê (ct tự CASCADE)
 export async function DELETE(request: Request) {
   try {
-    const session = await requireRole('admin')
+    const session = await requireRole('admin', 'tech_admin', 'staff')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
