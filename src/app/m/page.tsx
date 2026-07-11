@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { QrCode, ClipboardList, ShoppingCart, LogOut, Settings } from "lucide-react"
+import { QrCode, ClipboardList, ShoppingCart, LogOut, Settings, Home } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import AccountSettings from "@/components/AccountSettings"
@@ -97,6 +97,9 @@ export default function OfficeMobile() {
     <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
       {banner}
       <form onSubmit={handleLogin} className="w-full max-w-sm bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+        <button type="button" onClick={() => { window.location.href = '/' }} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600" title="Về màn hình chọn vai trò">
+          <Home className="w-4 h-4" /> Trang chủ
+        </button>
         <div className="text-center">
           <h1 className="text-lg font-bold text-slate-800">HAST · Office Mobile</h1>
           <p className="text-xs text-slate-400">Đăng nhập (Admin / Tech Admin)</p>

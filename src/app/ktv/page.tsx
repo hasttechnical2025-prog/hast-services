@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { MapPin, Clipboard, CheckCircle, Play, AlertTriangle, RefreshCw, Inbox, Hand, Send, ChevronLeft, ChevronRight, Plus, Trash2, Calendar, FileText, Settings } from "lucide-react"
+import { MapPin, Clipboard, CheckCircle, Play, AlertTriangle, RefreshCw, Inbox, Hand, Send, ChevronLeft, ChevronRight, Plus, Trash2, Calendar, FileText, Settings, Home } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { supabase } from "@/lib/supabase"
@@ -487,6 +487,9 @@ export default function KtvMobileWeb() {
         {/* MÀN HÌNH ĐĂNG NHẬP BAO MẬT */}
         {!currentKtv ? (
           <form onSubmit={handleLogin} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+            <button type="button" onClick={() => { window.location.href = '/' }} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600" title="Về màn hình chọn vai trò">
+              <Home className="w-4 h-4" /> Trang chủ
+            </button>
             <div className="text-center space-y-1">
               <h2 className="text-lg font-bold text-slate-800">KTV Đăng nhập nhận việc</h2>
               <p className="text-xs text-slate-400">Nhập tài khoản kỹ thuật viên của bạn</p>
@@ -519,7 +522,7 @@ export default function KtvMobileWeb() {
                 disabled={loading}
                 className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition"
               >
-                {loading ? "Đang xác thực..." : "Đăng nhập vào ca"}
+                {loading ? "Đang xác thực..." : "Đăng nhập"}
               </Button>
               <p className="text-[11px] text-slate-400 text-center">Đăng nhập vân tay / Face ID ở màn hình chọn vai trò (trang chủ).</p>
             </div>
