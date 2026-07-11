@@ -136,7 +136,7 @@ export async function PUT(request: Request) {
     const { data, error } = await supabaseAdmin
       .from('soct_cong_viec')
       .update({
-        counter: counter === '' ? null : (parseInt(counter, 10) || null),
+        counter: (() => { const n = parseInt(counter, 10); return counter === '' || counter == null || Number.isNaN(n) ? null : n })(),
         ghi_chu_ktv: ghi_chu_ktv || null
       })
       .eq('id', id)
@@ -159,7 +159,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Chưa đăng nhập' }, { status: 401 })
     }
 
-    const { action, ngay, noi_dung, id_extra } = await request.json()
+    // Đọc body MỘT LẦN (request.json() chỉ gọi được 1 lần) — gồm cả `jobs` cho submit_daily
+    const { action, ngay, noi_dung, id_extra, jobs } = await request.json()
     if (!ngay || !/^\d{4}-\d{2}-\d{2}$/.test(ngay)) {
       return NextResponse.json({ error: 'Thiếu ngày hoặc ngày không hợp lệ' }, { status: 400 })
     }
@@ -239,14 +240,12 @@ export async function POST(request: Request) {
 
     // 3. Thao tác chốt nộp báo cáo ngày
     if (action === 'submit_daily') {
-      const bodyData = await request.json().catch(() => ({}))
-      const { jobs } = bodyData
-
-      // Nếu có truyền kèm danh sách các ca máy cần lưu
+      // `jobs` đã đọc ở body phía trên (KHÔNG gọi request.json() lần nữa — sẽ lỗi & mất dữ liệu)
       if (Array.isArray(jobs) && jobs.length > 0) {
         // Cập nhật song song thông tin counter và ghi_chu_ktv cho từng ca
-        const updatePromises = jobs.map(j => {
-          const countVal = j.counter === '' || j.counter == null ? null : (parseInt(j.counter, 10) || null)
+        const updatePromises = jobs.map((j: any) => {
+          const n = parseInt(j.counter, 10)
+          const countVal = j.counter === '' || j.counter == null || Number.isNaN(n) ? null : n // giữ được số đếm = 0
           return supabaseAdmin
             .from('soct_cong_viec')
             .update({
