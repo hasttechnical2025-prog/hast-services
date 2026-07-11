@@ -39,12 +39,13 @@ export async function GET(request: Request) {
       datesToCheck.push(ymdStr)
     }
 
-    // Lấy trạng thái chốt nộp của 6 ngày này
+    // Lấy trạng thái chốt nộp của 6 ngày này + ngày đang xem (ngày cũ không nằm trong 6 ngày gần nhất)
+    const datesToQuery = Array.from(new Set([...datesToCheck, ngay]))
     const { data: ttList } = await supabaseAdmin
       .from('soct_trang_thai_bao_cao')
       .select('ngay_bao_cao, da_nop, thoi_gian_nop')
       .eq('ktv_id', session.id)
-      .in('ngay_bao_cao', datesToCheck)
+      .in('ngay_bao_cao', datesToQuery)
 
     const statuses: Record<string, boolean> = {}
     datesToCheck.forEach(d => { statuses[d] = false })
