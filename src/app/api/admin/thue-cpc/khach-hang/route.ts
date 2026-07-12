@@ -7,7 +7,7 @@ import { KH_NUMERIC_FIELDS, KH_TEXT_FIELDS } from '@/lib/thue-cpc'
 const LOAI_HD_BILLING = ['Máy thuê', 'Máy CPC']
 
 const BILLING_SELECT =
-  'id, ten_khach_hang, dia_chi, ma_may, model, hang, loai_hd, ' +
+  'id, ten_khach_hang, dia_chi, ma_may, serial, model, hang, loai_hd, ' +
   'phi_thue_thang, don_gia_bw, don_gia_mau, dinh_muc_mien_phi_bw, dinh_muc_mien_phi_mau, ' +
   'cam_ket_toi_thieu_bw, cam_ket_toi_thieu_mau, vat_thue_cpc, trach_nhiem_ky_thuat, ' +
   'ten_doi_tac_ky_thuat, ngay_chot_so, vi_tri_dat_may, nguoi_lien_he, email, ngay_lap_may, id_hop_dong_khung'

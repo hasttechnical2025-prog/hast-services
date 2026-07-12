@@ -48,7 +48,7 @@
   - **Đăng ký/quản lý** trong **Cài đặt (⚙)** của app mobile `/m` và `/ktv` (component `AccountSettings` = `PasskeyManager` trạng thái "Đã bật ✓/Chưa bật" + Thêm/Gỡ, và **đổi mật khẩu** — đổi xong buộc đăng nhập lại, passkey KHÔNG bị ảnh hưởng). **PC `/admin` KHÔNG còn nút sinh trắc.**
 
 ## Migration & env
-- **Migration mới nhất: 22** (`thue_cpc_billing` — mở rộng `soct_khach_hang` với field đơn giá/định mức/4 field in bảng kê + 4 bảng `soct_thue_cpc_*`; nhánh `feature/thue-cpc-billing`). DB mới: chạy `supabase_schema.sql` rồi `supabase_migrations_ALL.sql`. DB đang chạy: chạy các migration mới lẻ (`supabase_migration_NN_*.sql`).
+- **Migration mới nhất: 23** (`serial` — thêm cột `soct_khach_hang.serial` TEXT nullable cho máy thuê/CPC, nhập trong form Đơn giá HĐ). Trước đó: 22 (`thue_cpc_billing` — mở rộng `soct_khach_hang` với field đơn giá/định mức/4 field in bảng kê + 4 bảng `soct_thue_cpc_*`; nhánh `feature/thue-cpc-billing`). DB mới: chạy `supabase_schema.sql` rồi `supabase_migrations_ALL.sql`. DB đang chạy: chạy các migration mới lẻ (`supabase_migration_NN_*.sql`).
 - ⏳ **Việc thủ công của người dùng:** chạy `supabase_migration_19_telegram_sent.sql` và `supabase_migration_20_webauthn.sql` trên Supabase SQL Editor.
 - Env cần: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_GROUP_CHAT_ID`, `NEXT_PUBLIC_APP_URL`, `WEBHOOK_SECRET` (webhook giao việc), `TELEGRAM_WEBHOOK_SECRET` (liên kết KTV), `CRON_SECRET` (nhắc báo cáo).
 

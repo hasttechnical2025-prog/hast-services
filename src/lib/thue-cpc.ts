@@ -10,7 +10,7 @@ export const KH_NUMERIC_FIELDS = [
 
 export const KH_TEXT_FIELDS = [
   'trach_nhiem_ky_thuat', 'ten_doi_tac_ky_thuat', 'ngay_chot_so',
-  'vi_tri_dat_may', 'nguoi_lien_he', 'email',
+  'vi_tri_dat_may', 'nguoi_lien_he', 'email', 'serial',
 ] as const
 
 // Kiểu máy billing (1 dòng soct_khach_hang có loai_hd IN ('Máy thuê','Máy CPC'))

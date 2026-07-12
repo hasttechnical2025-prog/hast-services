@@ -96,9 +96,9 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
   useEffect(() => { load() }, [load])
 
   const filtered = rows.filter(r => {
-    const q = search.trim().toLowerCase()
+    const q = norm(search)
     if (!q) return true
-    return (r.ten_khach_hang || '').toLowerCase().includes(q) || (r.ma_may || '').toLowerCase().includes(q)
+    return norm(r.ten_khach_hang).includes(q) || norm(r.ma_may).includes(q) || norm(r.serial).includes(q) || norm(r.vi_tri_dat_may).includes(q)
   })
 
   return (
@@ -108,7 +108,7 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
           <h3 className="font-bold text-slate-800">Đơn giá & định mức hợp đồng thuê / CPC</h3>
           <p className="text-xs text-slate-500">Chỉ các máy có loại HĐ là <b>Máy thuê</b> hoặc <b>Máy CPC</b>.</p>
         </div>
-        <Input placeholder="Tìm tên khách / mã máy…" value={search} onChange={e => setSearch(e.target.value)} className="w-64 h-9" />
+        <Input placeholder="Tìm tên khách / mã máy / serial…" value={search} onChange={e => setSearch(e.target.value)} className="w-64 h-9" />
       </div>
 
       {loading ? <div className="text-sm text-slate-400 py-8 text-center">Đang tải…</div> : (
@@ -135,7 +135,10 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
                     <div className="font-medium text-slate-700">{r.ten_khach_hang}</div>
                     {r.vi_tri_dat_may && <div className="text-xs text-slate-400">{r.vi_tri_dat_may}</div>}
                   </td>
-                  <td className="px-3 py-2 font-mono text-slate-500">{r.ma_may || '—'}</td>
+                  <td className="px-3 py-2 font-mono text-slate-500">
+                    <div>{r.ma_may || '—'}</div>
+                    {r.serial && <div className="text-[10px] text-slate-400">SN: {r.serial}</div>}
+                  </td>
                   <td className="px-3 py-2"><span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">{r.loai_hd}</span></td>
                   <td className="px-3 py-2 text-right">{money(r.don_gia_bw)}</td>
                   <td className="px-3 py-2 text-right">{money(r.don_gia_mau)}</td>
@@ -163,7 +166,7 @@ function DonGiaModal({ row, khung, onClose, onSaved, showNotification }: { row: 
     vat_thue_cpc: row.vat_thue_cpc ?? 8, trach_nhiem_ky_thuat: row.trach_nhiem_ky_thuat ?? 'Nội bộ',
     ten_doi_tac_ky_thuat: row.ten_doi_tac_ky_thuat ?? '', ngay_chot_so: row.ngay_chot_so ?? '',
     vi_tri_dat_may: row.vi_tri_dat_may ?? '', nguoi_lien_he: row.nguoi_lien_he ?? '', email: row.email ?? '',
-    ngay_lap_may: row.ngay_lap_may ?? '', id_hop_dong_khung: row.id_hop_dong_khung ?? '',
+    ngay_lap_may: row.ngay_lap_may ?? '', id_hop_dong_khung: row.id_hop_dong_khung ?? '', serial: row.serial ?? '',
   })
   const [saving, setSaving] = useState(false)
   const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }))
@@ -199,6 +202,13 @@ function DonGiaModal({ row, khung, onClose, onSaved, showNotification }: { row: 
           <p className="text-xs text-slate-500 font-mono">{row.ma_may} · {row.loai_hd}</p>
         </div>
         <div className="p-5 space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <label className="block md:col-span-2">
+              <span className="text-xs font-medium text-slate-500">Serial máy</span>
+              <Input value={f.serial} onChange={e => set('serial', e.target.value)} className="h-9 mt-1" placeholder="Serial thực của máy (nên có với máy thuê)" />
+            </label>
+            <div className="hidden md:block" />
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {numField('Đơn giá Đen (VNĐ/bản)', 'don_gia_bw')}
             {numField('Đơn giá Màu (VNĐ/bản)', 'don_gia_mau')}
@@ -292,7 +302,7 @@ function CounterTab({ showNotification }: { showNotification: Notify }) {
   const rows = data?.rows || []
   const filtered = rows.filter((r: any) => {
     const q = norm(search)
-    return !q || norm(r.ten_khach_hang).includes(q) || norm(r.ma_may).includes(q) || norm(r.vi_tri_dat_may).includes(q)
+    return !q || norm(r.ten_khach_hang).includes(q) || norm(r.ma_may).includes(q) || norm(r.serial).includes(q) || norm(r.vi_tri_dat_may).includes(q)
   })
 
   return (
@@ -333,7 +343,10 @@ function CounterTab({ showNotification }: { showNotification: Notify }) {
                     <div className="font-medium text-slate-700">{r.ten_khach_hang}{r.trach_nhiem_ky_thuat === 'Đối tác ngoài' && <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-100">{r.ten_doi_tac_ky_thuat || 'Đối tác'}</span>}</div>
                     {r.vi_tri_dat_may && <div className="text-xs text-slate-400">{r.vi_tri_dat_may}</div>}
                   </td>
-                  <td className="px-3 py-2 font-mono text-slate-500">{r.ma_may || '—'}</td>
+                  <td className="px-3 py-2 font-mono text-slate-500">
+                    <div>{r.ma_may || '—'}</div>
+                    {r.serial && <div className="text-[10px] text-slate-400">SN: {r.serial}</div>}
+                  </td>
                   <td className="px-3 py-2 text-right text-slate-400">{fmtInt(r.so_bw_truoc)}</td>
                   <td className="px-3 py-2"><NumInput value={edits[r.id]?.so_bw ?? ''} onChange={v => setEdit(r.id, 'so_bw', v)} className="h-8 w-28" /></td>
                   <td className="px-3 py-2 text-right text-slate-400">{fmtInt(r.so_mau_truoc)}</td>
@@ -518,7 +531,7 @@ function BangKeTab({ showNotification }: { showNotification: Notify }) {
                 onChange={setTarget}
                 placeholder={loai === 'rieng' ? 'Tìm khách / mã máy / vị trí…' : 'Tìm hợp đồng khung…'}
                 options={loai === 'rieng'
-                  ? mays.map(m => ({ value: m.id, label: `${m.ten_khach_hang}${m.ma_may ? ` (${m.ma_may})` : ''}${m.vi_tri_dat_may ? ` · ${m.vi_tri_dat_may}` : ''}` }))
+                  ? mays.map(m => ({ value: m.id, label: `${m.ten_khach_hang}${m.ma_may ? ` (${m.ma_may})` : ''}${m.serial ? ` · SN ${m.serial}` : ''}${m.vi_tri_dat_may ? ` · ${m.vi_tri_dat_may}` : ''}` }))
                   : khung.map(k => ({ value: k.id, label: k.ten_hop_dong }))}
               />
             </div>
