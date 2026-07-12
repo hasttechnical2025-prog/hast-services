@@ -5766,6 +5766,10 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
   const dupCust = editing && (editing.ma_may || "").trim()
     ? customers.find(c => c.ma_may && c.id !== editing.id && c.ma_may.toLowerCase() === editing.ma_may.trim().toLowerCase())
     : undefined
+  // Trùng serial: serial đang nhập đã có ở khách khác
+  const dupSerial = editing && (editing.serial || "").trim()
+    ? customers.find(c => c.serial && c.id !== editing.id && c.serial.trim().toLowerCase() === editing.serial.trim().toLowerCase())
+    : undefined
 
   const filterLabel = hdFilter === 'all' ? 'Tất cả'
     : hdFilter === 'has' ? 'Có hợp đồng'
@@ -5799,24 +5803,27 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
 
   const handleSave = async () => {
     if (!editing) return
+    const isNew = !editing.id
+    if (isNew && (!(editing.ten_khach_hang || "").trim() || !(editing.dia_chi || "").trim())) {
+      showNotification('error', "Cần nhập Tên khách hàng và Địa chỉ."); return
+    }
     setSaving(true)
     try {
+      const payload = {
+        ten_khach_hang: editing.ten_khach_hang,
+        ma_may: editing.ma_may,
+        serial: editing.serial,
+        dia_chi: editing.dia_chi,
+        model: editing.model,
+        hang: editing.hang,
+        loai_hd: editing.loai_hd,
+        ngay_het_han_hdbt: editing.ngay_het_han_hdbt,
+      }
       const res = await fetch('/api/admin/khach-hang', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editing.id,
-          ten_khach_hang: editing.ten_khach_hang,
-          ma_may: editing.ma_may,
-          serial: editing.serial,
-          dia_chi: editing.dia_chi,
-          model: editing.model,
-          hang: editing.hang,
-          km_mac_dinh: editing.km_mac_dinh,
-          loai_hd: editing.loai_hd,
-          ngay_het_han_hdbt: editing.ngay_het_han_hdbt,
-        })
+        method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(isNew ? payload : { id: editing.id, ...payload, km_mac_dinh: editing.km_mac_dinh }),
       })
-      if (res.ok) { showNotification('success', "Đã cập nhật khách hàng."); setEditing(null); onUpdateSuccess() }
+      if (res.ok) { showNotification('success', isNew ? "Đã tạo khách hàng mới." : "Đã cập nhật khách hàng."); setEditing(null); onUpdateSuccess() }
       else { const err = await res.json(); showNotification('error', err.error) }
     } catch { showNotification('error', "Lỗi kết nối!") }
     finally { setSaving(false) }
@@ -5902,6 +5909,9 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
           <span className="text-sm text-slate-500 whitespace-nowrap">
             {(q || hdFilter !== 'all') ? `${filtered.length} / ${customers.length}` : `Tổng: ${customers.length}`} khách hàng
           </span>
+          <Button onClick={() => setEditing({ ten_khach_hang: "", ma_may: "", serial: "", model: "", hang: "", dia_chi: "", km_mac_dinh: "", loai_hd: "", ngay_het_han_hdbt: "" })} className="gap-1 bg-blue-600 hover:bg-blue-700 h-10 whitespace-nowrap">
+            <Plus className="w-4 h-4" /> Mới
+          </Button>
           <ColumnMenu view={col} />
           <ClearAllButton count={customers.length} label="khách hàng" onConfirm={async () => {
             const res = await fetch('/api/admin/khach-hang?all=1', { method: 'DELETE' })
@@ -5964,7 +5974,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
             <div className="p-5 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-800">Sửa khách hàng</h3>
+              <h3 className="text-lg font-bold text-slate-800">{editing.id ? 'Sửa khách hàng' : 'Thêm khách hàng mới'}</h3>
               <button onClick={() => setEditing(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
             </div>
             <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -5984,7 +5994,13 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Serial máy</label>
-                <Input value={editing.serial || ""} onChange={(e) => setEditing({ ...editing, serial: e.target.value })} className="bg-white" placeholder="Tùy chọn (nên có với máy thuê)" />
+                <Input value={editing.serial || ""} onChange={(e) => setEditing({ ...editing, serial: e.target.value })} className={`bg-white ${dupSerial ? 'border-amber-400 focus:ring-amber-400' : ''}`} placeholder="Tùy chọn (nên có với máy thuê)" />
+                {dupSerial && (
+                  <div className="text-xs text-amber-600 flex items-center gap-1 flex-wrap">
+                    ⚠ Trùng serial của: {dupSerial.ten_khach_hang}.
+                    <button type="button" onClick={() => viewRow(dupSerial.id)} className="underline font-medium">Xem dòng</button>
+                  </div>
+                )}
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Model</label>
@@ -6003,7 +6019,9 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Khoảng cách (km)</label>
-                <Input type="number" step="0.1" value={editing.km_mac_dinh ?? ""} onChange={(e) => setEditing({ ...editing, km_mac_dinh: e.target.value })} className="bg-white" />
+                {editing.id
+                  ? <Input type="number" step="0.1" value={editing.km_mac_dinh ?? ""} onChange={(e) => setEditing({ ...editing, km_mac_dinh: e.target.value })} className="bg-white" />
+                  : <Input value="Tự tính từ địa chỉ" disabled className="bg-slate-50 text-slate-400" />}
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Loại hợp đồng</label>
@@ -6019,7 +6037,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
             </div>
             <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
               <Button variant="outline" onClick={() => setEditing(null)}>Hủy</Button>
-              <Button onClick={handleSave} disabled={saving}>{saving ? "Đang lưu..." : "Lưu"}</Button>
+              <Button onClick={handleSave} disabled={saving || !!dupCust || !!dupSerial}>{saving ? "Đang lưu..." : (editing.id ? "Lưu" : "Tạo khách hàng")}</Button>
             </div>
           </div>
         </div>

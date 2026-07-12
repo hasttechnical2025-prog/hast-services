@@ -36,10 +36,20 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { ten_khach_hang, dia_chi, ma_may, serial, model, hang } = body
+    const { ten_khach_hang, dia_chi, ma_may, serial, model, hang, loai_hd, ngay_het_han_hdbt } = body
 
     if (!ten_khach_hang || !dia_chi) {
       return NextResponse.json({ error: 'Thiếu tên khách hàng hoặc địa chỉ' }, { status: 400 })
+    }
+
+    // Kiểm soát trùng serial (không có ràng buộc UNIQUE ở DB nên chặn ở đây)
+    if (serial && serial.trim()) {
+      const { data: dup } = await supabaseAdmin
+        .from('soct_khach_hang')
+        .select('id, ten_khach_hang')
+        .ilike('serial', serial.trim())
+        .maybeSingle()
+      if (dup) return NextResponse.json({ error: `Serial này đã tồn tại ở khách hàng: ${dup.ten_khach_hang}` }, { status: 400 })
     }
 
     // 1. Tự động lấy tọa độ từ địa chỉ thông qua Nominatim API
@@ -72,14 +82,21 @@ export async function POST(request: Request) {
         lng,
         km_mac_dinh,
         ma_may: ma_may || null,
-        serial: serial || null,
+        serial: serial ? serial.trim() : null,
         model: model || null,
-        hang: hang || null
+        hang: hang || null,
+        loai_hd: loai_hd || null,
+        ngay_het_han_hdbt: ngay_het_han_hdbt || null
       })
       .select()
       .single()
 
-    if (error) throw error
+    if (error) {
+      if (error.code === '23505') {
+        return NextResponse.json({ error: 'Mã máy này đã tồn tại ở khách hàng khác' }, { status: 400 })
+      }
+      throw error
+    }
 
     return NextResponse.json({ data })
   } catch (error: any) {
@@ -108,6 +125,18 @@ export async function PUT(request: Request) {
       if (body[k] === undefined) continue
       if (k === 'km_mac_dinh') updates[k] = body[k] === '' || body[k] === null ? null : (parseFloat(body[k]) || 0)
       else updates[k] = body[k] === '' ? null : body[k]
+    }
+    if (typeof updates.serial === 'string') updates.serial = updates.serial.trim() || null
+
+    // Kiểm soát trùng serial với khách hàng KHÁC (serial không UNIQUE ở DB)
+    if (updates.serial) {
+      const { data: dup } = await supabaseAdmin
+        .from('soct_khach_hang')
+        .select('id, ten_khach_hang')
+        .ilike('serial', updates.serial)
+        .neq('id', id)
+        .maybeSingle()
+      if (dup) return NextResponse.json({ error: `Serial này đã tồn tại ở khách hàng: ${dup.ten_khach_hang}` }, { status: 400 })
     }
 
     const { data, error } = await supabaseAdmin
