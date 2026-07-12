@@ -228,6 +228,8 @@ export default function AdminDashboard() {
   const [congTacTab, setCongTacTab] = useState<"giao_viec" | "hoan_phieu">("giao_viec")
   // Tab con bên trong "Tài chính" (Công nợ / Thuê-CPC)
   const [taiChinhTab, setTaiChinhTab] = useState<"cong_no" | "thue_cpc">("cong_no")
+  // Số phiếu cứng chưa hoàn (badge nhắc ở tab con Hoàn phiếu)
+  const [phieuChuaHoan, setPhieuChuaHoan] = useState(0)
   const [cauHinh, setCauHinh] = useState<Record<string, string>>({})
 
   // Ẩn/hiện tab (lớn + con) theo role. Admin thấy hết; Hệ thống khóa admin-only.
@@ -263,6 +265,15 @@ export default function AdminDashboard() {
     jobFilterInitRef.current = true
     if (cauHinh.mac_dinh_hom_nay === '0') setJobFilters(f => ({ ...f, tuNgay: '', denNgay: '' }))
   }, [cauHinh])
+
+  // Đếm số phiếu cứng chưa hoàn -> badge nhắc ở tab con Hoàn phiếu (làm mới khi đổi tab con)
+  useEffect(() => {
+    if (!currentUserRole) return
+    fetch('/api/admin/phieu-cung?count=1')
+      .then(r => r.ok ? r.json() : { count: 0 })
+      .then(j => setPhieuChuaHoan(j.count ?? 0))
+      .catch(() => { })
+  }, [currentUserRole, activeTab, congTacTab])
   const [hdbtOpen, setHdbtOpen] = useState(false)
   // Bộ lọc Sổ công tác (mặc định: việc hôm nay)
   const [jobFilters, setJobFilters] = useState<{ search: string, report: string, tuNgay: string, denNgay: string, loaiViec: string[], ktvId: string, hoaDon: string, trangThai: string[] }>(() => {
@@ -944,7 +955,10 @@ export default function AdminDashboard() {
         {activeTab === "cong_viec" && subVisible('cong_viec', 'hoan_phieu') && (
           <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
             <button onClick={() => setCongTacTab("giao_viec")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveCongTacTab === 'giao_viec' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Giao việc</button>
-            <button onClick={() => setCongTacTab("hoan_phieu")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveCongTacTab === 'hoan_phieu' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Hoàn phiếu</button>
+            <button onClick={() => setCongTacTab("hoan_phieu")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${effectiveCongTacTab === 'hoan_phieu' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
+              Hoàn phiếu
+              {phieuChuaHoan > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{phieuChuaHoan}</span>}
+            </button>
           </div>
         )}
 

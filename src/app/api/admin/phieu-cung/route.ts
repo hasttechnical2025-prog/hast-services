@@ -5,10 +5,24 @@ import { sendTelegramMessage } from '@/lib/telegram'
 import { getCauHinh } from '@/lib/config'
 
 // Danh sách phiếu cần kiểm soát: có số phiếu + đã Hoàn thành (cả đã/chưa nộp)
-export async function GET() {
+// ?count=1 -> chỉ trả về số phiếu CHƯA nộp (badge nhắc nhở, không tải cả danh sách)
+export async function GET(request: Request) {
   try {
     const session = await requireTab('hoan_phieu')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
+
+    const { searchParams } = new URL(request.url)
+    if (searchParams.get('count') === '1') {
+      const { count, error } = await supabaseAdmin
+        .from('soct_cong_viec')
+        .select('id', { count: 'exact', head: true })
+        .not('report', 'is', null)
+        .neq('report', '')
+        .eq('ket_qua', 'Hoàn thành')
+        .eq('da_nop_phieu', false)
+      if (error) throw error
+      return NextResponse.json({ count: count ?? 0 })
+    }
 
     const data = await selectAll((from, to) => supabaseAdmin
       .from('soct_cong_viec')
