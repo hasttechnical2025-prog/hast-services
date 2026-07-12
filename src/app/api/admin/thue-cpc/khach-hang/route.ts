@@ -10,7 +10,7 @@ const BILLING_SELECT =
   'id, ten_khach_hang, dia_chi, ma_may, serial, model, hang, loai_hd, ' +
   'phi_thue_thang, don_gia_bw, don_gia_mau, dinh_muc_mien_phi_bw, dinh_muc_mien_phi_mau, ' +
   'cam_ket_toi_thieu_bw, cam_ket_toi_thieu_mau, vat_thue_cpc, trach_nhiem_ky_thuat, ' +
-  'ten_doi_tac_ky_thuat, ngay_chot_so, vi_tri_dat_may, nguoi_lien_he, email, ngay_lap_may, id_hop_dong_khung'
+  'ten_doi_tac_ky_thuat, ngay_chot_so, chot_so_ngay, chot_so_cuoi_thang, vi_tri_dat_may, nguoi_lien_he, email, ngay_lap_may, id_hop_dong_khung'
 
 // GET: danh sách máy loai_hd IN ('Máy thuê','Máy CPC') kèm toàn bộ field billing
 export async function GET() {
@@ -53,6 +53,9 @@ export async function PUT(request: Request) {
     }
     if (body.ngay_lap_may !== undefined) updates.ngay_lap_may = body.ngay_lap_may === '' ? null : body.ngay_lap_may
     if (body.id_hop_dong_khung !== undefined) updates.id_hop_dong_khung = body.id_hop_dong_khung === '' ? null : body.id_hop_dong_khung
+    // Ngày chốt số có cấu trúc (phục vụ nhắc lấy counter)
+    if (body.chot_so_ngay !== undefined) updates.chot_so_ngay = body.chot_so_ngay === '' || body.chot_so_ngay == null ? null : (parseInt(body.chot_so_ngay, 10) || null)
+    if (body.chot_so_cuoi_thang !== undefined) updates.chot_so_cuoi_thang = !!body.chot_so_cuoi_thang
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'Không có dữ liệu cập nhật' }, { status: 400 })

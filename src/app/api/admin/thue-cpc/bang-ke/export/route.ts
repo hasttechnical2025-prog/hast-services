@@ -6,6 +6,7 @@ import Docxtemplater from 'docxtemplater'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { docSoTien } from '@/lib/report/bao-gia'
+import { chotSoLabel } from '@/lib/thue-cpc'
 
 const TEN_CONG_TY = 'Công ty CP Siêu Thanh Hà Nội'
 
@@ -56,7 +57,7 @@ export async function GET(request: Request) {
       .from('soct_thue_cpc_bk_ct')
       .select(`*, soct_khach_hang(
         ten_khach_hang, dia_chi, ma_may, model, vi_tri_dat_may, nguoi_lien_he, email, ngay_lap_may,
-        ngay_chot_so, don_gia_bw, don_gia_mau, dinh_muc_mien_phi_bw, dinh_muc_mien_phi_mau,
+        ngay_chot_so, chot_so_ngay, chot_so_cuoi_thang, don_gia_bw, don_gia_mau, dinh_muc_mien_phi_bw, dinh_muc_mien_phi_mau,
         cam_ket_toi_thieu_bw, cam_ket_toi_thieu_mau, phi_thue_thang
       )`)
       .eq('id_bk', id)
@@ -125,7 +126,7 @@ export async function GET(request: Request) {
       const data = {
         ...common,
         TEN_KH: kh.ten_khach_hang || '', DIA_CHI: kh.dia_chi || '', VI_TRI_DAT_MAY: kh.vi_tri_dat_may || '',
-        NGAY_CHOT: kh.ngay_chot_so || '', MA_MAY: kh.ma_may || '', NGUOI_LIEN_HE: kh.nguoi_lien_he || '',
+        NGAY_CHOT: chotSoLabel(kh.chot_so_ngay, kh.chot_so_cuoi_thang) || kh.ngay_chot_so || '', MA_MAY: kh.ma_may || '', NGUOI_LIEN_HE: kh.nguoi_lien_he || '',
         MODEL: kh.model || '', EMAIL: kh.email || '', EOD: fmtDMY(kh.ngay_lap_may),
         DON_GIA_BW: numB(kh.don_gia_bw), DON_GIA_MAU: numB(kh.don_gia_mau),
         NGAY_DAU: '', NGAY_CUOI: '',

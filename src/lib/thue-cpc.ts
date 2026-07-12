@@ -93,3 +93,35 @@ export function kyTruoc(thang_nam: string): string {
   d.setUTCMonth(d.getUTCMonth() - 1)
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
 }
+
+// Ngày chốt số thực tế trong kỳ 'YYYY-MM' (kẹp theo số ngày của tháng; cuối tháng = ngày cuối).
+// Trả về Date (UTC) hoặc null nếu chưa cấu hình.
+export function chotSoDate(thang_nam: string, chot_so_ngay: number | null | undefined, cuoi_thang: boolean): Date | null {
+  const [y, m] = thang_nam.split('-').map(Number)
+  if (!y || !m) return null
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate()
+  let day: number
+  if (cuoi_thang) day = lastDay
+  else if (chot_so_ngay && chot_so_ngay >= 1) day = Math.min(chot_so_ngay, lastDay)
+  else return null
+  return new Date(Date.UTC(y, m - 1, day))
+}
+
+// Chuỗi ngày chốt để in bảng kê (VD "Ngày 25 hàng tháng", "Cuối tháng").
+export function chotSoLabel(chot_so_ngay: number | null | undefined, cuoi_thang: boolean): string {
+  if (cuoi_thang) return 'Cuối tháng'
+  if (chot_so_ngay && chot_so_ngay >= 1) return `Ngày ${chot_so_ngay} hàng tháng`
+  return ''
+}
+
+export type CounterStatus = 'done' | 'overdue' | 'due_soon' | 'not_yet' | 'no_date'
+// Trạng thái lấy counter của 1 máy trong kỳ. `todayStr`/dùng ISO 'YYYY-MM-DD'. leadDays = ngưỡng cảnh báo vàng.
+export function counterStatus(chot: Date | null, daNhap: boolean, todayStr: string, leadDays = 3): { status: CounterStatus, days: number } {
+  if (daNhap) return { status: 'done', days: 0 }
+  if (!chot) return { status: 'no_date', days: 0 }
+  const today = Date.parse(todayStr + 'T00:00:00Z')
+  const diff = Math.round((chot.getTime() - today) / 86400000) // >0: còn N ngày; <0: quá hạn
+  if (diff < 0) return { status: 'overdue', days: -diff }
+  if (diff <= leadDays) return { status: 'due_soon', days: diff }
+  return { status: 'not_yet', days: diff }
+}

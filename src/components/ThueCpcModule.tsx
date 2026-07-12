@@ -6,6 +6,20 @@ import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import DateField from "@/components/DateField"
+import { chotSoDate, counterStatus, CounterStatus } from "@/lib/thue-cpc"
+
+const vnTodayStr = () => new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
+// Nhãn ngày chốt gọn cho bảng
+const chotLabelShort = (r: any) => r.chot_so_cuoi_thang ? 'Cuối tháng' : (r.chot_so_ngay ? `Ngày ${r.chot_so_ngay}` : '—')
+// Badge trạng thái lấy counter
+const STATUS_BADGE: Record<CounterStatus, { label: (d: number) => string, cls: string }> = {
+  done: { label: () => 'Đã lấy', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  overdue: { label: d => `Quá hạn ${d} ngày`, cls: 'bg-red-50 text-red-700 border-red-200' },
+  due_soon: { label: d => d === 0 ? 'Đến ngày hôm nay' : `Còn ${d} ngày`, cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  not_yet: { label: d => `Còn ${d} ngày`, cls: 'bg-slate-50 text-slate-500 border-slate-200' },
+  no_date: { label: () => 'Chưa đặt ngày chốt', cls: 'bg-slate-50 text-slate-400 border-slate-200' },
+}
+const STATUS_RANK: Record<CounterStatus, number> = { overdue: 0, due_soon: 1, not_yet: 2, no_date: 3, done: 4 }
 
 type Notify = (type: 'success' | 'error', message: string) => void
 
@@ -52,17 +66,35 @@ function SearchSelect({ options, value, onChange, placeholder }: { options: { va
 
 export default function ThueCpcModule({ showNotification }: { showNotification: Notify }) {
   const [sub, setSub] = useState<'don_gia' | 'counter' | 'khung' | 'bang_ke'>('don_gia')
+  const [dueCount, setDueCount] = useState(0) // số máy cần lấy counter kỳ hiện tại (badge tab)
   const tabs: [typeof sub, string][] = [
     ['don_gia', 'Đơn giá HĐ'],
     ['counter', 'Nhập counter'],
     ['khung', 'Hợp đồng khung'],
     ['bang_ke', 'Bảng kê'],
   ]
+  // Đếm máy cần lấy counter tháng này để gắn badge lên tab
+  useEffect(() => {
+    const cur = monthNow()
+    const today = vnTodayStr()
+    fetch(`/api/admin/thue-cpc/counter?thang_nam=${cur}`).then(r => r.ok ? r.json() : { data: { rows: [] } }).then(j => {
+      let n = 0
+      for (const r of j.data?.rows || []) {
+        const daNhap = r.so_bw != null || r.so_mau != null
+        const s = counterStatus(chotSoDate(cur, r.chot_so_ngay, r.chot_so_cuoi_thang), daNhap, today).status
+        if (s === 'overdue' || s === 'due_soon') n++
+      }
+      setDueCount(n)
+    }).catch(() => { })
+  }, [])
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
       <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit mb-5 overflow-x-auto">
         {tabs.map(([k, l]) => (
-          <button key={k} onClick={() => setSub(k)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${sub === k ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>{l}</button>
+          <button key={k} onClick={() => setSub(k)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${sub === k ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
+            {l}
+            {k === 'counter' && dueCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{dueCount}</span>}
+          </button>
         ))}
       </div>
       {sub === 'don_gia' && <DonGiaTab showNotification={showNotification} />}
@@ -165,6 +197,7 @@ function DonGiaModal({ row, khung, onClose, onSaved, showNotification }: { row: 
     cam_ket_toi_thieu_bw: row.cam_ket_toi_thieu_bw ?? 0, cam_ket_toi_thieu_mau: row.cam_ket_toi_thieu_mau ?? 0,
     vat_thue_cpc: row.vat_thue_cpc ?? 8, trach_nhiem_ky_thuat: row.trach_nhiem_ky_thuat ?? 'Nội bộ',
     ten_doi_tac_ky_thuat: row.ten_doi_tac_ky_thuat ?? '', ngay_chot_so: row.ngay_chot_so ?? '',
+    chot_pick: row.chot_so_cuoi_thang ? 'cuoi' : (row.chot_so_ngay ? String(row.chot_so_ngay) : ''),
     vi_tri_dat_may: row.vi_tri_dat_may ?? '', nguoi_lien_he: row.nguoi_lien_he ?? '', email: row.email ?? '',
     ngay_lap_may: row.ngay_lap_may ?? '', id_hop_dong_khung: row.id_hop_dong_khung ?? '', serial: row.serial ?? '',
   })
@@ -174,7 +207,10 @@ function DonGiaModal({ row, khung, onClose, onSaved, showNotification }: { row: 
   const save = async () => {
     setSaving(true)
     try {
-      const res = await fetch('/api/admin/thue-cpc/khach-hang', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: row.id, ...f }) })
+      const chot = f.chot_pick === 'cuoi'
+        ? { chot_so_ngay: null, chot_so_cuoi_thang: true }
+        : (f.chot_pick ? { chot_so_ngay: parseInt(f.chot_pick, 10), chot_so_cuoi_thang: false } : { chot_so_ngay: null, chot_so_cuoi_thang: false })
+      const res = await fetch('/api/admin/thue-cpc/khach-hang', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: row.id, ...f, ...chot }) })
       const j = await res.json()
       if (!res.ok) throw new Error(j.error || 'Lỗi lưu')
       showNotification('success', 'Đã lưu đơn giá hợp đồng')
@@ -234,7 +270,12 @@ function DonGiaModal({ row, khung, onClose, onSaved, showNotification }: { row: 
             </label>
             <label className="block">
               <span className="text-xs font-medium text-slate-500">Ngày chốt số</span>
-              <Input value={f.ngay_chot_so} onChange={e => set('ngay_chot_so', e.target.value)} className="h-9 mt-1" placeholder="VD: 25 hoặc Cuối tháng" />
+              <select value={f.chot_pick} onChange={e => set('chot_pick', e.target.value)} className="h-9 mt-1 w-full rounded-md border border-slate-200 text-sm px-2 bg-white">
+                <option value="">— Chưa đặt —</option>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map(d => <option key={d} value={String(d)}>Ngày {d}</option>)}
+                <option value="cuoi">Cuối tháng</option>
+              </select>
+              <span className="text-[10px] text-slate-400">Dùng để nhắc lấy counter đúng hạn</span>
             </label>
             <label className="block">
               <span className="text-xs font-medium text-slate-500">Hợp đồng khung</span>
@@ -272,6 +313,7 @@ function CounterTab({ showNotification }: { showNotification: Notify }) {
   const [edits, setEdits] = useState<Record<string, { so_bw: string, so_mau: string, ghi_chu: string }>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [onlyDue, setOnlyDue] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -300,10 +342,24 @@ function CounterTab({ showNotification }: { showNotification: Notify }) {
   const setEdit = (id: string, k: string, v: string) => setEdits(p => ({ ...p, [id]: { ...p[id], [k]: v } }))
 
   const rows = data?.rows || []
-  const filtered = rows.filter((r: any) => {
-    const q = norm(search)
-    return !q || norm(r.ten_khach_hang).includes(q) || norm(r.ma_may).includes(q) || norm(r.serial).includes(q) || norm(r.vi_tri_dat_may).includes(q)
+  const today = vnTodayStr()
+  // Gắn trạng thái lấy counter cho kỳ đang chọn
+  const withStatus = rows.map((r: any) => {
+    const daNhap = r.so_bw != null || r.so_mau != null
+    const chot = chotSoDate(thang, r.chot_so_ngay, r.chot_so_cuoi_thang)
+    const st = counterStatus(chot, daNhap, today)
+    return { r, st }
   })
+  const counts = withStatus.reduce((a: any, x: any) => { a[x.st.status] = (a[x.st.status] || 0) + 1; return a }, {})
+  const canLay = (counts.overdue || 0) + (counts.due_soon || 0)
+  const filtered = withStatus
+    .filter(({ r, st }: any) => {
+      const q = norm(search)
+      const okQ = !q || norm(r.ten_khach_hang).includes(q) || norm(r.ma_may).includes(q) || norm(r.serial).includes(q) || norm(r.vi_tri_dat_may).includes(q)
+      const okDue = !onlyDue || st.status === 'overdue' || st.status === 'due_soon'
+      return okQ && okDue
+    })
+    .sort((a: any, b: any) => (STATUS_RANK[a.st.status as CounterStatus] - STATUS_RANK[b.st.status as CounterStatus]) || (a.r.ten_khach_hang || '').localeCompare(b.r.ten_khach_hang || ''))
 
   return (
     <div className="space-y-4">
@@ -313,12 +369,28 @@ function CounterTab({ showNotification }: { showNotification: Notify }) {
           <p className="text-xs text-slate-500">Độc lập với Sổ công tác. Nhập chỉ số công-tơ cuối kỳ; cột <b>Kỳ trước</b> là đầu kỳ tham khảo.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Input placeholder="Tìm khách / mã máy / vị trí…" value={search} onChange={e => setSearch(e.target.value)} className="w-64 h-9" />
+          <Input placeholder="Tìm khách / mã máy / serial / vị trí…" value={search} onChange={e => setSearch(e.target.value)} className="w-64 h-9" />
           <label className="flex items-center gap-2 text-sm text-slate-600">Kỳ
             <input type="month" value={thang} onChange={e => setThang(e.target.value)} className="h-9 px-3 rounded-md border border-slate-200 text-sm bg-white" />
           </label>
         </div>
       </div>
+
+      {/* Banner nhắc lấy counter */}
+      {!loading && canLay > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap">
+          <span className="text-lg">🔔</span>
+          <div className="text-sm text-amber-800 flex-1 min-w-0">
+            <b>{canLay} máy</b> cần lấy counter kỳ {thang}
+            {(counts.overdue || 0) > 0 && <span className="ml-1">— <b className="text-red-600">{counts.overdue} quá hạn</b></span>}
+            {(counts.due_soon || 0) > 0 && <span className="ml-1 text-amber-700">· {counts.due_soon} sắp đến ngày</span>}
+            <span className="text-amber-600"> · đã lấy {counts.done || 0}/{rows.length}</span>
+          </div>
+          <button onClick={() => setOnlyDue(o => !o)} className={`h-8 px-3 rounded-lg text-xs font-semibold border ${onlyDue ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-amber-700 border-amber-300'}`}>
+            {onlyDue ? 'Đang lọc: chỉ máy cần lấy' : 'Chỉ hiện máy cần lấy'}
+          </button>
+        </div>
+      )}
 
       {loading ? <div className="text-sm text-slate-400 py-8 text-center">Đang tải…</div> : (
         <div className="overflow-x-auto border border-slate-100 rounded-lg">
@@ -327,6 +399,8 @@ function CounterTab({ showNotification }: { showNotification: Notify }) {
               <tr>
                 <th className="px-3 py-2 text-left">Khách hàng</th>
                 <th className="px-3 py-2 text-left">Mã máy</th>
+                <th className="px-3 py-2 text-center">Ngày chốt</th>
+                <th className="px-3 py-2 text-left">Trạng thái</th>
                 <th className="px-3 py-2 text-right">Đen kỳ trước</th>
                 <th className="px-3 py-2 text-left">Đen kỳ này</th>
                 <th className="px-3 py-2 text-right">Màu kỳ trước</th>
@@ -336,8 +410,8 @@ function CounterTab({ showNotification }: { showNotification: Notify }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.length === 0 && <tr><td colSpan={8} className="px-3 py-6 text-center text-slate-400">{rows.length === 0 ? 'Không có máy thuê/CPC.' : 'Không khớp tìm kiếm.'}</td></tr>}
-              {filtered.map((r: any) => (
+              {filtered.length === 0 && <tr><td colSpan={10} className="px-3 py-6 text-center text-slate-400">{rows.length === 0 ? 'Không có máy thuê/CPC.' : (onlyDue ? 'Không có máy cần lấy.' : 'Không khớp tìm kiếm.')}</td></tr>}
+              {filtered.map(({ r, st }: any) => (
                 <tr key={r.id} className="hover:bg-slate-50">
                   <td className="px-3 py-2">
                     <div className="font-medium text-slate-700">{r.ten_khach_hang}{r.trach_nhiem_ky_thuat === 'Đối tác ngoài' && <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-100">{r.ten_doi_tac_ky_thuat || 'Đối tác'}</span>}</div>
@@ -346,6 +420,10 @@ function CounterTab({ showNotification }: { showNotification: Notify }) {
                   <td className="px-3 py-2 font-mono text-slate-500">
                     <div>{r.ma_may || '—'}</div>
                     {r.serial && <div className="text-[10px] text-slate-400">SN: {r.serial}</div>}
+                  </td>
+                  <td className="px-3 py-2 text-center whitespace-nowrap text-slate-500">{chotLabelShort(r)}</td>
+                  <td className="px-3 py-2">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap ${STATUS_BADGE[st.status as CounterStatus].cls}`}>{STATUS_BADGE[st.status as CounterStatus].label(st.days)}</span>
                   </td>
                   <td className="px-3 py-2 text-right text-slate-400">{fmtInt(r.so_bw_truoc)}</td>
                   <td className="px-3 py-2"><NumInput value={edits[r.id]?.so_bw ?? ''} onChange={v => setEdit(r.id, 'so_bw', v)} className="h-8 w-28" /></td>
