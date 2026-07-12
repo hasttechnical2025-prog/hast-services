@@ -454,12 +454,38 @@ function CounterTab({ showNotification }: { showNotification: Notify }) {
 }
 
 // ============================ TAB 3: HỢP ĐỒNG KHUNG ============================
+// Hộp thoại xác nhận tự thiết kế (thay confirm() của trình duyệt)
+function ConfirmDialog({ open, title, message, confirmLabel, danger, busy, onConfirm, onCancel }: { open: boolean, title: string, message: string, confirmLabel?: string, danger?: boolean, busy?: boolean, onConfirm: () => void, onCancel: () => void }) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4" onClick={onCancel}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+        <div className="p-5">
+          <div className="flex items-start gap-3">
+            {danger && <div className="w-9 h-9 rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0 text-lg">⚠</div>}
+            <div>
+              <h3 className="font-bold text-slate-800">{title}</h3>
+              <p className="text-sm text-slate-600 mt-1 leading-relaxed">{message}</p>
+            </div>
+          </div>
+        </div>
+        <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
+          <Button variant="outline" onClick={onCancel} disabled={busy} className="h-9">Hủy</Button>
+          <Button onClick={onConfirm} disabled={busy} className={`h-9 ${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}>{busy ? 'Đang xử lý…' : (confirmLabel || 'Xác nhận')}</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function KhungTab({ showNotification }: { showNotification: Notify }) {
   const [list, setList] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState<any>({ ten_hop_dong: '', phi_co_ban: 0, vat_thue_cpc: 8, ghi_chu: '' })
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [confirmDel, setConfirmDel] = useState<any | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -484,14 +510,16 @@ function KhungTab({ showNotification }: { showNotification: Notify }) {
     } catch (e: any) { showNotification('error', e.message) }
     finally { setSaving(false) }
   }
-  const del = async (id: string) => {
-    if (!confirm('Xóa hợp đồng khung này? Máy đang gán sẽ được bỏ gán.')) return
+  const doDelete = async () => {
+    if (!confirmDel) return
+    setDeleting(true)
     try {
-      const res = await fetch(`/api/admin/thue-cpc/hop-dong-khung?id=${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/admin/thue-cpc/hop-dong-khung?id=${confirmDel.id}`, { method: 'DELETE' })
       const j = await res.json()
       if (!res.ok) throw new Error(j.error || 'Lỗi xóa')
-      showNotification('success', 'Đã xóa'); load()
+      showNotification('success', 'Đã xóa'); setConfirmDel(null); load()
     } catch (e: any) { showNotification('error', e.message) }
+    finally { setDeleting(false) }
   }
 
   return (
@@ -527,7 +555,7 @@ function KhungTab({ showNotification }: { showNotification: Notify }) {
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => { setEditingId(k.id); setForm({ ten_hop_dong: k.ten_hop_dong, phi_co_ban: k.phi_co_ban, vat_thue_cpc: k.vat_thue_cpc, ghi_chu: k.ghi_chu || '' }) }} className="text-blue-600 hover:underline text-xs font-medium">Sửa</button>
-                  <button onClick={() => del(k.id)} className="text-red-600 hover:underline text-xs font-medium">Xóa</button>
+                  <button onClick={() => setConfirmDel(k)} className="text-red-600 hover:underline text-xs font-medium">Xóa</button>
                 </div>
               </div>
               <div className="mt-2 text-xs text-slate-500">
@@ -537,6 +565,17 @@ function KhungTab({ showNotification }: { showNotification: Notify }) {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!confirmDel}
+        danger
+        busy={deleting}
+        title="Xóa hợp đồng khung?"
+        message={confirmDel ? `Xóa "${confirmDel.ten_hop_dong}"? Các máy đang gán vào khung này sẽ được bỏ gán (không xóa máy).` : ''}
+        confirmLabel="Xóa"
+        onConfirm={doDelete}
+        onCancel={() => setConfirmDel(null)}
+      />
     </div>
   )
 }
@@ -554,6 +593,8 @@ function BangKeTab({ showNotification }: { showNotification: Notify }) {
   const [creating, setCreating] = useState(false)
   const [chanTrang, setChanTrang] = useState(true)
   const [detail, setDetail] = useState<any | null>(null)
+  const [confirmDel, setConfirmDel] = useState<any | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const loadList = useCallback(async () => {
     setLoading(true)
@@ -583,13 +624,15 @@ function BangKeTab({ showNotification }: { showNotification: Notify }) {
     } catch (e: any) { showNotification('error', e.message) }
     finally { setCreating(false) }
   }
-  const del = async (id: string) => {
-    if (!confirm('Xóa bảng kê này?')) return
+  const doDelete = async () => {
+    if (!confirmDel) return
+    setDeleting(true)
     try {
-      const res = await fetch(`/api/admin/thue-cpc/bang-ke?id=${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/admin/thue-cpc/bang-ke?id=${confirmDel.id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error((await res.json()).error || 'Lỗi xóa')
-      showNotification('success', 'Đã xóa'); loadList()
+      showNotification('success', 'Đã xóa'); setConfirmDel(null); loadList()
     } catch (e: any) { showNotification('error', e.message) }
+    finally { setDeleting(false) }
   }
   const exportUrl = (id: string) => `/api/admin/thue-cpc/bang-ke/export?id=${id}&chan_trang=${chanTrang ? '1' : '0'}`
 
@@ -668,7 +711,7 @@ function BangKeTab({ showNotification }: { showNotification: Notify }) {
                     <div className="flex gap-2 justify-end">
                       <button onClick={() => setDetail(b.id)} className="text-slate-600 hover:underline text-xs font-medium">Xem</button>
                       <a href={exportUrl(b.id)} className="text-emerald-600 hover:underline text-xs font-medium">Tải Word</a>
-                      <button onClick={() => del(b.id)} className="text-red-600 hover:underline text-xs font-medium">Xóa</button>
+                      <button onClick={() => setConfirmDel(b)} className="text-red-600 hover:underline text-xs font-medium">Xóa</button>
                     </div>
                   </td>
                 </tr>
@@ -679,6 +722,17 @@ function BangKeTab({ showNotification }: { showNotification: Notify }) {
       )}
 
       {detail && <BangKeDetail id={detail} onClose={() => setDetail(null)} showNotification={showNotification} onChanged={loadList} />}
+
+      <ConfirmDialog
+        open={!!confirmDel}
+        danger
+        busy={deleting}
+        title="Xóa bảng kê?"
+        message={confirmDel ? `Xóa bảng kê ${confirmDel.loai === 'gop' ? (confirmDel.soct_thue_cpc_hop_dong_khung?.ten_hop_dong || '') : (confirmDel.soct_khach_hang?.ten_khach_hang || '')} kỳ ${thang}? Không thể hoàn tác.` : ''}
+        confirmLabel="Xóa"
+        onConfirm={doDelete}
+        onCancel={() => setConfirmDel(null)}
+      />
     </div>
   )
 }

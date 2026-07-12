@@ -207,10 +207,12 @@ export default function AdminDashboard() {
     type: "job" as "job" | "user" | "inventory" | "dat_hang_ct"
   })
 
-  const showNotification = (type: 'success' | 'error', message: string) => {
+  // useCallback: giữ identity ổn định -> tránh các component con (VD module Thuê/CPC)
+  // refetch liên tục mỗi khi admin re-render (toast tự tắt sau 5s cũng gây re-render)
+  const showNotification = useCallback((type: 'success' | 'error', message: string) => {
     setNotification({ type, message })
     setTimeout(() => setNotification(null), 5000)
-  }
+  }, [])
 
   // Lấy role từ thông tin đăng nhập thực tế
   const currentUserRole = (currentAdmin?.role || 'staff') as 'admin' | 'tech_admin' | 'staff'
