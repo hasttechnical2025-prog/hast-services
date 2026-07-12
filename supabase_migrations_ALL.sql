@@ -653,3 +653,10 @@ WHERE chot_so_ngay IS NULL
   AND chot_so_cuoi_thang = false
   AND ngay_chot_so IS NOT NULL
   AND regexp_replace(ngay_chot_so, '\D', '', 'g') ~ '^\d+$';
+
+
+-- MIGRATION 25: Thêm cột "NV Kinh doanh" cho máy thuê/CPC (soct_khach_hang).
+-- Giá trị chọn từ danh mục nhóm 'nv_kinh_doanh' (admin tạo trong Hệ thống > Danh mục).
+-- Nullable, không phá luồng hiện tại. Idempotent.
+
+ALTER TABLE public.soct_khach_hang ADD COLUMN IF NOT EXISTS nv_kinh_doanh TEXT;

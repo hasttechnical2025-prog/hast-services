@@ -5323,6 +5323,7 @@ const DANH_MUC_NHOMS = [
   { key: 'ktv_giam_dinh', label: 'KTV giám định' },
   { key: 'tinh_trang_may', label: 'Tình trạng máy' },
   { key: 'tinh_trang_bao_cao', label: 'Tình trạng báo cáo KTV' },
+  { key: 'nv_kinh_doanh', label: 'NV Kinh doanh' },
   { key: 'nha_cung_cap', label: 'Nhà cung cấp' },
   { key: 'hang', label: 'Hãng máy' },
 ]

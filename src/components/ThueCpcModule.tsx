@@ -109,6 +109,7 @@ export default function ThueCpcModule({ showNotification }: { showNotification: 
 function DonGiaTab({ showNotification }: { showNotification: Notify }) {
   const [rows, setRows] = useState<any[]>([])
   const [khung, setKhung] = useState<any[]>([])
+  const [nvkd, setNvkd] = useState<string[]>([]) // danh sách NV Kinh doanh (danh mục)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [editing, setEditing] = useState<any | null>(null)
@@ -116,12 +117,14 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [r1, r2] = await Promise.all([
+      const [r1, r2, r3] = await Promise.all([
         fetch('/api/admin/thue-cpc/khach-hang').then(r => r.json()),
         fetch('/api/admin/thue-cpc/hop-dong-khung').then(r => r.json()),
+        fetch('/api/admin/danh-muc?nhom=nv_kinh_doanh').then(r => r.json()),
       ])
       setRows(r1.data || [])
       setKhung(r2.data || [])
+      setNvkd((r3.data || []).filter((d: any) => d.active).map((d: any) => d.gia_tri))
     } catch { showNotification('error', 'Không tải được danh sách máy thuê/CPC') }
     finally { setLoading(false) }
   }, [showNotification])
@@ -130,7 +133,7 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
   const filtered = rows.filter(r => {
     const q = norm(search)
     if (!q) return true
-    return norm(r.ten_khach_hang).includes(q) || norm(r.ma_may).includes(q) || norm(r.serial).includes(q) || norm(r.vi_tri_dat_may).includes(q)
+    return norm(r.ten_khach_hang).includes(q) || norm(r.ma_may).includes(q) || norm(r.serial).includes(q) || norm(r.vi_tri_dat_may).includes(q) || norm(r.nv_kinh_doanh).includes(q)
   })
 
   return (
@@ -155,12 +158,13 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
                 <th className="px-3 py-2 text-right">Đơn giá Màu</th>
                 <th className="px-3 py-2 text-right">Phí thuê/tháng</th>
                 <th className="px-3 py-2 text-center">VAT</th>
+                <th className="px-3 py-2 text-left">NV Kinh doanh</th>
                 <th className="px-3 py-2 text-left">HĐ khung</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.length === 0 && <tr><td colSpan={9} className="px-3 py-6 text-center text-slate-400">Không có máy nào.</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={10} className="px-3 py-6 text-center text-slate-400">Không có máy nào.</td></tr>}
               {filtered.map(r => (
                 <tr key={r.id} className="hover:bg-slate-50">
                   <td className="px-3 py-2">
@@ -176,6 +180,7 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
                   <td className="px-3 py-2 text-right">{money(r.don_gia_mau)}</td>
                   <td className="px-3 py-2 text-right">{r.phi_thue_thang == null ? '—' : money(r.phi_thue_thang)}</td>
                   <td className="px-3 py-2 text-center">{r.vat_thue_cpc ?? 8}%</td>
+                  <td className="px-3 py-2 text-slate-600 text-xs">{r.nv_kinh_doanh || <span className="text-slate-300">—</span>}</td>
                   <td className="px-3 py-2 text-slate-500 text-xs">{khung.find(k => k.id === r.id_hop_dong_khung)?.ten_hop_dong || '—'}</td>
                   <td className="px-3 py-2 text-right"><button onClick={() => setEditing(r)} className="text-blue-600 hover:underline text-xs font-medium">Sửa</button></td>
                 </tr>
@@ -185,13 +190,14 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
         </div>
       )}
 
-      {editing && <DonGiaModal row={editing} khung={khung} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load() }} showNotification={showNotification} />}
+      {editing && <DonGiaModal row={editing} khung={khung} nvkd={nvkd} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load() }} showNotification={showNotification} />}
     </div>
   )
 }
 
-function DonGiaModal({ row, khung, onClose, onSaved, showNotification }: { row: any, khung: any[], onClose: () => void, onSaved: () => void, showNotification: Notify }) {
+function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: { row: any, khung: any[], nvkd: string[], onClose: () => void, onSaved: () => void, showNotification: Notify }) {
   const [f, setF] = useState<any>({
+    nv_kinh_doanh: row.nv_kinh_doanh ?? '',
     phi_thue_thang: row.phi_thue_thang ?? '', don_gia_bw: row.don_gia_bw ?? 0, don_gia_mau: row.don_gia_mau ?? 0,
     dinh_muc_mien_phi_bw: row.dinh_muc_mien_phi_bw ?? 0, dinh_muc_mien_phi_mau: row.dinh_muc_mien_phi_mau ?? 0,
     cam_ket_toi_thieu_bw: row.cam_ket_toi_thieu_bw ?? 0, cam_ket_toi_thieu_mau: row.cam_ket_toi_thieu_mau ?? 0,
@@ -276,6 +282,15 @@ function DonGiaModal({ row, khung, onClose, onSaved, showNotification }: { row: 
                 <option value="cuoi">Cuối tháng</option>
               </select>
               <span className="text-[10px] text-slate-400">Dùng để nhắc lấy counter đúng hạn</span>
+            </label>
+            <label className="block">
+              <span className="text-xs font-medium text-slate-500">NV Kinh doanh</span>
+              <select value={f.nv_kinh_doanh || ''} onChange={e => set('nv_kinh_doanh', e.target.value)} className="h-9 mt-1 w-full rounded-md border border-slate-200 text-sm px-2 bg-white">
+                <option value="">— Chưa gán —</option>
+                {nvkd.map(v => <option key={v} value={v}>{v}</option>)}
+                {f.nv_kinh_doanh && !nvkd.includes(f.nv_kinh_doanh) && <option value={f.nv_kinh_doanh}>{f.nv_kinh_doanh} (đã ẩn khỏi danh mục)</option>}
+              </select>
+              <span className="text-[10px] text-slate-400">Thêm/sửa danh sách ở Hệ thống › Danh mục › NV Kinh doanh</span>
             </label>
             <label className="block">
               <span className="text-xs font-medium text-slate-500">Hợp đồng khung</span>
