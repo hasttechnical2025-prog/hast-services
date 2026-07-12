@@ -180,10 +180,13 @@ function DonGiaModal({ row, khung, onClose, onSaved, showNotification }: { row: 
     finally { setSaving(false) }
   }
 
-  const numField = (label: string, key: string, hint?: string) => (
+  // plain=true: số thường (VAT %); mặc định: ô số #.### (đơn giá/phí/định mức/cam kết)
+  const numField = (label: string, key: string, hint?: string, plain?: boolean) => (
     <label className="block">
       <span className="text-xs font-medium text-slate-500">{label}</span>
-      <Input type="number" value={f[key]} onChange={e => set(key, e.target.value)} className="h-9 mt-1" />
+      {plain
+        ? <Input type="number" value={f[key]} onChange={e => set(key, e.target.value)} className="h-9 mt-1" />
+        : <NumInput value={f[key]} onChange={v => set(key, v)} className="h-9 mt-1" />}
       {hint && <span className="text-[10px] text-slate-400">{hint}</span>}
     </label>
   )
@@ -202,7 +205,7 @@ function DonGiaModal({ row, khung, onClose, onSaved, showNotification }: { row: 
             {numField('Phí thuê / tháng', 'phi_thue_thang', 'Để trống nếu CPC thuần / trong gói HĐ khung')}
             {numField('Định mức miễn phí Đen', 'dinh_muc_mien_phi_bw')}
             {numField('Định mức miễn phí Màu', 'dinh_muc_mien_phi_mau')}
-            {numField('VAT (%)', 'vat_thue_cpc')}
+            {numField('VAT (%)', 'vat_thue_cpc', undefined, true)}
             {numField('Cam kết tối thiểu Đen', 'cam_ket_toi_thieu_bw', 'Nếu > 0 sẽ ưu tiên, bỏ qua định mức miễn phí')}
             {numField('Cam kết tối thiểu Màu', 'cam_ket_toi_thieu_mau')}
           </div>
