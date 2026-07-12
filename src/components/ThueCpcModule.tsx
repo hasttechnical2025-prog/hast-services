@@ -226,13 +226,12 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
   }
 
   // plain=true: số thường (VAT %); mặc định: ô số #.### (đơn giá/phí/định mức/cam kết)
-  const numField = (label: string, key: string, hint?: string, plain?: boolean) => (
+  const numField = (label: string, key: string, plain?: boolean) => (
     <label className="block">
       <span className="text-xs font-medium text-slate-500">{label}</span>
       {plain
         ? <Input type="number" value={f[key]} onChange={e => set(key, e.target.value)} className="h-9 mt-1" />
         : <NumInput value={f[key]} onChange={v => set(key, v)} className="h-9 mt-1" />}
-      {hint && <span className="text-[10px] text-slate-400">{hint}</span>}
     </label>
   )
 
@@ -254,11 +253,11 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {numField('Đơn giá Đen (VNĐ/bản)', 'don_gia_bw')}
             {numField('Đơn giá Màu (VNĐ/bản)', 'don_gia_mau')}
-            {numField('Phí thuê / tháng', 'phi_thue_thang', 'Để trống nếu CPC thuần / trong gói HĐ khung')}
+            {numField('Phí thuê / tháng', 'phi_thue_thang')}
             {numField('Định mức miễn phí Đen', 'dinh_muc_mien_phi_bw')}
             {numField('Định mức miễn phí Màu', 'dinh_muc_mien_phi_mau')}
-            {numField('VAT (%)', 'vat_thue_cpc', undefined, true)}
-            {numField('Cam kết tối thiểu Đen', 'cam_ket_toi_thieu_bw', 'Nếu > 0 sẽ ưu tiên, bỏ qua định mức miễn phí')}
+            {numField('VAT (%)', 'vat_thue_cpc', true)}
+            {numField('Cam kết tối thiểu Đen', 'cam_ket_toi_thieu_bw')}
             {numField('Cam kết tối thiểu Màu', 'cam_ket_toi_thieu_mau')}
           </div>
 
@@ -281,7 +280,6 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
                 {Array.from({ length: 31 }, (_, i) => i + 1).map(d => <option key={d} value={String(d)}>Ngày {d}</option>)}
                 <option value="cuoi">Cuối tháng</option>
               </select>
-              <span className="text-[10px] text-slate-400">Dùng để nhắc lấy counter đúng hạn</span>
             </label>
             <label className="block">
               <span className="text-xs font-medium text-slate-500">NV Kinh doanh</span>
@@ -290,7 +288,6 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
                 {nvkd.map(v => <option key={v} value={v}>{v}</option>)}
                 {f.nv_kinh_doanh && !nvkd.includes(f.nv_kinh_doanh) && <option value={f.nv_kinh_doanh}>{f.nv_kinh_doanh} (đã ẩn khỏi danh mục)</option>}
               </select>
-              <span className="text-[10px] text-slate-400">Thêm/sửa danh sách ở Hệ thống › Danh mục › NV Kinh doanh</span>
             </label>
             <label className="block">
               <span className="text-xs font-medium text-slate-500">Hợp đồng khung</span>
