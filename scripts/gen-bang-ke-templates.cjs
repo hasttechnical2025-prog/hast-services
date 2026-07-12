@@ -16,7 +16,8 @@ const {
 } = require('docx')
 
 const FONT = 'Times New Roman'
-const LOGO = fs.readFileSync(path.join(__dirname, 'assets', 'letterhead-hstc.jpg'))
+// PNG RGB (ảnh gốc là JPEG CMYK làm Word báo "corrupt" -> đã convert sang sRGB PNG)
+const LOGO = fs.readFileSync(path.join(__dirname, 'assets', 'letterhead-hstc.png'))
 const OUT_DIR = path.join(__dirname, '..', 'src', 'lib', 'report')
 
 // ---------- helpers ----------
@@ -55,7 +56,7 @@ const CONT = (o = {}) => CELL(txt(''), { vMerge: VerticalMergeType.CONTINUE, spa
 const logoImg = (widthPx) => new Paragraph({
   alignment: AlignmentType.CENTER,
   spacing: { after: 60 },
-  children: [new ImageRun({ data: LOGO, transformation: { width: widthPx, height: Math.round(widthPx * 102 / 2290) } })],
+  children: [new ImageRun({ type: 'png', data: LOGO, transformation: { width: widthPx, height: Math.round(widthPx * 102 / 2290) } })],
 })
 
 // Nhãn:giá trị trên 1 dòng (label đậm, value thường)
@@ -69,8 +70,10 @@ const labelVal = (label, en, ph, o = {}) => P([
 // Portrait A4, info 12pt, bảng 10pt. 13 cột A..M.
 // =====================================================================
 function buildDonMay() {
-  const colW = [900, 820, 720, 820, 720, 760, 900, 700, 720, 900, 980, 1010, 1010] // sum ~10960
-  const merged3 = (ph) => [D('', { vMerge: VerticalMergeType.RESTART }), CONT()] // placeholder holder helper unused
+  // A4 NGANG: 13 cột, tổng ~15900 dxa (usable ~28.4cm). Data 12pt.
+  const colW = [1300, 1250, 1100, 1250, 1100, 1150, 1250, 1000, 1100, 1250, 1350, 1400, 1400]
+  const TW = colW.reduce((a, b) => a + b, 0)
+  const Da = (s, o = {}) => D(s, { size: 24, ...o }) // ô dữ liệu 12pt
 
   // Header row 1
   const hr1 = new TableRow({
@@ -104,30 +107,30 @@ function buildDonMay() {
   // Dòng Đen A4
   const rowDen = new TableRow({
     children: [
-      D('Đen A4', { bold: true, align: AlignmentType.LEFT }),
-      D('{{NGAY_DAU}}', { vMerge: VerticalMergeType.RESTART }),
-      D('{{DEN_SO_DAU}}'),
-      D('{{NGAY_CUOI}}', { vMerge: VerticalMergeType.RESTART }),
-      D('{{DEN_SO_CUOI}}'),
-      D('{{DEN_SD}}'), D('{{DEN_MF}}'), D('{{DEN_TP}}'), D('{{DEN_DG}}'), D('{{DEN_TT}}'),
-      D('{{PHI_TOI_THIEU_THANG}}', { vMerge: VerticalMergeType.RESTART }),
-      D('{{TONG_TRUOC_VAT}}', { vMerge: VerticalMergeType.RESTART }),
-      D('{{TONG_SAU_VAT}}', { vMerge: VerticalMergeType.RESTART }),
+      Da('Đen A4', { bold: true, align: AlignmentType.LEFT }),
+      Da('{{NGAY_DAU}}', { vMerge: VerticalMergeType.RESTART }),
+      Da('{{DEN_SO_DAU}}'),
+      Da('{{NGAY_CUOI}}', { vMerge: VerticalMergeType.RESTART }),
+      Da('{{DEN_SO_CUOI}}'),
+      Da('{{DEN_SD}}'), Da('{{DEN_MF}}'), Da('{{DEN_TP}}'), Da('{{DEN_DG}}'), Da('{{DEN_TT}}'),
+      Da('{{PHI_TOI_THIEU_THANG}}', { vMerge: VerticalMergeType.RESTART }),
+      Da('{{TONG_TRUOC_VAT}}', { vMerge: VerticalMergeType.RESTART }),
+      Da('{{TONG_SAU_VAT}}', { vMerge: VerticalMergeType.RESTART }),
     ],
   })
   // Dòng Màu A4
   const rowMau = new TableRow({
     children: [
-      D('Màu A4', { bold: true, align: AlignmentType.LEFT }),
-      CONT(), D('{{MAU_SO_DAU}}'), CONT(), D('{{MAU_SO_CUOI}}'),
-      D('{{MAU_SD}}'), D('{{MAU_MF}}'), D('{{MAU_TP}}'), D('{{MAU_DG}}'), D('{{MAU_TT}}'),
+      Da('Màu A4', { bold: true, align: AlignmentType.LEFT }),
+      CONT(), Da('{{MAU_SO_DAU}}'), CONT(), Da('{{MAU_SO_CUOI}}'),
+      Da('{{MAU_SD}}'), Da('{{MAU_MF}}'), Da('{{MAU_TP}}'), Da('{{MAU_DG}}'), Da('{{MAU_TT}}'),
       CONT(), CONT(), CONT(),
     ],
   })
 
   const table = new Table({
     columnWidths: colW,
-    width: { size: colW.reduce((a, b) => a + b, 0), type: WidthType.DXA },
+    width: { size: TW, type: WidthType.DXA },
     layout: TableLayoutType.FIXED,
     borders: ALL_BORDERS,
     rows: [hr1, hr2, hr3, rowDen, rowMau],
@@ -163,9 +166,10 @@ function buildDonMay() {
   return new Document({
     styles: { default: { document: { run: { font: FONT, size: 24 } } } },
     sections: [{
-      properties: { page: { size: { orientation: PageOrientation.PORTRAIT }, margin: { top: 400, bottom: 400, left: 360, right: 360 } } },
+      // A4 ngang: truyền kích thước dọc (11906 x 16838), lib tự hoán -> 16838 x 11906
+      properties: { page: { size: { width: 11906, height: 16838, orientation: PageOrientation.LANDSCAPE }, margin: { top: 400, bottom: 400, left: 400, right: 400 } } },
       children: [
-        logoImg(640),
+        logoImg(1000),
         txt('BẢNG KÊ THANH TOÁN PHÍ DỊCH VỤ BẢN CHỤP', { bold: true, size: 30, align: AlignmentType.CENTER, spacing: { before: 60, after: 120 } }),
         ...info,
         table,
@@ -184,7 +188,7 @@ function infoTwoCol(lLabel, lEn, lPh, rLabel, rEn, rPh) {
     children: [P([R(label, { size: 24 }), en ? R(` /${en}`, { size: 22, italics: true }) : R(''), R(': ', { size: 24 }), R(`{{${ph}}}`, { size: 24, bold: true })])],
   })
   return new Table({
-    columnWidths: [5900, 5060], width: { size: 10960, type: WidthType.DXA }, layout: TableLayoutType.FIXED,
+    columnWidths: [8600, 7300], width: { size: 15900, type: WidthType.DXA }, layout: TableLayoutType.FIXED,
     borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE }, insideHorizontal: { style: BorderStyle.NONE }, insideVertical: { style: BorderStyle.NONE } },
     rows: [new TableRow({ children: [c(lLabel, lEn, lPh), c(rLabel, rEn, rPh)] })],
   })
@@ -194,7 +198,7 @@ function twoColSign() {
   const noBorder = { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE }, insideHorizontal: { style: BorderStyle.NONE }, insideVertical: { style: BorderStyle.NONE } }
   const c = (t) => new TableCell({ borders: noBorder, children: [txt(t, { bold: true, size: 24, align: AlignmentType.CENTER, spacing: { before: 80 } })] })
   return new Table({
-    columnWidths: [5480, 5480], width: { size: 10960, type: WidthType.DXA }, layout: TableLayoutType.FIXED,
+    columnWidths: [7950, 7950], width: { size: 15900, type: WidthType.DXA }, layout: TableLayoutType.FIXED,
     borders: noBorder,
     rows: [new TableRow({ children: [c('ĐẠI DIỆN KHÁCH HÀNG'), c('ĐẠI DIỆN CÔNG TY')] })],
   })
@@ -301,7 +305,8 @@ function buildDaMay() {
   return new Document({
     styles: { default: { document: { run: { font: FONT, size: 20 } } } },
     sections: [{
-      properties: { page: { size: { width: 16838, height: 11906, orientation: PageOrientation.LANDSCAPE }, margin: { top: 500, bottom: 500, left: 500, right: 500 } } },
+      // A3 ngang: truyền kích thước dọc A3 (16838 x 23811), lib tự hoán -> 23811 x 16838
+      properties: { page: { size: { width: 16838, height: 23811, orientation: PageOrientation.LANDSCAPE }, margin: { top: 500, bottom: 500, left: 500, right: 500 } } },
       children: [
         logoImg(1000),
         txt('BẢNG KÊ THANH TOÁN TIỀN THUÊ MÁY', { bold: true, size: 30, align: AlignmentType.CENTER, spacing: { before: 60, after: 120 } }),
