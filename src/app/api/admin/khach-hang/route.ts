@@ -15,7 +15,7 @@ export async function GET() {
     // Lấy toàn bộ (khách hàng/máy có thể vượt 1000 dòng)
     const data = await selectAll((from, to) => supabaseAdmin
       .from('soct_khach_hang')
-      .select('id, ten_khach_hang, dia_chi, km_mac_dinh, ma_may, model, hang, loai_hd, ngay_het_han_hdbt')
+      .select('id, ten_khach_hang, dia_chi, km_mac_dinh, ma_may, serial, model, hang, loai_hd, ngay_het_han_hdbt')
       .order('ten_khach_hang')
       .range(from, to))
 
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { ten_khach_hang, dia_chi, ma_may, model, hang } = body
+    const { ten_khach_hang, dia_chi, ma_may, serial, model, hang } = body
 
     if (!ten_khach_hang || !dia_chi) {
       return NextResponse.json({ error: 'Thiếu tên khách hàng hoặc địa chỉ' }, { status: 400 })
@@ -72,6 +72,7 @@ export async function POST(request: Request) {
         lng,
         km_mac_dinh,
         ma_may: ma_may || null,
+        serial: serial || null,
         model: model || null,
         hang: hang || null
       })
@@ -101,7 +102,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Thiếu ID khách hàng' }, { status: 400 })
     }
 
-    const allowed = ['ten_khach_hang', 'ma_may', 'dia_chi', 'model', 'hang', 'km_mac_dinh', 'loai_hd', 'ngay_het_han_hdbt']
+    const allowed = ['ten_khach_hang', 'ma_may', 'serial', 'dia_chi', 'model', 'hang', 'km_mac_dinh', 'loai_hd', 'ngay_het_han_hdbt']
     const updates: any = {}
     for (const k of allowed) {
       if (body[k] === undefined) continue

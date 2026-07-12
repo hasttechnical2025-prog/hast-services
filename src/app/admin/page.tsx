@@ -5729,6 +5729,7 @@ function hdbtStatus(dateStr: string | null) {
 
 const CUSTOMER_COLS: ColDef[] = [
   { key: 'ma_may', label: 'Mã máy', locked: true },
+  { key: 'serial', label: 'Serial' },
   { key: 'ten', label: 'Tên khách hàng', locked: true },
   { key: 'model', label: 'Model' },
   { key: 'hang', label: 'Hãng' },
@@ -5768,6 +5769,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
     if (q && !(
       (c.ten_khach_hang || "").toLowerCase().includes(q) ||
       (c.ma_may || "").toLowerCase().includes(q) ||
+      (c.serial || "").toLowerCase().includes(q) ||
       (c.dia_chi || "").toLowerCase().includes(q) ||
       (c.model || "").toLowerCase().includes(q) ||
       (c.loai_hd || "").toLowerCase().includes(q)
@@ -5791,6 +5793,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
           id: editing.id,
           ten_khach_hang: editing.ten_khach_hang,
           ma_may: editing.ma_may,
+          serial: editing.serial,
           dia_chi: editing.dia_chi,
           model: editing.model,
           hang: editing.hang,
@@ -5848,7 +5851,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
         <div className="flex gap-2 w-full sm:w-auto">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Tìm mã máy, tên KH, địa chỉ, model, HĐ..." className="pl-9 bg-white" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input placeholder="Tìm mã máy, serial, tên KH, địa chỉ, model, HĐ..." className="pl-9 bg-white" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
           <div className="relative shrink-0">
             <button type="button" onClick={() => setFilterOpen(o => !o)} className="h-10 px-3 rounded-md border border-slate-200 text-sm bg-white flex items-center gap-2 min-w-[13rem] justify-between hover:border-slate-300">
@@ -5899,6 +5902,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
           <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200 shadow-sm">
             <tr>
               {col.show('ma_may') && <th className="px-4 py-3 font-semibold">Mã máy</th>}
+              {col.show('serial') && <th className="px-4 py-3 font-semibold">Serial</th>}
               {col.show('ten') && <th className="px-4 py-3 font-semibold">Tên khách hàng</th>}
               {col.show('model') && <th className="px-4 py-3 font-semibold">Model</th>}
               {col.show('hang') && <th className="px-4 py-3 font-semibold">Hãng</th>}
@@ -5910,14 +5914,15 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
           </thead>
           <tbody className="divide-y divide-slate-100">
             {customers.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">Chưa có khách hàng nào. Nhập dữ liệu ở mục bên dưới.</td></tr>
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400">Chưa có khách hàng nào. Nhập dữ liệu ở mục bên dưới.</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">Không tìm thấy khách hàng khớp từ khóa.</td></tr>
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400">Không tìm thấy khách hàng khớp từ khóa.</td></tr>
             ) : paged.pageItems.map((c) => {
               const hd = hdbtStatus(c.ngay_het_han_hdbt)
               return (
                 <tr key={c.id} id={'kh-' + c.id} className={`transition-colors ${highlightCust === c.id ? 'bg-amber-100' : 'hover:bg-slate-50'}`}>
                   {col.show('ma_may') && <td className="px-4 py-3 font-mono font-medium text-slate-700">{c.ma_may || <span className="text-slate-400 italic">—</span>}</td>}
+                  {col.show('serial') && <td className="px-4 py-3 font-mono text-slate-500">{c.serial || <span className="text-slate-400 italic">—</span>}</td>}
                   {col.show('ten') && <td className="px-4 py-3 font-medium text-slate-800">{c.ten_khach_hang}<div className="text-xs text-slate-400 font-normal truncate max-w-xs" title={c.dia_chi}>{c.dia_chi}</div></td>}
                   {col.show('model') && <td className="px-4 py-3">{c.model || <span className="text-slate-400 italic">—</span>}</td>}
                   {col.show('hang') && <td className="px-4 py-3">{c.hang || <span className="text-slate-400 italic">—</span>}</td>}
@@ -5962,6 +5967,10 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
                     <button type="button" onClick={() => viewRow(dupCust.id)} className="underline font-medium">Xem dòng</button>
                   </div>
                 )}
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Serial máy</label>
+                <Input value={editing.serial || ""} onChange={(e) => setEditing({ ...editing, serial: e.target.value })} className="bg-white" placeholder="Tùy chọn (nên có với máy thuê)" />
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Model</label>
