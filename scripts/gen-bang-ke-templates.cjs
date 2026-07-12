@@ -115,7 +115,7 @@ function buildDonMay() {
       Da('{{DEN_SD}}'), Da('{{DEN_MF}}'), Da('{{DEN_TP}}'), Da('{{DEN_DG}}'), Da('{{DEN_TT}}'),
       Da('{{PHI_TOI_THIEU_THANG}}', { vMerge: VerticalMergeType.RESTART }),
       Da('{{TONG_TRUOC_VAT}}', { vMerge: VerticalMergeType.RESTART }),
-      Da('{{TONG_SAU_VAT}}', { vMerge: VerticalMergeType.RESTART }),
+      Da('{{TONG_SAU_VAT}}', { vMerge: VerticalMergeType.RESTART, bold: true }),
     ],
   })
   // Dòng Màu A4
@@ -158,7 +158,7 @@ function buildDonMay() {
   // Khối chân trang chữ ký (điều kiện)
   const chanTrang = [
     P(R('{{#HIEN_CHAN_TRANG}}', { size: 2 })),
-    P([R('{{TEN_CONG_TY}}, ', { size: 24 }), R('{{NGAY_LAP_BANG_KE}}', { size: 24 })], { align: AlignmentType.RIGHT, spacing: { before: 160 } }),
+    P(R('{{NGAY_LAP_BANG_KE}}', { size: 24, italics: true }), { align: AlignmentType.RIGHT, spacing: { before: 160 } }),
     twoColSign(),
     P(R('{{/HIEN_CHAN_TRANG}}', { size: 2 })),
   ]
@@ -297,7 +297,7 @@ function buildDaMay() {
   const footer = [
     P([R('Bằng chữ: ', { size: 22, italics: true }), R('{{BANG_CHU}}', { size: 22, italics: true, bold: true })], { spacing: { before: 80 } }),
     P(R('{{#HIEN_CHAN_TRANG}}', { size: 2 })),
-    P([R('{{TEN_CONG_TY}}, ', { size: 24 }), R('{{NGAY_LAP_BANG_KE}}', { size: 24 })], { align: AlignmentType.RIGHT, spacing: { before: 160 } }),
+    P(R('{{NGAY_LAP_BANG_KE}}', { size: 24, italics: true }), { align: AlignmentType.RIGHT, spacing: { before: 160 } }),
     twoColSign(),
     P(R('{{/HIEN_CHAN_TRANG}}', { size: 2 })),
   ]

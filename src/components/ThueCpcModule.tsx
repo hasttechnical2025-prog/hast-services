@@ -12,6 +12,43 @@ type Notify = (type: 'success' | 'error', message: string) => void
 const money = (v: any) => Math.round(Number(v) || 0).toLocaleString('vi-VN')
 const fmtInt = (v: any) => (v === null || v === undefined || v === '' ? '—' : (Number(v) || 0).toLocaleString('vi-VN'))
 const monthNow = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` }
+// Bỏ dấu tiếng Việt để tìm kiếm fuzzy
+const norm = (s: any) => (s || '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()
+
+// Ô nhập số có phân tách hàng nghìn (#.###). Lưu raw (chuỗi chỉ chứa chữ số), hiển thị có dấu chấm.
+function NumInput({ value, onChange, className, placeholder }: { value: any, onChange: (raw: string) => void, className?: string, placeholder?: string }) {
+  const raw = (value === null || value === undefined ? '' : String(value)).replace(/\D/g, '')
+  const disp = raw ? Number(raw).toLocaleString('vi-VN') : ''
+  return <Input inputMode="numeric" placeholder={placeholder} value={disp} onChange={e => onChange(e.target.value.replace(/\D/g, ''))} className={className} />
+}
+
+// Combobox tìm kiếm (fuzzy, bỏ dấu). options: {value,label}[]
+function SearchSelect({ options, value, onChange, placeholder }: { options: { value: string, label: string }[], value: string, onChange: (v: string) => void, placeholder?: string }) {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState(false)
+  const sel = options.find(o => o.value === value)
+  const filtered = q ? options.filter(o => norm(o.label).includes(norm(q))) : options
+  return (
+    <div className="relative">
+      <Input
+        value={open ? q : (sel?.label || '')}
+        placeholder={placeholder || 'Tìm & chọn…'}
+        onChange={e => { setQ(e.target.value); if (!open) setOpen(true) }}
+        onFocus={() => { setQ(''); setOpen(true) }}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        className="h-9"
+      />
+      {open && (
+        <div className="absolute z-20 mt-1 w-full max-h-60 overflow-auto bg-white border border-slate-200 rounded-lg shadow-lg text-sm">
+          {filtered.length === 0 && <div className="px-3 py-2 text-slate-400">Không tìm thấy</div>}
+          {filtered.slice(0, 100).map(o => (
+            <div key={o.value} onMouseDown={() => { onChange(o.value); setOpen(false) }} className={`px-3 py-1.5 cursor-pointer hover:bg-blue-50 ${o.value === value ? 'bg-blue-50 font-medium' : ''}`}>{o.label}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function ThueCpcModule({ showNotification }: { showNotification: Notify }) {
   const [sub, setSub] = useState<'don_gia' | 'counter' | 'khung' | 'bang_ke'>('don_gia')
@@ -94,7 +131,10 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
               {filtered.length === 0 && <tr><td colSpan={9} className="px-3 py-6 text-center text-slate-400">Không có máy nào.</td></tr>}
               {filtered.map(r => (
                 <tr key={r.id} className="hover:bg-slate-50">
-                  <td className="px-3 py-2 font-medium text-slate-700">{r.ten_khach_hang}</td>
+                  <td className="px-3 py-2">
+                    <div className="font-medium text-slate-700">{r.ten_khach_hang}</div>
+                    {r.vi_tri_dat_may && <div className="text-xs text-slate-400">{r.vi_tri_dat_may}</div>}
+                  </td>
                   <td className="px-3 py-2 font-mono text-slate-500">{r.ma_may || '—'}</td>
                   <td className="px-3 py-2"><span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">{r.loai_hd}</span></td>
                   <td className="px-3 py-2 text-right">{money(r.don_gia_bw)}</td>
@@ -218,6 +258,7 @@ function CounterTab({ showNotification }: { showNotification: Notify }) {
   const [loading, setLoading] = useState(true)
   const [edits, setEdits] = useState<Record<string, { so_bw: string, so_mau: string, ghi_chu: string }>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -245,6 +286,12 @@ function CounterTab({ showNotification }: { showNotification: Notify }) {
   }
   const setEdit = (id: string, k: string, v: string) => setEdits(p => ({ ...p, [id]: { ...p[id], [k]: v } }))
 
+  const rows = data?.rows || []
+  const filtered = rows.filter((r: any) => {
+    const q = norm(search)
+    return !q || norm(r.ten_khach_hang).includes(q) || norm(r.ma_may).includes(q) || norm(r.vi_tri_dat_may).includes(q)
+  })
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -252,9 +299,12 @@ function CounterTab({ showNotification }: { showNotification: Notify }) {
           <h3 className="font-bold text-slate-800">Nhập counter hàng tháng</h3>
           <p className="text-xs text-slate-500">Độc lập với Sổ công tác. Nhập chỉ số công-tơ cuối kỳ; cột <b>Kỳ trước</b> là đầu kỳ tham khảo.</p>
         </div>
-        <label className="flex items-center gap-2 text-sm text-slate-600">Kỳ
-          <input type="month" value={thang} onChange={e => setThang(e.target.value)} className="h-9 px-3 rounded-md border border-slate-200 text-sm bg-white" />
-        </label>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Input placeholder="Tìm khách / mã máy / vị trí…" value={search} onChange={e => setSearch(e.target.value)} className="w-64 h-9" />
+          <label className="flex items-center gap-2 text-sm text-slate-600">Kỳ
+            <input type="month" value={thang} onChange={e => setThang(e.target.value)} className="h-9 px-3 rounded-md border border-slate-200 text-sm bg-white" />
+          </label>
+        </div>
       </div>
 
       {loading ? <div className="text-sm text-slate-400 py-8 text-center">Đang tải…</div> : (
@@ -273,15 +323,18 @@ function CounterTab({ showNotification }: { showNotification: Notify }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {(data?.rows || []).length === 0 && <tr><td colSpan={8} className="px-3 py-6 text-center text-slate-400">Không có máy thuê/CPC.</td></tr>}
-              {(data?.rows || []).map((r: any) => (
+              {filtered.length === 0 && <tr><td colSpan={8} className="px-3 py-6 text-center text-slate-400">{rows.length === 0 ? 'Không có máy thuê/CPC.' : 'Không khớp tìm kiếm.'}</td></tr>}
+              {filtered.map((r: any) => (
                 <tr key={r.id} className="hover:bg-slate-50">
-                  <td className="px-3 py-2 font-medium text-slate-700">{r.ten_khach_hang}{r.trach_nhiem_ky_thuat === 'Đối tác ngoài' && <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-100">{r.ten_doi_tac_ky_thuat || 'Đối tác'}</span>}</td>
+                  <td className="px-3 py-2">
+                    <div className="font-medium text-slate-700">{r.ten_khach_hang}{r.trach_nhiem_ky_thuat === 'Đối tác ngoài' && <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-100">{r.ten_doi_tac_ky_thuat || 'Đối tác'}</span>}</div>
+                    {r.vi_tri_dat_may && <div className="text-xs text-slate-400">{r.vi_tri_dat_may}</div>}
+                  </td>
                   <td className="px-3 py-2 font-mono text-slate-500">{r.ma_may || '—'}</td>
                   <td className="px-3 py-2 text-right text-slate-400">{fmtInt(r.so_bw_truoc)}</td>
-                  <td className="px-3 py-2"><Input type="number" value={edits[r.id]?.so_bw ?? ''} onChange={e => setEdit(r.id, 'so_bw', e.target.value)} className="h-8 w-28" /></td>
+                  <td className="px-3 py-2"><NumInput value={edits[r.id]?.so_bw ?? ''} onChange={v => setEdit(r.id, 'so_bw', v)} className="h-8 w-28" /></td>
                   <td className="px-3 py-2 text-right text-slate-400">{fmtInt(r.so_mau_truoc)}</td>
-                  <td className="px-3 py-2"><Input type="number" value={edits[r.id]?.so_mau ?? ''} onChange={e => setEdit(r.id, 'so_mau', e.target.value)} className="h-8 w-28" /></td>
+                  <td className="px-3 py-2"><NumInput value={edits[r.id]?.so_mau ?? ''} onChange={v => setEdit(r.id, 'so_mau', v)} className="h-8 w-28" /></td>
                   <td className="px-3 py-2"><Input value={edits[r.id]?.ghi_chu ?? ''} onChange={e => setEdit(r.id, 'ghi_chu', e.target.value)} className="h-8 w-40" /></td>
                   <td className="px-3 py-2 text-right"><Button onClick={() => saveRow(r)} disabled={savingId === r.id} className="h-8 text-xs bg-blue-600 hover:bg-blue-700">{savingId === r.id ? '…' : 'Lưu'}</Button></td>
                 </tr>
@@ -346,7 +399,7 @@ function KhungTab({ showNotification }: { showNotification: Notify }) {
         <p className="text-sm font-semibold text-slate-600 mb-3">{editingId ? 'Sửa hợp đồng khung' : 'Thêm hợp đồng khung'}</p>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <label className="block md:col-span-2"><span className="text-xs font-medium text-slate-500">Tên hợp đồng</span><Input value={form.ten_hop_dong} onChange={e => setForm({ ...form, ten_hop_dong: e.target.value })} className="h-9 mt-1" placeholder="VD: ĐH Anh Quốc" /></label>
-          <label className="block"><span className="text-xs font-medium text-slate-500">Phí cơ bản / tháng</span><Input type="number" value={form.phi_co_ban} onChange={e => setForm({ ...form, phi_co_ban: e.target.value })} className="h-9 mt-1" /></label>
+          <label className="block"><span className="text-xs font-medium text-slate-500">Phí cơ bản / tháng</span><NumInput value={form.phi_co_ban} onChange={v => setForm({ ...form, phi_co_ban: v })} className="h-9 mt-1" /></label>
           <label className="block"><span className="text-xs font-medium text-slate-500">VAT (%)</span><Input type="number" value={form.vat_thue_cpc} onChange={e => setForm({ ...form, vat_thue_cpc: e.target.value })} className="h-9 mt-1" /></label>
           <label className="block md:col-span-4"><span className="text-xs font-medium text-slate-500">Ghi chú</span><Input value={form.ghi_chu} onChange={e => setForm({ ...form, ghi_chu: e.target.value })} className="h-9 mt-1" /></label>
         </div>
@@ -454,14 +507,18 @@ function BangKeTab({ showNotification }: { showNotification: Notify }) {
               <option value="gop">Gộp (HĐ khung)</option>
             </select>
           </label>
-          <label className="block flex-1 min-w-[220px]">
+          <label className="block flex-1 min-w-[260px]">
             <span className="text-xs font-medium text-slate-500">{loai === 'rieng' ? 'Khách hàng / máy' : 'Hợp đồng khung'}</span>
-            <select value={target} onChange={e => setTarget(e.target.value)} className="h-9 mt-1 w-full rounded-md border border-slate-200 text-sm px-2 bg-white block">
-              <option value="">— Chọn —</option>
-              {loai === 'rieng'
-                ? mays.map(m => <option key={m.id} value={m.id}>{m.ten_khach_hang}{m.ma_may ? ` (${m.ma_may})` : ''}</option>)
-                : khung.map(k => <option key={k.id} value={k.id}>{k.ten_hop_dong}</option>)}
-            </select>
+            <div className="mt-1">
+              <SearchSelect
+                value={target}
+                onChange={setTarget}
+                placeholder={loai === 'rieng' ? 'Tìm khách / mã máy / vị trí…' : 'Tìm hợp đồng khung…'}
+                options={loai === 'rieng'
+                  ? mays.map(m => ({ value: m.id, label: `${m.ten_khach_hang}${m.ma_may ? ` (${m.ma_may})` : ''}${m.vi_tri_dat_may ? ` · ${m.vi_tri_dat_may}` : ''}` }))
+                  : khung.map(k => ({ value: k.id, label: k.ten_hop_dong }))}
+              />
+            </div>
           </label>
           <label className="block">
             <span className="text-xs font-medium text-slate-500">Số HĐ (tùy chọn)</span>

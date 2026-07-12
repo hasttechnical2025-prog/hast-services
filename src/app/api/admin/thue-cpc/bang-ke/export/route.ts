@@ -11,6 +11,9 @@ const TEN_CONG_TY = 'Công ty CP Siêu Thanh Hà Nội'
 
 const money = (v: any) => Math.round(Number(v) || 0).toLocaleString('vi-VN')
 const num = (v: any) => (v === null || v === undefined || v === '' ? '' : (Number(v) || 0).toLocaleString('vi-VN'))
+// Số/tiền = 0 (hoặc rỗng) -> để TRỐNG (tránh in "0" gây rối cho máy chỉ có bản đen trắng)
+const numB = (v: any) => (Number(v) > 0 ? Number(v).toLocaleString('vi-VN') : '')
+const moneyB = (v: any) => (Number(v) > 0 ? Math.round(Number(v)).toLocaleString('vi-VN') : '')
 // Hiển thị '-' khi bằng 0 (cột số bản tính phí / thành tiền, giống mẫu giấy)
 const dash = (v: any) => (Number(v) > 0 ? (Number(v)).toLocaleString('vi-VN') : '-')
 const fmtDMY = (d: any) => {
@@ -21,7 +24,7 @@ const fmtDMY = (d: any) => {
 }
 // định mức hiển thị: cam kết tối thiểu ưu tiên, ngược lại định mức miễn phí
 const dinhMuc = (mienPhi: any, camKet: any) => (Number(camKet) > 0 ? Number(camKet) : Number(mienPhi) || 0)
-const ngayLapBangKe = (created: any) => { const d = new Date(created); return `ngày ${String(d.getDate()).padStart(2, '0')} tháng ${String(d.getMonth() + 1).padStart(2, '0')} năm ${d.getFullYear()}` }
+const ngayLapBangKe = (created: any) => { const d = new Date(created); return `Hà Nội, ngày ${String(d.getDate()).padStart(2, '0')} tháng ${String(d.getMonth() + 1).padStart(2, '0')} năm ${d.getFullYear()}` }
 
 function render(templateFile: string, data: Record<string, any>) {
   const tplPath = path.join(process.cwd(), 'src', 'lib', 'report', templateFile)
@@ -88,22 +91,22 @@ export async function GET(request: Request) {
         return {
           stt: String(i + 1), ma: kh.ma_may || '', ten: kh.model || '',
           gia: Number(kh.phi_thue_thang) > 0 ? money(kh.phi_thue_thang) : '',
-          dk_ngay: '', dk_den: num(r.so_bw_dau_ky), dk_mau: num(r.so_mau_dau_ky),
-          ck_ngay: '', ck_den: num(r.so_bw_cuoi_ky), ck_mau: num(r.so_mau_cuoi_ky),
-          sd_den: num((r.so_bw_cuoi_ky || 0) - (r.so_bw_dau_ky || 0)), sd_mau: num((r.so_mau_cuoi_ky || 0) - (r.so_mau_dau_ky || 0)),
-          mp_den: num(dinhMuc(kh.dinh_muc_mien_phi_bw, kh.cam_ket_toi_thieu_bw)), mp_mau: num(dinhMuc(kh.dinh_muc_mien_phi_mau, kh.cam_ket_toi_thieu_mau)),
+          dk_ngay: '', dk_den: numB(r.so_bw_dau_ky), dk_mau: numB(r.so_mau_dau_ky),
+          ck_ngay: '', ck_den: numB(r.so_bw_cuoi_ky), ck_mau: numB(r.so_mau_cuoi_ky),
+          sd_den: numB((r.so_bw_cuoi_ky || 0) - (r.so_bw_dau_ky || 0)), sd_mau: numB((r.so_mau_cuoi_ky || 0) - (r.so_mau_dau_ky || 0)),
+          mp_den: numB(dinhMuc(kh.dinh_muc_mien_phi_bw, kh.cam_ket_toi_thieu_bw)), mp_mau: numB(dinhMuc(kh.dinh_muc_mien_phi_mau, kh.cam_ket_toi_thieu_mau)),
           tp_den: dash(r.so_bw_tinh_phi), tp_mau: dash(r.so_mau_tinh_phi),
-          dg_den: num(kh.don_gia_bw), dg_mau: num(kh.don_gia_mau),
+          dg_den: numB(kh.don_gia_bw), dg_mau: numB(kh.don_gia_mau),
           card: '', tt_den: dash(tienDen), tt_mau: dash(tienMau),
-          tt_may_bc: money(r.thanh_tien), vat_tien: '', tong: '',
+          tt_may_bc: moneyB(r.thanh_tien), vat_tien: '', tong: '',
         }
       })
       const data = {
         ...common,
         TEN_KH: bk.soct_thue_cpc_hop_dong_khung?.ten_hop_dong || '',
         DIA_CHI: kh0.dia_chi || '', DIA_CHI_MAY: kh0.vi_tri_dat_may || '',
-        GIA_THUE_CO_BAN: money(bk.soct_thue_cpc_hop_dong_khung?.phi_co_ban ?? 0),
-        TONG_SD_DEN: num(sdD), TONG_SD_MAU: num(sdM),
+        GIA_THUE_CO_BAN: moneyB(bk.soct_thue_cpc_hop_dong_khung?.phi_co_ban ?? 0),
+        TONG_SD_DEN: numB(sdD), TONG_SD_MAU: numB(sdM),
         TONG_TP_DEN: dash(tpD), TONG_TP_MAU: dash(tpM),
         TONG_CARD: '', TONG_TT_DEN: dash(ttD), TONG_TT_MAU: dash(ttM),
         TONG_MAY_BC: money(bk.tong_truoc_vat),
@@ -124,17 +127,17 @@ export async function GET(request: Request) {
         TEN_KH: kh.ten_khach_hang || '', DIA_CHI: kh.dia_chi || '', VI_TRI_DAT_MAY: kh.vi_tri_dat_may || '',
         NGAY_CHOT: kh.ngay_chot_so || '', MA_MAY: kh.ma_may || '', NGUOI_LIEN_HE: kh.nguoi_lien_he || '',
         MODEL: kh.model || '', EMAIL: kh.email || '', EOD: fmtDMY(kh.ngay_lap_may),
-        DON_GIA_BW: num(kh.don_gia_bw), DON_GIA_MAU: num(kh.don_gia_mau),
+        DON_GIA_BW: numB(kh.don_gia_bw), DON_GIA_MAU: numB(kh.don_gia_mau),
         NGAY_DAU: '', NGAY_CUOI: '',
-        DEN_SO_DAU: num(r.so_bw_dau_ky), DEN_SO_CUOI: num(r.so_bw_cuoi_ky),
-        DEN_SD: num((r.so_bw_cuoi_ky || 0) - (r.so_bw_dau_ky || 0)),
-        DEN_MF: num(dinhMuc(kh.dinh_muc_mien_phi_bw, kh.cam_ket_toi_thieu_bw)),
-        DEN_TP: dash(r.so_bw_tinh_phi), DEN_DG: num(kh.don_gia_bw), DEN_TT: dash(tienDen),
-        MAU_SO_DAU: num(r.so_mau_dau_ky), MAU_SO_CUOI: num(r.so_mau_cuoi_ky),
-        MAU_SD: num((r.so_mau_cuoi_ky || 0) - (r.so_mau_dau_ky || 0)),
-        MAU_MF: num(dinhMuc(kh.dinh_muc_mien_phi_mau, kh.cam_ket_toi_thieu_mau)),
-        MAU_TP: dash(r.so_mau_tinh_phi), MAU_DG: num(kh.don_gia_mau), MAU_TT: dash(tienMau),
-        PHI_TOI_THIEU_THANG: money(r.phi_thue_co_dinh),
+        DEN_SO_DAU: numB(r.so_bw_dau_ky), DEN_SO_CUOI: numB(r.so_bw_cuoi_ky),
+        DEN_SD: numB((r.so_bw_cuoi_ky || 0) - (r.so_bw_dau_ky || 0)),
+        DEN_MF: numB(dinhMuc(kh.dinh_muc_mien_phi_bw, kh.cam_ket_toi_thieu_bw)),
+        DEN_TP: dash(r.so_bw_tinh_phi), DEN_DG: numB(kh.don_gia_bw), DEN_TT: dash(tienDen),
+        MAU_SO_DAU: numB(r.so_mau_dau_ky), MAU_SO_CUOI: numB(r.so_mau_cuoi_ky),
+        MAU_SD: numB((r.so_mau_cuoi_ky || 0) - (r.so_mau_dau_ky || 0)),
+        MAU_MF: numB(dinhMuc(kh.dinh_muc_mien_phi_mau, kh.cam_ket_toi_thieu_mau)),
+        MAU_TP: dash(r.so_mau_tinh_phi), MAU_DG: numB(kh.don_gia_mau), MAU_TT: dash(tienMau),
+        PHI_TOI_THIEU_THANG: moneyB(r.phi_thue_co_dinh),
       }
       buf = render('bang-ke-don-may.docx', data)
       tenFile = `Bang-ke-ban-chup-${data.TEN_KH || 'KH'}-${bk.thang_nam}`
