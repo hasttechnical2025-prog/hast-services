@@ -12,7 +12,7 @@ const path = require('path')
 const {
   Document, Packer, Paragraph, TextRun, ImageRun, Table, TableRow, TableCell,
   WidthType, BorderStyle, AlignmentType, VerticalMergeType, VerticalAlign,
-  HeadingLevel, PageOrientation, TableLayoutType, LineRuleType,
+  HeadingLevel, PageOrientation, TableLayoutType, LineRuleType, HeightRule,
 } = require('docx')
 
 // Giãn dòng 1.5 (240 = single, 360 = 1.5) cho phần chữ info phía trên bảng
@@ -63,9 +63,10 @@ const logoImg = (widthPx) => new Paragraph({
 })
 
 // Nhãn:giá trị trên 1 dòng (label đậm, value thường)
+// o.valBold: giá trị in đậm hay không (mặc định true)
 const labelVal = (label, en, ph, o = {}) => P([
   R(label, { size: 24, bold: false }), en ? R(` /${en}`, { size: 22, italics: true }) : R(''), R(': ', { size: 24 }),
-  R(`{{${ph}}}`, { size: 24, bold: true }),
+  R(`{{${ph}}}`, { size: 24, bold: o.valBold !== false }),
 ], { spacing: { before: 20, after: 20, ...LS15 } })
 
 // =====================================================================
@@ -107,14 +108,16 @@ function buildDonMay() {
   const codes = ['A', 'B', 'C', 'D', 'E', 'F=E-C', 'G', 'H', 'I', 'J', 'K', 'L=Σ(J+K)', 'M']
   const hr3 = new TableRow({ children: codes.map(c => D(c, { size: 16, fill: 'F2F2F2' })) })
 
+  const rowH = { height: { value: 567, rule: HeightRule.ATLEAST } } // cao 1cm (567 twips)
   // Dòng Đen A4
   const rowDen = new TableRow({
+    ...rowH,
     children: [
       Da('Đen A4', { bold: true, align: AlignmentType.LEFT }),
-      Da('{{NGAY_DAU}}', { vMerge: VerticalMergeType.RESTART }),
-      Da('{{DEN_SO_DAU}}'),
-      Da('{{NGAY_CUOI}}', { vMerge: VerticalMergeType.RESTART }),
-      Da('{{DEN_SO_CUOI}}'),
+      Da('{{NGAY_DAU}}', { vMerge: VerticalMergeType.RESTART, bold: true }),
+      Da('{{DEN_SO_DAU}}', { bold: true }),
+      Da('{{NGAY_CUOI}}', { vMerge: VerticalMergeType.RESTART, bold: true }),
+      Da('{{DEN_SO_CUOI}}', { bold: true }),
       Da('{{DEN_SD}}'), Da('{{DEN_MF}}'), Da('{{DEN_TP}}'), Da('{{DEN_DG}}'), Da('{{DEN_TT}}'),
       Da('{{PHI_TOI_THIEU_THANG}}', { vMerge: VerticalMergeType.RESTART }),
       Da('{{TONG_TRUOC_VAT}}', { vMerge: VerticalMergeType.RESTART }),
@@ -123,9 +126,10 @@ function buildDonMay() {
   })
   // Dòng Màu A4
   const rowMau = new TableRow({
+    ...rowH,
     children: [
       Da('Màu A4', { bold: true, align: AlignmentType.LEFT }),
-      CONT(), Da('{{MAU_SO_DAU}}'), CONT(), Da('{{MAU_SO_CUOI}}'),
+      CONT(), Da('{{MAU_SO_DAU}}', { bold: true }), CONT(), Da('{{MAU_SO_CUOI}}', { bold: true }),
       Da('{{MAU_SD}}'), Da('{{MAU_MF}}'), Da('{{MAU_TP}}'), Da('{{MAU_DG}}'), Da('{{MAU_TT}}'),
       CONT(), CONT(), CONT(),
     ],
@@ -140,13 +144,13 @@ function buildDonMay() {
   })
 
   const info = [
-    labelVal('Tên KH', 'Customer Name', 'TEN_KH'),
-    labelVal('Địa chỉ', 'Address', 'DIA_CHI'),
-    labelVal('Vị trí đặt máy', 'Machine located', 'VI_TRI_DAT_MAY'),
+    labelVal('Tên KH', 'Customer Name', 'TEN_KH'),                       // tên KH: đậm (+ UPPER ở dữ liệu)
+    labelVal('Địa chỉ', 'Address', 'DIA_CHI', { valBold: false }),        // thường
+    labelVal('Vị trí đặt máy', 'Machine located', 'VI_TRI_DAT_MAY', { valBold: false }),
     // 2 cột: dùng bảng ẩn viền cho căn hàng nhãn trái/phải
-    infoTwoCol('Ngày chốt counter thanh toán', '', 'NGAY_CHOT', 'Mã máy', 'Code', 'MA_MAY'),
-    infoTwoCol('Người liên hệ', 'PIC', 'NGUOI_LIEN_HE', 'Loại máy', 'Model', 'MODEL'),
-    infoTwoCol('Email', '', 'EMAIL', 'Thời hạn', 'EOD', 'EOD'),
+    infoTwoCol('Ngày chốt counter thanh toán', '', 'NGAY_CHOT', 'Mã máy', 'Code', 'MA_MAY', { lBold: false, rBold: true }),
+    infoTwoCol('Người liên hệ', 'PIC', 'NGUOI_LIEN_HE', 'Loại máy', 'Model', 'MODEL', { lBold: false, rBold: true }),
+    infoTwoCol('Email', '', 'EMAIL', 'Thời hạn', 'EOD', 'EOD', { lBold: false, rBold: false }),
     P([
       R('Phí bản in', { size: 24 }), R(' /Copy Cost (VNĐ/A4 chưa VAT /excl. tax)', { size: 22, italics: true }), R(': ', { size: 24 }),
       R('Đen /B&W: ', { size: 24 }), R('{{DON_GIA_BW}}', { size: 24, bold: true }),
@@ -161,8 +165,8 @@ function buildDonMay() {
   // Khối chân trang chữ ký (điều kiện)
   const chanTrang = [
     P(R('{{#HIEN_CHAN_TRANG}}', { size: 2 })),
-    P(R('{{NGAY_LAP_BANG_KE}}', { size: 24, italics: true }), { align: AlignmentType.RIGHT, spacing: { before: 160 } }),
-    twoColSign(),
+    P(R('')),
+    twoColSign(true),
     P(R('{{/HIEN_CHAN_TRANG}}', { size: 2 })),
   ]
 
@@ -173,7 +177,9 @@ function buildDonMay() {
       properties: { page: { size: { width: 11906, height: 16838, orientation: PageOrientation.LANDSCAPE }, margin: { top: 400, bottom: 400, left: 400, right: 400 } } },
       children: [
         logoImg(1000),
-        txt('BẢNG KÊ THANH TOÁN PHÍ DỊCH VỤ BẢN CHỤP', { bold: true, size: 30, align: AlignmentType.CENTER, spacing: { before: 60, after: 120 } }),
+        P(R('')), // cách letterhead 1 enter
+        txt('BẢNG KÊ THANH TOÁN PHÍ DỊCH VỤ BẢN CHỤP', { bold: true, size: 30, align: AlignmentType.CENTER }),
+        P(R('')), // cách BẢNG KÊ 1 enter
         ...info,
         table,
         ...footer,
@@ -184,26 +190,35 @@ function buildDonMay() {
 }
 
 // Bảng 2 cột ẩn viền để căn nhãn trái | phải trong khối info
-function infoTwoCol(lLabel, lEn, lPh, rLabel, rEn, rPh) {
+// o.lBold / o.rBold: giá trị cột trái/phải in đậm (mặc định true)
+function infoTwoCol(lLabel, lEn, lPh, rLabel, rEn, rPh, o = {}) {
   const noBorder = { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE }, insideHorizontal: { style: BorderStyle.NONE }, insideVertical: { style: BorderStyle.NONE } }
-  const c = (label, en, ph) => new TableCell({
+  const c = (label, en, ph, bold) => new TableCell({
     borders: noBorder, margins: { top: 0, bottom: 0, left: 0, right: 0 },
-    children: [P([R(label, { size: 24 }), en ? R(` /${en}`, { size: 22, italics: true }) : R(''), R(': ', { size: 24 }), R(`{{${ph}}}`, { size: 24, bold: true })], { spacing: { before: 20, after: 20, ...LS15 } })],
+    children: [P([R(label, { size: 24 }), en ? R(` /${en}`, { size: 22, italics: true }) : R(''), R(': ', { size: 24 }), R(`{{${ph}}}`, { size: 24, bold: bold !== false })], { spacing: { before: 20, after: 20, ...LS15 } })],
   })
   return new Table({
     columnWidths: [8600, 7300], width: { size: 15900, type: WidthType.DXA }, layout: TableLayoutType.FIXED,
     borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE }, insideHorizontal: { style: BorderStyle.NONE }, insideVertical: { style: BorderStyle.NONE } },
-    rows: [new TableRow({ children: [c(lLabel, lEn, lPh), c(rLabel, rEn, rPh)] })],
+    rows: [new TableRow({ children: [c(lLabel, lEn, lPh, o.lBold), c(rLabel, rEn, rPh, o.rBold)] })],
   })
 }
 
-function twoColSign() {
+// dateInRight=true (Mẫu A): "Hà Nội, ngày..." canh giữa trên ĐẠI DIỆN CÔNG TY (cột phải).
+// mặc định false (Mẫu B): giữ nguyên 2 cột KHÁCH HÀNG | CÔNG TY.
+function twoColSign(dateInRight) {
   const noBorder = { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE }, insideHorizontal: { style: BorderStyle.NONE }, insideVertical: { style: BorderStyle.NONE } }
-  const c = (t) => new TableCell({ borders: noBorder, children: [txt(t, { bold: true, size: 24, align: AlignmentType.CENTER, spacing: { before: 80 } })] })
+  const cell = (paras) => new TableCell({ borders: noBorder, children: paras })
+  const left = dateInRight
+    ? cell([txt('', { size: 24, align: AlignmentType.CENTER }), txt('ĐẠI DIỆN KHÁCH HÀNG', { bold: true, size: 24, align: AlignmentType.CENTER })])
+    : cell([txt('ĐẠI DIỆN KHÁCH HÀNG', { bold: true, size: 24, align: AlignmentType.CENTER, spacing: { before: 80 } })])
+  const right = dateInRight
+    ? cell([txt('{{NGAY_LAP_BANG_KE}}', { bold: true, size: 24, align: AlignmentType.CENTER }), txt('ĐẠI DIỆN CÔNG TY', { bold: true, size: 24, align: AlignmentType.CENTER })])
+    : cell([txt('ĐẠI DIỆN CÔNG TY', { bold: true, size: 24, align: AlignmentType.CENTER, spacing: { before: 80 } })])
   return new Table({
     columnWidths: [7950, 7950], width: { size: 15900, type: WidthType.DXA }, layout: TableLayoutType.FIXED,
     borders: noBorder,
-    rows: [new TableRow({ children: [c('ĐẠI DIỆN KHÁCH HÀNG'), c('ĐẠI DIỆN CÔNG TY')] })],
+    rows: [new TableRow({ children: [left, right] })],
   })
 }
 

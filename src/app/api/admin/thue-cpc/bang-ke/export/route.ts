@@ -140,7 +140,7 @@ export async function GET(request: Request) {
       const tienMau = (r.so_mau_tinh_phi || 0) * (kh.don_gia_mau || 0)
       const data = {
         ...common,
-        TEN_KH: kh.ten_khach_hang || '', DIA_CHI: kh.dia_chi || '', VI_TRI_DAT_MAY: kh.vi_tri_dat_may || '',
+        TEN_KH: (kh.ten_khach_hang || '').toUpperCase(), DIA_CHI: kh.dia_chi || '', VI_TRI_DAT_MAY: kh.vi_tri_dat_may || '',
         NGAY_CHOT: chotSoLabel(kh.chot_so_ngay, kh.chot_so_cuoi_thang) || kh.ngay_chot_so || '', MA_MAY: kh.ma_may || '', NGUOI_LIEN_HE: kh.nguoi_lien_he || '',
         MODEL: kh.model || '', EMAIL: kh.email || '', EOD: fmtDMY(kh.ngay_lap_may),
         DON_GIA_BW: numB(kh.don_gia_bw), DON_GIA_MAU: numB(kh.don_gia_mau),
