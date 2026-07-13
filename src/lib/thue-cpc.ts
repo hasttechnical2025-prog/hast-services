@@ -94,17 +94,25 @@ export function kyTruoc(thang_nam: string): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
-// Ngày chốt số thực tế trong kỳ 'YYYY-MM' (kẹp theo số ngày của tháng; cuối tháng = ngày cuối).
-// Trả về Date (UTC) hoặc null nếu chưa cấu hình.
+// Ngày ĐỌC counter đóng kỳ 'YYYY-MM' (= cuối kỳ). Trả về Date (UTC) hoặc null nếu chưa cấu hình.
+// - Cuối tháng: đọc vào ngày cuối của CHÍNH tháng M (kỳ trùng tháng dương lịch).
+// - Giữa tháng (ngày D): kỳ chạy D/M -> D/(M+1), nên đọc vào ngày D của tháng M+1.
 export function chotSoDate(thang_nam: string, chot_so_ngay: number | null | undefined, cuoi_thang: boolean): Date | null {
   const [y, m] = thang_nam.split('-').map(Number)
   if (!y || !m) return null
-  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate()
-  let day: number
-  if (cuoi_thang) day = lastDay
-  else if (chot_so_ngay && chot_so_ngay >= 1) day = Math.min(chot_so_ngay, lastDay)
-  else return null
-  return new Date(Date.UTC(y, m - 1, day))
+  if (cuoi_thang) {
+    const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate()
+    return new Date(Date.UTC(y, m - 1, lastDay))
+  }
+  if (chot_so_ngay && chot_so_ngay >= 1) {
+    // Tháng M+1 (m là 1-based -> chỉ số tháng = m ứng với tháng kế tiếp)
+    const next = new Date(Date.UTC(y, m, 1))
+    const ny = next.getUTCFullYear()
+    const nIdx = next.getUTCMonth() // 0-based của tháng M+1
+    const lastDayNext = new Date(Date.UTC(ny, nIdx + 1, 0)).getUTCDate()
+    return new Date(Date.UTC(ny, nIdx, Math.min(chot_so_ngay, lastDayNext)))
+  }
+  return null
 }
 
 // Chuỗi ngày chốt để in bảng kê (VD "Ngày 25 hàng tháng", "Cuối tháng").

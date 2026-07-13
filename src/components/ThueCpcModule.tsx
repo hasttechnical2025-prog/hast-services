@@ -66,27 +66,28 @@ function SearchSelect({ options, value, onChange, placeholder }: { options: { va
 
 export default function ThueCpcModule({ showNotification }: { showNotification: Notify }) {
   const [sub, setSub] = useState<'don_gia' | 'counter' | 'khung' | 'bang_ke'>('don_gia')
-  const [dueCount, setDueCount] = useState(0) // số máy cần lấy counter kỳ hiện tại (badge tab)
+  const [dueCount, setDueCount] = useState(0) // số máy cần lấy counter (badge tab) — theo kỳ đang chọn
+  const [counterThang, setCounterThang] = useState(monthNow()) // kỳ đang chọn ở tab Nhập counter (nâng lên để badge bám theo)
+  const [badgeVer, setBadgeVer] = useState(0) // tăng sau mỗi lần lưu counter -> badge tính lại
   const tabs: [typeof sub, string][] = [
     ['don_gia', 'Đơn giá HĐ'],
     ['counter', 'Nhập counter'],
     ['khung', 'Hợp đồng khung'],
     ['bang_ke', 'Bảng kê'],
   ]
-  // Đếm máy cần lấy counter tháng này để gắn badge lên tab
+  // Đếm máy cần lấy counter cho KỲ ĐANG CHỌN để gắn badge lên tab
   useEffect(() => {
-    const cur = monthNow()
     const today = vnTodayStr()
-    fetch(`/api/admin/thue-cpc/counter?thang_nam=${cur}`).then(r => r.ok ? r.json() : { data: { rows: [] } }).then(j => {
+    fetch(`/api/admin/thue-cpc/counter?thang_nam=${counterThang}`).then(r => r.ok ? r.json() : { data: { rows: [] } }).then(j => {
       let n = 0
       for (const r of j.data?.rows || []) {
         const daNhap = r.so_bw != null || r.so_mau != null
-        const s = counterStatus(chotSoDate(cur, r.chot_so_ngay, r.chot_so_cuoi_thang), daNhap, today).status
+        const s = counterStatus(chotSoDate(counterThang, r.chot_so_ngay, r.chot_so_cuoi_thang), daNhap, today).status
         if (s === 'overdue' || s === 'due_soon') n++
       }
       setDueCount(n)
     }).catch(() => { })
-  }, [])
+  }, [counterThang, badgeVer])
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
       <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit mb-5 overflow-x-auto">
@@ -98,7 +99,7 @@ export default function ThueCpcModule({ showNotification }: { showNotification: 
         ))}
       </div>
       {sub === 'don_gia' && <DonGiaTab showNotification={showNotification} />}
-      {sub === 'counter' && <CounterTab showNotification={showNotification} />}
+      {sub === 'counter' && <CounterTab showNotification={showNotification} thang={counterThang} setThang={setCounterThang} onSaved={() => setBadgeVer(v => v + 1)} />}
       {sub === 'khung' && <KhungTab showNotification={showNotification} />}
       {sub === 'bang_ke' && <BangKeTab showNotification={showNotification} />}
     </div>
@@ -325,8 +326,7 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
 }
 
 // ============================ TAB 2: NHẬP COUNTER ============================
-function CounterTab({ showNotification }: { showNotification: Notify }) {
-  const [thang, setThang] = useState(monthNow())
+function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotification: Notify, thang: string, setThang: (v: string) => void, onSaved: () => void }) {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [edits, setEdits] = useState<Record<string, { so_bw: string, so_mau: string, ghi_chu: string }>>({})
@@ -359,6 +359,7 @@ function CounterTab({ showNotification }: { showNotification: Notify }) {
       const bw = e.so_bw === '' || e.so_bw == null ? null : (parseInt(e.so_bw, 10) || 0)
       const mau = e.so_mau === '' || e.so_mau == null ? null : (parseInt(e.so_mau, 10) || 0)
       setData((prev: any) => prev ? { ...prev, rows: prev.rows.map((row: any) => row.id === r.id ? { ...row, so_bw: bw, so_mau: mau, ghi_chu: e.ghi_chu ?? '' } : row) } : prev)
+      onSaved() // cập nhật lại badge trên tab
       showNotification('success', `Đã lưu counter ${r.ten_khach_hang}`)
     } catch (e: any) { showNotification('error', e.message) }
     finally { setSavingId(null) }
