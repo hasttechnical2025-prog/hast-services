@@ -6,7 +6,7 @@ import Docxtemplater from 'docxtemplater'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { docSoTien } from '@/lib/report/bao-gia'
-import { chotSoLabel } from '@/lib/thue-cpc'
+import { chotSoLabel, chotSoDate, kyTruoc } from '@/lib/thue-cpc'
 
 const TEN_CONG_TY = 'Công ty CP Siêu Thanh Hà Nội'
 
@@ -22,6 +22,20 @@ const fmtDMY = (d: any) => {
   const dt = new Date(d)
   if (isNaN(dt.getTime())) return String(d)
   return `${String(dt.getUTCDate()).padStart(2, '0')}/${String(dt.getUTCMonth() + 1).padStart(2, '0')}/${dt.getUTCFullYear()}`
+}
+// Ngày Đầu kỳ / Cuối kỳ (DD/MM/YYYY) cho ô NGÀY trong bảng kê:
+// - Cuối tháng: đầu kỳ = ngày 1 tháng M, cuối kỳ = ngày cuối tháng M.
+// - Giữa tháng (ngày D): đầu kỳ = D tháng M (chotSoDate kỳ trước), cuối kỳ = D tháng M+1 (chotSoDate kỳ này).
+function kyNgay(thang_nam: string, chot_so_ngay: any, cuoi_thang: boolean): { dau: string, cuoi: string } {
+  const cuoi = chotSoDate(thang_nam, chot_so_ngay, cuoi_thang)
+  let dau: Date | null
+  if (cuoi_thang) {
+    const [y, m] = String(thang_nam).split('-').map(Number)
+    dau = (y && m) ? new Date(Date.UTC(y, m - 1, 1)) : null
+  } else {
+    dau = chotSoDate(kyTruoc(thang_nam), chot_so_ngay, false)
+  }
+  return { dau: fmtDMY(dau), cuoi: fmtDMY(cuoi) }
 }
 // định mức hiển thị: cam kết tối thiểu ưu tiên, ngược lại định mức miễn phí
 const dinhMuc = (mienPhi: any, camKet: any) => (Number(camKet) > 0 ? Number(camKet) : Number(mienPhi) || 0)
@@ -83,6 +97,7 @@ export async function GET(request: Request) {
       let sdD = 0, sdM = 0, tpD = 0, tpM = 0, ttD = 0, ttM = 0
       const ds = rows.map((r: any, i: number) => {
         const kh = r.soct_khach_hang || {}
+        const kn = kyNgay(bk.thang_nam, kh.chot_so_ngay, kh.chot_so_cuoi_thang)
         const tienDen = (r.so_bw_tinh_phi || 0) * (kh.don_gia_bw || 0)
         const tienMau = (r.so_mau_tinh_phi || 0) * (kh.don_gia_mau || 0)
         sdD += (r.so_bw_cuoi_ky || 0) - (r.so_bw_dau_ky || 0)
@@ -92,8 +107,8 @@ export async function GET(request: Request) {
         return {
           stt: String(i + 1), ma: kh.ma_may || '', ten: kh.model || '',
           gia: Number(kh.phi_thue_thang) > 0 ? money(kh.phi_thue_thang) : '',
-          dk_ngay: '', dk_den: numB(r.so_bw_dau_ky), dk_mau: numB(r.so_mau_dau_ky),
-          ck_ngay: '', ck_den: numB(r.so_bw_cuoi_ky), ck_mau: numB(r.so_mau_cuoi_ky),
+          dk_ngay: kn.dau, dk_den: numB(r.so_bw_dau_ky), dk_mau: numB(r.so_mau_dau_ky),
+          ck_ngay: kn.cuoi, ck_den: numB(r.so_bw_cuoi_ky), ck_mau: numB(r.so_mau_cuoi_ky),
           sd_den: numB((r.so_bw_cuoi_ky || 0) - (r.so_bw_dau_ky || 0)), sd_mau: numB((r.so_mau_cuoi_ky || 0) - (r.so_mau_dau_ky || 0)),
           mp_den: numB(dinhMuc(kh.dinh_muc_mien_phi_bw, kh.cam_ket_toi_thieu_bw)), mp_mau: numB(dinhMuc(kh.dinh_muc_mien_phi_mau, kh.cam_ket_toi_thieu_mau)),
           tp_den: dash(r.so_bw_tinh_phi), tp_mau: dash(r.so_mau_tinh_phi),
@@ -129,7 +144,8 @@ export async function GET(request: Request) {
         NGAY_CHOT: chotSoLabel(kh.chot_so_ngay, kh.chot_so_cuoi_thang) || kh.ngay_chot_so || '', MA_MAY: kh.ma_may || '', NGUOI_LIEN_HE: kh.nguoi_lien_he || '',
         MODEL: kh.model || '', EMAIL: kh.email || '', EOD: fmtDMY(kh.ngay_lap_may),
         DON_GIA_BW: numB(kh.don_gia_bw), DON_GIA_MAU: numB(kh.don_gia_mau),
-        NGAY_DAU: '', NGAY_CUOI: '',
+        NGAY_DAU: kyNgay(bk.thang_nam, kh.chot_so_ngay, kh.chot_so_cuoi_thang).dau,
+        NGAY_CUOI: kyNgay(bk.thang_nam, kh.chot_so_ngay, kh.chot_so_cuoi_thang).cuoi,
         DEN_SO_DAU: numB(r.so_bw_dau_ky), DEN_SO_CUOI: numB(r.so_bw_cuoi_ky),
         DEN_SD: numB((r.so_bw_cuoi_ky || 0) - (r.so_bw_dau_ky || 0)),
         DEN_MF: numB(dinhMuc(kh.dinh_muc_mien_phi_bw, kh.cam_ket_toi_thieu_bw)),

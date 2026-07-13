@@ -12,8 +12,11 @@ const path = require('path')
 const {
   Document, Packer, Paragraph, TextRun, ImageRun, Table, TableRow, TableCell,
   WidthType, BorderStyle, AlignmentType, VerticalMergeType, VerticalAlign,
-  HeadingLevel, PageOrientation, TableLayoutType,
+  HeadingLevel, PageOrientation, TableLayoutType, LineRuleType,
 } = require('docx')
+
+// Giãn dòng 1.5 (240 = single, 360 = 1.5) cho phần chữ info phía trên bảng
+const LS15 = { line: 360, lineRule: LineRuleType.AUTO }
 
 const FONT = 'Times New Roman'
 // PNG RGB (ảnh gốc là JPEG CMYK làm Word báo "corrupt" -> đã convert sang sRGB PNG)
@@ -63,7 +66,7 @@ const logoImg = (widthPx) => new Paragraph({
 const labelVal = (label, en, ph, o = {}) => P([
   R(label, { size: 24, bold: false }), en ? R(` /${en}`, { size: 22, italics: true }) : R(''), R(': ', { size: 24 }),
   R(`{{${ph}}}`, { size: 24, bold: true }),
-], { spacing: { before: 20, after: 20 } })
+], { spacing: { before: 20, after: 20, ...LS15 } })
 
 // =====================================================================
 // MẪU A — ĐƠN MÁY (Hình 1): BẢNG KÊ THANH TOÁN PHÍ DỊCH VỤ BẢN CHỤP
@@ -148,12 +151,12 @@ function buildDonMay() {
       R('Phí bản in', { size: 24 }), R(' /Copy Cost (VNĐ/A4 chưa VAT /excl. tax)', { size: 22, italics: true }), R(': ', { size: 24 }),
       R('Đen /B&W: ', { size: 24 }), R('{{DON_GIA_BW}}', { size: 24, bold: true }),
       R('     Màu/Color: ', { size: 24 }), R('{{DON_GIA_MAU}}', { size: 24, bold: true }),
-    ], { spacing: { before: 20, after: 80 } }),
+    ], { spacing: { before: 20, after: 80, ...LS15 } }),
   ]
 
   const footer = [
     P(R('')),
-    P([R('Bằng chữ: ', { size: 24, italics: true }), R('{{BANG_CHU}}', { size: 24, italics: true, bold: true })], { spacing: { before: 60 } }),
+    P([R('Bằng chữ: ', { size: 24, italics: true }), R('{{BANG_CHU}}', { size: 24, italics: true, bold: true })], { align: AlignmentType.RIGHT, spacing: { before: 60 } }),
   ]
   // Khối chân trang chữ ký (điều kiện)
   const chanTrang = [
@@ -185,7 +188,7 @@ function infoTwoCol(lLabel, lEn, lPh, rLabel, rEn, rPh) {
   const noBorder = { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE }, insideHorizontal: { style: BorderStyle.NONE }, insideVertical: { style: BorderStyle.NONE } }
   const c = (label, en, ph) => new TableCell({
     borders: noBorder, margins: { top: 0, bottom: 0, left: 0, right: 0 },
-    children: [P([R(label, { size: 24 }), en ? R(` /${en}`, { size: 22, italics: true }) : R(''), R(': ', { size: 24 }), R(`{{${ph}}}`, { size: 24, bold: true })])],
+    children: [P([R(label, { size: 24 }), en ? R(` /${en}`, { size: 22, italics: true }) : R(''), R(': ', { size: 24 }), R(`{{${ph}}}`, { size: 24, bold: true })], { spacing: { before: 20, after: 20, ...LS15 } })],
   })
   return new Table({
     columnWidths: [8600, 7300], width: { size: 15900, type: WidthType.DXA }, layout: TableLayoutType.FIXED,
@@ -290,12 +293,12 @@ function buildDaMay() {
   })
 
   const info = [
-    P([R('Tên Khách hàng: ', { size: 24 }), R('{{TEN_KH}}', { size: 24, bold: true })], { spacing: { before: 20, after: 20 } }),
-    P([R('Địa chỉ: ', { size: 24 }), R('{{DIA_CHI}}', { size: 24, bold: true })], { spacing: { after: 20 } }),
-    P([R('Địa chỉ đặt máy: ', { size: 24 }), R('{{DIA_CHI_MAY}}', { size: 24, bold: true }), R('          Kỳ tháng ', { size: 24 }), R('{{THANG}}', { size: 24, bold: true }), R(' năm ', { size: 24 }), R('{{NAM}}', { size: 24, bold: true })], { spacing: { after: 80 } }),
+    P([R('Tên Khách hàng: ', { size: 24 }), R('{{TEN_KH}}', { size: 24, bold: true })], { spacing: { before: 20, after: 20, ...LS15 } }),
+    P([R('Địa chỉ: ', { size: 24 }), R('{{DIA_CHI}}', { size: 24, bold: true })], { spacing: { after: 20, ...LS15 } }),
+    P([R('Địa chỉ đặt máy: ', { size: 24 }), R('{{DIA_CHI_MAY}}', { size: 24, bold: true }), R('          Kỳ tháng ', { size: 24 }), R('{{THANG}}', { size: 24, bold: true }), R(' năm ', { size: 24 }), R('{{NAM}}', { size: 24, bold: true })], { spacing: { after: 80, ...LS15 } }),
   ]
   const footer = [
-    P([R('Bằng chữ: ', { size: 22, italics: true }), R('{{BANG_CHU}}', { size: 22, italics: true, bold: true })], { spacing: { before: 80 } }),
+    P([R('Bằng chữ: ', { size: 22, italics: true }), R('{{BANG_CHU}}', { size: 22, italics: true, bold: true })], { align: AlignmentType.RIGHT, spacing: { before: 80 } }),
     P(R('{{#HIEN_CHAN_TRANG}}', { size: 2 })),
     P(R('{{NGAY_LAP_BANG_KE}}', { size: 24, italics: true }), { align: AlignmentType.RIGHT, spacing: { before: 160 } }),
     twoColSign(),
