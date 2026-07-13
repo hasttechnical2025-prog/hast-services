@@ -355,6 +355,10 @@ function CounterTab({ showNotification }: { showNotification: Notify }) {
       const res = await fetch('/api/admin/thue-cpc/counter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_khach_hang: r.id, thang_nam: thang, ...e }) })
       const j = await res.json()
       if (!res.ok) throw new Error(j.error || 'Lỗi lưu')
+      // Cập nhật lại dòng vừa lưu -> trạng thái chuyển sang "Đã lấy" ngay
+      const bw = e.so_bw === '' || e.so_bw == null ? null : (parseInt(e.so_bw, 10) || 0)
+      const mau = e.so_mau === '' || e.so_mau == null ? null : (parseInt(e.so_mau, 10) || 0)
+      setData((prev: any) => prev ? { ...prev, rows: prev.rows.map((row: any) => row.id === r.id ? { ...row, so_bw: bw, so_mau: mau, ghi_chu: e.ghi_chu ?? '' } : row) } : prev)
       showNotification('success', `Đã lưu counter ${r.ten_khach_hang}`)
     } catch (e: any) { showNotification('error', e.message) }
     finally { setSavingId(null) }
