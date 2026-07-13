@@ -268,14 +268,17 @@ export default function AdminDashboard() {
     if (cauHinh.mac_dinh_hom_nay === '0') setJobFilters(f => ({ ...f, tuNgay: '', denNgay: '' }))
   }, [cauHinh])
 
-  // Đếm số phiếu cứng chưa hoàn -> badge nhắc ở tab con Hoàn phiếu (làm mới khi đổi tab con)
-  useEffect(() => {
-    if (!currentUserRole) return
+  // Đếm số phiếu cứng chưa hoàn -> badge nhắc ở tab con Hoàn phiếu
+  const fetchPhieuCount = useCallback(() => {
     fetch('/api/admin/phieu-cung?count=1')
       .then(r => r.ok ? r.json() : { count: 0 })
       .then(j => setPhieuChuaHoan(j.count ?? 0))
       .catch(() => { })
-  }, [currentUserRole, activeTab, congTacTab])
+  }, [])
+  // Làm mới khi đổi tab con
+  useEffect(() => {
+    if (currentUserRole) fetchPhieuCount()
+  }, [currentUserRole, activeTab, congTacTab, fetchPhieuCount])
   const [hdbtOpen, setHdbtOpen] = useState(false)
   // Bộ lọc Sổ công tác (mặc định: việc hôm nay)
   const [jobFilters, setJobFilters] = useState<{ search: string, report: string, tuNgay: string, denNgay: string, loaiViec: string[], ktvId: string, hoaDon: string, trangThai: string[] }>(() => {
@@ -476,11 +479,13 @@ export default function AdminDashboard() {
   // Realtime: KTV nhận/đổi trạng thái việc -> trang office tự cập nhật (không cần F5)
   const fetchDataRef = useRef(fetchData)
   fetchDataRef.current = fetchData
+  const fetchPhieuCountRef = useRef(fetchPhieuCount)
+  fetchPhieuCountRef.current = fetchPhieuCount
   useEffect(() => {
     if (!currentAdmin) return
     const channel = supabase
       .channel(JOBS_TOPIC)
-      .on('broadcast', { event: JOBS_EVENT }, () => { fetchDataRef.current() })
+      .on('broadcast', { event: JOBS_EVENT }, () => { fetchDataRef.current(); fetchPhieuCountRef.current() })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [currentAdmin])
