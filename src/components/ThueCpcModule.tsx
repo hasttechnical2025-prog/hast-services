@@ -237,11 +237,14 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
   )
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl my-8" onClick={e => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-slate-100">
-          <h3 className="font-bold text-slate-800">Đơn giá HĐ — {row.ten_khach_hang}</h3>
-          <p className="text-xs text-slate-500 font-mono">{row.ma_may} · {row.loai_hd}</p>
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl my-8">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
+          <div>
+            <h3 className="font-bold text-slate-800">Đơn giá HĐ — {row.ten_khach_hang}</h3>
+            <p className="text-xs text-slate-500 font-mono">{row.ma_may} · {row.loai_hd}</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none shrink-0" title="Đóng">✕</button>
         </div>
         <div className="p-5 space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -755,8 +758,8 @@ function BangKeDetail({ id, onClose, showNotification, onChanged }: { id: string
     } catch (e: any) { showNotification('error', e.message) }
   }
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl my-8" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl my-8">
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
           <h3 className="font-bold text-slate-800">Chi tiết bảng kê {bk?.thang_nam}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
