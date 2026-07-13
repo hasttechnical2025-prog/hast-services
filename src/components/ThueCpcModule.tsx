@@ -174,6 +174,7 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
                   </td>
                   <td className="px-3 py-2 font-mono text-slate-500">
                     <div>{r.ma_may || '—'}</div>
+                    {r.model && <div className="text-[10px] text-slate-400 font-sans">{r.model}</div>}
                     {r.serial && <div className="text-[10px] text-slate-400">SN: {r.serial}</div>}
                   </td>
                   <td className="px-3 py-2"><span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">{r.loai_hd}</span></td>
@@ -436,6 +437,7 @@ function CounterTab({ showNotification }: { showNotification: Notify }) {
                   </td>
                   <td className="px-3 py-2 font-mono text-slate-500">
                     <div>{r.ma_may || '—'}</div>
+                    {r.model && <div className="text-[10px] text-slate-400 font-sans">{r.model}</div>}
                     {r.serial && <div className="text-[10px] text-slate-400">SN: {r.serial}</div>}
                   </td>
                   <td className="px-3 py-2 text-center whitespace-nowrap text-slate-500">{chotLabelShort(r)}</td>
