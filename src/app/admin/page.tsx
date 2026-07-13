@@ -5752,7 +5752,7 @@ const CUSTOMER_COLS: ColDef[] = [
   { key: 'hang', label: 'Hãng' },
   { key: 'km', label: 'KM' },
   { key: 'loai_hd', label: 'Loại HĐ' },
-  { key: 'het_han', label: 'Hết hạn HĐBT' },
+  { key: 'het_han', label: 'Hết hạn hợp đồng' },
   { key: 'sua', label: 'Sửa', locked: true },
 ]
 
@@ -5935,7 +5935,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
               {col.show('hang') && <th className="px-4 py-3 font-semibold">Hãng</th>}
               {col.show('km') && <th className="px-4 py-3 font-semibold text-center">KM</th>}
               {col.show('loai_hd') && <th className="px-4 py-3 font-semibold text-center">Loại HĐ</th>}
-              {col.show('het_han') && <th className="px-4 py-3 font-semibold text-center">Hết hạn HĐBT</th>}
+              {col.show('het_han') && <th className="px-4 py-3 font-semibold text-center">Hết hạn hợp đồng</th>}
               {col.show('sua') && <th className="px-4 py-3 font-semibold text-center w-16">Sửa</th>}
             </tr>
           </thead>
@@ -6034,7 +6034,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
                 </select>
               </div>
               <div className="space-y-1 sm:col-span-2">
-                <label className="text-xs font-semibold text-slate-600">Ngày hết hạn HĐBT</label>
+                <label className="text-xs font-semibold text-slate-600">Ngày hết hạn hợp đồng</label>
                 <DateField value={editing.ngay_het_han_hdbt || ""} onChange={(v) => setEditing({ ...editing, ngay_het_han_hdbt: v })} />
               </div>
             </div>
