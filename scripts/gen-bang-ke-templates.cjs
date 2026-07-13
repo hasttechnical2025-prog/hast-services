@@ -213,7 +213,7 @@ function twoColSign(dateInRight) {
     ? cell([txt('', { size: 24, align: AlignmentType.CENTER }), txt('ĐẠI DIỆN KHÁCH HÀNG', { bold: true, size: 24, align: AlignmentType.CENTER })])
     : cell([txt('ĐẠI DIỆN KHÁCH HÀNG', { bold: true, size: 24, align: AlignmentType.CENTER, spacing: { before: 80 } })])
   const right = dateInRight
-    ? cell([txt('{{NGAY_LAP_BANG_KE}}', { bold: true, size: 24, align: AlignmentType.CENTER }), txt('ĐẠI DIỆN CÔNG TY', { bold: true, size: 24, align: AlignmentType.CENTER })])
+    ? cell([txt('{{NGAY_LAP_BANG_KE}}', { italics: true, size: 24, align: AlignmentType.CENTER }), txt('ĐẠI DIỆN CÔNG TY', { bold: true, size: 24, align: AlignmentType.CENTER })])
     : cell([txt('ĐẠI DIỆN CÔNG TY', { bold: true, size: 24, align: AlignmentType.CENTER, spacing: { before: 80 } })])
   return new Table({
     columnWidths: [7950, 7950], width: { size: 15900, type: WidthType.DXA }, layout: TableLayoutType.FIXED,
