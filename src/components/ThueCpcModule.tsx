@@ -127,7 +127,8 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
       setNvkd((r3.data || []).filter((d: any) => d.active).map((d: any) => d.gia_tri))
     } catch { showNotification('error', 'Không tải được danh sách máy thuê/CPC') }
     finally { setLoading(false) }
-  }, [showNotification])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   useEffect(() => { load() }, [load])
 
   const filtered = rows.filter(r => {
@@ -337,7 +338,8 @@ function CounterTab({ showNotification }: { showNotification: Notify }) {
       setEdits(e)
     } catch { showNotification('error', 'Không tải được counter') }
     finally { setLoading(false) }
-  }, [thang, showNotification])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [thang])
   useEffect(() => { load() }, [load])
 
   const saveRow = async (r: any) => {
@@ -492,7 +494,8 @@ function KhungTab({ showNotification }: { showNotification: Notify }) {
     try { const j = await fetch('/api/admin/thue-cpc/hop-dong-khung').then(r => r.json()); setList(j.data || []) }
     catch { showNotification('error', 'Không tải được hợp đồng khung') }
     finally { setLoading(false) }
-  }, [showNotification])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   useEffect(() => { load() }, [load])
 
   const reset = () => { setForm({ ten_hop_dong: '', phi_co_ban: 0, vat_thue_cpc: 8, ghi_chu: '' }); setEditingId(null) }
@@ -601,7 +604,8 @@ function BangKeTab({ showNotification }: { showNotification: Notify }) {
     try { const j = await fetch(`/api/admin/thue-cpc/bang-ke?thang_nam=${thang}`).then(r => r.json()); setList(j.data || []) }
     catch { showNotification('error', 'Không tải được bảng kê') }
     finally { setLoading(false) }
-  }, [thang, showNotification])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [thang])
   useEffect(() => { loadList() }, [loadList])
   useEffect(() => {
     Promise.all([
