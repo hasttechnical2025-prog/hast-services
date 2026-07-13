@@ -207,7 +207,8 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
     ten_doi_tac_ky_thuat: row.ten_doi_tac_ky_thuat ?? '', ngay_chot_so: row.ngay_chot_so ?? '',
     chot_pick: row.chot_so_cuoi_thang ? 'cuoi' : (row.chot_so_ngay ? String(row.chot_so_ngay) : ''),
     vi_tri_dat_may: row.vi_tri_dat_may ?? '', nguoi_lien_he: row.nguoi_lien_he ?? '', email: row.email ?? '',
-    ngay_lap_may: row.ngay_lap_may ?? '', id_hop_dong_khung: row.id_hop_dong_khung ?? '', serial: row.serial ?? '',
+    ngay_lap_may: row.ngay_lap_may ?? '', ngay_het_han_hdbt: row.ngay_het_han_hdbt ?? '',
+    id_hop_dong_khung: row.id_hop_dong_khung ?? '', serial: row.serial ?? '',
   })
   const [saving, setSaving] = useState(false)
   const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }))
@@ -310,6 +311,7 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
               <label className="block"><span className="text-xs font-medium text-slate-500">Người liên hệ</span><Input value={f.nguoi_lien_he} onChange={e => set('nguoi_lien_he', e.target.value)} className="h-9 mt-1" /></label>
               <label className="block"><span className="text-xs font-medium text-slate-500">Email</span><Input value={f.email} onChange={e => set('email', e.target.value)} className="h-9 mt-1" /></label>
               <label className="block col-span-2 md:col-span-1"><span className="text-xs font-medium text-slate-500">Ngày lắp máy</span><div className="mt-1"><DateField value={f.ngay_lap_may || ''} onChange={v => set('ngay_lap_may', v)} heightClass="h-9" /></div></label>
+              <label className="block col-span-2 md:col-span-1"><span className="text-xs font-medium text-slate-500">Ngày hết hạn hợp đồng</span><div className="mt-1"><DateField value={f.ngay_het_han_hdbt || ''} onChange={v => set('ngay_het_han_hdbt', v)} heightClass="h-9" /></div></label>
             </div>
           </div>
         </div>
