@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { MapPin, Clipboard, CheckCircle, Play, AlertTriangle, RefreshCw, Inbox, Hand, Send, ChevronLeft, ChevronRight, Plus, Trash2, Calendar, FileText, Settings, Home } from "lucide-react"
+import { MapPin, Clipboard, CheckCircle, Play, AlertTriangle, RefreshCw, Inbox, Hand, Send, ChevronLeft, ChevronRight, Plus, Trash2, Calendar, CalendarClock, FileText, Settings, Home } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { supabase } from "@/lib/supabase"
@@ -53,6 +53,7 @@ export default function KtvMobileWeb() {
   const [showSettings, setShowSettings] = useState(false)
   // Modal hủy nhận việc (kèm lý do tùy chọn)
   const [releaseTarget, setReleaseTarget] = useState<Job | null>(null)
+  const [claimConfirm, setClaimConfirm] = useState<Job | null>(null)
   const [releaseReason, setReleaseReason] = useState("")
   const [releasing, setReleasing] = useState(false)
 
@@ -351,6 +352,12 @@ export default function KtvMobileWeb() {
     window.location.href = '/'
   }
 
+  // Nhận việc: nếu việc chưa tới ngày (ngay > hôm nay) -> hỏi xác nhận để KTV khỏi lỡ tay
+  const requestClaim = (job: Job) => {
+    if (isFutureJob(job)) setClaimConfirm(job)
+    else handleClaim(job.id)
+  }
+
   // KTV nhận việc từ pool (atomic phía server; nếu người khác nhận trước sẽ báo lỗi)
   const handleClaim = async (jobId: string) => {
     try {
@@ -436,6 +443,15 @@ export default function KtvMobileWeb() {
     return `${day}/${month}/${year}`;
   }
 
+  // Việc CHƯA TỚI NGÀY thực hiện (ngay > hôm nay) — nhãn + cảnh báo khi nhận
+  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const todayStr = ymd(new Date())
+  const tomorrowStr = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return ymd(d) })()
+  const jobDateStr = (job: Job) => String(job.ngay || '').slice(0, 10)
+  const isFutureJob = (job: Job) => jobDateStr(job) > todayStr
+  const isTomorrowJob = (job: Job) => jobDateStr(job) === tomorrowStr
+  const futureLabel = (job: Job) => `${isTomorrowJob(job) ? 'Ngày mai' : 'Sắp tới'} · ${formatDate(job.ngay)}`
+
   // Phân loại: việc của tôi (đang hoạt động) và pool chờ nhận; ẩn việc đã Hoàn thành
   const myJobs = currentKtv
     ? jobs.filter(j => (j.ktv_id === currentKtv.id || j.ktv2_id === currentKtv.id) && j.ket_qua !== 'Hoàn thành')
@@ -462,7 +478,9 @@ export default function KtvMobileWeb() {
         <span className={`px-2 py-0.5 rounded text-xs font-semibold ${statusBadge(job.ket_qua)}`}>
           {inPool ? 'Chờ nhận' : job.ket_qua}
         </span>
-        <span className="text-xs text-slate-400 font-mono">{formatDate(job.ngay)}</span>
+        {isFutureJob(job)
+          ? <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1"><CalendarClock className="w-3 h-3" />{futureLabel(job)}</span>
+          : <span className="text-xs text-slate-400 font-mono">{formatDate(job.ngay)}</span>}
       </div>
 
       <div className="space-y-1">
@@ -480,7 +498,7 @@ export default function KtvMobileWeb() {
 
       {inPool && (
         <Button
-          onClick={(e) => { e.stopPropagation(); handleClaim(job.id) }}
+          onClick={(e) => { e.stopPropagation(); requestClaim(job) }}
           className="w-full bg-amber-500 hover:bg-amber-600 text-white gap-2 h-10 text-sm rounded-lg"
         >
           <Hand className="w-4 h-4" /> Nhận việc này
@@ -940,7 +958,7 @@ export default function KtvMobileWeb() {
                     {/* Việc trong pool: nút nhận việc */}
                     {(!activeJob.ktv_id && !activeJob.ktv2_id) && (
                       <Button
-                        onClick={() => handleClaim(activeJob.id)}
+                        onClick={() => requestClaim(activeJob)}
                         className="w-full bg-amber-500 hover:bg-amber-600 text-white gap-2 h-11 text-sm rounded-lg"
                       >
                         <Hand className="w-4 h-4" /> Nhận việc này
@@ -1025,6 +1043,32 @@ export default function KtvMobileWeb() {
               <Button variant="outline" onClick={() => { setReleaseTarget(null); setReleaseReason("") }} disabled={releasing}>Đóng</Button>
               <Button onClick={handleRelease} disabled={releasing} className="bg-red-600 hover:bg-red-700 text-white">
                 {releasing ? 'Đang hủy...' : 'Xác nhận hủy nhận'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal cảnh báo nhận việc CHƯA TỚI NGÀY */}
+      {claimConfirm && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="p-5 space-y-3">
+              <h3 className="text-base font-bold text-amber-600 flex items-center gap-2">
+                <CalendarClock className="w-5 h-5" /> Việc chưa tới ngày
+              </h3>
+              <p className="text-sm text-slate-600">
+                Việc này dự kiến thực hiện vào <b>{formatDate(claimConfirm.ngay)}</b>{isTomorrowJob(claimConfirm) ? ' (ngày mai)' : ''} — <b>chưa tới ngày thực hiện</b>. Bạn vẫn muốn nhận việc bây giờ?
+              </p>
+              <div className="text-xs text-slate-500 bg-slate-50 rounded-md p-2 space-y-0.5">
+                <div className="font-semibold text-slate-700">{claimConfirm.soct_khach_hang?.ten_khach_hang}</div>
+                <div>Loại việc: {claimConfirm.loai_cong_viec} · Mã máy: {claimConfirm.ma_may || 'N/A'}</div>
+              </div>
+            </div>
+            <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
+              <Button variant="outline" onClick={() => setClaimConfirm(null)}>Để sau</Button>
+              <Button onClick={() => { const id = claimConfirm.id; setClaimConfirm(null); handleClaim(id) }} className="bg-amber-500 hover:bg-amber-600 text-white">
+                Vẫn nhận việc
               </Button>
             </div>
           </div>
