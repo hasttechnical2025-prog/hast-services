@@ -66,6 +66,7 @@ export async function POST(request: Request) {
     let mays: any[] = []
     let vatRate = 8
     let phiCoBan = 0
+    let khung: any = null
     let headerBase: any = { thang_nam, loai, so_hoa_don_ke_toan: body.so_hoa_don_ke_toan?.trim() || null, created_by: session.id }
 
     if (loai === 'rieng') {
@@ -80,7 +81,7 @@ export async function POST(request: Request) {
       if (!body.id_hop_dong_khung) return NextResponse.json({ error: 'Thiếu hợp đồng khung' }, { status: 400 })
       const { data: khungData, error: kErr } = await supabaseAdmin.from('soct_thue_cpc_hop_dong_khung').select('*').eq('id', body.id_hop_dong_khung).single()
       if (kErr) throw kErr
-      const khung: any = khungData
+      khung = khungData
       vatRate = Number(khung.vat_thue_cpc ?? 8)
       phiCoBan = Number(khung.phi_co_ban ?? 0)
       const { data: list, error: lErr } = await supabaseAdmin.from('soct_khach_hang').select(MAY_BILLING_SELECT).eq('id_hop_dong_khung', body.id_hop_dong_khung).order('ten_khach_hang')
@@ -106,9 +107,25 @@ export async function POST(request: Request) {
       else prevMap.set(c.id_khach_hang, c)
     }
 
-    // 3. Tính từng dòng
+    // 3. Tính từng dòng (đầu/cuối/sử dụng theo máy) — dùng cho ct + mẫu riêng
     const dongList = mays.map(m => tinhDongMay(m as MayBilling, thisMap.get(m.id) || null, prevMap.get(m.id) || null))
-    const { tong_truoc_vat, tong_sau_vat } = tinhTongBangKe(dongList, vatRate, phiCoBan)
+    let tong_truoc_vat = 0, tong_sau_vat = 0
+    if (loai === 'rieng') {
+      const r = tinhTongBangKe(dongList, vatRate, phiCoBan)
+      tong_truoc_vat = r.tong_truoc_vat; tong_sau_vat = r.tong_sau_vat
+    } else {
+      // GỘP: tính ở cấp hợp đồng khung (miễn phí / đơn giá / card reader dùng chung)
+      const sumBw = dongList.reduce((s, d) => s + d.so_bw_su_dung, 0)
+      const sumMau = dongList.reduce((s, d) => s + d.so_mau_su_dung, 0)
+      const tinhPhiBw = Math.max(sumBw - Number(khung?.mien_phi_bw || 0), 0)
+      const tinhPhiMau = Math.max(sumMau - Number(khung?.mien_phi_mau || 0), 0)
+      const thanhTienBw = tinhPhiBw * Number(khung?.don_gia_bw || 0)
+      const thanhTienMau = tinhPhiMau * Number(khung?.don_gia_mau || 0)
+      const giaThue = Number(khung?.phi_co_ban || 0) + mays.reduce((s, m) => s + Number(m.phi_thue_thang || 0), 0)
+      const card = Number(khung?.card_reader || 0)
+      tong_truoc_vat = Math.round(giaThue + thanhTienBw + thanhTienMau + card)
+      tong_sau_vat = Math.round(tong_truoc_vat * (1 + vatRate / 100))
+    }
 
     // 4. Lưu header
     const { data: header, error: hErr } = await supabaseAdmin

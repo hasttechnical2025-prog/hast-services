@@ -62,7 +62,7 @@ export async function GET(request: Request) {
 
     const { data: bk, error } = await supabaseAdmin
       .from('soct_thue_cpc_bk')
-      .select('*, soct_thue_cpc_hop_dong_khung(ten_hop_dong, phi_co_ban)')
+      .select('*, soct_thue_cpc_hop_dong_khung(ten_hop_dong, phi_co_ban, don_gia_bw, don_gia_mau, mien_phi_bw, mien_phi_mau, card_reader)')
       .eq('id', id)
       .single()
     if (error) throw error
@@ -92,41 +92,44 @@ export async function GET(request: Request) {
     let tenFile: string
 
     if (bk.loai === 'gop') {
-      // ---- MẪU B: đa máy ----
+      // ---- MẪU B: đa máy (mọi giá trị TÍNH ở cấp hợp đồng khung) ----
+      const khung: any = bk.soct_thue_cpc_hop_dong_khung || {}
       const kh0: any = rows[0]?.soct_khach_hang || {}
-      let sdD = 0, sdM = 0, tpD = 0, tpM = 0, ttD = 0, ttM = 0
+      let sumBw = 0, sumMau = 0, sumRental = 0
       const ds = rows.map((r: any, i: number) => {
         const kh = r.soct_khach_hang || {}
         const kn = kyNgay(bk.thang_nam, kh.chot_so_ngay, kh.chot_so_cuoi_thang)
-        const tienDen = (r.so_bw_tinh_phi || 0) * (kh.don_gia_bw || 0)
-        const tienMau = (r.so_mau_tinh_phi || 0) * (kh.don_gia_mau || 0)
-        sdD += (r.so_bw_cuoi_ky || 0) - (r.so_bw_dau_ky || 0)
-        sdM += (r.so_mau_cuoi_ky || 0) - (r.so_mau_dau_ky || 0)
-        tpD += r.so_bw_tinh_phi || 0; tpM += r.so_mau_tinh_phi || 0
-        ttD += tienDen; ttM += tienMau
+        sumBw += (r.so_bw_cuoi_ky || 0) - (r.so_bw_dau_ky || 0)
+        sumMau += (r.so_mau_cuoi_ky || 0) - (r.so_mau_dau_ky || 0)
+        sumRental += Number(kh.phi_thue_thang || 0)
         return {
           stt: String(i + 1), ma: kh.ma_may || '', ten: kh.model || '',
-          gia: Number(kh.phi_thue_thang) > 0 ? money(kh.phi_thue_thang) : '',
           dk_ngay: kn.dau, dk_den: numB(r.so_bw_dau_ky), dk_mau: numB(r.so_mau_dau_ky),
           ck_ngay: kn.cuoi, ck_den: numB(r.so_bw_cuoi_ky), ck_mau: numB(r.so_mau_cuoi_ky),
           sd_den: numB((r.so_bw_cuoi_ky || 0) - (r.so_bw_dau_ky || 0)), sd_mau: numB((r.so_mau_cuoi_ky || 0) - (r.so_mau_dau_ky || 0)),
-          mp_den: numB(dinhMuc(kh.dinh_muc_mien_phi_bw, kh.cam_ket_toi_thieu_bw)), mp_mau: numB(dinhMuc(kh.dinh_muc_mien_phi_mau, kh.cam_ket_toi_thieu_mau)),
-          tp_den: dash(r.so_bw_tinh_phi), tp_mau: dash(r.so_mau_tinh_phi),
-          dg_den: numB(kh.don_gia_bw), dg_mau: numB(kh.don_gia_mau),
-          card: '', tt_den: dash(tienDen), tt_mau: dash(tienMau),
-          tt_may_bc: moneyB(r.thanh_tien), vat_tien: '', tong: '',
         }
       })
+      // Cấp hợp đồng khung
+      const mpBw = Number(khung.mien_phi_bw || 0), mpMau = Number(khung.mien_phi_mau || 0)
+      const tpBw = Math.max(sumBw - mpBw, 0), tpMau = Math.max(sumMau - mpMau, 0)
+      const dgBw = Number(khung.don_gia_bw || 0), dgMau = Number(khung.don_gia_mau || 0)
+      const ttBw = tpBw * dgBw, ttMau = tpMau * dgMau
+      const giaThue = Number(khung.phi_co_ban || 0) + sumRental
+      const card = Number(khung.card_reader || 0)
+      const ttMayBc = giaThue + ttBw + ttMau // "thành tiền máy + bản chụp" (chưa gồm card)
       const data = {
         ...common,
-        TEN_KH: bk.soct_thue_cpc_hop_dong_khung?.ten_hop_dong || '',
+        TEN_KH: khung.ten_hop_dong || '',
         DIA_CHI: kh0.dia_chi || '', DIA_CHI_MAY: kh0.vi_tri_dat_may || '',
-        GIA_THUE_CO_BAN: moneyB(bk.soct_thue_cpc_hop_dong_khung?.phi_co_ban ?? 0),
-        TONG_SD_DEN: numB(sdD), TONG_SD_MAU: numB(sdM),
-        TONG_TP_DEN: dash(tpD), TONG_TP_MAU: dash(tpM),
-        TONG_CARD: '', TONG_TT_DEN: dash(ttD), TONG_TT_MAU: dash(ttM),
-        TONG_MAY_BC: money(bk.tong_truoc_vat),
-        TONG_VAT: money(Number(bk.tong_sau_vat) - Number(bk.tong_truoc_vat)),
+        GIA_THUE: money(giaThue),
+        TONG_SD_DEN: numB(sumBw), TONG_SD_MAU: numB(sumMau),
+        MP_DEN: numB(mpBw), MP_MAU: numB(mpMau),
+        TP_DEN: dash(tpBw), TP_MAU: dash(tpMau),
+        DG_DEN: numB(dgBw), DG_MAU: numB(dgMau),
+        CARD: moneyB(card),
+        TT_DEN: dash(ttBw), TT_MAU: dash(ttMau),
+        TT_MAY_BC: money(ttMayBc),
+        VAT_TIEN: money(Number(bk.tong_sau_vat) - Number(bk.tong_truoc_vat)),
         TONG_CONG: money(bk.tong_sau_vat),
         ds,
       }

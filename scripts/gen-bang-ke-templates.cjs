@@ -227,32 +227,39 @@ function twoColSign(dateInRight) {
 // A3 ngang, 10pt. Vòng lặp dòng máy {{#ds}}...{{/ds}} + dòng Cộng tổng.
 // =====================================================================
 function buildDaMay() {
-  const colW = [400, 1100, 1400, 1300, 900, 900, 800, 900, 900, 800, 850, 750, 800, 700, 800, 700, 800, 800, 900, 950, 900, 1300, 1000, 1300]
+  // 24 cột theo file chuẩn (A3). Cột 4 + 13..24 = giá trị cấp hợp đồng (hiện ở hàng Cộng tổng).
+  const colW = [400, 729, 1276, 1134, 1134, 992, 851, 1134, 992, 851, 992, 992, 709, 992, 851, 850, 851, 708, 993, 992, 1134, 1134, 1134, 1134]
   const totalW = colW.reduce((a, b) => a + b, 0)
   const HS = 18 // header size (9pt)
-  const DS = 20 // data size (10pt)
+  const DS = 22 // data size (11pt)
+  const vR = VerticalMergeType.RESTART
 
-  // Header row 1 (nhóm)
+  // ---- Header 3 tầng ----
   const hr1 = new TableRow({ tableHeader: true, children: [
-    H2('TT', '', { vMerge: VerticalMergeType.RESTART, size: HS }),
-    H2('Mã máy', '', { vMerge: VerticalMergeType.RESTART, size: HS }),
-    H2('Tên máy', '', { vMerge: VerticalMergeType.RESTART, size: HS }),
-    H2('Giá thuê máy (chưa VAT)', '', { vMerge: VerticalMergeType.RESTART, size: HS }),
-    H2('Đầu kỳ', '', { span: 3, size: HS }),
-    H2('Cuối kỳ', '', { span: 3, size: HS }),
+    H2('TT', '', { vMerge: vR, size: HS }),
+    H2('Mã máy', '', { vMerge: vR, size: HS }),
+    H2('Tên máy', '', { vMerge: vR, size: HS }),
+    H2('Giá thuê máy (chưa VAT)', '', { vMerge: vR, size: HS }),
+    H2('Đầu kỳ', '', { span: 3, vMerge: vR, size: HS }),
+    H2('Cuối kỳ', '', { span: 3, vMerge: vR, size: HS }),
+    H2('Chi tiết bản chụp', '', { span: 6, size: HS }),
+    H2('Đơn giá', '', { span: 2, vMerge: vR, size: HS }),
+    H2('Card reader', '', { vMerge: vR, size: HS }),
+    H2('Thành tiền bản chụp', '', { span: 2, vMerge: vR, size: HS }),
+    H2('Thành tiền máy + bản chụp (chưa VAT)', '', { vMerge: vR, size: HS }),
+    H2('Thuế VAT {{VAT}}%', '', { vMerge: vR, size: HS }),
+    H2('Tổng tiền thanh toán (gồm VAT)', '', { vMerge: vR, size: HS }),
+  ] })
+  const dm = (t) => H2(t, '', { size: HS })
+  const hr2 = new TableRow({ tableHeader: true, children: [
+    CONT(), CONT(), CONT(), CONT(),
+    CONT({ span: 3 }), CONT({ span: 3 }),
     H2('Số bản chụp sử dụng', '', { span: 2, size: HS }),
     H2('Số BC miễn phí', '', { span: 2, size: HS }),
     H2('Số BC tính phí', '', { span: 2, size: HS }),
-    H2('Đơn giá', '', { span: 2, size: HS }),
-    H2('Card reader', '', { vMerge: VerticalMergeType.RESTART, size: HS }),
-    H2('Thành tiền bản chụp', '', { span: 2, size: HS }),
-    H2('Thành tiền máy + bản chụp (chưa VAT)', '', { vMerge: VerticalMergeType.RESTART, size: HS }),
-    H2('Thuế VAT {{VAT}}%', '', { vMerge: VerticalMergeType.RESTART, size: HS }),
-    H2('Tổng tiền thanh toán (gồm VAT)', '', { vMerge: VerticalMergeType.RESTART, size: HS }),
+    CONT({ span: 2 }), CONT(), CONT({ span: 2 }), CONT(), CONT(), CONT(),
   ] })
-  // Header row 2 (Đen trắng / Màu / Ngày)
-  const dm = (t) => H2(t, '', { size: HS })
-  const hr2 = new TableRow({ tableHeader: true, children: [
+  const hr3 = new TableRow({ tableHeader: true, children: [
     CONT(), CONT(), CONT(), CONT(),
     dm('Ngày'), dm('Đen trắng'), dm('Màu'),
     dm('Ngày'), dm('Đen trắng'), dm('Màu'),
@@ -265,46 +272,43 @@ function buildDaMay() {
     CONT(), CONT(), CONT(),
   ] })
 
-  // Dòng máy (loop). Cột đầu mở {{#ds}}, cột cuối đóng {{/ds}}.
-  const dcell = (ph, o = {}) => CELL(txt(`{{${ph}}}`, { size: DS, align: o.align || AlignmentType.CENTER }))
-  const firstCell = CELL(P([R('{{#ds}}', { size: 2 }), R('{{stt}}', { size: DS })], { align: AlignmentType.CENTER }))
-  const lastCell = CELL(P([R('{{tong}}', { size: DS }), R('{{/ds}}', { size: 2 })], { align: AlignmentType.RIGHT }))
-  const loopRow = new TableRow({ children: [
-    firstCell,
-    dcell('ma', { align: AlignmentType.LEFT }), dcell('ten', { align: AlignmentType.LEFT }), dcell('gia', { align: AlignmentType.RIGHT }),
-    dcell('dk_ngay'), dcell('dk_den', { align: AlignmentType.RIGHT }), dcell('dk_mau', { align: AlignmentType.RIGHT }),
-    dcell('ck_ngay'), dcell('ck_den', { align: AlignmentType.RIGHT }), dcell('ck_mau', { align: AlignmentType.RIGHT }),
-    dcell('sd_den', { align: AlignmentType.RIGHT }), dcell('sd_mau', { align: AlignmentType.RIGHT }),
-    dcell('mp_den', { align: AlignmentType.RIGHT }), dcell('mp_mau', { align: AlignmentType.RIGHT }),
-    dcell('tp_den', { align: AlignmentType.RIGHT }), dcell('tp_mau', { align: AlignmentType.RIGHT }),
-    dcell('dg_den', { align: AlignmentType.RIGHT }), dcell('dg_mau', { align: AlignmentType.RIGHT }),
-    dcell('card', { align: AlignmentType.RIGHT }),
-    dcell('tt_den', { align: AlignmentType.RIGHT }), dcell('tt_mau', { align: AlignmentType.RIGHT }),
-    dcell('tt_may_bc', { align: AlignmentType.RIGHT }), dcell('vat_tien', { align: AlignmentType.RIGHT }),
-    lastCell,
-  ] })
-
-  // Dòng Cộng tổng
+  // ---- Hàng Cộng tổng: chứa mọi giá trị cấp hợp đồng khung ----
   const sumLabel = CELL(txt('Cộng tổng bản chụp tháng {{THANG}}/{{NAM}}', { bold: true, size: DS, align: AlignmentType.CENTER }), { span: 3, fill: 'F2F2F2' })
   const st = (ph, o = {}) => CELL(txt(`{{${ph}}}`, { bold: true, size: DS, align: o.align || AlignmentType.RIGHT }), { fill: 'F2F2F2', span: o.span })
   const blank = (o = {}) => CELL(txt(''), { fill: 'F2F2F2', span: o.span })
   const sumRow = new TableRow({ children: [
     sumLabel,
-    st('GIA_THUE_CO_BAN'),
-    blank(), blank(), blank(), // đầu kỳ
-    blank(), blank(), blank(), // cuối kỳ
-    st('TONG_SD_DEN'), st('TONG_SD_MAU'),
-    blank(), blank(), // miễn phí
-    st('TONG_TP_DEN'), st('TONG_TP_MAU'),
-    blank(), blank(), // đơn giá
-    st('TONG_CARD'),
-    st('TONG_TT_DEN'), st('TONG_TT_MAU'),
-    st('TONG_MAY_BC'), st('TONG_VAT'), st('TONG_CONG'),
+    st('GIA_THUE'),                       // 4 Giá thuê máy
+    blank(), blank(), blank(),            // 5-7 đầu kỳ
+    blank(), blank(), blank(),            // 8-10 cuối kỳ
+    st('TONG_SD_DEN'), st('TONG_SD_MAU'), // 11-12 sử dụng
+    st('MP_DEN'), st('MP_MAU'),           // 13-14 miễn phí
+    st('TP_DEN'), st('TP_MAU'),           // 15-16 tính phí
+    st('DG_DEN'), st('DG_MAU'),           // 17-18 đơn giá
+    st('CARD'),                           // 19 card reader
+    st('TT_DEN'), st('TT_MAU'),           // 20-21 thành tiền BC
+    st('TT_MAY_BC'), st('VAT_TIEN'), st('TONG_CONG'), // 22-24
+  ] })
+
+  // ---- Dòng máy (loop) — chỉ điền cột theo từng máy; cột 4 & 13..24 để trống ----
+  const dcell = (ph, o = {}) => CELL(txt(`{{${ph}}}`, { size: DS, align: o.align || AlignmentType.CENTER }))
+  const ec = () => CELL(txt('', { size: DS }))
+  const firstCell = CELL(P([R('{{#ds}}', { size: 2 }), R('{{stt}}', { size: DS })], { align: AlignmentType.CENTER }))
+  const lastCell = CELL(P([R('', { size: DS }), R('{{/ds}}', { size: 2 })], { align: AlignmentType.CENTER }))
+  const loopRow = new TableRow({ children: [
+    firstCell,
+    dcell('ma', { align: AlignmentType.LEFT }), dcell('ten', { align: AlignmentType.LEFT }),
+    ec(),                                                                 // 4 giá thuê (trống)
+    dcell('dk_ngay'), dcell('dk_den', { align: AlignmentType.RIGHT }), dcell('dk_mau', { align: AlignmentType.RIGHT }),
+    dcell('ck_ngay'), dcell('ck_den', { align: AlignmentType.RIGHT }), dcell('ck_mau', { align: AlignmentType.RIGHT }),
+    dcell('sd_den', { align: AlignmentType.RIGHT }), dcell('sd_mau', { align: AlignmentType.RIGHT }),
+    ec(), ec(), ec(), ec(), ec(), ec(), ec(), ec(), ec(), ec(), ec(),    // 13-23 (miễn phí/tính phí/đơn giá/card/thành tiền/máy+BC/VAT)
+    lastCell,                                                            // 24 tổng (trống)
   ] })
 
   const table = new Table({
     columnWidths: colW, width: { size: totalW, type: WidthType.DXA }, layout: TableLayoutType.FIXED,
-    borders: ALL_BORDERS, rows: [hr1, hr2, sumRow, loopRow],
+    borders: ALL_BORDERS, rows: [hr1, hr2, hr3, sumRow, loopRow],
   })
 
   const info = [
