@@ -291,7 +291,7 @@ function ViecHomNay() {
                     </div>
                   )}
                   <div className="text-xs text-slate-500 mt-1.5">
-                    <span className="font-medium text-slate-600">{j.ma_may || '—'}</span> · {j.loai_cong_viec}
+                    <span className="font-medium text-slate-600">{j.ma_may || '—'}</span>{j.soct_khach_hang?.model ? <span className="text-slate-400"> · {j.soct_khach_hang.model}</span> : ''} · {j.loai_cong_viec}
                     {j.report && <> · <span className="text-slate-400">Phiếu {j.report}</span></>}
                   </div>
                   <div className="text-[11px] mt-1">
@@ -329,6 +329,7 @@ function JobDetailSheet({ job, onClose }: { job: any, onClose: () => void }) {
         <dl className="text-sm space-y-2 pt-1">
           {job.soct_khach_hang?.dia_chi && <Row label="Địa chỉ" value={job.soct_khach_hang.dia_chi} />}
           <Row label="Mã máy" value={job.ma_may || '—'} />
+          {job.soct_khach_hang?.model && <Row label="Model" value={job.soct_khach_hang.model} />}
           <Row label="Loại việc" value={job.loai_cong_viec || '—'} />
           <Row label="KTV phụ trách" value={job.ktv_id ? `${job.soct_users?.full_name || '—'}${job.ktv2?.full_name ? ' + ' + job.ktv2.full_name : ''}` : 'Chưa ai nhận'} />
           {job.report && <Row label="Số phiếu" value={job.report} />}

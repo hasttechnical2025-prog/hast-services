@@ -36,7 +36,7 @@ type Job = {
   report?: string
   ktv_id: string | null
   ktv2_id: string | null
-  soct_khach_hang: { ten_khach_hang: string; dia_chi: string; km_mac_dinh: number }
+  soct_khach_hang: { ten_khach_hang: string; dia_chi: string; km_mac_dinh: number; model?: string }
   soct_users: { full_name: string } | null
   ktv2: { full_name: string } | null
   soct_chi_tiet_vat_tu?: VatTuChiTiet[]
@@ -1104,7 +1104,10 @@ export default function AdminDashboard() {
                             <MapPin className="w-3 h-3" /> {job.soct_khach_hang?.dia_chi}
                           </div>
                         </td>}
-                        {jobsCol.show('ma_may') && <td className="px-4 py-3 font-mono text-xs">{job.ma_may || '-'}</td>}
+                        {jobsCol.show('ma_may') && <td className="px-4 py-3">
+                          <div className="font-mono text-xs">{job.ma_may || '-'}</div>
+                          {job.soct_khach_hang?.model && <div className="text-xs text-slate-400 mt-0.5">{job.soct_khach_hang.model}</div>}
+                        </td>}
                         {jobsCol.show('loai') && <td className="px-4 py-3">{job.loai_cong_viec}</td>}
                         {jobsCol.show('ktv') && <td className="px-4 py-3">
                           {job.soct_users?.full_name ? (

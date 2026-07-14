@@ -38,7 +38,8 @@ export async function GET(request: Request) {
           id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu,
           soct_khach_hang (
             ten_khach_hang,
-            dia_chi
+            dia_chi,
+            model
           ),
           soct_users!ktv_id (
             full_name
