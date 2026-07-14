@@ -1,10 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { QrCode, ClipboardList, ShoppingCart, LogOut, Settings, Home } from "lucide-react"
+import { useState, useEffect, useMemo } from "react"
+import { QrCode, ClipboardList, ShoppingCart, LogOut, Settings, Home, CalendarCheck, Search, Users, MapPin, X, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import AccountSettings from "@/components/AccountSettings"
+import { supabase } from "@/lib/supabase"
+
+const JOBS_TOPIC = "soct_jobs"
+const JOBS_EVENT = "changed"
 
 type User = { id: string, full_name: string, role: string }
 
@@ -19,7 +23,7 @@ export default function OfficeMobile() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [denied, setDenied] = useState(false)
-  const [tab, setTab] = useState<'qr' | 'giao' | 'dat'>('giao')
+  const [tab, setTab] = useState<'viec' | 'qr' | 'giao' | 'dat'>('viec')
   const [showSettings, setShowSettings] = useState(false)
   const [notif, setNotif] = useState<{ type: 'success' | 'error', msg: string } | null>(null)
   const notify = (type: 'success' | 'error', msg: string) => { setNotif({ type, msg }); setTimeout(() => setNotif(null), 4000) }
@@ -128,6 +132,10 @@ export default function OfficeMobile() {
       {showSettings && <AccountSettings notify={(m, ok) => notify(ok ? 'success' : 'error', m)} onClose={() => setShowSettings(false)} />}
 
       <main className="flex-1 p-4 max-w-md mx-auto w-full">
+        {tab === 'viec' && (
+          <ViecHomNay />
+        )}
+
         {tab === 'qr' && (
           <div className="bg-white rounded-xl border border-slate-200 p-6 text-center space-y-4">
             <QrCode className="w-12 h-12 mx-auto text-blue-600" />
@@ -148,13 +156,209 @@ export default function OfficeMobile() {
         )}
       </main>
 
-      <nav className="bg-white border-t border-slate-200 grid grid-cols-3 sticky bottom-0 z-30">
-        {([['giao', 'Giao việc', ClipboardList], ['qr', 'Quét QR', QrCode], ['dat', 'Đặt hàng', ShoppingCart]] as const).map(([k, label, Icon]) => (
+      <nav className="bg-white border-t border-slate-200 grid grid-cols-4 sticky bottom-0 z-30">
+        {([['viec', 'Việc hôm nay', CalendarCheck], ['giao', 'Giao việc', ClipboardList], ['qr', 'Quét QR', QrCode], ['dat', 'Đặt hàng', ShoppingCart]] as const).map(([k, label, Icon]) => (
           <button key={k} onClick={() => setTab(k)} className={`py-2.5 flex flex-col items-center gap-0.5 text-[11px] font-medium ${tab === k ? 'text-blue-600' : 'text-slate-400'}`}>
             <Icon className="w-5 h-5" /> {label}
           </button>
         ))}
       </nav>
+    </div>
+  )
+}
+
+// ── Tab Việc hôm nay (chỉ xem — nắm việc khi đi hiện trường) ────────────
+const STATUS_ORDER = ['Chờ nhận', 'Đã nhận', 'Đang làm', 'Lắp tiếp', 'Hoàn thành']
+const statusOf = (j: any) => (j.ktv_id ? (j.ket_qua || 'Đã nhận') : 'Chờ nhận')
+const statusBadge = (s: string) =>
+  s === 'Hoàn thành' ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+    : s === 'Đang làm' ? 'bg-blue-50 text-blue-700 border-blue-100'
+      : s === 'Lắp tiếp' ? 'bg-amber-50 text-amber-700 border-amber-100'
+        : s === 'Đã nhận' ? 'bg-violet-50 text-violet-700 border-violet-100'
+          : 'bg-slate-100 text-slate-600 border-slate-200'
+const norm = (s: any) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd')
+
+function ViecHomNay() {
+  const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })()
+  const [jobs, setJobs] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [q, setQ] = useState("")
+  const [groupBy, setGroupBy] = useState<'status' | 'ktv'>('status')
+  const [detail, setDetail] = useState<any | null>(null)
+
+  const fetchJobs = async () => {
+    try {
+      const res = await fetch(`/api/admin/cong-viec?date=${today}`)
+      const j = await res.json()
+      if (Array.isArray(j.data)) setJobs(j.data)
+    } catch { /* giữ danh sách cũ nếu lỗi mạng */ } finally { setLoading(false) }
+  }
+  useEffect(() => { fetchJobs() }, [])
+  // Realtime: KTV nhận/đổi trạng thái -> tự cập nhật
+  useEffect(() => {
+    const ch = supabase.channel(JOBS_TOPIC).on('broadcast', { event: JOBS_EVENT }, () => fetchJobs()).subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [])
+
+  const counts = useMemo(() => {
+    let choNhan = 0, dangLam = 0, xong = 0
+    for (const j of jobs) {
+      const s = statusOf(j)
+      if (s === 'Chờ nhận') choNhan++
+      else if (s === 'Hoàn thành') xong++
+      else dangLam++
+    }
+    return { tong: jobs.length, choNhan, dangLam, xong }
+  }, [jobs])
+
+  const filtered = useMemo(() => {
+    const nq = norm(q.trim())
+    if (!nq) return jobs
+    return jobs.filter(j => norm(j.ma_may).includes(nq) || norm(j.soct_khach_hang?.ten_khach_hang).includes(nq))
+  }, [jobs, q])
+
+  const groups = useMemo(() => {
+    if (groupBy === 'status') {
+      return STATUS_ORDER
+        .map(s => ({ key: s, items: filtered.filter(j => statusOf(j) === s) }))
+        .filter(g => g.items.length > 0)
+    }
+    const byKtv = new Map<string, { key: string, items: any[] }>()
+    for (const j of filtered) {
+      const name = j.ktv_id ? (j.soct_users?.full_name || 'KTV') : '⏳ Chưa ai nhận'
+      if (!byKtv.has(name)) byKtv.set(name, { key: name, items: [] })
+      byKtv.get(name)!.items.push(j)
+    }
+    // "Chưa ai nhận" lên đầu, còn lại theo tên
+    return Array.from(byKtv.values()).sort((a, b) =>
+      a.key.startsWith('⏳') ? -1 : b.key.startsWith('⏳') ? 1 : a.key.localeCompare(b.key, 'vi'))
+  }, [filtered, groupBy])
+
+  return (
+    <div className="space-y-3">
+      {/* Thẻ tổng hợp */}
+      <div className="grid grid-cols-4 gap-2">
+        {([['Tổng', counts.tong, 'text-slate-700'], ['Chưa nhận', counts.choNhan, 'text-slate-500'], ['Đang làm', counts.dangLam, 'text-blue-600'], ['Đã xong', counts.xong, 'text-emerald-600']] as const).map(([label, val, cls]) => (
+          <div key={label} className="bg-white rounded-xl border border-slate-200 p-2 text-center">
+            <div className={`text-xl font-bold ${cls}`}>{val}</div>
+            <div className="text-[10px] text-slate-400 mt-0.5">{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tìm kiếm + đổi cách nhóm */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã máy / khách hàng" className="pl-8 h-9 text-sm" />
+        </div>
+        <button
+          onClick={() => setGroupBy(g => g === 'status' ? 'ktv' : 'status')}
+          className="h-9 px-3 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-600 flex items-center gap-1.5 shrink-0"
+        >
+          {groupBy === 'status' ? <><Users className="w-4 h-4" /> Theo KTV</> : <><CalendarCheck className="w-4 h-4" /> Theo trạng thái</>}
+        </button>
+        <button onClick={fetchJobs} className="h-9 w-9 rounded-lg border border-slate-200 bg-white text-slate-500 flex items-center justify-center shrink-0" title="Làm mới">
+          <RefreshCw className="w-4 h-4" />
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="text-center text-sm text-slate-400 py-10">Đang tải…</div>
+      ) : jobs.length === 0 ? (
+        <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-sm text-slate-400">Hôm nay chưa có việc nào.</div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-sm text-slate-400">Không tìm thấy việc khớp.</div>
+      ) : (
+        groups.map(g => (
+          <div key={g.key} className="space-y-2">
+            <div className="flex items-center gap-2 px-0.5">
+              <span className={`text-xs font-bold ${groupBy === 'status' ? 'text-slate-600' : 'text-slate-700'}`}>{g.key}</span>
+              <span className="text-[11px] text-slate-400">({g.items.length})</span>
+              <div className="flex-1 border-t border-slate-100" />
+            </div>
+            {g.items.map(j => {
+              const s = statusOf(j)
+              return (
+                <button key={j.id} onClick={() => setDetail(j)} className="w-full text-left bg-white rounded-xl border border-slate-200 p-3 active:bg-slate-50">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="font-semibold text-slate-800 text-sm leading-snug">{j.soct_khach_hang?.ten_khach_hang || '(Không rõ khách)'}</div>
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border shrink-0 ${statusBadge(s)}`}>{s}</span>
+                  </div>
+                  {j.soct_khach_hang?.dia_chi && (
+                    <div className="flex items-start gap-1 text-[11px] text-slate-400 mt-1">
+                      <MapPin className="w-3 h-3 mt-0.5 shrink-0" /><span className="line-clamp-1">{j.soct_khach_hang.dia_chi}</span>
+                    </div>
+                  )}
+                  <div className="text-xs text-slate-500 mt-1.5">
+                    <span className="font-medium text-slate-600">{j.ma_may || '—'}</span> · {j.loai_cong_viec}
+                    {j.report && <> · <span className="text-slate-400">Phiếu {j.report}</span></>}
+                  </div>
+                  <div className="text-[11px] mt-1">
+                    {j.ktv_id
+                      ? <span className="text-slate-500">KTV: <span className="font-medium text-slate-700">{j.soct_users?.full_name || '—'}</span>{j.ktv2?.full_name ? ` + ${j.ktv2.full_name}` : ''}</span>
+                      : <span className="text-amber-600 font-medium">Chưa ai nhận</span>}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        ))
+      )}
+
+      {detail && <JobDetailSheet job={detail} onClose={() => setDetail(null)} />}
+    </div>
+  )
+}
+
+// Chi tiết 1 việc (chỉ xem) — trượt lên từ đáy
+function JobDetailSheet({ job, onClose }: { job: any, onClose: () => void }) {
+  const s = statusOf(job)
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white w-full max-w-md rounded-t-2xl p-4 space-y-3 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <div className="font-bold text-slate-800">{job.soct_khach_hang?.ten_khach_hang || '(Không rõ khách)'}</div>
+            <div className="text-xs text-slate-400 mt-0.5">{fmtDate(job.ngay)}</div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 p-1"><X className="w-5 h-5" /></button>
+        </div>
+        <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold border ${statusBadge(s)}`}>{s}</span>
+
+        <dl className="text-sm space-y-2 pt-1">
+          {job.soct_khach_hang?.dia_chi && <Row label="Địa chỉ" value={job.soct_khach_hang.dia_chi} />}
+          <Row label="Mã máy" value={job.ma_may || '—'} />
+          <Row label="Loại việc" value={job.loai_cong_viec || '—'} />
+          <Row label="KTV phụ trách" value={job.ktv_id ? `${job.soct_users?.full_name || '—'}${job.ktv2?.full_name ? ' + ' + job.ktv2.full_name : ''}` : 'Chưa ai nhận'} />
+          {job.report && <Row label="Số phiếu" value={job.report} />}
+          {(job.km !== null && job.km !== undefined && job.km !== '') && <Row label="Số km" value={String(job.km)} />}
+          {job.ghi_chu && <Row label="Ghi chú VP" value={job.ghi_chu} />}
+        </dl>
+
+        {Array.isArray(job.soct_chi_tiet_vat_tu) && job.soct_chi_tiet_vat_tu.length > 0 && (
+          <div className="pt-1">
+            <div className="text-xs font-semibold text-slate-500 mb-1">Vật tư mang đi</div>
+            <ul className="space-y-1">
+              {job.soct_chi_tiet_vat_tu.map((v: any) => (
+                <li key={v.id} className="text-sm text-slate-700 flex justify-between gap-2">
+                  <span>{v.soct_kho_hang?.ten_hang || v.ma_hang}</span>
+                  <span className="text-slate-400 shrink-0">SL {v.so_luong}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function Row({ label, value }: { label: string, value: string }) {
+  return (
+    <div className="flex gap-2">
+      <dt className="text-slate-400 w-28 shrink-0">{label}</dt>
+      <dd className="text-slate-700 flex-1">{value}</dd>
     </div>
   )
 }
