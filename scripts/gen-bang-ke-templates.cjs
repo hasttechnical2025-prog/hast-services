@@ -20,7 +20,8 @@ const LS15 = { line: 360, lineRule: LineRuleType.AUTO }
 
 const FONT = 'Times New Roman'
 // PNG RGB (ảnh gốc là JPEG CMYK làm Word báo "corrupt" -> đã convert sang sRGB PNG)
-const LOGO = fs.readFileSync(path.join(__dirname, 'assets', 'letterhead-hstc.png'))
+const LOGO = fs.readFileSync(path.join(__dirname, 'assets', 'letterhead-hstc.png'))     // A4 (2290x102)
+const LOGO_A3 = fs.readFileSync(path.join(__dirname, 'assets', 'letterhead-a3.png'))    // A3 (1982x52)
 const OUT_DIR = path.join(__dirname, '..', 'src', 'lib', 'report')
 
 // ---------- helpers ----------
@@ -56,11 +57,15 @@ const D = (s, o = {}) => CELL(txt(s, { size: o.size || 20, align: o.align || Ali
 // Ô vMerge tiếp tục (rỗng)
 const CONT = (o = {}) => CELL(txt(''), { vMerge: VerticalMergeType.CONTINUE, span: o.span })
 
-const logoImg = (widthPx) => new Paragraph({
-  alignment: AlignmentType.CENTER,
-  spacing: { after: 60 },
-  children: [new ImageRun({ type: 'png', data: LOGO, transformation: { width: widthPx, height: Math.round(widthPx * 102 / 2290) } })],
-})
+// img mặc định = LOGO A4 (2290x102). Truyền {data,w,h} để dùng ảnh khác (VD A3).
+const logoImg = (widthPx, img) => {
+  const src = img || { data: LOGO, w: 2290, h: 102 }
+  return new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { after: 60 },
+    children: [new ImageRun({ type: 'png', data: src.data, transformation: { width: widthPx, height: Math.round(widthPx * src.h / src.w) } })],
+  })
+}
 
 // Nhãn:giá trị trên 1 dòng (label đậm, value thường)
 // o.valBold: giá trị in đậm hay không (mặc định true)
@@ -206,7 +211,7 @@ function infoTwoCol(lLabel, lEn, lPh, rLabel, rEn, rPh, o = {}) {
 
 // dateInRight=true (Mẫu A): "Hà Nội, ngày..." canh giữa trên ĐẠI DIỆN CÔNG TY (cột phải).
 // mặc định false (Mẫu B): giữ nguyên 2 cột KHÁCH HÀNG | CÔNG TY.
-function twoColSign(dateInRight) {
+function twoColSign(dateInRight, totalW = 15900) {
   const noBorder = { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE }, insideHorizontal: { style: BorderStyle.NONE }, insideVertical: { style: BorderStyle.NONE } }
   const cell = (paras) => new TableCell({ borders: noBorder, children: paras })
   const left = dateInRight
@@ -215,8 +220,9 @@ function twoColSign(dateInRight) {
   const right = dateInRight
     ? cell([txt('{{NGAY_LAP_BANG_KE}}', { italics: true, size: 24, align: AlignmentType.CENTER }), txt('ĐẠI DIỆN CÔNG TY', { bold: true, size: 24, align: AlignmentType.CENTER })])
     : cell([txt('ĐẠI DIỆN CÔNG TY', { bold: true, size: 24, align: AlignmentType.CENTER, spacing: { before: 80 } })])
+  const half = Math.round(totalW / 2)
   return new Table({
-    columnWidths: [7950, 7950], width: { size: 15900, type: WidthType.DXA }, layout: TableLayoutType.FIXED,
+    columnWidths: [half, half], width: { size: totalW, type: WidthType.DXA }, layout: TableLayoutType.FIXED,
     borders: noBorder,
     rows: [new TableRow({ children: [left, right] })],
   })
@@ -319,8 +325,8 @@ function buildDaMay() {
   const footer = [
     P([R('Bằng chữ: ', { size: 22, italics: true }), R('{{BANG_CHU}}', { size: 22, italics: true, bold: true })], { align: AlignmentType.RIGHT, spacing: { before: 80 } }),
     P(R('{{#HIEN_CHAN_TRANG}}', { size: 2 })),
-    P(R('{{NGAY_LAP_BANG_KE}}', { size: 24, italics: true }), { align: AlignmentType.RIGHT, spacing: { before: 160 } }),
-    twoColSign(),
+    P(R('')),
+    twoColSign(true, totalW), // chân trang rộng bằng bảng tính; "Hà Nội, ngày..." canh giữa trên ĐẠI DIỆN CÔNG TY
     P(R('{{/HIEN_CHAN_TRANG}}', { size: 2 })),
   ]
 
@@ -330,7 +336,7 @@ function buildDaMay() {
       // A3 ngang: truyền kích thước dọc A3 (16838 x 23811), lib tự hoán -> 23811 x 16838
       properties: { page: { size: { width: 16838, height: 23811, orientation: PageOrientation.LANDSCAPE }, margin: { top: 500, bottom: 500, left: 500, right: 500 } } },
       children: [
-        logoImg(1000),
+        logoImg(1500, { data: LOGO_A3, w: 1982, h: 52 }), // letterhead A3 (rộng vừa khổ)
         txt('BẢNG KÊ THANH TOÁN TIỀN THUÊ MÁY', { bold: true, size: 30, align: AlignmentType.CENTER, spacing: { before: 60, after: 120 } }),
         ...info,
         table,
