@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Be_Vietnam_Pro, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import UpdateChecker from "@/components/UpdateChecker";
+import NoPinchZoom from "@/components/NoPinchZoom";
 
 const beVietnam = Be_Vietnam_Pro({
   variable: "--font-geist-sans",
@@ -24,6 +25,11 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#1e3a8a",
+  // Chặn vuốt 2 ngón phóng to/thu nhỏ (Android + PWA iOS tôn trọng các cờ này)
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
@@ -38,6 +44,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         {children}
+        <NoPinchZoom />
         <UpdateChecker />
       </body>
     </html>
