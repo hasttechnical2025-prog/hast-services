@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 
 // Phân loại một loại công việc về nhóm dùng cho Mục 1 báo cáo.
 // KHIEU_NAI / BAO_HANH tách riêng (Mục 4 / Mục 5), không đếm ở Mục 1.
@@ -19,9 +19,14 @@ export function catOf(loai: string): string {
 
 const CAT1 = ['LAP_MAY', 'SUA_MAY', 'GIAO_MUC', 'THAY_VAT_TU', 'BAO_TRI', 'CSKH', 'HO_TRO_THAU', 'HO_TRO_DAI_LY', 'KHAC']
 
+// Gom hãng cho báo cáo (cột giữ tên "Konica" / "Fuji"):
+//  - "Konica", "Konica Minolta"       -> KONICA
+//  - "Fuji", "Fujifilm", "FujiXerox"  -> FUJI
+// Khớp theo chuỗi con, bỏ dấu/hoa-thường -> không vỡ khi đổi tên hãng trong danh mục.
 function brandKey(hang: string | null): 'KONICA' | 'FUJI' | 'KHAC' {
-  if (hang === 'Konica') return 'KONICA'
-  if (hang === 'Fuji') return 'FUJI'
+  const s = (hang || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  if (s.includes('konica')) return 'KONICA'
+  if (s.includes('fuji')) return 'FUJI'
   return 'KHAC'
 }
 
@@ -50,23 +55,23 @@ export async function buildReportData(thang: string, manual: ManualFields = {}) 
   const start = `${yStr}-${pad2(month)}-01`
   const lastDay = new Date(year, month, 0).getDate()
   const end = `${yStr}-${pad2(month)}-${pad2(lastDay)}`
-  const ytdStart = `${yStr}-01-01`
 
-  // Công việc từ đầu năm tới hết tháng (để tính cả lũy kế), kèm khách hàng + vật tư
-  const { data: jobsYtd } = await supabaseAdmin
+  // Công việc TRONG THÁNG, kèm khách hàng + vật tư. selectAll -> không dính giới hạn
+  // ~1000 dòng của PostgREST (lũy kế doanh số tính riêng từ bảng soct_doanh_so_thang).
+  const jobs = await selectAll<any>((from, to) => supabaseAdmin
     .from('soct_cong_viec')
     .select(`ngay, ma_may, loai_cong_viec, so_luong, ket_qua, ghi_chu, report,
       soct_khach_hang ( ten_khach_hang, dia_chi, hang, loai_hd ),
       soct_chi_tiet_vat_tu ( thanh_tien, vat, hoa_don )`)
-    .gte('ngay', ytdStart)
+    .gte('ngay', start)
     .lte('ngay', end)
-
-  const jobs = (jobsYtd || []).filter((j: any) => j.ngay >= start) // chỉ trong tháng
+    .range(from, to))
 
   // Toàn bộ máy khách hàng (Mục 2) + chỉ mục theo mã máy để tra hãng
-  const { data: custs } = await supabaseAdmin
+  const custs = await selectAll<any>((from, to) => supabaseAdmin
     .from('soct_khach_hang')
     .select('ma_may, hang, loai_hd')
+    .range(from, to))
   const brandByMaMay = new Map<string, 'KONICA' | 'FUJI' | 'KHAC'>()
   for (const c of custs || []) if (c.ma_may) brandByMaMay.set(c.ma_may, brandKey(c.hang))
 
@@ -144,11 +149,10 @@ export async function buildReportData(thang: string, manual: ManualFields = {}) 
   data.dso_ke_hoach = fmt(keHoach)
 
   // ===== MỤC 4 & 5: Khiếu nại / Bảo hành =====
+  // Mục 4/5: Khách hàng = tên KH trong phiếu; Nội dung = ghi chú trong phiếu
   const toRow = (j: any) => ({
     khach: j.soct_khach_hang?.ten_khach_hang || '',
-    dia_chi: j.soct_khach_hang?.dia_chi || '',
-    noi_dung: j.ghi_chu || j.report || '',
-    ket_qua: j.ket_qua || '',
+    noi_dung: j.ghi_chu || '',
   })
   data.khieu_nai = jobs.filter((j: any) => catOf(j.loai_cong_viec) === 'KHIEU_NAI').map(toRow)
   data.bao_hanh = jobs.filter((j: any) => catOf(j.loai_cong_viec) === 'BAO_HANH').map(toRow)
