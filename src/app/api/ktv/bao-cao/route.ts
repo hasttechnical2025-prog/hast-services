@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
+import { expandNgayCaNgay } from '@/lib/nghi-phep'
 
 // Ngày "hôm nay" theo giờ VN (UTC+7) — tránh lệch ngày do server chạy UTC
 function vnTodayStr(): string { return new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10) }
@@ -83,12 +84,21 @@ export async function GET(request: Request) {
 
     if (extraErr) throw extraErr
 
-    // 4. Lấy danh sách ngày nghỉ lễ (để client block chọn ngày)
+    // 4. Ngày nghỉ lễ (toàn cty) + nghỉ phép/ốm CẢ NGÀY đã duyệt của chính KTV này
+    //    -> client coi là ngày nghỉ (không cần báo cáo).
     const { data: ngayNghi, error: nnErr } = await supabaseAdmin
       .from('soct_ngay_nghi')
       .select('ngay')
-
     if (nnErr) throw nnErr
+
+    const { data: myLeaves } = await supabaseAdmin
+      .from('soct_nghi_phep')
+      .select('tu_ngay, den_ngay, buoi')
+      .eq('user_id', session.id)
+      .eq('trang_thai', 'da_duyet')
+      .eq('buoi', 'ca_ngay')
+    const leaveDays = (myLeaves || []).flatMap(l => expandNgayCaNgay(l.tu_ngay, l.den_ngay, 'ca_ngay'))
+    const ngayNghiAll = Array.from(new Set([...(ngayNghi || []).map(n => n.ngay), ...leaveDays]))
 
     // 5. Danh mục "Tình trạng báo cáo KTV" (admin cấu hình) cho dropdown
     const { data: ttOptions } = await supabaseAdmin
@@ -104,7 +114,7 @@ export async function GET(request: Request) {
         thoi_gian_nop: ttReport?.thoi_gian_nop || null,
         jobs: jobs || [],
         extraJobs: extraJobs || [],
-        ngayNghi: (ngayNghi || []).map(n => n.ngay),
+        ngayNghi: ngayNghiAll,
         tinhTrangOptions: (ttOptions || []).map((o: any) => o.gia_tri),
         statuses
       }

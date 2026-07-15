@@ -1,11 +1,13 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { QrCode, ClipboardList, ShoppingCart, LogOut, Settings, Home, CalendarCheck, Search, Users, MapPin, X, RefreshCw } from "lucide-react"
+import { QrCode, ClipboardList, ShoppingCart, LogOut, Settings, Home, CalendarCheck, Search, Users, MapPin, X, RefreshCw, Palmtree } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import AccountSettings from "@/components/AccountSettings"
+import NghiPhepDuyet from "@/components/NghiPhepDuyet"
 import { supabase } from "@/lib/supabase"
+import { LEAVE_TOPIC, LEAVE_EVENT } from "@/lib/realtime"
 
 const JOBS_TOPIC = "soct_jobs"
 const JOBS_EVENT = "changed"
@@ -23,7 +25,8 @@ export default function OfficeMobile() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [denied, setDenied] = useState(false)
-  const [tab, setTab] = useState<'viec' | 'qr' | 'giao' | 'dat'>('viec')
+  const [tab, setTab] = useState<'viec' | 'qr' | 'giao' | 'dat' | 'nghi'>('viec')
+  const [leaveCount, setLeaveCount] = useState(0)
   const [showSettings, setShowSettings] = useState(false)
   const [notif, setNotif] = useState<{ type: 'success' | 'error', msg: string } | null>(null)
   const notify = (type: 'success' | 'error', msg: string) => { setNotif({ type, msg }); setTimeout(() => setNotif(null), 4000) }
@@ -66,6 +69,17 @@ export default function OfficeMobile() {
       } catch { /* chưa đăng nhập */ } finally { setLoading(false) }
     })()
   }, [])
+
+  // Badge số đơn nghỉ chờ duyệt (realtime qua broadcast soct_leave)
+  const fetchLeaveCount = async () => {
+    try { const r = await fetch('/api/admin/nghi-phep?count=1'); const j = await r.json(); if (r.ok) setLeaveCount(j.count || 0) } catch { /* bỏ qua */ }
+  }
+  useEffect(() => {
+    if (!user) return
+    fetchLeaveCount()
+    const ch = supabase.channel(LEAVE_TOPIC).on('broadcast', { event: LEAVE_EVENT }, () => fetchLeaveCount()).subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [user])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault(); setLoginLoading(true)
@@ -154,12 +168,20 @@ export default function OfficeMobile() {
         {tab === 'dat' && (
           <DatHangMobile inventory={inventory} nccOptions={nccOptions} role={user.role} notify={notify} />
         )}
+
+        {tab === 'nghi' && (
+          <NghiPhepDuyet notify={notify} onPending={setLeaveCount} />
+        )}
       </main>
 
-      <nav className="bg-white border-t border-slate-200 grid grid-cols-4 sticky bottom-0 z-30">
-        {([['viec', 'Việc hôm nay', CalendarCheck], ['giao', 'Giao việc', ClipboardList], ['qr', 'Quét QR', QrCode], ['dat', 'Đặt hàng', ShoppingCart]] as const).map(([k, label, Icon]) => (
-          <button key={k} onClick={() => setTab(k)} className={`py-2.5 flex flex-col items-center gap-0.5 text-[11px] font-medium ${tab === k ? 'text-blue-600' : 'text-slate-400'}`}>
-            <Icon className="w-5 h-5" /> {label}
+      <nav className="bg-white border-t border-slate-200 grid grid-cols-5 sticky bottom-0 z-30">
+        {([['viec', 'Việc hôm nay', CalendarCheck], ['giao', 'Giao việc', ClipboardList], ['nghi', 'Nghỉ phép', Palmtree], ['qr', 'Quét QR', QrCode], ['dat', 'Đặt hàng', ShoppingCart]] as const).map(([k, label, Icon]) => (
+          <button key={k} onClick={() => setTab(k)} className={`relative py-2.5 flex flex-col items-center gap-0.5 text-[10px] font-medium ${tab === k ? 'text-blue-600' : 'text-slate-400'}`}>
+            <Icon className="w-5 h-5" />
+            {k === 'nghi' && leaveCount > 0 && (
+              <span className="absolute top-1 right-1/2 translate-x-4 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">{leaveCount}</span>
+            )}
+            <span className="text-center leading-tight">{label}</span>
           </button>
         ))}
       </nav>

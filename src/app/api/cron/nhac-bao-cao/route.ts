@@ -84,6 +84,23 @@ export async function GET(request: Request) {
     // Đưa vào Set để tra cứu nhanh: `ktvId_ngay`
     const submittedSet = new Set((submitted || []).map(s => `${s.ktv_id}_${s.ngay_bao_cao}`))
 
+    // Nghỉ phép/ốm CẢ NGÀY đã duyệt -> loại KTV đó khỏi nhắc những ngày đó
+    const minD = validDateStrs.reduce((a, b) => (a < b ? a : b))
+    const maxD = validDateStrs.reduce((a, b) => (a > b ? a : b))
+    const { data: leaves } = await supabaseAdmin
+      .from('soct_nghi_phep')
+      .select('user_id, tu_ngay, den_ngay')
+      .eq('trang_thai', 'da_duyet')
+      .eq('buoi', 'ca_ngay')
+      .lte('tu_ngay', maxD)
+      .gte('den_ngay', minD)
+    const leaveSet = new Set<string>()
+    for (const lv of leaves || []) {
+      for (const d of validDates) {
+        if (d.ymd >= lv.tu_ngay && d.ymd <= lv.den_ngay) leaveSet.add(`${lv.user_id}_${d.ymd}`)
+      }
+    }
+
     // Lấy tất cả ca máy thuộc các ngày quét để check xem ca nào chưa điền counter/ghi chú KTV
     const { data: jobs } = await supabaseAdmin
       .from('soct_cong_viec')
@@ -98,6 +115,8 @@ export async function GET(request: Request) {
       const missingDays: string[] = []
       // Duyệt qua từng ngày (đã loại cuối tuần và ngày lễ, sắp xếp từ gần đến xa)
       for (const d of validDates) {
+        // KTV nghỉ cả ngày (đã duyệt) -> không tính thiếu báo cáo ngày đó
+        if (leaveSet.has(`${ktv.id}_${d.ymd}`)) continue
         const hasSubmitted = submittedSet.has(`${ktv.id}_${d.ymd}`)
 
         // Tìm các ca máy của KTV này trong ngày d

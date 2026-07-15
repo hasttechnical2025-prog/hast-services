@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { supabase } from "@/lib/supabase"
 import AccountSettings from "@/components/AccountSettings"
+import NghiPhepDangKy from "@/components/NghiPhepDangKy"
 
 // Kênh realtime: đồng bộ với lib/realtime.ts (server phát broadcast sau mỗi thay đổi việc)
 const JOBS_TOPIC = "soct_jobs"
@@ -58,7 +59,7 @@ export default function KtvMobileWeb() {
   const [releasing, setReleasing] = useState(false)
 
   // State phục vụ nghiệp vụ Báo cáo & Nhật ký KTV
-  const [ktvTab, setKtvTab] = useState<"jobs" | "report">("jobs")
+  const [ktvTab, setKtvTab] = useState<"jobs" | "report" | "nghi">("jobs")
   const [selectedReportDate, setSelectedReportDate] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -619,9 +620,17 @@ export default function KtvMobileWeb() {
                   >
                     📝 Báo cáo ngày
                   </button>
+                  <button
+                    onClick={() => setKtvTab("nghi")}
+                    className={`flex-1 py-2 rounded-md font-semibold text-xs transition flex items-center justify-center gap-1.5 ${ktvTab === 'nghi' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    🌴 Nghỉ phép
+                  </button>
                 </div>
 
-                {ktvTab === "jobs" ? (
+                {ktvTab === "nghi" ? (
+                  <NghiPhepDangKy notify={showNotification} />
+                ) : ktvTab === "jobs" ? (
                   <>
                     {/* NHẮC: PHIẾU CỨNG CHƯA NỘP */}
                     {unreturned.length > 0 && (

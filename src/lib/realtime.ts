@@ -5,7 +5,11 @@
 export const JOBS_TOPIC = 'soct_jobs'
 export const JOBS_EVENT = 'changed'
 
-export async function broadcastJobsChanged(): Promise<void> {
+// Topic riêng cho đơn nghỉ phép (đăng ký / duyệt) -> KTV & màn duyệt tự cập nhật.
+export const LEAVE_TOPIC = 'soct_leave'
+export const LEAVE_EVENT = 'changed'
+
+async function broadcast(topic: string, event: string): Promise<void> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) return
@@ -19,11 +23,19 @@ export async function broadcastJobsChanged(): Promise<void> {
         Authorization: `Bearer ${key}`,
       },
       body: JSON.stringify({
-        messages: [{ topic: JOBS_TOPIC, event: JOBS_EVENT, payload: { at: Date.now() } }],
+        messages: [{ topic, event, payload: { at: Date.now() } }],
       }),
     })
   } catch (error) {
     // Realtime lỗi không được làm hỏng mutation chính
-    console.error('Broadcast jobs changed failed:', error)
+    console.error(`Broadcast ${topic} failed:`, error)
   }
+}
+
+export function broadcastJobsChanged(): Promise<void> {
+  return broadcast(JOBS_TOPIC, JOBS_EVENT)
+}
+
+export function broadcastLeaveChanged(): Promise<void> {
+  return broadcast(LEAVE_TOPIC, LEAVE_EVENT)
 }

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { TAB_TREE, TAB_ROLES, DEFAULT_TAB_VIS } from "@/lib/tabs"
 import { supabase } from "@/lib/supabase"
 import ThueCpcModule from "@/components/ThueCpcModule"
+import NghiPhepDuyet from "@/components/NghiPhepDuyet"
 
 // Kênh realtime (đồng bộ với lib/realtime.ts + app KTV): server phát broadcast sau mỗi thay đổi việc
 const JOBS_TOPIC = "soct_jobs"
@@ -225,7 +226,7 @@ export default function AdminDashboard() {
   // Tab con bên trong "Kho hàng" (tech_admin không thấy Tồn kho -> mặc định Đặt hàng)
   const [khoTab, setKhoTab] = useState<"ton_kho" | "dat_hang" | "thong_ke">("ton_kho")
   // Tab con bên trong "Quản lý"
-  const [quanLyTab, setQuanLyTab] = useState<"nhat_ky" | "khach_hang" | "bao_cao">("nhat_ky")
+  const [quanLyTab, setQuanLyTab] = useState<"nhat_ky" | "khach_hang" | "bao_cao" | "nghi_phep">("nhat_ky")
   // Tab con bên trong "Sổ công tác" (Giao việc / Hoàn phiếu)
   const [congTacTab, setCongTacTab] = useState<"giao_viec" | "hoan_phieu">("giao_viec")
   // Tab con bên trong "Tài chính" (Công nợ / Thuê-CPC)
@@ -254,7 +255,7 @@ export default function AdminDashboard() {
     subVisible(parent, current) ? current : (subs.find(s => subVisible(parent, s)) || current)
   const effectiveKhoTab = firstVisibleSub('kho_hang', ['ton_kho', 'dat_hang', 'thong_ke'], khoTab)
   const effectiveMonitorTab = firstVisibleSub('theo_doi_may', ['bao_tri', 'giam_dinh'], monitorTab) as "bao_tri" | "giam_dinh"
-  const effectiveQuanLyTab = firstVisibleSub('quan_ly', ['nhat_ky', 'khach_hang', 'bao_cao'], quanLyTab) as "nhat_ky" | "khach_hang" | "bao_cao"
+  const effectiveQuanLyTab = firstVisibleSub('quan_ly', ['nhat_ky', 'khach_hang', 'bao_cao', 'nghi_phep'], quanLyTab) as "nhat_ky" | "khach_hang" | "bao_cao" | "nghi_phep"
   const effectiveCongTacTab = firstVisibleSub('cong_viec', ['giao_viec', 'hoan_phieu'], congTacTab) as "giao_viec" | "hoan_phieu"
   const effectiveTaiChinhTab = firstVisibleSub('tai_chinh', ['cong_no', 'thue_cpc'], taiChinhTab) as "cong_no" | "thue_cpc"
   const repeatNgay = parseInt(cauHinh.repeat_ngay || '30') || 30
@@ -1318,6 +1319,14 @@ export default function AdminDashboard() {
                     Báo cáo tháng (KH)
                   </button>
                 )}
+                {subVisible('quan_ly', 'nghi_phep') && (
+                  <button
+                    onClick={() => setQuanLyTab("nghi_phep" as any)}
+                    className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveQuanLyTab === 'nghi_phep' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    Nghỉ phép
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1370,6 +1379,11 @@ export default function AdminDashboard() {
               {/* TAB CON: BÁO CÁO THÁNG */}
               {effectiveQuanLyTab === "bao_cao" && (
                 <BaoCaoThangTool showNotification={showNotification} />
+              )}
+
+              {/* TAB CON: NGHỈ PHÉP */}
+              {effectiveQuanLyTab === "nghi_phep" && (
+                <NghiPhepDuyet notify={showNotification} />
               )}
             </div>
           </div>
