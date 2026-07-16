@@ -6085,12 +6085,14 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
       {/* Modal sửa khách hàng */}
       {editing && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
-            <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+          {/* max-h + flex-col: thân form cuộn, nút Lưu/Hủy luôn nhìn thấy (form dài hơn màn hình
+              từ khi thêm khối Lịch bảo trì) */}
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center shrink-0">
               <h3 className="text-lg font-bold text-slate-800">{editing.id ? 'Sửa khách hàng' : 'Thêm khách hàng mới'}</h3>
               <button onClick={() => setEditing(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
             </div>
-            <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 overflow-y-auto">
               <div className="space-y-1 sm:col-span-2">
                 <label className="text-xs font-semibold text-slate-600">Tên khách hàng</label>
                 <Input value={editing.ten_khach_hang || ""} onChange={(e) => setEditing({ ...editing, ten_khach_hang: e.target.value })} className="bg-white" />
@@ -6194,7 +6196,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
                 </div>
               </div>
             </div>
-            <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
+            <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100 shrink-0">
               <Button variant="outline" onClick={() => setEditing(null)}>Hủy</Button>
               <Button onClick={handleSave} disabled={saving || !!dupCust || !!dupSerial}>{saving ? "Đang lưu..." : (editing.id ? "Lưu" : "Tạo khách hàng")}</Button>
             </div>
