@@ -10,6 +10,7 @@ import { TAB_TREE, TAB_ROLES, DEFAULT_TAB_VIS } from "@/lib/tabs"
 import { supabase } from "@/lib/supabase"
 import ThueCpcModule from "@/components/ThueCpcModule"
 import NghiPhepDuyet from "@/components/NghiPhepDuyet"
+import { hdbtStatus, loaiHdBadge } from "@/lib/hd-status"
 
 // Kênh realtime (đồng bộ với lib/realtime.ts + app KTV): server phát broadcast sau mỗi thay đổi việc
 const JOBS_TOPIC = "soct_jobs"
@@ -1688,7 +1689,7 @@ export default function AdminDashboard() {
                 const mm = formData.ma_may.trim()
                 const matched = mm ? customers.find(c => c.ma_may && c.ma_may.toLowerCase() === mm.toLowerCase()) : undefined
                 if (!matched) return null
-                const hd = hdbtStatus(matched.ngay_het_han_hdbt)
+                const hd = loaiHdBadge(matched.loai_hd, matched.ngay_het_han_hdbt)
                 const recent = jobs.find(j => j.ma_may && j.ma_may.toLowerCase() === mm.toLowerCase() && j.ket_qua === 'Hoàn thành' && j.ngay && (Date.now() - new Date(j.ngay).getTime()) <= repeatNgay * 86400000)
                 const gd = mayStatus?.giam_dinh || []
                 const gdVatTu = gd.flatMap((g: any) => g.soct_giam_dinh_vat_tu || [])
@@ -1700,7 +1701,7 @@ export default function AdminDashboard() {
                       {['HĐBT', 'MF'].includes(matched.loai_hd) && mayStatus && (mayStatus.bao_tri_thang
                         ? <span className={`${pill} bg-emerald-50 text-emerald-700 border-emerald-200`}>✓ Đã bảo trì T{mayStatus.thang_nam.split('-')[1]}</span>
                         : <span className={`${pill} bg-amber-50 text-amber-700 border-amber-200`}>Chưa bảo trì tháng này</span>)}
-                      {hd && <span className={`${pill} ${hd.cls}`}>HĐBT: {hd.note} ({hd.label})</span>}
+                      <span className={`${pill} ${hd.cls}`}>{hd.text}</span>
                       {gd.length > 0 && <span className={`${pill} bg-red-50 text-red-700 border-red-200`}>Giám định: {gdVatTu.length} vật tư chờ thay</span>}
                       {recent && <span className={`${pill} bg-slate-100 text-slate-600 border-slate-200`}>Đã sửa gần đây</span>}
                     </div>
@@ -5773,17 +5774,6 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
   )
 }
 
-// Trạng thái hạn HĐBT theo ngày hết hạn
-function hdbtStatus(dateStr: string | null) {
-  if (!dateStr) return null
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const exp = new Date(dateStr); exp.setHours(0, 0, 0, 0)
-  const days = Math.round((exp.getTime() - today.getTime()) / 86400000)
-  const label = `${String(exp.getDate()).padStart(2, '0')}/${String(exp.getMonth() + 1).padStart(2, '0')}/${exp.getFullYear()}`
-  if (days < 0) return { label, cls: 'bg-red-50 text-red-700 border-red-200', note: 'Đã hết hạn' }
-  if (days <= 30) return { label, cls: 'bg-amber-50 text-amber-700 border-amber-200', note: `Còn ${days} ngày` }
-  return { label, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', note: 'Còn hạn' }
-}
 
 const CUSTOMER_COLS: ColDef[] = [
   { key: 'ma_may', label: 'Mã máy', locked: true },
