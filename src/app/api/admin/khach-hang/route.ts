@@ -15,7 +15,7 @@ export async function GET() {
     // Lấy toàn bộ (khách hàng/máy có thể vượt 1000 dòng)
     const data = await selectAll((from, to) => supabaseAdmin
       .from('soct_khach_hang')
-      .select('id, ten_khach_hang, dia_chi, km_mac_dinh, ma_may, serial, model, hang, loai_hd, ngay_het_han_hdbt')
+      .select('id, ten_khach_hang, dia_chi, km_mac_dinh, ma_may, serial, model, hang, loai_hd, ngay_het_han_hdbt, thang_bao_tri, tam_dung_tu_thang, ghi_chu_bao_tri')
       .order('ten_khach_hang')
       .range(from, to))
 
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { ten_khach_hang, dia_chi, ma_may, serial, model, hang, loai_hd, ngay_het_han_hdbt } = body
+    const { ten_khach_hang, dia_chi, ma_may, serial, model, hang, loai_hd, ngay_het_han_hdbt, thang_bao_tri, tam_dung_tu_thang, ghi_chu_bao_tri } = body
 
     if (!ten_khach_hang || !dia_chi) {
       return NextResponse.json({ error: 'Thiếu tên khách hàng hoặc địa chỉ' }, { status: 400 })
@@ -86,7 +86,10 @@ export async function POST(request: Request) {
         model: model || null,
         hang: hang || null,
         loai_hd: loai_hd || null,
-        ngay_het_han_hdbt: ngay_het_han_hdbt || null
+        ngay_het_han_hdbt: ngay_het_han_hdbt || null,
+        thang_bao_tri: thang_bao_tri || null,
+        tam_dung_tu_thang: tam_dung_tu_thang || null,
+        ghi_chu_bao_tri: ghi_chu_bao_tri || null
       })
       .select()
       .single()
@@ -119,7 +122,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Thiếu ID khách hàng' }, { status: 400 })
     }
 
-    const allowed = ['ten_khach_hang', 'ma_may', 'serial', 'dia_chi', 'model', 'hang', 'km_mac_dinh', 'loai_hd', 'ngay_het_han_hdbt']
+    const allowed = ['ten_khach_hang', 'ma_may', 'serial', 'dia_chi', 'model', 'hang', 'km_mac_dinh', 'loai_hd', 'ngay_het_han_hdbt', 'thang_bao_tri', 'tam_dung_tu_thang', 'ghi_chu_bao_tri']
     const updates: any = {}
     for (const k of allowed) {
       if (body[k] === undefined) continue

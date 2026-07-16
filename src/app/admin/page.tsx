@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase"
 import ThueCpcModule from "@/components/ThueCpcModule"
 import NghiPhepDuyet from "@/components/NghiPhepDuyet"
 import { hdbtStatus, loaiHdBadge } from "@/lib/hd-status"
+import { LOAI_HD_BAO_TRI, canBaoTriThang, dangTamDung, coBaoTriThang, moTaLichBaoTri, fmtThang, parseThangBaoTri, formatThangBaoTri } from "@/lib/bao-tri"
 
 // Kênh realtime (đồng bộ với lib/realtime.ts + app KTV): server phát broadcast sau mỗi thay đổi việc
 const JOBS_TOPIC = "soct_jobs"
@@ -1368,7 +1369,8 @@ export default function AdminDashboard() {
                     <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập / Xuất khách hàng (Excel)</h3>
                     <p className="text-sm text-slate-500 mb-4">
                       Quy trình: <b>Xóa toàn bộ</b> (nút phía trên) → <b>Xuất Excel</b> để lấy đúng cấu trúc cột → nhập dữ liệu vào file .xlsx → <b>Nhập từ Excel</b>.<br />
-                      <b>Cột:</b> Mã máy | Tên khách hàng | Địa chỉ | Model | Hãng | Km | Loại HĐ | Ngày hết hạn HĐBT (DD/MM/YYYY). Trùng Mã máy sẽ được cập nhật.<br />
+                      <b>Cột:</b> Mã máy | Tên khách hàng | Địa chỉ | Model | Hãng | Km | Loại HĐ | Ngày hết hạn HĐBT (DD/MM/YYYY) | Tháng bảo trì | Tạm dừng từ tháng (MM/YYYY) | Ghi chú bảo trì. Trùng Mã máy sẽ được cập nhật.<br />
+                      <span className="text-xs text-slate-400"><b>Tháng bảo trì</b>: các tháng phải bảo trì, VD <b>2,4,6,8,10,12</b> — để <b>trống = hằng tháng</b>. <b>Tạm dừng từ tháng</b>: máy khách đã bỏ nhưng còn trong HĐ → không bị đòi bảo trì từ tháng đó, vẫn giữ trong danh sách.</span><br />
                       <span className="text-xs text-slate-400">Để trống cột <b>Km</b> → hệ thống tự tính tọa độ &amp; KM từ địa chỉ (chạy tuần tự ~1s/dòng, danh sách lớn sẽ hơi lâu). Dòng đã có Km giữ nguyên.</span>
                     </p>
                     <ExcelTool
@@ -1387,6 +1389,10 @@ export default function AdminDashboard() {
                         { header: 'Km', key: 'km_mac_dinh', parse: (s) => s ? (parseFloat(s.replace(',', '.')) || 0) : null },
                         { header: 'Loại HĐ', key: 'loai_hd' },
                         { header: 'Ngày hết hạn HĐBT', key: 'ngay_het_han_hdbt', toCsv: (v) => v ? formatDate(v) : '', parse: (s) => parseDDMMYYYY(s) },
+                        // Lịch bảo trì: '2,4,6,8,10,12'. Để TRỐNG = hằng tháng.
+                        { header: 'Tháng bảo trì', key: 'thang_bao_tri', toCsv: (v) => v || '', parse: (s) => formatThangBaoTri(parseThangBaoTri(String(s || '').replace(/[^\d,]/g, ''))) || null },
+                        { header: 'Tạm dừng từ tháng', key: 'tam_dung_tu_thang', toCsv: (v) => fmtThang(v), parse: (s) => { const m = String(s || '').trim().match(/^(\d{1,2})\/(\d{4})$/); return m ? `${m[2]}-${String(+m[1]).padStart(2, '0')}` : null } },
+                        { header: 'Ghi chú bảo trì', key: 'ghi_chu_bao_tri' },
                       ]}
                       onSuccess={fetchData}
                       showNotification={showNotification}
@@ -1697,10 +1703,17 @@ export default function AdminDashboard() {
                 return (
                   <div className="space-y-2">
                     <div className="flex flex-wrap gap-2">
-                      {/* Chỉ theo dõi bảo trì tháng với máy HĐBT hoặc MF (máy mới bảo trì free 1 năm); loại khác không hiện */}
-                      {['HĐBT', 'MF'].includes(matched.loai_hd) && mayStatus && (mayStatus.bao_tri_thang
-                        ? <span className={`${pill} bg-emerald-50 text-emerald-700 border-emerald-200`}>✓ Đã bảo trì T{mayStatus.thang_nam.split('-')[1]}</span>
-                        : <span className={`${pill} bg-amber-50 text-amber-700 border-amber-200`}>Chưa bảo trì tháng này</span>)}
+                      {/* Bảo trì tháng: chỉ máy HĐBT/MF, và chỉ khi tháng này NẰM TRONG lịch của máy.
+                          Máy tạm dừng (khách bỏ máy) -> báo xám, không đòi bảo trì. */}
+                      {LOAI_HD_BAO_TRI.includes(String(matched.loai_hd || '').trim()) && mayStatus && (
+                        dangTamDung(matched.tam_dung_tu_thang, mayStatus.thang_nam)
+                          ? <span className={`${pill} bg-slate-100 text-slate-600 border-slate-200`}>Tạm dừng bảo trì (từ {fmtThang(matched.tam_dung_tu_thang)})</span>
+                          : mayStatus.bao_tri_thang
+                            ? <span className={`${pill} bg-emerald-50 text-emerald-700 border-emerald-200`}>✓ Đã bảo trì T{mayStatus.thang_nam.split('-')[1]}</span>
+                            : coBaoTriThang(matched.thang_bao_tri, parseInt(mayStatus.thang_nam.split('-')[1], 10))
+                              ? <span className={`${pill} bg-amber-50 text-amber-700 border-amber-200`}>Chưa bảo trì tháng này</span>
+                              : <span className={`${pill} bg-slate-100 text-slate-600 border-slate-200`}>Tháng này không theo lịch bảo trì ({moTaLichBaoTri(matched.thang_bao_tri)})</span>
+                      )}
                       <span className={`${pill} ${hd.cls}`}>{hd.text}</span>
                       {gd.length > 0 && <span className={`${pill} bg-red-50 text-red-700 border-red-200`}>Giám định: {gdVatTu.length} vật tư chờ thay</span>}
                       {recent && <span className={`${pill} bg-slate-100 text-slate-600 border-slate-200`}>Đã sửa gần đây</span>}
@@ -5463,7 +5476,7 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
   const [records, setRecords] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [subTab, setSubTab] = useState<'da_bao_tri' | 'chua_bao_tri'>('da_bao_tri')
+  const [subTab, setSubTab] = useState<'da_bao_tri' | 'chua_bao_tri' | 'tam_dung'>('da_bao_tri')
   // Tra cứu lịch sử bảo trì theo 1 mã máy trong 1 năm
   const [traMa, setTraMa] = useState('')
   const [traNam, setTraNam] = useState(String(new Date().getFullYear()))
@@ -5488,8 +5501,13 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
   const dupKept = kept.filter(p => daBaoTriSet.has(p.ma_may.toLowerCase())).length
 
   // Danh sách máy cần bảo trì và máy chưa bảo trì trong tháng
-  const mayCanBaoTri = customers.filter(c => ['HĐBT', 'MF'].includes(c.loai_hd) && c.ma_may)
+  // Chỉ đòi bảo trì khi tháng đang xem NẰM TRONG lịch của máy và máy chưa tạm dừng
+  const mayCanBaoTri = customers.filter(c => canBaoTriThang(c, thangNam))
   const chuaBaoTri = mayCanBaoTri.filter(c => !daBaoTriSet.has(String(c.ma_may).toLowerCase()))
+  // Máy tạm dừng theo dõi (khách bỏ máy nhưng còn trong HĐ) — luôn xem được để không thất lạc
+  const tamDung = customers.filter(c => c.ma_may
+    && LOAI_HD_BAO_TRI.includes(String(c.loai_hd || '').trim())
+    && dangTamDung(c.tam_dung_tu_thang, thangNam))
 
   const fetchRecords = async (thang: string) => {
     setLoading(true)
@@ -5507,6 +5525,7 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
   useEffect(() => { fetchRecords(thangNam) }, [thangNam])
   const paged = usePaged(records)
   const chuaBaoTriPaged = usePaged(chuaBaoTri)
+  const tamDungPaged = usePaged(tamDung)
 
   const handleAnalyze = () => {
     const raw = text.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean)
@@ -5680,9 +5699,55 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
           >
             Chưa bảo trì tháng {thangNam.split('-').reverse().join('/')} ({chuaBaoTri.length} máy)
           </button>
+          <button
+            onClick={() => setSubTab('tam_dung')}
+            className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${subTab === 'tam_dung' ? 'border-slate-500 text-slate-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+          >
+            Tạm dừng ({tamDung.length} máy)
+          </button>
         </div>
 
-        {subTab === 'da_bao_tri' ? (
+        {subTab === 'tam_dung' ? (
+          <div className="space-y-3">
+            <p className="text-xs text-slate-500 px-1">
+              Máy khách đã bỏ nhưng còn trong hợp đồng — <b>không bị đòi bảo trì</b> nhưng vẫn giữ để đối chiếu cuối năm.
+              Bỏ tạm dừng bằng cách xóa ô &quot;Tạm dừng từ tháng&quot; trong Danh sách khách hàng.
+            </p>
+            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-slate-600">
+                  <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold">Mã máy</th>
+                      <th className="px-4 py-3 font-semibold">Khách hàng</th>
+                      <th className="px-4 py-3 font-semibold">Model</th>
+                      <th className="px-4 py-3 font-semibold">Tạm dừng từ</th>
+                      <th className="px-4 py-3 font-semibold">Ghi chú</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {tamDung.length === 0 ? (
+                      <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Không có máy nào đang tạm dừng theo dõi bảo trì.</td></tr>
+                    ) : tamDungPaged.pageItems.map((kh: any) => (
+                      <tr key={kh.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3 font-mono font-medium text-slate-700">{kh.ma_may}</td>
+                        <td className="px-4 py-3 font-medium text-slate-800">{kh.ten_khach_hang}</td>
+                        <td className="px-4 py-3 text-slate-500">{kh.model || '—'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold border bg-slate-100 text-slate-600 border-slate-200">{fmtThang(kh.tam_dung_tu_thang)}</span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-500">{kh.ghi_chu_bao_tri || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-4 pb-2">
+                <Pagination page={tamDungPaged.page} pageCount={tamDungPaged.pageCount} total={tamDungPaged.total} perPage={tamDungPaged.perPage} onPage={tamDungPaged.setPage} />
+              </div>
+            </div>
+          </div>
+        ) : subTab === 'da_bao_tri' ? (
           <div className="space-y-3">
             <div className="flex items-center gap-2 px-1">
               <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">{records.length} máy</span>
@@ -5744,17 +5809,19 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
                     <th className="px-4 py-3 font-semibold">Mã máy</th>
                     <th className="px-4 py-3 font-semibold">Khách hàng</th>
                     <th className="px-4 py-3 font-semibold">Model</th>
+                    <th className="px-4 py-3 font-semibold">Lịch bảo trì</th>
                     <th className="px-4 py-3 font-semibold">Loại HĐ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {chuaBaoTri.length === 0 ? (
-                    <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Tất cả các máy đã được bảo trì trong tháng này!</td></tr>
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Tất cả các máy đến hạn trong tháng này đã được bảo trì!</td></tr>
                   ) : chuaBaoTriPaged.pageItems.map((kh) => (
                     <tr key={kh.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3 font-mono font-medium text-slate-700">{kh.ma_may}</td>
                       <td className="px-4 py-3 font-medium text-slate-800">{kh.ten_khach_hang}</td>
                       <td className="px-4 py-3 text-slate-500">{kh.model || '—'}</td>
+                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{moTaLichBaoTri(kh.thang_bao_tri)}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className="px-2 py-0.5 rounded-full text-xs font-semibold border bg-blue-50 text-blue-700 border-blue-100">{kh.loai_hd}</span>
                       </td>
@@ -5784,6 +5851,7 @@ const CUSTOMER_COLS: ColDef[] = [
   { key: 'km', label: 'KM' },
   { key: 'loai_hd', label: 'Loại HĐ' },
   { key: 'het_han', label: 'Hết hạn hợp đồng' },
+  { key: 'lich_bt', label: 'Lịch bảo trì' },
   { key: 'sua', label: 'Sửa', locked: true },
 ]
 
@@ -5852,6 +5920,9 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
         hang: editing.hang,
         loai_hd: editing.loai_hd,
         ngay_het_han_hdbt: editing.ngay_het_han_hdbt,
+        thang_bao_tri: editing.thang_bao_tri || null,
+        tam_dung_tu_thang: editing.tam_dung_tu_thang || null,
+        ghi_chu_bao_tri: editing.ghi_chu_bao_tri || null,
       }
       const res = await fetch('/api/admin/khach-hang', {
         method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -5943,7 +6014,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
           <span className="text-sm text-slate-500 whitespace-nowrap">
             {(q || hdFilter !== 'all') ? `${filtered.length} / ${customers.length}` : `Tổng: ${customers.length}`} khách hàng
           </span>
-          <Button onClick={() => setEditing({ ten_khach_hang: "", ma_may: "", serial: "", model: "", hang: "", dia_chi: "", km_mac_dinh: "", loai_hd: "", ngay_het_han_hdbt: "" })} className="gap-1 bg-blue-600 hover:bg-blue-700 h-10 whitespace-nowrap">
+          <Button onClick={() => setEditing({ ten_khach_hang: "", ma_may: "", serial: "", model: "", hang: "", dia_chi: "", km_mac_dinh: "", loai_hd: "", ngay_het_han_hdbt: "", thang_bao_tri: "", tam_dung_tu_thang: "", ghi_chu_bao_tri: "" })} className="gap-1 bg-blue-600 hover:bg-blue-700 h-10 whitespace-nowrap">
             <Plus className="w-4 h-4" /> Mới
           </Button>
           <ColumnMenu view={col} />
@@ -5967,6 +6038,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
               {col.show('km') && <th className="px-4 py-3 font-semibold text-center">KM</th>}
               {col.show('loai_hd') && <th className="px-4 py-3 font-semibold text-center">Loại HĐ</th>}
               {col.show('het_han') && <th className="px-4 py-3 font-semibold text-center">Hết hạn hợp đồng</th>}
+              {col.show('lich_bt') && <th className="px-4 py-3 font-semibold text-center">Lịch bảo trì</th>}
               {col.show('sua') && <th className="px-4 py-3 font-semibold text-center w-16">Sửa</th>}
             </tr>
           </thead>
@@ -5988,6 +6060,13 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
                   {col.show('loai_hd') && <td className="px-4 py-3 text-center">{c.loai_hd || <span className="text-slate-300">—</span>}</td>}
                   {col.show('het_han') && <td className="px-4 py-3 text-center whitespace-nowrap">
                     {hd ? <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${hd.cls}`} title={hd.note}>{hd.label}</span> : <span className="text-slate-300">—</span>}
+                  </td>}
+                  {col.show('lich_bt') && <td className="px-4 py-3 text-center whitespace-nowrap">
+                    {!LOAI_HD_BAO_TRI.includes(String(c.loai_hd || '').trim())
+                      ? <span className="text-slate-300">—</span>
+                      : c.tam_dung_tu_thang
+                        ? <span className="px-2 py-0.5 rounded-full text-xs font-semibold border bg-slate-100 text-slate-600 border-slate-200" title={c.ghi_chu_bao_tri || ''}>Tạm dừng từ {fmtThang(c.tam_dung_tu_thang)}</span>
+                        : <span className="text-xs text-slate-600">{moTaLichBaoTri(c.thang_bao_tri)}</span>}
                   </td>}
                   {col.show('sua') && <td className="px-4 py-3 text-center">
                     <button onClick={() => setEditing({ ...c, ngay_het_han_hdbt: c.ngay_het_han_hdbt || "" })} className="text-blue-500 hover:text-blue-700 p-1.5 bg-blue-50 hover:bg-blue-100 rounded-md transition"><PenSquare className="w-4 h-4" /></button>
@@ -6067,6 +6146,52 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
               <div className="space-y-1 sm:col-span-2">
                 <label className="text-xs font-semibold text-slate-600">Ngày hết hạn hợp đồng</label>
                 <DateField value={editing.ngay_het_han_hdbt || ""} onChange={(v) => setEditing({ ...editing, ngay_het_han_hdbt: v })} />
+              </div>
+
+              {/* Lịch bảo trì + tạm dừng — chỉ áp dụng cho máy HĐBT / MF */}
+              <div className="sm:col-span-2 border-t border-slate-100 pt-3 space-y-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">
+                    Lịch bảo trì <span className="font-normal text-slate-400">— tick các tháng phải bảo trì (chọn đủ 12 tháng = hằng tháng)</span>
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
+                      const on = coBaoTriThang(editing.thang_bao_tri, m)
+                      return (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => {
+                            const cur = new Set(parseThangBaoTri(editing.thang_bao_tri).length
+                              ? parseThangBaoTri(editing.thang_bao_tri)
+                              : Array.from({ length: 12 }, (_, i) => i + 1))
+                            if (cur.has(m)) { if (cur.size === 1) return; cur.delete(m) } else cur.add(m)
+                            setEditing({ ...editing, thang_bao_tri: formatThangBaoTri(Array.from(cur)) })
+                          }}
+                          className={`w-10 h-8 rounded-md border text-xs font-semibold transition ${on ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
+                        >T{m}</button>
+                      )
+                    })}
+                  </div>
+                  <p className="text-xs text-slate-400">Đang đặt: <b className="text-slate-600">{moTaLichBaoTri(editing.thang_bao_tri)}</b></p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-600">Tạm dừng bảo trì từ tháng</label>
+                    <input
+                      type="month"
+                      value={editing.tam_dung_tu_thang || ""}
+                      onChange={(e) => setEditing({ ...editing, tam_dung_tu_thang: e.target.value })}
+                      className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-slate-400">Để trống = đang theo dõi. Có giá trị = máy không bị đòi bảo trì từ tháng đó (vẫn giữ trong danh sách).</p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-600">Ghi chú bảo trì</label>
+                    <Input value={editing.ghi_chu_bao_tri || ""} onChange={(e) => setEditing({ ...editing, ghi_chu_bao_tri: e.target.value })} placeholder="VD: khách bỏ máy, còn trong HĐ" className="bg-white" />
+                  </div>
+                </div>
               </div>
             </div>
             <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
