@@ -3,6 +3,7 @@ import { Be_Vietnam_Pro, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import UpdateChecker from "@/components/UpdateChecker";
 import NoPinchZoom from "@/components/NoPinchZoom";
+import NoKeyShortcuts from "@/components/NoKeyShortcuts";
 
 const beVietnam = Be_Vietnam_Pro({
   variable: "--font-geist-sans",
@@ -45,6 +46,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         {children}
         <NoPinchZoom />
+        <NoKeyShortcuts />
         <UpdateChecker />
       </body>
     </html>

@@ -1564,17 +1564,9 @@ export default function AdminDashboard() {
               </button>
             </div>
 
-            {/* Chặn Enter trong ô nhập kích hoạt "submit ngầm" của HTML — trước đây chỉ gõ mã máy
-                rồi lỡ chạm Enter là tạo luôn phiếu. Vẫn cho Enter ở textarea (xuống dòng) và ở
-                nút bấm (giữ thao tác bàn phím cho nút Lưu). */}
-            <form
-              onSubmit={handleCreateJob}
-              onKeyDown={(e) => {
-                const tag = (e.target as HTMLElement).tagName
-                if (e.key === 'Enter' && tag !== 'TEXTAREA' && tag !== 'BUTTON') e.preventDefault()
-              }}
-              className="p-6 space-y-6"
-            >
+            {/* Enter KHÔNG submit form (kể cả submit ngầm của HTML) — chặn chung ở
+                <NoKeyShortcuts> trong root layout. Chỉ bấm nút Lưu mới tạo/cập nhật phiếu. */}
+            <form onSubmit={handleCreateJob} className="p-6 space-y-6">
               {editingJobId && editingKetQua && !['Chờ nhận', 'Đã nhận'].includes(editingKetQua) && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                   <b>Sửa phiếu đã "{editingKetQua}" (quyền admin).</b> Sửa phiếu này <u>không</u> tự điều chỉnh tồn kho.
@@ -3603,12 +3595,6 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
                               const val = e.target.value.replace(/\D/g, '') // Chỉ cho phép nhập số
                               setLeftQuantities({ ...leftQuantities, [item.ma_hang]: val })
                             }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault()
-                                addToCart(item.ma_hang, tempQty)
-                              }
-                            }}
                           />
                         </td>
                         <td className="px-2 py-2.5 text-center">
@@ -5281,7 +5267,7 @@ function DoiMatKhauTool({ showNotification }: { showNotification: (type: 'succes
       </div>
       <div className="space-y-1">
         <label className="text-xs font-semibold text-slate-600">Xác nhận mật khẩu mới</label>
-        <Input type="password" value={np2} onChange={e => setNp2(e.target.value)} className="bg-white" onKeyDown={e => { if (e.key === 'Enter') save() }} />
+        <Input type="password" value={np2} onChange={e => setNp2(e.target.value)} className="bg-white" />
       </div>
       <Button onClick={save} disabled={saving} className="h-10">{saving ? 'Đang lưu...' : 'Lưu'}</Button>
     </div>
@@ -5419,7 +5405,7 @@ function DanhMucTool({ danhMuc, onUpdateSuccess, showNotification }: { danhMuc: 
         </div>
 
         <div className="flex gap-2">
-          <Input placeholder="Thêm giá trị mới..." className="bg-white" value={newVal} onChange={(e) => setNewVal(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addVal() } }} />
+          <Input placeholder="Thêm giá trị mới..." className="bg-white" value={newVal} onChange={(e) => setNewVal(e.target.value)} />
           <Button onClick={addVal} className="gap-1 shrink-0"><Plus className="w-4 h-4" /> Thêm</Button>
         </div>
 
@@ -5436,7 +5422,7 @@ function DanhMucTool({ danhMuc, onUpdateSuccess, showNotification }: { danhMuc: 
                   <td className="px-4 py-2">
                     {editId === it.id ? (
                       <div className="flex gap-2">
-                        <Input value={editVal} onChange={(e) => setEditVal(e.target.value)} className="h-8 bg-white" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveEdit() } }} />
+                        <Input value={editVal} onChange={(e) => setEditVal(e.target.value)} className="h-8 bg-white" />
                         <Button onClick={saveEdit} className="h-8 text-xs px-3">Lưu</Button>
                         <Button variant="outline" onClick={() => setEditId(null)} className="h-8 text-xs px-3">Hủy</Button>
                       </div>
@@ -5590,7 +5576,7 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">Mã máy</label>
-            <Input value={traMa} onChange={e => setTraMa(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') tracuu() }} placeholder="VD: 35816" className="bg-white w-40" />
+            <Input value={traMa} onChange={e => setTraMa(e.target.value)} placeholder="VD: 35816" className="bg-white w-40" />
           </div>
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">Năm</label>

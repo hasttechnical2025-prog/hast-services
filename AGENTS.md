@@ -22,5 +22,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Ô hiển thị (read-only): format bằng helper `formatDate`/`fmtDate` (đều ra `DD/MM/YYYY`).
 - Ngoại lệ: ô chọn THÁNG (`<input type="month">`) ở Bảo trì / Thống kê nhập — giữ nguyên (MM/YYYY).
 
+## Phím tắt: KHÔNG dùng (BẮT BUỘC)
+- Nguyên tắc: **chỉ CLICK vào nút được thiết kế mới có tác dụng**. Enter KHÔNG submit form / bấm hộ nút Lưu · Đăng nhập · Tra cứu; Esc KHÔNG bấm hộ nút Hủy / đóng hộp thoại. Lý do: người dùng hay bấm Enter theo quán tính khi app đang chờ tải dữ liệu → tạo/lưu nhầm.
+- Đã chặn tập trung ở `NoKeyShortcuts` (root layout, listener capture trên `document`) → **không cần** và **không nên** vá từng form.
+- **Không thêm** `onKeyDown` bắt `Enter`/`Escape` để chạy hành động — sẽ bị chặn, thành code chết. Mọi hành động phải có nút bấm.
+- Ngoại lệ có chủ đích (đừng phá): Enter trong `<textarea>` = xuống dòng; đang gõ tiếng Việt bằng bộ gõ (`isComposing`/keyCode 229).
+
 ## Xuất CSV
 - Nút "Xuất CSV" chỉ xuất đúng dữ liệu ĐANG hiển thị sau khi lọc (danh sách đã filter), cột khớp thông tin hiển thị. Ghi BOM UTF-8 (`'﻿'`) để Excel đọc tiếng Việt đúng.
