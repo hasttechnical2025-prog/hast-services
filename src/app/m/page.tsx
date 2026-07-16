@@ -391,8 +391,15 @@ function GiaoViecMobile({ customers, technicians, loaiOptions, notify }: {
   customers: any[], technicians: any[], loaiOptions: string[], notify: (t: 'success' | 'error', m: string) => void
 }) {
   const today = new Date().toISOString().split('T')[0]
-  const emptyForm = () => ({ ma_may: "", id_khach_hang: "", loai_cong_viec: loaiOptions[0] || 'Kiểm tra', ktv_id: "", ktv2_id: "", ghi_chu: "" })
+  const emptyForm = () => ({ ma_may: "", id_khach_hang: "", loai_cong_viec: loaiOptions[0] || '', ktv_id: "", ktv2_id: "", ghi_chu: "" })
   const [form, setForm] = useState(emptyForm())
+
+  // Danh mục nạp xong: nếu loại việc đang chọn không còn trong danh sách -> nhảy về lựa chọn đầu.
+  // Tránh <select> hiển thị option đầu nhưng state giữ giá trị cũ -> lưu sai loại việc.
+  useEffect(() => {
+    if (loaiOptions.length === 0) return
+    if (!loaiOptions.includes(form.loai_cong_viec)) setForm(f => ({ ...f, loai_cong_viec: loaiOptions[0] }))
+  }, [loaiOptions]) // eslint-disable-line react-hooks/exhaustive-deps
   const [q, setQ] = useState("")
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)

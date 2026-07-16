@@ -170,6 +170,10 @@ const JOBS_COLS: ColDef[] = [
   { key: 'thaotac', label: 'Thao tác', locked: true },
 ]
 
+// Chỉ dùng khi bảng danh mục trống. KHÔNG hardcode giá trị mặc định của form theo list này:
+// admin có thể xóa/đổi tên giá trị (VD đã bỏ "Kiểm tra") -> phải lấy mặc định từ danh mục thực tế.
+const LOAI_CV_FALLBACK = ['Lắp máy', 'Sửa máy', 'Giao mực', 'Thay vật tư', 'Bảo trì', 'Bảo hành', 'Hỗ trợ thầu', 'Hỗ trợ đại lý', 'Khiếu nại', 'Kiểm tra', 'Khác']
+
 export default function AdminDashboard() {
   const [currentAdmin, setCurrentAdmin] = useState<{ id: string, full_name: string, role: string } | null>(null)
   const [loginForm, setLoginForm] = useState({ username: "", password: "" })
@@ -309,6 +313,10 @@ export default function AdminDashboard() {
     return items.length > 0 ? items : fallback
   }
 
+  // Loại công việc đang dùng + giá trị mặc định cho form (luôn là lựa chọn ĐẦU TIÊN thực tế).
+  const loaiCvOptions = dmOptions('loai_cong_viec', LOAI_CV_FALLBACK)
+  const loaiCvMacDinh = loaiCvOptions[0] || ''
+
   // Khách hàng sắp/đã hết hạn HĐBT (trong vòng N tháng theo cấu hình)
   const hdbtCanhBaoThang = parseInt(cauHinh.hdbt_canh_bao_thang || '2') || 2
   const hdbtExpiring = (() => {
@@ -323,7 +331,7 @@ export default function AdminDashboard() {
     ngay: new Date().toISOString().split('T')[0], // Mặc định ngày hôm nay
     ma_may: "",
     id_khach_hang: "",
-    loai_cong_viec: "Kiểm tra",
+    loai_cong_viec: LOAI_CV_FALLBACK[0],
     km: 0,
     so_luong: 1,
     ktv_id: "",
@@ -347,7 +355,7 @@ export default function AdminDashboard() {
       ngay: new Date().toISOString().split('T')[0],
       ma_may: "",
       id_khach_hang: "",
-      loai_cong_viec: "Kiểm tra",
+      loai_cong_viec: loaiCvMacDinh,
       km: 0,
       so_luong: 1,
       ktv_id: "",
@@ -373,7 +381,7 @@ export default function AdminDashboard() {
       ngay: job.ngay || new Date().toISOString().split('T')[0],
       ma_may: job.ma_may || '',
       id_khach_hang: job.id_khach_hang || '',
-      loai_cong_viec: job.loai_cong_viec || 'Kiểm tra',
+      loai_cong_viec: job.loai_cong_viec || loaiCvMacDinh,
       km: job.km || 0,
       so_luong: job.so_luong || 1,
       ktv_id: job.ktv_id || '',
@@ -531,6 +539,16 @@ export default function AdminDashboard() {
       }
     }
   }, [formData.id_khach_hang, customers])
+
+  // Danh mục nạp xong / admin đổi danh mục: nếu loại việc đang chọn không còn tồn tại
+  // (VD "Kiểm tra" đã bị xóa) thì form TẠO MỚI phải nhảy về lựa chọn đầu tiên.
+  // Không có bước này, <select> hiển thị option đầu nhưng state giữ giá trị cũ -> lưu sai.
+  useEffect(() => {
+    if (editingJobId || loaiCvOptions.length === 0) return
+    if (!loaiCvOptions.includes(formData.loai_cong_viec)) {
+      setFormData(prev => ({ ...prev, loai_cong_viec: loaiCvOptions[0] }))
+    }
+  }, [danhMuc, editingJobId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Nạp trạng thái máy (bảo trì tháng / giám định chờ thay) khi mã máy khớp một khách
   useEffect(() => {
@@ -1055,7 +1073,7 @@ export default function AdminDashboard() {
                   <span>–</span>
                   <DateField value={jobFilters.denNgay} onChange={(v) => setJobFilters({ ...jobFilters, denNgay: v })} heightClass="h-9" className="w-32" />
                 </div>
-                <MultiCheckDropdown label="Loại việc" options={dmOptions('loai_cong_viec', ['Lắp máy','Sửa máy','Giao mực','Thay vật tư','Bảo trì','Bảo hành','Hỗ trợ thầu','Hỗ trợ đại lý','Khiếu nại','Kiểm tra','Khác'])} selected={jobFilters.loaiViec} onChange={(v) => setJobFilters({ ...jobFilters, loaiViec: v })} />
+                <MultiCheckDropdown label="Loại việc" options={loaiCvOptions} selected={jobFilters.loaiViec} onChange={(v) => setJobFilters({ ...jobFilters, loaiViec: v })} />
                 <select value={jobFilters.ktvId} onChange={(e) => setJobFilters({ ...jobFilters, ktvId: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="">KTV: Tất cả</option>
                   <option value="none">Chưa giao</option>
@@ -1714,7 +1732,12 @@ export default function AdminDashboard() {
                     value={formData.loai_cong_viec}
                     onChange={(e) => setFormData({...formData, loai_cong_viec: e.target.value})}
                   >
-                    {dmOptions('loai_cong_viec', ['Lắp máy','Sửa máy','Giao mực','Thay vật tư','Bảo trì','Bảo hành','Hỗ trợ thầu','Hỗ trợ đại lý','Khiếu nại','Kiểm tra','Khác']).map(v => (
+                    {/* Phiếu cũ có loại việc đã bị xóa khỏi danh mục -> vẫn hiện đúng giá trị thật
+                        (không để select nói một đằng, state một nẻo) */}
+                    {formData.loai_cong_viec && !loaiCvOptions.includes(formData.loai_cong_viec) && (
+                      <option value={formData.loai_cong_viec}>{formData.loai_cong_viec} (không còn trong danh mục)</option>
+                    )}
+                    {loaiCvOptions.map(v => (
                       <option key={v} value={v}>{v}</option>
                     ))}
                   </select>
