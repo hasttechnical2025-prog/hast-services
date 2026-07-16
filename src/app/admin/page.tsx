@@ -1564,7 +1564,17 @@ export default function AdminDashboard() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateJob} className="p-6 space-y-6">
+            {/* Chặn Enter trong ô nhập kích hoạt "submit ngầm" của HTML — trước đây chỉ gõ mã máy
+                rồi lỡ chạm Enter là tạo luôn phiếu. Vẫn cho Enter ở textarea (xuống dòng) và ở
+                nút bấm (giữ thao tác bàn phím cho nút Lưu). */}
+            <form
+              onSubmit={handleCreateJob}
+              onKeyDown={(e) => {
+                const tag = (e.target as HTMLElement).tagName
+                if (e.key === 'Enter' && tag !== 'TEXTAREA' && tag !== 'BUTTON') e.preventDefault()
+              }}
+              className="p-6 space-y-6"
+            >
               {editingJobId && editingKetQua && !['Chờ nhận', 'Đã nhận'].includes(editingKetQua) && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                   <b>Sửa phiếu đã "{editingKetQua}" (quyền admin).</b> Sửa phiếu này <u>không</u> tự điều chỉnh tồn kho.

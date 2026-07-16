@@ -86,7 +86,7 @@ export async function PUT(request: Request) {
     // Báo nhóm khi đã duyệt (cả team nắm ai nghỉ)
     const groupChatId = process.env.TELEGRAM_GROUP_CHAT_ID
     if (groupChatId && action === 'duyet') {
-      await sendTelegramMessage(groupChatId, `✅ <b>${esc(u?.full_name)}</b> nghỉ <b>${esc(loaiLabel)}</b>: ${esc(khoang)} — đã duyệt.`)
+      await sendTelegramMessage(groupChatId, `✅ <b>${esc(u?.full_name)}</b> nghỉ <b>${esc(loaiLabel)}</b>: ${esc(khoang)} — đã duyệt bởi <b>${esc(session.full_name)}</b>.`)
     }
     await broadcastLeaveChanged()
 
