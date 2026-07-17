@@ -9,7 +9,8 @@ export function catOf(loai: string): string {
   if (s.includes('mực')) return 'GIAO_MUC'
   if (s.includes('vật tư')) return 'THAY_VAT_TU'
   if (s.includes('bảo trì')) return 'BAO_TRI'
-  if (s.includes('cskh') || s.includes('chăm sóc') || s.includes('kiểm tra')) return 'CSKH'
+  // "Kiểm tra" KHÔNG còn gộp vào CSKH (2026-07-16, theo yêu cầu) -> rơi về nhóm "Khác".
+  if (s.includes('cskh') || s.includes('chăm sóc')) return 'CSKH'
   if (s.includes('thầu')) return 'HO_TRO_THAU'
   if (s.includes('đại lý')) return 'HO_TRO_DAI_LY'
   if (s.includes('khiếu nại')) return 'KHIEU_NAI'

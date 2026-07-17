@@ -11,7 +11,7 @@ import { supabase } from "@/lib/supabase"
 import ThueCpcModule from "@/components/ThueCpcModule"
 import NghiPhepDuyet from "@/components/NghiPhepDuyet"
 import { hdbtStatus, loaiHdBadge } from "@/lib/hd-status"
-import { LOAI_HD_BAO_TRI, canBaoTriThang, dangTamDung, coBaoTriThang, moTaLichBaoTri, fmtThang, parseThangBaoTri, formatThangBaoTri } from "@/lib/bao-tri"
+import { LOAI_HD_BAO_TRI, canBaoTriThang, dangTamDung, coBaoTriThang, moTaLichBaoTri, fmtThang, parseThangBaoTri, formatThangBaoTri, doiChieuNam, CELL_DA_LAM, CELL_THIEU } from "@/lib/bao-tri"
 
 // Kênh realtime (đồng bộ với lib/realtime.ts + app KTV): server phát broadcast sau mỗi thay đổi việc
 const JOBS_TOPIC = "soct_jobs"
@@ -5476,7 +5476,12 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
   const [records, setRecords] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [subTab, setSubTab] = useState<'da_bao_tri' | 'chua_bao_tri' | 'tam_dung'>('da_bao_tri')
+  const [subTab, setSubTab] = useState<'da_bao_tri' | 'chua_bao_tri' | 'tam_dung' | 'doi_chieu'>('da_bao_tri')
+  // Đối chiếu cuối năm: mỗi máy x 12 tháng + số lần theo HĐ / đã làm / thiếu
+  const [dcNam, setDcNam] = useState(String(new Date().getFullYear()))
+  const [dcRecords, setDcRecords] = useState<any[]>([])
+  const [dcLoading, setDcLoading] = useState(false)
+  const [dcQ, setDcQ] = useState("")
   // Tra cứu lịch sử bảo trì theo 1 mã máy trong 1 năm
   const [traMa, setTraMa] = useState('')
   const [traNam, setTraNam] = useState(String(new Date().getFullYear()))
@@ -5526,6 +5531,54 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
   const paged = usePaged(records)
   const chuaBaoTriPaged = usePaged(chuaBaoTri)
   const tamDungPaged = usePaged(tamDung)
+
+  // ===== Đối chiếu cuối năm =====
+  const fetchDoiChieu = async (nam: string) => {
+    setDcLoading(true)
+    try {
+      const res = await fetch(`/api/admin/bao-tri?nam=${nam}`)
+      const j = await res.json()
+      if (res.ok) setDcRecords(j.data || [])
+      else showNotification('error', j.error)
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setDcLoading(false) }
+  }
+  useEffect(() => { if (subTab === 'doi_chieu' && /^\d{4}$/.test(dcNam)) fetchDoiChieu(dcNam) }, [subTab, dcNam]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Tháng đã bảo trì thật của từng máy trong năm
+  const doneByMay = (() => {
+    const m = new Map<string, Set<number>>()
+    for (const r of dcRecords) {
+      const k = String(r.ma_may || '').toLowerCase()
+      if (!k) continue
+      if (!m.has(k)) m.set(k, new Set())
+      m.get(k)!.add(parseInt(String(r.thang_nam).split('-')[1], 10))
+    }
+    return m
+  })()
+
+  const dcRows = customers
+    .filter(c => c.ma_may && LOAI_HD_BAO_TRI.includes(String(c.loai_hd || '').trim()))
+    .map(c => ({ c, ...doiChieuNam(c, parseInt(dcNam, 10), doneByMay.get(String(c.ma_may).toLowerCase()) || new Set<number>()) }))
+    .sort((a, b) => String(a.c.ten_khach_hang || '').localeCompare(String(b.c.ten_khach_hang || ''), 'vi'))
+
+  const dcQq = dcQ.trim().toLowerCase()
+  const dcFiltered = dcQq
+    ? dcRows.filter(r => `${r.c.ten_khach_hang || ''} ${r.c.ma_may || ''} ${r.c.model || ''}`.toLowerCase().includes(dcQq))
+    : dcRows
+  const dcPaged = usePaged(dcFiltered)
+  const dcTong = dcFiltered.reduce((s, r) => ({ theo_hd: s.theo_hd + r.theo_hd, da_lam: s.da_lam + r.da_lam, thieu: s.thieu + r.thieu }), { theo_hd: 0, da_lam: 0, thieu: 0 })
+
+  // Xuất đúng những dòng ĐANG hiển thị (sau khi lọc)
+  const exportDoiChieu = async () => {
+    const headers = ['Mã máy', 'Khách hàng', 'Model', 'Loại HĐ', 'Lịch bảo trì',
+      ...Array.from({ length: 12 }, (_, i) => `T${i + 1}`),
+      'Số lần theo HĐ', 'Đã làm', 'Thiếu', 'Tạm dừng từ', 'Ghi chú']
+    const rows = dcFiltered.map(r => [
+      r.c.ma_may, r.c.ten_khach_hang, r.c.model || '', r.c.loai_hd || '', moTaLichBaoTri(r.c.thang_bao_tri),
+      ...r.cells, r.theo_hd, r.da_lam, r.thieu, fmtThang(r.c.tam_dung_tu_thang), r.c.ghi_chu_bao_tri || '',
+    ])
+    await exportRowsToExcel(`doi-chieu-bao-tri-${dcNam}`, headers, rows)
+  }
 
   const handleAnalyze = () => {
     const raw = text.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean)
@@ -5705,9 +5758,88 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
           >
             Tạm dừng ({tamDung.length} máy)
           </button>
+          <button
+            onClick={() => setSubTab('doi_chieu')}
+            className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${subTab === 'doi_chieu' ? 'border-emerald-600 text-emerald-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+          >
+            Đối chiếu năm
+          </button>
         </div>
 
-        {subTab === 'tam_dung' ? (
+        {subTab === 'doi_chieu' ? (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Năm</label>
+                <Input value={dcNam} onChange={(e) => setDcNam(e.target.value.replace(/[^\d]/g, '').slice(0, 4))} className="bg-white w-24" />
+              </div>
+              <div className="space-y-1 flex-1 min-w-[200px]">
+                <label className="text-xs font-semibold text-slate-600">Tìm khách hàng / mã máy</label>
+                <Input value={dcQ} onChange={(e) => setDcQ(e.target.value)} placeholder="Gõ tên khách để đối chiếu riêng..." className="bg-white" />
+              </div>
+              <Button onClick={exportDoiChieu} disabled={dcLoading || dcFiltered.length === 0} className="h-10 gap-2 bg-emerald-600 hover:bg-emerald-700">
+                <Download className="w-4 h-4" /> Xuất Excel ({dcFiltered.length} máy)
+              </Button>
+            </div>
+
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 px-1">
+              <span><b className="text-emerald-700">✓</b> đã bảo trì</span>
+              <span><b className="text-amber-600">x</b> theo lịch nhưng chưa làm</span>
+              <span><b className="text-slate-500">N</b> đã tạm dừng theo dõi</span>
+              <span>ô trống = tháng không nằm trong lịch</span>
+            </div>
+            <div className="flex flex-wrap gap-2 px-1">
+              <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">Theo HĐ: {dcTong.theo_hd} lượt</span>
+              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">Đã làm: {dcTong.da_lam} lượt</span>
+              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">Thiếu: {dcTong.thieu} lượt</span>
+            </div>
+
+            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-slate-600">
+                  <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
+                    <tr>
+                      <th className="px-3 py-3 font-semibold">Mã máy</th>
+                      <th className="px-3 py-3 font-semibold">Khách hàng</th>
+                      <th className="px-3 py-3 font-semibold">Lịch</th>
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                        <th key={m} className="px-1 py-3 font-semibold text-center w-8">T{m}</th>
+                      ))}
+                      <th className="px-2 py-3 font-semibold text-center">Theo HĐ</th>
+                      <th className="px-2 py-3 font-semibold text-center">Đã làm</th>
+                      <th className="px-2 py-3 font-semibold text-center">Thiếu</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {dcLoading ? (
+                      <tr><td colSpan={18} className="px-4 py-8 text-center text-slate-400">Đang tải dữ liệu năm {dcNam}...</td></tr>
+                    ) : dcFiltered.length === 0 ? (
+                      <tr><td colSpan={18} className="px-4 py-8 text-center text-slate-400">Không có máy HĐBT/MF nào khớp.</td></tr>
+                    ) : dcPaged.pageItems.map((r) => (
+                      <tr key={r.c.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-3 py-2 font-mono font-medium text-slate-700 whitespace-nowrap">{r.c.ma_may}</td>
+                        <td className="px-3 py-2 font-medium text-slate-800">
+                          {r.c.ten_khach_hang}
+                          {r.c.tam_dung_tu_thang && <span className="ml-1 text-xs text-slate-400">(tạm dừng {fmtThang(r.c.tam_dung_tu_thang)})</span>}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-500 whitespace-nowrap">{moTaLichBaoTri(r.c.thang_bao_tri)}</td>
+                        {r.cells.map((cell, i) => (
+                          <td key={i} className={`px-1 py-2 text-center font-bold ${cell === CELL_DA_LAM ? 'text-emerald-600' : cell === CELL_THIEU ? 'text-amber-600' : 'text-slate-300'}`}>{cell}</td>
+                        ))}
+                        <td className="px-2 py-2 text-center text-slate-600">{r.theo_hd}</td>
+                        <td className="px-2 py-2 text-center font-semibold text-emerald-700">{r.da_lam}</td>
+                        <td className={`px-2 py-2 text-center font-semibold ${r.thieu > 0 ? 'text-amber-700' : 'text-slate-300'}`}>{r.thieu}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-4 pb-2">
+                <Pagination page={dcPaged.page} pageCount={dcPaged.pageCount} total={dcPaged.total} perPage={dcPaged.perPage} onPage={dcPaged.setPage} />
+              </div>
+            </div>
+          </div>
+        ) : subTab === 'tam_dung' ? (
           <div className="space-y-3">
             <p className="text-xs text-slate-500 px-1">
               Máy khách đã bỏ nhưng còn trong hợp đồng — <b>không bị đòi bảo trì</b> nhưng vẫn giữ để đối chiếu cuối năm.

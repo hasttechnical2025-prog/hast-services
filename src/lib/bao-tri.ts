@@ -58,6 +58,30 @@ export function moTaLichBaoTri(thang_bao_tri: string | null | undefined): string
   return list.length === 0 ? 'Hằng tháng' : list.map(m => `T${m}`).join(', ')
 }
 
+// ===== Đối chiếu cuối năm =====
+export const CELL_DA_LAM = '✓'   // đã bảo trì tháng đó
+export const CELL_THIEU = 'x'    // theo lịch mà chưa làm
+export const CELL_NGUNG = 'N'    // đã tạm dừng theo dõi
+// '' = tháng không nằm trong lịch -> không phải làm
+
+// Dựng 1 dòng đối chiếu của 1 máy trong năm `year`.
+// `doneMonths` = các tháng (1..12) máy THỰC SỰ có bản ghi bảo trì.
+export function doiChieuNam(may: MayBaoTri, year: number, doneMonths: Set<number>) {
+  const cells: string[] = []
+  let theo_hd = 0, da_lam = 0, thieu = 0
+  for (let m = 1; m <= 12; m++) {
+    const thang_nam = `${year}-${String(m).padStart(2, '0')}`
+    const done = doneMonths.has(m)
+    const paused = dangTamDung(may.tam_dung_tu_thang, thang_nam)
+    const scheduled = !paused && coBaoTriThang(may.thang_bao_tri, m)
+    if (done) da_lam++
+    if (scheduled) { theo_hd++; if (!done) thieu++ }
+    // Đã làm thì luôn ghi ✓ (kể cả tháng ngoài lịch / sau khi tạm dừng) — báo cáo phải trung thực
+    cells.push(done ? CELL_DA_LAM : paused ? CELL_NGUNG : scheduled ? CELL_THIEU : '')
+  }
+  return { cells, theo_hd, da_lam, thieu }
+}
+
 // 'YYYY-MM' -> 'MM/YYYY' để hiển thị
 export function fmtThang(thang_nam: string | null | undefined): string {
   const t = (thang_nam || '').trim()

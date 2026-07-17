@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireTab } from '@/lib/session'
 
 // Lấy danh sách máy đã bảo trì trong một tháng (YYYY-MM)
@@ -15,17 +15,19 @@ export async function GET(request: Request) {
     const ma_may = searchParams.get('ma_may')   // tra cứu lịch sử theo mã máy
     const nam = searchParams.get('nam')         // lọc theo năm (YYYY)
 
-    let query = supabaseAdmin
-      .from('soct_bao_tri')
-      .select('id, ma_may, thang_nam, ngay, ktv_id, ghi_chu')
-      .order('ngay', { ascending: false })
+    // selectAll: lấy cả năm (vài trăm máy x 12 tháng) sẽ vượt giới hạn ~1000 dòng của PostgREST
+    const data = await selectAll((from, to) => {
+      let query = supabaseAdmin
+        .from('soct_bao_tri')
+        .select('id, ma_may, thang_nam, ngay, ktv_id, ghi_chu')
+        .order('ngay', { ascending: false })
+        .range(from, to)
 
-    if (thang_nam) query = query.eq('thang_nam', thang_nam)
-    if (ma_may) query = query.eq('ma_may', ma_may)
-    if (nam && /^\d{4}$/.test(nam)) query = query.like('thang_nam', `${nam}-%`)
-
-    const { data, error } = await query
-    if (error) throw error
+      if (thang_nam) query = query.eq('thang_nam', thang_nam)
+      if (ma_may) query = query.eq('ma_may', ma_may)
+      if (nam && /^\d{4}$/.test(nam)) query = query.like('thang_nam', `${nam}-%`)
+      return query
+    })
 
     return NextResponse.json({ data })
   } catch (error: any) {
