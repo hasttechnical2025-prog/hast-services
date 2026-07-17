@@ -23,7 +23,10 @@ export async function getCauHinh(): Promise<Record<string, string>> {
   return cfg
 }
 
-export const BAO_TRI_MSG = 'Hệ thống đang bảo trì. Vui lòng quay lại sau.'
+// Thông điệp lộ ra ngoài KHI BỊ CHẶN: cố ý viết như một sự cố máy chủ, KHÔNG nhắc
+// tới "bảo trì" — người dùng phải thấy như app đang hỏng, không phải bị khóa có chủ đích.
+// (Dùng cho cả màn chặn lẫn lỗi 503 khi ai đó cố đăng nhập.)
+export const BAO_TRI_MSG = 'Máy chủ không phản hồi. Vui lòng thử lại sau ít phút.'
 
 // Chế độ bảo trì: bật -> CHỈ admin dùng được app (mọi role khác bị chặn ở requireRole,
 // chặn đăng nhập, dừng cron + Telegram).
