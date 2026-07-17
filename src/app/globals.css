@@ -19,6 +19,16 @@
   }
 }
 
+/* Cỡ chữ GỐC của toàn app (mặc định trình duyệt là 16px -> thấy hơi to với giao diện
+   văn phòng nhiều dữ liệu). Tailwind dùng rem cho cả chữ (text-sm/xs...) LẪN kích thước
+   nút, ô nhập, padding -> đổi 1 dòng này là cả app co lại cân đối.
+   Muốn gọn hơn nữa: đổi 15px -> 14px. Về như cũ: xóa dòng này.
+   Lưu ý: chữ trong ô nhập < 16px thường khiến iOS Safari tự phóng to khi bấm vào ô,
+   nhưng app đã khóa zoom (xem NoPinchZoom + viewport) nên không dính. */
+html {
+  font-size: 15px;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
