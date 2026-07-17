@@ -8,7 +8,14 @@ export async function GET() {
   try {
     if (!await isBaoTri()) return NextResponse.json({ bao_tri: false })
     const session = await getSession()
-    return NextResponse.json({ bao_tri: true, admin: session?.role === 'admin', msg: BAO_TRI_MSG })
+    // logged_in để giao diện biết có cần chừa lối vào form đăng nhập hay không:
+    // admin đăng xuất giữa lúc bảo trì mà bị lớp phủ che mất form -> tự nhốt mình ngoài.
+    return NextResponse.json({
+      bao_tri: true,
+      admin: session?.role === 'admin',
+      logged_in: !!session,
+      msg: BAO_TRI_MSG,
+    })
   } catch {
     // Lỗi -> coi như không bảo trì, để không khóa nhầm app
     return NextResponse.json({ bao_tri: false })

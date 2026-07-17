@@ -11,7 +11,9 @@ import { useState, useEffect } from "react"
  */
 export default function MaintenanceGate() {
   const [blocked, setBlocked] = useState(false)
+  const [loggedIn, setLoggedIn] = useState(true)
   const [msg, setMsg] = useState('')
+  const [showLogin, setShowLogin] = useState(false) // admin bấm "Đăng nhập" -> tạm mở lớp phủ
 
   useEffect(() => {
     let stop = false
@@ -20,8 +22,11 @@ export default function MaintenanceGate() {
         const r = await fetch('/api/maintenance', { cache: 'no-store' })
         const j = await r.json()
         if (stop) return
-        setBlocked(!!j.bao_tri && !j.admin)
+        const b = !!j.bao_tri && !j.admin
+        setBlocked(b)
+        setLoggedIn(!!j.logged_in)
         setMsg(j.msg || '')
+        if (!b) setShowLogin(false) // hết bảo trì / đã là admin -> về mặc định
       } catch { /* lỗi mạng -> không khóa nhầm */ }
     }
     check()
@@ -30,7 +35,9 @@ export default function MaintenanceGate() {
     return () => { stop = true; clearInterval(t) }
   }, [])
 
-  if (!blocked) return null
+  // Admin bấm "Đăng nhập quản trị viên" -> để lộ form đăng nhập bên dưới.
+  // Không phải lỗ hổng: server vẫn từ chối đăng nhập của mọi role != admin (503).
+  if (!blocked || showLogin) return null
 
   return (
     <div className="fixed inset-0 z-[999] bg-slate-100 flex items-center justify-center p-6">
@@ -43,7 +50,18 @@ export default function MaintenanceGate() {
         </div>
         <h1 className="text-lg font-bold text-slate-800">Hệ thống đang bảo trì</h1>
         <p className="text-sm text-slate-500">{msg || 'Vui lòng quay lại sau.'}</p>
-        <p className="text-xs text-slate-400 pt-1">Liên hệ quản trị viên nếu bạn cần gấp.</p>
+
+        {/* Chưa đăng nhập -> chừa lối vào, nếu không admin đăng xuất giữa lúc bảo trì
+            sẽ bị chính lớp phủ này che mất form đăng nhập và không vào lại được.
+            Đã đăng nhập mà không phải admin -> KHÔNG có lối này (chặn cứng). */}
+        {!loggedIn && (
+          <button
+            onClick={() => setShowLogin(true)}
+            className="text-xs text-slate-400 hover:text-blue-600 underline underline-offset-2 pt-1"
+          >
+            Đăng nhập quản trị viên
+          </button>
+        )}
       </div>
     </div>
   )
