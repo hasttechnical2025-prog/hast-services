@@ -10,6 +10,7 @@ import { TAB_TREE, TAB_ROLES, DEFAULT_TAB_VIS } from "@/lib/tabs"
 import { supabase } from "@/lib/supabase"
 import ThueCpcModule from "@/components/ThueCpcModule"
 import NghiPhepDuyet from "@/components/NghiPhepDuyet"
+import BaoGiaEditor, { type BaoGiaRow } from "@/components/BaoGiaEditor"
 import { hdbtStatus, loaiHdBadge } from "@/lib/hd-status"
 import { LOAI_HD_BAO_TRI, canBaoTriThang, dangTamDung, coBaoTriThang, moTaLichBaoTri, fmtThang, parseThangBaoTri, formatThangBaoTri, doiChieuNam, thangDaToi, CELL_DA_LAM, CELL_THIEU, CELL_CHUA_TOI } from "@/lib/bao-tri"
 
@@ -2781,6 +2782,11 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
   const [closing, setClosing] = useState<{ id: string, so_report: string, ngay_thay: string } | null>(null)
   // Bộ lọc BBGĐ — mặc định Chờ thay + Chưa báo giá
   const [gdFilters, setGdFilters] = useState({ maMay: "", trangThai: "cho_thay", baoGia: "chua" })
+  // Hộp thoại làm báo giá từ biên bản giám định
+  const [quoteGd, setQuoteGd] = useState<any | null>(null)
+  const [quoteRows, setQuoteRows] = useState<BaoGiaRow[]>([])
+  const [quoteKh, setQuoteKh] = useState('')
+  const [quoteDiaChi, setQuoteDiaChi] = useState('')
 
   const cust = form.ma_may.trim() ? customers.find(c => c.ma_may && c.ma_may.toLowerCase() === form.ma_may.trim().toLowerCase()) : undefined
   const filteredInventory = onlyModel && cust?.model ? inventory.filter(i => matchModelGD(i.model, cust.model)) : inventory
@@ -2861,6 +2867,39 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
   const toggleBaoGia = async (r: any) => {
     const res = await fetch('/api/admin/giam-dinh', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: r.id, da_bao_gia: !r.da_bao_gia }) })
     if (res.ok) fetchRecords(); else showNotification('error', "Cập nhật không thành công")
+  }
+
+  // ===== Làm báo giá từ 1 biên bản giám định (1 BBGĐ = 1 báo giá) =====
+  // Dòng dựng từ vật tư đề xuất thay; giá gợi ý = giá BÁN GẦN NHẤT của mã hàng đó
+  // (chưa bán bao giờ -> 0, sửa tay). Xuất xong -> tự tick "Đã báo giá".
+  const openQuote = async (r: any) => {
+    const vts: any[] = r.soct_giam_dinh_vat_tu || []
+    setQuoteGd(r)
+    setQuoteKh(r.soct_khach_hang?.ten_khach_hang || '')
+    setQuoteDiaChi(r.soct_khach_hang?.dia_chi || '')
+    const base: BaoGiaRow[] = vts.map(v => ({
+      ten: v.soct_kho_hang?.ten_hang || v.ma_hang || '',
+      dvt: 'Cái',
+      sl: Number(v.so_luong) || 1,
+      gia: 0,
+      vat: 8,
+      gc: v.ghi_chu || '',
+    }))
+    setQuoteRows(base)
+
+    // Nạp giá gợi ý (không chặn mở hộp thoại)
+    try {
+      const mas = Array.from(new Set(vts.map(v => v.ma_hang).filter(Boolean)))
+      if (mas.length === 0) return
+      const res = await fetch(`/api/admin/bao-gia?ma_hang=${encodeURIComponent(mas.join(','))}`)
+      const j = await res.json()
+      if (!res.ok) return
+      const goiY: Record<string, { don_gia: number, vat: number }> = j.data || {}
+      setQuoteRows(vts.map((v, i) => {
+        const g = goiY[v.ma_hang]
+        return g ? { ...base[i], gia: g.don_gia, vat: g.vat } : base[i]
+      }))
+    } catch { /* không có gợi ý thì để 0, nhập tay */ }
   }
 
   const fmtDate = (s: string) => { if (!s) return ''; const d = new Date(s); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` }
@@ -3026,6 +3065,11 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
               </div>
             ) : (
               <div className="flex justify-end gap-2 border-t border-slate-100 pt-2">
+                {(r.soct_giam_dinh_vat_tu || []).length > 0 && (
+                  <Button variant="outline" onClick={() => openQuote(r)} className="h-8 text-xs border-blue-200 text-blue-700 hover:bg-blue-50 gap-1">
+                    <Download className="w-3.5 h-3.5" /> Làm báo giá
+                  </Button>
+                )}
                 <Button variant="outline" onClick={() => toggleBaoGia(r)} className={`h-8 text-xs ${r.da_bao_gia ? 'text-slate-600' : 'border-blue-200 text-blue-700 hover:bg-blue-50'}`}>{r.da_bao_gia ? 'Bỏ đánh dấu báo giá' : 'Đánh dấu đã báo giá'}</Button>
                 {!r.da_thay && <Button variant="outline" onClick={() => setClosing({ id: r.id, so_report: r.so_report || "", ngay_thay: new Date().toISOString().split('T')[0] })} className="h-8 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50">Đóng (đã thay)</Button>}
                 <button onClick={() => handleDelete(r.id)} className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 hover:bg-red-100 rounded-md transition"><Trash2 className="w-4 h-4" /></button>
@@ -3035,6 +3079,49 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
         ))}
         <Pagination page={gdPaged.page} pageCount={gdPaged.pageCount} total={gdPaged.total} perPage={gdPaged.perPage} onPage={gdPaged.setPage} />
       </div>
+
+      {/* Làm báo giá từ biên bản giám định — dùng chung máy báo giá với Công nợ */}
+      {quoteGd && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">Báo giá vật tư giám định</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Máy <b className="font-mono text-slate-700">{quoteGd.ma_may}</b>
+                  {quoteGd.soct_khach_hang?.model ? ` · ${quoteGd.soct_khach_hang.model}` : ''}
+                  {quoteGd.ngay_giam_dinh ? ` · giám định ${fmtDate(quoteGd.ngay_giam_dinh)}` : ''}
+                  {' · giá gợi ý theo lần bán gần nhất, sửa được'}
+                </p>
+              </div>
+              <button onClick={() => setQuoteGd(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
+            </div>
+            <div className="overflow-y-auto">
+              <BaoGiaEditor
+                rows={quoteRows}
+                onRowsChange={setQuoteRows}
+                khachHang={quoteKh}
+                onKhachHangChange={setQuoteKh}
+                diaChi={quoteDiaChi}
+                onDiaChiChange={setQuoteDiaChi}
+                showNotification={showNotification}
+                emptyText="Biên bản này chưa có vật tư đề xuất thay."
+                onExported={async () => {
+                  // Xuất xong -> tự tick "Đã báo giá" (nếu chưa tick)
+                  if (!quoteGd.da_bao_gia) {
+                    await fetch('/api/admin/giam-dinh', {
+                      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ id: quoteGd.id, da_bao_gia: true }),
+                    })
+                  }
+                  setQuoteGd(null)
+                  fetchRecords()
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -4449,13 +4536,10 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
   const [loading, setLoading] = useState(true)
   const [selIds, setSelIds] = useState<string[]>([])
   const [gop, setGop] = useState(true)
-  const [rows, setRows] = useState<{ ten: string, dvt: string, sl: number, gia: number, vat: number, gc: string }[]>([])
-  const [markups, setMarkups] = useState({ a: '3', b: '5', c: '6' })
-  const [nam, setNam] = useState(String(new Date().getFullYear()))
+  const [rows, setRows] = useState<BaoGiaRow[]>([])
   const [khTen, setKhTen] = useState('')
   const [khDiaChi, setKhDiaChi] = useState('')
   const [khSearch, setKhSearch] = useState('')
-  const [exporting, setExporting] = useState(false)
   const [working, setWorking] = useState(false)
 
   // State phục vụ Modal xác nhận Đã lên hóa đơn
@@ -4501,30 +4585,6 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
   }
 
   const fmtN = (x: any) => (Number(x) || 0).toLocaleString('vi-VN')
-  const digits = (s: string) => s.replace(/[^\d]/g, '')
-  const upd = (i: number, f: string, v: any) => setRows(rs => rs.map((r, idx) => idx === i ? { ...r, [f]: v } : r))
-  const addRow = () => setRows(rs => [...rs, { ten: '', dvt: 'Cái', sl: 1, gia: 0, vat: 8, gc: '' }])
-  const delRow = (i: number) => setRows(rs => rs.filter((_, idx) => idx !== i))
-
-  const baseCong = rows.reduce((s, r) => s + (Number(r.sl) || 0) * (Number(r.gia) || 0), 0)
-  const baseThue = Math.round(rows.reduce((s, r) => s + (Number(r.sl) || 0) * (Number(r.gia) || 0) * (Number(r.vat) || 0) / 100, 0))
-
-  const asciiFile = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'khach'
-
-  const exportQuote = async () => {
-    if (selCusts.length === 0 || rows.length === 0) return showNotification('error', 'Chưa có dữ liệu báo giá.')
-    setExporting(true)
-    try {
-      const res = await fetch('/api/admin/cong-no', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ khach_hang: khTen, dia_chi: khDiaChi, nam, rows, markups: [parseFloat(markups.a) || 0, parseFloat(markups.b) || 0, parseFloat(markups.c) || 0] }),
-      })
-      if (!res.ok) { const j = await res.json().catch(() => ({})); showNotification('error', j.error || 'Xuất thất bại'); return }
-      const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a')
-      a.href = url; a.download = `Bao-gia-${asciiFile(khTen)}.docx`; a.click(); URL.revokeObjectURL(url)
-      showNotification('success', 'Đã xuất báo giá .docx.')
-    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setExporting(false) }
-  }
 
   const setStatus = async (trang_thai_hd: string) => {
     const ids = selTickets.map((t: any) => t.id)
@@ -4589,86 +4649,28 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
         <p className="text-sm text-slate-400 text-center py-6">Chọn một hoặc nhiều điểm máy để lập báo giá.</p>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-4 border-b border-slate-200 bg-slate-50/50 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Kính gửi (tên đơn vị)</label>
-                <Input value={khTen} onChange={e => setKhTen(e.target.value)} className="bg-white" placeholder="Tên hiển thị trên báo giá" />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Địa chỉ</label>
-                <Input value={khDiaChi} onChange={e => setKhDiaChi(e.target.value)} className="bg-white" />
-              </div>
-            </div>
-            <div className="flex flex-wrap items-end gap-3">
+          <BaoGiaEditor
+            rows={rows}
+            onRowsChange={setRows}
+            khachHang={khTen}
+            onKhachHangChange={setKhTen}
+            diaChi={khDiaChi}
+            onDiaChiChange={setKhDiaChi}
+            showNotification={showNotification}
+            canExport={selCusts.length > 0}
+            emptyText="Khách này chưa có vật tư trong các phiếu. Thêm dòng thủ công nếu cần."
+            toolbarExtra={
               <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none h-9">
                 <input type="checkbox" checked={gop} onChange={e => setGop(e.target.checked)} className="w-4 h-4 accent-blue-600" /> Gộp theo mặt hàng
               </label>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Năm báo giá</label>
-                <Input value={nam} onChange={e => setNam(digits(e.target.value))} className="bg-white w-24" />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">% cạnh tranh (3 báo giá)</label>
-                <div className="flex gap-1">
-                  <Input value={markups.a} onChange={e => setMarkups({ ...markups, a: e.target.value })} className="bg-white w-16 text-center" />
-                  <Input value={markups.b} onChange={e => setMarkups({ ...markups, b: e.target.value })} className="bg-white w-16 text-center" />
-                  <Input value={markups.c} onChange={e => setMarkups({ ...markups, c: e.target.value })} className="bg-white w-16 text-center" />
-                </div>
-              </div>
-              <Button variant="outline" onClick={addRow} className="gap-1 h-9"><Plus className="w-4 h-4" /> Thêm dòng</Button>
-              <div className="ml-auto">
-                <Button onClick={exportQuote} disabled={exporting} className="gap-2 h-9"><Download className="w-4 h-4" /> {exporting ? 'Đang xuất...' : 'Xuất báo giá (.docx)'}</Button>
-              </div>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-600">
-              <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
-                <tr>
-                  <th className="px-3 py-2 w-8">TT</th>
-                  <th className="px-3 py-2">Tên hàng hóa</th>
-                  <th className="px-3 py-2 w-20">ĐVT</th>
-                  <th className="px-3 py-2 w-16 text-center">SL</th>
-                  <th className="px-3 py-2 w-32 text-right">Đơn giá</th>
-                  <th className="px-3 py-2 w-16 text-center">VAT%</th>
-                  <th className="px-3 py-2 w-32 text-right">Thành tiền</th>
-                  <th className="px-3 py-2">Ghi chú</th>
-                  <th className="px-3 py-2 w-8"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {rows.length === 0 ? (
-                  <tr><td colSpan={9} className="px-4 py-6 text-center text-slate-400">Khách này chưa có vật tư trong các phiếu. Thêm dòng thủ công nếu cần.</td></tr>
-                ) : rows.map((r, i) => (
-                  <tr key={i} className="hover:bg-slate-50">
-                    <td className="px-3 py-1.5 text-slate-400">{i + 1}</td>
-                    <td className="px-3 py-1.5"><Input value={r.ten} onChange={e => upd(i, 'ten', e.target.value)} className="h-8 bg-white" /></td>
-                    <td className="px-3 py-1.5"><Input value={r.dvt} onChange={e => upd(i, 'dvt', e.target.value)} className="h-8 bg-white" /></td>
-                    <td className="px-3 py-1.5"><Input value={String(r.sl)} onChange={e => upd(i, 'sl', parseInt(digits(e.target.value)) || 0)} className="h-8 bg-white text-center" /></td>
-                    <td className="px-3 py-1.5"><Input value={fmtN(r.gia)} onChange={e => upd(i, 'gia', parseInt(digits(e.target.value)) || 0)} className="h-8 bg-white text-right" /></td>
-                    <td className="px-3 py-1.5"><Input value={String(r.vat)} onChange={e => upd(i, 'vat', parseFloat(e.target.value.replace(',', '.')) || 0)} className="h-8 bg-white text-center" /></td>
-                    <td className="px-3 py-1.5 text-right font-medium text-slate-700 whitespace-nowrap">{fmtN((Number(r.sl) || 0) * (Number(r.gia) || 0))}</td>
-                    <td className="px-3 py-1.5"><Input value={r.gc} onChange={e => upd(i, 'gc', e.target.value)} className="h-8 bg-white" /></td>
-                    <td className="px-3 py-1.5 text-center"><button onClick={() => delRow(i)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="p-4 border-t border-slate-200 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-600">
-              <span>Cộng: <b className="text-slate-800">{fmtN(baseCong)} đ</b></span>
-              <span>Thuế GTGT: <b className="text-slate-800">{fmtN(baseThue)} đ</b></span>
-              <span>Tổng cộng: <b className="text-slate-800">{fmtN(baseCong + baseThue)} đ</b></span>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStatus('Đã báo giá')} disabled={working} className="h-9">Đánh dấu đã báo giá</Button>
-              <Button onClick={() => { setConfirmInvoiceTxt(""); setConfirmInvoiceOpen(true) }} disabled={working} className="h-9 bg-emerald-600 hover:bg-emerald-700">Đã lên hóa đơn</Button>
-            </div>
-          </div>
+            }
+            footerExtra={
+              <>
+                <Button variant="outline" onClick={() => setStatus('Đã báo giá')} disabled={working} className="h-9">Đánh dấu đã báo giá</Button>
+                <Button onClick={() => { setConfirmInvoiceTxt(""); setConfirmInvoiceOpen(true) }} disabled={working} className="h-9 bg-emerald-600 hover:bg-emerald-700">Đã lên hóa đơn</Button>
+              </>
+            }
+          />
         </div>
       )}
 
