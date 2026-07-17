@@ -35,10 +35,19 @@ export function dangTamDung(tam_dung_tu_thang: string | null | undefined, thang_
   return thang_nam >= t
 }
 
+// Tháng `thang_nam` có TRƯỚC lúc máy được lắp không (máy chưa tồn tại -> không đòi bảo trì).
+// Trống = coi như máy đã có từ trước.
+export function chuaBatDau(bat_dau_tu_thang: string | null | undefined, thang_nam: string): boolean {
+  const t = (bat_dau_tu_thang || '').trim()
+  if (!/^\d{4}-\d{2}$/.test(t)) return false
+  return thang_nam < t
+}
+
 type MayBaoTri = {
   ma_may?: string | null
   loai_hd?: string | null
   thang_bao_tri?: string | null
+  bat_dau_tu_thang?: string | null
   tam_dung_tu_thang?: string | null
 }
 
@@ -47,6 +56,7 @@ type MayBaoTri = {
 export function canBaoTriThang(may: MayBaoTri, thang_nam: string): boolean {
   if (!may.ma_may) return false
   if (!LOAI_HD_BAO_TRI.includes((may.loai_hd || '').trim())) return false
+  if (chuaBatDau(may.bat_dau_tu_thang, thang_nam)) return false
   if (dangTamDung(may.tam_dung_tu_thang, thang_nam)) return false
   const month = parseInt(thang_nam.split('-')[1] || '0', 10)
   return coBaoTriThang(may.thang_bao_tri, month)
@@ -62,6 +72,7 @@ export function moTaLichBaoTri(thang_bao_tri: string | null | undefined): string
 export const CELL_DA_LAM = '✓'    // đã bảo trì tháng đó
 export const CELL_THIEU = 'x'     // theo lịch, tháng ĐÃ QUA mà chưa làm -> quá hạn
 export const CELL_CHUA_TOI = '·'  // theo lịch nhưng chưa tới tháng -> không tính là thiếu
+export const CELL_CHUA_CO = '–'   // máy chưa lắp (trước mốc bắt đầu) -> không tính
 export const CELL_NGUNG = 'N'     // đã tạm dừng theo dõi
 // '' = tháng không nằm trong lịch -> không phải làm
 
@@ -83,20 +94,24 @@ export function doiChieuNam(may: MayBaoTri, year: number, doneMonths: Set<number
   for (let m = 1; m <= 12; m++) {
     const thang_nam = `${year}-${String(m).padStart(2, '0')}`
     const done = doneMonths.has(m)
-    const paused = dangTamDung(may.tam_dung_tu_thang, thang_nam)
-    const scheduled = !paused && coBaoTriThang(may.thang_bao_tri, m)
+    const chuaCo = chuaBatDau(may.bat_dau_tu_thang, thang_nam)   // máy chưa lắp
+    const paused = dangTamDung(may.tam_dung_tu_thang, thang_nam) // khách đã bỏ máy
+    const scheduled = !chuaCo && !paused && coBaoTriThang(may.thang_bao_tri, m)
     const daToi = m <= denThang
     if (done) da_lam++
     if (scheduled) {
-      theo_hd++ // "theo HĐ" luôn là cam kết CẢ NĂM, không cắt theo mốc
+      // "Theo HĐ" = cam kết cả năm nhưng CHỈ trong khoảng máy còn hiệu lực
+      // (máy lắp T6 -> chỉ 7 lượt, không phải 12). Không cắt theo mốc "đã tới".
+      theo_hd++
       if (!done) { if (daToi) thieu++; else con_lai++ }
     }
     // Đã làm thì luôn ghi ✓ (kể cả tháng ngoài lịch / sau khi tạm dừng) — báo cáo phải trung thực
     cells.push(
       done ? CELL_DA_LAM
-        : paused ? CELL_NGUNG
-          : scheduled ? (daToi ? CELL_THIEU : CELL_CHUA_TOI)
-            : ''
+        : chuaCo ? CELL_CHUA_CO
+          : paused ? CELL_NGUNG
+            : scheduled ? (daToi ? CELL_THIEU : CELL_CHUA_TOI)
+              : ''
     )
   }
   return { cells, theo_hd, da_lam, thieu, con_lai }

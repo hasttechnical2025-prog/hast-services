@@ -1369,8 +1369,8 @@ export default function AdminDashboard() {
                     <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập / Xuất khách hàng (Excel)</h3>
                     <p className="text-sm text-slate-500 mb-4">
                       Quy trình: <b>Xóa toàn bộ</b> (nút phía trên) → <b>Xuất Excel</b> để lấy đúng cấu trúc cột → nhập dữ liệu vào file .xlsx → <b>Nhập từ Excel</b>.<br />
-                      <b>Cột:</b> Mã máy | Tên khách hàng | Địa chỉ | Model | Hãng | Km | Loại HĐ | Ngày hết hạn HĐBT (DD/MM/YYYY) | Tháng bảo trì | Tạm dừng từ tháng (MM/YYYY) | Ghi chú bảo trì. Trùng Mã máy sẽ được cập nhật.<br />
-                      <span className="text-xs text-slate-400"><b>Tháng bảo trì</b>: các tháng phải bảo trì, VD <b>2,4,6,8,10,12</b> — để <b>trống = hằng tháng</b>. <b>Tạm dừng từ tháng</b>: máy khách đã bỏ nhưng còn trong HĐ → không bị đòi bảo trì từ tháng đó, vẫn giữ trong danh sách.</span><br />
+                      <b>Cột:</b> Mã máy | Tên khách hàng | Địa chỉ | Model | Hãng | Km | Loại HĐ | Ngày hết hạn HĐBT (DD/MM/YYYY) | Tháng bảo trì | Bắt đầu từ tháng (MM/YYYY) | Tạm dừng từ tháng (MM/YYYY) | Ghi chú bảo trì. Trùng Mã máy sẽ được cập nhật.<br />
+                      <span className="text-xs text-slate-400"><b>Tháng bảo trì</b>: các tháng phải bảo trì, VD <b>2,4,6,8,10,12</b> — để <b>trống = hằng tháng</b>. <b>Bắt đầu từ tháng</b>: máy lắp giữa năm → tháng trước đó không tính bảo trì. <b>Tạm dừng từ tháng</b>: máy khách đã bỏ nhưng còn trong HĐ → không bị đòi bảo trì từ tháng đó, vẫn giữ trong danh sách.</span><br />
                       <span className="text-xs text-slate-400">Để trống cột <b>Km</b> → hệ thống tự tính tọa độ &amp; KM từ địa chỉ (chạy tuần tự ~1s/dòng, danh sách lớn sẽ hơi lâu). Dòng đã có Km giữ nguyên.</span>
                     </p>
                     <ExcelTool
@@ -1391,6 +1391,7 @@ export default function AdminDashboard() {
                         { header: 'Ngày hết hạn HĐBT', key: 'ngay_het_han_hdbt', toCsv: (v) => v ? formatDate(v) : '', parse: (s) => parseDDMMYYYY(s) },
                         // Lịch bảo trì: '2,4,6,8,10,12'. Để TRỐNG = hằng tháng.
                         { header: 'Tháng bảo trì', key: 'thang_bao_tri', toCsv: (v) => v || '', parse: (s) => formatThangBaoTri(parseThangBaoTri(String(s || '').replace(/[^\d,]/g, ''))) || null },
+                        { header: 'Bắt đầu từ tháng', key: 'bat_dau_tu_thang', toCsv: (v) => fmtThang(v), parse: (s) => { const m = String(s || '').trim().match(/^(\d{1,2})\/(\d{4})$/); return m ? `${m[2]}-${String(+m[1]).padStart(2, '0')}` : null } },
                         { header: 'Tạm dừng từ tháng', key: 'tam_dung_tu_thang', toCsv: (v) => fmtThang(v), parse: (s) => { const m = String(s || '').trim().match(/^(\d{1,2})\/(\d{4})$/); return m ? `${m[2]}-${String(+m[1]).padStart(2, '0')}` : null } },
                         { header: 'Ghi chú bảo trì', key: 'ghi_chu_bao_tri' },
                       ]}
@@ -5788,6 +5789,7 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
               <span><b className="text-emerald-700">✓</b> đã bảo trì</span>
               <span><b className="text-amber-600">x</b> quá hạn (tháng đã qua mà chưa làm)</span>
               <span><b className="text-slate-400">·</b> theo lịch, chưa tới tháng</span>
+              <span><b className="text-slate-500">–</b> chưa có máy (lắp sau)</span>
               <span><b className="text-slate-500">N</b> đã tạm dừng theo dõi</span>
               <span>ô trống = không nằm trong lịch</span>
             </div>
@@ -6062,6 +6064,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
         loai_hd: editing.loai_hd,
         ngay_het_han_hdbt: editing.ngay_het_han_hdbt,
         thang_bao_tri: editing.thang_bao_tri || null,
+        bat_dau_tu_thang: editing.bat_dau_tu_thang || null,
         tam_dung_tu_thang: editing.tam_dung_tu_thang || null,
         ghi_chu_bao_tri: editing.ghi_chu_bao_tri || null,
       }
@@ -6155,7 +6158,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
           <span className="text-sm text-slate-500 whitespace-nowrap">
             {(q || hdFilter !== 'all') ? `${filtered.length} / ${customers.length}` : `Tổng: ${customers.length}`} khách hàng
           </span>
-          <Button onClick={() => setEditing({ ten_khach_hang: "", ma_may: "", serial: "", model: "", hang: "", dia_chi: "", km_mac_dinh: "", loai_hd: "", ngay_het_han_hdbt: "", thang_bao_tri: "", tam_dung_tu_thang: "", ghi_chu_bao_tri: "" })} className="gap-1 bg-blue-600 hover:bg-blue-700 h-10 whitespace-nowrap">
+          <Button onClick={() => setEditing({ ten_khach_hang: "", ma_may: "", serial: "", model: "", hang: "", dia_chi: "", km_mac_dinh: "", loai_hd: "", ngay_het_han_hdbt: "", thang_bao_tri: "", bat_dau_tu_thang: "", tam_dung_tu_thang: "", ghi_chu_bao_tri: "" })} className="gap-1 bg-blue-600 hover:bg-blue-700 h-10 whitespace-nowrap">
             <Plus className="w-4 h-4" /> Mới
           </Button>
           <ColumnMenu view={col} />
@@ -6207,7 +6210,10 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
                       ? <span className="text-slate-300">—</span>
                       : c.tam_dung_tu_thang
                         ? <span className="px-2 py-0.5 rounded-full text-xs font-semibold border bg-slate-100 text-slate-600 border-slate-200" title={c.ghi_chu_bao_tri || ''}>Tạm dừng từ {fmtThang(c.tam_dung_tu_thang)}</span>
-                        : <span className="text-xs text-slate-600">{moTaLichBaoTri(c.thang_bao_tri)}</span>}
+                        : <span className="text-xs text-slate-600">
+                            {moTaLichBaoTri(c.thang_bao_tri)}
+                            {c.bat_dau_tu_thang && <span className="text-slate-400"> · từ {fmtThang(c.bat_dau_tu_thang)}</span>}
+                          </span>}
                   </td>}
                   {col.show('sua') && <td className="px-4 py-3 text-center">
                     <button onClick={() => setEditing({ ...c, ngay_het_han_hdbt: c.ngay_het_han_hdbt || "" })} className="text-blue-500 hover:text-blue-700 p-1.5 bg-blue-50 hover:bg-blue-100 rounded-md transition"><PenSquare className="w-4 h-4" /></button>
@@ -6319,7 +6325,18 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
                   <p className="text-xs text-slate-400">Đang đặt: <b className="text-slate-600">{moTaLichBaoTri(editing.thang_bao_tri)}</b></p>
                 </div>
 
+                {/* Hai mốc kẹp lại = khoảng máy còn hiệu lực trong năm */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-600">Bắt đầu theo dõi từ tháng</label>
+                    <input
+                      type="month"
+                      value={editing.bat_dau_tu_thang || ""}
+                      onChange={(e) => setEditing({ ...editing, bat_dau_tu_thang: e.target.value })}
+                      className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-slate-400">Máy lắp giữa năm → chọn tháng lắp. Để trống = đã có máy từ trước.</p>
+                  </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-600">Tạm dừng bảo trì từ tháng</label>
                     <input
@@ -6330,10 +6347,10 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
                     />
                     <p className="text-xs text-slate-400">Để trống = đang theo dõi. Có giá trị = máy không bị đòi bảo trì từ tháng đó (vẫn giữ trong danh sách).</p>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-600">Ghi chú bảo trì</label>
-                    <Input value={editing.ghi_chu_bao_tri || ""} onChange={(e) => setEditing({ ...editing, ghi_chu_bao_tri: e.target.value })} placeholder="VD: khách bỏ máy, còn trong HĐ" className="bg-white" />
-                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">Ghi chú bảo trì</label>
+                  <Input value={editing.ghi_chu_bao_tri || ""} onChange={(e) => setEditing({ ...editing, ghi_chu_bao_tri: e.target.value })} placeholder="VD: khách bỏ máy, còn trong HĐ" className="bg-white" />
                 </div>
               </div>
             </div>
