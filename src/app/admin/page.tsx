@@ -4067,6 +4067,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     auto_bao_tri: (cauHinh.auto_bao_tri ?? '1') !== '0',
     geocode_import: (cauHinh.geocode_import ?? '1') !== '0',
     bao_tri: (cauHinh.bao_tri ?? '0') === '1',
+    bao_tri_key: cauHinh.bao_tri_key || '',
   })
   const [tabVis, setTabVis] = useState<Record<string, Record<string, boolean>>>(() => {
     let parsed: any = {}; try { parsed = JSON.parse(cauHinh.tab_visibility || '{}') } catch {}
@@ -4137,6 +4138,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
       auto_bao_tri: cfg.auto_bao_tri ? '1' : '0',
       geocode_import: cfg.geocode_import ? '1' : '0',
       bao_tri: cfg.bao_tri ? '1' : '0',
+      bao_tri_key: cfg.bao_tri_key.trim(),
       tab_visibility: JSON.stringify(tabVis),
     }
     try {
@@ -4175,6 +4177,17 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
             ⚠️ Đang chọn khóa app. Sau khi Lưu, chỉ tài khoản <b>Admin</b> dùng được — bỏ tick rồi Lưu để mở lại.
           </p>
         )}
+
+        <div className="space-y-1 max-w-md pt-1 border-t border-slate-200">
+          <label className="text-xs font-semibold text-slate-600">Khóa vào app khi đang bảo trì</label>
+          <Input value={cfg.bao_tri_key} onChange={(e) => setCfg({ ...cfg, bao_tri_key: e.target.value })} placeholder="VD: mokhoa2026" className="bg-white" />
+          <p className="text-xs text-slate-400">
+            Màn báo bảo trì <b>cố ý không có nút đăng nhập</b> (để không lộ là app bị khóa chủ đích).
+            Nếu Admin lỡ đăng xuất, mở lại app bằng link kín:
+            {' '}<b className="text-slate-600 font-mono">…/?qt={cfg.bao_tri_key.trim() || 'khóa'}</b> rồi đăng nhập như bình thường.
+            Để trống = không có link kín (chỉ vào lại được bằng SQL). Chỉ Admin thấy ô này.
+          </p>
+        </div>
       </div>
 
       {/* CHUNG */}

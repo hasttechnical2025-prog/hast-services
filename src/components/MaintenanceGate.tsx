@@ -2,31 +2,40 @@
 
 import { useState, useEffect } from "react"
 
+const BYPASS_FLAG = 'hast_qt_ok'
+
 /**
  * Màn "Hệ thống đang bảo trì" phủ toàn trang cho MỌI user trừ admin.
  * Đặt ở root layout -> áp cho tất cả trang (/, /admin, /m, /ktv, /admin/scan) trên cả PC & mobile.
+ *
+ * KHÔNG hiển thị bất kỳ nút/gợi ý nào về lối vào: người dùng chỉ thấy một màn báo lỗi.
+ * Admin vào lại bằng đường link kín kèm ?qt=<khóa> (khóa đặt trong Hệ thống > Cấu hình,
+ * đối chiếu ở server nên không lộ trong mã JS). Ghi nhớ trong sessionStorage để không
+ * mất khi chuyển trang (VD / -> /admin) trước lúc đăng nhập xong.
  *
  * ĐÂY CHỈ LÀ LỚP GIAO DIỆN. Chặn thật nằm ở server: requireRole() + các route đăng nhập
  * + cron + Telegram. Tắt JS hay gọi thẳng API vẫn không qua được.
  */
 export default function MaintenanceGate() {
   const [blocked, setBlocked] = useState(false)
-  const [loggedIn, setLoggedIn] = useState(true)
   const [msg, setMsg] = useState('')
-  const [showLogin, setShowLogin] = useState(false) // admin bấm "Đăng nhập" -> tạm mở lớp phủ
 
   useEffect(() => {
     let stop = false
     const check = async () => {
       try {
-        const r = await fetch('/api/maintenance', { cache: 'no-store' })
+        const qt = new URLSearchParams(window.location.search).get('qt') || ''
+        const url = qt ? `/api/maintenance?qt=${encodeURIComponent(qt)}` : '/api/maintenance'
+        const r = await fetch(url, { cache: 'no-store' })
         const j = await r.json()
         if (stop) return
-        const b = !!j.bao_tri && !j.admin
-        setBlocked(b)
-        setLoggedIn(!!j.logged_in)
+
+        if (j.bypass) sessionStorage.setItem(BYPASS_FLAG, '1')
+        if (!j.bao_tri) sessionStorage.removeItem(BYPASS_FLAG)
+        const bypassed = j.bypass || sessionStorage.getItem(BYPASS_FLAG) === '1'
+
+        setBlocked(!!j.bao_tri && !j.admin && !bypassed)
         setMsg(j.msg || '')
-        if (!b) setShowLogin(false) // hết bảo trì / đã là admin -> về mặc định
       } catch { /* lỗi mạng -> không khóa nhầm */ }
     }
     check()
@@ -35,9 +44,7 @@ export default function MaintenanceGate() {
     return () => { stop = true; clearInterval(t) }
   }, [])
 
-  // Admin bấm "Đăng nhập quản trị viên" -> để lộ form đăng nhập bên dưới.
-  // Không phải lỗ hổng: server vẫn từ chối đăng nhập của mọi role != admin (503).
-  if (!blocked || showLogin) return null
+  if (!blocked) return null
 
   return (
     <div className="fixed inset-0 z-[999] bg-slate-100 flex items-center justify-center p-6">
@@ -50,18 +57,8 @@ export default function MaintenanceGate() {
         </div>
         <h1 className="text-lg font-bold text-slate-800">Hệ thống đang bảo trì</h1>
         <p className="text-sm text-slate-500">{msg || 'Vui lòng quay lại sau.'}</p>
-
-        {/* Chưa đăng nhập -> chừa lối vào, nếu không admin đăng xuất giữa lúc bảo trì
-            sẽ bị chính lớp phủ này che mất form đăng nhập và không vào lại được.
-            Đã đăng nhập mà không phải admin -> KHÔNG có lối này (chặn cứng). */}
-        {!loggedIn && (
-          <button
-            onClick={() => setShowLogin(true)}
-            className="text-xs text-slate-400 hover:text-blue-600 underline underline-offset-2 pt-1"
-          >
-            Đăng nhập quản trị viên
-          </button>
-        )}
+        {/* Cố ý KHÔNG có nút/link nào ở đây — mọi gợi ý về lối vào đều làm lộ rằng
+            app đang bị khóa có chủ đích. Admin vào bằng link kín ?qt=<khóa>. */}
       </div>
     </div>
   )

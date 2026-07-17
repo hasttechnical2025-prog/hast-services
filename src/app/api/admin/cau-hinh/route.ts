@@ -16,6 +16,8 @@ export async function GET() {
 
     const config: Record<string, string> = {}
     for (const row of data) config[row.khoa] = row.gia_tri
+    // Khóa vào app lúc bảo trì: chỉ admin được thấy (route này mở cho cả tech_admin/staff)
+    if (session.role !== 'admin') delete config.bao_tri_key
     return NextResponse.json({ data: config })
   } catch (error: any) {
     console.error('Error fetching cau_hinh:', error)
