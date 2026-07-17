@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyAuthenticationResponse } from '@simplewebauthn/server'
 import { getRP, getChallenge, clearChallenge } from '@/lib/webauthn'
 import { setSessionCookie, type Role } from '@/lib/session'
-import { getSessionMaxAge } from '@/lib/config'
+import { getSessionMaxAge, isBaoTri, BAO_TRI_MSG } from '@/lib/config'
 
 // Bước 2 đăng nhập bằng Passkey: xác minh chữ ký -> đặt phiên theo đúng vai trò.
 export async function POST(request: Request) {
@@ -49,6 +49,11 @@ export async function POST(request: Request) {
       .single()
     if (!user || user.is_active === false) {
       return NextResponse.json({ error: 'Tài khoản không tồn tại hoặc đã ngừng hoạt động.' }, { status: 403 })
+    }
+
+    // Chế độ bảo trì: chặn đăng nhập sinh trắc học của mọi role trừ admin
+    if (user.role !== 'admin' && await isBaoTri()) {
+      return NextResponse.json({ error: BAO_TRI_MSG }, { status: 503 })
     }
 
     // Cập nhật counter chống replay + thời điểm dùng

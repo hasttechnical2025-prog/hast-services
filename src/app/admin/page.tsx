@@ -4066,6 +4066,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     mac_dinh_hom_nay: (cauHinh.mac_dinh_hom_nay ?? '1') !== '0',
     auto_bao_tri: (cauHinh.auto_bao_tri ?? '1') !== '0',
     geocode_import: (cauHinh.geocode_import ?? '1') !== '0',
+    bao_tri: (cauHinh.bao_tri ?? '0') === '1',
   })
   const [tabVis, setTabVis] = useState<Record<string, Record<string, boolean>>>(() => {
     let parsed: any = {}; try { parsed = JSON.parse(cauHinh.tab_visibility || '{}') } catch {}
@@ -4135,6 +4136,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
       mac_dinh_hom_nay: cfg.mac_dinh_hom_nay ? '1' : '0',
       auto_bao_tri: cfg.auto_bao_tri ? '1' : '0',
       geocode_import: cfg.geocode_import ? '1' : '0',
+      bao_tri: cfg.bao_tri ? '1' : '0',
       tab_visibility: JSON.stringify(tabVis),
     }
     try {
@@ -4154,6 +4156,27 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
 
   return (
     <div className="space-y-6">
+      {/* CHẾ ĐỘ BẢO TRÌ — để riêng, viền đỏ vì tác động toàn hệ thống */}
+      <div className={`border rounded-lg p-6 space-y-3 ${cfg.bao_tri ? 'border-red-300 bg-red-50/60' : 'border-slate-200 bg-slate-50/50'}`}>
+        <h3 className="text-lg font-semibold text-slate-700">Chế độ bảo trì</h3>
+        <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer select-none">
+          <input type="checkbox" checked={cfg.bao_tri} onChange={(e) => setCfg({ ...cfg, bao_tri: e.target.checked })} className="w-4 h-4 accent-red-600 mt-0.5" />
+          <span>
+            <b>Khóa app — chỉ Admin vào được</b>
+            <span className="block text-xs text-slate-500 mt-0.5">
+              Bật: mọi KTV / Tech Admin / Staff bị chặn (cả PC lẫn mobile) và thấy màn &quot;Hệ thống đang bảo trì&quot;;
+              đăng nhập cũng bị từ chối; <b>cron nhắc báo cáo và toàn bộ tin Telegram tạm dừng</b>.
+              Nhớ bấm <b>Lưu cấu hình</b>. Có hiệu lực sau vài giây.
+            </span>
+          </span>
+        </label>
+        {cfg.bao_tri && (
+          <p className="text-xs text-red-700 bg-red-100 border border-red-200 rounded px-2 py-1.5">
+            ⚠️ Đang chọn khóa app. Sau khi Lưu, chỉ tài khoản <b>Admin</b> dùng được — bỏ tick rồi Lưu để mở lại.
+          </p>
+        )}
+      </div>
+
       {/* CHUNG */}
       <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
         <h3 className="text-lg font-semibold text-slate-700">Chung</h3>

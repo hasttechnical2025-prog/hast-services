@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyPassword, hashPassword } from '@/lib/password'
 import { setSessionCookie } from '@/lib/session'
-import { getSessionMaxAge } from '@/lib/config'
+import { getSessionMaxAge, isBaoTri, BAO_TRI_MSG } from '@/lib/config'
 
 export async function POST(request: Request) {
   try {
@@ -27,6 +27,11 @@ export async function POST(request: Request) {
     const { valid, needsUpgrade } = verifyPassword(password, data.password)
     if (!valid) {
       return NextResponse.json({ error: 'Tên đăng nhập hoặc mật khẩu không chính xác' }, { status: 401 })
+    }
+
+    // Chế độ bảo trì: KTV luôn bị chặn (chỉ admin được vào)
+    if (await isBaoTri()) {
+      return NextResponse.json({ error: BAO_TRI_MSG }, { status: 503 })
     }
 
     // Nâng cấp hash SHA-256 cũ lên scrypt có salt

@@ -4,6 +4,7 @@ import "./globals.css";
 import UpdateChecker from "@/components/UpdateChecker";
 import NoPinchZoom from "@/components/NoPinchZoom";
 import NoKeyShortcuts from "@/components/NoKeyShortcuts";
+import MaintenanceGate from "@/components/MaintenanceGate";
 
 const beVietnam = Be_Vietnam_Pro({
   variable: "--font-geist-sans",
@@ -47,6 +48,7 @@ export default function RootLayout({
         {children}
         <NoPinchZoom />
         <NoKeyShortcuts />
+        <MaintenanceGate />
         <UpdateChecker />
       </body>
     </html>

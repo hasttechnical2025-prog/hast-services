@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
+import { clearCauHinhCache } from '@/lib/config'
 
 // Lấy toàn bộ cấu hình dưới dạng object { khoa: gia_tri }
 export async function GET() {
@@ -38,6 +39,7 @@ export async function PUT(request: Request) {
       if (rows.length === 0) return NextResponse.json({ data: {} })
       const { error } = await supabaseAdmin.from('soct_cau_hinh').upsert(rows, { onConflict: 'khoa' })
       if (error) throw error
+      clearCauHinhCache() // đổi cấu hình (VD cờ bảo trì) có hiệu lực ngay, khỏi chờ hết TTL
       return NextResponse.json({ success: true, count: rows.length })
     }
 

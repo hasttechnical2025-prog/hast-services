@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { isBaoTri } from '@/lib/config'
 
 export async function POST(request: Request) {
   try {
+    // Chế độ bảo trì: bỏ qua mọi update từ Telegram (kể cả /start liên kết tài khoản)
+    if (await isBaoTri()) return NextResponse.json({ ok: true, skipped: 'bao_tri' })
+
     // Xác thực request đến từ Telegram (secret_token đặt khi gọi setWebhook)
     const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET
     if (!webhookSecret) {

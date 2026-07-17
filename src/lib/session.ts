@@ -1,7 +1,7 @@
 import crypto from 'crypto'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { getCauHinh } from '@/lib/config'
+import { getCauHinh, isBaoTri } from '@/lib/config'
 import { roleCanTab } from '@/lib/tabs'
 
 // Phiên đăng nhập dùng cookie httpOnly có ký HMAC-SHA256.
@@ -93,6 +93,8 @@ export async function requireRole(...roles: Role[]): Promise<SessionPayload | nu
   const session = await getSession()
   if (!session) return null
   if (roles.length > 0 && !roles.includes(session.role)) return null
+  // Chế độ bảo trì: chỉ admin được dùng. Chặn ở đây là bịt gần như toàn bộ API.
+  if (session.role !== 'admin' && await isBaoTri()) return null
 
   const { data } = await supabaseAdmin
     .from('soct_users')

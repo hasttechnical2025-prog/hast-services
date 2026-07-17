@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyPassword, hashPassword } from '@/lib/password'
 import { setSessionCookie, type Role } from '@/lib/session'
-import { getSessionMaxAge } from '@/lib/config'
+import { getSessionMaxAge, isBaoTri, BAO_TRI_MSG } from '@/lib/config'
 import { logAudit } from '@/lib/audit'
 
 export async function POST(request: Request) {
@@ -28,6 +28,12 @@ export async function POST(request: Request) {
     const { valid, needsUpgrade } = verifyPassword(password, data.password)
     if (!valid) {
       return NextResponse.json({ error: 'Tên đăng nhập hoặc mật khẩu không chính xác' }, { status: 401 })
+    }
+
+    // Chế độ bảo trì: chặn ngay tại cửa đăng nhập (route này KHÔNG qua requireRole),
+    // nếu không user vẫn đăng nhập được rồi mới lỗi tứ tung ở từng API.
+    if (data.role !== 'admin' && await isBaoTri()) {
+      return NextResponse.json({ error: BAO_TRI_MSG }, { status: 503 })
     }
 
     // Nâng cấp hash SHA-256 cũ lên scrypt có salt

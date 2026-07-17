@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendTelegramMessage } from '@/lib/telegram'
+import { isBaoTri } from '@/lib/config'
 
 // Hàm format ngày DD/MM
 const formatShortDate = (d: Date) => {
@@ -17,6 +18,11 @@ export async function GET(request: Request) {
     // Nếu có CRON_SECRET trong env, bắt buộc Request phải truyền Authorization: Bearer <secret>
     if (secret && authHeader !== `Bearer ${secret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Chế độ bảo trì: không quét, không nhắc gì cả
+    if (await isBaoTri()) {
+      return NextResponse.json({ message: 'Hệ thống đang bảo trì — bỏ qua lần nhắc này' })
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
