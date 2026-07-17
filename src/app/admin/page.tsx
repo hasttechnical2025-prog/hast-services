@@ -11,7 +11,7 @@ import { supabase } from "@/lib/supabase"
 import ThueCpcModule from "@/components/ThueCpcModule"
 import NghiPhepDuyet from "@/components/NghiPhepDuyet"
 import { hdbtStatus, loaiHdBadge } from "@/lib/hd-status"
-import { LOAI_HD_BAO_TRI, canBaoTriThang, dangTamDung, coBaoTriThang, moTaLichBaoTri, fmtThang, parseThangBaoTri, formatThangBaoTri, doiChieuNam, CELL_DA_LAM, CELL_THIEU } from "@/lib/bao-tri"
+import { LOAI_HD_BAO_TRI, canBaoTriThang, dangTamDung, coBaoTriThang, moTaLichBaoTri, fmtThang, parseThangBaoTri, formatThangBaoTri, doiChieuNam, thangDaToi, CELL_DA_LAM, CELL_THIEU, CELL_CHUA_TOI } from "@/lib/bao-tri"
 
 // Kênh realtime (đồng bộ với lib/realtime.ts + app KTV): server phát broadcast sau mỗi thay đổi việc
 const JOBS_TOPIC = "soct_jobs"
@@ -5556,9 +5556,11 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
     return m
   })()
 
+  // Xem năm nay -> chỉ tính "thiếu" tới tháng hiện tại; tháng sau đó là "chưa tới"
+  const dcDenThang = thangDaToi(parseInt(dcNam, 10))
   const dcRows = customers
     .filter(c => c.ma_may && LOAI_HD_BAO_TRI.includes(String(c.loai_hd || '').trim()))
-    .map(c => ({ c, ...doiChieuNam(c, parseInt(dcNam, 10), doneByMay.get(String(c.ma_may).toLowerCase()) || new Set<number>()) }))
+    .map(c => ({ c, ...doiChieuNam(c, parseInt(dcNam, 10), doneByMay.get(String(c.ma_may).toLowerCase()) || new Set<number>(), dcDenThang) }))
     .sort((a, b) => String(a.c.ten_khach_hang || '').localeCompare(String(b.c.ten_khach_hang || ''), 'vi'))
 
   const dcQq = dcQ.trim().toLowerCase()
@@ -5566,16 +5568,16 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
     ? dcRows.filter(r => `${r.c.ten_khach_hang || ''} ${r.c.ma_may || ''} ${r.c.model || ''}`.toLowerCase().includes(dcQq))
     : dcRows
   const dcPaged = usePaged(dcFiltered)
-  const dcTong = dcFiltered.reduce((s, r) => ({ theo_hd: s.theo_hd + r.theo_hd, da_lam: s.da_lam + r.da_lam, thieu: s.thieu + r.thieu }), { theo_hd: 0, da_lam: 0, thieu: 0 })
+  const dcTong = dcFiltered.reduce((s, r) => ({ theo_hd: s.theo_hd + r.theo_hd, da_lam: s.da_lam + r.da_lam, thieu: s.thieu + r.thieu, con_lai: s.con_lai + r.con_lai }), { theo_hd: 0, da_lam: 0, thieu: 0, con_lai: 0 })
 
   // Xuất đúng những dòng ĐANG hiển thị (sau khi lọc)
   const exportDoiChieu = async () => {
     const headers = ['Mã máy', 'Khách hàng', 'Model', 'Loại HĐ', 'Lịch bảo trì',
       ...Array.from({ length: 12 }, (_, i) => `T${i + 1}`),
-      'Số lần theo HĐ', 'Đã làm', 'Thiếu', 'Tạm dừng từ', 'Ghi chú']
+      'Số lần theo HĐ', 'Đã làm', 'Thiếu (quá hạn)', 'Còn lại (chưa tới)', 'Tạm dừng từ', 'Ghi chú']
     const rows = dcFiltered.map(r => [
       r.c.ma_may, r.c.ten_khach_hang, r.c.model || '', r.c.loai_hd || '', moTaLichBaoTri(r.c.thang_bao_tri),
-      ...r.cells, r.theo_hd, r.da_lam, r.thieu, fmtThang(r.c.tam_dung_tu_thang), r.c.ghi_chu_bao_tri || '',
+      ...r.cells, r.theo_hd, r.da_lam, r.thieu, r.con_lai, fmtThang(r.c.tam_dung_tu_thang), r.c.ghi_chu_bao_tri || '',
     ])
     await exportRowsToExcel(`doi-chieu-bao-tri-${dcNam}`, headers, rows)
   }
@@ -5784,15 +5786,20 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
 
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 px-1">
               <span><b className="text-emerald-700">✓</b> đã bảo trì</span>
-              <span><b className="text-amber-600">x</b> theo lịch nhưng chưa làm</span>
+              <span><b className="text-amber-600">x</b> quá hạn (tháng đã qua mà chưa làm)</span>
+              <span><b className="text-slate-400">·</b> theo lịch, chưa tới tháng</span>
               <span><b className="text-slate-500">N</b> đã tạm dừng theo dõi</span>
-              <span>ô trống = tháng không nằm trong lịch</span>
+              <span>ô trống = không nằm trong lịch</span>
             </div>
             <div className="flex flex-wrap gap-2 px-1">
-              <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">Theo HĐ: {dcTong.theo_hd} lượt</span>
+              <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">Theo HĐ cả năm: {dcTong.theo_hd} lượt</span>
               <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">Đã làm: {dcTong.da_lam} lượt</span>
-              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">Thiếu: {dcTong.thieu} lượt</span>
+              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">Thiếu (quá hạn): {dcTong.thieu} lượt</span>
+              <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-semibold">Còn lại: {dcTong.con_lai} lượt</span>
             </div>
+            {dcDenThang > 0 && dcDenThang < 12 && (
+              <p className="text-xs text-slate-400 px-1">Đang xem năm hiện tại — &quot;Thiếu&quot; chỉ tính tới <b>tháng {dcDenThang}</b>; các tháng sau ghi <b>·</b> (chưa tới) và nằm ở cột &quot;Còn lại&quot;.</p>
+            )}
 
             <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
               <div className="overflow-x-auto">
@@ -5808,13 +5815,14 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
                       <th className="px-2 py-3 font-semibold text-center">Theo HĐ</th>
                       <th className="px-2 py-3 font-semibold text-center">Đã làm</th>
                       <th className="px-2 py-3 font-semibold text-center">Thiếu</th>
+                      <th className="px-2 py-3 font-semibold text-center">Còn lại</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {dcLoading ? (
-                      <tr><td colSpan={18} className="px-4 py-8 text-center text-slate-400">Đang tải dữ liệu năm {dcNam}...</td></tr>
+                      <tr><td colSpan={19} className="px-4 py-8 text-center text-slate-400">Đang tải dữ liệu năm {dcNam}...</td></tr>
                     ) : dcFiltered.length === 0 ? (
-                      <tr><td colSpan={18} className="px-4 py-8 text-center text-slate-400">Không có máy HĐBT/MF nào khớp.</td></tr>
+                      <tr><td colSpan={19} className="px-4 py-8 text-center text-slate-400">Không có máy HĐBT/MF nào khớp.</td></tr>
                     ) : dcPaged.pageItems.map((r) => (
                       <tr key={r.c.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-3 py-2 font-mono font-medium text-slate-700 whitespace-nowrap">{r.c.ma_may}</td>
@@ -5824,11 +5832,12 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
                         </td>
                         <td className="px-3 py-2 text-xs text-slate-500 whitespace-nowrap">{moTaLichBaoTri(r.c.thang_bao_tri)}</td>
                         {r.cells.map((cell, i) => (
-                          <td key={i} className={`px-1 py-2 text-center font-bold ${cell === CELL_DA_LAM ? 'text-emerald-600' : cell === CELL_THIEU ? 'text-amber-600' : 'text-slate-300'}`}>{cell}</td>
+                          <td key={i} className={`px-1 py-2 text-center font-bold ${cell === CELL_DA_LAM ? 'text-emerald-600' : cell === CELL_THIEU ? 'text-amber-600' : cell === CELL_CHUA_TOI ? 'text-slate-300' : 'text-slate-400'}`}>{cell}</td>
                         ))}
                         <td className="px-2 py-2 text-center text-slate-600">{r.theo_hd}</td>
                         <td className="px-2 py-2 text-center font-semibold text-emerald-700">{r.da_lam}</td>
                         <td className={`px-2 py-2 text-center font-semibold ${r.thieu > 0 ? 'text-amber-700' : 'text-slate-300'}`}>{r.thieu}</td>
+                        <td className="px-2 py-2 text-center text-slate-400">{r.con_lai || ''}</td>
                       </tr>
                     ))}
                   </tbody>

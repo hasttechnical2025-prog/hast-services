@@ -59,27 +59,47 @@ export function moTaLichBaoTri(thang_bao_tri: string | null | undefined): string
 }
 
 // ===== Đối chiếu cuối năm =====
-export const CELL_DA_LAM = '✓'   // đã bảo trì tháng đó
-export const CELL_THIEU = 'x'    // theo lịch mà chưa làm
-export const CELL_NGUNG = 'N'    // đã tạm dừng theo dõi
+export const CELL_DA_LAM = '✓'    // đã bảo trì tháng đó
+export const CELL_THIEU = 'x'     // theo lịch, tháng ĐÃ QUA mà chưa làm -> quá hạn
+export const CELL_CHUA_TOI = '·'  // theo lịch nhưng chưa tới tháng -> không tính là thiếu
+export const CELL_NGUNG = 'N'     // đã tạm dừng theo dõi
 // '' = tháng không nằm trong lịch -> không phải làm
+
+// Tháng cuối cùng được coi là "đã tới" của năm `year` (1..12; 0 = năm tương lai).
+// Xem năm cũ -> 12 (cả năm đã qua). Xem năm nay -> tháng hiện tại.
+export function thangDaToi(year: number, now: Date = new Date()): number {
+  const y = now.getFullYear()
+  if (year < y) return 12
+  if (year > y) return 0
+  return now.getMonth() + 1
+}
 
 // Dựng 1 dòng đối chiếu của 1 máy trong năm `year`.
 // `doneMonths` = các tháng (1..12) máy THỰC SỰ có bản ghi bảo trì.
-export function doiChieuNam(may: MayBaoTri, year: number, doneMonths: Set<number>) {
+// `denThang` = chỉ tính "thiếu" cho các tháng <= mốc này; tháng sau đó là "chưa tới".
+export function doiChieuNam(may: MayBaoTri, year: number, doneMonths: Set<number>, denThang = 12) {
   const cells: string[] = []
-  let theo_hd = 0, da_lam = 0, thieu = 0
+  let theo_hd = 0, da_lam = 0, thieu = 0, con_lai = 0
   for (let m = 1; m <= 12; m++) {
     const thang_nam = `${year}-${String(m).padStart(2, '0')}`
     const done = doneMonths.has(m)
     const paused = dangTamDung(may.tam_dung_tu_thang, thang_nam)
     const scheduled = !paused && coBaoTriThang(may.thang_bao_tri, m)
+    const daToi = m <= denThang
     if (done) da_lam++
-    if (scheduled) { theo_hd++; if (!done) thieu++ }
+    if (scheduled) {
+      theo_hd++ // "theo HĐ" luôn là cam kết CẢ NĂM, không cắt theo mốc
+      if (!done) { if (daToi) thieu++; else con_lai++ }
+    }
     // Đã làm thì luôn ghi ✓ (kể cả tháng ngoài lịch / sau khi tạm dừng) — báo cáo phải trung thực
-    cells.push(done ? CELL_DA_LAM : paused ? CELL_NGUNG : scheduled ? CELL_THIEU : '')
+    cells.push(
+      done ? CELL_DA_LAM
+        : paused ? CELL_NGUNG
+          : scheduled ? (daToi ? CELL_THIEU : CELL_CHUA_TOI)
+            : ''
+    )
   }
-  return { cells, theo_hd, da_lam, thieu }
+  return { cells, theo_hd, da_lam, thieu, con_lai }
 }
 
 // 'YYYY-MM' -> 'MM/YYYY' để hiển thị
