@@ -21,7 +21,7 @@ export const TAB_TREE: { key: string, label: string, subs: TabSub[], alwaysOn?: 
       { key: 'thue_cpc', label: 'Thuê / CPC', subs: [['don_gia', 'Đơn giá HĐ'], ['counter', 'Nhập counter'], ['khung', 'Hợp đồng khung'], ['bang_ke', 'Bảng kê']] },
     ]
   },
-  { key: 'quan_ly', label: 'Quản lý', subs: [{ key: 'nhat_ky', label: 'Báo cáo KTV' }, { key: 'khach_hang', label: 'Danh sách khách hàng' }, { key: 'bao_cao', label: 'Báo cáo tháng' }, { key: 'nghi_phep', label: 'Nghỉ phép' }] },
+  { key: 'quan_ly', label: 'Quản lý', subs: [{ key: 'nhat_ky', label: 'Báo cáo KTV' }, { key: 'khach_hang', label: 'Danh sách khách hàng' }, { key: 'khach_cum', label: 'Khách hàng cụm' }, { key: 'bao_cao', label: 'Báo cáo tháng' }, { key: 'nghi_phep', label: 'Nghỉ phép' }] },
 ]
 
 export const TAB_ROLES: [string, string][] = [['tech_admin', 'Tech Admin'], ['staff', 'Staff']]
@@ -34,14 +34,14 @@ export const DEFAULT_TAB_VIS: Record<string, Record<string, boolean>> = {
     theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true,
     kho_hang: true, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': true, 'kho_hang.thong_ke': true,
     tai_chinh: true, 'tai_chinh.cong_no': true, 'tai_chinh.thue_cpc': false,
-    quan_ly: true, 'quan_ly.nhat_ky': true, 'quan_ly.khach_hang': false, 'quan_ly.bao_cao': false, 'quan_ly.nghi_phep': true
+    quan_ly: true, 'quan_ly.nhat_ky': true, 'quan_ly.khach_hang': false, 'quan_ly.khach_cum': false, 'quan_ly.bao_cao': false, 'quan_ly.nghi_phep': true
   },
   staff: {
     cong_viec: true, 'cong_viec.hoan_phieu': true,
     theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true,
     kho_hang: false, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': false, 'kho_hang.thong_ke': false,
     tai_chinh: false, 'tai_chinh.cong_no': false, 'tai_chinh.thue_cpc': false,
-    quan_ly: false, 'quan_ly.nhat_ky': false, 'quan_ly.khach_hang': false, 'quan_ly.bao_cao': false, 'quan_ly.nghi_phep': false
+    quan_ly: false, 'quan_ly.nhat_ky': false, 'quan_ly.khach_hang': false, 'quan_ly.khach_cum': false, 'quan_ly.bao_cao': false, 'quan_ly.nghi_phep': false
   },
 }
 

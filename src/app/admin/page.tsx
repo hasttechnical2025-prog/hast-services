@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom"
-import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy } from "lucide-react"
+import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy, X } from "lucide-react"
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -236,7 +236,7 @@ export default function AdminDashboard() {
   // Tab con bên trong "Kho hàng" (tech_admin không thấy Tồn kho -> mặc định Đặt hàng)
   const [khoTab, setKhoTab] = useState<"ton_kho" | "dat_hang" | "thong_ke">("ton_kho")
   // Tab con bên trong "Quản lý"
-  const [quanLyTab, setQuanLyTab] = useState<"nhat_ky" | "khach_hang" | "bao_cao" | "nghi_phep">("nhat_ky")
+  const [quanLyTab, setQuanLyTab] = useState<"nhat_ky" | "khach_hang" | "khach_cum" | "bao_cao" | "nghi_phep">("nhat_ky")
   // Tab con bên trong "Sổ công tác" (Giao việc / Hoàn phiếu)
   const [congTacTab, setCongTacTab] = useState<"giao_viec" | "hoan_phieu">("giao_viec")
   // Tab con bên trong "Tài chính" (Công nợ / Thuê-CPC)
@@ -271,7 +271,7 @@ export default function AdminDashboard() {
     subVisible(parent, current) ? current : (subs.find(s => subVisible(parent, s)) || current)
   const effectiveKhoTab = firstVisibleSub('kho_hang', ['ton_kho', 'dat_hang', 'thong_ke'], khoTab)
   const effectiveMonitorTab = firstVisibleSub('theo_doi_may', ['bao_tri', 'giam_dinh'], monitorTab) as "bao_tri" | "giam_dinh"
-  const effectiveQuanLyTab = firstVisibleSub('quan_ly', ['nhat_ky', 'khach_hang', 'bao_cao', 'nghi_phep'], quanLyTab) as "nhat_ky" | "khach_hang" | "bao_cao" | "nghi_phep"
+  const effectiveQuanLyTab = firstVisibleSub('quan_ly', ['nhat_ky', 'khach_hang', 'khach_cum', 'bao_cao', 'nghi_phep'], quanLyTab) as "nhat_ky" | "khach_hang" | "khach_cum" | "bao_cao" | "nghi_phep"
   const effectiveCongTacTab = firstVisibleSub('cong_viec', ['giao_viec', 'hoan_phieu'], congTacTab) as "giao_viec" | "hoan_phieu"
   const effectiveTaiChinhTab = firstVisibleSub('tai_chinh', ['cong_no', 'thue_cpc'], taiChinhTab) as "cong_no" | "thue_cpc"
   const repeatNgay = parseInt(cauHinh.repeat_ngay || '30') || 30
@@ -1353,6 +1353,14 @@ export default function AdminDashboard() {
                     Danh sách khách hàng
                   </button>
                 )}
+                {subVisible('quan_ly', 'khach_cum') && (
+                  <button
+                    onClick={() => setQuanLyTab("khach_cum" as any)}
+                    className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveQuanLyTab === 'khach_cum' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    Khách hàng cụm
+                  </button>
+                )}
                 {subVisible('quan_ly', 'bao_cao') && (
                   <button
                     onClick={() => setQuanLyTab("bao_cao" as any)}
@@ -1422,6 +1430,11 @@ export default function AdminDashboard() {
                     />
                   </div>
                 </>
+              )}
+
+              {/* TAB CON: KHÁCH HÀNG CỤM */}
+              {effectiveQuanLyTab === "khach_cum" && (
+                <KhachCumTool customers={customers} onUpdateSuccess={fetchData} showNotification={showNotification} />
               )}
 
               {/* TAB CON: BÁO CÁO THÁNG */}
@@ -4625,10 +4638,19 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
   }
   useEffect(() => { fetchList() }, [])
 
-  // Gom phiếu theo điểm máy (mỗi khách = 1 máy)
+  // Gom phiếu theo KHÁCH CỤM khi điểm máy đã gán cụm (ma_khach_cum); còn lại gom theo
+  // điểm máy (mỗi máy lẻ = 1 khách) như cũ. => chưa gán vẫn chạy y hệt trước đây.
   const custs = Array.from(list.reduce((m: Map<string, any>, t: any) => {
-    const k = t.id_khach_hang
-    if (!m.has(k)) m.set(k, { id: k, ten: t.soct_khach_hang?.ten_khach_hang || '—', dia_chi: t.soct_khach_hang?.dia_chi || '', tickets: [] })
+    const kh = t.soct_khach_hang
+    const cum = kh?.soct_khach_cum
+    const k = cum ? `cum:${kh.ma_khach_cum}` : `may:${t.id_khach_hang}`
+    if (!m.has(k)) m.set(k, {
+      id: k,
+      ten: cum ? (cum.ten_khach_hang || '—') : (kh?.ten_khach_hang || '—'),
+      dia_chi: cum ? (cum.dia_chi || '') : (kh?.dia_chi || ''),
+      isCum: !!cum,
+      tickets: [],
+    })
     m.get(k).tickets.push(t)
     return m
   }, new Map<string, any>()).values())
@@ -4694,7 +4716,14 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
           ) : custs.filter(c => !khSearch || c.ten.toLowerCase().includes(khSearch.trim().toLowerCase())).map(c => (
             <label key={c.id} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 cursor-pointer text-sm">
               <input type="checkbox" checked={selIds.includes(c.id)} onChange={() => toggleSel(c)} className="w-4 h-4 accent-blue-600" />
-              <span className="flex-1 text-slate-700">{c.ten}</span>
+              <span className="flex-1 text-slate-700">
+                {c.ten}
+                {c.isCum && (
+                  <span className="ml-1.5 px-1.5 py-[1px] text-[10px] font-semibold bg-violet-50 text-violet-700 border border-violet-200 rounded whitespace-nowrap">
+                    cụm · {new Set(c.tickets.map((t: any) => t.id_khach_hang)).size} máy
+                  </span>
+                )}
+              </span>
               <span className="text-xs text-slate-400 whitespace-nowrap">
                 {c.tickets.length} phiếu · {c.tickets.map((t: any, idx: number) => (
                   <span key={t.id}>
@@ -5475,6 +5504,202 @@ const DANH_MUC_NHOMS = [
   { key: 'nha_cung_cap', label: 'Nhà cung cấp' },
   { key: 'hang', label: 'Hãng máy' },
 ]
+
+// Khách hàng cụm: một khách (mã số) gom nhiều điểm máy. Chỉ admin. Gán/gỡ máy thủ công.
+function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { customers: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+  const [clusters, setClusters] = useState<{ ma_khach_hang: string, ten_khach_hang: string, dia_chi: string, so_may: number, members: { id: string, ma_may: string, ten_khach_hang: string }[] }[]>([])
+  const [assignedIds, setAssignedIds] = useState<Set<string>>(new Set())
+  const [loading, setLoading] = useState(true)
+  const [selMa, setSelMa] = useState<string | null>(null)
+  const [working, setWorking] = useState(false)
+  const [newMa, setNewMa] = useState(''), [newTen, setNewTen] = useState(''), [newDc, setNewDc] = useState('')
+  const [editing, setEditing] = useState(false), [edTen, setEdTen] = useState(''), [edDc, setEdDc] = useState('')
+  const [cumSearch, setCumSearch] = useState(''), [maySearch, setMaySearch] = useState('')
+  const [pickIds, setPickIds] = useState<string[]>([])
+
+  const fetchClusters = async () => {
+    try {
+      const res = await fetch('/api/admin/khach-cum'); const j = await res.json()
+      if (res.ok) { setClusters(j.data || []); setAssignedIds(new Set<string>(j.assignedIds || [])) }
+      else showNotification('error', j.error)
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setLoading(false) }
+  }
+  useEffect(() => { fetchClusters() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Máy lẻ (chưa thuộc cụm nào) = khách có mã máy và không nằm trong tập đã gán
+  const unassigned = useMemo(() => customers.filter(c => c.ma_may && !assignedIds.has(c.id)), [customers, assignedIds])
+  const assignedCount = assignedIds.size
+
+  const sel = clusters.find(c => c.ma_khach_hang === selMa) || null
+  const selMembers = sel ? sel.members : []
+  const q = maySearch.trim().toLowerCase()
+  const mayResults = q
+    ? unassigned.filter(c => `${c.ten_khach_hang || ''} ${c.ma_may || ''} ${c.model || ''}`.toLowerCase().includes(q)).slice(0, 50)
+    : []
+
+  const call = async (method: string, body?: any, qs = '') => {
+    setWorking(true)
+    try {
+      const res = await fetch('/api/admin/khach-cum' + qs, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) { showNotification('error', j.error || 'Lỗi'); return false }
+      return true
+    } catch { showNotification('error', 'Lỗi kết nối!'); return false } finally { setWorking(false) }
+  }
+
+  const addCluster = async () => {
+    const ma = newMa.trim(), ten = newTen.trim()
+    if (!ma || !ten) return showNotification('error', 'Nhập mã và tên khách hàng')
+    if (await call('POST', { ma_khach_hang: ma, ten_khach_hang: ten, dia_chi: newDc.trim() })) {
+      showNotification('success', 'Đã tạo cụm.'); setNewMa(''); setNewTen(''); setNewDc(''); setSelMa(ma); await fetchClusters()
+    }
+  }
+  const saveEdit = async () => {
+    if (!sel || !edTen.trim()) return showNotification('error', 'Tên không được để trống')
+    if (await call('PUT', { ma_khach_hang: sel.ma_khach_hang, ten_khach_hang: edTen.trim(), dia_chi: edDc.trim() })) {
+      setEditing(false); await fetchClusters()
+    }
+  }
+  const delCluster = async (ma: string) => {
+    if (!window.confirm(`Xóa cụm ${ma}? Các máy trong cụm sẽ trở về "lẻ" (không mất máy, không mất phiếu).`)) return
+    if (await call('DELETE', undefined, `?ma=${encodeURIComponent(ma)}`)) {
+      showNotification('success', 'Đã xóa cụm.'); if (selMa === ma) setSelMa(null); await fetchClusters(); onUpdateSuccess()
+    }
+  }
+  const assignMay = async () => {
+    if (!selMa || pickIds.length === 0) return
+    if (await call('PATCH', { ma_khach_cum: selMa, ids: pickIds })) {
+      showNotification('success', `Đã gán ${pickIds.length} máy vào cụm.`); setPickIds([]); setMaySearch(''); await fetchClusters(); onUpdateSuccess()
+    }
+  }
+  const removeMay = async (id: string) => {
+    if (await call('PATCH', { ma_khach_cum: null, ids: [id] })) { await fetchClusters(); onUpdateSuccess() }
+  }
+  const togglePick = (id: string) => setPickIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
+
+  const cumList = clusters.filter(c => !cumSearch.trim() || `${c.ma_khach_hang} ${c.ten_khach_hang}`.toLowerCase().includes(cumSearch.trim().toLowerCase()))
+
+  return (
+    <div className="space-y-6">
+      <StatCards items={[
+        { label: 'Khách cụm', value: clusters.length.toLocaleString('vi-VN'), sub: 'một khách · nhiều máy', icon: Users, tint: 'text-blue-600 bg-blue-50 ring-blue-100' },
+        { label: 'Máy đã gán cụm', value: assignedCount.toLocaleString('vi-VN'), sub: 'thuộc một cụm', icon: Boxes, tint: 'text-emerald-600 bg-emerald-50 ring-emerald-100' },
+        { label: 'Máy chưa gán (lẻ)', value: unassigned.length.toLocaleString('vi-VN'), sub: 'coi như 1 khách - 1 máy', icon: Package, tint: 'text-amber-600 bg-amber-50 ring-amber-100' },
+      ]} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* CỘT TRÁI: danh sách cụm + tạo cụm */}
+        <div className="border border-slate-200 rounded-lg p-5 bg-slate-50/50 space-y-4">
+          <h3 className="text-base font-semibold text-slate-700">Danh sách khách cụm</h3>
+          <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Tạo cụm mới</p>
+            <div className="flex gap-2">
+              <Input placeholder="Mã KH (số)" className="bg-white w-32 shrink-0" value={newMa} onChange={e => setNewMa(e.target.value)} />
+              <Input placeholder="Tên khách hàng" className="bg-white" value={newTen} onChange={e => setNewTen(e.target.value)} />
+            </div>
+            <Input placeholder="Địa chỉ (xuất hóa đơn)" className="bg-white" value={newDc} onChange={e => setNewDc(e.target.value)} />
+            <Button onClick={addCluster} disabled={working} className="gap-1 w-full"><Plus className="w-4 h-4" /> Tạo cụm</Button>
+          </div>
+
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input placeholder="Tìm mã / tên cụm..." className="pl-9 bg-white h-9" value={cumSearch} onChange={e => setCumSearch(e.target.value)} />
+          </div>
+
+          <div className="bg-white rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-[420px] overflow-y-auto">
+            {loading ? <p className="text-sm text-slate-400 text-center py-6">Đang tải...</p>
+              : cumList.length === 0 ? <p className="text-sm text-slate-400 text-center py-6">Chưa có cụm nào. Tạo ở trên.</p>
+                : cumList.map(c => (
+                  <button key={c.ma_khach_hang} onClick={() => { setSelMa(c.ma_khach_hang); setEditing(false); setPickIds([]); setMaySearch('') }}
+                    className={`w-full text-left px-3 py-2.5 hover:bg-slate-50 flex items-center gap-2 ${selMa === c.ma_khach_hang ? 'bg-blue-50/70' : ''}`}>
+                    <span className="text-xs font-mono text-slate-400 shrink-0">{c.ma_khach_hang}</span>
+                    <span className="flex-1 text-sm font-medium text-slate-800 truncate">{c.ten_khach_hang}</span>
+                    <span className="text-xs text-slate-500 shrink-0 whitespace-nowrap">{c.so_may} máy</span>
+                  </button>
+                ))}
+          </div>
+        </div>
+
+        {/* CỘT PHẢI: chi tiết cụm đang chọn */}
+        <div className="border border-slate-200 rounded-lg p-5 bg-slate-50/50 space-y-4">
+          {!sel ? (
+            <div className="text-sm text-slate-400 text-center py-16">Chọn một cụm bên trái để xem &amp; gán máy.</div>
+          ) : (
+            <>
+              <div className="flex items-start gap-2">
+                <div className="flex-1 min-w-0">
+                  {editing ? (
+                    <div className="space-y-2">
+                      <Input className="bg-white" value={edTen} onChange={e => setEdTen(e.target.value)} placeholder="Tên khách hàng" />
+                      <Input className="bg-white" value={edDc} onChange={e => setEdDc(e.target.value)} placeholder="Địa chỉ" />
+                      <div className="flex gap-2">
+                        <Button onClick={saveEdit} disabled={working} className="h-8 text-xs px-3">Lưu</Button>
+                        <Button variant="outline" onClick={() => setEditing(false)} className="h-8 text-xs px-3">Hủy</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono text-slate-400">{sel.ma_khach_hang}</span>
+                        <h3 className="text-base font-semibold text-slate-800 truncate">{sel.ten_khach_hang}</h3>
+                      </div>
+                      {sel.dia_chi && <p className="text-sm text-slate-500 mt-0.5">{sel.dia_chi}</p>}
+                    </>
+                  )}
+                </div>
+                {!editing && (
+                  <div className="flex gap-1 shrink-0">
+                    <button onClick={() => { setEditing(true); setEdTen(sel.ten_khach_hang); setEdDc(sel.dia_chi || '') }} className="text-blue-500 hover:text-blue-700 p-1"><PenSquare className="w-4 h-4" /></button>
+                    <button onClick={() => delCluster(sel.ma_khach_hang)} className="text-red-500 hover:text-red-700 p-1"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                )}
+              </div>
+
+              {/* Máy trong cụm */}
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Máy trong cụm ({selMembers.length})</p>
+                <div className="bg-white rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-52 overflow-y-auto">
+                  {selMembers.length === 0 ? <p className="text-sm text-slate-400 text-center py-4">Chưa có máy. Thêm ở dưới.</p>
+                    : selMembers.map(m => (
+                      <div key={m.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+                        <span className="text-xs font-mono text-slate-400 shrink-0">{m.ma_may || '—'}</span>
+                        <span className="flex-1 text-slate-700 truncate">{m.ten_khach_hang}</span>
+                        <button onClick={() => removeMay(m.id)} disabled={working} title="Gỡ khỏi cụm" className="text-slate-400 hover:text-red-600 shrink-0"><X className="w-4 h-4" /></button>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* Thêm máy (từ danh sách máy chưa gán) */}
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Thêm máy vào cụm (chỉ hiện máy chưa thuộc cụm nào)</p>
+                <div className="relative mb-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input placeholder="Tìm theo tên / mã máy / model..." className="pl-9 bg-white h-9" value={maySearch} onChange={e => setMaySearch(e.target.value)} />
+                </div>
+                {q && (
+                  <div className="bg-white rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-52 overflow-y-auto">
+                    {mayResults.length === 0 ? <p className="text-sm text-slate-400 text-center py-4">Không có máy lẻ khớp.</p>
+                      : mayResults.map(c => (
+                        <label key={c.id} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">
+                          <input type="checkbox" checked={pickIds.includes(c.id)} onChange={() => togglePick(c.id)} className="w-4 h-4 accent-blue-600" />
+                          <span className="text-xs font-mono text-slate-400 shrink-0">{c.ma_may || '—'}</span>
+                          <span className="flex-1 text-slate-700 truncate">{c.ten_khach_hang}</span>
+                        </label>
+                      ))}
+                  </div>
+                )}
+                {pickIds.length > 0 && (
+                  <Button onClick={assignMay} disabled={working} className="gap-1 w-full mt-2 bg-emerald-600 hover:bg-emerald-700"><Plus className="w-4 h-4" /> Gán {pickIds.length} máy vào cụm</Button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function DanhMucTool({ danhMuc, setDanhMuc, onUpdateSuccess, showNotification }: { danhMuc: any[], setDanhMuc: React.Dispatch<React.SetStateAction<any[]>>, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [nhom, setNhom] = useState('loai_cong_viec')
