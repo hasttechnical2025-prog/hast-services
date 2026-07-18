@@ -6325,127 +6325,150 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
       {/* Modal sửa khách hàng */}
       {editing && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
-          {/* max-h + flex-col: thân form cuộn, nút Lưu/Hủy luôn nhìn thấy (form dài hơn màn hình
-              từ khi thêm khối Lịch bảo trì) */}
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
+          {/* Khổ ngang: rộng hơn, chia cột theo nhóm -> ít cuộn. max-h + flex-col giữ nút Lưu/Hủy luôn thấy */}
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl overflow-hidden max-h-[90vh] flex flex-col">
             <div className="p-5 border-b border-slate-100 flex justify-between items-center shrink-0">
               <h3 className="text-lg font-bold text-slate-800">{editing.id ? 'Sửa khách hàng' : 'Thêm khách hàng mới'}</h3>
               <button onClick={() => setEditing(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
             </div>
-            <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 overflow-y-auto">
-              <div className="space-y-1 sm:col-span-2">
-                <label className="text-xs font-semibold text-slate-600">Tên khách hàng</label>
-                <Input value={editing.ten_khach_hang || ""} onChange={(e) => setEditing({ ...editing, ten_khach_hang: e.target.value })} className="bg-white" />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Mã máy</label>
-                <Input value={editing.ma_may || ""} onChange={(e) => setEditing({ ...editing, ma_may: e.target.value })} className={`bg-white ${dupCust ? 'border-amber-400 focus:ring-amber-400' : ''}`} />
-                {dupCust && (
-                  <div className="text-xs text-amber-600 flex items-center gap-1 flex-wrap">
-                    ⚠ Trùng mã của: {dupCust.ten_khach_hang}.
-                    <button type="button" onClick={() => viewRow(dupCust.id)} className="underline font-medium">Xem dòng</button>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Serial máy</label>
-                <Input value={editing.serial || ""} onChange={(e) => setEditing({ ...editing, serial: e.target.value })} className={`bg-white ${dupSerial ? 'border-amber-400 focus:ring-amber-400' : ''}`} placeholder="Tùy chọn (nên có với máy thuê)" />
-                {dupSerial && (
-                  <div className="text-xs text-amber-600 flex items-center gap-1 flex-wrap">
-                    ⚠ Trùng serial của: {dupSerial.ten_khach_hang}.
-                    <button type="button" onClick={() => viewRow(dupSerial.id)} className="underline font-medium">Xem dòng</button>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Model</label>
-                <Input value={editing.model || ""} onChange={(e) => setEditing({ ...editing, model: e.target.value })} className="bg-white" />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Hãng máy</label>
-                <select className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" value={editing.hang || ""} onChange={(e) => setEditing({ ...editing, hang: e.target.value })}>
-                  <option value="">— Không —</option>
-                  {hangOptions.map(v => <option key={v} value={v}>{v}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1 sm:col-span-2">
-                <label className="text-xs font-semibold text-slate-600">Địa chỉ</label>
-                <Input value={editing.dia_chi || ""} onChange={(e) => setEditing({ ...editing, dia_chi: e.target.value })} className="bg-white" />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Khoảng cách (km)</label>
-                {editing.id
-                  ? <Input type="number" step="0.1" value={editing.km_mac_dinh ?? ""} onChange={(e) => setEditing({ ...editing, km_mac_dinh: e.target.value })} className="bg-white" />
-                  : <Input value="Tự tính từ địa chỉ" disabled className="bg-slate-50 text-slate-400" />}
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Loại hợp đồng</label>
-                <select className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" value={editing.loai_hd || ""} onChange={(e) => setEditing({ ...editing, loai_hd: e.target.value })}>
-                  <option value="">— Không —</option>
-                  {loaiHdOptions.map(v => <option key={v} value={v}>{v}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1 sm:col-span-2">
-                <label className="text-xs font-semibold text-slate-600">Ngày hết hạn hợp đồng</label>
-                <DateField value={editing.ngay_het_han_hdbt || ""} onChange={(v) => setEditing({ ...editing, ngay_het_han_hdbt: v })} />
-              </div>
-
-              {/* Lịch bảo trì + tạm dừng — chỉ áp dụng cho máy HĐBT / MF */}
-              <div className="sm:col-span-2 border-t border-slate-100 pt-3 space-y-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-600">
-                    Lịch bảo trì <span className="font-normal text-slate-400">— tick các tháng phải bảo trì (chọn đủ 12 tháng = hằng tháng)</span>
-                  </label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
-                      const on = coBaoTriThang(editing.thang_bao_tri, m)
-                      return (
-                        <button
-                          key={m}
-                          type="button"
-                          onClick={() => {
-                            const cur = new Set(parseThangBaoTri(editing.thang_bao_tri).length
-                              ? parseThangBaoTri(editing.thang_bao_tri)
-                              : Array.from({ length: 12 }, (_, i) => i + 1))
-                            if (cur.has(m)) { if (cur.size === 1) return; cur.delete(m) } else cur.add(m)
-                            setEditing({ ...editing, thang_bao_tri: formatThangBaoTri(Array.from(cur)) })
-                          }}
-                          className={`w-10 h-8 rounded-md border text-xs font-semibold transition ${on ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
-                        >T{m}</button>
-                      )
-                    })}
-                  </div>
-                  <p className="text-xs text-slate-400">Đang đặt: <b className="text-slate-600">{moTaLichBaoTri(editing.thang_bao_tri)}</b></p>
-                </div>
-
-                {/* Hai mốc kẹp lại = khoảng máy còn hiệu lực trong năm */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="p-5 overflow-y-auto space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                {/* CỘT TRÁI: Khách hàng & máy */}
+                <div className="space-y-4">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Khách hàng</div>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-600">Bắt đầu theo dõi từ tháng</label>
-                    <input
-                      type="month"
-                      value={editing.bat_dau_tu_thang || ""}
-                      onChange={(e) => setEditing({ ...editing, bat_dau_tu_thang: e.target.value })}
-                      className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <p className="text-xs text-slate-400">Máy lắp giữa năm → chọn tháng lắp. Để trống = đã có máy từ trước.</p>
+                    <label className="text-xs font-semibold text-slate-600">Tên khách hàng</label>
+                    <Input value={editing.ten_khach_hang || ""} onChange={(e) => setEditing({ ...editing, ten_khach_hang: e.target.value })} className="bg-white" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-600">Tạm dừng bảo trì từ tháng</label>
-                    <input
-                      type="month"
-                      value={editing.tam_dung_tu_thang || ""}
-                      onChange={(e) => setEditing({ ...editing, tam_dung_tu_thang: e.target.value })}
-                      className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <p className="text-xs text-slate-400">Để trống = đang theo dõi. Có giá trị = máy không bị đòi bảo trì từ tháng đó (vẫn giữ trong danh sách).</p>
+                    <label className="text-xs font-semibold text-slate-600">Địa chỉ</label>
+                    <Input value={editing.dia_chi || ""} onChange={(e) => setEditing({ ...editing, dia_chi: e.target.value })} className="bg-white" />
+                  </div>
+
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide pt-1">Thông tin máy</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-600">Mã máy</label>
+                      <Input value={editing.ma_may || ""} onChange={(e) => setEditing({ ...editing, ma_may: e.target.value })} className={`bg-white ${dupCust ? 'border-amber-400 focus:ring-amber-400' : ''}`} />
+                      {dupCust && (
+                        <div className="text-xs text-amber-600 flex items-center gap-1 flex-wrap">
+                          ⚠ Trùng mã của: {dupCust.ten_khach_hang}.
+                          <button type="button" onClick={() => viewRow(dupCust.id)} className="underline font-medium">Xem dòng</button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-600">Serial máy</label>
+                      <Input value={editing.serial || ""} onChange={(e) => setEditing({ ...editing, serial: e.target.value })} className={`bg-white ${dupSerial ? 'border-amber-400 focus:ring-amber-400' : ''}`} placeholder="Tùy chọn (nên có với máy thuê)" />
+                      {dupSerial && (
+                        <div className="text-xs text-amber-600 flex items-center gap-1 flex-wrap">
+                          ⚠ Trùng serial của: {dupSerial.ten_khach_hang}.
+                          <button type="button" onClick={() => viewRow(dupSerial.id)} className="underline font-medium">Xem dòng</button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-600">Model</label>
+                      <Input value={editing.model || ""} onChange={(e) => setEditing({ ...editing, model: e.target.value })} className="bg-white" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-600">Hãng máy</label>
+                      <select className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" value={editing.hang || ""} onChange={(e) => setEditing({ ...editing, hang: e.target.value })}>
+                        <option value="">— Không —</option>
+                        {hangOptions.map(v => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-600">Ghi chú bảo trì</label>
-                  <Input value={editing.ghi_chu_bao_tri || ""} onChange={(e) => setEditing({ ...editing, ghi_chu_bao_tri: e.target.value })} placeholder="VD: khách bỏ máy, còn trong HĐ" className="bg-white" />
+
+                {/* CỘT PHẢI: Hợp đồng */}
+                <div className="space-y-4">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Hợp đồng</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-600">Loại hợp đồng</label>
+                      <select className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" value={editing.loai_hd || ""} onChange={(e) => setEditing({ ...editing, loai_hd: e.target.value })}>
+                        <option value="">— Không —</option>
+                        {loaiHdOptions.map(v => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-600">Khoảng cách (km)</label>
+                      {editing.id
+                        ? <Input type="number" step="0.1" value={editing.km_mac_dinh ?? ""} onChange={(e) => setEditing({ ...editing, km_mac_dinh: e.target.value })} className="bg-white" />
+                        : <Input value="Tự tính từ địa chỉ" disabled className="bg-slate-50 text-slate-400" />}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-600">Ngày hết hạn hợp đồng</label>
+                    <DateField value={editing.ngay_het_han_hdbt || ""} onChange={(v) => setEditing({ ...editing, ngay_het_han_hdbt: v })} />
+                  </div>
+                  <p className="text-xs text-slate-500 bg-slate-50 border border-slate-100 rounded-md px-3 py-2">
+                    Khối <b>Lịch bảo trì</b> bên dưới chỉ áp dụng cho máy <b>HĐBT</b> hoặc <b>MF</b>. Loại HĐ khác sẽ được khóa.
+                  </p>
                 </div>
               </div>
+
+              {/* Lịch bảo trì (full width) — khóa khi Loại HĐ không phải HĐBT / MF */}
+              {(() => {
+                const baoTriOn = ['HĐBT', 'MF'].includes((editing.loai_hd || '').trim())
+                return (
+                  <div className="border-t border-slate-100 pt-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Lịch bảo trì</div>
+                      {!baoTriOn && <span className="text-[11px] text-slate-400">— chỉ áp dụng cho HĐBT / MF</span>}
+                    </div>
+                    <div className={baoTriOn ? '' : 'opacity-50 pointer-events-none select-none'} aria-disabled={!baoTriOn}>
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-600">
+                          Các tháng phải bảo trì <span className="font-normal text-slate-400">— chọn đủ 12 tháng = hằng tháng</span>
+                        </label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
+                            const on = coBaoTriThang(editing.thang_bao_tri, m)
+                            return (
+                              <button
+                                key={m}
+                                type="button"
+                                disabled={!baoTriOn}
+                                onClick={() => {
+                                  const cur = new Set(parseThangBaoTri(editing.thang_bao_tri).length
+                                    ? parseThangBaoTri(editing.thang_bao_tri)
+                                    : Array.from({ length: 12 }, (_, i) => i + 1))
+                                  if (cur.has(m)) { if (cur.size === 1) return; cur.delete(m) } else cur.add(m)
+                                  setEditing({ ...editing, thang_bao_tri: formatThangBaoTri(Array.from(cur)) })
+                                }}
+                                className={`w-10 h-8 rounded-md border text-xs font-semibold transition ${on ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
+                              >T{m}</button>
+                            )
+                          })}
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">Đang đặt: <b className="text-slate-600">{moTaLichBaoTri(editing.thang_bao_tri)}</b></p>
+                      </div>
+
+                      {/* Hai mốc kẹp lại + ghi chú — một hàng 3 cột (khổ ngang) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-600">Bắt đầu theo dõi từ tháng</label>
+                          <input type="month" disabled={!baoTriOn} value={editing.bat_dau_tu_thang || ""} onChange={(e) => setEditing({ ...editing, bat_dau_tu_thang: e.target.value })}
+                            className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50" />
+                          <p className="text-xs text-slate-400">Máy lắp giữa năm → chọn tháng lắp. Trống = đã có từ trước.</p>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-600">Tạm dừng bảo trì từ tháng</label>
+                          <input type="month" disabled={!baoTriOn} value={editing.tam_dung_tu_thang || ""} onChange={(e) => setEditing({ ...editing, tam_dung_tu_thang: e.target.value })}
+                            className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50" />
+                          <p className="text-xs text-slate-400">Trống = đang theo dõi. Có giá trị = không đòi bảo trì từ tháng đó.</p>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-600">Ghi chú bảo trì</label>
+                          <Input value={editing.ghi_chu_bao_tri || ""} disabled={!baoTriOn} onChange={(e) => setEditing({ ...editing, ghi_chu_bao_tri: e.target.value })} placeholder="VD: khách bỏ máy, còn trong HĐ" className="bg-white disabled:bg-slate-50" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
             <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100 shrink-0">
               <Button variant="outline" onClick={() => setEditing(null)}>Hủy</Button>
