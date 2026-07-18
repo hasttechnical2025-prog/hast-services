@@ -116,12 +116,12 @@ export async function POST(request: Request) {
 
     // 4. Xử lý lệnh /bcn (Báo cáo ngày chưa nộp)
     if (text === '/bcn') {
-      // Sinh danh sách 5 ngày làm việc gần nhất (bỏ Thứ 7, Chủ Nhật)
+      // Sinh danh sách 2 ngày làm việc gần nhất (bỏ Thứ 7, Chủ Nhật)
       const dates: { ymd: string; label: string }[] = []
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       let count = 0
-      for (let i = 1; count < 5 && i <= 15; i++) {
+      for (let i = 1; count < 2 && i <= 15; i++) {
         const d = new Date(today.getTime() - i * 86400000)
         const dayOfWeek = d.getDay()
         if (dayOfWeek !== 0 && dayOfWeek !== 6) {
@@ -173,12 +173,12 @@ export async function POST(request: Request) {
 
       // Cập nhật lại tin nhắn cũ kèm theo bàn phím chọn ngày để user có thể bấm xem ngày khác
       if (messageId) {
-        // Sinh lại 5 ngày để giữ bàn phím
+        // Sinh lại 2 ngày để giữ bàn phím
         const dates: { ymd: string; label: string }[] = []
         const today = new Date()
         today.setHours(0, 0, 0, 0)
         let count = 0
-        for (let i = 1; count < 5 && i <= 15; i++) {
+        for (let i = 1; count < 2 && i <= 15; i++) {
           const d = new Date(today.getTime() - i * 86400000)
           const dayOfWeek = d.getDay()
           if (dayOfWeek !== 0 && dayOfWeek !== 6) {
