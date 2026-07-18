@@ -4714,20 +4714,22 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
           {custs.length === 0 ? (
             <p className="text-sm text-slate-400 text-center py-4">Không có công nợ.</p>
           ) : custs.filter(c => !khSearch || c.ten.toLowerCase().includes(khSearch.trim().toLowerCase())).map(c => (
-            <label key={c.id} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 cursor-pointer text-sm">
-              <input type="checkbox" checked={selIds.includes(c.id)} onChange={() => toggleSel(c)} className="w-4 h-4 accent-blue-600" />
-              <span className="flex-1 text-slate-700">
-                {c.ten}
+            <label key={c.id} className="flex items-start gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer text-sm">
+              <input type="checkbox" checked={selIds.includes(c.id)} onChange={() => toggleSel(c)} className="w-4 h-4 accent-blue-600 mt-0.5 shrink-0" />
+              <div className="w-56 sm:w-72 shrink-0">
+                <span className="font-medium text-slate-700 leading-snug">{c.ten}</span>
                 {c.isCum && (
                   <span className="ml-1.5 px-1.5 py-[1px] text-[10px] font-semibold bg-violet-50 text-violet-700 border border-violet-200 rounded whitespace-nowrap">
                     cụm · {new Set(c.tickets.map((t: any) => t.id_khach_hang)).size} máy
                   </span>
                 )}
-              </span>
-              <span className="text-xs text-slate-400 whitespace-nowrap">
-                {c.tickets.length} phiếu · {c.tickets.map((t: any, idx: number) => (
-                  <span key={t.id}>
-                    {idx > 0 && ', '}
+              </div>
+              <div className="flex-1 min-w-0 text-xs text-slate-400 leading-relaxed">
+                <span className="font-semibold text-slate-500">{c.tickets.length} phiếu</span>
+                <span className="text-slate-300"> · </span>
+                {c.tickets.map((t: any, idx: number) => (
+                  <span key={t.id} className="whitespace-nowrap">
+                    {idx > 0 && <span className="text-slate-300">, </span>}
                     <span className={t.trang_thai_hd === 'Đã báo giá' ? 'text-blue-600 font-semibold' : ''}>
                       {t.report}
                     </span>
@@ -4738,7 +4740,7 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
                     )}
                   </span>
                 ))}
-              </span>
+              </div>
             </label>
           ))}
         </div>
