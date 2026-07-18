@@ -103,6 +103,35 @@ export async function PUT(request: Request) {
   }
 }
 
+// Sắp xếp lại thứ tự cả nhóm (admin) — nhận mảng ids theo thứ tự mong muốn,
+// gán thu_tu = 1..n. Chuẩn hóa luôn các mục mới (thu_tu=999) và xóa trùng lặp.
+export async function PATCH(request: Request) {
+  try {
+    const session = await requireRole('admin')
+    if (!session) {
+      return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
+    }
+
+    const { ids } = await request.json()
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({ error: 'Thiếu danh sách thứ tự' }, { status: 400 })
+    }
+
+    const results = await Promise.all(
+      ids.map((id: string, i: number) =>
+        supabaseAdmin.from('soct_danh_muc').update({ thu_tu: i + 1 }).eq('id', id)
+      )
+    )
+    const failed = results.find(r => r.error)
+    if (failed?.error) throw failed.error
+
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error('Error reordering danh_muc:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
 // Xóa giá trị danh mục (admin)
 export async function DELETE(request: Request) {
   try {

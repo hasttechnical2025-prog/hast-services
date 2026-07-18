@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { createPortal } from "react-dom"
-import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, Copy } from "lucide-react"
+import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy } from "lucide-react"
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -5481,6 +5481,7 @@ function DanhMucTool({ danhMuc, onUpdateSuccess, showNotification }: { danhMuc: 
   const [newVal, setNewVal] = useState("")
   const [editId, setEditId] = useState<string | null>(null)
   const [editVal, setEditVal] = useState("")
+  const [moving, setMoving] = useState(false)
 
   const items = danhMuc.filter(d => d.nhom === nhom)
 
@@ -5497,6 +5498,15 @@ function DanhMucTool({ danhMuc, onUpdateSuccess, showNotification }: { danhMuc: 
   const saveEdit = async () => {
     if (!editId || !editVal.trim()) return
     if (await call('PUT', { id: editId, gia_tri: editVal.trim() })) setEditId(null)
+  }
+  // Di chuyển 1 mục lên/xuống trong nhóm rồi lưu lại thứ tự cả nhóm (1..n)
+  const moveItem = async (index: number, dir: -1 | 1) => {
+    const target = index + dir
+    if (moving || target < 0 || target >= items.length) return
+    const ids = items.map(i => i.id)
+    ;[ids[index], ids[target]] = [ids[target], ids[index]]
+    setMoving(true)
+    try { await call('PATCH', { ids }) } finally { setMoving(false) }
   }
   return (
     <div className="space-y-6">
@@ -5517,12 +5527,12 @@ function DanhMucTool({ danhMuc, onUpdateSuccess, showNotification }: { danhMuc: 
         <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[400px] overflow-y-auto">
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide sticky top-0 border-b border-slate-200">
-              <tr><th className="px-4 py-2 font-semibold">Giá trị</th><th className="px-4 py-2 font-semibold text-center w-28 whitespace-nowrap">Trạng thái</th><th className="px-4 py-2 font-semibold text-right w-28 whitespace-nowrap">Thao tác</th></tr>
+              <tr><th className="px-4 py-2 font-semibold">Giá trị</th><th className="px-4 py-2 font-semibold text-center w-28 whitespace-nowrap">Trạng thái</th><th className="px-4 py-2 font-semibold text-right w-40 whitespace-nowrap">Thao tác</th></tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {items.length === 0 ? (
                 <tr><td colSpan={3} className="px-4 py-8 text-center text-slate-400">Nhóm này chưa có giá trị. Thêm ở trên.</td></tr>
-              ) : items.map(it => (
+              ) : items.map((it, idx) => (
                 <tr key={it.id} className={`hover:bg-slate-50 ${it.active ? '' : 'opacity-50'}`}>
                   <td className="px-4 py-2">
                     {editId === it.id ? (
@@ -5531,7 +5541,12 @@ function DanhMucTool({ danhMuc, onUpdateSuccess, showNotification }: { danhMuc: 
                         <Button onClick={saveEdit} className="h-8 text-xs px-3">Lưu</Button>
                         <Button variant="outline" onClick={() => setEditId(null)} className="h-8 text-xs px-3">Hủy</Button>
                       </div>
-                    ) : <span className="font-medium text-slate-800">{it.gia_tri}</span>}
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <span className="text-slate-300 text-xs tabular-nums w-5 shrink-0 text-right">{idx + 1}</span>
+                        <span className="font-medium text-slate-800">{it.gia_tri}</span>
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-2 text-center">
                     <button onClick={() => call('PUT', { id: it.id, active: !it.active })} className={`inline-block whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-semibold border ${it.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
@@ -5539,7 +5554,9 @@ function DanhMucTool({ danhMuc, onUpdateSuccess, showNotification }: { danhMuc: 
                     </button>
                   </td>
                   <td className="px-4 py-2 text-right whitespace-nowrap">
-                    <button onClick={() => { setEditId(it.id); setEditVal(it.gia_tri) }} className="text-blue-500 hover:text-blue-700 p-1"><PenSquare className="w-4 h-4" /></button>
+                    <button onClick={() => moveItem(idx, -1)} disabled={moving || idx === 0} title="Lên" className="text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:hover:text-slate-400 p-1"><ChevronUp className="w-4 h-4" /></button>
+                    <button onClick={() => moveItem(idx, 1)} disabled={moving || idx === items.length - 1} title="Xuống" className="text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:hover:text-slate-400 p-1"><ChevronDown className="w-4 h-4" /></button>
+                    <button onClick={() => { setEditId(it.id); setEditVal(it.gia_tri) }} className="text-blue-500 hover:text-blue-700 p-1 ml-1"><PenSquare className="w-4 h-4" /></button>
                     <button onClick={() => call('DELETE', undefined, `?id=${it.id}`)} className="text-red-500 hover:text-red-700 p-1 ml-1"><Trash2 className="w-4 h-4" /></button>
                   </td>
                 </tr>
