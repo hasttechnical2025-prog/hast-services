@@ -4620,7 +4620,7 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
   const [list, setList] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selIds, setSelIds] = useState<string[]>([])
-  const [gop, setGop] = useState(true)
+  const [gop, setGop] = useState(false)
   const [rows, setRows] = useState<BaoGiaRow[]>([])
   const [khTen, setKhTen] = useState('')
   const [khDiaChi, setKhDiaChi] = useState('')
@@ -4657,13 +4657,21 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
   const selCusts = custs.filter(c => selIds.includes(c.id))
   const selTickets = selCusts.flatMap(c => c.tickets)
 
-  const buildRows = (tickets: any[], gopMa: boolean) => {
+  // Mỗi dòng vật tư mang theo Số phiếu (report) + id phiếu nguồn (srcIds) để:
+  //  - hiển thị cột "Số phiếu" trong bảng,
+  //  - khoanh vùng đúng phiếu khi Đánh dấu báo giá / Lên hóa đơn (thanh toán từng phần).
+  const buildRows = (tickets: any[], gopMa: boolean): BaoGiaRow[] => {
     const lines = tickets.flatMap((t: any) => (t.soct_chi_tiet_vat_tu || []).map((v: any) => ({
       ten: v.soct_kho_hang?.ten_hang || v.ma_hang || '', sl: Number(v.so_luong) || 0, gia: Number(v.don_gia) || 0, vat: Number(v.vat) || 0,
+      soPhieu: t.report || '', srcId: t.id as string,
     })))
-    if (!gopMa) return lines.map((l: any) => ({ ...l, dvt: 'Cái', gc: '' }))
+    if (!gopMa) return lines.map((l: any) => ({ ten: l.ten, sl: l.sl, gia: l.gia, vat: l.vat, dvt: 'Cái', gc: '', soPhieu: l.soPhieu, srcIds: [l.srcId] }))
     const m = new Map<string, any>()
-    for (const l of lines) { const k = `${l.ten}|${l.gia}|${l.vat}`; if (!m.has(k)) m.set(k, { ...l, dvt: 'Cái', gc: '' }); else m.get(k).sl += l.sl }
+    for (const l of lines) {
+      const k = `${l.ten}|${l.gia}|${l.vat}`
+      if (!m.has(k)) m.set(k, { ten: l.ten, sl: l.sl, gia: l.gia, vat: l.vat, dvt: 'Cái', gc: '', soPhieu: l.soPhieu, srcIds: [l.srcId] })
+      else { const e = m.get(k); e.sl += l.sl; if (!e.srcIds.includes(l.srcId)) e.srcIds.push(l.srcId); if (e.soPhieu !== l.soPhieu) e.soPhieu = 'nhiều' }
+    }
     return [...m.values()]
   }
   useEffect(() => { setRows(buildRows(selTickets, gop)) }, [selIds, gop]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -4681,8 +4689,14 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
   const fmtN = (x: any) => (Number(x) || 0).toLocaleString('vi-VN')
 
   const setStatus = async (trang_thai_hd: string) => {
-    const ids = selTickets.map((t: any) => t.id)
-    if (ids.length === 0) return
+    // Chỉ tác động lên PHIẾU CÒN TRONG BẢNG (rows) — cho phép thanh toán từng phần:
+    // xóa dòng của phiếu chưa thanh toán -> phiếu đó KHÔNG bị đánh dấu/lên hóa đơn.
+    // Kèm phiếu KHÔNG có vật tư đang chọn (không tạo dòng nào) để không bỏ sót khi
+    // thanh toán toàn bộ (không xóa dòng nào -> hành xử như trước đây).
+    const inRows = new Set<string>(rows.flatMap((r: any) => r.srcIds || []))
+    const noVatTu = selTickets.filter((t: any) => !(t.soct_chi_tiet_vat_tu?.length)).map((t: any) => t.id)
+    const ids = Array.from(new Set<string>([...inRows, ...noVatTu]))
+    if (ids.length === 0) return showNotification('error', 'Không có phiếu nào trong bảng để cập nhật.')
     setWorking(true)
     try {
       const res = await fetch('/api/admin/cong-no', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, trang_thai_hd }) })
@@ -4755,6 +4769,7 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
           <BaoGiaEditor
             rows={rows}
             onRowsChange={setRows}
+            showSoPhieu
             khachHang={khTen}
             onKhachHangChange={setKhTen}
             diaChi={khDiaChi}
