@@ -1075,9 +1075,11 @@ export default function AdminDashboard() {
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-1.5 text-xs text-slate-500">
                   <span>Ngày</span>
-                  <DateField value={jobFilters.tuNgay} onChange={(v) => setJobFilters({ ...jobFilters, tuNgay: v })} heightClass="h-9" className="w-32" />
+                  {/* Tự chỉnh biên: chọn "từ" trễ hơn "đến" -> kéo "đến" theo (và ngược lại)
+                      -> khoảng không bao giờ lộn ngược, khỏi phải Bỏ lọc rồi chọn lại. */}
+                  <DateField value={jobFilters.tuNgay} onChange={(v) => setJobFilters(f => ({ ...f, tuNgay: v, denNgay: v && f.denNgay && f.denNgay < v ? v : f.denNgay }))} heightClass="h-9" className="w-32" />
                   <span>–</span>
-                  <DateField value={jobFilters.denNgay} onChange={(v) => setJobFilters({ ...jobFilters, denNgay: v })} heightClass="h-9" className="w-32" />
+                  <DateField value={jobFilters.denNgay} onChange={(v) => setJobFilters(f => ({ ...f, denNgay: v, tuNgay: v && f.tuNgay && v < f.tuNgay ? v : f.tuNgay }))} heightClass="h-9" className="w-32" />
                 </div>
                 <MultiCheckDropdown label="Loại việc" options={loaiCvOptions} selected={jobFilters.loaiViec} onChange={(v) => setJobFilters({ ...jobFilters, loaiViec: v })} />
                 <select value={jobFilters.ktvId} onChange={(e) => setJobFilters({ ...jobFilters, ktvId: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
@@ -4851,12 +4853,13 @@ function BaoCaoKtvTool({ technicians, showNotification }: { technicians: any[], 
 
         <div className="space-y-1">
           <label className="text-xs font-semibold text-slate-600">Từ ngày</label>
-          <DateField value={tuNgay} onChange={setTuNgay} />
+          {/* Tự chỉnh biên để khoảng không lộn ngược (giống bộ lọc Giao việc) */}
+          <DateField value={tuNgay} onChange={(v) => { setTuNgay(v); if (v && denNgay && denNgay < v) setDenNgay(v) }} />
         </div>
 
         <div className="space-y-1">
           <label className="text-xs font-semibold text-slate-600">Đến ngày</label>
-          <DateField value={denNgay} onChange={setDenNgay} />
+          <DateField value={denNgay} onChange={(v) => { setDenNgay(v); if (v && tuNgay && v < tuNgay) setTuNgay(v) }} />
         </div>
 
         <div className="flex items-center gap-2">
