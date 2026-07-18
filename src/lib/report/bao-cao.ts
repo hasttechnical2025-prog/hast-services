@@ -177,3 +177,140 @@ export async function buildReportData(thang: string, manual: ManualFields = {}) 
 
   return data
 }
+
+// Helper format ngày DD/MM và YYYY-MM-DD
+const formatShortDate = (d: Date) => {
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+const formatYMD = (d: Date) => {
+  return d.toISOString().split('T')[0]
+}
+
+export interface MissingReportItem {
+  ktvId: string
+  ktvName: string
+  missingDays: string[]
+}
+
+export async function getMissingReports(dateStr?: string): Promise<MissingReportItem[]> {
+  // 1. Tính toán danh sách ngày cần quét
+  const datesToCheck: { ymd: string; label: string }[] = []
+
+  if (dateStr) {
+    // Chỉ quét đúng 1 ngày được truyền vào (YYYY-MM-DD)
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) {
+      throw new Error('Ngày không hợp lệ: ' + dateStr)
+    }
+    datesToCheck.push({
+      ymd: dateStr,
+      label: formatShortDate(d),
+    })
+  } else {
+    // Tự động quét 7 ngày gần nhất (như cron job)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    for (let i = 1; i <= 7; i++) {
+      const d = new Date(today.getTime() - i * 86400000)
+      const dayOfWeek = d.getDay()
+      // Bỏ qua Thứ 7 (6) và Chủ Nhật (0)
+      if (dayOfWeek === 0 || dayOfWeek === 6) continue
+
+      datesToCheck.push({
+        ymd: formatYMD(d),
+        label: formatShortDate(d),
+      })
+    }
+  }
+
+  if (datesToCheck.length === 0) return []
+
+  const dateStrs = datesToCheck.map(d => d.ymd)
+
+  // 2. Tải danh sách ngày nghỉ lễ từ DB để loại trừ tiếp
+  const { data: ngayNghiList } = await supabaseAdmin
+    .from('soct_ngay_nghi')
+    .select('ngay')
+    .in('ngay', dateStrs)
+
+  const ngayNghiSet = new Set((ngayNghiList || []).map(n => n.ngay))
+  const validDates = datesToCheck.filter(d => !ngayNghiSet.has(d.ymd))
+
+  if (validDates.length === 0) return []
+  const validDateStrs = validDates.map(d => d.ymd)
+
+  // 3. Tải danh sách KTV đang hoạt động
+  const { data: ktvs } = await supabaseAdmin
+    .from('soct_users')
+    .select('id, full_name')
+    .eq('role', 'ktv')
+    .eq('is_active', true)
+
+  if (!ktvs || ktvs.length === 0) return []
+
+  // 4. Lấy trạng thái báo cáo đã nộp của các KTV trong các ngày hợp lệ
+  const { data: submitted } = await supabaseAdmin
+    .from('soct_trang_thai_bao_cao')
+    .select('ktv_id, ngay_bao_cao')
+    .in('ngay_bao_cao', validDateStrs)
+    .eq('da_nop', true)
+
+  const submittedSet = new Set((submitted || []).map(s => `${s.ktv_id}_${s.ngay_bao_cao}`))
+
+  // Nghỉ phép/ốm CẢ NGÀY đã duyệt -> loại KTV đó khỏi nhắc những ngày đó
+  const minD = validDateStrs.reduce((a, b) => (a < b ? a : b))
+  const maxD = validDateStrs.reduce((a, b) => (a > b ? a : b))
+  const { data: leaves } = await supabaseAdmin
+    .from('soct_nghi_phep')
+    .select('user_id, tu_ngay, den_ngay')
+    .eq('trang_thai', 'da_duyet')
+    .eq('buoi', 'ca_ngay')
+    .lte('tu_ngay', maxD)
+    .gte('den_ngay', minD)
+
+  const leaveSet = new Set<string>()
+  for (const lv of leaves || []) {
+    for (const d of validDates) {
+      if (d.ymd >= lv.tu_ngay && d.ymd <= lv.den_ngay) {
+        leaveSet.add(`${lv.user_id}_${d.ymd}`)
+      }
+    }
+  }
+
+  // Lấy tất cả ca máy thuộc các ngày quét để check xem ca nào chưa điền counter/ghi chú KTV
+  const { data: jobs } = await supabaseAdmin
+    .from('soct_cong_viec')
+    .select('id, ngay, ktv_id, ktv2_id, counter, ghi_chu_ktv')
+    .in('ngay', validDateStrs)
+    .in('ket_qua', ['Hoàn thành', 'Đang làm', 'Lắp tiếp'])
+
+  // 5. Đối chiếu KTV nợ báo cáo
+  const missingReports: MissingReportItem[] = []
+
+  for (const ktv of ktvs) {
+    const missingDays: string[] = []
+    for (const d of validDates) {
+      // KTV nghỉ cả ngày (đã duyệt) -> không tính thiếu báo cáo ngày đó
+      if (leaveSet.has(`${ktv.id}_${d.ymd}`)) continue
+      const hasSubmitted = submittedSet.has(`${ktv.id}_${d.ymd}`)
+
+      // Tìm các ca máy của KTV này trong ngày d
+      const ktvJobs = (jobs || []).filter(j =>
+        j.ngay === d.ymd && (j.ktv_id === ktv.id || j.ktv2_id === ktv.id)
+      )
+      const hasEmptyReport = ktvJobs.some(j => !j.ghi_chu_ktv || !j.ghi_chu_ktv.trim())
+
+      if (!hasSubmitted) {
+        missingDays.push(d.label)
+      } else if (hasEmptyReport) {
+        missingDays.push(`${d.label} (chưa báo ca máy)`)
+      }
+    }
+
+    if (missingDays.length > 0) {
+      missingReports.push({ ktvId: ktv.id, ktvName: ktv.full_name, missingDays })
+    }
+  }
+
+  return missingReports
+}
