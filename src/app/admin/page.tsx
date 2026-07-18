@@ -12,6 +12,7 @@ import ThueCpcModule from "@/components/ThueCpcModule"
 import NghiPhepDuyet from "@/components/NghiPhepDuyet"
 import BaoGiaEditor, { type BaoGiaRow } from "@/components/BaoGiaEditor"
 import { hdbtStatus, loaiHdBadge } from "@/lib/hd-status"
+import { fmtThoiLuong } from "@/lib/thoi-gian"
 import { LOAI_HD_BAO_TRI, canBaoTriThang, dangTamDung, coBaoTriThang, moTaLichBaoTri, fmtThang, parseThangBaoTri, formatThangBaoTri, doiChieuNam, thangDaToi, CELL_DA_LAM, CELL_THIEU, CELL_CHUA_TOI } from "@/lib/bao-tri"
 
 // Kênh realtime (đồng bộ với lib/realtime.ts + app KTV): server phát broadcast sau mỗi thay đổi việc
@@ -38,6 +39,7 @@ type Job = {
   ket_qua: string
   ghi_chu: string
   report?: string
+  so_phut_xu_ly?: number | null
   ktv_id: string | null
   ktv2_id: string | null
   soct_khach_hang: { ten_khach_hang: string; dia_chi: string; km_mac_dinh: number; model?: string }
@@ -168,6 +170,7 @@ const JOBS_COLS: ColDef[] = [
   { key: 'loai', label: 'Loại việc' },
   { key: 'ktv', label: 'KTV' },
   { key: 'km', label: 'KM' },
+  { key: 'tg_xu_ly', label: 'TG xử lý' },
   { key: 'bao_cao', label: 'Báo cáo HĐ' },
   { key: 'trang_thai', label: 'Trạng thái' },
   { key: 'thaotac', label: 'Thao tác', locked: true },
@@ -1106,6 +1109,7 @@ export default function AdminDashboard() {
                     {jobsCol.show('loai') && <th className="px-4 py-3">Loại việc</th>}
                     {jobsCol.show('ktv') && <th className="px-4 py-3">KTV</th>}
                     {jobsCol.show('km') && <th className="px-4 py-3 text-center">KM</th>}
+                    {jobsCol.show('tg_xu_ly') && <th className="px-4 py-3 text-center">TG xử lý</th>}
                     {jobsCol.show('bao_cao') && <th className="px-4 py-3">Báo cáo HĐ</th>}
                     {jobsCol.show('trang_thai') && <th className="px-4 py-3">Trạng thái</th>}
                     {jobsCol.show('thaotac') && <th className="px-4 py-3 text-right">Thao tác</th>}
@@ -1147,6 +1151,9 @@ export default function AdminDashboard() {
                         </td>}
                         {jobsCol.show('km') && <td className="px-4 py-3 text-center text-xs">
                           {job.km ? `${job.km.toLocaleString('vi-VN')} km` : '0 km'}
+                        </td>}
+                        {jobsCol.show('tg_xu_ly') && <td className="px-4 py-3 text-center text-xs text-slate-500">
+                          {fmtThoiLuong(job.so_phut_xu_ly)}
                         </td>}
                         {jobsCol.show('bao_cao') && <td className="px-4 py-3 text-xs">
                           {job.report && <div className="text-slate-700">Phiếu: {job.report}</div>}
@@ -4819,6 +4826,11 @@ function BaoCaoKtvTool({ technicians, showNotification }: { technicians: any[], 
     ...data.extras.map(e => e.ngay)
   ])).sort().reverse()
 
+  // TG xử lý: chỉ tính phiếu có số phút đã xác nhận (Hoàn thành). Bỏ ca 0 & vượt ngưỡng
+  // (>4 tiếng ~ quên bấm) để trung bình không bị méo.
+  const tgList = data.jobs.map((j: any) => Number(j.so_phut_xu_ly)).filter((p: number) => p > 0 && p <= 240)
+  const tgTB = tgList.length ? Math.round(tgList.reduce((s: number, p: number) => s + p, 0) / tgList.length) : null
+
   return (
     <div className="space-y-4">
       {/* Bộ lọc */}
@@ -4863,6 +4875,16 @@ function BaoCaoKtvTool({ technicians, showNotification }: { technicians: any[], 
             {exporting ? 'Đang xuất...' : 'Xuất Word (.docx)'}
           </Button>
         </div>
+      </div>
+
+      {/* Thời gian xử lý phiếu (lead time) — tham khảo, không phải thước đo năng suất tuyệt đối */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-wrap items-center gap-x-6 gap-y-1 shadow-sm">
+        <div className="text-sm">
+          <span className="text-slate-500">TG xử lý trung bình{ktvId ? '' : ' (mọi KTV)'}:</span>{' '}
+          <b className="text-slate-800">{tgTB != null ? fmtThoiLuong(tgTB) : '—'}</b>
+        </div>
+        <div className="text-xs text-slate-400">Từ <b>{tgList.length}</b> phiếu có đo thời gian (đã bỏ ca quá 4 giờ).</div>
+        <div className="text-xs text-slate-400">Lưu ý: gồm cả di chuyển/chờ — là con số tham khảo, không phải năng suất.</div>
       </div>
 
       {loading ? (

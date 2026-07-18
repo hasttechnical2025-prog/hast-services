@@ -4,6 +4,7 @@ import { requireRole } from '@/lib/session'
 import { broadcastJobsChanged } from '@/lib/realtime'
 import { getCauHinh } from '@/lib/config'
 import { logAudit } from '@/lib/audit'
+import { clampTapISO, clampPhut } from '@/lib/thoi-gian'
 import { sendTelegramMessage } from '@/lib/telegram'
 
 // Escape HTML để dữ liệu người dùng không phá parse_mode='HTML' của Telegram
@@ -36,6 +37,7 @@ export async function GET(request: Request) {
         .from('soct_cong_viec')
         .select(`
           id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu,
+          bat_dau_luc, hoan_thanh_luc, so_phut_xu_ly,
           soct_khach_hang (
             ten_khach_hang,
             dia_chi,
@@ -220,7 +222,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { id, claim, release, reason, ket_qua, ktv_id, ktv2_id, report, ghi_chu, edit } = body
+    const { id, claim, release, reason, ket_qua, ktv_id, ktv2_id, report, ghi_chu, edit, tapped_at, so_phut } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
@@ -425,6 +427,23 @@ export async function PUT(request: Request) {
         return NextResponse.json({ error: 'Thiếu trạng thái cần cập nhật' }, { status: 400 })
       }
       updates.ket_qua = ket_qua
+
+      // Đóng dấu mốc thời gian (GHI MỘT LẦN -> gửi lại từ hàng đợi offline không ghi đè).
+      // Giờ chạm do client gửi (tapped_at) được clamp trong [lúc tạo phiếu, giờ server].
+      if (ket_qua === 'Đang làm' || ket_qua === 'Hoàn thành') {
+        const { data: cur } = await supabaseAdmin
+          .from('soct_cong_viec')
+          .select('bat_dau_luc, hoan_thanh_luc, so_phut_xu_ly, created_at')
+          .eq('id', id).single()
+        const t = clampTapISO(tapped_at, cur?.created_at, Date.now())
+        if (ket_qua === 'Đang làm' && cur && cur.bat_dau_luc == null) {
+          updates.bat_dau_luc = t
+        }
+        if (ket_qua === 'Hoàn thành') {
+          if (cur && cur.hoan_thanh_luc == null) updates.hoan_thanh_luc = t
+          if (cur && cur.so_phut_xu_ly == null && so_phut != null) updates.so_phut_xu_ly = clampPhut(so_phut)
+        }
+      }
     } else {
       if (ket_qua !== undefined) updates.ket_qua = ket_qua
       if (ktv_id !== undefined) updates.ktv_id = ktv_id || null

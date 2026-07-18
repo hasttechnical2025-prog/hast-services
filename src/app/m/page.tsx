@@ -8,6 +8,7 @@ import AccountSettings from "@/components/AccountSettings"
 import NghiPhepDuyet from "@/components/NghiPhepDuyet"
 import { supabase } from "@/lib/supabase"
 import { LEAVE_TOPIC, LEAVE_EVENT } from "@/lib/realtime"
+import { fmtThoiLuong } from "@/lib/thoi-gian"
 
 const JOBS_TOPIC = "soct_jobs"
 const JOBS_EVENT = "changed"
@@ -355,6 +356,7 @@ function JobDetailSheet({ job, onClose }: { job: any, onClose: () => void }) {
           <Row label="Loại việc" value={job.loai_cong_viec || '—'} />
           <Row label="KTV phụ trách" value={job.ktv_id ? `${job.soct_users?.full_name || '—'}${job.ktv2?.full_name ? ' + ' + job.ktv2.full_name : ''}` : 'Chưa ai nhận'} />
           {job.report && <Row label="Số phiếu" value={job.report} />}
+          {job.so_phut_xu_ly ? <Row label="TG xử lý" value={fmtThoiLuong(job.so_phut_xu_ly)} /> : null}
           {(job.km !== null && job.km !== undefined && job.km !== '') && <Row label="Số km" value={String(job.km)} />}
           {job.ghi_chu && <Row label="Ghi chú VP" value={job.ghi_chu} />}
         </dl>

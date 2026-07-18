@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input"
 import { supabase } from "@/lib/supabase"
 import AccountSettings from "@/components/AccountSettings"
 import NghiPhepDangKy from "@/components/NghiPhepDangKy"
+import { initClockOffset, startQueueSync, enqueueStatus, nowISO, onPendingChange } from "@/lib/status-queue"
+import { phutGiua, lamTronPhut, fmtThoiLuong } from "@/lib/thoi-gian"
 
 // Kênh realtime: đồng bộ với lib/realtime.ts (server phát broadcast sau mỗi thay đổi việc)
 const JOBS_TOPIC = "soct_jobs"
@@ -25,6 +27,9 @@ type Job = {
   ghi_chu: string
   report?: string
   da_nop_phieu?: boolean
+  bat_dau_luc?: string | null
+  hoan_thanh_luc?: string | null
+  so_phut_xu_ly?: number | null
   ktv_id: string | null
   ktv2_id: string | null
   soct_khach_hang: { ten_khach_hang: string; dia_chi: string; km_mac_dinh: number }
@@ -54,6 +59,9 @@ export default function KtvMobileWeb() {
   const [showSettings, setShowSettings] = useState(false)
   // Modal hủy nhận việc (kèm lý do tùy chọn)
   const [releaseTarget, setReleaseTarget] = useState<Job | null>(null)
+  // Hộp thoại xác nhận thời lượng khi bấm Hoàn thành + số thao tác còn chờ đồng bộ
+  const [finishTarget, setFinishTarget] = useState<{ jobId: string, phut: string } | null>(null)
+  const [pendingSync, setPendingSync] = useState(0)
   const [claimConfirm, setClaimConfirm] = useState<Job | null>(null)
   const [releaseReason, setReleaseReason] = useState("")
   const [releasing, setReleasing] = useState(false)
@@ -175,6 +183,20 @@ export default function KtvMobileWeb() {
     }
     restoreSession()
   }, [fetchKtvJobs, fetchReportData, selectedReportDate])
+
+  // Hàng đợi offline: hiệu chỉnh đồng hồ + tự gửi lại thao tác khi có sóng.
+  // Khi hàng đợi vừa rỗng (đồng bộ xong) -> tải lại để khớp trạng thái server.
+  useEffect(() => {
+    initClockOffset()
+    const stopSync = startQueueSync()
+    let prev = 0
+    const unsub = onPendingChange((n) => {
+      setPendingSync(n)
+      if (n === 0 && prev > 0) fetchKtvJobs()
+      prev = n
+    })
+    return () => { stopSync(); unsub() }
+  }, [fetchKtvJobs])
 
   // Tải báo cáo khi đổi ngày hoặc đổi tab sang Báo cáo
   useEffect(() => {
@@ -382,31 +404,33 @@ export default function KtvMobileWeb() {
     }
   }
 
-  const handleUpdateStatus = async (jobId: string, nextStatus: 'Đang làm' | 'Hoàn thành' | 'Lắp tiếp') => {
-    try {
-      const res = await fetch('/api/admin/cong-viec', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: jobId, ket_qua: nextStatus })
-      })
+  // Đổi trạng thái qua HÀNG ĐỢI: cập nhật giao diện ngay (lạc quan) rồi tự gửi server
+  // (kể cả sau khi có sóng trở lại) — không mất thao tác dưới hầm. so_phut chỉ dùng cho Hoàn thành.
+  const applyStatus = (jobId: string, nextStatus: 'Đang làm' | 'Hoàn thành' | 'Lắp tiếp', so_phut?: number) => {
+    const tapped = nowISO()
+    setJobs(prev => prev.map(j => {
+      if (j.id !== jobId) return j
+      const patch: Partial<Job> = { ket_qua: nextStatus }
+      if (nextStatus === 'Đang làm' && !j.bat_dau_luc) patch.bat_dau_luc = tapped
+      if (nextStatus === 'Hoàn thành') { patch.hoan_thanh_luc = tapped; if (so_phut != null) patch.so_phut_xu_ly = so_phut }
+      return { ...j, ...patch }
+    }))
+    enqueueStatus({ jobId, ket_qua: nextStatus, tapped_at: tapped, so_phut })
+    const online = typeof navigator === 'undefined' || navigator.onLine !== false
+    showNotification('success', online ? `Đã chuyển trạng thái sang: ${nextStatus}` : 'Đã lưu — sẽ tự gửi khi có mạng.')
+    if (nextStatus === 'Hoàn thành') setActiveJob(null)
+    else if (activeJob && activeJob.id === jobId) setActiveJob(prev => prev ? { ...prev, ket_qua: nextStatus, ...(nextStatus === 'Đang làm' && !prev.bat_dau_luc ? { bat_dau_luc: tapped } : {}) } : null)
+  }
 
-      if (res.ok) {
-        showNotification('success', `Đã chuyển trạng thái sang: ${nextStatus}`)
-        fetchKtvJobs()
-        // Việc hoàn thành sẽ bị ẩn khỏi danh sách -> đóng chi tiết
-        if (nextStatus === 'Hoàn thành') {
-          setActiveJob(null)
-        } else if (activeJob && activeJob.id === jobId) {
-          setActiveJob(prev => prev ? { ...prev, ket_qua: nextStatus } : null)
-        }
-      } else {
-        const err = await res.json()
-        showNotification('error', "Lỗi: " + err.error)
-      }
-    } catch (error) {
-      console.error(error)
-      showNotification('error', "Lỗi kết nối mạng")
+  // Đang làm / Lắp tiếp: áp thẳng. Hoàn thành: mở hộp thoại xác nhận thời lượng.
+  const handleUpdateStatus = (jobId: string, nextStatus: 'Đang làm' | 'Hoàn thành' | 'Lắp tiếp') => {
+    if (nextStatus === 'Hoàn thành') {
+      const job = jobs.find(j => j.id === jobId)
+      const goiY = phutGiua(job?.bat_dau_luc, nowISO()) // mặc định = từ lúc bấm Đang làm tới giờ
+      setFinishTarget({ jobId, phut: goiY == null ? '' : String(lamTronPhut(goiY, 5)) })
+      return
     }
+    applyStatus(jobId, nextStatus)
   }
 
   // Hủy nhận việc (chỉ khi 'Đã nhận'): trả việc về pool + báo group cho người khác nhận
@@ -601,6 +625,12 @@ export default function KtvMobileWeb() {
             ) : (
               <div className="flex items-center gap-1.5 text-xs text-emerald-600 px-1">
                 <CheckCircle className="w-3.5 h-3.5" /> Đã kết nối Telegram nhận thông báo
+              </div>
+            )}
+
+            {pendingSync > 0 && (
+              <div className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2 py-1.5">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Đang đồng bộ {pendingSync} thao tác — chờ có mạng, không cần bấm lại.
               </div>
             )}
 
@@ -1057,6 +1087,47 @@ export default function KtvMobileWeb() {
           </div>
         </div>
       )}
+
+      {/* Xác nhận thời lượng khi HOÀN THÀNH — KTV chỉnh lại để bù đi bộ/mất sóng */}
+      {finishTarget && (() => {
+        const phutNum = parseInt(finishTarget.phut || '0', 10) || 0
+        const setPhut = (v: number) => setFinishTarget(f => f ? { ...f, phut: String(Math.max(0, v)) } : f)
+        const QUICK = [15, 30, 45, 60, 90, 120]
+        return (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+              <div className="p-5 space-y-3">
+                <h3 className="text-base font-bold text-emerald-700 flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5" /> Hoàn thành phiếu
+                </h3>
+                <p className="text-sm text-slate-600">Thời gian xử lý phiếu này khoảng bao lâu? (làm tròn, chỉnh lại nếu cần)</p>
+                <div className="flex items-center justify-center gap-3 py-1">
+                  <button type="button" onClick={() => setPhut(phutNum - 5)} className="w-9 h-9 rounded-lg border border-slate-200 text-lg text-slate-600">−</button>
+                  <div className="text-center min-w-[92px]">
+                    <div className="text-xl font-bold text-slate-800">{fmtThoiLuong(phutNum) === '—' ? '0p' : fmtThoiLuong(phutNum)}</div>
+                    <div className="text-[11px] text-slate-400">{phutNum} phút</div>
+                  </div>
+                  <button type="button" onClick={() => setPhut(phutNum + 5)} className="w-9 h-9 rounded-lg border border-slate-200 text-lg text-slate-600">+</button>
+                </div>
+                <div className="flex flex-wrap gap-1.5 justify-center">
+                  {QUICK.map(m => (
+                    <button key={m} type="button" onClick={() => setPhut(m)}
+                      className={`px-2.5 h-8 rounded-lg text-xs font-semibold border ${phutNum === m ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200'}`}>
+                      {fmtThoiLuong(m)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
+                <Button variant="outline" onClick={() => setFinishTarget(null)}>Hủy</Button>
+                <Button onClick={() => { const jid = finishTarget.jobId; setFinishTarget(null); applyStatus(jid, 'Hoàn thành', phutNum) }} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                  Xác nhận hoàn thành
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Modal cảnh báo nhận việc CHƯA TỚI NGÀY */}
       {claimConfirm && (

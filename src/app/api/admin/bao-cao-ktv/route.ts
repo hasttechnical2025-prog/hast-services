@@ -37,7 +37,7 @@ export async function GET(request: Request) {
       let q = supabaseAdmin
         .from('soct_cong_viec')
         .select(`
-          id, ngay, ktv_id, ktv2_id, ma_may, loai_cong_viec, ket_qua, counter, ghi_chu_ktv,
+          id, ngay, ktv_id, ktv2_id, ma_may, loai_cong_viec, ket_qua, counter, ghi_chu_ktv, so_phut_xu_ly,
           soct_khach_hang ( ten_khach_hang )
         `)
         .in('ket_qua', ['Hoàn thành', 'Đang làm', 'Lắp tiếp'])
