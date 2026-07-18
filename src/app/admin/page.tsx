@@ -260,6 +260,12 @@ export default function AdminDashboard() {
     const v = roleVis(currentUserRole)[`${parent}.${sub}`]
     return v === undefined ? true : !!v
   }
+  // Tab cháu (cấp 3): key "cha.con.cháu"; mặc định hiện. Chỉ ẩn/hiện GIAO DIỆN.
+  const subSubVisible = (parent: string, sub: string, subsub: string) => {
+    if (currentUserRole === 'admin') return true
+    const v = roleVis(currentUserRole)[`${parent}.${sub}.${subsub}`]
+    return v === undefined ? true : !!v
+  }
   // Nếu tab con đang chọn bị ẩn -> nhảy về tab con hiện đầu tiên
   const firstVisibleSub = (parent: string, subs: string[], current: string) =>
     subVisible(parent, current) ? current : (subs.find(s => subVisible(parent, s)) || current)
@@ -1292,7 +1298,7 @@ export default function AdminDashboard() {
 
             <div className="p-6">
               {effectiveMonitorTab === "bao_tri" && (
-                <BaoTriTool customers={customers} showNotification={showNotification} />
+                <BaoTriTool customers={customers} showNotification={showNotification} canSub={(g) => subSubVisible('theo_doi_may', 'bao_tri', g)} />
               )}
               {effectiveMonitorTab === "giam_dinh" && (
                 <GiamDinhTool customers={customers} inventory={inventory} ktvOptions={dmOptions('ktv_giam_dinh')} tinhTrangOptions={dmOptions('tinh_trang_may')} showNotification={showNotification} />
@@ -1321,7 +1327,7 @@ export default function AdminDashboard() {
               <CongNoTool showNotification={showNotification} />
             )}
             {effectiveTaiChinhTab === "thue_cpc" && subVisible('tai_chinh', 'thue_cpc') && (
-              <ThueCpcModule showNotification={showNotification} />
+              <ThueCpcModule showNotification={showNotification} canSub={(g) => subSubVisible('tai_chinh', 'thue_cpc', g)} />
             )}
           </div>
         )}
@@ -4287,7 +4293,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
       {/* PHÂN QUYỀN TAB */}
       <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-3">
         <h3 className="text-lg font-semibold text-slate-700">Phân quyền hiển thị tab</h3>
-        <p className="text-sm text-slate-500">Bật/tắt tab lớn <b>và tab con</b> cho từng role. <b>Admin luôn thấy tất cả</b>; <b>Sổ công tác</b> luôn hiện; <b>Hệ thống</b> chỉ admin; <b>KTV</b> chỉ dùng app mobile. Tắt tab lớn sẽ ẩn toàn bộ tab con. Lưu ý: đây là ẩn/hiện giao diện — API vẫn kiểm quyền riêng.</p>
+        <p className="text-sm text-slate-500">Bật/tắt tab lớn, <b>tab con và tab cháu</b> cho từng role. <b>Admin luôn thấy tất cả</b>; <b>Sổ công tác</b> luôn hiện; <b>Hệ thống</b> chỉ admin; <b>KTV</b> chỉ dùng app mobile. Tắt tab cha sẽ ẩn toàn bộ tab con/cháu. Lưu ý: đây là <b>ẩn/hiện giao diện</b> — API vẫn kiểm quyền tới cấp tab con (tab cháu chung API nên chỉ ẩn cho gọn).</p>
         <div className="bg-white rounded-lg border border-slate-200 overflow-hidden inline-block">
           <table className="text-sm text-slate-600">
             <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
@@ -4306,19 +4312,34 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
                     </td>
                   ))}
                 </tr>,
-                ...t.subs.map(([sub, subLabel]) => (
-                  <tr key={`${t.key}.${sub}`} className="bg-slate-50/40">
-                    <td className="pl-10 pr-4 py-2 text-slate-600">↳ {subLabel}</td>
+                ...t.subs.flatMap(s => [
+                  <tr key={`${t.key}.${s.key}`} className="bg-slate-50/40">
+                    <td className="pl-10 pr-4 py-2 text-slate-600">↳ {s.label}</td>
                     {TAB_ROLES.map(([role]) => {
                       const parentOn = t.alwaysOn ? true : !!tabVis[role]?.[t.key]
                       return (
                         <td key={role} className="px-6 py-2 text-center">
-                          <input type="checkbox" disabled={!parentOn} checked={parentOn && (tabVis[role]?.[`${t.key}.${sub}`] ?? true)} onChange={() => toggleTab(role, `${t.key}.${sub}`)} className="w-4 h-4 accent-blue-600 disabled:opacity-40 disabled:cursor-not-allowed" />
+                          <input type="checkbox" disabled={!parentOn} checked={parentOn && (tabVis[role]?.[`${t.key}.${s.key}`] ?? true)} onChange={() => toggleTab(role, `${t.key}.${s.key}`)} className="w-4 h-4 accent-blue-600 disabled:opacity-40 disabled:cursor-not-allowed" />
                         </td>
                       )
                     })}
-                  </tr>
-                )),
+                  </tr>,
+                  // Tab cháu (cấp 3) — chỉ ẩn/hiện giao diện, mặc định hiện
+                  ...(s.subs || []).map(([g, gLabel]) => (
+                    <tr key={`${t.key}.${s.key}.${g}`} className="bg-slate-50/70">
+                      <td className="pl-16 pr-4 py-2 text-slate-500 text-xs">↳ {gLabel}</td>
+                      {TAB_ROLES.map(([role]) => {
+                        const parentOn = t.alwaysOn ? true : !!tabVis[role]?.[t.key]
+                        const subOn = parentOn && (tabVis[role]?.[`${t.key}.${s.key}`] ?? true)
+                        return (
+                          <td key={role} className="px-6 py-2 text-center">
+                            <input type="checkbox" disabled={!subOn} checked={subOn && (tabVis[role]?.[`${t.key}.${s.key}.${g}`] ?? true)} onChange={() => toggleTab(role, `${t.key}.${s.key}.${g}`)} className="w-4 h-4 accent-blue-600 disabled:opacity-40 disabled:cursor-not-allowed" />
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  )),
+                ]),
               ])}
             </tbody>
           </table>
@@ -5538,7 +5559,8 @@ const BAOTRI_COLS: ColDef[] = [
   { key: 'xoa', label: 'Xóa', locked: true },
 ]
 
-function BaoTriTool({ customers, showNotification }: { customers: any[], showNotification: (type: 'success' | 'error', msg: string) => void }) {
+function BaoTriTool({ customers, showNotification, canSub }: { customers: any[], showNotification: (type: 'success' | 'error', msg: string) => void, canSub?: (g: string) => boolean }) {
+  const canS = canSub || (() => true)
   const col = useColView('bao_tri', BAOTRI_COLS)
   const [thangNam, setThangNam] = useState(new Date().toISOString().slice(0, 7))
   const [text, setText] = useState("")
@@ -5547,6 +5569,8 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [subTab, setSubTab] = useState<'da_bao_tri' | 'chua_bao_tri' | 'tam_dung' | 'doi_chieu'>('da_bao_tri')
+  // Tab đang xem thực tế: nếu tab cháu đang chọn bị ẩn quyền -> nhảy về cháu hiện đầu tiên
+  const active = (canS(subTab) ? subTab : ((['da_bao_tri', 'chua_bao_tri', 'tam_dung', 'doi_chieu'] as const).find(canS) ?? subTab))
   // Đối chiếu cuối năm: mỗi máy x 12 tháng + số lần theo HĐ / đã làm / thiếu
   const [dcNam, setDcNam] = useState(String(new Date().getFullYear()))
   const [dcRecords, setDcRecords] = useState<any[]>([])
@@ -5612,7 +5636,7 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
       else showNotification('error', j.error)
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setDcLoading(false) }
   }
-  useEffect(() => { if (subTab === 'doi_chieu' && /^\d{4}$/.test(dcNam)) fetchDoiChieu(dcNam) }, [subTab, dcNam]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (active === 'doi_chieu' && /^\d{4}$/.test(dcNam)) fetchDoiChieu(dcNam) }, [active, dcNam]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tháng đã bảo trì thật của từng máy trong năm
   const doneByMay = (() => {
@@ -5812,33 +5836,33 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
 
       <div>
         <div className="flex gap-1 border-b border-slate-200 mb-4 overflow-x-auto w-full max-w-full">
-          <button
+          {canS('da_bao_tri') && <button
             onClick={() => setSubTab('da_bao_tri')}
-            className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${subTab === 'da_bao_tri' ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+            className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${active === 'da_bao_tri' ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
           >
             Đã bảo trì tháng {thangNam.split('-').reverse().join('/')} ({records.length} máy)
-          </button>
-          <button
+          </button>}
+          {canS('chua_bao_tri') && <button
             onClick={() => setSubTab('chua_bao_tri')}
-            className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${subTab === 'chua_bao_tri' ? 'border-amber-500 text-amber-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+            className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${active === 'chua_bao_tri' ? 'border-amber-500 text-amber-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
           >
             Chưa bảo trì tháng {thangNam.split('-').reverse().join('/')} ({chuaBaoTri.length} máy)
-          </button>
-          <button
+          </button>}
+          {canS('tam_dung') && <button
             onClick={() => setSubTab('tam_dung')}
-            className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${subTab === 'tam_dung' ? 'border-slate-500 text-slate-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+            className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${active === 'tam_dung' ? 'border-slate-500 text-slate-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
           >
             Tạm dừng ({tamDung.length} máy)
-          </button>
-          <button
+          </button>}
+          {canS('doi_chieu') && <button
             onClick={() => setSubTab('doi_chieu')}
-            className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${subTab === 'doi_chieu' ? 'border-emerald-600 text-emerald-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+            className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${active === 'doi_chieu' ? 'border-emerald-600 text-emerald-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
           >
             Đối chiếu năm
-          </button>
+          </button>}
         </div>
 
-        {subTab === 'doi_chieu' ? (
+        {active === 'doi_chieu' ? (
           <div className="space-y-3">
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1">
@@ -5919,7 +5943,7 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
               </div>
             </div>
           </div>
-        ) : subTab === 'tam_dung' ? (
+        ) : active === 'tam_dung' ? (
           <div className="space-y-3">
             <p className="text-xs text-slate-500 px-1">
               Máy khách đã bỏ nhưng còn trong hợp đồng — <b>không bị đòi bảo trì</b> nhưng vẫn giữ để đối chiếu cuối năm.
@@ -5959,7 +5983,7 @@ function BaoTriTool({ customers, showNotification }: { customers: any[], showNot
               </div>
             </div>
           </div>
-        ) : subTab === 'da_bao_tri' ? (
+        ) : active === 'da_bao_tri' ? (
           <div className="space-y-3">
             <div className="flex items-center gap-2 px-1">
               <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">{records.length} máy</span>

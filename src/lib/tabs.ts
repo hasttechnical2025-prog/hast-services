@@ -3,12 +3,25 @@
 
 // `alwaysOn`: tab cha luôn hiển thị (Sổ công tác) — chỉ dùng để bảng phân quyền khóa ô cha,
 // nhưng tab con vẫn bật/tắt được.
-export const TAB_TREE: { key: string, label: string, subs: [string, string][], alwaysOn?: boolean }[] = [
-  { key: 'cong_viec', label: 'Sổ công tác', subs: [['hoan_phieu', 'Hoàn phiếu']], alwaysOn: true },
-  { key: 'theo_doi_may', label: 'Theo dõi máy', subs: [['bao_tri', 'Bảo trì'], ['giam_dinh', 'Giám định']] },
-  { key: 'kho_hang', label: 'Kho hàng', subs: [['ton_kho', 'Tồn kho'], ['dat_hang', 'Đặt hàng'], ['thong_ke', 'Thống kê nhập']] },
-  { key: 'tai_chinh', label: 'Tài chính', subs: [['cong_no', 'Công nợ'], ['thue_cpc', 'Thuê / CPC']] },
-  { key: 'quan_ly', label: 'Quản lý', subs: [['nhat_ky', 'Báo cáo KTV'], ['khach_hang', 'Danh sách khách hàng'], ['bao_cao', 'Báo cáo tháng'], ['nghi_phep', 'Nghỉ phép']] },
+// `subs` của tab con có thể chứa tab CHÁU (cấp 3) — chỉ để ẩn/hiện GIAO DIỆN (server vẫn
+// chỉ kiểm quyền tới cấp con). Cháu mặc định HIỆN; key phân quyền dạng "cha.con.cháu".
+export type TabSub = { key: string, label: string, subs?: [string, string][] }
+export const TAB_TREE: { key: string, label: string, subs: TabSub[], alwaysOn?: boolean }[] = [
+  { key: 'cong_viec', label: 'Sổ công tác', subs: [{ key: 'hoan_phieu', label: 'Hoàn phiếu' }], alwaysOn: true },
+  {
+    key: 'theo_doi_may', label: 'Theo dõi máy', subs: [
+      { key: 'bao_tri', label: 'Bảo trì', subs: [['da_bao_tri', 'Đã bảo trì'], ['chua_bao_tri', 'Chưa bảo trì'], ['tam_dung', 'Tạm dừng'], ['doi_chieu', 'Đối chiếu năm']] },
+      { key: 'giam_dinh', label: 'Giám định' },
+    ]
+  },
+  { key: 'kho_hang', label: 'Kho hàng', subs: [{ key: 'ton_kho', label: 'Tồn kho' }, { key: 'dat_hang', label: 'Đặt hàng' }, { key: 'thong_ke', label: 'Thống kê nhập' }] },
+  {
+    key: 'tai_chinh', label: 'Tài chính', subs: [
+      { key: 'cong_no', label: 'Công nợ' },
+      { key: 'thue_cpc', label: 'Thuê / CPC', subs: [['don_gia', 'Đơn giá HĐ'], ['counter', 'Nhập counter'], ['khung', 'Hợp đồng khung'], ['bang_ke', 'Bảng kê']] },
+    ]
+  },
+  { key: 'quan_ly', label: 'Quản lý', subs: [{ key: 'nhat_ky', label: 'Báo cáo KTV' }, { key: 'khach_hang', label: 'Danh sách khách hàng' }, { key: 'bao_cao', label: 'Báo cáo tháng' }, { key: 'nghi_phep', label: 'Nghỉ phép' }] },
 ]
 
 export const TAB_ROLES: [string, string][] = [['tech_admin', 'Tech Admin'], ['staff', 'Staff']]

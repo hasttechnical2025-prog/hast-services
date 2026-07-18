@@ -70,17 +70,21 @@ function SearchSelect({ options, value, onChange, placeholder }: { options: { va
   )
 }
 
-export default function ThueCpcModule({ showNotification }: { showNotification: Notify }) {
+export default function ThueCpcModule({ showNotification, canSub }: { showNotification: Notify, canSub?: (g: string) => boolean }) {
+  const canS = canSub || (() => true)
   const [sub, setSub] = useState<'don_gia' | 'counter' | 'khung' | 'bang_ke'>('don_gia')
   const [dueCount, setDueCount] = useState(0) // số máy cần lấy counter (badge tab) — theo kỳ đang chọn
   const [counterThang, setCounterThang] = useState(monthNow()) // kỳ đang chọn ở tab Nhập counter (nâng lên để badge bám theo)
   const [badgeVer, setBadgeVer] = useState(0) // tăng sau mỗi lần lưu counter -> badge tính lại
-  const tabs: [typeof sub, string][] = [
+  const allTabs: [typeof sub, string][] = [
     ['don_gia', 'Đơn giá HĐ'],
     ['counter', 'Nhập counter'],
     ['khung', 'Hợp đồng khung'],
     ['bang_ke', 'Bảng kê'],
   ]
+  // Chỉ hiện tab cháu được phép (ẩn/hiện giao diện); tab đang chọn bị ẩn -> nhảy về cái đầu tiên
+  const tabs = allTabs.filter(([k]) => canS(k))
+  const active = canS(sub) ? sub : (tabs[0]?.[0] ?? sub)
   // Đếm máy cần lấy counter cho KỲ ĐANG CHỌN để gắn badge lên tab
   useEffect(() => {
     const today = vnTodayStr()
@@ -98,16 +102,16 @@ export default function ThueCpcModule({ showNotification }: { showNotification: 
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
       <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit mb-5 overflow-x-auto">
         {tabs.map(([k, l]) => (
-          <button key={k} onClick={() => setSub(k)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${sub === k ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
+          <button key={k} onClick={() => setSub(k)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${active === k ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
             {l}
             {k === 'counter' && dueCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{dueCount}</span>}
           </button>
         ))}
       </div>
-      {sub === 'don_gia' && <DonGiaTab showNotification={showNotification} />}
-      {sub === 'counter' && <CounterTab showNotification={showNotification} thang={counterThang} setThang={setCounterThang} onSaved={() => setBadgeVer(v => v + 1)} />}
-      {sub === 'khung' && <KhungTab showNotification={showNotification} />}
-      {sub === 'bang_ke' && <BangKeTab showNotification={showNotification} />}
+      {active === 'don_gia' && <DonGiaTab showNotification={showNotification} />}
+      {active === 'counter' && <CounterTab showNotification={showNotification} thang={counterThang} setThang={setCounterThang} onSaved={() => setBadgeVer(v => v + 1)} />}
+      {active === 'khung' && <KhungTab showNotification={showNotification} />}
+      {active === 'bang_ke' && <BangKeTab showNotification={showNotification} />}
     </div>
   )
 }
