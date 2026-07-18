@@ -8,6 +8,12 @@ import { Input } from "@/components/ui/input"
 import DateField from "@/components/DateField"
 import { chotSoDate, counterStatus, CounterStatus } from "@/lib/thue-cpc"
 
+// Màu badge loại HĐ — Máy thuê vs Máy CPC dùng màu khác nhau cho dễ nhận biết
+const loaiHdBadgeCls = (loai: string | null | undefined) =>
+  loai === 'Máy CPC' ? 'bg-amber-50 text-amber-700 border-amber-200'
+    : loai === 'Máy thuê' ? 'bg-violet-50 text-violet-700 border-violet-200'
+      : 'bg-slate-100 text-slate-600 border-slate-200'
+
 const vnTodayStr = () => new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
 // Nhãn ngày chốt gọn cho bảng
 const chotLabelShort = (r: any) => r.chot_so_cuoi_thang ? 'Cuối tháng' : (r.chot_so_ngay ? `Ngày ${r.chot_so_ngay}` : '—')
@@ -178,7 +184,7 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
                     {r.model && <div className="text-[10px] text-slate-400 font-sans">{r.model}</div>}
                     {r.serial && <div className="text-[10px] text-slate-400">SN: {r.serial}</div>}
                   </td>
-                  <td className="px-3 py-2"><span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">{r.loai_hd}</span></td>
+                  <td className="px-3 py-2"><span className={`text-xs px-2 py-0.5 rounded-full border ${loaiHdBadgeCls(r.loai_hd)}`}>{r.loai_hd}</span></td>
                   <td className="px-3 py-2 text-right">{money(r.don_gia_bw)}</td>
                   <td className="px-3 py-2 text-right">{money(r.don_gia_mau)}</td>
                   <td className="px-3 py-2 text-right">{r.phi_thue_thang == null ? '—' : money(r.phi_thue_thang)}</td>

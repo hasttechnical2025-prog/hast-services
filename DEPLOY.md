@@ -20,24 +20,24 @@
 
 ## 2. Chạy migrations trên DB production (Supabase → SQL Editor, đúng thứ tự)
 
-> **Nhanh nhất:** DB mới → chạy `supabase_schema.sql` rồi `supabase_migrations_ALL.sql` (đã gộp 02→12). DB đang dùng → chỉ cần chạy `supabase_migrations_ALL.sql`.
+> **Nhanh nhất:** DB mới → chạy `migrations/supabase_schema.sql` rồi `migrations/supabase_migrations_ALL.sql` (đã gộp 02→12). DB đang dùng → chỉ cần chạy `migrations/supabase_migrations_ALL.sql`.
 >
 > ✅ **AN TOÀN DỮ LIỆU:** toàn bộ dùng `IF NOT EXISTS` / `ON CONFLICT`, KHÔNG có `DROP TABLE`/`DELETE`. Chạy lại trên DB đang có dữ liệu chỉ thêm cái còn thiếu, **không mất dữ liệu**. (Migration 03 có `DROP COLUMN IF EXISTS so_tien, loai_thanh_toan` — chỉ bỏ 2 cột cũ không dùng, vô hại.)
 
 Chi tiết từng file (nếu muốn chạy lẻ):
 
-1. `supabase_schema.sql` (schema gốc — chỉ chạy nếu DB mới)
-2. `supabase_migration_02_pool_workflow.sql`
-3. `supabase_migration_03_vattu_financials.sql`
-4. `supabase_migration_04_bao_tri_giam_dinh.sql`
-5. `supabase_migration_05_danh_muc_cau_hinh.sql`
-6. `supabase_migration_06_dat_hang.sql`
-7. `supabase_migration_07_rls.sql` ← **BẢO MẬT, bắt buộc**
-8. `supabase_migration_08_bao_cao.sql` (số lượng phiếu + hãng máy + danh mục hãng)
-9. `supabase_migration_09_doanh_so.sql` (bảng doanh số tháng cho báo cáo)
-10. `supabase_migration_10_phieu_cung.sql` (nộp phiếu cứng + ngưỡng cảnh báo)
-11. `supabase_migration_11_cong_no.sql` (trạng thái hóa đơn cấp phiếu)
-12. `supabase_migration_12_audit_log.sql` (bảng audit log)
+1. `migrations/supabase_schema.sql` (schema gốc — chỉ chạy nếu DB mới)
+2. `migrations/supabase_migration_02_pool_workflow.sql`
+3. `migrations/supabase_migration_03_vattu_financials.sql`
+4. `migrations/supabase_migration_04_bao_tri_giam_dinh.sql`
+5. `migrations/supabase_migration_05_danh_muc_cau_hinh.sql`
+6. `migrations/supabase_migration_06_dat_hang.sql`
+7. `migrations/supabase_migration_07_rls.sql` ← **BẢO MẬT, bắt buộc**
+8. `migrations/supabase_migration_08_bao_cao.sql` (số lượng phiếu + hãng máy + danh mục hãng)
+9. `migrations/supabase_migration_09_doanh_so.sql` (bảng doanh số tháng cho báo cáo)
+10. `migrations/supabase_migration_10_phieu_cung.sql` (nộp phiếu cứng + ngưỡng cảnh báo)
+11. `migrations/supabase_migration_11_cong_no.sql` (trạng thái hóa đơn cấp phiếu)
+12. `migrations/supabase_migration_12_audit_log.sql` (bảng audit log)
 
 Tất cả migration đều idempotent (chạy lại không lỗi). Chạy TUẦN TỰ từ 02→12.
 
