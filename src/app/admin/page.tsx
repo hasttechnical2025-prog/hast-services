@@ -1495,7 +1495,7 @@ export default function AdminDashboard() {
 
               {/* TAB CON: DANH MỤC */}
               {systemTab === "danh_muc" && (
-                <DanhMucTool danhMuc={danhMuc} onUpdateSuccess={fetchData} showNotification={showNotification} />
+                <DanhMucTool danhMuc={danhMuc} setDanhMuc={setDanhMuc} onUpdateSuccess={fetchData} showNotification={showNotification} />
               )}
 
               {/* TAB CON: AUDIT LOGS */}
@@ -5476,12 +5476,13 @@ const DANH_MUC_NHOMS = [
   { key: 'hang', label: 'Hãng máy' },
 ]
 
-function DanhMucTool({ danhMuc, onUpdateSuccess, showNotification }: { danhMuc: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+function DanhMucTool({ danhMuc, setDanhMuc, onUpdateSuccess, showNotification }: { danhMuc: any[], setDanhMuc: React.Dispatch<React.SetStateAction<any[]>>, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [nhom, setNhom] = useState('loai_cong_viec')
   const [newVal, setNewVal] = useState("")
   const [editId, setEditId] = useState<string | null>(null)
   const [editVal, setEditVal] = useState("")
-  const [moving, setMoving] = useState(false)
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingIds = useRef<string[] | null>(null)
 
   const items = danhMuc.filter(d => d.nhom === nhom)
 
@@ -5499,14 +5500,29 @@ function DanhMucTool({ danhMuc, onUpdateSuccess, showNotification }: { danhMuc: 
     if (!editId || !editVal.trim()) return
     if (await call('PUT', { id: editId, gia_tri: editVal.trim() })) setEditId(null)
   }
-  // Di chuyển 1 mục lên/xuống trong nhóm rồi lưu lại thứ tự cả nhóm (1..n)
-  const moveItem = async (index: number, dir: -1 | 1) => {
+  // Di chuyển 1 mục lên/xuống: cập nhật thứ tự tại chỗ NGAY (mượt, bấm liên tục
+  // không khựng), rồi gộp nhiều lần bấm thành 1 lần PATCH lưu nền. Lỗi mới resync.
+  const moveItem = (index: number, dir: -1 | 1) => {
     const target = index + dir
-    if (moving || target < 0 || target >= items.length) return
+    if (target < 0 || target >= items.length) return
     const ids = items.map(i => i.id)
     ;[ids[index], ids[target]] = [ids[target], ids[index]]
-    setMoving(true)
-    try { await call('PATCH', { ids }) } finally { setMoving(false) }
+    const orderOf = new Map(ids.map((id, i) => [id, i + 1]))
+    // Lạc quan: gán thu_tu mới cho các mục trong nhóm rồi sắp lại theo (nhom, thu_tu)
+    setDanhMuc(prev => prev
+      .map(d => d.nhom === nhom && orderOf.has(d.id) ? { ...d, thu_tu: orderOf.get(d.id) } : d)
+      .sort((a, b) => a.nhom === b.nhom ? a.thu_tu - b.thu_tu : String(a.nhom).localeCompare(String(b.nhom))))
+    // Debounce lưu: chỉ gửi 1 PATCH với thứ tự cuối cùng
+    pendingIds.current = ids
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(async () => {
+      const toSave = pendingIds.current; pendingIds.current = null
+      if (!toSave) return
+      try {
+        const res = await fetch('/api/admin/danh-muc', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: toSave }) })
+        if (!res.ok) { const e = await res.json(); showNotification('error', e.error || 'Lỗi lưu thứ tự'); onUpdateSuccess() }
+      } catch { showNotification('error', 'Lỗi kết nối!'); onUpdateSuccess() }
+    }, 500)
   }
   return (
     <div className="space-y-6">
@@ -5554,8 +5570,8 @@ function DanhMucTool({ danhMuc, onUpdateSuccess, showNotification }: { danhMuc: 
                     </button>
                   </td>
                   <td className="px-4 py-2 text-right whitespace-nowrap">
-                    <button onClick={() => moveItem(idx, -1)} disabled={moving || idx === 0} title="Lên" className="text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:hover:text-slate-400 p-1"><ChevronUp className="w-4 h-4" /></button>
-                    <button onClick={() => moveItem(idx, 1)} disabled={moving || idx === items.length - 1} title="Xuống" className="text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:hover:text-slate-400 p-1"><ChevronDown className="w-4 h-4" /></button>
+                    <button onClick={() => moveItem(idx, -1)} disabled={idx === 0} title="Lên" className="text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:hover:text-slate-400 p-1"><ChevronUp className="w-4 h-4" /></button>
+                    <button onClick={() => moveItem(idx, 1)} disabled={idx === items.length - 1} title="Xuống" className="text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:hover:text-slate-400 p-1"><ChevronDown className="w-4 h-4" /></button>
                     <button onClick={() => { setEditId(it.id); setEditVal(it.gia_tri) }} className="text-blue-500 hover:text-blue-700 p-1 ml-1"><PenSquare className="w-4 h-4" /></button>
                     <button onClick={() => call('DELETE', undefined, `?id=${it.id}`)} className="text-red-500 hover:text-red-700 p-1 ml-1"><Trash2 className="w-4 h-4" /></button>
                   </td>
