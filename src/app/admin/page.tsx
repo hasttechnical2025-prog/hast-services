@@ -481,15 +481,21 @@ export default function AdminDashboard() {
     }
   }, [isMounted, currentAdmin])
 
-  // Đổi bộ lọc Số phiếu / Ngày -> tải lại danh sách phiếu từ server (debounce), bỏ qua lần mount đầu
-  const jobsFilterFirst = useRef(true)
+  // Đổi bộ lọc Số phiếu / Ngày -> tải lại danh sách phiếu từ server (debounce).
+  // So khóa xác định thay vì cờ "bỏ qua lần đầu": lần SẴN SÀNG đầu tiên chỉ ghi mốc
+  // (fetchData đã lo tải ban đầu), MỌI thay đổi sau đó đều fetch — kể cả thay đổi đầu tiên.
+  const lastJobFetchKey = useRef<string | null>(null)
   useEffect(() => {
     if (!isMounted || !currentAdmin) return
-    if (jobsFilterFirst.current) { jobsFilterFirst.current = false; return }
+    const key = `${jobFilters.report}|${jobFilters.tuNgay}|${jobFilters.denNgay}`
+    if (lastJobFetchKey.current === key) return
+    const isFirstReady = lastJobFetchKey.current === null
+    lastJobFetchKey.current = key
+    if (isFirstReady) return
     const t = setTimeout(() => { fetchJobsOnly() }, 400)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobFilters.report, jobFilters.tuNgay, jobFilters.denNgay])
+  }, [isMounted, currentAdmin, jobFilters.report, jobFilters.tuNgay, jobFilters.denNgay])
 
   // Realtime: KTV nhận/đổi trạng thái việc -> trang office tự cập nhật (không cần F5)
   const fetchDataRef = useRef(fetchData)
