@@ -1510,7 +1510,10 @@ export default function AdminDashboard() {
 
               {/* TAB CON: DANH MỤC */}
               {systemTab === "danh_muc" && (
-                <DanhMucTool danhMuc={danhMuc} setDanhMuc={setDanhMuc} onUpdateSuccess={fetchData} showNotification={showNotification} />
+                <div className="space-y-6">
+                  <DanhMucTool danhMuc={danhMuc} setDanhMuc={setDanhMuc} onUpdateSuccess={fetchData} showNotification={showNotification} />
+                  <AliasTool showNotification={showNotification} />
+                </div>
               )}
 
               {/* TAB CON: AUDIT LOGS */}
@@ -5821,6 +5824,64 @@ function DanhMucTool({ danhMuc, setDanhMuc, onUpdateSuccess, showNotification }:
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// Biệt danh / viết tắt cho Trợ lý AI (TCCB -> Tổ chức cán bộ...). Chỉ admin.
+function AliasTool({ showNotification }: { showNotification: (type: 'success' | 'error', msg: string) => void }) {
+  const [items, setItems] = useState<{ tu_khoa: string, mo_rong: string }[]>([])
+  const [tu, setTu] = useState(''), [mo, setMo] = useState(''), [working, setWorking] = useState(false)
+
+  const load = async () => {
+    try { const r = await fetch('/api/admin/alias'); const j = await r.json(); if (r.ok) setItems(j.data || []); else showNotification('error', j.error) }
+    catch { showNotification('error', 'Lỗi kết nối!') }
+  }
+  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const add = async () => {
+    if (!tu.trim() || !mo.trim()) return showNotification('error', 'Nhập đủ từ khóa và cụm từ mở rộng')
+    setWorking(true)
+    try {
+      const r = await fetch('/api/admin/alias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tu_khoa: tu, mo_rong: mo }) })
+      const j = await r.json()
+      if (r.ok) { setTu(''); setMo(''); showNotification('success', 'Đã thêm biệt danh.'); load() } else showNotification('error', j.error)
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setWorking(false) }
+  }
+  const del = async (k: string) => {
+    try { const r = await fetch('/api/admin/alias?tu_khoa=' + encodeURIComponent(k), { method: 'DELETE' }); if (r.ok) load(); else { const j = await r.json(); showNotification('error', j.error) } }
+    catch { showNotification('error', 'Lỗi kết nối!') }
+  }
+
+  return (
+    <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+      <div>
+        <h3 className="text-lg font-semibold text-slate-700">Biệt danh cho Trợ lý AI</h3>
+        <p className="text-sm text-slate-500">Giúp trợ lý hiểu viết tắt / tên gọi nội bộ khi tra cứu khách hàng. VD: <b>tccb</b> → <b>Tổ chức cán bộ</b>, <b>pv06</b> → <b>Cục Hồ sơ nghiệp vụ</b>.</p>
+      </div>
+      <div className="flex flex-col sm:flex-row gap-2">
+        <Input placeholder="Từ khóa (VD: tccb)" className="bg-white sm:w-48" value={tu} onChange={e => setTu(e.target.value)} />
+        <Input placeholder="Cụm từ đầy đủ (VD: Tổ chức cán bộ)" className="bg-white" value={mo} onChange={e => setMo(e.target.value)} />
+        <Button onClick={add} disabled={working} className="gap-1 shrink-0"><Plus className="w-4 h-4" /> Thêm</Button>
+      </div>
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[320px] overflow-y-auto">
+        <table className="w-full text-left text-sm text-slate-600">
+          <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide sticky top-0 border-b border-slate-200">
+            <tr><th className="px-4 py-2">Từ khóa</th><th className="px-4 py-2">Mở rộng thành</th><th className="px-4 py-2 w-16 text-right">Xóa</th></tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {items.length === 0 ? (
+              <tr><td colSpan={3} className="px-4 py-6 text-center text-slate-400">Chưa có biệt danh. Thêm ở trên.</td></tr>
+            ) : items.map(it => (
+              <tr key={it.tu_khoa} className="hover:bg-slate-50">
+                <td className="px-4 py-2 font-mono text-slate-700">{it.tu_khoa}</td>
+                <td className="px-4 py-2 text-slate-700">{it.mo_rong}</td>
+                <td className="px-4 py-2 text-right"><button onClick={() => del(it.tu_khoa)} className="text-red-500 hover:text-red-700 p-1"><Trash2 className="w-4 h-4" /></button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )

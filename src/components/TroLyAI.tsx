@@ -13,7 +13,9 @@ type Msg = {
 
 const GOI_Y = [
   'Mã hàng 1T02NK0AX0 còn bao nhiêu?',
-  'Mã S6704G đặt hàng về mấy hộp chưa?',
+  'Phòng TCCB còn công nợ bao nhiêu?',
+  'Bộ Tư pháp có máy nào giám định chưa thay?',
+  'Máy thuê ở Hưng Yên là máy nào?',
 ]
 
 // Định dạng giá trị ô: số -> phân tách nghìn; ngày YYYY-MM-DD -> DD/MM/YYYY.
@@ -71,7 +73,7 @@ export default function TroLyAI() {
             <Sparkles className="w-5 h-5" />
             <div className="flex-1">
               <div className="font-semibold text-sm leading-tight">Trợ lý AI</div>
-              <div className="text-[11px] text-blue-100 leading-tight">Bản thử nghiệm · Tồn kho &amp; Đặt hàng</div>
+              <div className="text-[11px] text-blue-100 leading-tight">Kho · Đặt hàng · Công nợ · Giám định · Bảo trì · Thuê/CPC</div>
             </div>
             <button onClick={() => setOpen(false)} className="text-blue-100 hover:text-white p-1"><X className="w-5 h-5" /></button>
           </div>
@@ -80,7 +82,7 @@ export default function TroLyAI() {
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50">
             {msgs.length === 0 && (
               <div className="text-center text-slate-400 text-sm py-6 space-y-3">
-                <p>Hỏi nhanh về tồn kho / đặt hàng theo mã hàng.</p>
+                <p>Hỏi nhanh về kho, đặt hàng, công nợ, giám định, bảo trì, máy thuê/CPC.</p>
                 <div className="space-y-1.5">
                   {GOI_Y.map(g => (
                     <button key={g} onClick={() => send(g)} className="block w-full text-left text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg hover:border-blue-300 hover:text-blue-700 text-slate-600">
