@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase"
 import ThueCpcModule from "@/components/ThueCpcModule"
 import NghiPhepDuyet from "@/components/NghiPhepDuyet"
 import BaoGiaEditor, { type BaoGiaRow } from "@/components/BaoGiaEditor"
+import TroLyAI from "@/components/TroLyAI"
 import { hdbtStatus, loaiHdBadge } from "@/lib/hd-status"
 import { fmtThoiLuong } from "@/lib/thoi-gian"
 import { LOAI_HD_BAO_TRI, canBaoTriThang, dangTamDung, coBaoTriThang, moTaLichBaoTri, fmtThang, parseThangBaoTri, formatThangBaoTri, doiChieuNam, thangDaToi, CELL_DA_LAM, CELL_THIEU, CELL_CHUA_TOI } from "@/lib/bao-tri"
@@ -925,6 +926,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
+      {currentUserRole === 'admin' && <TroLyAI />}
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <header className="sticky top-0 z-30 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-xl shadow-md border border-slate-200 gap-4">
