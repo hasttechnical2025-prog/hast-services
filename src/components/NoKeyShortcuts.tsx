@@ -14,6 +14,7 @@ import { useEffect } from "react"
  * Ngoại lệ có chủ đích:
  *   - Đang gõ tiếng Việt bằng bộ gõ (Telex/VNI): Enter dùng để chốt ký tự -> phải để yên.
  *   - Enter trong <textarea>: là xuống dòng, không phải xác nhận.
+ *   - Vùng có [data-allow-enter] (ô chat Trợ lý AI): Enter = gửi câu hỏi -> cho phép.
  */
 export default function NoKeyShortcuts() {
   useEffect(() => {
@@ -23,6 +24,8 @@ export default function NoKeyShortcuts() {
       if (e.isComposing || e.keyCode === 229) return
       // Xuống dòng trong ô ghi chú nhiều dòng vẫn giữ nguyên
       if (e.key === 'Enter' && (e.target as HTMLElement | null)?.tagName === 'TEXTAREA') return
+      // Ô chat Trợ lý AI: Enter dùng để GỬI câu hỏi -> cho phép (ngoại lệ có chủ đích)
+      if (e.key === 'Enter' && (e.target as HTMLElement | null)?.closest?.('[data-allow-enter]')) return
 
       e.preventDefault()   // chặn hành vi mặc định (submit ngầm, bấm nút đang focus)
       e.stopPropagation()  // chặn luôn các handler onKeyDown của React ở bên dưới

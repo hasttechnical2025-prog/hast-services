@@ -206,11 +206,11 @@ const TOOL_LABEL: Record<string, string> = {
 }
 
 // allow(tool): trợ lý chỉ trả lời module mà người dùng có quyền xem (admin luôn true).
-export async function runAssistant(question: string, opts?: { allow?: (tool: string) => boolean }): Promise<{ answer: string; rows: any[]; columns: { key: string; label: string }[] }> {
+export async function runAssistant(question: string, opts?: { allow?: (tool: string) => boolean }): Promise<{ answer: string; rows: any[]; columns: { key: string; label: string }[]; tool: string }> {
   const c = await geminiJSON<Cls>(CLASSIFY_SYSTEM, question, CLASSIFY_SCHEMA)
 
   if (c.tool !== 'none' && opts?.allow && !opts.allow(c.tool)) {
-    return { answer: `Bạn không có quyền xem dữ liệu ${TOOL_LABEL[c.tool] || 'này'} nên trợ lý không thể trả lời câu hỏi này.`, rows: [], columns: [] }
+    return { answer: `Bạn không có quyền xem dữ liệu ${TOOL_LABEL[c.tool] || 'này'} nên trợ lý không thể trả lời câu hỏi này.`, rows: [], columns: [], tool: c.tool }
   }
 
   let result: ToolResult
@@ -224,9 +224,9 @@ export async function runAssistant(question: string, opts?: { allow?: (tool: str
     else result = await thueCpc(terms, c.loai)
   } else return {
     answer: 'Mình chưa hiểu câu hỏi thuộc loại nào. Hiện trợ lý trả lời về: tồn kho / đặt hàng (theo mã hàng), công nợ / giám định / bảo trì (theo khách), và máy thuê-CPC (theo nơi/khách).',
-    rows: [], columns: [],
+    rows: [], columns: [], tool: 'none',
   }
 
   const answer = await geminiText(PHRASE_SYSTEM, `Câu hỏi: ${question}\n\nDữ liệu:\n${result.summary}`)
-  return { answer: answer || result.summary, rows: result.rows, columns: result.columns }
+  return { answer: answer || result.summary, rows: result.rows, columns: result.columns, tool: c.tool }
 }

@@ -135,9 +135,11 @@ export default function TroLyAI() {
             <p className="text-[11px] text-slate-400 text-center mb-2">Trợ lý có thể sai — hãy kiểm tra lại số liệu trước khi dùng chính thức.</p>
             <div className="flex gap-2">
             <input
+              data-allow-enter
               value={input}
               onChange={e => setInput(e.target.value)}
-              placeholder="Nhập câu hỏi..."
+              onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); send() } }}
+              placeholder="Nhập câu hỏi... (Enter để gửi)"
               className="flex-1 h-10 px-3 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
             />
             <button onClick={() => send()} disabled={loading || !input.trim()}
