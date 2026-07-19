@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, type ReactNode } from "react"
-import { Download, Plus, Trash2 } from "lucide-react"
+import { Download, Plus, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -42,6 +42,18 @@ export default function BaoGiaEditor({
   const upd = (i: number, f: keyof BaoGiaRow, v: any) => onRowsChange(rows.map((r, idx) => idx === i ? { ...r, [f]: v } : r))
   const addRow = () => onRowsChange([...rows, emptyBaoGiaRow()])
   const delRow = (i: number) => onRowsChange(rows.filter((_, idx) => idx !== i))
+  // Danh sách phiếu đang có trong bảng (để "Xóa cả phiếu" 1 bấm) — chỉ ở Công nợ.
+  const phieu: { id: string; label: string }[] = []
+  if (showSoPhieu) {
+    const seen = new Set<string>()
+    for (const r of rows) for (const id of r.srcIds || []) {
+      if (seen.has(id)) continue
+      seen.add(id)
+      phieu.push({ id, label: r.soPhieu && r.soPhieu !== 'nhiều' ? r.soPhieu : id.slice(0, 6) })
+    }
+  }
+  // Xóa cả phiếu: gỡ mọi dòng có cùng phiếu nguồn (srcId).
+  const delPhieu = (id: string) => onRowsChange(rows.filter(r => !(r.srcIds || []).includes(id)))
 
   const baseCong = rows.reduce((s, r) => s + (Number(r.sl) || 0) * (Number(r.gia) || 0), 0)
   const baseThue = Math.round(rows.reduce((s, r) => s + (Number(r.sl) || 0) * (Number(r.gia) || 0) * (Number(r.vat) || 0) / 100, 0))
@@ -101,6 +113,18 @@ export default function BaoGiaEditor({
           </div>
         </div>
       </div>
+
+      {showSoPhieu && phieu.length > 0 && (
+        <div className="px-4 py-2 border-b border-slate-200 bg-white flex flex-wrap items-center gap-1.5">
+          <span className="text-xs font-semibold text-slate-500 mr-1">Xóa cả phiếu:</span>
+          {phieu.map(p => (
+            <button key={p.id} onClick={() => delPhieu(p.id)} title="Xóa toàn bộ dòng của phiếu này"
+              className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-mono text-slate-600 bg-slate-100 hover:bg-red-50 hover:text-red-600 border border-slate-200 hover:border-red-200 rounded-full transition">
+              {p.label} <X className="w-3 h-3" />
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-slate-600">

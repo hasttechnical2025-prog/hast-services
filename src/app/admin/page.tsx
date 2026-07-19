@@ -4675,14 +4675,11 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
     return [...m.values()]
   }
   useEffect(() => { setRows(buildRows(selTickets, gop)) }, [selIds, gop]) // eslint-disable-line react-hooks/exhaustive-deps
-  // Gợi ý "Kính gửi" theo điểm máy đầu tiên khi bắt đầu chọn
+  // Chọn 1 khách/cụm (radio) — tránh trộn nhiều khách khác nhau. Bấm lại = bỏ chọn.
   const toggleSel = (c: any) => {
     setSelIds(prev => {
-      const has = prev.includes(c.id)
-      const next = has ? prev.filter(x => x !== c.id) : [...prev, c.id]
-      if (!has && prev.length === 0) { setKhTen(c.ten); setKhDiaChi(c.dia_chi) }
-      if (next.length === 0) { setKhTen(''); setKhDiaChi('') }
-      return next
+      if (prev[0] === c.id) { setKhTen(''); setKhDiaChi(''); return [] }
+      setKhTen(c.ten); setKhDiaChi(c.dia_chi); return [c.id]
     })
   }
 
@@ -4717,7 +4714,7 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <label className="text-sm font-semibold text-slate-600">Chọn điểm máy (có thể chọn nhiều để gộp 1 đơn vị)</label>
+          <label className="text-sm font-semibold text-slate-600">Chọn điểm máy / cụm (chọn 1 khách)</label>
           <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">{selIds.length} chọn · {selTickets.length} phiếu</span>
           <div className="relative w-full sm:w-64 ml-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -4729,7 +4726,7 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
             <p className="text-sm text-slate-400 text-center py-4">Không có công nợ.</p>
           ) : custs.filter(c => !khSearch || c.ten.toLowerCase().includes(khSearch.trim().toLowerCase())).map(c => (
             <label key={c.id} className="flex items-start gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer text-sm">
-              <input type="checkbox" checked={selIds.includes(c.id)} onChange={() => toggleSel(c)} className="w-4 h-4 accent-blue-600 mt-0.5 shrink-0" />
+              <input type="radio" name="congno-diemmay" checked={selIds[0] === c.id} onChange={() => {}} onClick={() => toggleSel(c)} className="w-4 h-4 accent-blue-600 mt-0.5 shrink-0" />
               <div className="w-56 sm:w-72 shrink-0">
                 <span className="font-medium text-slate-700 leading-snug">{c.ten}</span>
                 {c.isCum && (
