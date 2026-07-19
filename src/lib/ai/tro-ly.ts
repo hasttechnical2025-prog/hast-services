@@ -16,49 +16,65 @@ export type ToolResult = { summary: string; rows: any[]; columns: { key: string;
 const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().trim()
 const fmtVnd = (x: any) => (Math.round(Number(x) || 0)).toLocaleString('vi-VN')
 
-// ===== Tool A1: Tồn kho theo mã hàng =====
+// Từ dừng (bỏ khi tách từ khóa tìm hàng) — để "mực máy c227i" -> [muc, c227i].
+const KHO_STOP = new Set(['may', 'cua', 'cai', 'chiec', 'hop', 'con', 'bao', 'nhieu', 'la', 'ma', 'nao', 'cho', 'co', 'nhu', 'the', 'gi', 'o', 'va', 'bang', 'muon', 'hoi', 'cua', 'thi'])
+
+// Tìm mặt hàng: theo MÃ chính xác trước; không có thì tách từ khóa và khớp TẤT CẢ
+// trên (mã + tên + model). => "mực c227i", "trống c301i", "cụm sấy 6120" đều ra.
+async function findKhoItems(query: string): Promise<any[]> {
+  const raw = (query || '').trim()
+  if (!raw) return []
+  const sel = 'ma_hang, ten_hang, model, hang, ton_kho'
+  const exact = await supabaseAdmin.from('soct_kho_hang').select(sel).eq('ma_hang', raw)
+  if (exact.data && exact.data.length) return exact.data
+  const tokens = norm(raw).split(/[^a-z0-9]+/).filter(t => t.length >= 2 && !KHO_STOP.has(t))
+  if (!tokens.length) return []
+  // Model Konica hay gõ kèm "C" (c301i) nhưng lưu "301i" -> cho phép bỏ "C" khi là c+số.
+  const tokenHit = (hay: string, t: string) => hay.includes(t) || (/^c\d/.test(t) && hay.includes(t.slice(1)))
+  const all = await selectAll((from, to) => supabaseAdmin.from('soct_kho_hang').select(sel).range(from, to))
+  return (all as any[]).filter(it => {
+    const hay = norm(it.ma_hang) + ' ' + norm(it.ten_hang) + ' ' + norm(it.model)
+    return tokens.every(t => tokenHit(hay, t))
+  }).slice(0, 40)
+}
+
+// ===== Tool A1: Tồn kho theo mã hàng / mô tả + model =====
 async function tonKho(maHang: string): Promise<ToolResult> {
   const q = (maHang || '').trim()
   const columns = [{ key: 'ma_hang', label: 'Mã hàng' }, { key: 'ten_hang', label: 'Tên hàng' }, { key: 'model', label: 'Model' }, { key: 'ton_kho', label: 'Tồn kho' }]
-  if (!q) return { summary: 'Thiếu mã hàng.', rows: [], columns }
-  const sel = 'ma_hang, ten_hang, model, hang, ton_kho'
-  let { data } = await supabaseAdmin.from('soct_kho_hang').select(sel).eq('ma_hang', q)
-  if (!data || data.length === 0) {
-    const r = await supabaseAdmin.from('soct_kho_hang').select(sel).or(`ma_hang.ilike.%${q}%,ten_hang.ilike.%${q}%`).limit(20)
-    data = r.data || []
-  }
-  const rows = data || []
-  const summary = rows.length === 0 ? `Không tìm thấy mã hàng "${q}".`
-    : rows.map((d: any) => `${d.ma_hang} (${d.ten_hang || ''}): tồn kho ${d.ton_kho}`).join('; ')
+  if (!q) return { summary: 'Thiếu mã hàng / mô tả.', rows: [], columns }
+  const rows = await findKhoItems(q)
+  const summary = rows.length === 0 ? `Không tìm thấy mặt hàng nào khớp "${q}".`
+    : rows.map((d: any) => `${d.ma_hang} (${d.ten_hang || ''}${d.model ? ', model ' + d.model : ''}): tồn kho ${d.ton_kho}`).join('; ')
   return { summary, rows, columns }
 }
 
-// ===== Tool A2: Đặt hàng theo mã hàng =====
+// ===== Tool A2: Đặt hàng theo mã hàng / mô tả + model =====
 async function datHang(maHang: string): Promise<ToolResult> {
   const q = (maHang || '').trim()
   const columns = [
-    { key: 'so_don_hang', label: 'Số đơn' }, { key: 'ngay_dat', label: 'Ngày đặt' },
+    { key: 'ma_hang', label: 'Mã hàng' }, { key: 'so_don_hang', label: 'Số đơn' }, { key: 'ngay_dat', label: 'Ngày đặt' },
     { key: 'sl_dat', label: 'SL đặt' }, { key: 'da_nhan', label: 'Đã về' },
     { key: 'con_lai', label: 'Còn lại' }, { key: 'trang_thai', label: 'Trạng thái' },
   ]
-  if (!q) return { summary: 'Thiếu mã hàng.', rows: [], columns }
+  if (!q) return { summary: 'Thiếu mã hàng / mô tả.', rows: [], columns }
+  // Giải mô tả -> danh sách mã hàng, rồi tra đơn đặt của các mã đó.
+  const codes = (await findKhoItems(q)).map((i: any) => i.ma_hang)
+  if (codes.length === 0) return { summary: `Không tìm thấy mặt hàng nào khớp "${q}".`, rows: [], columns }
+
   const sel = 'id, ma_hang, sl_dat, hoan_thanh, soct_dat_hang ( so_don_hang, ngay_dat, nha_cung_cap, da_dat ), soct_hang_ve_dot ( so_luong_nhan )'
-  let { data: cts } = await supabaseAdmin.from('soct_dat_hang_ct').select(sel).eq('ma_hang', q)
-  if (!cts || cts.length === 0) {
-    const r = await supabaseAdmin.from('soct_dat_hang_ct').select(sel).ilike('ma_hang', `%${q}%`).limit(30)
-    cts = r.data || []
-  }
+  const { data: cts } = await supabaseAdmin.from('soct_dat_hang_ct').select(sel).in('ma_hang', codes)
   const rows = (cts || []).map((c: any) => {
     const nhan = (c.soct_hang_ve_dot || []).reduce((s: number, v: any) => s + (Number(v.so_luong_nhan) || 0), 0)
     const dat = Number(c.sl_dat) || 0
     return {
-      so_don_hang: c.soct_dat_hang?.so_don_hang || '—', ngay_dat: c.soct_dat_hang?.ngay_dat || '',
+      ma_hang: c.ma_hang, so_don_hang: c.soct_dat_hang?.so_don_hang || '—', ngay_dat: c.soct_dat_hang?.ngay_dat || '',
       sl_dat: dat, da_nhan: nhan, con_lai: Math.max(0, dat - nhan),
       trang_thai: c.hoan_thanh ? 'Đã về đủ' : (nhan > 0 ? 'Về một phần' : (c.soct_dat_hang?.da_dat ? 'Chưa về' : 'Đơn nháp')),
     }
   }).sort((a: any, b: any) => String(b.ngay_dat).localeCompare(String(a.ngay_dat)))
-  const summary = rows.length === 0 ? `Không thấy đơn đặt hàng nào cho mã "${q}".`
-    : rows.map((r: any) => `Đơn ${r.so_don_hang} (đặt ${r.ngay_dat}): đặt ${r.sl_dat}, đã về ${r.da_nhan}, còn ${r.con_lai} — ${r.trang_thai}`).join('; ')
+  const summary = rows.length === 0 ? `Mặt hàng khớp (${codes.join(', ')}) nhưng chưa có đơn đặt nào.`
+    : rows.map((r: any) => `${r.ma_hang} - đơn ${r.so_don_hang} (đặt ${r.ngay_dat}): đặt ${r.sl_dat}, đã về ${r.da_nhan}, còn ${r.con_lai} — ${r.trang_thai}`).join('; ')
   return { summary, rows, columns }
 }
 
@@ -181,14 +197,14 @@ async function thueCpc(terms: string[], loai: string): Promise<ToolResult> {
 // ===== Orchestration =====
 const CLASSIFY_SYSTEM = `Bạn là bộ phân loại câu hỏi cho phần mềm quản lý dịch vụ máy photocopy (tiếng Việt).
 Chọn 1 công cụ và rút tham số:
-- tonKho: hỏi TỒN KHO / còn bao nhiêu của một MÃ HÀNG -> điền ma_hang.
-- datHang: hỏi ĐẶT HÀNG đã về chưa / về mấy hộp của một MÃ HÀNG -> điền ma_hang.
+- tonKho: hỏi TỒN KHO / còn bao nhiêu, HOẶC hỏi MÃ HÀNG của một vật tư/bộ phận. Vật tư có thể nêu bằng MÃ (S6704G) hoặc MÔ TẢ kèm model máy (VD "mực c227i", "trống máy c301i", "cụm sấy 6120", "hộp mực thải máy 6120"). -> điền ma_hang = NGUYÊN cụm mô tả/mã người dùng nói (giữ cả tên bộ phận lẫn model).
+- datHang: hỏi ĐẶT HÀNG đã về chưa / về mấy hộp của một vật tư (nêu bằng mã hoặc mô tả + model như trên) -> điền ma_hang tương tự.
 - congNo: hỏi CÔNG NỢ / còn nợ bao nhiêu của một KHÁCH -> điền khach.
 - giamDinh: hỏi GIÁM ĐỊNH chưa thay / còn giám định nào của một KHÁCH -> điền khach.
 - baoTri: hỏi về BẢO TRÌ ở một KHÁCH/NƠI (có máy nào bảo trì, máy nào chưa bảo trì, máy thuộc diện bảo trì) -> điền khach (và/hoặc dia_chi nếu là nơi chốn).
 - thueCpc: hỏi MÁY THUÊ / MÁY CPC ở đâu / của ai -> điền dia_chi (nơi chốn) hoặc khach, và loai nếu rõ.
 - none: không thuộc các loại trên.
-Mã hàng là chuỗi chữ-số (VD 1T02NK0AX0, S6704G, AC7A09A). "khach" là mảnh tên khách/phòng/đơn vị người dùng nói.
+ma_hang có thể là MÃ (chuỗi chữ-số như 1T02NK0AX0, S6704G) HOẶC MÔ TẢ vật tư kèm model máy (như "mực c227i", "trống c301i"). "khach" là mảnh tên khách/phòng/đơn vị người dùng nói.
 Quan trọng: nếu "khach" có VIẾT TẮT hoặc tên rút gọn, điền dạng đầy đủ vào "khach_mo_rong" (VD "tccb" -> "tổ chức cán bộ", "pv06" -> "cục hồ sơ nghiệp vụ"). Không rút được thì để rỗng.
 Chỉ trả JSON đúng schema.`
 
