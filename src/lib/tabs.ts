@@ -22,6 +22,9 @@ export const TAB_TREE: { key: string, label: string, subs: TabSub[], alwaysOn?: 
     ]
   },
   { key: 'quan_ly', label: 'Quản lý', subs: [{ key: 'nhat_ky', label: 'Báo cáo KTV' }, { key: 'khach_hang', label: 'Danh sách khách hàng' }, { key: 'khach_cum', label: 'Khách hàng cụm' }, { key: 'bao_cao', label: 'Báo cáo tháng' }, { key: 'nghi_phep', label: 'Nghỉ phép' }] },
+  // Không phải tab điều hướng — chỉ để bật/tắt nút Trợ lý AI (nổi góc dưới phải) theo role.
+  // Trợ lý vẫn kiểm quyền từng module theo tab tương ứng (không lộ dữ liệu ngoài quyền).
+  { key: 'tro_ly', label: 'Trợ lý AI', subs: [] },
 ]
 
 export const TAB_ROLES: [string, string][] = [['tech_admin', 'Tech Admin'], ['staff', 'Staff']]
@@ -34,14 +37,16 @@ export const DEFAULT_TAB_VIS: Record<string, Record<string, boolean>> = {
     theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true,
     kho_hang: true, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': true, 'kho_hang.thong_ke': true,
     tai_chinh: true, 'tai_chinh.cong_no': true, 'tai_chinh.thue_cpc': false,
-    quan_ly: true, 'quan_ly.nhat_ky': true, 'quan_ly.khach_hang': false, 'quan_ly.khach_cum': false, 'quan_ly.bao_cao': false, 'quan_ly.nghi_phep': true
+    quan_ly: true, 'quan_ly.nhat_ky': true, 'quan_ly.khach_hang': false, 'quan_ly.khach_cum': false, 'quan_ly.bao_cao': false, 'quan_ly.nghi_phep': true,
+    tro_ly: false
   },
   staff: {
     cong_viec: true, 'cong_viec.hoan_phieu': true,
     theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true,
     kho_hang: false, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': false, 'kho_hang.thong_ke': false,
     tai_chinh: false, 'tai_chinh.cong_no': false, 'tai_chinh.thue_cpc': false,
-    quan_ly: false, 'quan_ly.nhat_ky': false, 'quan_ly.khach_hang': false, 'quan_ly.khach_cum': false, 'quan_ly.bao_cao': false, 'quan_ly.nghi_phep': false
+    quan_ly: false, 'quan_ly.nhat_ky': false, 'quan_ly.khach_hang': false, 'quan_ly.khach_cum': false, 'quan_ly.bao_cao': false, 'quan_ly.nghi_phep': false,
+    tro_ly: false
   },
 }
 

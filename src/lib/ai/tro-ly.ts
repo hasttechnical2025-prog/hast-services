@@ -201,8 +201,17 @@ Tiền hiển thị dạng phân tách nghìn kèm "đ"; số lượng/tồn kho
 
 type Cls = { tool: string; ma_hang: string; khach: string; khach_mo_rong: string; dia_chi: string; loai: string }
 
-export async function runAssistant(question: string): Promise<{ answer: string; rows: any[]; columns: { key: string; label: string }[] }> {
+const TOOL_LABEL: Record<string, string> = {
+  tonKho: 'Tồn kho', datHang: 'Đặt hàng', congNo: 'Công nợ', giamDinh: 'Giám định', baoTri: 'Bảo trì', thueCpc: 'Thuê / CPC',
+}
+
+// allow(tool): trợ lý chỉ trả lời module mà người dùng có quyền xem (admin luôn true).
+export async function runAssistant(question: string, opts?: { allow?: (tool: string) => boolean }): Promise<{ answer: string; rows: any[]; columns: { key: string; label: string }[] }> {
   const c = await geminiJSON<Cls>(CLASSIFY_SYSTEM, question, CLASSIFY_SCHEMA)
+
+  if (c.tool !== 'none' && opts?.allow && !opts.allow(c.tool)) {
+    return { answer: `Bạn không có quyền xem dữ liệu ${TOOL_LABEL[c.tool] || 'này'} nên trợ lý không thể trả lời câu hỏi này.`, rows: [], columns: [] }
+  }
 
   let result: ToolResult
   if (c.tool === 'tonKho') result = await tonKho(c.ma_hang)

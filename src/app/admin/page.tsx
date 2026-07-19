@@ -926,7 +926,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
-      {currentUserRole === 'admin' && <TroLyAI />}
+      {tabVisible('tro_ly') && <TroLyAI />}
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <header className="sticky top-0 z-30 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-xl shadow-md border border-slate-200 gap-4">

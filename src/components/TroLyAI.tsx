@@ -117,9 +117,6 @@ export default function TroLyAI() {
                       </table>
                     </div>
                   )}
-                  {!m.error && (
-                    <p className="text-[11px] text-red-500 px-1">⚠️ AI có thể mắc lỗi. Hãy kiểm tra kỹ lại thông tin trước khi sử dụng.</p>
-                  )}
                 </div>
               </div>
             ))}
@@ -134,7 +131,9 @@ export default function TroLyAI() {
           </div>
 
           {/* Ô nhập — chỉ bấm nút Gửi mới gửi (theo quy tắc app, Enter không submit) */}
-          <div className="p-3 border-t border-slate-200 bg-white shrink-0 flex gap-2">
+          <div className="px-3 pt-2 pb-3 border-t border-slate-200 bg-white shrink-0">
+            <p className="text-[11px] text-slate-400 text-center mb-2">Trợ lý có thể sai — hãy kiểm tra lại số liệu trước khi dùng chính thức.</p>
+            <div className="flex gap-2">
             <input
               value={input}
               onChange={e => setInput(e.target.value)}
@@ -145,6 +144,7 @@ export default function TroLyAI() {
               className="w-10 h-10 shrink-0 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white flex items-center justify-center">
               <Send className="w-4 h-4" />
             </button>
+            </div>
           </div>
         </div>
       )}
