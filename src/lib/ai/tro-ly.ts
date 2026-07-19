@@ -167,7 +167,7 @@ async function thueCpc(terms: string[], loai: string): Promise<ToolResult> {
     .filter(c => hitAny(norm(c.ten_khach_hang) + ' ' + norm(c.dia_chi), terms))
     .map(c => ({ khach: c.ten_khach_hang || '—', ma_may: c.ma_may || '—', model: c.model || '—', loai_hd: c.loai_hd || '—', dia_chi: c.dia_chi || '—' }))
   const summary = rows.length === 0 ? 'Không tìm thấy máy thuê/CPC nào khớp.'
-    : `Có ${rows.length} máy: ${rows.map(r => `${r.ma_may} - ${r.model} (${r.loai_hd}, ${r.khach})`).join('; ')}.`
+    : `Có ${rows.length} máy: ${rows.map(r => `${r.ma_may} - ${r.model} (${r.loai_hd}, ${r.khach}, ${r.dia_chi})`).join('; ')}.`
   return { summary, rows, columns }
 }
 
@@ -196,7 +196,12 @@ const CLASSIFY_SCHEMA = {
 }
 
 const PHRASE_SYSTEM = `Bạn là trợ lý nội bộ công ty dịch vụ máy photocopy. Trả lời NGẮN GỌN bằng tiếng Việt,
-CHỈ dựa trên "Dữ liệu" được cung cấp — TUYỆT ĐỐI không bịa thêm số liệu. Nếu dữ liệu rỗng thì nói không tìm thấy.
+CHỈ dựa trên "Dữ liệu" được cung cấp — TUYỆT ĐỐI không bịa thêm số liệu.
+QUY TẮC BẮT BUỘC:
+- Nếu "Số mục tìm được" > 0 (Dữ liệu không rỗng): PHẢI khẳng định là CÓ và tóm tắt/liệt kê kết quả.
+  TUYỆT ĐỐI KHÔNG nói "không tìm thấy" / "không có" khi Dữ liệu có mục.
+- Chỉ nói "không tìm thấy" khi "Số mục tìm được" = 0.
+- Dữ liệu đã được lọc đúng theo câu hỏi; hãy tin và trình bày, không tự phủ nhận.
 Tiền hiển thị dạng phân tách nghìn kèm "đ"; số lượng/tồn kho để nguyên.`
 
 type Cls = { tool: string; ma_hang: string; khach: string; khach_mo_rong: string; dia_chi: string; loai: string }
@@ -227,6 +232,6 @@ export async function runAssistant(question: string, opts?: { allow?: (tool: str
     rows: [], columns: [], tool: 'none',
   }
 
-  const answer = await geminiText(PHRASE_SYSTEM, `Câu hỏi: ${question}\n\nDữ liệu:\n${result.summary}`)
+  const answer = await geminiText(PHRASE_SYSTEM, `Câu hỏi: ${question}\n\nSố mục tìm được: ${result.rows.length}\n\nDữ liệu:\n${result.summary}`)
   return { answer: answer || result.summary, rows: result.rows, columns: result.columns, tool: c.tool }
 }
