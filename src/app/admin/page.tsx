@@ -5956,11 +5956,15 @@ function TroLyLogTool({ showNotification }: { showNotification: (type: 'success'
               const truot = r.tool === 'none' || r.so_ket_qua === 0
               return (
                 <tr key={r.id} className={`hover:bg-slate-50 ${truot ? 'bg-amber-50/40' : ''}`}>
-                  <td className="px-3 py-2 text-xs text-slate-400 whitespace-nowrap">{fmtDt(r.created_at)}</td>
-                  <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{r.nguoi_hoi || '—'}</td>
-                  <td className="px-3 py-2 text-slate-800">{r.cau_hoi}</td>
-                  <td className="px-3 py-2 whitespace-nowrap"><span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">{TROLY_TOOL_LABEL[r.tool] || r.tool || '—'}</span></td>
-                  <td className="px-3 py-2 text-center whitespace-nowrap">
+                  <td className="px-3 py-2 text-xs text-slate-400 whitespace-nowrap align-top">{fmtDt(r.created_at)}</td>
+                  <td className="px-3 py-2 text-slate-600 whitespace-nowrap align-top">{r.nguoi_hoi || '—'}</td>
+                  <td className="px-3 py-2 align-top">
+                    <div className="text-slate-800">{r.cau_hoi}</div>
+                    {r.tra_loi && <div className="text-xs text-slate-500 mt-0.5">↳ {r.tra_loi}</div>}
+                    {r.tham_so && r.tham_so !== '{}' && <div className="text-[11px] text-slate-400 mt-0.5 font-mono">AI hiểu: {r.tham_so}</div>}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap align-top"><span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">{TROLY_TOOL_LABEL[r.tool] || r.tool || '—'}</span></td>
+                  <td className="px-3 py-2 text-center whitespace-nowrap align-top">
                     {truot
                       ? <span className="text-xs font-semibold text-amber-700">trượt</span>
                       : <span className="text-xs text-emerald-700">{r.so_ket_qua} dòng</span>}

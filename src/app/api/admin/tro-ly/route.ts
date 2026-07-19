@@ -39,6 +39,7 @@ export async function POST(request: Request) {
     // Ghi nhật ký (không chặn phản hồi nếu lỗi ghi log)
     supabaseAdmin.from('soct_tro_ly_log').insert({
       cau_hoi: q, tool: out.tool, so_ket_qua: out.rows.length,
+      tra_loi: out.answer, tham_so: JSON.stringify(out.params || {}),
       nguoi_hoi: session.full_name, role: session.role,
     }).then(() => { }, () => { })
 
@@ -61,7 +62,7 @@ export async function GET(request: Request) {
     const miss = new URL(request.url).searchParams.get('miss') === '1'
     let query = supabaseAdmin
       .from('soct_tro_ly_log')
-      .select('id, cau_hoi, tool, so_ket_qua, nguoi_hoi, role, created_at')
+      .select('id, cau_hoi, tra_loi, tham_so, tool, so_ket_qua, nguoi_hoi, role, created_at')
       .order('created_at', { ascending: false })
       .limit(500)
     if (miss) query = query.or('tool.eq.none,so_ket_qua.eq.0')
