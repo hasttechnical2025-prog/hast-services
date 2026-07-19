@@ -129,10 +129,10 @@ async function giamDinh(terms: string[]): Promise<ToolResult> {
   return { summary, rows, columns }
 }
 
-// ===== Tool B3: Máy chưa bảo trì tháng hiện tại theo khách =====
-async function chuaBaoTri(terms: string[]): Promise<ToolResult> {
-  const columns = [{ key: 'khach', label: 'Khách hàng' }, { key: 'ma_may', label: 'Mã máy' }, { key: 'model', label: 'Model' }]
-  if (terms.length === 0) return { summary: 'Chưa xác định được khách hàng cần tra.', rows: [], columns }
+// ===== Tool B3: Bảo trì theo khách/nơi — liệt kê máy thuộc diện bảo trì + trạng thái tháng này =====
+async function baoTri(terms: string[]): Promise<ToolResult> {
+  const columns = [{ key: 'khach', label: 'Khách hàng' }, { key: 'ma_may', label: 'Mã máy' }, { key: 'model', label: 'Model' }, { key: 'loai_hd', label: 'Loại HĐ' }, { key: 'trang_thai', label: 'Bảo trì tháng này' }]
+  if (terms.length === 0) return { summary: 'Chưa xác định được khách/nơi cần tra.', rows: [], columns }
   const thang = new Date().toISOString().slice(0, 7)
 
   const customers = await selectAll((from, to) => supabaseAdmin
@@ -142,12 +142,19 @@ async function chuaBaoTri(terms: string[]): Promise<ToolResult> {
   const { data: btRecords } = await supabaseAdmin.from('soct_bao_tri').select('ma_may').eq('thang_nam', thang)
   const done = new Set((btRecords || []).map((r: any) => String(r.ma_may).toLowerCase()))
 
-  const rows = (customers as any[])
-    .filter(c => hitAny(norm(c.ten_khach_hang) + ' ' + norm(c.dia_chi), terms))
-    .filter(c => canBaoTriThang(c, thang) && !done.has(String(c.ma_may).toLowerCase()))
-    .map(c => ({ khach: c.ten_khach_hang || '—', ma_may: c.ma_may || '—', model: c.model || '—' }))
-  const summary = rows.length === 0 ? `Không có máy nào chưa bảo trì tháng ${thang} khớp khách này (hoặc khách không thuộc diện bảo trì).`
-    : `Tháng ${thang}: còn ${rows.length} máy chưa bảo trì — ${rows.map(r => `${r.ma_may} (${r.khach})`).join('; ')}.`
+  const matched = (customers as any[]).filter(c => c.ma_may && hitAny(norm(c.ten_khach_hang) + ' ' + norm(c.dia_chi), terms))
+  const dien = matched.filter(c => LOAI_HD_BAO_TRI.includes(String(c.loai_hd || '').trim()))
+  const rows = dien.map(c => {
+    const tt = done.has(String(c.ma_may).toLowerCase()) ? 'Đã bảo trì'
+      : canBaoTriThang(c, thang) ? 'Chưa bảo trì' : 'Không đến hạn tháng này'
+    return { khach: c.ten_khach_hang || '—', ma_may: c.ma_may || '—', model: c.model || '—', loai_hd: c.loai_hd || '—', trang_thai: tt }
+  })
+  const chua = rows.filter(r => r.trang_thai === 'Chưa bảo trì').length
+
+  let summary: string
+  if (matched.length === 0) summary = 'Không tìm thấy khách/máy nào khớp.'
+  else if (rows.length === 0) summary = `Tìm thấy ${matched.length} máy khớp nhưng KHÔNG máy nào thuộc diện bảo trì (không có hợp đồng bảo trì HĐBT/MF).`
+  else summary = `Có ${rows.length} máy thuộc diện bảo trì (tháng ${thang}): ${rows.map(r => `${r.ma_may} (${r.khach}, ${r.loai_hd}) - ${r.trang_thai}`).join('; ')}. Trong đó ${chua} máy chưa bảo trì tháng này.`
   return { summary, rows, columns }
 }
 
@@ -178,7 +185,7 @@ Chọn 1 công cụ và rút tham số:
 - datHang: hỏi ĐẶT HÀNG đã về chưa / về mấy hộp của một MÃ HÀNG -> điền ma_hang.
 - congNo: hỏi CÔNG NỢ / còn nợ bao nhiêu của một KHÁCH -> điền khach.
 - giamDinh: hỏi GIÁM ĐỊNH chưa thay / còn giám định nào của một KHÁCH -> điền khach.
-- baoTri: hỏi máy CHƯA BẢO TRÌ của một KHÁCH -> điền khach.
+- baoTri: hỏi về BẢO TRÌ ở một KHÁCH/NƠI (có máy nào bảo trì, máy nào chưa bảo trì, máy thuộc diện bảo trì) -> điền khach (và/hoặc dia_chi nếu là nơi chốn).
 - thueCpc: hỏi MÁY THUÊ / MÁY CPC ở đâu / của ai -> điền dia_chi (nơi chốn) hoặc khach, và loai nếu rõ.
 - none: không thuộc các loại trên.
 Mã hàng là chuỗi chữ-số (VD 1T02NK0AX0, S6704G, AC7A09A). "khach" là mảnh tên khách/phòng/đơn vị người dùng nói.
@@ -225,7 +232,7 @@ export async function runAssistant(question: string, opts?: { allow?: (tool: str
     const terms = await buildTerms(c.khach, c.khach_mo_rong, c.dia_chi)
     if (c.tool === 'congNo') result = await congNo(terms)
     else if (c.tool === 'giamDinh') result = await giamDinh(terms)
-    else if (c.tool === 'baoTri') result = await chuaBaoTri(terms)
+    else if (c.tool === 'baoTri') result = await baoTri(terms)
     else result = await thueCpc(terms, c.loai)
   } else return {
     answer: 'Mình chưa hiểu câu hỏi thuộc loại nào. Hiện trợ lý trả lời về: tồn kho / đặt hàng (theo mã hàng), công nợ / giám định / bảo trì (theo khách), và máy thuê-CPC (theo nơi/khách).',
