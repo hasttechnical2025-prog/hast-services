@@ -11,7 +11,7 @@ export const maxDuration = 30
 
 // Mỗi tool ứng với 1 tab [cha, con] — trợ lý chỉ trả lời module người dùng có quyền xem.
 const TOOL_TAB: Record<string, [string, string]> = {
-  tonKho: ['kho_hang', 'ton_kho'], datHang: ['kho_hang', 'dat_hang'],
+  tonKho: ['kho_hang', 'ton_kho'], datHang: ['kho_hang', 'dat_hang'], donHang: ['kho_hang', 'dat_hang'],
   congNo: ['tai_chinh', 'cong_no'], thueCpc: ['tai_chinh', 'thue_cpc'],
   giamDinh: ['theo_doi_may', 'giam_dinh'], baoTri: ['theo_doi_may', 'bao_tri'],
 }
