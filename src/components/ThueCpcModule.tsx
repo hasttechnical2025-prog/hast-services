@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import DateField from "@/components/DateField"
 import { chotSoDate, counterStatus, CounterStatus } from "@/lib/thue-cpc"
+import { supabase } from "@/lib/supabase"
+
+const THUECPC_TOPIC = "soct_thuecpc"
+const DATA_EVENT = "changed"
 
 // Màu badge loại HĐ — Máy thuê vs Máy CPC dùng màu khác nhau cho dễ nhận biết
 const loaiHdBadgeCls = (loai: string | null | undefined) =>
@@ -76,6 +80,11 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
   const [dueCount, setDueCount] = useState(0) // số máy cần lấy counter (badge tab) — theo kỳ đang chọn
   const [counterThang, setCounterThang] = useState(monthNow()) // kỳ đang chọn ở tab Nhập counter (nâng lên để badge bám theo)
   const [badgeVer, setBadgeVer] = useState(0) // tăng sau mỗi lần lưu counter -> badge tính lại
+  const [reloadKey, setReloadKey] = useState(0) // realtime: đổi từ máy khác -> remount tab active để tải lại
+  useEffect(() => {
+    const ch = supabase.channel(THUECPC_TOPIC).on('broadcast', { event: DATA_EVENT }, () => { setReloadKey(v => v + 1); setBadgeVer(v => v + 1) }).subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [])
   const allTabs: [typeof sub, string][] = [
     ['don_gia', 'Đơn giá HĐ'],
     ['counter', 'Nhập counter'],
@@ -108,10 +117,10 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
           </button>
         ))}
       </div>
-      {active === 'don_gia' && <DonGiaTab showNotification={showNotification} />}
-      {active === 'counter' && <CounterTab showNotification={showNotification} thang={counterThang} setThang={setCounterThang} onSaved={() => setBadgeVer(v => v + 1)} />}
-      {active === 'khung' && <KhungTab showNotification={showNotification} />}
-      {active === 'bang_ke' && <BangKeTab showNotification={showNotification} />}
+      {active === 'don_gia' && <DonGiaTab key={reloadKey} showNotification={showNotification} />}
+      {active === 'counter' && <CounterTab key={reloadKey} showNotification={showNotification} thang={counterThang} setThang={setCounterThang} onSaved={() => setBadgeVer(v => v + 1)} />}
+      {active === 'khung' && <KhungTab key={reloadKey} showNotification={showNotification} />}
+      {active === 'bang_ke' && <BangKeTab key={reloadKey} showNotification={showNotification} />}
     </div>
   )
 }

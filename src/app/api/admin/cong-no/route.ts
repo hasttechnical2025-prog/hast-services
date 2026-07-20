@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireTab } from '@/lib/session'
 import { logAudit } from '@/lib/audit'
+import { broadcastCongNoChanged } from '@/lib/realtime'
 
 export const runtime = 'nodejs'
 
@@ -53,6 +54,7 @@ export async function PUT(request: Request) {
       .in('id_cong_viec', ids)
 
     await logAudit(session, 'Cập nhật trạng thái hóa đơn', `${ids.length} phiếu → ${trang_thai_hd}`)
+    await broadcastCongNoChanged()
     return NextResponse.json({ success: true, count: ids.length })
   } catch (error: any) {
     console.error('Error updating cong no status:', error)

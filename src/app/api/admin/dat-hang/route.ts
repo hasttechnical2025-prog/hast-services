@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireTab } from '@/lib/session'
+import { broadcastDatHangChanged, broadcastKhoChanged } from '@/lib/realtime'
 
 // Câu select đơn hàng đầy đủ (kèm chi tiết + tên hàng/model + các đợt hàng về) — dùng chung
 const ORDER_SELECT = `
@@ -87,6 +88,7 @@ export async function POST(request: Request) {
 
     // Trả về đơn ĐẦY ĐỦ (kèm chi tiết + tên hàng/model) để client xuất Excel ngay được
     const { data: full } = await supabaseAdmin.from('soct_dat_hang').select(ORDER_SELECT).eq('id', order.id).single()
+    await broadcastDatHangChanged()
     return NextResponse.json({ data: full || order })
   } catch (error: any) {
     console.error('Error creating dat_hang:', error)
@@ -164,6 +166,7 @@ export async function PUT(request: Request) {
 
     // Trả về đơn ĐẦY ĐỦ (kèm chi tiết + tên hàng/model)
     const { data: full } = await supabaseAdmin.from('soct_dat_hang').select(ORDER_SELECT).eq('id', id).single()
+    await broadcastDatHangChanged()
     return NextResponse.json({ data: full || order })
   } catch (error: any) {
     console.error('Error updating dat_hang:', error)
@@ -246,6 +249,7 @@ export async function DELETE(request: Request) {
         if (updErr) throw updErr
       }
 
+      await broadcastDatHangChanged(); await broadcastKhoChanged()
       return NextResponse.json({ success: true, parentDeleted })
     }
 
@@ -267,6 +271,7 @@ export async function DELETE(request: Request) {
     const { error } = await supabaseAdmin.from('soct_dat_hang').delete().eq('id', id)
     if (error) throw error
 
+    await broadcastDatHangChanged(); await broadcastKhoChanged()
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error deleting dat_hang:', error)

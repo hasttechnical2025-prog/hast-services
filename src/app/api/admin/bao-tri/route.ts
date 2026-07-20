@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireTab } from '@/lib/session'
+import { broadcastBaoTriChanged } from '@/lib/realtime'
 
 // Lấy danh sách máy đã bảo trì trong một tháng (YYYY-MM)
 export async function GET(request: Request) {
@@ -72,6 +73,7 @@ export async function POST(request: Request) {
 
     if (error) throw error
 
+    await broadcastBaoTriChanged()
     return NextResponse.json({ success: true, count: data.length, data })
   } catch (error: any) {
     console.error('Error saving bao_tri:', error)
@@ -108,6 +110,7 @@ export async function DELETE(request: Request) {
     const { error } = await query
     if (error) throw error
 
+    await broadcastBaoTriChanged()
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error deleting bao_tri:', error)

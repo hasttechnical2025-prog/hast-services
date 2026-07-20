@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireTab } from '@/lib/session'
+import { broadcastGiamDinhChanged } from '@/lib/realtime'
 
 // Lấy danh sách biên bản giám định kèm vật tư đề xuất
 export async function GET(request: Request) {
@@ -79,6 +80,7 @@ export async function POST(request: Request) {
 
     await insertVatTu(data.id, vat_tu)
 
+    await broadcastGiamDinhChanged()
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error creating giam_dinh:', error)
@@ -124,6 +126,7 @@ export async function PUT(request: Request) {
       await insertVatTu(id, vat_tu)
     }
 
+    await broadcastGiamDinhChanged()
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error updating giam_dinh:', error)
@@ -148,6 +151,7 @@ export async function DELETE(request: Request) {
     const { error } = await supabaseAdmin.from('soct_giam_dinh').delete().eq('id', id)
     if (error) throw error
 
+    await broadcastGiamDinhChanged()
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error deleting giam_dinh:', error)

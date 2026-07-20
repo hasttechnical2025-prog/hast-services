@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
+import { broadcastThueCpcChanged } from '@/lib/realtime'
 
 // GET: danh sách hợp đồng khung kèm danh sách máy đã gán
 export async function GET() {
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
       .single()
 
     if (error) throw error
+    await broadcastThueCpcChanged()
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error creating hop-dong-khung:', error)
@@ -96,6 +98,7 @@ export async function PUT(request: Request) {
       .single()
 
     if (error) throw error
+    await broadcastThueCpcChanged()
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error updating hop-dong-khung:', error)
@@ -115,6 +118,7 @@ export async function DELETE(request: Request) {
 
     const { error } = await supabaseAdmin.from('soct_thue_cpc_hop_dong_khung').delete().eq('id', id)
     if (error) throw error
+    await broadcastThueCpcChanged()
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error deleting hop-dong-khung:', error)

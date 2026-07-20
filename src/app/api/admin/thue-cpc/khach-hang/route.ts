@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { KH_NUMERIC_FIELDS, KH_TEXT_FIELDS } from '@/lib/thue-cpc'
+import { broadcastThueCpcChanged } from '@/lib/realtime'
 
 // Các máy thuộc diện billing thuê/CPC
 const LOAI_HD_BILLING = ['Máy thuê', 'Máy CPC']
@@ -71,6 +72,7 @@ export async function PUT(request: Request) {
       .single()
 
     if (error) throw error
+    await broadcastThueCpcChanged()
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error updating thue-cpc customer:', error)

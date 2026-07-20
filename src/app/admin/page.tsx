@@ -22,6 +22,10 @@ const JOBS_EVENT = "changed"
 // Kho hàng / Khách hàng đổi (thêm-sửa-xóa) -> office khác tự cập nhật, không cần F5
 const KHO_TOPIC = "soct_kho"
 const KHACH_TOPIC = "soct_khach"
+const CONGNO_TOPIC = "soct_congno"
+const GIAMDINH_TOPIC = "soct_giamdinh"
+const DATHANG_TOPIC = "soct_dathang"
+const BAOTRI_TOPIC = "soct_baotri"
 const DATA_EVENT = "changed"
 
 // Types
@@ -2876,6 +2880,12 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
     finally { setLoading(false) }
   }
   useEffect(() => { fetchRecords() }, [])
+  // Realtime: giám định đổi (tạo/sửa/đã thay/đã báo giá) từ máy khác -> tự cập nhật
+  const gdRef = useRef(fetchRecords); gdRef.current = fetchRecords
+  useEffect(() => {
+    const ch = supabase.channel(GIAMDINH_TOPIC).on('broadcast', { event: DATA_EVENT }, () => gdRef.current()).subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [])
 
   const addVt = () => setVatTu(prev => [...prev, { ma_hang: "", so_luong: "1", ghi_chu: "" }])
   const updateVt = (i: number, field: 'ma_hang' | 'so_luong' | 'ghi_chu', val: string) => {
@@ -3392,6 +3402,12 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
     finally { setLoading(false) }
   }
   useEffect(() => { fetchOrders() }, [])
+  // Realtime: đơn đặt hàng / hàng về đổi từ máy khác -> danh sách tự cập nhật
+  const dhRef = useRef(fetchOrders); dhRef.current = fetchOrders
+  useEffect(() => {
+    const ch = supabase.channel(DATHANG_TOPIC).on('broadcast', { event: DATA_EVENT }, () => dhRef.current()).subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [])
 
   // Sinh số đơn mặc định PO-YYMMDD-NNN theo ngày + số thứ tự trong ngày
   const genSoDon = (ngay: string) => {
@@ -4660,6 +4676,12 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
     catch { showNotification('error', 'Lỗi kết nối!') } finally { setLoading(false) }
   }
   useEffect(() => { fetchList() }, [])
+  // Realtime: đánh dấu báo giá / lên hóa đơn từ máy khác -> danh sách công nợ tự cập nhật
+  const cnRef = useRef(fetchList); cnRef.current = fetchList
+  useEffect(() => {
+    const ch = supabase.channel(CONGNO_TOPIC).on('broadcast', { event: DATA_EVENT }, () => cnRef.current()).subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [])
 
   // Gom phiếu theo KHÁCH CỤM khi điểm máy đã gán cụm (ma_khach_cum); còn lại gom theo
   // điểm máy (mỗi máy lẻ = 1 khách) như cũ. => chưa gán vẫn chạy y hệt trước đây.
@@ -6066,6 +6088,12 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
   }
 
   useEffect(() => { fetchRecords(thangNam) }, [thangNam])
+  // Realtime: ghi nhận bảo trì từ máy khác -> danh sách tháng đang xem tự cập nhật
+  const btRef = useRef(() => { }); btRef.current = () => fetchRecords(thangNam)
+  useEffect(() => {
+    const ch = supabase.channel(BAOTRI_TOPIC).on('broadcast', { event: DATA_EVENT }, () => btRef.current()).subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [])
   const paged = usePaged(records)
   const chuaBaoTriPaged = usePaged(chuaBaoTri)
   const tamDungPaged = usePaged(tamDung)

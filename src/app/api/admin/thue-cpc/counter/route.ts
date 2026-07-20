@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { kyTruoc } from '@/lib/thue-cpc'
+import { broadcastThueCpcChanged } from '@/lib/realtime'
 
 const LOAI_HD_BILLING = ['Máy thuê', 'Máy CPC']
 
@@ -83,6 +84,7 @@ export async function POST(request: Request) {
       .single()
 
     if (error) throw error
+    await broadcastThueCpcChanged()
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error saving thue-cpc counter:', error)

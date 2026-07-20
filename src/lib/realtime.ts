@@ -13,6 +13,12 @@ export const LEAVE_EVENT = 'changed'
 export const KHO_TOPIC = 'soct_kho'
 // Khách hàng / điểm máy / khách cụm (thêm-sửa-xóa, gán cụm) -> danh sách khách tự cập nhật.
 export const KHACH_TOPIC = 'soct_khach'
+// Các nghiệp vụ office khác — mỗi domain một topic để tránh refetch thừa.
+export const CONGNO_TOPIC = 'soct_congno'
+export const GIAMDINH_TOPIC = 'soct_giamdinh'
+export const DATHANG_TOPIC = 'soct_dathang'
+export const BAOTRI_TOPIC = 'soct_baotri'
+export const THUECPC_TOPIC = 'soct_thuecpc'
 export const DATA_EVENT = 'changed'
 
 async function broadcast(topic: string, event: string): Promise<void> {
@@ -52,4 +58,24 @@ export function broadcastKhoChanged(): Promise<void> {
 
 export function broadcastKhachChanged(): Promise<void> {
   return broadcast(KHACH_TOPIC, DATA_EVENT)
+}
+
+export function broadcastCongNoChanged(): Promise<void> {
+  return broadcast(CONGNO_TOPIC, DATA_EVENT)
+}
+
+export function broadcastGiamDinhChanged(): Promise<void> {
+  return broadcast(GIAMDINH_TOPIC, DATA_EVENT)
+}
+
+export function broadcastDatHangChanged(): Promise<void> {
+  return broadcast(DATHANG_TOPIC, DATA_EVENT)
+}
+
+export function broadcastBaoTriChanged(): Promise<void> {
+  return broadcast(BAOTRI_TOPIC, DATA_EVENT)
+}
+
+export function broadcastThueCpcChanged(): Promise<void> {
+  return broadcast(THUECPC_TOPIC, DATA_EVENT)
 }
