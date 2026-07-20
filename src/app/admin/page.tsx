@@ -4134,6 +4134,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     hdbt_canh_bao_thang: cauHinh.hdbt_canh_bao_thang || '2',
     nguong_ton_thap: cauHinh.nguong_ton_thap || '0',
     phieu_cung_canh_bao_ngay: cauHinh.phieu_cung_canh_bao_ngay || '3',
+    bao_cao_cho_phep_ngay: cauHinh.bao_cao_cho_phep_ngay || '7',
     phien_van_phong_ngay: cauHinh.phien_van_phong_ngay || '7',
     phien_ktv_ngay: cauHinh.phien_ktv_ngay || '30',
     mac_dinh_hom_nay: (cauHinh.mac_dinh_hom_nay ?? '1') !== '0',
@@ -4205,6 +4206,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
       hdbt_canh_bao_thang: String(parseInt(cfg.hdbt_canh_bao_thang) || 2),
       nguong_ton_thap: String(parseInt(cfg.nguong_ton_thap) || 0),
       phieu_cung_canh_bao_ngay: String(parseInt(cfg.phieu_cung_canh_bao_ngay) || 3),
+      bao_cao_cho_phep_ngay: String(Number.isFinite(parseInt(cfg.bao_cao_cho_phep_ngay)) ? parseInt(cfg.bao_cao_cho_phep_ngay) : 7),
       phien_van_phong_ngay: String(parseInt(cfg.phien_van_phong_ngay) || 7),
       phien_ktv_ngay: String(parseInt(cfg.phien_ktv_ngay) || 30),
       mac_dinh_hom_nay: cfg.mac_dinh_hom_nay ? '1' : '0',
@@ -4221,7 +4223,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setSaving(false) }
   }
 
-  const numField = (label: string, key: 'repeat_ngay' | 'hdbt_canh_bao_thang' | 'nguong_ton_thap' | 'vp_lat' | 'vp_lng' | 'phien_van_phong_ngay' | 'phien_ktv_ngay' | 'phieu_cung_canh_bao_ngay', hint?: string, step?: string) => (
+  const numField = (label: string, key: 'repeat_ngay' | 'hdbt_canh_bao_thang' | 'nguong_ton_thap' | 'vp_lat' | 'vp_lng' | 'phien_van_phong_ngay' | 'phien_ktv_ngay' | 'phieu_cung_canh_bao_ngay' | 'bao_cao_cho_phep_ngay', hint?: string, step?: string) => (
     <div className="space-y-1">
       <label className="text-xs font-semibold text-slate-600">{label}</label>
       <Input value={(cfg as any)[key]} onChange={(e) => setCfg({ ...cfg, [key]: e.target.value })} className="bg-white" inputMode="decimal" {...(step ? { step } : {})} />
@@ -4284,6 +4286,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
           {numField('Cảnh báo HĐBT trước (tháng)', 'hdbt_canh_bao_thang')}
           {numField('Ngưỡng tồn thấp (đỏ khi ≤)', 'nguong_ton_thap')}
           {numField('Cảnh báo trễ nộp phiếu (ngày)', 'phieu_cung_canh_bao_ngay')}
+          {numField('KTV nộp báo cáo trễ tối đa (ngày)', 'bao_cao_cho_phep_ngay', 'Cho phép nộp/sửa báo cáo lùi về N ngày. 0 = chỉ hôm nay')}
         </div>
         <div className="flex flex-wrap gap-6">
           <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">

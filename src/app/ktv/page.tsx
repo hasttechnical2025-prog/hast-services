@@ -72,7 +72,7 @@ export default function KtvMobileWeb() {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   })
-  const [reportData, setReportData] = useState<{ da_nop: boolean, thoi_gian_nop: string | null, jobs: any[], extraJobs: any[], ngayNghi: string[], tinhTrangOptions?: string[] } | null>(null)
+  const [reportData, setReportData] = useState<{ da_nop: boolean, thoi_gian_nop: string | null, jobs: any[], extraJobs: any[], ngayNghi: string[], tinhTrangOptions?: string[], choPhepNgay?: number } | null>(null)
   const [extraInput, setExtraInput] = useState("")
   const [submittingReport, setSubmittingReport] = useState(false)
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false)
@@ -92,7 +92,9 @@ export default function KtvMobileWeb() {
   const reportDow = new Date(selectedReportDate + 'T00:00:00Z').getUTCDay()
   const isRestDay = reportDow === 0 || reportDow === 6 || (reportData?.ngayNghi || []).includes(selectedReportDate)
   const reportDaysAgo = Math.round((Date.parse(vnTodayStr + 'T00:00:00Z') - Date.parse(selectedReportDate + 'T00:00:00Z')) / 86400000)
-  const reportEditable = (reportDaysAgo === 0 || reportDaysAgo === 1) && !isRestDay
+  // Số ngày lùi cho phép nộp/sửa (admin cấu hình; mặc định 7 khi chưa có dữ liệu)
+  const choPhepNgay = reportData?.choPhepNgay ?? 7
+  const reportEditable = reportDaysAgo >= 0 && reportDaysAgo <= choPhepNgay && !isRestDay
   const restDayLabel = reportDow === 0 ? 'Chủ Nhật' : reportDow === 6 ? 'Thứ 7' : 'Ngày lễ'
 
   // Tải thông tin báo cáo cho ngày cụ thể
@@ -757,7 +759,7 @@ export default function KtvMobileWeb() {
                     ) : reportData ? (
                       <div className={`space-y-4 transition-opacity duration-200 ${loadingReport ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
                         {!reportEditable && !reportData.da_nop && (
-                          <div className="bg-slate-100 text-slate-500 px-4 py-2 rounded-xl text-xs text-center">Chỉ xem — chỉ sửa được báo cáo hôm nay & hôm qua.</div>
+                          <div className="bg-slate-100 text-slate-500 px-4 py-2 rounded-xl text-xs text-center">Chỉ xem — quá hạn nộp (chỉ nộp/sửa trong vòng {choPhepNgay} ngày).</div>
                         )}
                         {/* TRẠNG THÁI NỘP BÁO CÁO */}
                         {reportData.da_nop ? (

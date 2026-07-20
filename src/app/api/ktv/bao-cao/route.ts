@@ -2,6 +2,14 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { expandNgayCaNgay } from '@/lib/nghi-phep'
+import { getCauHinh } from '@/lib/config'
+
+// Số ngày lùi tối đa được nộp/sửa báo cáo (0 = chỉ hôm nay). Admin cấu hình; mặc định 7.
+async function choPhepNgay(): Promise<number> {
+  const cfg = await getCauHinh()
+  const n = parseInt(cfg.bao_cao_cho_phep_ngay || '7')
+  return Number.isFinite(n) && n >= 0 ? n : 7
+}
 
 // Ngày "hôm nay" theo giờ VN (UTC+7) — tránh lệch ngày do server chạy UTC
 function vnTodayStr(): string { return new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10) }
@@ -116,6 +124,7 @@ export async function GET(request: Request) {
         extraJobs: extraJobs || [],
         ngayNghi: ngayNghiAll,
         tinhTrangOptions: (ttOptions || []).map((o: any) => o.gia_tri),
+        choPhepNgay: await choPhepNgay(),
         statuses
       }
     })
@@ -197,11 +206,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Thiếu ngày hoặc ngày không hợp lệ' }, { status: 400 })
     }
 
-    // Chỉ cho GHI báo cáo (mở lại/thêm/xóa/chốt) ở HÔM NAY hoặc HÔM QUA, và KHÔNG phải ngày nghỉ.
+    // Chỉ cho GHI báo cáo (mở lại/thêm/xóa/chốt) trong N ngày lùi (admin cấu hình), và KHÔNG phải ngày nghỉ.
     if (['open_daily', 'add_extra', 'delete_extra', 'submit_daily'].includes(action)) {
       const dd = daysAgo(ngay)
-      if (dd < 0 || dd > 1) {
-        return NextResponse.json({ error: 'Chỉ được sửa/nộp báo cáo của hôm nay hoặc hôm qua.' }, { status: 400 })
+      const nMax = await choPhepNgay()
+      if (dd < 0 || dd > nMax) {
+        return NextResponse.json({ error: `Chỉ được nộp/sửa báo cáo trong vòng ${nMax} ngày (không được nộp cho ngày tương lai).` }, { status: 400 })
       }
       if (isWeekend(ngay) || await isHoliday(ngay)) {
         return NextResponse.json({ error: 'Ngày nghỉ (Thứ 7 / Chủ Nhật / lễ) — không phải làm báo cáo.' }, { status: 400 })
