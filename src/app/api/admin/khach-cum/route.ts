@@ -92,6 +92,13 @@ export async function PUT(request: Request) {
       updates.ten_khach_hang = ten
     }
     if (body.dia_chi !== undefined) updates.dia_chi = String(body.dia_chi).trim() || null
+    // Đổi mã cụm: cột FK soct_khach_hang.ma_khach_cum có ON UPDATE CASCADE -> các máy
+    // trong cụm tự cập nhật theo, không thất lạc.
+    if (body.ma_moi !== undefined) {
+      const maMoi = String(body.ma_moi).trim()
+      if (!maMoi) return NextResponse.json({ error: 'Mã khách hàng không được để trống' }, { status: 400 })
+      if (maMoi !== ma) updates.ma_khach_hang = maMoi
+    }
 
     const { data, error } = await supabaseAdmin
       .from('soct_khach_cum')
@@ -99,7 +106,10 @@ export async function PUT(request: Request) {
       .eq('ma_khach_hang', ma)
       .select()
       .single()
-    if (error) throw error
+    if (error) {
+      if (error.code === '23505') return NextResponse.json({ error: `Mã khách hàng ${updates.ma_khach_hang} đã tồn tại` }, { status: 400 })
+      throw error
+    }
 
     return NextResponse.json({ data })
   } catch (error: any) {

@@ -5543,7 +5543,7 @@ function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { custom
   const [selMa, setSelMa] = useState<string | null>(null)
   const [working, setWorking] = useState(false)
   const [newMa, setNewMa] = useState(''), [newTen, setNewTen] = useState(''), [newDc, setNewDc] = useState('')
-  const [editing, setEditing] = useState(false), [edTen, setEdTen] = useState(''), [edDc, setEdDc] = useState('')
+  const [editing, setEditing] = useState(false), [edMa, setEdMa] = useState(''), [edTen, setEdTen] = useState(''), [edDc, setEdDc] = useState('')
   const [cumSearch, setCumSearch] = useState(''), [maySearch, setMaySearch] = useState('')
   const [pickIds, setPickIds] = useState<string[]>([])
 
@@ -5586,8 +5586,10 @@ function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { custom
   }
   const saveEdit = async () => {
     if (!sel || !edTen.trim()) return showNotification('error', 'Tên không được để trống')
-    if (await call('PUT', { ma_khach_hang: sel.ma_khach_hang, ten_khach_hang: edTen.trim(), dia_chi: edDc.trim() })) {
-      setEditing(false); await fetchClusters()
+    const maMoi = edMa.trim()
+    if (!maMoi) return showNotification('error', 'Mã khách hàng không được để trống')
+    if (await call('PUT', { ma_khach_hang: sel.ma_khach_hang, ma_moi: maMoi, ten_khach_hang: edTen.trim(), dia_chi: edDc.trim() })) {
+      setEditing(false); if (maMoi !== sel.ma_khach_hang) setSelMa(maMoi); await fetchClusters(); onUpdateSuccess()
     }
   }
   const delCluster = async (ma: string) => {
@@ -5660,6 +5662,7 @@ function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { custom
                 <div className="flex-1 min-w-0">
                   {editing ? (
                     <div className="space-y-2">
+                      <Input className="bg-white w-40" value={edMa} onChange={e => setEdMa(e.target.value)} placeholder="Mã KH (số)" />
                       <Input className="bg-white" value={edTen} onChange={e => setEdTen(e.target.value)} placeholder="Tên khách hàng" />
                       <Input className="bg-white" value={edDc} onChange={e => setEdDc(e.target.value)} placeholder="Địa chỉ" />
                       <div className="flex gap-2">
@@ -5679,7 +5682,7 @@ function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { custom
                 </div>
                 {!editing && (
                   <div className="flex gap-1 shrink-0">
-                    <button onClick={() => { setEditing(true); setEdTen(sel.ten_khach_hang); setEdDc(sel.dia_chi || '') }} className="text-blue-500 hover:text-blue-700 p-1"><PenSquare className="w-4 h-4" /></button>
+                    <button onClick={() => { setEditing(true); setEdMa(sel.ma_khach_hang); setEdTen(sel.ten_khach_hang); setEdDc(sel.dia_chi || '') }} className="text-blue-500 hover:text-blue-700 p-1"><PenSquare className="w-4 h-4" /></button>
                     <button onClick={() => delCluster(sel.ma_khach_hang)} className="text-red-500 hover:text-red-700 p-1"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 )}
