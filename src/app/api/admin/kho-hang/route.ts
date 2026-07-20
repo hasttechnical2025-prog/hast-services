@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireRole, requireTab } from '@/lib/session'
+import { broadcastKhoChanged } from '@/lib/realtime'
 
 // Lấy danh sách hàng hóa trong kho
 export async function GET() {
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
 
     if (error) throw error
 
+    await broadcastKhoChanged()
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error updating inventory item:', error)
@@ -84,6 +86,7 @@ export async function DELETE(request: Request) {
 
     if (error) throw error
 
+    await broadcastKhoChanged()
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error deleting inventory item:', error)

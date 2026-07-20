@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
+import { broadcastKhoChanged } from '@/lib/realtime'
 
 // Ghi một đợt hàng về cho một dòng đơn (trigger tự cộng tồn kho + đánh dấu hoàn thành)
 export async function POST(request: Request) {
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
       .single()
 
     if (error) throw error
+    await broadcastKhoChanged()
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error creating hang_ve:', error)
@@ -49,6 +51,7 @@ export async function DELETE(request: Request) {
     const { error } = await supabaseAdmin.from('soct_hang_ve_dot').delete().eq('id', id)
     if (error) throw error
 
+    await broadcastKhoChanged()
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error deleting hang_ve:', error)

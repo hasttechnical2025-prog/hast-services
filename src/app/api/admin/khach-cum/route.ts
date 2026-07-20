@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { logAudit } from '@/lib/audit'
+import { broadcastKhachChanged } from '@/lib/realtime'
 
 // Khách hàng cụm (một khách - nhiều máy). Chỉ ADMIN (dữ liệu gom công nợ, nhạy cảm) —
 // chặn cả API, không chỉ ẩn giao diện.
@@ -68,6 +69,7 @@ export async function POST(request: Request) {
     }
 
     await logAudit(session, 'Tạo khách hàng cụm', `${ma} — ${ten}`)
+    await broadcastKhachChanged()
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error creating khach cum:', error)
@@ -111,6 +113,7 @@ export async function PUT(request: Request) {
       throw error
     }
 
+    await broadcastKhachChanged()
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error updating khach cum:', error)
@@ -136,6 +139,7 @@ export async function PATCH(request: Request) {
     if (error) throw error
 
     await logAudit(session, target ? 'Gán máy vào cụm' : 'Gỡ máy khỏi cụm', `${ids.length} máy${target ? ' → ' + target : ''}`)
+    await broadcastKhachChanged()
     return NextResponse.json({ success: true, count: ids.length })
   } catch (error: any) {
     console.error('Error assigning khach cum:', error)
@@ -157,6 +161,7 @@ export async function DELETE(request: Request) {
     if (error) throw error
 
     await logAudit(session, 'Xóa khách hàng cụm', ma)
+    await broadcastKhachChanged()
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error deleting khach cum:', error)

@@ -3,6 +3,7 @@ import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireTab } from '@/lib/session'
 import { sendTelegramMessage } from '@/lib/telegram'
 import { getCauHinh } from '@/lib/config'
+import { broadcastJobsChanged } from '@/lib/realtime'
 
 // Danh sách phiếu cần kiểm soát: có số phiếu + đã Hoàn thành (cả đã/chưa nộp)
 // ?count=1 -> chỉ trả về số phiếu CHƯA nộp (badge nhắc nhở, không tải cả danh sách)
@@ -65,6 +66,7 @@ export async function PUT(request: Request) {
         .eq('da_nop_phieu', !nop)
         .select('id')
       if (error) throw error
+      await broadcastJobsChanged()
       return NextResponse.json({ success: true, count: count ?? (data?.length ?? 0) })
     }
 
@@ -79,6 +81,7 @@ export async function PUT(request: Request) {
       .single()
 
     if (error) throw error
+    await broadcastJobsChanged()
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error updating phieu cung:', error)

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireTab } from '@/lib/session'
+import { broadcastKhoChanged } from '@/lib/realtime'
 
 export async function POST(request: Request) {
   try {
@@ -33,6 +34,7 @@ export async function POST(request: Request) {
       throw error
     }
 
+    await broadcastKhoChanged()
     return NextResponse.json({ success: true, count: data.length, data })
   } catch (error: any) {
     console.error('Lỗi bulk import kho hàng:', error)

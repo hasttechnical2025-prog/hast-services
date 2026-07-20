@@ -3,6 +3,7 @@ import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { getCoordinatesFromAddress, getDistanceFromOffice } from '@/lib/routing'
 import { requireRole } from '@/lib/session'
 import { getCauHinh } from '@/lib/config'
+import { broadcastKhachChanged } from '@/lib/realtime'
 
 // Lấy danh sách khách hàng
 export async function GET() {
@@ -102,6 +103,7 @@ export async function POST(request: Request) {
       throw error
     }
 
+    await broadcastKhachChanged()
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error creating customer:', error)
@@ -157,6 +159,7 @@ export async function PUT(request: Request) {
       throw error
     }
 
+    await broadcastKhachChanged()
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error updating customer:', error)
@@ -186,6 +189,7 @@ export async function DELETE(request: Request) {
       : await query.eq('id', id)
 
     if (error) throw error
+    await broadcastKhachChanged()
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error deleting customer:', error)

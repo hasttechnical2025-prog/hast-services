@@ -19,6 +19,10 @@ import { LOAI_HD_BAO_TRI, canBaoTriThang, dangTamDung, coBaoTriThang, moTaLichBa
 // Kênh realtime (đồng bộ với lib/realtime.ts + app KTV): server phát broadcast sau mỗi thay đổi việc
 const JOBS_TOPIC = "soct_jobs"
 const JOBS_EVENT = "changed"
+// Kho hàng / Khách hàng đổi (thêm-sửa-xóa) -> office khác tự cập nhật, không cần F5
+const KHO_TOPIC = "soct_kho"
+const KHACH_TOPIC = "soct_khach"
+const DATA_EVENT = "changed"
 
 // Types
 type VatTuChiTiet = {
@@ -515,7 +519,10 @@ export default function AdminDashboard() {
       .channel(JOBS_TOPIC)
       .on('broadcast', { event: JOBS_EVENT }, () => { fetchDataRef.current(); fetchPhieuCountRef.current() })
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
+    // Kho / Khách đổi từ máy khác -> tải lại dữ liệu office (danh sách kho, khách...)
+    const khoCh = supabase.channel(KHO_TOPIC).on('broadcast', { event: DATA_EVENT }, () => fetchDataRef.current()).subscribe()
+    const khachCh = supabase.channel(KHACH_TOPIC).on('broadcast', { event: DATA_EVENT }, () => fetchDataRef.current()).subscribe()
+    return () => { supabase.removeChannel(channel); supabase.removeChannel(khoCh); supabase.removeChannel(khachCh) }
   }, [currentAdmin])
 
   // Tìm kiếm theo mã máy để điền tự động
@@ -5115,6 +5122,13 @@ function PhieuCungTool({ nguongNgay, currentUserRole, showNotification }: { nguo
     catch { showNotification('error', 'Lỗi kết nối!') } finally { setLoading(false) }
   }
   useEffect(() => { fetchList() }, [])
+  // Realtime: phiếu đổi trạng thái nộp (từ máy khác) -> danh sách tự cập nhật
+  const fetchListRef = useRef(fetchList)
+  fetchListRef.current = fetchList
+  useEffect(() => {
+    const ch = supabase.channel(JOBS_TOPIC).on('broadcast', { event: JOBS_EVENT }, () => fetchListRef.current()).subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [])
 
   const fmt = (s: string) => { if (!s) return ''; const d = new Date(s); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` }
   const daysOf = (s: string) => Math.floor((Date.now() - new Date(s).getTime()) / 86400000)

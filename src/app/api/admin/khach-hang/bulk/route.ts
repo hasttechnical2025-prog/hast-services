@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { getCoordinatesFromAddress, getDistanceFromOffice } from '@/lib/routing'
 import { getCauHinh } from '@/lib/config'
+import { broadcastKhachChanged } from '@/lib/realtime'
 
 // Cho phép chạy lâu (geocode tuần tự nhiều dòng) trên Vercel
 export const maxDuration = 300
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
       throw error
     }
 
+    await broadcastKhachChanged()
     return NextResponse.json({ success: true, count: data.length, geocoded, data })
   } catch (error: any) {
     console.error('Lỗi bulk import:', error)
