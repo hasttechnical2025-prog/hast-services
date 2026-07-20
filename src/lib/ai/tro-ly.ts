@@ -17,7 +17,8 @@ const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, ''
 const fmtVnd = (x: any) => (Math.round(Number(x) || 0)).toLocaleString('vi-VN')
 
 // Từ dừng (bỏ khi tách từ khóa tìm hàng) — để "mực máy c227i" -> [muc, c227i].
-const KHO_STOP = new Set(['may', 'cua', 'cai', 'chiec', 'hop', 'con', 'bao', 'nhieu', 'la', 'ma', 'nao', 'cho', 'co', 'nhu', 'the', 'gi', 'o', 'va', 'bang', 'muon', 'hoi', 'cua', 'thi'])
+// Lưu ý: KHÔNG cho "muc" vào đây vì trùng chuẩn hóa với "mực" (toner).
+const KHO_STOP = new Set(['may', 'cua', 'cai', 'chiec', 'hop', 'con', 'bao', 'nhieu', 'la', 'ma', 'nao', 'cho', 'co', 'nhu', 'the', 'gi', 'o', 'va', 'bang', 'muon', 'hoi', 'thi', 'hang'])
 
 // Tìm mặt hàng: theo MÃ chính xác trước; không có thì tách từ khóa và khớp TẤT CẢ
 // trên (mã + tên + model). => "mực c227i", "trống c301i", "cụm sấy 6120" đều ra.
@@ -221,13 +222,13 @@ async function thueCpc(terms: string[], loai: string): Promise<ToolResult> {
   return { summary, rows, columns }
 }
 
-// ===== Tool B5: Thống kê / liệt kê công việc theo thời gian + loại việc + khách =====
-async function congViec(ngay: string, thang: string, loaiViec: string, terms: string[]): Promise<ToolResult> {
+// ===== Tool B5: Thống kê / liệt kê công việc theo thời gian + loại việc + trạng thái + khách =====
+async function congViec(ngay: string, thang: string, loaiViec: string, tinhTrang: string, terms: string[]): Promise<ToolResult> {
   const columns = [
     { key: 'ngay', label: 'Ngày' }, { key: 'khach', label: 'Khách hàng' }, { key: 'ma_may', label: 'Mã máy' },
-    { key: 'loai_cong_viec', label: 'Loại việc' }, { key: 'ktv', label: 'KTV' }, { key: 'report', label: 'Số phiếu' },
+    { key: 'loai_cong_viec', label: 'Loại việc' }, { key: 'ket_qua', label: 'Trạng thái' }, { key: 'ktv', label: 'KTV' }, { key: 'report', label: 'Số phiếu' },
   ]
-  const sel = 'id, ngay, loai_cong_viec, report, ma_may, soct_khach_hang ( ten_khach_hang, dia_chi ), soct_users!ktv_id ( full_name )'
+  const sel = 'id, ngay, loai_cong_viec, ket_qua, report, ma_may, soct_khach_hang ( ten_khach_hang, dia_chi ), soct_users!ktv_id ( full_name )'
   const isDay = /^\d{4}-\d{2}-\d{2}$/.test(ngay || '')
   const th = /^\d{4}-\d{2}$/.test(thang || '') ? thang : new Date().toISOString().slice(0, 7)
   const [y, m] = th.split('-').map(Number)
@@ -238,6 +239,9 @@ async function congViec(ngay: string, thang: string, loaiViec: string, terms: st
     if (isDay) q = q.eq('ngay', ngay)
     else q = q.gte('ngay', `${th}-01`).lt('ngay', next)
     if (loaiViec) q = q.ilike('loai_cong_viec', `%${loaiViec}%`)
+    // chưa xong = chưa Hoàn thành; đã xong = Hoàn thành
+    if (tinhTrang === 'chua_xong') q = q.neq('ket_qua', 'Hoàn thành')
+    else if (tinhTrang === 'da_xong') q = q.eq('ket_qua', 'Hoàn thành')
     return q.order('ngay', { ascending: false }).range(from, to)
   })
 
@@ -245,12 +249,13 @@ async function congViec(ngay: string, thang: string, loaiViec: string, terms: st
   if (terms.length) list = list.filter(t => hitAny(norm(t.soct_khach_hang?.ten_khach_hang) + ' ' + norm(t.soct_khach_hang?.dia_chi) + ' ' + norm(t.ma_may), terms))
   const rows = list.map(t => ({
     ngay: t.ngay, khach: t.soct_khach_hang?.ten_khach_hang || '—', ma_may: t.ma_may || '—',
-    loai_cong_viec: t.loai_cong_viec || '—', ktv: t.soct_users?.full_name || '—', report: t.report || '—',
+    loai_cong_viec: t.loai_cong_viec || '—', ket_qua: t.ket_qua || '—', ktv: t.soct_users?.full_name || '—', report: t.report || '—',
   }))
   const kyLabel = isDay ? `ngày ${ngay}` : `tháng ${th}`
   const loaiLabel = loaiViec ? ` loại "${loaiViec}"` : ''
-  const summary = rows.length === 0 ? `Không có phiếu công việc nào${loaiLabel} trong ${kyLabel}.`
-    : `${kyLabel}${loaiLabel}: có ${rows.length} phiếu — ${rows.slice(0, 40).map(r => `${r.report} ${r.khach} (${r.loai_cong_viec}${r.ma_may !== '—' ? ', máy ' + r.ma_may : ''})`).join('; ')}.`
+  const ttLabel = tinhTrang === 'chua_xong' ? ' (chưa xong)' : tinhTrang === 'da_xong' ? ' (đã xong)' : ''
+  const summary = rows.length === 0 ? `Không có phiếu công việc nào${loaiLabel}${ttLabel} trong ${kyLabel}.`
+    : `${kyLabel}${loaiLabel}${ttLabel}: có ${rows.length} phiếu — ${rows.slice(0, 40).map(r => `${r.report} ${r.khach} (${r.loai_cong_viec}, ${r.ket_qua}${r.ma_may !== '—' ? ', máy ' + r.ma_may : ''})`).join('; ')}.`
   return { summary, rows, columns }
 }
 
@@ -269,6 +274,29 @@ async function khachHang(terms: string[]): Promise<ToolResult> {
   return { summary, rows, columns }
 }
 
+// ===== Tool B7: Lịch sử thay vật tư của một MÃ MÁY =====
+async function vatTuMay(maMay: string): Promise<ToolResult> {
+  const columns = [{ key: 'ngay', label: 'Ngày' }, { key: 'vat_tu', label: 'Vật tư đã thay' }, { key: 'loai_cong_viec', label: 'Loại việc' }, { key: 'report', label: 'Số phiếu' }]
+  const q = (maMay || '').trim()
+  if (!q) return { summary: 'Thiếu mã máy.', rows: [], columns }
+  const sel = 'ngay, loai_cong_viec, report, ma_may, soct_chi_tiet_vat_tu ( so_luong, ma_hang, soct_kho_hang ( ten_hang ) )'
+  let { data } = await supabaseAdmin.from('soct_cong_viec').select(sel).eq('ma_may', q).order('ngay', { ascending: false })
+  if (!data || data.length === 0) {
+    const r = await supabaseAdmin.from('soct_cong_viec').select(sel).ilike('ma_may', `%${q}%`).order('ngay', { ascending: false }).limit(100)
+    data = r.data || []
+  }
+  const rows = (data || [])
+    .filter((t: any) => (t.soct_chi_tiet_vat_tu || []).length > 0)
+    .map((t: any) => ({
+      ngay: t.ngay, ma_may: t.ma_may || '—',
+      vat_tu: (t.soct_chi_tiet_vat_tu || []).map((v: any) => `${v.soct_kho_hang?.ten_hang || v.ma_hang}${(Number(v.so_luong) || 0) > 1 ? ' x' + v.so_luong : ''}`).join(', '),
+      loai_cong_viec: t.loai_cong_viec || '—', report: t.report || '—',
+    }))
+  const summary = rows.length === 0 ? `Không thấy lần thay vật tư nào cho máy "${q}".`
+    : `Máy ${q} đã thay vật tư ${rows.length} lần: ${rows.map((r: any) => `${r.ngay}: ${r.vat_tu}`).join('; ')}.`
+  return { summary, rows, columns }
+}
+
 // ===== Orchestration =====
 const CLASSIFY_SYSTEM = `Bạn là bộ phân loại câu hỏi cho phần mềm quản lý dịch vụ máy photocopy (tiếng Việt).
 Chọn 1 công cụ và rút tham số:
@@ -279,22 +307,24 @@ Chọn 1 công cụ và rút tham số:
 - giamDinh: hỏi GIÁM ĐỊNH chưa thay / còn giám định nào của một KHÁCH -> điền khach.
 - baoTri: hỏi về BẢO TRÌ ở một KHÁCH/NƠI (có máy nào bảo trì, máy nào chưa bảo trì, máy thuộc diện bảo trì) -> điền khach (và/hoặc dia_chi nếu là nơi chốn).
 - thueCpc: hỏi MÁY THUÊ / MÁY CPC ở đâu / của ai -> điền dia_chi (nơi chốn) hoặc khach, và loai nếu rõ.
-- congViec: THỐNG KÊ / LIỆT KÊ phiếu công việc theo THỜI GIAN và/hoặc LOẠI VIỆC và/hoặc khách (VD "ngày 16/7 có bao nhiêu phiếu sửa chữa", "khách nào thay vật tư tháng 7", "hôm nay lắp mấy máy") -> điền ngay (YYYY-MM-DD) nếu hỏi 1 ngày, hoặc thang (YYYY-MM) nếu hỏi tháng; loai_viec = loại công việc (Sửa máy, Thay vật tư, Lắp máy, Bảo trì, Giao mực, Bảo hành...) nếu có; khach nếu giới hạn 1 khách.
-- khachHang: tra THÔNG TIN khách hàng/điểm máy — địa chỉ ở đâu, model máy gì, mã máy, loại HĐ (VD "công ty X địa chỉ ở đâu", "máy của Y model gì") -> điền khach.
+- congViec: THỐNG KÊ / LIỆT KÊ phiếu công việc theo THỜI GIAN và/hoặc LOẠI VIỆC và/hoặc TRẠNG THÁI và/hoặc khách (VD "ngày 16/7 có bao nhiêu phiếu sửa chữa", "hôm nay có phiếu nào chưa xong", "hôm nay lắp mấy máy") -> điền ngay (YYYY-MM-DD) nếu hỏi 1 ngày, hoặc thang (YYYY-MM) nếu hỏi tháng; loai_viec = loại công việc (Sửa máy, Thay vật tư, Lắp máy, Bảo trì, Giao mực, Bảo hành...) nếu có; tinh_trang = "chua_xong" nếu hỏi phiếu CHƯA XONG/chưa hoàn thành/còn dở, "da_xong" nếu hỏi ĐÃ XONG/hoàn thành, để rỗng nếu không nói; khach nếu giới hạn 1 khách.
+- vatTuMay: hỏi LỊCH SỬ THAY VẬT TƯ/linh kiện của một MÃ MÁY cụ thể (VD "máy 36114 đã thay vật tư gì", "máy X thay linh kiện ngày nào") -> điền ma_may = mã máy đó.
+- khachHang: tra THÔNG TIN khách hàng/điểm máy — địa chỉ ở đâu, model máy gì, KHÁCH DÙNG MÁY GÌ, loại HĐ (VD "công ty X địa chỉ ở đâu", "khách Y dùng máy gì") -> điền khach.
 - none: không thuộc các loại trên.
-ma_hang có thể là MÃ (chuỗi chữ-số như 1T02NK0AX0, S6704G) HOẶC MÔ TẢ vật tư kèm model máy (như "mực c227i", "trống c301i"). "khach" là mảnh tên khách/phòng/đơn vị người dùng nói.
+ma_hang có thể là MÃ (chuỗi chữ-số như 1T02NK0AX0, S6704G) HOẶC MÔ TẢ vật tư kèm model máy (như "mực c227i", "trống c301i"). "khach" là mảnh tên khách/phòng/đơn vị người dùng nói. "ma_may" là mã máy (dãy số như 36114).
+QUY ĐỔI NGÀY theo dòng "Hôm nay là YYYY-MM-DD" ở đầu: "hôm nay"/"nay" -> ngay = hôm nay; "hôm qua" -> hôm trước; "16/7" hoặc "ngày 16/7" -> ngay theo NĂM của hôm nay; "tháng này" -> thang của hôm nay; "tháng 6"/"đầu tháng 6" -> thang=YYYY-06 (năm hôm nay). TUYỆT ĐỐI KHÔNG bịa năm khác.
 Quan trọng: nếu "khach" có VIẾT TẮT hoặc tên rút gọn, điền dạng đầy đủ vào "khach_mo_rong" (VD "tccb" -> "tổ chức cán bộ", "pv06" -> "cục hồ sơ nghiệp vụ"). Không rút được thì để rỗng.
 Chỉ trả JSON đúng schema.`
 
 const CLASSIFY_SCHEMA = {
   type: 'OBJECT',
   properties: {
-    tool: { type: 'STRING', enum: ['tonKho', 'datHang', 'donHang', 'congNo', 'giamDinh', 'baoTri', 'thueCpc', 'congViec', 'khachHang', 'none'] },
+    tool: { type: 'STRING', enum: ['tonKho', 'datHang', 'donHang', 'congNo', 'giamDinh', 'baoTri', 'thueCpc', 'congViec', 'vatTuMay', 'khachHang', 'none'] },
     ma_hang: { type: 'STRING' }, khach: { type: 'STRING' }, khach_mo_rong: { type: 'STRING' },
     dia_chi: { type: 'STRING' }, loai: { type: 'STRING' }, thang: { type: 'STRING' },
-    ngay: { type: 'STRING' }, loai_viec: { type: 'STRING' },
+    ngay: { type: 'STRING' }, loai_viec: { type: 'STRING' }, tinh_trang: { type: 'STRING' }, ma_may: { type: 'STRING' },
   },
-  required: ['tool', 'ma_hang', 'khach', 'khach_mo_rong', 'dia_chi', 'loai', 'thang', 'ngay', 'loai_viec'],
+  required: ['tool', 'ma_hang', 'khach', 'khach_mo_rong', 'dia_chi', 'loai', 'thang', 'ngay', 'loai_viec', 'tinh_trang', 'ma_may'],
 }
 
 const PHRASE_SYSTEM = `Bạn là trợ lý nội bộ công ty dịch vụ máy photocopy. Trả lời NGẮN GỌN bằng tiếng Việt,
@@ -306,18 +336,20 @@ QUY TẮC BẮT BUỘC:
 - Dữ liệu đã được lọc đúng theo câu hỏi; hãy tin và trình bày, không tự phủ nhận.
 Tiền hiển thị dạng phân tách nghìn kèm "đ"; số lượng/tồn kho để nguyên.`
 
-type Cls = { tool: string; ma_hang: string; khach: string; khach_mo_rong: string; dia_chi: string; loai: string; thang: string; ngay: string; loai_viec: string }
+type Cls = { tool: string; ma_hang: string; khach: string; khach_mo_rong: string; dia_chi: string; loai: string; thang: string; ngay: string; loai_viec: string; tinh_trang: string; ma_may: string }
 
 const TOOL_LABEL: Record<string, string> = {
-  tonKho: 'Tồn kho', datHang: 'Đặt hàng', donHang: 'Đơn đặt hàng', congNo: 'Công nợ', giamDinh: 'Giám định', baoTri: 'Bảo trì', thueCpc: 'Thuê / CPC', congViec: 'Công việc', khachHang: 'Khách hàng',
+  tonKho: 'Tồn kho', datHang: 'Đặt hàng', donHang: 'Đơn đặt hàng', congNo: 'Công nợ', giamDinh: 'Giám định', baoTri: 'Bảo trì', thueCpc: 'Thuê / CPC', congViec: 'Công việc', vatTuMay: 'Vật tư máy', khachHang: 'Khách hàng',
 }
 
 // allow(tool): trợ lý chỉ trả lời module mà người dùng có quyền xem (admin luôn true).
 export async function runAssistant(question: string, opts?: { allow?: (tool: string) => boolean }): Promise<{ answer: string; rows: any[]; columns: { key: string; label: string }[]; tool: string; params: any }> {
-  const c = await geminiJSON<Cls>(CLASSIFY_SYSTEM, question, CLASSIFY_SCHEMA)
+  // Tiêm NGÀY HÔM NAY (giờ VN) để AI quy đổi "hôm nay/16-7/đầu tháng 6..." đúng, khỏi đoán bừa.
+  const today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
+  const c = await geminiJSON<Cls>(CLASSIFY_SYSTEM, `Hôm nay là ${today}.\nCâu hỏi: ${question}`, CLASSIFY_SCHEMA)
   // Tham số AI rút ra (bỏ trường rỗng) — để soi trong Nhật ký khi trả lời sai.
   const params: any = {}
-  for (const k of ['ma_hang', 'khach', 'khach_mo_rong', 'dia_chi', 'loai', 'thang', 'ngay', 'loai_viec'] as const) if (c[k]) params[k] = c[k]
+  for (const k of ['ma_hang', 'khach', 'khach_mo_rong', 'dia_chi', 'loai', 'thang', 'ngay', 'loai_viec', 'tinh_trang', 'ma_may'] as const) if (c[k]) params[k] = c[k]
 
   if (c.tool !== 'none' && opts?.allow && !opts.allow(c.tool)) {
     return { answer: `Bạn không có quyền xem dữ liệu ${TOOL_LABEL[c.tool] || 'này'} nên trợ lý không thể trả lời câu hỏi này.`, rows: [], columns: [], tool: c.tool, params }
@@ -327,7 +359,8 @@ export async function runAssistant(question: string, opts?: { allow?: (tool: str
   if (c.tool === 'tonKho') result = await tonKho(c.ma_hang)
   else if (c.tool === 'datHang') result = await datHang(c.ma_hang)
   else if (c.tool === 'donHang') result = await donHang(c.thang)
-  else if (c.tool === 'congViec') { const terms = await buildTerms(c.khach, c.khach_mo_rong, ''); result = await congViec(c.ngay, c.thang, c.loai_viec, terms) }
+  else if (c.tool === 'congViec') { const terms = await buildTerms(c.khach, c.khach_mo_rong, ''); result = await congViec(c.ngay, c.thang, c.loai_viec, c.tinh_trang, terms) }
+  else if (c.tool === 'vatTuMay') result = await vatTuMay(c.ma_may)
   else if (c.tool === 'khachHang') { const terms = await buildTerms(c.khach, c.khach_mo_rong, c.dia_chi); result = await khachHang(terms) }
   else if (c.tool === 'congNo' || c.tool === 'giamDinh' || c.tool === 'baoTri' || c.tool === 'thueCpc') {
     const terms = await buildTerms(c.khach, c.khach_mo_rong, c.dia_chi)
