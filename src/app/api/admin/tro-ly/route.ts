@@ -14,6 +14,7 @@ const TOOL_TAB: Record<string, [string, string]> = {
   tonKho: ['kho_hang', 'ton_kho'], datHang: ['kho_hang', 'dat_hang'], donHang: ['kho_hang', 'dat_hang'],
   congNo: ['tai_chinh', 'cong_no'], thueCpc: ['tai_chinh', 'thue_cpc'],
   giamDinh: ['theo_doi_may', 'giam_dinh'], baoTri: ['theo_doi_may', 'bao_tri'],
+  congViec: ['cong_viec', 'cong_viec'], khachHang: ['quan_ly', 'khach_hang'],
 }
 
 // Trợ lý AI nội bộ. Quyền MỞ theo tab 'tro_ly' (admin bật/tắt cho từng role);
