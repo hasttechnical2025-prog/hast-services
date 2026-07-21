@@ -6004,7 +6004,8 @@ function AliasTool({ showNotification }: { showNotification: (type: 'success' | 
 // Nhật ký câu hỏi Trợ lý AI — admin xem user hỏi gì + lọc câu "trượt" để bổ sung.
 const TROLY_TOOL_LABEL: Record<string, string> = {
   tonKho: 'Tồn kho', datHang: 'Đặt hàng', donHang: 'Đơn đặt hàng', congNo: 'Công nợ', giamDinh: 'Giám định',
-  baoTri: 'Bảo trì', thueCpc: 'Thuê/CPC', counter: 'Lấy counter', congViec: 'Công việc', vatTuMay: 'Vật tư máy', khachHang: 'Khách hàng', none: 'Không rõ',
+  baoTri: 'Bảo trì', thueCpc: 'Thuê/CPC', counter: 'Lấy counter', counterMay: 'Counter máy', giaBan: 'Giá bán',
+  congViec: 'Công việc', vatTuMay: 'Vật tư máy', khachHang: 'Khách hàng', none: 'Không rõ',
 }
 function TroLyLogTool({ showNotification }: { showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [rows, setRows] = useState<any[]>([])
