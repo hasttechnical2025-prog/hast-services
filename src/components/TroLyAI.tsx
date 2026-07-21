@@ -34,8 +34,17 @@ export default function TroLyAI() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, [msgs, loading])
+
+  // Bấm ra ngoài cửa sổ chat -> thu nhỏ về icon
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => { if (panelRef.current && !panelRef.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
 
   const send = async (q?: string) => {
     const question = (q ?? input).trim()
@@ -67,7 +76,7 @@ export default function TroLyAI() {
 
       {/* Panel chat */}
       {open && (
-        <div className="fixed bottom-5 right-5 z-[90] w-[calc(100vw-2.5rem)] sm:w-[420px] h-[70vh] max-h-[640px] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
+        <div ref={panelRef} className="fixed bottom-5 right-5 z-[90] w-[calc(100vw-2.5rem)] sm:w-[420px] h-[70vh] max-h-[640px] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
           {/* Header */}
           <div className="px-4 py-3 bg-blue-600 text-white flex items-center gap-2 shrink-0">
             <Sparkles className="w-5 h-5" />

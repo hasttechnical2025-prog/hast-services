@@ -415,7 +415,7 @@ export async function runAssistant(question: string, opts?: { allow?: (tool: str
     else if (c.tool === 'baoTri') result = await baoTri(terms)
     else result = await thueCpc(terms, c.loai)
   } else return {
-    answer: 'Mình chưa hiểu câu hỏi thuộc loại nào. Hiện trợ lý trả lời về: tồn kho / đặt hàng (theo mã hàng), công nợ / giám định / bảo trì (theo khách), và máy thuê-CPC (theo nơi/khách).',
+    answer: 'Tôi chưa hiểu câu hỏi của bạn / hoặc bạn chưa có quyền khai thác dữ liệu liên quan đến câu hỏi.',
     rows: [], columns: [], tool: 'none', params,
   }
 
