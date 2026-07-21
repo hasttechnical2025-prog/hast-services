@@ -333,17 +333,21 @@ async function congViec(ngay: string, thang: string, loaiViec: string, tinhTrang
 }
 
 // ===== Tool B6: Tra thông tin khách hàng / điểm máy theo tên =====
-async function khachHang(terms: string[][]): Promise<ToolResult> {
+async function khachHang(terms: string[][], loai: string): Promise<ToolResult> {
   const columns = [{ key: 'khach', label: 'Khách hàng' }, { key: 'dia_chi', label: 'Địa chỉ' }, { key: 'ma_may', label: 'Mã máy' }, { key: 'model', label: 'Model' }, { key: 'loai_hd', label: 'Loại HĐ' }]
   if (terms.length === 0) return { summary: 'Chưa xác định được khách cần tra.', rows: [], columns }
   const customers = await selectAll((from, to) => supabaseAdmin
     .from('soct_khach_hang').select('ten_khach_hang, dia_chi, ma_may, model, hang, loai_hd').range(from, to))
+  const qLoai = norm(loai || '')
   const rows = (customers as any[])
     .filter(c => hitAny(norm(c.ten_khach_hang) + ' ' + norm(c.dia_chi), terms))
+    // Lọc thêm theo LOẠI HĐ nếu câu hỏi có nêu ("máy có HĐBT của khách X")
+    .filter(c => !qLoai || norm(c.loai_hd).includes(qLoai))
     .map(c => ({ khach: c.ten_khach_hang || '—', dia_chi: c.dia_chi || '—', ma_may: c.ma_may || '—', model: c.model || '—', loai_hd: c.loai_hd || '—' }))
     .slice(0, 50)
-  const summary = rows.length === 0 ? 'Không tìm thấy khách hàng nào khớp.'
-    : `Có ${rows.length} kết quả: ${rows.map(r => `${r.khach} — ${r.dia_chi}${r.ma_may !== '—' ? ` (máy ${r.ma_may}, ${r.model})` : ''}`).join('; ')}.`
+  const loaiLbl = qLoai ? ` loại HĐ "${loai}"` : ''
+  const summary = rows.length === 0 ? `Không tìm thấy máy/khách hàng nào khớp${loaiLbl}.`
+    : `Có ${rows.length} kết quả${loaiLbl}: ${rows.map(r => `${r.khach} — ${r.dia_chi}${r.ma_may !== '—' ? ` (máy ${r.ma_may}, ${r.model}, ${r.loai_hd})` : ''}`).join('; ')}.`
   return { summary, rows, columns }
 }
 
@@ -403,17 +407,31 @@ async function giaBan(maHang: string, terms: string[][]): Promise<ToolResult> {
 }
 
 // ===== Tool B9: Counter ĐÃ GHI của một máy (bảo trì + phiếu công việc + thuê/CPC) =====
-async function counterMay(maMay: string, terms: string[][]): Promise<ToolResult> {
+async function counterMay(maMay: string, thang: string, terms: string[][]): Promise<ToolResult> {
   const columns = [{ key: 'ngay', label: 'Thời điểm' }, { key: 'ma_may', label: 'Mã máy' }, { key: 'khach', label: 'Khách hàng' }, { key: 'counter', label: 'Counter' }, { key: 'nguon', label: 'Nguồn' }]
   const qMa = norm(maMay || '')
   if (!qMa && terms.length === 0) return { summary: 'Chưa rõ máy cần tra counter.', rows: [], columns }
 
   const customers = await selectAll((from, to) => supabaseAdmin
     .from('soct_khach_hang').select('id, ma_may, ten_khach_hang').range(from, to))
-  let mays = (customers as any[]).filter(c => c.ma_may)
-  if (qMa) mays = mays.filter(c => norm(c.ma_may).includes(qMa))
-  if (terms.length) mays = mays.filter(c => hitAny(norm(c.ten_khach_hang) + ' ' + norm(c.ma_may), terms))
-  if (mays.length === 0) return { summary: 'Không tìm thấy máy nào khớp.', rows: [], columns }
+  const all = (customers as any[]).filter(c => c.ma_may)
+  const byMa = qMa ? all.filter(c => norm(c.ma_may).includes(qMa)) : all
+  const byKh = terms.length ? all.filter(c => hitAny(norm(c.ten_khach_hang) + ' ' + norm(c.ma_may), terms)) : all
+  const khSet = new Set(byKh.map(c => c.id))
+  const mays = byMa.filter(c => khSet.has(c.id))
+
+  // Không có máy nào thỏa CẢ HAI -> nói rõ lệch ở đâu (đỡ tưởng trợ lý hỏng)
+  if (mays.length === 0) {
+    if (qMa && terms.length && byMa.length > 0) {
+      const s = byMa.slice(0, 5).map(c => `${c.ma_may} — ${c.ten_khach_hang}`).join('; ')
+      return { summary: `Không có máy nào vừa khớp mã "${maMay}" vừa thuộc khách được hỏi. Mã "${maMay}" hiện khớp: ${s}.`, rows: [], columns }
+    }
+    if (terms.length && byKh.length > 0) {
+      const s = byKh.slice(0, 15).map(c => c.ma_may).join(', ')
+      return { summary: `Khách được hỏi có các máy: ${s}${qMa ? ` — nhưng không máy nào chứa "${maMay}"` : ''}.`, rows: [], columns }
+    }
+    return { summary: 'Không tìm thấy máy nào khớp.', rows: [], columns }
+  }
 
   const codes = mays.map(c => c.ma_may)
   const ids = mays.map(c => c.id)
@@ -436,10 +454,23 @@ async function counterMay(maMay: string, terms: string[][]): Promise<ToolResult>
   }
   rows.sort((a, b) => String(b.ngay).localeCompare(String(a.ngay)))
 
-  const top = rows.slice(0, 30)
+  // Hỏi 1 tháng cụ thể ("counter tháng 7 là bao nhiêu") -> lọc đúng tháng đó
+  const th = /^\d{4}-\d{2}$/.test(thang || '') ? thang : ''
+  const inThang = th ? rows.filter(r => String(r.ngay).startsWith(th)) : rows
+  const thLbl = th ? ` tháng ${th}` : ''
+
+  if (th && inThang.length === 0) {
+    const gan = rows.slice(0, 5).map(r => `${r.ngay}: ${r.counter} [${r.nguon}]`).join('; ')
+    return {
+      summary: `Máy ${codes.slice(0, 3).join(', ')} chưa ghi counter${thLbl}.${gan ? ` Các lần ghi gần nhất: ${gan}.` : ' Máy này chưa ghi counter lần nào.'}`,
+      rows: [], columns,
+    }
+  }
+
+  const top = inThang.slice(0, 30)
   const summary = top.length === 0
     ? `Máy khớp (${codes.slice(0, 5).join(', ')}) nhưng chưa ghi counter lần nào.`
-    : `Counter gần nhất: ${top[0].counter} (${top[0].ngay}, máy ${top[0].ma_may}, nguồn ${top[0].nguon}). Lịch sử: ${top.map(r => `${r.ngay} máy ${r.ma_may}: ${r.counter} [${r.nguon}]`).join('; ')}.`
+    : `Counter gần nhất${thLbl}: ${top[0].counter} (${top[0].ngay}, máy ${top[0].ma_may}, nguồn ${top[0].nguon}). Lịch sử: ${top.map(r => `${r.ngay} máy ${r.ma_may}: ${r.counter} [${r.nguon}]`).join('; ')}.`
   return { summary, rows: top, columns }
 }
 
@@ -454,11 +485,11 @@ Chọn 1 công cụ và rút tham số:
 - baoTri: hỏi về BẢO TRÌ ở một KHÁCH/NƠI (có máy nào bảo trì, máy nào chưa bảo trì, máy thuộc diện bảo trì) -> điền khach (và/hoặc dia_chi nếu là nơi chốn).
 - thueCpc: hỏi DANH SÁCH MÁY THUÊ / MÁY CPC ở đâu / của ai (KHÔNG hỏi về counter) -> điền dia_chi (nơi chốn) hoặc khach, và loai nếu rõ.
 - counter: hỏi VIỆC LẤY COUNTER máy thuê-CPC — máy nào CẦN LẤY / SẮP đến hạn / QUÁ HẠN, "khách X đã lấy counter chưa" -> tinh_trang="qua_han" nếu chỉ hỏi quá hạn; điền khach/ma_may nếu hỏi cụ thể. QUAN TRỌNG: nếu hỏi theo NGÀY CHỐT SỐ ("máy nào cần lấy counter ngày 25") -> điền ngay = ngày đó (YYYY-MM-DD, tháng/năm của hôm nay).
-- counterMay: hỏi CHỈ SỐ COUNTER ĐÃ GHI của một máy là bao nhiêu (VD "counter máy 958 ở vp tw đảng", "máy X counter bao nhiêu", "chỉ số máy Y") -> điền ma_may và khach nếu có. (Khác counter: bên kia hỏi CÓ CẦN LẤY không, bên này hỏi SỐ LÀ BAO NHIÊU.)
+- counterMay: hỏi CHỈ SỐ COUNTER ĐÃ GHI của một máy là bao nhiêu (VD "counter máy 958 ở vp tw đảng", "máy X counter bao nhiêu", "máy Y có counter tháng 7 là bao nhiêu") -> điền ma_may và khach nếu có; nếu hỏi 1 THÁNG cụ thể thì điền thang (YYYY-MM). (Khác counter: bên kia hỏi CÓ CẦN LẤY không, bên này hỏi SỐ LÀ BAO NHIÊU.)
 - giaBan: hỏi GIÁ BÁN / bán bao nhiêu tiền của một VẬT TƯ (có thể kèm khách) (VD "mực im2500 phòng tccb bán giá bao nhiêu", "giá bán trống c301i", "mực máy 2500 bán bao nhiêu") -> điền ma_hang = mô tả vật tư, khach nếu có nêu khách.
 - congViec: THỐNG KÊ / LIỆT KÊ phiếu công việc theo THỜI GIAN và/hoặc LOẠI VIỆC và/hoặc TRẠNG THÁI và/hoặc khách (VD "ngày 16/7 có bao nhiêu phiếu sửa chữa", "hôm nay có phiếu nào chưa xong", "hôm nay lắp mấy máy") -> điền ngay (YYYY-MM-DD) nếu hỏi 1 ngày, hoặc thang (YYYY-MM) nếu hỏi tháng; loai_viec = loại công việc (Sửa máy, Thay vật tư, Lắp máy, Bảo trì, Giao mực, Bảo hành...) nếu có; tinh_trang = "chua_xong" nếu hỏi phiếu CHƯA XONG/chưa hoàn thành/còn dở, "da_xong" nếu hỏi ĐÃ XONG/hoàn thành, để rỗng nếu không nói; khach nếu giới hạn 1 khách.
 - vatTuMay: hỏi LỊCH SỬ THAY VẬT TƯ/linh kiện của một MÃ MÁY cụ thể (VD "máy 36114 đã thay vật tư gì", "máy X thay linh kiện ngày nào") -> điền ma_may = mã máy đó.
-- khachHang: tra THÔNG TIN khách hàng/điểm máy — địa chỉ ở đâu, model máy gì, KHÁCH DÙNG MÁY GÌ, loại HĐ (VD "công ty X địa chỉ ở đâu", "khách Y dùng máy gì") -> điền khach.
+- khachHang: tra THÔNG TIN khách hàng/điểm máy — địa chỉ ở đâu, model máy gì, KHÁCH DÙNG MÁY GÌ, LIỆT KÊ MÁY của một khách (VD "công ty X địa chỉ ở đâu", "khách Y dùng máy gì", "liệt kê các máy có hdbt của vp tw đảng") -> điền khach; nếu câu có nêu LOẠI HĐ (HĐBT, MF, Máy thuê, Máy CPC) thì điền loai.
 - none: không thuộc các loại trên.
 ma_hang có thể là MÃ (chuỗi chữ-số như 1T02NK0AX0, S6704G) HOẶC MÔ TẢ vật tư kèm model máy (như "mực c227i", "trống c301i"). "khach" là mảnh tên khách/phòng/đơn vị người dùng nói. "ma_may" là mã máy (dãy số như 36114).
 QUY ĐỔI NGÀY theo dòng "Hôm nay là YYYY-MM-DD" ở đầu: "hôm nay"/"nay" -> ngay = hôm nay; "hôm qua" -> hôm trước; "16/7" hoặc "ngày 16/7" -> ngay theo NĂM của hôm nay; "tháng này" -> thang của hôm nay; "tháng 6"/"đầu tháng 6" -> thang=YYYY-06 (năm hôm nay). TUYỆT ĐỐI KHÔNG bịa năm khác.
@@ -514,9 +545,9 @@ export async function runAssistant(question: string, opts?: { allow?: (tool: str
   else if (c.tool === 'congViec') { const terms = await buildTerms(c.khach, c.khach_mo_rong, ''); result = await congViec(c.ngay, c.thang, c.loai_viec, c.tinh_trang, terms) }
   else if (c.tool === 'vatTuMay') result = await vatTuMay(c.ma_may)
   else if (c.tool === 'counter') { const terms = await buildTerms(c.khach, c.khach_mo_rong, c.dia_chi); result = await counter(c.tinh_trang, c.ngay, c.ma_may, terms) }
-  else if (c.tool === 'counterMay') { const terms = await buildTerms(c.khach, c.khach_mo_rong, c.dia_chi); result = await counterMay(c.ma_may, terms) }
+  else if (c.tool === 'counterMay') { const terms = await buildTerms(c.khach, c.khach_mo_rong, c.dia_chi); result = await counterMay(c.ma_may, c.thang, terms) }
   else if (c.tool === 'giaBan') { const terms = await buildTerms(c.khach, c.khach_mo_rong, ''); result = await giaBan(c.ma_hang, terms) }
-  else if (c.tool === 'khachHang') { const terms = await buildTerms(c.khach, c.khach_mo_rong, c.dia_chi); result = await khachHang(terms) }
+  else if (c.tool === 'khachHang') { const terms = await buildTerms(c.khach, c.khach_mo_rong, c.dia_chi); result = await khachHang(terms, c.loai) }
   else if (c.tool === 'congNo' || c.tool === 'giamDinh' || c.tool === 'baoTri' || c.tool === 'thueCpc') {
     const terms = await buildTerms(c.khach, c.khach_mo_rong, c.dia_chi)
     if (c.tool === 'congNo') result = await congNo(terms)

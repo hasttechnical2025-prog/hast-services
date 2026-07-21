@@ -9,23 +9,30 @@ const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 // Lỗi riêng để route trả thông báo "chưa cấu hình" thay vì lỗi 500 khó hiểu.
 export class GeminiNoKeyError extends Error {}
 
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+
 async function callGemini(body: any): Promise<any> {
   const key = process.env.GEMINI_API_KEY
   if (!key) throw new GeminiNoKeyError('Chưa cấu hình GEMINI_API_KEY')
   let lastErr: any
-  for (const model of MODELS) {
-    try {
-      const res = await fetch(`${BASE}/${model}:generateContent?key=${encodeURIComponent(key)}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-      })
-      // 429/5xx = bận/quá quota -> thử model kế tiếp
-      if (res.status === 429 || res.status >= 500) { lastErr = new Error(`Model ${model} bận (${res.status})`); continue }
-      const j = await res.json().catch(() => ({}))
-      if (!res.ok) { lastErr = new Error(j?.error?.message || `Lỗi Gemini ${res.status}`); continue }
-      return j
-    } catch (e) { lastErr = e }
+  // Quá tải (429/5xx) là lỗi TẠM THỜI -> chạy hết chuỗi model, nghỉ ngắn rồi thử lại 1 lượt nữa.
+  for (let pass = 0; pass < 2; pass++) {
+    for (const model of MODELS) {
+      try {
+        const res = await fetch(`${BASE}/${model}:generateContent?key=${encodeURIComponent(key)}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        })
+        if (res.status === 429 || res.status >= 500) { lastErr = new Error(`${model} ${res.status}`); continue }
+        const j = await res.json().catch(() => ({}))
+        if (!res.ok) { lastErr = new Error(j?.error?.message || `Lỗi Gemini ${res.status}`); continue }
+        return j
+      } catch (e) { lastErr = e }
+    }
+    if (pass === 0) await sleep(700)
   }
-  throw lastErr || new Error('Gemini không phản hồi')
+  // KHÔNG ném tên model ra giao diện (người dùng không cần biết) — chỉ ghi log kỹ thuật.
+  console.error('Gemini failed after retries:', lastErr)
+  throw new Error('Trợ lý đang bận do máy chủ AI quá tải. Bạn thử lại sau ít giây nhé.')
 }
 
 function extractText(j: any): string {
