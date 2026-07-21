@@ -9,12 +9,11 @@ import { GeminiNoKeyError } from '@/lib/ai/gemini'
 export const runtime = 'nodejs'
 export const maxDuration = 30
 
-// Dữ liệu vận hành (kho, khách, việc, giám định, bảo trì, đặt hàng...) KHÔNG cần giấu:
-// ai mở được trợ lý (quyền 'tro_ly') là tra được -> KHÔNG liệt kê ở đây (allow trả true).
-// Chỉ giữ gate cho nhóm dính TIỀN (Công nợ, Thuê/CPC đơn giá) — có thể nới sau khi chốt.
-const TOOL_TAB: Record<string, [string, string]> = {
-  congNo: ['tai_chinh', 'cong_no'], thueCpc: ['tai_chinh', 'thue_cpc'],
-}
+// Mọi dữ liệu (kể cả Công nợ, Thuê/CPC) KHÔNG cần giấu: ai mở được trợ lý (quyền
+// 'tro_ly', admin bật/tắt theo role) là tra được toàn bộ. Chỉ Hệ thống mới bị ẩn,
+// mà trợ lý không đụng tới. Để trống -> allow() luôn true.
+// (Muốn re-gate tool nào sau này: thêm 'tenTool': ['tab_cha','tab_con'] vào đây.)
+const TOOL_TAB: Record<string, [string, string]> = {}
 
 // Trợ lý AI nội bộ. Quyền MỞ theo tab 'tro_ly' (admin bật/tắt cho từng role);
 // quyền TỪNG MODULE vẫn theo tab tương ứng để không lộ dữ liệu ngoài quyền.
