@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import DateField from "@/components/DateField"
-import { chotSoDate, counterStatus, CounterStatus } from "@/lib/thue-cpc"
+import { chotSoDate, counterStatus, CounterStatus, kyTruoc } from "@/lib/thue-cpc"
 import { supabase } from "@/lib/supabase"
 
 const THUECPC_TOPIC = "soct_thuecpc"
@@ -40,10 +40,10 @@ const monthNow = () => { const d = new Date(); return `${d.getFullYear()}-${Stri
 const norm = (s: any) => (s || '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()
 
 // Ô nhập số có phân tách hàng nghìn (#.###). Lưu raw (chuỗi chỉ chứa chữ số), hiển thị có dấu chấm.
-function NumInput({ value, onChange, className, placeholder }: { value: any, onChange: (raw: string) => void, className?: string, placeholder?: string }) {
+function NumInput({ value, onChange, className, placeholder, disabled, title }: { value: any, onChange: (raw: string) => void, className?: string, placeholder?: string, disabled?: boolean, title?: string }) {
   const raw = (value === null || value === undefined ? '' : String(value)).replace(/\D/g, '')
   const disp = raw ? Number(raw).toLocaleString('vi-VN') : ''
-  return <Input inputMode="numeric" placeholder={placeholder} value={disp} onChange={e => onChange(e.target.value.replace(/\D/g, ''))} className={className} />
+  return <Input inputMode="numeric" placeholder={placeholder} title={title} disabled={disabled} value={disp} onChange={e => onChange(e.target.value.replace(/\D/g, ''))} className={className} />
 }
 
 // Combobox tìm kiếm (fuzzy, bỏ dấu). options: {value,label}[]
@@ -229,6 +229,8 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
     vi_tri_dat_may: row.vi_tri_dat_may ?? '', nguoi_lien_he: row.nguoi_lien_he ?? '', email: row.email ?? '',
     ngay_lap_may: row.ngay_lap_may ?? '', ngay_het_han_hdbt: row.ngay_het_han_hdbt ?? '',
     id_hop_dong_khung: row.id_hop_dong_khung ?? '', serial: row.serial ?? '',
+    // Chưa xác định (null) -> coi như máy màu, không khóa gì
+    may_mau: row.may_mau !== false,
   })
   const [saving, setSaving] = useState(false)
   const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }))
@@ -274,7 +276,14 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
               <span className="text-xs font-medium text-slate-500">Serial máy</span>
               <Input value={f.serial} onChange={e => set('serial', e.target.value)} className="h-9 mt-1" placeholder="Serial thực của máy (nên có với máy thuê)" />
             </label>
-            <div className="hidden md:block" />
+            <label className="block">
+              <span className="text-xs font-medium text-slate-500">Loại máy</span>
+              <select value={f.may_mau ? 'mau' : 'den'} onChange={e => set('may_mau', e.target.value === 'mau')} className="h-9 mt-1 w-full rounded-md border border-slate-200 text-sm px-2 bg-white">
+                <option value="mau">Máy màu</option>
+                <option value="den">Máy đen trắng</option>
+              </select>
+              <span className="text-[10px] text-slate-400">Đen trắng → khóa ô counter Màu</span>
+            </label>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {numField('Đơn giá Đen (VNĐ/bản)', 'don_gia_bw')}
@@ -370,7 +379,8 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
   const saveRow = async (r: any) => {
     setSavingId(r.id)
     try {
-      const e = edits[r.id]
+      // Máy đen trắng: không lưu counter màu (kể cả giá trị cũ còn sót trong state)
+      const e = r.may_mau === false ? { ...edits[r.id], so_mau: '' } : edits[r.id]
       const res = await fetch('/api/admin/thue-cpc/counter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_khach_hang: r.id, thang_nam: thang, ...e }) })
       const j = await res.json()
       if (!res.ok) throw new Error(j.error || 'Lỗi lưu')
@@ -387,6 +397,10 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
 
   const rows = data?.rows || []
   const today = vnTodayStr()
+  // Nhãn cột theo ĐÚNG kỳ đang chọn (tránh user quên đang ở kỳ nào): "Đen kỳ T7" / "Đen kỳ T6"
+  const thangLabel = (ym: string) => { const m = parseInt((ym || '').split('-')[1], 10); return m ? `T${m}` : 'trước' }
+  const tThis = thangLabel(thang)
+  const tPrev = thangLabel(kyTruoc(thang))
   // Gắn trạng thái lấy counter cho kỳ đang chọn
   const withStatus = rows.map((r: any) => {
     const daNhap = r.so_bw != null || r.so_mau != null
@@ -445,10 +459,10 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
                 <th className="px-3 py-2 text-left">Mã máy</th>
                 <th className="px-3 py-2 text-center">Ngày chốt</th>
                 <th className="px-3 py-2 text-left">Trạng thái</th>
-                <th className="px-3 py-2 text-right">Đen kỳ trước</th>
-                <th className="px-3 py-2 text-left">Đen kỳ này</th>
-                <th className="px-3 py-2 text-right">Màu kỳ trước</th>
-                <th className="px-3 py-2 text-left">Màu kỳ này</th>
+                <th className="px-3 py-2 text-right">Đen kỳ {tPrev}</th>
+                <th className="px-3 py-2 text-left">Đen kỳ {tThis}</th>
+                <th className="px-3 py-2 text-right">Màu kỳ {tPrev}</th>
+                <th className="px-3 py-2 text-left">Màu kỳ {tThis}</th>
                 <th className="px-3 py-2 text-left">Ghi chú</th>
                 <th className="px-3 py-2"></th>
               </tr>
@@ -463,7 +477,8 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
                   </td>
                   <td className="px-3 py-2 font-mono text-slate-500">
                     <div>{r.ma_may || '—'}</div>
-                    {r.model && <div className="text-[10px] text-slate-400 font-sans">{r.model}</div>}
+                    {/* Model tô màu để nhìn phát biết liền: máy MÀU = tím hồng, ĐEN TRẮNG = xám đậm */}
+                    {r.model && <div className={`text-[10px] font-sans font-semibold ${r.may_mau === false ? 'text-slate-500' : 'text-fuchsia-600'}`} title={r.may_mau === false ? 'Máy đen trắng' : 'Máy màu'}>{r.model}</div>}
                     {r.serial && <div className="text-[10px] text-slate-400">SN: {r.serial}</div>}
                   </td>
                   <td className="px-3 py-2 text-center whitespace-nowrap text-slate-500">{chotLabelShort(r)}</td>
@@ -472,8 +487,12 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
                   </td>
                   <td className="px-3 py-2 text-right text-slate-400">{fmtInt(r.so_bw_truoc)}</td>
                   <td className="px-3 py-2"><NumInput value={edits[r.id]?.so_bw ?? ''} onChange={v => setEdit(r.id, 'so_bw', v)} className="h-8 w-28" /></td>
-                  <td className="px-3 py-2 text-right text-slate-400">{fmtInt(r.so_mau_truoc)}</td>
-                  <td className="px-3 py-2"><NumInput value={edits[r.id]?.so_mau ?? ''} onChange={v => setEdit(r.id, 'so_mau', v)} className="h-8 w-28" /></td>
+                  <td className="px-3 py-2 text-right text-slate-400">{r.may_mau === false ? '—' : fmtInt(r.so_mau_truoc)}</td>
+                  <td className="px-3 py-2">
+                    <NumInput value={r.may_mau === false ? '' : (edits[r.id]?.so_mau ?? '')} onChange={v => setEdit(r.id, 'so_mau', v)}
+                      disabled={r.may_mau === false} title={r.may_mau === false ? 'Máy đen trắng — không có counter màu' : undefined}
+                      className={`h-8 w-28 ${r.may_mau === false ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''}`} />
+                  </td>
                   <td className="px-3 py-2"><Input value={edits[r.id]?.ghi_chu ?? ''} onChange={e => setEdit(r.id, 'ghi_chu', e.target.value)} className="h-8 w-40" /></td>
                   <td className="px-3 py-2 text-right"><Button onClick={() => saveRow(r)} disabled={savingId === r.id} className="h-8 text-xs bg-blue-600 hover:bg-blue-700">{savingId === r.id ? '…' : 'Lưu'}</Button></td>
                 </tr>
