@@ -6350,7 +6350,11 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
           const cust = customerByMaMay.get(traRes.ma_may.toLowerCase())
           return (
             <div className="space-y-2">
-              <div className="text-sm text-slate-600">Máy <b className="font-mono">{traRes.ma_may}</b>{cust ? ` — ${cust.ten_khach_hang}` : ' — (không có trong Khách hàng)'} · năm {traNam} · <b className="text-emerald-700">{traRes.months.size}/12 tháng</b></div>
+              <div className="text-sm text-slate-600">
+                Máy <b className="font-mono">{traRes.ma_may}</b>
+                {cust ? <> — {cust.ten_khach_hang}{cust.model && <span className="text-slate-500"> · model <b className="text-slate-700">{cust.model}</b></span>}{cust.loai_hd && <span className="text-slate-400"> · {cust.loai_hd}</span>}</> : ' — (không có trong Khách hàng)'}
+                {' · '}năm {traNam} · <b className="text-emerald-700">{traRes.months.size}/12 tháng</b>
+              </div>
               <div className="grid grid-cols-6 sm:grid-cols-12 gap-1.5">
                 {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
                   const ok = traRes.months.has(m)

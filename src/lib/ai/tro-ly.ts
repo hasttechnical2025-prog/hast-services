@@ -108,22 +108,41 @@ async function donHang(thang: string): Promise<ToolResult> {
 }
 
 // ===== Resolver: dựng danh sách "từ khóa" tìm khách (kèm mở rộng alias) =====
-async function buildTerms(khach: string, khachMoRong: string, diaChi: string): Promise<string[]> {
-  const base = [khach, khachMoRong, diaChi].map(norm).filter(Boolean)
-  const terms = new Set<string>(base)
-  if (base.length) {
-    const { data: aliases } = await supabaseAdmin.from('soct_alias').select('tu_khoa, mo_rong')
+// Từ quá chung, bỏ khi tách để không làm loãng phép khớp.
+const KH_STOP = new Set(['cua', 'tai', 'va', 'la', 'cho', 'o'])
+const tokenize = (s: string) => norm(s).split(/[^a-z0-9]+/).filter(t => t.length >= 2 && !KH_STOP.has(t))
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+// Trả về DANH SÁCH CỤM TỪ, mỗi cụm là mảng token.
+// Khớp = ĐỦ MỌI token trong MỘT cụm (AND trong cụm, OR giữa các cụm).
+// Trước đây gộp hết thành từ khóa rời rồi khớp OR -> biệt danh "vp -> văn phòng" khiến
+// MỌI khách có chữ "Văn phòng" đều trúng (nhận nhầm khách). Nay biệt danh THAY THẾ
+// từ viết tắt ngay trong cụm, giữ nguyên các từ còn lại -> chính xác hơn hẳn.
+async function buildTerms(khach: string, khachMoRong: string, diaChi: string): Promise<string[][]> {
+  const raws = [khach, khachMoRong, diaChi].map(s => norm(s)).filter(Boolean)
+  if (raws.length === 0) return []
+
+  const { data: aliases } = await supabaseAdmin.from('soct_alias').select('tu_khoa, mo_rong')
+  const expand = (s: string) => {
+    let out = s
     for (const a of (aliases || []) as any[]) {
-      const tk = norm(a.tu_khoa)
-      if (tk && base.some(b => b.includes(tk) || tk.includes(b))) { const m = norm(a.mo_rong); if (m) terms.add(m) }
+      const tk = norm(a.tu_khoa), mr = norm(a.mo_rong)
+      if (!tk || !mr) continue
+      // chỉ thay khi khớp NGUYÊN từ (tránh "vp" ăn vào giữa chữ khác)
+      out = out.replace(new RegExp(`(^|[^a-z0-9])${escapeRe(tk)}(?=[^a-z0-9]|$)`, 'g'), `$1${mr}`)
     }
+    return out
   }
-  return [...terms].filter(Boolean)
+
+  const cands = new Set<string>()
+  for (const r of raws) { cands.add(r); const e = expand(r); if (e && e !== r) cands.add(e) }
+  return [...cands].map(tokenize).filter(t => t.length > 0)
 }
-const hitAny = (hay: string, terms: string[]) => terms.some(t => hay.includes(t))
+// Khớp nếu có ÍT NHẤT MỘT cụm mà MỌI token của cụm đó đều xuất hiện.
+const hitAny = (hay: string, terms: string[][]) => terms.some(ts => ts.every(t => hay.includes(t)))
 
 // ===== Tool B1: Công nợ theo khách/cụm =====
-async function congNo(terms: string[]): Promise<ToolResult> {
+async function congNo(terms: string[][]): Promise<ToolResult> {
   const columns = [{ key: 'don_vi', label: 'Đơn vị' }, { key: 'so_phieu', label: 'Số phiếu' }, { key: 'tong_tien', label: 'Tổng (chưa VAT)' }]
   if (terms.length === 0) return { summary: 'Chưa xác định được khách hàng cần tra.', rows: [], columns }
 
@@ -156,7 +175,7 @@ async function congNo(terms: string[]): Promise<ToolResult> {
 }
 
 // ===== Tool B2: Giám định chưa thay theo khách =====
-async function giamDinh(terms: string[]): Promise<ToolResult> {
+async function giamDinh(terms: string[][]): Promise<ToolResult> {
   const columns = [{ key: 'khach', label: 'Khách hàng' }, { key: 'ma_may', label: 'Mã máy' }, { key: 'tinh_trang', label: 'Tình trạng' }, { key: 'bao_gia', label: 'Báo giá' }]
   if (terms.length === 0) return { summary: 'Chưa xác định được khách hàng cần tra.', rows: [], columns }
 
@@ -175,7 +194,7 @@ async function giamDinh(terms: string[]): Promise<ToolResult> {
 }
 
 // ===== Tool B3: Bảo trì theo khách/nơi — liệt kê máy thuộc diện bảo trì + trạng thái tháng này =====
-async function baoTri(terms: string[]): Promise<ToolResult> {
+async function baoTri(terms: string[][]): Promise<ToolResult> {
   const columns = [{ key: 'khach', label: 'Khách hàng' }, { key: 'ma_may', label: 'Mã máy' }, { key: 'model', label: 'Model' }, { key: 'loai_hd', label: 'Loại HĐ' }, { key: 'trang_thai', label: 'Bảo trì tháng này' }]
   if (terms.length === 0) return { summary: 'Chưa xác định được khách/nơi cần tra.', rows: [], columns }
   const thang = new Date().toISOString().slice(0, 7)
@@ -204,7 +223,7 @@ async function baoTri(terms: string[]): Promise<ToolResult> {
 }
 
 // ===== Tool B4: Máy thuê / CPC theo địa chỉ hoặc khách =====
-async function thueCpc(terms: string[], loai: string): Promise<ToolResult> {
+async function thueCpc(terms: string[][], loai: string): Promise<ToolResult> {
   const columns = [{ key: 'khach', label: 'Khách hàng' }, { key: 'ma_may', label: 'Mã máy' }, { key: 'model', label: 'Model' }, { key: 'loai_hd', label: 'Loại' }, { key: 'dia_chi', label: 'Địa chỉ' }]
   if (terms.length === 0) return { summary: 'Chưa xác định được nơi/khách cần tra.', rows: [], columns }
 
@@ -224,7 +243,7 @@ async function thueCpc(terms: string[], loai: string): Promise<ToolResult> {
 }
 
 // ===== Tool B4b: Lấy counter máy thuê/CPC — cần lấy / quá hạn / khách đã lấy chưa =====
-async function counter(tinhTrang: string, ngay: string, maMay: string, terms: string[]): Promise<ToolResult> {
+async function counter(tinhTrang: string, ngay: string, maMay: string, terms: string[][]): Promise<ToolResult> {
   const columns = [{ key: 'khach', label: 'Khách hàng' }, { key: 'ma_may', label: 'Mã máy' }, { key: 'loai_hd', label: 'Loại' }, { key: 'chot', label: 'Ngày chốt' }, { key: 'trang_thai', label: 'Trạng thái counter' }]
   const vnNow = new Date(Date.now() + 7 * 3600 * 1000)
   const thang = vnNow.toISOString().slice(0, 7)
@@ -277,7 +296,7 @@ async function counter(tinhTrang: string, ngay: string, maMay: string, terms: st
 }
 
 // ===== Tool B5: Thống kê / liệt kê công việc theo thời gian + loại việc + trạng thái + khách =====
-async function congViec(ngay: string, thang: string, loaiViec: string, tinhTrang: string, terms: string[]): Promise<ToolResult> {
+async function congViec(ngay: string, thang: string, loaiViec: string, tinhTrang: string, terms: string[][]): Promise<ToolResult> {
   const columns = [
     { key: 'ngay', label: 'Ngày' }, { key: 'khach', label: 'Khách hàng' }, { key: 'ma_may', label: 'Mã máy' },
     { key: 'loai_cong_viec', label: 'Loại việc' }, { key: 'ket_qua', label: 'Trạng thái' }, { key: 'ktv', label: 'KTV' }, { key: 'report', label: 'Số phiếu' },
@@ -314,7 +333,7 @@ async function congViec(ngay: string, thang: string, loaiViec: string, tinhTrang
 }
 
 // ===== Tool B6: Tra thông tin khách hàng / điểm máy theo tên =====
-async function khachHang(terms: string[]): Promise<ToolResult> {
+async function khachHang(terms: string[][]): Promise<ToolResult> {
   const columns = [{ key: 'khach', label: 'Khách hàng' }, { key: 'dia_chi', label: 'Địa chỉ' }, { key: 'ma_may', label: 'Mã máy' }, { key: 'model', label: 'Model' }, { key: 'loai_hd', label: 'Loại HĐ' }]
   if (terms.length === 0) return { summary: 'Chưa xác định được khách cần tra.', rows: [], columns }
   const customers = await selectAll((from, to) => supabaseAdmin
@@ -352,7 +371,7 @@ async function vatTuMay(maMay: string): Promise<ToolResult> {
 }
 
 // ===== Tool B8: Giá BÁN vật tư cho khách (lấy từ vật tư đã xuất trên phiếu) =====
-async function giaBan(maHang: string, terms: string[]): Promise<ToolResult> {
+async function giaBan(maHang: string, terms: string[][]): Promise<ToolResult> {
   const columns = [{ key: 'ngay', label: 'Ngày' }, { key: 'khach', label: 'Khách hàng' }, { key: 'ten_hang', label: 'Vật tư' }, { key: 'so_luong', label: 'SL' }, { key: 'don_gia', label: 'Đơn giá' }, { key: 'vat', label: 'VAT%' }]
   const q = (maHang || '').trim()
   if (!q) return { summary: 'Chưa rõ vật tư cần tra giá.', rows: [], columns }
@@ -384,7 +403,7 @@ async function giaBan(maHang: string, terms: string[]): Promise<ToolResult> {
 }
 
 // ===== Tool B9: Counter ĐÃ GHI của một máy (bảo trì + phiếu công việc + thuê/CPC) =====
-async function counterMay(maMay: string, terms: string[]): Promise<ToolResult> {
+async function counterMay(maMay: string, terms: string[][]): Promise<ToolResult> {
   const columns = [{ key: 'ngay', label: 'Thời điểm' }, { key: 'ma_may', label: 'Mã máy' }, { key: 'khach', label: 'Khách hàng' }, { key: 'counter', label: 'Counter' }, { key: 'nguon', label: 'Nguồn' }]
   const qMa = norm(maMay || '')
   if (!qMa && terms.length === 0) return { summary: 'Chưa rõ máy cần tra counter.', rows: [], columns }
