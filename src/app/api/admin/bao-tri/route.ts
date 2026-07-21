@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     const data = await selectAll((from, to) => {
       let query = supabaseAdmin
         .from('soct_bao_tri')
-        .select('id, ma_may, thang_nam, ngay, ktv_id, ghi_chu')
+        .select('id, ma_may, thang_nam, ngay, ktv_id, ghi_chu, counter')
         .order('ngay', { ascending: false })
         .range(from, to)
 
@@ -46,35 +46,46 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { thang_nam, ma_mays, ngay } = body
+    const { thang_nam, ma_mays, items, ngay } = body
 
     if (!thang_nam || !/^\d{4}-\d{2}$/.test(thang_nam)) {
       return NextResponse.json({ error: 'Tháng không hợp lệ (định dạng YYYY-MM)' }, { status: 400 })
     }
-    if (!Array.isArray(ma_mays) || ma_mays.length === 0) {
-      return NextResponse.json({ error: 'Không có mã máy để lưu' }, { status: 400 })
+
+    // Nhận 2 dạng: items [{ma_may, counter}] (mới, có counter) hoặc ma_mays [string] (cũ)
+    const raw: { ma_may: string; counter: number | null }[] = Array.isArray(items) && items.length > 0
+      ? items.map((x: any) => {
+        const n = parseInt(String(x?.counter ?? '').replace(/\D/g, ''), 10)
+        return { ma_may: String(x?.ma_may ?? '').trim(), counter: Number.isFinite(n) ? n : null }
+      })
+      : (Array.isArray(ma_mays) ? ma_mays.map((m: string) => ({ ma_may: String(m).trim(), counter: null })) : [])
+
+    // Loại rỗng + trùng mã (mã sau thắng -> counter nhập sau được giữ)
+    const byMa = new Map<string, number | null>()
+    for (const r of raw) if (r.ma_may) byMa.set(r.ma_may, r.counter)
+    if (byMa.size === 0) return NextResponse.json({ error: 'Không có mã máy để lưu' }, { status: 400 })
+
+    const ngayLuu = ngay || new Date().toISOString().split('T')[0]
+    // Tách 2 nhóm: CÓ counter -> ghi đè counter; KHÔNG có -> giữ nguyên counter cũ
+    // (không đưa cột counter vào payload thì upsert sẽ không đụng tới nó).
+    const coCounter = [...byMa.entries()].filter(([, c]) => c != null)
+      .map(([ma_may, counter]) => ({ ma_may, thang_nam, ngay: ngayLuu, counter }))
+    const khongCounter = [...byMa.entries()].filter(([, c]) => c == null)
+      .map(([ma_may]) => ({ ma_may, thang_nam, ngay: ngayLuu }))
+
+    const saved: any[] = []
+    for (const rows of [coCounter, khongCounter]) {
+      if (rows.length === 0) continue
+      const { data, error } = await supabaseAdmin
+        .from('soct_bao_tri')
+        .upsert(rows, { onConflict: 'ma_may,thang_nam' })
+        .select()
+      if (error) throw error
+      saved.push(...(data || []))
     }
 
-    // Chuẩn hóa + loại trùng
-    const uniqueMaMays = Array.from(new Set(
-      ma_mays.map((m: string) => String(m).trim()).filter(Boolean)
-    ))
-
-    const rows = uniqueMaMays.map(ma_may => ({
-      ma_may,
-      thang_nam,
-      ngay: ngay || new Date().toISOString().split('T')[0],
-    }))
-
-    const { data, error } = await supabaseAdmin
-      .from('soct_bao_tri')
-      .upsert(rows, { onConflict: 'ma_may,thang_nam' })
-      .select()
-
-    if (error) throw error
-
     await broadcastBaoTriChanged()
-    return NextResponse.json({ success: true, count: data.length, data })
+    return NextResponse.json({ success: true, count: saved.length, data: saved })
   } catch (error: any) {
     console.error('Error saving bao_tri:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })

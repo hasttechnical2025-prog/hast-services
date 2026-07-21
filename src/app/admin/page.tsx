@@ -6082,10 +6082,30 @@ function TroLyLogTool({ showNotification }: { showNotification: (type: 'success'
   )
 }
 
+// Tách ô dán bảo trì thành [{mã máy, counter}].
+// QUAN TRỌNG — giữ tương thích ngược: khoảng trắng & dấu phẩy vẫn là dấu tách NHIỀU MÃ
+// (định dạng cũ), nên counter chỉ được nhận khi ngăn bằng TAB (dán 2 cột từ Excel)
+// hoặc dấu gạch "-". VD: "35971<TAB>125000", "35971 - 125000", "35971" (không counter).
+function parseBaoTriInput(text: string): { ma_may: string, counter: string }[] {
+  const out: { ma_may: string, counter: string }[] = []
+  for (const line of String(text || '').split(/[\n\r]+/)) {
+    const segs = line.split(/\t|\s*-\s*/).map(s => s.trim()).filter(Boolean)
+    if (segs.length === 0) continue
+    if (segs.length >= 2) {
+      const ma = segs[0].split(/[\s,;]+/).filter(Boolean)[0]
+      if (ma) out.push({ ma_may: ma, counter: segs.slice(1).join('').replace(/\D/g, '') })
+    } else {
+      for (const ma of segs[0].split(/[\s,;]+/).filter(Boolean)) out.push({ ma_may: ma, counter: '' })
+    }
+  }
+  return out
+}
+
 const BAOTRI_COLS: ColDef[] = [
   { key: 'ma_may', label: 'Mã máy', locked: true },
   { key: 'khach', label: 'Khách hàng' },
   { key: 'model', label: 'Model' },
+  { key: 'counter', label: 'Counter' },
   { key: 'xoa', label: 'Xóa', locked: true },
 ]
 
@@ -6094,7 +6114,7 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
   const col = useColView('bao_tri', BAOTRI_COLS)
   const [thangNam, setThangNam] = useState(new Date().toISOString().slice(0, 7))
   const [text, setText] = useState("")
-  const [preview, setPreview] = useState<{ ma_may: string, cust: any, excluded: boolean }[] | null>(null)
+  const [preview, setPreview] = useState<{ ma_may: string, cust: any, excluded: boolean, counter: string, prev: number | null }[] | null>(null)
   const [records, setRecords] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -6109,7 +6129,7 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
   // Tra cứu lịch sử bảo trì theo 1 mã máy trong 1 năm
   const [traMa, setTraMa] = useState('')
   const [traNam, setTraNam] = useState(String(new Date().getFullYear()))
-  const [traRes, setTraRes] = useState<{ ma_may: string, months: Set<number> } | null>(null)
+  const [traRes, setTraRes] = useState<{ ma_may: string, months: Set<number>, counters: Map<number, number> } | null>(null)
   const [traLoading, setTraLoading] = useState(false)
   const tracuu = async () => {
     const ma = traMa.trim()
@@ -6118,7 +6138,14 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
     try {
       const res = await fetch(`/api/admin/bao-tri?ma_may=${encodeURIComponent(ma)}&nam=${traNam}`)
       const j = await res.json()
-      if (res.ok) setTraRes({ ma_may: ma, months: new Set((j.data || []).map((r: any) => parseInt(String(r.thang_nam).split('-')[1]))) })
+      if (res.ok) {
+        const counters = new Map<number, number>()
+        for (const r of (j.data || [])) {
+          if (r.counter == null) continue
+          counters.set(parseInt(String(r.thang_nam).split('-')[1]), Number(r.counter))
+        }
+        setTraRes({ ma_may: ma, months: new Set((j.data || []).map((r: any) => parseInt(String(r.thang_nam).split('-')[1]))), counters })
+      }
       else showNotification('error', j.error)
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setTraLoading(false) }
   }
@@ -6212,34 +6239,63 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
     await exportRowsToExcel(`doi-chieu-bao-tri-${dcNam}`, headers, rows)
   }
 
-  const handleAnalyze = () => {
-    const raw = text.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean)
+  // Xuất danh sách máy đã bảo trì trong tháng (kèm counter) — đúng dữ liệu đang hiển thị
+  const xuatBaoTriExcel = async () => {
+    const headers = ['Mã máy', 'Khách hàng', 'Model', 'Counter', 'Ngày ghi nhận']
+    const rows = records.map((r: any) => {
+      const kh = customerByMaMay.get(String(r.ma_may).toLowerCase())
+      return [r.ma_may, kh?.ten_khach_hang || '', kh?.model || '', r.counter ?? '', r.ngay ? formatDate(r.ngay) : '']
+    })
+    await exportRowsToExcel(`bao-tri-${thangNam}`, headers, rows)
+  }
+
+  const handleAnalyze = async () => {
     const seen = new Set<string>()
-    const list: { ma_may: string, cust: any, excluded: boolean }[] = []
-    for (const m of raw) {
-      const key = m.toLowerCase()
+    const list: { ma_may: string, cust: any, excluded: boolean, counter: string, prev: number | null }[] = []
+    for (const it of parseBaoTriInput(text)) {
+      const key = it.ma_may.toLowerCase()
       if (seen.has(key)) continue
       seen.add(key)
-      list.push({ ma_may: m, cust: customerByMaMay.get(key) || null, excluded: false })
+      list.push({ ma_may: it.ma_may, cust: customerByMaMay.get(key) || null, excluded: false, counter: it.counter, prev: null })
     }
     if (list.length === 0) return showNotification('error', "Nhập ít nhất một mã máy")
+
+    // Counter lần bảo trì GẦN NHẤT trước tháng đang nhập -> để tính chênh lệch & cảnh báo
+    try {
+      const res = await fetch(`/api/admin/bao-tri?nam=${thangNam.slice(0, 4)}`)
+      const j = await res.json()
+      const last = new Map<string, { thang: string, counter: number }>()
+      for (const r of (j.data || [])) {
+        if (r.counter == null) continue
+        const t = String(r.thang_nam)
+        if (t >= thangNam) continue
+        const k = String(r.ma_may).toLowerCase()
+        const cur = last.get(k)
+        if (!cur || t > cur.thang) last.set(k, { thang: t, counter: Number(r.counter) })
+      }
+      for (const p of list) { const l = last.get(p.ma_may.toLowerCase()); p.prev = l ? l.counter : null }
+    } catch { /* không có counter cũ thì thôi, vẫn cho nhập */ }
+
     setPreview(list)
   }
 
   const toggleExclude = (i: number) => {
     setPreview(prev => prev ? prev.map((p, idx) => idx === i ? { ...p, excluded: !p.excluded } : p) : prev)
   }
+  const setRowCounter = (i: number, v: string) => {
+    setPreview(prev => prev ? prev.map((p, idx) => idx === i ? { ...p, counter: v.replace(/\D/g, '') } : p) : prev)
+  }
 
   const handleSave = async () => {
     if (!preview) return
-    const ma_mays = preview.filter(p => !p.excluded).map(p => p.ma_may)
-    if (ma_mays.length === 0) return showNotification('error', "Không còn mã nào để lưu")
+    const items = preview.filter(p => !p.excluded).map(p => ({ ma_may: p.ma_may, counter: p.counter || null }))
+    if (items.length === 0) return showNotification('error', "Không còn mã nào để lưu")
     setSaving(true)
     try {
       const res = await fetch('/api/admin/bao-tri', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ thang_nam: thangNam, ma_mays })
+        body: JSON.stringify({ thang_nam: thangNam, items })
       })
       if (res.ok) {
         const data = await res.json()
@@ -6305,6 +6361,35 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
                   )
                 })}
               </div>
+              {/* Counter theo tháng + sản lượng in giữa 2 lần bảo trì */}
+              {traRes.counters.size > 0 && (() => {
+                const ms = [...traRes.counters.keys()].sort((a, b) => a - b)
+                return (
+                  <div className="bg-white border border-slate-200 rounded-lg overflow-hidden max-w-md">
+                    <table className="w-full text-left text-xs text-slate-600">
+                      <thead className="bg-slate-100 border-b border-slate-200">
+                        <tr><th className="px-3 py-2 font-medium">Tháng</th><th className="px-3 py-2 font-medium text-right">Counter</th><th className="px-3 py-2 font-medium text-right">Chênh lệch</th></tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {ms.map((m, idx) => {
+                          const cur = traRes.counters.get(m)!
+                          const prev = idx > 0 ? traRes.counters.get(ms[idx - 1])! : null
+                          const d = prev != null ? cur - prev : null
+                          return (
+                            <tr key={m}>
+                              <td className="px-3 py-1.5 font-medium">T{m}</td>
+                              <td className="px-3 py-1.5 text-right font-mono">{cur.toLocaleString('vi-VN')}</td>
+                              <td className={`px-3 py-1.5 text-right font-mono ${d == null ? 'text-slate-300' : d < 0 ? 'text-red-600 font-semibold' : 'text-emerald-700'}`}>
+                                {d == null ? '—' : `${d >= 0 ? '+' : ''}${d.toLocaleString('vi-VN')}`}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              })()}
             </div>
           )
         })()}
@@ -6316,7 +6401,10 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
             <label className="text-xs font-semibold text-slate-600">Tháng bảo trì</label>
             <input type="month" value={thangNam} onChange={(e) => setThangNam(e.target.value)} className="h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white block" />
           </div>
-          <p className="text-sm text-slate-500 flex-1">Dán danh sách <b>mã máy</b> đã bảo trì trong tháng (cách nhau bởi xuống dòng, dấu phẩy hoặc khoảng trắng).</p>
+          <p className="text-sm text-slate-500 flex-1">
+            Dán danh sách <b>mã máy</b> đã bảo trì trong tháng (cách nhau bởi xuống dòng, dấu phẩy hoặc khoảng trắng).<br />
+            <span className="text-xs text-slate-400">Muốn ghi kèm <b>counter</b>: mỗi dòng <b>mã máy</b> rồi <b>TAB</b> (dán thẳng 2 cột từ Excel) hoặc dấu <b>-</b>, VD <span className="font-mono">35971 - 125000</span>. Counter để trống cũng được.</span>
+          </p>
         </div>
         <textarea
           rows={4}
@@ -6328,7 +6416,7 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
 
         {!preview ? (
           <Button onClick={handleAnalyze} variant="outline">
-            Phân tích ({text.split(/[\s,;]+/).filter(Boolean).length} mã)
+            Phân tích ({parseBaoTriInput(text).length} mã)
           </Button>
         ) : (
           <div className="space-y-3">
@@ -6341,11 +6429,15 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
             <div className="border border-slate-200 rounded-lg overflow-hidden max-h-64 overflow-y-auto bg-white">
               <table className="w-full text-left text-xs text-slate-600">
                 <thead className="bg-slate-100 sticky top-0 border-b border-slate-200">
-                  <tr><th className="px-3 py-2 font-medium text-center w-12">Bỏ</th><th className="px-3 py-2 font-medium">Mã máy</th><th className="px-3 py-2 font-medium">Khách hàng</th><th className="px-3 py-2 font-medium">HĐBT</th></tr>
+                  <tr><th className="px-3 py-2 font-medium text-center w-12">Bỏ</th><th className="px-3 py-2 font-medium">Mã máy</th><th className="px-3 py-2 font-medium">Khách hàng</th><th className="px-3 py-2 font-medium">HĐBT</th><th className="px-3 py-2 font-medium">Counter</th><th className="px-3 py-2 font-medium">So với lần trước</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {preview.map((p, i) => {
                     const daBaoTri = daBaoTriSet.has(p.ma_may.toLowerCase())
+                    const cNum = p.counter ? parseInt(p.counter, 10) : null
+                    const delta = (cNum != null && p.prev != null) ? cNum - p.prev : null
+                    const lui = delta != null && delta < 0
+                    const nhay = delta != null && delta > 1000000
                     return (
                     <tr key={i} className={p.excluded ? 'opacity-40 line-through' : (!p.cust ? 'bg-red-50' : (daBaoTri ? 'bg-amber-50' : ''))}>
                       <td className="px-3 py-2 text-center">
@@ -6354,6 +6446,18 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
                       <td className="px-3 py-2 font-mono font-medium">{p.ma_may}{daBaoTri && <span className="ml-1.5 text-amber-600 font-normal">(đã bảo trì)</span>}</td>
                       <td className="px-3 py-2">{p.cust ? p.cust.ten_khach_hang : <span className="text-red-600 font-medium">Không khớp — có thể nhập sai</span>}</td>
                       <td className="px-3 py-2">{p.cust ? (p.cust.loai_hd || <span className="text-slate-300">—</span>) : ''}</td>
+                      <td className="px-3 py-2">
+                        <Input value={p.counter ? Number(p.counter).toLocaleString('vi-VN') : ''} onChange={e => setRowCounter(i, e.target.value)}
+                          placeholder="—" className="h-7 w-28 bg-white font-mono text-xs text-right" title="Chỉ số counter lúc bảo trì (để trống nếu không đọc được)" />
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {cNum == null ? <span className="text-slate-300">—</span>
+                          : p.prev == null ? <span className="text-slate-400">lần đầu có số</span>
+                            : <span className={lui ? 'text-red-600 font-semibold' : nhay ? 'text-amber-600 font-semibold' : 'text-emerald-700'}>
+                              {delta! >= 0 ? '+' : ''}{delta!.toLocaleString('vi-VN')}
+                              {lui && ' ⚠ lùi số'}{nhay && ' ⚠ nhảy bất thường'}
+                            </span>}
+                      </td>
                     </tr>
                     )
                   })}
@@ -6524,6 +6628,9 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
             <div className="flex items-center gap-2 px-1">
               <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">{records.length} máy</span>
               <div className="ml-auto flex items-center gap-2">
+                <Button variant="outline" onClick={xuatBaoTriExcel} disabled={records.length === 0} className="gap-2 h-9">
+                  <Download className="w-4 h-4" /> Xuất Excel ({records.length})
+                </Button>
                 <ColumnMenu view={col} />
                 <ClearAllButton count={records.length} label={`bảo trì tháng ${thangNam.split('-').reverse().join('/')}`} onConfirm={async () => {
                   const res = await fetch(`/api/admin/bao-tri?all=1&thang_nam=${thangNam}`, { method: 'DELETE' })
@@ -6539,6 +6646,7 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
                     {col.show('ma_may') && <th className="px-4 py-3 font-semibold">Mã máy</th>}
                     {col.show('khach') && <th className="px-4 py-3 font-semibold">Khách hàng</th>}
                     {col.show('model') && <th className="px-4 py-3 font-semibold">Model</th>}
+                    {col.show('counter') && <th className="px-4 py-3 font-semibold text-right">Counter</th>}
                     {col.show('xoa') && <th className="px-4 py-3 font-semibold text-center w-16">Xóa</th>}
                   </tr>
                 </thead>
@@ -6554,6 +6662,7 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
                         {col.show('ma_may') && <td className="px-4 py-3 font-mono font-medium text-slate-700">{r.ma_may}</td>}
                         {col.show('khach') && <td className="px-4 py-3">{kh ? kh.ten_khach_hang : <span className="text-slate-400 italic">Không khớp khách hàng</span>}</td>}
                         {col.show('model') && <td className="px-4 py-3 text-slate-500">{kh ? kh.model || '—' : '—'}</td>}
+                        {col.show('counter') && <td className="px-4 py-3 text-right font-mono text-slate-600">{r.counter != null ? Number(r.counter).toLocaleString('vi-VN') : <span className="text-slate-300">—</span>}</td>}
                         {col.show('xoa') && <td className="px-4 py-3 text-center">
                           <button onClick={() => handleDelete(r.id)} className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 hover:bg-red-100 rounded-md transition"><Trash2 className="w-4 h-4" /></button>
                         </td>}
