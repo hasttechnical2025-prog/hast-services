@@ -8,6 +8,7 @@
 
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { canBaoTriThang, LOAI_HD_BAO_TRI } from '@/lib/bao-tri'
+import { chotSoDate, counterStatus } from '@/lib/thue-cpc'
 import { geminiJSON, geminiText } from './gemini'
 
 export type ToolResult = { summary: string; rows: any[]; columns: { key: string; label: string }[] }
@@ -222,6 +223,49 @@ async function thueCpc(terms: string[], loai: string): Promise<ToolResult> {
   return { summary, rows, columns }
 }
 
+// ===== Tool B4b: Lấy counter máy thuê/CPC — cần lấy / quá hạn / khách đã lấy chưa =====
+async function counter(tinhTrang: string, terms: string[]): Promise<ToolResult> {
+  const columns = [{ key: 'khach', label: 'Khách hàng' }, { key: 'ma_may', label: 'Mã máy' }, { key: 'loai_hd', label: 'Loại' }, { key: 'trang_thai', label: 'Trạng thái counter' }]
+  const vnNow = new Date(Date.now() + 7 * 3600 * 1000)
+  const thang = vnNow.toISOString().slice(0, 7)
+  const today = vnNow.toISOString().slice(0, 10)
+  // Ngưỡng "sắp đến hạn" = ít nhất 5 ngày, mở tới CUỐI THÁNG để hợp câu "từ giờ đến cuối tháng".
+  const [y, m] = thang.split('-').map(Number)
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate()
+  const lead = Math.max(5, lastDay - vnNow.getUTCDate())
+
+  const mays = await selectAll((from, to) => supabaseAdmin
+    .from('soct_khach_hang')
+    .select('id, ten_khach_hang, ma_may, loai_hd, chot_so_ngay, chot_so_cuoi_thang')
+    .in('loai_hd', ['Máy thuê', 'Máy CPC'])
+    .range(from, to))
+  const { data: counters } = await supabaseAdmin
+    .from('soct_thue_cpc_counter').select('id_khach_hang, so_bw, so_mau').eq('thang_nam', thang)
+  const daNhapSet = new Set((counters || []).filter((c: any) => c.so_bw != null || c.so_mau != null).map((c: any) => c.id_khach_hang))
+
+  const label = (st: any) => st.status === 'done' ? 'Đã nhập'
+    : st.status === 'overdue' ? `Quá hạn ${st.days} ngày`
+      : st.status === 'due_soon' ? (st.days === 0 ? 'Đến hạn hôm nay' : `Còn ${st.days} ngày`)
+        : st.status === 'not_yet' ? `Chưa tới hạn (còn ${st.days} ngày)` : 'Chưa đặt ngày chốt'
+
+  let list = (mays as any[]).map(mc => ({ ...mc, _st: counterStatus(chotSoDate(thang, mc.chot_so_ngay, mc.chot_so_cuoi_thang), daNhapSet.has(mc.id), today, lead) }))
+
+  if (terms.length) {
+    // Hỏi 1 khách/máy cụ thể ("khách X đã lấy counter chưa") -> hiện tất cả máy khớp + trạng thái.
+    list = list.filter(mc => hitAny(norm(mc.ten_khach_hang) + ' ' + norm(mc.ma_may), terms))
+  } else {
+    // Hỏi chung -> chỉ máy cần lấy: quá hạn (+ sắp đến hạn nếu không yêu cầu riêng "quá hạn").
+    list = list.filter(mc => tinhTrang === 'qua_han' ? mc._st.status === 'overdue' : (mc._st.status === 'overdue' || mc._st.status === 'due_soon'))
+  }
+  list.sort((a, b) => (a._st.status === 'overdue' ? 0 : 1) - (b._st.status === 'overdue' ? 0 : 1) || a._st.days - b._st.days)
+
+  const rows = list.map(mc => ({ khach: mc.ten_khach_hang || '—', ma_may: mc.ma_may || '—', loai_hd: mc.loai_hd || '—', trang_thai: label(mc._st) }))
+  const summary = rows.length === 0
+    ? (terms.length ? 'Không tìm thấy máy thuê/CPC nào khớp.' : `Không có máy thuê/CPC nào cần lấy counter (tới ${today}).`)
+    : `${rows.length} máy: ${rows.map(r => `${r.ma_may} (${r.khach}) - ${r.trang_thai}`).join('; ')}.`
+  return { summary, rows, columns }
+}
+
 // ===== Tool B5: Thống kê / liệt kê công việc theo thời gian + loại việc + trạng thái + khách =====
 async function congViec(ngay: string, thang: string, loaiViec: string, tinhTrang: string, terms: string[]): Promise<ToolResult> {
   const columns = [
@@ -306,7 +350,8 @@ Chọn 1 công cụ và rút tham số:
 - congNo: hỏi CÔNG NỢ / còn nợ bao nhiêu của một KHÁCH -> điền khach.
 - giamDinh: hỏi GIÁM ĐỊNH chưa thay / còn giám định nào của một KHÁCH -> điền khach.
 - baoTri: hỏi về BẢO TRÌ ở một KHÁCH/NƠI (có máy nào bảo trì, máy nào chưa bảo trì, máy thuộc diện bảo trì) -> điền khach (và/hoặc dia_chi nếu là nơi chốn).
-- thueCpc: hỏi MÁY THUÊ / MÁY CPC ở đâu / của ai -> điền dia_chi (nơi chốn) hoặc khach, và loai nếu rõ.
+- thueCpc: hỏi DANH SÁCH MÁY THUÊ / MÁY CPC ở đâu / của ai (KHÔNG hỏi về counter) -> điền dia_chi (nơi chốn) hoặc khach, và loai nếu rõ.
+- counter: hỏi về LẤY COUNTER / CHỐT SỐ máy thuê-CPC — máy nào CẦN LẤY / SẮP đến hạn / QUÁ HẠN lấy counter, "từ giờ đến cuối tháng có mấy máy cần lấy counter", hoặc "khách X đã lấy/nhập counter chưa" (VD "máy nào quá hạn counter", "khách Y lấy counter chưa") -> nếu chỉ hỏi QUÁ HẠN thì tinh_trang="qua_han", còn lại để rỗng; điền khach nếu hỏi 1 khách/máy cụ thể.
 - congViec: THỐNG KÊ / LIỆT KÊ phiếu công việc theo THỜI GIAN và/hoặc LOẠI VIỆC và/hoặc TRẠNG THÁI và/hoặc khách (VD "ngày 16/7 có bao nhiêu phiếu sửa chữa", "hôm nay có phiếu nào chưa xong", "hôm nay lắp mấy máy") -> điền ngay (YYYY-MM-DD) nếu hỏi 1 ngày, hoặc thang (YYYY-MM) nếu hỏi tháng; loai_viec = loại công việc (Sửa máy, Thay vật tư, Lắp máy, Bảo trì, Giao mực, Bảo hành...) nếu có; tinh_trang = "chua_xong" nếu hỏi phiếu CHƯA XONG/chưa hoàn thành/còn dở, "da_xong" nếu hỏi ĐÃ XONG/hoàn thành, để rỗng nếu không nói; khach nếu giới hạn 1 khách.
 - vatTuMay: hỏi LỊCH SỬ THAY VẬT TƯ/linh kiện của một MÃ MÁY cụ thể (VD "máy 36114 đã thay vật tư gì", "máy X thay linh kiện ngày nào") -> điền ma_may = mã máy đó.
 - khachHang: tra THÔNG TIN khách hàng/điểm máy — địa chỉ ở đâu, model máy gì, KHÁCH DÙNG MÁY GÌ, loại HĐ (VD "công ty X địa chỉ ở đâu", "khách Y dùng máy gì") -> điền khach.
@@ -319,7 +364,7 @@ Chỉ trả JSON đúng schema.`
 const CLASSIFY_SCHEMA = {
   type: 'OBJECT',
   properties: {
-    tool: { type: 'STRING', enum: ['tonKho', 'datHang', 'donHang', 'congNo', 'giamDinh', 'baoTri', 'thueCpc', 'congViec', 'vatTuMay', 'khachHang', 'none'] },
+    tool: { type: 'STRING', enum: ['tonKho', 'datHang', 'donHang', 'congNo', 'giamDinh', 'baoTri', 'thueCpc', 'counter', 'congViec', 'vatTuMay', 'khachHang', 'none'] },
     ma_hang: { type: 'STRING' }, khach: { type: 'STRING' }, khach_mo_rong: { type: 'STRING' },
     dia_chi: { type: 'STRING' }, loai: { type: 'STRING' }, thang: { type: 'STRING' },
     ngay: { type: 'STRING' }, loai_viec: { type: 'STRING' }, tinh_trang: { type: 'STRING' }, ma_may: { type: 'STRING' },
@@ -339,7 +384,7 @@ Tiền hiển thị dạng phân tách nghìn kèm "đ"; số lượng/tồn kho
 type Cls = { tool: string; ma_hang: string; khach: string; khach_mo_rong: string; dia_chi: string; loai: string; thang: string; ngay: string; loai_viec: string; tinh_trang: string; ma_may: string }
 
 const TOOL_LABEL: Record<string, string> = {
-  tonKho: 'Tồn kho', datHang: 'Đặt hàng', donHang: 'Đơn đặt hàng', congNo: 'Công nợ', giamDinh: 'Giám định', baoTri: 'Bảo trì', thueCpc: 'Thuê / CPC', congViec: 'Công việc', vatTuMay: 'Vật tư máy', khachHang: 'Khách hàng',
+  tonKho: 'Tồn kho', datHang: 'Đặt hàng', donHang: 'Đơn đặt hàng', congNo: 'Công nợ', giamDinh: 'Giám định', baoTri: 'Bảo trì', thueCpc: 'Thuê / CPC', counter: 'Lấy counter', congViec: 'Công việc', vatTuMay: 'Vật tư máy', khachHang: 'Khách hàng',
 }
 
 // allow(tool): trợ lý chỉ trả lời module mà người dùng có quyền xem (admin luôn true).
@@ -361,6 +406,7 @@ export async function runAssistant(question: string, opts?: { allow?: (tool: str
   else if (c.tool === 'donHang') result = await donHang(c.thang)
   else if (c.tool === 'congViec') { const terms = await buildTerms(c.khach, c.khach_mo_rong, ''); result = await congViec(c.ngay, c.thang, c.loai_viec, c.tinh_trang, terms) }
   else if (c.tool === 'vatTuMay') result = await vatTuMay(c.ma_may)
+  else if (c.tool === 'counter') { const terms = await buildTerms(c.khach, c.khach_mo_rong, c.dia_chi); result = await counter(c.tinh_trang, terms) }
   else if (c.tool === 'khachHang') { const terms = await buildTerms(c.khach, c.khach_mo_rong, c.dia_chi); result = await khachHang(terms) }
   else if (c.tool === 'congNo' || c.tool === 'giamDinh' || c.tool === 'baoTri' || c.tool === 'thueCpc') {
     const terms = await buildTerms(c.khach, c.khach_mo_rong, c.dia_chi)
