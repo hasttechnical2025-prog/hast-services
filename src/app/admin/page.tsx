@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { TAB_TREE, TAB_ROLES, DEFAULT_TAB_VIS } from "@/lib/tabs"
 import { supabase } from "@/lib/supabase"
+import { chotSoDate, counterStatus } from "@/lib/thue-cpc"
 import ThueCpcModule from "@/components/ThueCpcModule"
 import NghiPhepDuyet from "@/components/NghiPhepDuyet"
 import BaoGiaEditor, { type BaoGiaRow } from "@/components/BaoGiaEditor"
@@ -306,6 +307,8 @@ export default function AdminDashboard() {
     if (currentUserRole) fetchPhieuCount()
   }, [currentUserRole, activeTab, congTacTab, fetchPhieuCount])
   const [hdbtOpen, setHdbtOpen] = useState(false)
+  const [counterDueOpen, setCounterDueOpen] = useState(false)
+  const [counterDueList, setCounterDueList] = useState<any[]>([])
   // Bộ lọc Sổ công tác (mặc định: việc hôm nay)
   const [jobFilters, setJobFilters] = useState<{ search: string, report: string, tuNgay: string, denNgay: string, loaiViec: string[], ktvId: string, hoaDon: string, trangThai: string[] }>(() => {
     const t = new Date().toISOString().split('T')[0]
@@ -347,6 +350,31 @@ export default function AdminDashboard() {
       .filter(c => c.ngay_het_han_hdbt && new Date(c.ngay_het_han_hdbt) <= limit)
       .sort((a, b) => new Date(a.ngay_het_han_hdbt).getTime() - new Date(b.ngay_het_han_hdbt).getTime())
   })()
+
+  // Máy thuê/CPC sắp/đã đến hạn lấy counter (báo trước 5 ngày) — panel cạnh cảnh báo HĐBT.
+  useEffect(() => {
+    if (!currentAdmin) return
+    let alive = true
+    const vnNow = new Date(Date.now() + 7 * 3600 * 1000)
+    const thang = vnNow.toISOString().slice(0, 7)
+    const today = vnNow.toISOString().slice(0, 10)
+    fetch(`/api/admin/thue-cpc/counter?thang_nam=${thang}`)
+      .then(r => r.ok ? r.json() : { data: { rows: [] } })
+      .then(j => {
+        if (!alive) return
+        const due = (j.data?.rows || [])
+          .map((m: any) => {
+            const daNhap = m.so_bw != null || m.so_mau != null
+            const st = counterStatus(chotSoDate(thang, m.chot_so_ngay, m.chot_so_cuoi_thang), daNhap, today, 5)
+            return { ...m, _st: st }
+          })
+          .filter((m: any) => m._st.status === 'overdue' || m._st.status === 'due_soon')
+          .sort((a: any, b: any) => (a._st.status === 'overdue' ? 0 : 1) - (b._st.status === 'overdue' ? 0 : 1) || a._st.days - b._st.days)
+        setCounterDueList(due)
+      })
+      .catch(() => { })
+    return () => { alive = false }
+  }, [currentAdmin, activeTab, congTacTab])
 
   const [formData, setFormData] = useState({
     ngay: new Date().toISOString().split('T')[0], // Mặc định ngày hôm nay
@@ -1040,6 +1068,39 @@ export default function AdminDashboard() {
                           <td className="px-4 py-2 font-medium text-slate-800">{c.ten_khach_hang}</td>
                           <td className="px-4 py-2">{c.loai_hd || '—'}</td>
                           <td className="px-4 py-2 text-center whitespace-nowrap">{st && <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${st.cls}`} title={st.note}>{st.label}</span>}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "cong_viec" && effectiveCongTacTab === "giao_viec" && counterDueList.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
+            <button onClick={() => setCounterDueOpen(o => !o)} className="w-full flex items-center gap-2 px-4 py-3 text-left">
+              <Clock className="w-5 h-5 text-amber-600 shrink-0" />
+              <span className="text-sm font-semibold text-amber-800">{counterDueList.length} máy thuê/CPC sắp/đã đến hạn lấy counter</span>
+              <span className="text-xs text-amber-600">(báo trước 5 ngày — nhập chỉ số công tơ ở tab Thuê/CPC)</span>
+              <svg className={`w-4 h-4 text-amber-600 ml-auto transition-transform ${counterDueOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            {counterDueOpen && (
+              <div className="border-t border-amber-200 max-h-64 overflow-y-auto bg-white">
+                <table className="w-full text-left text-sm text-slate-600">
+                  <thead className="bg-amber-50/50 text-xs text-amber-800"><tr><th className="px-4 py-2 font-medium">Mã máy</th><th className="px-4 py-2 font-medium">Khách hàng</th><th className="px-4 py-2 font-medium">Loại HĐ</th><th className="px-4 py-2 font-medium text-center">Trạng thái</th></tr></thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {counterDueList.map(m => {
+                      const overdue = m._st.status === 'overdue'
+                      const label = overdue ? `Quá hạn ${m._st.days} ngày` : (m._st.days === 0 ? 'Đến hạn hôm nay' : `Còn ${m._st.days} ngày`)
+                      const cls = overdue ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                      return (
+                        <tr key={m.id}>
+                          <td className="px-4 py-2 font-mono text-xs">{m.ma_may || '—'}</td>
+                          <td className="px-4 py-2 font-medium text-slate-800">{m.ten_khach_hang}</td>
+                          <td className="px-4 py-2">{m.loai_hd || '—'}</td>
+                          <td className="px-4 py-2 text-center whitespace-nowrap"><span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${cls}`}>{label}</span></td>
                         </tr>
                       )
                     })}
