@@ -9,12 +9,11 @@ import { GeminiNoKeyError } from '@/lib/ai/gemini'
 export const runtime = 'nodejs'
 export const maxDuration = 30
 
-// Mỗi tool ứng với 1 tab [cha, con] — trợ lý chỉ trả lời module người dùng có quyền xem.
+// Dữ liệu vận hành (kho, khách, việc, giám định, bảo trì, đặt hàng...) KHÔNG cần giấu:
+// ai mở được trợ lý (quyền 'tro_ly') là tra được -> KHÔNG liệt kê ở đây (allow trả true).
+// Chỉ giữ gate cho nhóm dính TIỀN (Công nợ, Thuê/CPC đơn giá) — có thể nới sau khi chốt.
 const TOOL_TAB: Record<string, [string, string]> = {
-  tonKho: ['kho_hang', 'ton_kho'], datHang: ['kho_hang', 'dat_hang'], donHang: ['kho_hang', 'dat_hang'],
   congNo: ['tai_chinh', 'cong_no'], thueCpc: ['tai_chinh', 'thue_cpc'],
-  giamDinh: ['theo_doi_may', 'giam_dinh'], baoTri: ['theo_doi_may', 'bao_tri'],
-  congViec: ['cong_viec', 'cong_viec'], vatTuMay: ['cong_viec', 'cong_viec'], khachHang: ['quan_ly', 'khach_hang'],
 }
 
 // Trợ lý AI nội bộ. Quyền MỞ theo tab 'tro_ly' (admin bật/tắt cho từng role);
