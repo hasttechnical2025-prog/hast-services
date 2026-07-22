@@ -127,33 +127,52 @@ const modelHit = (modelDb: any, q: string) => {
   return qts.every(qt => mts.some(mt => mt.includes(qt) || (/^c\d/.test(qt) && mt.includes(qt.slice(1)))))
 }
 
-// Trả về DANH SÁCH CỤM TỪ, mỗi cụm là mảng token.
-// Khớp = ĐỦ MỌI token trong MỘT cụm (AND trong cụm, OR giữa các cụm).
-// Trước đây gộp hết thành từ khóa rời rồi khớp OR -> biệt danh "vp -> văn phòng" khiến
-// MỌI khách có chữ "Văn phòng" đều trúng (nhận nhầm khách). Nay biệt danh THAY THẾ
-// từ viết tắt ngay trong cụm, giữ nguyên các từ còn lại -> chính xác hơn hẳn.
+// Bộ biệt danh, nạp 1 lần rồi cache ngắn (dùng cho CẢ câu hỏi lẫn dữ liệu).
+let _alias: { map: Map<string, string>, re: RegExp | null, at: number } = { map: new Map(), re: null, at: 0 }
+
+async function loadAliases(): Promise<void> {
+  if (_alias.re !== null && Date.now() - _alias.at < 60_000) return
+  const { data } = await supabaseAdmin.from('soct_alias').select('tu_khoa, mo_rong')
+  const map = new Map<string, string>()
+  for (const a of (data || []) as any[]) {
+    const k = norm(a.tu_khoa), v = norm(a.mo_rong)
+    // CHỈ nhận chiều VIẾT TẮT -> ĐẦY ĐỦ (mở rộng phải DÀI HƠN). Nhờ vậy dòng ngược
+    // chiều (VD "trung ương -> tw") bị bỏ qua, không triệt tiêu dòng "tw -> trung ương".
+    if (k && v && v.length > k.length) map.set(k, v)
+  }
+  // Cụm dài khớp trước ("ngan hang nn" trước "nn")
+  const keys = [...map.keys()].sort((a, b) => b.length - a.length)
+  const re = keys.length ? new RegExp(`(^|[^a-z0-9])(${keys.map(escapeRe).join('|')})(?=[^a-z0-9]|$)`, 'g') : null
+  _alias = { map, re, at: Date.now() }
+}
+
+// Chuẩn hóa biệt danh trên chuỗi ĐÃ norm(). Thay MỘT LƯỢT duy nhất (phần vừa thay
+// không bị quét lại) -> không lặp vòng, kết quả ổn định.
+function expandAlias(normed: string): string {
+  const { re, map } = _alias
+  if (!re) return normed
+  re.lastIndex = 0
+  return normed.replace(re, (_m, pre, k) => pre + (map.get(k) || k))
+}
+
+// Trả về DANH SÁCH CỤM TỪ, mỗi cụm là mảng token. Khớp = ĐỦ MỌI token trong MỘT cụm.
+// MẤU CHỐT: biệt danh được áp cho CẢ HAI PHÍA (câu hỏi ở đây, dữ liệu trong hitAny).
+// Dữ liệu thực tế viết lai đủ kiểu ("Văn phòng TW Đảng" = vp đủ chữ nhưng tw vẫn tắt);
+// chỉ chuẩn hóa phía câu hỏi thì không bao giờ khớp nổi -> phải quy cả hai về một dạng.
 async function buildTerms(khach: string, khachMoRong: string, diaChi: string): Promise<string[][]> {
   const raws = [khach, khachMoRong, diaChi].map(s => norm(s)).filter(Boolean)
   if (raws.length === 0) return []
-
-  const { data: aliases } = await supabaseAdmin.from('soct_alias').select('tu_khoa, mo_rong')
-  const expand = (s: string) => {
-    let out = s
-    for (const a of (aliases || []) as any[]) {
-      const tk = norm(a.tu_khoa), mr = norm(a.mo_rong)
-      if (!tk || !mr) continue
-      // chỉ thay khi khớp NGUYÊN từ (tránh "vp" ăn vào giữa chữ khác)
-      out = out.replace(new RegExp(`(^|[^a-z0-9])${escapeRe(tk)}(?=[^a-z0-9]|$)`, 'g'), `$1${mr}`)
-    }
-    return out
-  }
-
-  const cands = new Set<string>()
-  for (const r of raws) { cands.add(r); const e = expand(r); if (e && e !== r) cands.add(e) }
+  await loadAliases()
+  const cands = new Set<string>(raws.map(expandAlias))
   return [...cands].map(tokenize).filter(t => t.length > 0)
 }
-// Khớp nếu có ÍT NHẤT MỘT cụm mà MỌI token của cụm đó đều xuất hiện.
-const hitAny = (hay: string, terms: string[][]) => terms.some(ts => ts.every(t => hay.includes(t)))
+// Khớp nếu có ÍT NHẤT MỘT cụm mà MỌI token của cụm đó đều xuất hiện (sau khi
+// dữ liệu cũng được chuẩn hóa biệt danh y hệt câu hỏi).
+const hitAny = (hay: string, terms: string[][]) => {
+  if (terms.length === 0) return false
+  const h = expandAlias(hay)
+  return terms.some(ts => ts.every(t => h.includes(t)))
+}
 
 // ===== Tool B1: Công nợ theo khách/cụm =====
 async function congNo(terms: string[][]): Promise<ToolResult> {
