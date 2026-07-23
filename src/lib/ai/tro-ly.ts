@@ -516,6 +516,45 @@ async function counterMay(maMay: string, model: string, thang: string, terms: st
   return { summary, rows: top, columns }
 }
 
+// ===== Tool B10: Tra cứu theo SỐ PHIẾU (report) — tổng tiền, đã lên hóa đơn chưa =====
+async function phieu(soPhieu: string): Promise<ToolResult> {
+  const columns = [
+    { key: 'report', label: 'Số phiếu' }, { key: 'ngay', label: 'Ngày' }, { key: 'khach', label: 'Khách hàng' },
+    { key: 'ma_may', label: 'Mã máy' }, { key: 'loai_cong_viec', label: 'Loại việc' }, { key: 'ktv', label: 'KTV' },
+    { key: 'ket_qua', label: 'Trạng thái' }, { key: 'hoa_don', label: 'Hóa đơn' }, { key: 'tong_tien', label: 'Tổng (chưa VAT)' },
+  ]
+  const q = (soPhieu || '').replace(/\D/g, '').trim()
+  if (!q) return { summary: 'Chưa rõ số phiếu cần tra.', rows: [], columns }
+
+  const sel = `id, ngay, report, ma_may, loai_cong_viec, ket_qua, trang_thai_hd,
+    soct_khach_hang ( ten_khach_hang ), soct_users!ktv_id ( full_name ),
+    soct_chi_tiet_vat_tu ( ma_hang, so_luong, don_gia, vat, soct_kho_hang ( ten_hang ) )`
+  const { data } = await supabaseAdmin.from('soct_cong_viec').select(sel).eq('report', q)
+  const list = (data || []) as any[]
+  if (list.length === 0) return { summary: `Không tìm thấy phiếu số "${q}".`, rows: [], columns }
+
+  const rows = list.map(j => {
+    const vt = j.soct_chi_tiet_vat_tu || []
+    const truocVat = vt.reduce((s: number, v: any) => s + (Number(v.don_gia) || 0) * (Number(v.so_luong) || 0), 0)
+    const tienVat = vt.reduce((s: number, v: any) => s + (Number(v.don_gia) || 0) * (Number(v.so_luong) || 0) * (Number(v.vat) || 0) / 100, 0)
+    return {
+      report: j.report, ngay: j.ngay, khach: j.soct_khach_hang?.ten_khach_hang || '—', ma_may: j.ma_may || '—',
+      loai_cong_viec: j.loai_cong_viec || '—', ktv: j.soct_users?.full_name || '—', ket_qua: j.ket_qua || '—',
+      hoa_don: j.trang_thai_hd || 'Chưa hóa đơn',
+      tong_tien: fmtVnd(truocVat),
+      _truocVat: truocVat, _sauVat: truocVat + tienVat,
+      _vt: vt.map((v: any) => `${v.soct_kho_hang?.ten_hang || v.ma_hang} x${Number(v.so_luong) || 0} @ ${fmtVnd(v.don_gia)} đ`).join(', '),
+    }
+  })
+
+  const summary = rows.map(r =>
+    `Phiếu ${r.report} (ngày ${r.ngay}, khách ${r.khach}, máy ${r.ma_may}, ${r.loai_cong_viec}, KTV ${r.ktv}): `
+    + `trạng thái việc "${r.ket_qua}", hóa đơn "${r.hoa_don}", tổng tiền ${fmtVnd(r._truocVat)} đ chưa VAT `
+    + `(${fmtVnd(r._sauVat)} đ đã gồm VAT).${r._vt ? ` Vật tư: ${r._vt}.` : ' Phiếu không có vật tư.'}`
+  ).join(' ')
+  return { summary, rows, columns }
+}
+
 // ===== Orchestration =====
 const CLASSIFY_SYSTEM = `Bạn là bộ phân loại câu hỏi cho phần mềm quản lý dịch vụ máy photocopy (tiếng Việt).
 Chọn 1 công cụ và rút tham số:
@@ -528,6 +567,7 @@ Chọn 1 công cụ và rút tham số:
 - thueCpc: hỏi DANH SÁCH MÁY THUÊ / MÁY CPC ở đâu / của ai (KHÔNG hỏi về counter) -> điền dia_chi (nơi chốn) hoặc khach, và loai nếu rõ.
 - counter: hỏi VIỆC LẤY COUNTER máy thuê-CPC — máy nào CẦN LẤY / SẮP đến hạn / QUÁ HẠN, "khách X đã lấy counter chưa" -> tinh_trang="qua_han" nếu chỉ hỏi quá hạn; điền khach/ma_may nếu hỏi cụ thể. QUAN TRỌNG: nếu hỏi theo NGÀY CHỐT SỐ ("máy nào cần lấy counter ngày 25") -> điền ngay = ngày đó (YYYY-MM-DD, tháng/năm của hôm nay).
 - counterMay: hỏi CHỈ SỐ COUNTER ĐÃ GHI của một máy là bao nhiêu (VD "counter máy 958 ở vp tw đảng" -> model="958"; "mã máy 36114 counter bao nhiêu" -> ma_may="36114"; "máy Y có counter tháng 7 là bao nhiêu") -> điền model HOẶC ma_may theo quy tắc phân biệt bên dưới, kèm khach nếu có; hỏi 1 THÁNG cụ thể thì điền thang (YYYY-MM). (Khác counter: bên kia hỏi CÓ CẦN LẤY không, bên này hỏi SỐ LÀ BAO NHIÊU.)
+- phieu: hỏi về MỘT SỐ PHIẾU / SỐ REPORT cụ thể — tổng tiền của phiếu, phiếu đã LÊN HÓA ĐƠN chưa, phiếu của khách nào/ngày nào/ai làm (VD "tổng tiền của phiếu 958020 là bao nhiêu", "số phiếu 958021 đã lên hóa đơn chưa", "report 958015 của khách nào") -> điền so_phieu = dãy số phiếu đó.
 - giaBan: hỏi GIÁ BÁN / bán bao nhiêu tiền của một VẬT TƯ (có thể kèm khách) (VD "mực im2500 phòng tccb bán giá bao nhiêu", "giá bán trống c301i", "mực máy 2500 bán bao nhiêu") -> điền ma_hang = mô tả vật tư, khach nếu có nêu khách.
 - congViec: THỐNG KÊ / LIỆT KÊ phiếu công việc theo THỜI GIAN và/hoặc LOẠI VIỆC và/hoặc TRẠNG THÁI và/hoặc khách (VD "ngày 16/7 có bao nhiêu phiếu sửa chữa", "hôm nay có phiếu nào chưa xong", "hôm nay lắp mấy máy") -> điền ngay (YYYY-MM-DD) nếu hỏi 1 ngày, hoặc thang (YYYY-MM) nếu hỏi tháng; loai_viec = loại công việc (Sửa máy, Thay vật tư, Lắp máy, Bảo trì, Giao mực, Bảo hành...) nếu có; tinh_trang = "chua_xong" nếu hỏi phiếu CHƯA XONG/chưa hoàn thành/còn dở, "da_xong" nếu hỏi ĐÃ XONG/hoàn thành, để rỗng nếu không nói; khach nếu giới hạn 1 khách.
 - vatTuMay: hỏi LỊCH SỬ THAY VẬT TƯ/linh kiện của một MÃ MÁY cụ thể (VD "máy 36114 đã thay vật tư gì", "máy X thay linh kiện ngày nào") -> điền ma_may = mã máy đó.
@@ -548,12 +588,12 @@ Chỉ trả JSON đúng schema.`
 const CLASSIFY_SCHEMA = {
   type: 'OBJECT',
   properties: {
-    tool: { type: 'STRING', enum: ['tonKho', 'datHang', 'donHang', 'congNo', 'giamDinh', 'baoTri', 'thueCpc', 'counter', 'counterMay', 'giaBan', 'congViec', 'vatTuMay', 'khachHang', 'none'] },
+    tool: { type: 'STRING', enum: ['tonKho', 'datHang', 'donHang', 'congNo', 'giamDinh', 'baoTri', 'thueCpc', 'counter', 'counterMay', 'giaBan', 'phieu', 'congViec', 'vatTuMay', 'khachHang', 'none'] },
     ma_hang: { type: 'STRING' }, khach: { type: 'STRING' }, khach_mo_rong: { type: 'STRING' },
     dia_chi: { type: 'STRING' }, loai: { type: 'STRING' }, thang: { type: 'STRING' },
-    ngay: { type: 'STRING' }, loai_viec: { type: 'STRING' }, tinh_trang: { type: 'STRING' }, ma_may: { type: 'STRING' }, model: { type: 'STRING' },
+    ngay: { type: 'STRING' }, loai_viec: { type: 'STRING' }, tinh_trang: { type: 'STRING' }, ma_may: { type: 'STRING' }, model: { type: 'STRING' }, so_phieu: { type: 'STRING' },
   },
-  required: ['tool', 'ma_hang', 'khach', 'khach_mo_rong', 'dia_chi', 'loai', 'thang', 'ngay', 'loai_viec', 'tinh_trang', 'ma_may', 'model'],
+  required: ['tool', 'ma_hang', 'khach', 'khach_mo_rong', 'dia_chi', 'loai', 'thang', 'ngay', 'loai_viec', 'tinh_trang', 'ma_may', 'model', 'so_phieu'],
 }
 
 const PHRASE_SYSTEM = `Bạn là trợ lý nội bộ công ty dịch vụ máy photocopy. Trả lời NGẮN GỌN bằng tiếng Việt,
@@ -565,10 +605,10 @@ QUY TẮC BẮT BUỘC:
 - Dữ liệu đã được lọc đúng theo câu hỏi; hãy tin và trình bày, không tự phủ nhận.
 Tiền hiển thị dạng phân tách nghìn kèm "đ"; số lượng/tồn kho để nguyên.`
 
-type Cls = { tool: string; ma_hang: string; khach: string; khach_mo_rong: string; dia_chi: string; loai: string; thang: string; ngay: string; loai_viec: string; tinh_trang: string; ma_may: string; model: string }
+type Cls = { tool: string; ma_hang: string; khach: string; khach_mo_rong: string; dia_chi: string; loai: string; thang: string; ngay: string; loai_viec: string; tinh_trang: string; ma_may: string; model: string; so_phieu: string }
 
 const TOOL_LABEL: Record<string, string> = {
-  tonKho: 'Tồn kho', datHang: 'Đặt hàng', donHang: 'Đơn đặt hàng', congNo: 'Công nợ', giamDinh: 'Giám định', baoTri: 'Bảo trì', thueCpc: 'Thuê / CPC', counter: 'Lấy counter', counterMay: 'Counter máy', giaBan: 'Giá bán', congViec: 'Công việc', vatTuMay: 'Vật tư máy', khachHang: 'Khách hàng',
+  tonKho: 'Tồn kho', datHang: 'Đặt hàng', donHang: 'Đơn đặt hàng', congNo: 'Công nợ', giamDinh: 'Giám định', baoTri: 'Bảo trì', thueCpc: 'Thuê / CPC', counter: 'Lấy counter', counterMay: 'Counter máy', giaBan: 'Giá bán', phieu: 'Số phiếu', congViec: 'Công việc', vatTuMay: 'Vật tư máy', khachHang: 'Khách hàng',
 }
 
 // allow(tool): trợ lý chỉ trả lời module mà người dùng có quyền xem (admin luôn true).
@@ -578,7 +618,7 @@ export async function runAssistant(question: string, opts?: { allow?: (tool: str
   const c = await geminiJSON<Cls>(CLASSIFY_SYSTEM, `Hôm nay là ${today}.\nCâu hỏi: ${question}`, CLASSIFY_SCHEMA)
   // Tham số AI rút ra (bỏ trường rỗng) — để soi trong Nhật ký khi trả lời sai.
   const params: any = {}
-  for (const k of ['ma_hang', 'khach', 'khach_mo_rong', 'dia_chi', 'loai', 'thang', 'ngay', 'loai_viec', 'tinh_trang', 'ma_may', 'model'] as const) if (c[k]) params[k] = c[k]
+  for (const k of ['ma_hang', 'khach', 'khach_mo_rong', 'dia_chi', 'loai', 'thang', 'ngay', 'loai_viec', 'tinh_trang', 'ma_may', 'model', 'so_phieu'] as const) if (c[k]) params[k] = c[k]
 
   if (c.tool !== 'none' && opts?.allow && !opts.allow(c.tool)) {
     return { answer: `Bạn không có quyền xem dữ liệu ${TOOL_LABEL[c.tool] || 'này'} nên trợ lý không thể trả lời câu hỏi này.`, rows: [], columns: [], tool: c.tool, params }
@@ -593,6 +633,7 @@ export async function runAssistant(question: string, opts?: { allow?: (tool: str
   else if (c.tool === 'counter') { const terms = await buildTerms(c.khach, c.khach_mo_rong, c.dia_chi); result = await counter(c.tinh_trang, c.ngay, c.ma_may, c.model, terms) }
   else if (c.tool === 'counterMay') { const terms = await buildTerms(c.khach, c.khach_mo_rong, c.dia_chi); result = await counterMay(c.ma_may, c.model, c.thang, terms) }
   else if (c.tool === 'giaBan') { const terms = await buildTerms(c.khach, c.khach_mo_rong, ''); result = await giaBan(c.ma_hang, terms) }
+  else if (c.tool === 'phieu') result = await phieu(c.so_phieu)
   else if (c.tool === 'khachHang') { const terms = await buildTerms(c.khach, c.khach_mo_rong, c.dia_chi); result = await khachHang(terms, c.loai, c.ma_may, c.model) }
   else if (c.tool === 'congNo' || c.tool === 'giamDinh' || c.tool === 'baoTri' || c.tool === 'thueCpc') {
     const terms = await buildTerms(c.khach, c.khach_mo_rong, c.dia_chi)
