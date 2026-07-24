@@ -49,6 +49,15 @@ type User = {
   telegram_id: string | null
 }
 
+// Lần gần nhất của mã máy: lần trước làm gì / thay vật tư gì / ghi chú - tình trạng
+type LastCall = {
+  ngay: string
+  loai_cong_viec: string | null
+  ghi_chu_ktv: string | null
+  ghi_chu: string | null
+  vat_tu: string
+}
+
 export default function KtvMobileWeb() {
   const [currentKtv, setCurrentKtv] = useState<User | null>(null)
 
@@ -80,11 +89,13 @@ export default function KtvMobileWeb() {
   const [loadingReport, setLoadingReport] = useState(false) // State loading khi chuyển ngày nộp báo cáo
 
   // State lưu trữ dữ liệu điền báo cáo tạm thời trong RAM (counter & ghi_chu_ktv)
-  const [draftReports, setDraftReports] = useState<Record<string, { counter: string, ghi_chu_ktv: string }>>({})
+  const [draftReports, setDraftReports] = useState<Record<string, { counter: string, ghi_chu_ktv: string, so_phut: string }>>({})
 
   // Lịch sử "lần gần nhất" (last call) của mã máy đang mở — hiển thị 1 dòng trong chi tiết ca
-  const [lastCall, setLastCall] = useState<{ ngay: string, loai_cong_viec: string | null, ghi_chu_ktv: string | null } | null>(null)
+  const [lastCall, setLastCall] = useState<LastCall | null>(null)
   const [lastCallLoading, setLastCallLoading] = useState(false)
+  // Bấm "Đang làm" -> bật ngay lịch sử máy (phần thưởng cho thao tác đúng, không phải nút chấm công)
+  const [startedInfo, setStartedInfo] = useState<{ maMay: string, info: LastCall } | null>(null)
 
   // Ngày báo cáo (theo giờ VN): chỉ HÔM NAY / HÔM QUA mới sửa được; T7/CN/lễ = ngày nghỉ (không báo cáo)
   const vnTodayStr = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
@@ -109,12 +120,13 @@ export default function KtvMobileWeb() {
           setReportStatusByDate(json.data.statuses)
         }
         // Nạp dữ liệu các ca máy hiện có vào draftReports để sửa
-        const initialDrafts: Record<string, { counter: string, ghi_chu_ktv: string }> = {}
+        const initialDrafts: Record<string, { counter: string, ghi_chu_ktv: string, so_phut: string }> = {}
         if (json.data.jobs) {
           json.data.jobs.forEach((j: any) => {
             initialDrafts[j.id] = {
               counter: j.counter != null ? String(j.counter) : "1", // mặc định Số vụ việc = 1
-              ghi_chu_ktv: j.ghi_chu_ktv || ""
+              ghi_chu_ktv: j.ghi_chu_ktv || "",
+              so_phut: j.so_phut_xu_ly != null && j.so_phut_xu_ly > 0 ? String(j.so_phut_xu_ly) : ""
             }
           })
         }
@@ -128,11 +140,11 @@ export default function KtvMobileWeb() {
   }, [])
 
   // Cập nhật nháp cục bộ trong RAM trước khi chốt nộp
-  const handleUpdateDraftReport = (jobId: string, field: 'counter' | 'ghi_chu_ktv', value: string) => {
+  const handleUpdateDraftReport = (jobId: string, field: 'counter' | 'ghi_chu_ktv' | 'so_phut', value: string) => {
     setDraftReports(prev => ({
       ...prev,
       [jobId]: {
-        ...prev[jobId] || { counter: "", ghi_chu_ktv: "" },
+        ...prev[jobId] || { counter: "", ghi_chu_ktv: "", so_phut: "" },
         [field]: value
       }
     }))
@@ -283,7 +295,8 @@ export default function KtvMobileWeb() {
       const jobsToSend = Object.entries(draftReports).map(([id, val]) => ({
         id,
         counter: val.counter,
-        ghi_chu_ktv: val.ghi_chu_ktv
+        ghi_chu_ktv: val.ghi_chu_ktv,
+        so_phut: val.so_phut
       }))
 
       const res = await fetch('/api/ktv/bao-cao', {
@@ -433,6 +446,19 @@ export default function KtvMobileWeb() {
       return
     }
     applyStatus(jobId, nextStatus)
+
+    // Bấm "Đang làm" -> thưởng ngay thông tin hữu ích: lần trước máy này làm gì.
+    // Chỉ bật khi THỰC SỰ có lịch sử (không có thì im lặng, tránh làm phiền).
+    if (nextStatus === 'Đang làm') {
+      const job = jobs.find(j => j.id === jobId)
+      const ma = job?.ma_may
+      if (ma) {
+        fetch(`/api/ktv/lich-su?ma_may=${encodeURIComponent(ma)}&exclude=${jobId}`)
+          .then(r => r.ok ? r.json() : { data: null })
+          .then(j => { if (j?.data) setStartedInfo({ maMay: ma, info: j.data }) })
+          .catch(() => { })
+      }
+    }
   }
 
   // Hủy nhận việc (chỉ khi 'Đã nhận'): trả việc về pool + báo group cho người khác nhận
@@ -853,13 +879,73 @@ export default function KtvMobileWeb() {
                           )}
                         </div>
 
+                        {/* CHỐT LẠI THỜI GIAN — phiếu bấm bù (2 nút cách nhau <2 phút) hoặc chưa khai.
+                            Chốt ở đây thay vì ép chính xác ngoài hiện trường: lúc này KTV đang rảnh trí. */}
+                        {!reportData.da_nop && reportEditable && (() => {
+                          const canhBao = reportData.jobs.filter(j => {
+                            if (j.ket_qua !== 'Hoàn thành') return false
+                            const cach = phutGiua(j.bat_dau_luc, j.hoan_thanh_luc)
+                            const chuaKhai = j.so_phut_xu_ly == null || j.so_phut_xu_ly <= 0
+                            return chuaKhai || (cach != null && cach < 2)
+                          })
+                          if (canhBao.length === 0) return null
+                          return (
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+                              <div className="text-xs font-bold text-amber-800">⏱ Cần xác nhận lại thời gian ({canhBao.length} ca)</div>
+                              <p className="text-[11px] text-amber-700 leading-relaxed">
+                                Các ca này bấm <b>Đang làm</b> và <b>Hoàn thành</b> gần như cùng lúc (hoặc chưa khai thời gian).
+                                Nhập thời gian làm <b>thực tế</b> giúp nhé.
+                              </p>
+                              {canhBao.map(j => {
+                                const val = draftReports[j.id]?.so_phut || ''
+                                const num = parseInt(val || '0', 10) || 0
+                                const set = (v: number) => handleUpdateDraftReport(j.id, 'so_phut', String(Math.max(0, v)))
+                                return (
+                                  <div key={j.id} className="bg-white rounded-lg border border-amber-100 p-2.5 space-y-2">
+                                    <div className="text-xs text-slate-700">
+                                      <b>{j.soct_khach_hang?.ten_khach_hang || '—'}</b>
+                                      {j.ma_may && <span className="text-slate-400"> · máy {j.ma_may}</span>}
+                                      {j.loai_cong_viec && <span className="text-slate-400"> · {j.loai_cong_viec}</span>}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <button type="button" onClick={() => set(num - 5)} className="w-8 h-8 rounded-lg border border-slate-200 text-slate-600">−</button>
+                                      <div className="text-center min-w-[76px]">
+                                        <div className={`text-base font-bold ${num > 0 ? 'text-slate-800' : 'text-red-500'}`}>{num > 0 ? fmtThoiLuong(num) : 'chưa khai'}</div>
+                                        <div className="text-[10px] text-slate-400">{num} phút</div>
+                                      </div>
+                                      <button type="button" onClick={() => set(num + 5)} className="w-8 h-8 rounded-lg border border-slate-200 text-slate-600">+</button>
+                                      <div className="flex flex-wrap gap-1 ml-auto">
+                                        {[15, 30, 60, 90].map(m => (
+                                          <button key={m} type="button" onClick={() => set(m)}
+                                            className={`px-2 h-7 rounded-lg text-[11px] font-semibold border ${num === m ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-slate-600 border-slate-200'}`}>
+                                            {fmtThoiLuong(m)}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )
+                        })()}
+
                         {/* NÚT CHỐT NỘP BÁO CÁO NGÀY */}
                         {!reportData.da_nop && reportEditable && (() => {
                           // KTV bắt buộc phải chọn tình trạng máy (có dữ liệu ghi_chu_ktv trong draftReports) cho MỌI ca máy
-                          const canSubmit = reportData.jobs.every(j => {
+                          const thieuTinhTrang = !reportData.jobs.every(j => {
                             const val = draftReports[j.id]
                             return !!(val && val.ghi_chu_ktv && val.ghi_chu_ktv.trim())
                           })
+                          // ...và phải khai thời gian cho các ca bấm bù / chưa khai
+                          const thieuThoiGian = reportData.jobs.some(j => {
+                            if (j.ket_qua !== 'Hoàn thành') return false
+                            const cach = phutGiua(j.bat_dau_luc, j.hoan_thanh_luc)
+                            const chuaKhai = j.so_phut_xu_ly == null || j.so_phut_xu_ly <= 0
+                            if (!(chuaKhai || (cach != null && cach < 2))) return false
+                            return !((parseInt(draftReports[j.id]?.so_phut || '0', 10) || 0) > 0)
+                          })
+                          const canSubmit = !thieuTinhTrang && !thieuThoiGian
                           return (
                             <div className="pt-2">
                               <Button
@@ -869,8 +955,11 @@ export default function KtvMobileWeb() {
                               >
                                 🚀 Chốt và Gửi báo cáo ngày
                               </Button>
-                              {!canSubmit && (
+                              {thieuTinhTrang && (
                                 <p className="text-[10px] text-center text-red-500 mt-1 font-medium">Bạn chưa chọn tình trạng máy cho một số ca phía trên.</p>
+                              )}
+                              {!thieuTinhTrang && thieuThoiGian && (
+                                <p className="text-[10px] text-center text-red-500 mt-1 font-medium">Bạn chưa xác nhận thời gian cho các ca ở khung vàng phía trên.</p>
                               )}
                             </div>
                           )
@@ -958,11 +1047,15 @@ export default function KtvMobileWeb() {
                       {lastCallLoading ? (
                         <span className="text-slate-400 italic">Đang tra lịch sử máy…</span>
                       ) : lastCall ? (
-                        <span>
-                          🕘 <b>Lần gần nhất:</b> {formatDate(lastCall.ngay)}
-                          {lastCall.loai_cong_viec && <> · {lastCall.loai_cong_viec}</>}
-                          {lastCall.ghi_chu_ktv && <> — <span className="italic">{lastCall.ghi_chu_ktv}</span></>}
-                        </span>
+                        <div className="space-y-0.5">
+                          <div>
+                            🕘 <b>Lần gần nhất:</b> {formatDate(lastCall.ngay)}
+                            {lastCall.loai_cong_viec && <> · {lastCall.loai_cong_viec}</>}
+                            {lastCall.ghi_chu_ktv && <> — <span className="italic">{lastCall.ghi_chu_ktv}</span></>}
+                          </div>
+                          {lastCall.vat_tu && <div>🔧 <b>Vật tư đã thay:</b> {lastCall.vat_tu}</div>}
+                          {lastCall.ghi_chu && <div className="text-slate-500">📝 {lastCall.ghi_chu}</div>}
+                        </div>
                       ) : (
                         <span className="text-slate-400 italic">🕘 Chưa có lịch sử cho mã máy này.</span>
                       )}
@@ -1091,6 +1184,30 @@ export default function KtvMobileWeb() {
       )}
 
       {/* Xác nhận thời lượng khi HOÀN THÀNH — KTV chỉnh lại để bù đi bộ/mất sóng */}
+      {/* Vừa bấm "Đang làm" -> hiện ngay lịch sử máy (lý do để KTV bấm đúng lúc) */}
+      {startedInfo && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="p-5 space-y-3">
+              <h3 className="text-base font-bold text-blue-700 flex items-center gap-2">
+                <CalendarClock className="w-5 h-5" /> Máy {startedInfo.maMay} — lần trước
+              </h3>
+              <div className="text-sm text-slate-700 space-y-1.5 bg-slate-50 rounded-lg p-3">
+                <div>🕘 <b>Ngày:</b> {formatDate(startedInfo.info.ngay)}{startedInfo.info.loai_cong_viec && <> · {startedInfo.info.loai_cong_viec}</>}</div>
+                {startedInfo.info.vat_tu
+                  ? <div>🔧 <b>Đã thay:</b> {startedInfo.info.vat_tu}</div>
+                  : <div className="text-slate-400 italic">🔧 Lần trước không thay vật tư</div>}
+                {startedInfo.info.ghi_chu_ktv && <div>📌 <b>Tình trạng:</b> <span className="italic">{startedInfo.info.ghi_chu_ktv}</span></div>}
+                {startedInfo.info.ghi_chu && <div className="text-slate-500">📝 {startedInfo.info.ghi_chu}</div>}
+              </div>
+            </div>
+            <div className="bg-slate-50 p-4 flex justify-end border-t border-slate-100">
+              <Button onClick={() => setStartedInfo(null)} className="bg-blue-600 hover:bg-blue-700 text-white">Bắt đầu làm</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {finishTarget && (() => {
         const phutNum = parseInt(finishTarget.phut || '0', 10) || 0
         const setPhut = (v: number) => setFinishTarget(f => f ? { ...f, phut: String(Math.max(0, v)) } : f)

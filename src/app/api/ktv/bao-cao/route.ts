@@ -74,6 +74,7 @@ export async function GET(request: Request) {
       .from('soct_cong_viec')
       .select(`
         id, ngay, ma_may, loai_cong_viec, report, ket_qua, counter, ghi_chu_ktv,
+        bat_dau_luc, hoan_thanh_luc, so_phut_xu_ly,
         soct_khach_hang ( ten_khach_hang, dia_chi )
       `)
       .eq('ngay', ngay)
@@ -289,13 +290,12 @@ export async function POST(request: Request) {
         const updatePromises = jobs.map((j: any) => {
           const n = parseInt(j.counter, 10)
           const countVal = j.counter === '' || j.counter == null || Number.isNaN(n) ? null : n // giữ được số đếm = 0
-          return supabaseAdmin
-            .from('soct_cong_viec')
-            .update({
-              counter: countVal,
-              ghi_chu_ktv: j.ghi_chu_ktv || null
-            })
-            .eq('id', j.id)
+          const patch: any = { counter: countVal, ghi_chu_ktv: j.ghi_chu_ktv || null }
+          // KTV chỉnh lại THỜI LƯỢNG lúc nộp báo cáo (phiếu bấm bù / chưa khai).
+          // Đây là sửa CÓ CHỦ ĐÍCH nên được phép ghi đè (khác luồng đóng dấu ghi-một-lần).
+          const p = parseInt(j.so_phut, 10)
+          if (Number.isFinite(p) && p > 0) patch.so_phut_xu_ly = Math.min(24 * 60, p)
+          return supabaseAdmin.from('soct_cong_viec').update(patch).eq('id', j.id)
         })
         const results = await Promise.all(updatePromises)
         const err = results.find(r => r.error)
