@@ -7,6 +7,18 @@ import { logAudit } from '@/lib/audit'
 import { clampTapISO, clampPhut } from '@/lib/thoi-gian'
 import { sendTelegramMessage } from '@/lib/telegram'
 
+// Giao mực / Thay vật tư BẮT BUỘC có Số phiếu + ít nhất 1 vật tư (loại khác thì không).
+// Chặn ở server để gọi API trực tiếp cũng không lọt. Trả chuỗi lỗi hoặc null.
+const LOAI_CV_CAN_VAT_TU = ['Giao mực', 'Thay vật tư']
+function loiThieuVatTu(loai_cong_viec: any, report: any, vat_tu: any): string | null {
+  if (!LOAI_CV_CAN_VAT_TU.includes(String(loai_cong_viec || '').trim())) return null
+  if (!String(report || '').trim()) return `"${loai_cong_viec}" bắt buộc phải có Số phiếu (Report).`
+  if (!(Array.isArray(vat_tu) && vat_tu.some((v: any) => String(v?.ma_hang || '').trim()))) {
+    return `"${loai_cong_viec}" bắt buộc phải có ít nhất 1 vật tư/linh kiện.`
+  }
+  return null
+}
+
 // Escape HTML để dữ liệu người dùng không phá parse_mode='HTML' của Telegram
 function esc(s: any): string {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -116,6 +128,8 @@ export async function POST(request: Request) {
     if (!id_khach_hang || !loai_cong_viec) {
       return NextResponse.json({ error: 'Thiếu thông tin bắt buộc' }, { status: 400 })
     }
+    const loiVT = loiThieuVatTu(loai_cong_viec, report, vat_tu)
+    if (loiVT) return NextResponse.json({ error: loiVT }, { status: 400 })
 
     // Kiểm tra và đánh dấu repeat call tự động (nếu máy này sửa gần đây: 15-30 ngày)
     let repeat_call = false
@@ -246,6 +260,8 @@ export async function PUT(request: Request) {
       if (!id_khach_hang || !loai_cong_viec) {
         return NextResponse.json({ error: 'Thiếu thông tin bắt buộc' }, { status: 400 })
       }
+      const loiVTedit = loiThieuVatTu(loai_cong_viec, report, vat_tu)
+      if (loiVTedit) return NextResponse.json({ error: loiVTedit }, { status: 400 })
       // Nếu phiếu còn ở giai đoạn tiền-xử lý: gán KTV -> 'Đã nhận', bỏ gán -> 'Chờ nhận'.
       // Nếu đã Đang làm/Hoàn thành/Lắp tiếp (admin sửa): giữ nguyên trạng thái.
       const nextKetQua = preWork ? (ktv_id ? 'Đã nhận' : 'Chờ nhận') : cur.ket_qua

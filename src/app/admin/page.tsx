@@ -189,6 +189,8 @@ const JOBS_COLS: ColDef[] = [
 // Chỉ dùng khi bảng danh mục trống. KHÔNG hardcode giá trị mặc định của form theo list này:
 // admin có thể xóa/đổi tên giá trị (VD đã bỏ "Kiểm tra") -> phải lấy mặc định từ danh mục thực tế.
 const LOAI_CV_FALLBACK = ['Lắp máy', 'Sửa máy', 'Giao mực', 'Thay vật tư', 'Bảo trì', 'Bảo hành', 'Hỗ trợ thầu', 'Hỗ trợ đại lý', 'Khiếu nại', 'Kiểm tra', 'Khác']
+// Loại việc BẮT BUỘC có Số phiếu (report) + ít nhất 1 vật tư khi lưu công việc.
+const LOAI_CV_CAN_VAT_TU = ['Giao mực', 'Thay vật tư']
 
 export default function AdminDashboard() {
   const [currentAdmin, setCurrentAdmin] = useState<{ id: string, full_name: string, role: string } | null>(null)
@@ -696,6 +698,16 @@ export default function AdminDashboard() {
 
     if (!finalCustomerId || finalCustomerId === "NEW") {
       return showNotification('error', "Vui lòng chọn khách hàng hoặc khai báo thông tin khách hàng mới")
+    }
+
+    // Giao mực / Thay vật tư BẮT BUỘC có Số phiếu + ít nhất 1 vật tư (loại khác thì không).
+    if (LOAI_CV_CAN_VAT_TU.includes((formData.loai_cong_viec || '').trim())) {
+      if (!String(formData.report || '').trim()) {
+        return showNotification('error', `"${formData.loai_cong_viec}" bắt buộc phải có Số phiếu (Report).`)
+      }
+      if (!formData.vat_tu.some(v => String(v.ma_hang || '').trim())) {
+        return showNotification('error', `"${formData.loai_cong_viec}" bắt buộc phải có ít nhất 1 vật tư/linh kiện.`)
+      }
     }
 
     try {
