@@ -29,6 +29,61 @@ function fmtDate(s: any): string {
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
 }
 
+// ===== Thông báo Telegram khi giao việc — GỬI TRỰC TIẾP TỪ API =====
+// Trước đây dựa vào Supabase Database Webhook bắn sang /api/webhook/supabase; đó là mắt
+// xích NGOÀI, hay hỏng (đã gây mất thông báo). Nay API tự gửi + set telegram_sent=true
+// để webhook DB (nếu còn bật) bỏ qua, không bắn trùng.
+async function fetchTgUser(id: string | null | undefined): Promise<{ name: string, tg: string }> {
+  if (!id) return { name: '', tg: '' }
+  const { data } = await supabaseAdmin.from('soct_users').select('full_name, telegram_id').eq('id', id).single()
+  return { name: data?.full_name || '', tg: data?.telegram_id || '' }
+}
+function assigneeLine(n1: string, n2: string): string | null {
+  if (n1 && n2) return `👥 <b>Phân công:</b> ${esc(n1)} (chính), ${esc(n2)} (kèm)`
+  if (n1) return `👤 <b>Phân công:</b> ${esc(n1)}`
+  if (n2) return `👤 <b>Phân công:</b> ${esc(n2)} (kèm)`
+  return null
+}
+function buildJobMsg(job: any, kh: any, heading: string, extraLine: string | null, assignee: string | null, creatorName?: string): string {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://hast-services.vercel.app'
+  return [
+    heading, extraLine, assignee,
+    `🗓 <b>Ngày thực hiện:</b> ${fmtDate(job.ngay)}`,
+    `📌 <b>Loại công việc:</b> ${esc(job.loai_cong_viec)}`,
+    `🏢 <b>Khách hàng:</b> ${esc(kh?.ten_khach_hang || 'Không rõ')}`,
+    `📍 <b>Địa chỉ:</b> ${esc(kh?.dia_chi || 'Không rõ')}`,
+    `🖨 <b>Mã máy:</b> ${esc(job.ma_may || 'N/A')}`,
+    `📝 <b>Ghi chú:</b> ${esc(job.ghi_chu || 'Không')}`,
+    creatorName ? `👤 <b>Người tạo phiếu:</b> ${esc(creatorName)}` : null,
+    '', `👉 <a href="${appUrl}/ktv">Mở App KTV</a>`, '',
+    '<b>HAST — Sổ công tác</b>', 'Hệ thống quản lý giao việc tự động',
+  ].filter(l => l !== null && l !== undefined).join('\n')
+}
+
+// Phiếu MỚI: chưa gán -> báo group; gán sẵn -> DM KTV chính/kèm.
+async function notifyNewJob(job: any, creatorName: string) {
+  try {
+    const { data: kh } = await supabaseAdmin.from('soct_khach_hang').select('ten_khach_hang, dia_chi').eq('id', job.id_khach_hang).single()
+    const u1 = await fetchTgUser(job.ktv_id), u2 = await fetchTgUser(job.ktv2_id)
+    const assignee = assigneeLine(u1.name, u2.name)
+    const groupChatId = process.env.TELEGRAM_GROUP_CHAT_ID
+    if (!job.ktv_id && groupChatId) await sendTelegramMessage(groupChatId, buildJobMsg(job, kh, '🆕 <b>CÔNG VIỆC MỚI — CHỜ NHẬN</b>', null, assignee, creatorName))
+    if (job.ktv_id && u1.tg) await sendTelegramMessage(u1.tg, buildJobMsg(job, kh, '🔔 <b>CÔNG VIỆC ĐƯỢC GIAO</b>', `Xin chào ${esc(u1.name)}, bạn có một công việc!`, assignee, creatorName))
+    if (job.ktv2_id && u2.tg) await sendTelegramMessage(u2.tg, buildJobMsg(job, kh, '🔔 <b>CÔNG VIỆC ĐI KÈM ĐƯỢC GIAO</b>', `Xin chào ${esc(u2.name)}, bạn được gán làm KTV kèm cho một công việc!`, assignee, creatorName))
+  } catch (e) { console.error('notifyNewJob failed:', e) }
+}
+
+// Giao LẠI (admin sửa phiếu): chỉ DM người MỚI được gán (khác người cũ).
+async function notifyReassign(job: any, prevKtv1: string | null, prevKtv2: string | null, creatorName: string) {
+  try {
+    const { data: kh } = await supabaseAdmin.from('soct_khach_hang').select('ten_khach_hang, dia_chi').eq('id', job.id_khach_hang).single()
+    const u1 = await fetchTgUser(job.ktv_id), u2 = await fetchTgUser(job.ktv2_id)
+    const assignee = assigneeLine(u1.name, u2.name)
+    if (job.ktv_id && job.ktv_id !== prevKtv1 && u1.tg) await sendTelegramMessage(u1.tg, buildJobMsg(job, kh, '🔔 <b>CÔNG VIỆC ĐƯỢC GIAO</b>', `Xin chào ${esc(u1.name)}, bạn có một công việc!`, assignee, creatorName))
+    if (job.ktv2_id && job.ktv2_id !== prevKtv2 && u2.tg) await sendTelegramMessage(u2.tg, buildJobMsg(job, kh, '🔔 <b>CÔNG VIỆC ĐI KÈM ĐƯỢC GIAO</b>', `Xin chào ${esc(u2.name)}, bạn được gán làm KTV kèm cho một công việc!`, assignee, creatorName))
+  } catch (e) { console.error('notifyReassign failed:', e) }
+}
+
 // Lấy danh sách công việc kèm thông tin khách hàng, kỹ thuật viên và vật tư liên quan
 // KTV thấy việc gán cho chính mình VÀ việc chưa gán ai (pool chờ nhận)
 export async function GET(request: Request) {
@@ -177,6 +232,8 @@ export async function POST(request: Request) {
         // Gán KTV ngay khi tạo -> 'Đã nhận'; chưa gán -> 'Chờ nhận' (vào pool)
         ket_qua: ktv_id ? 'Đã nhận' : 'Chờ nhận',
         trang_thai_hd: hasHD ? 'Đã lên hóa đơn' : 'Chưa hóa đơn',
+        // API tự gửi Telegram (bên dưới) -> đánh dấu để webhook DB không bắn trùng
+        telegram_sent: true,
       })
       .select()
       .single()
@@ -213,8 +270,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // Sau khi insert, cơ chế Database Webhook trên Supabase sẽ tự bắn REST API
-    // đến /api/webhook/supabase để gửi thông báo Telegram cho KTV
+    // Gửi Telegram TRỰC TIẾP (không còn phụ thuộc webhook DB ngoài).
+    await notifyNewJob(data, session.full_name)
 
     await broadcastJobsChanged()
     await logAudit(session, 'Tạo công việc', `${loai_cong_viec}${ma_may ? ` — máy ${ma_may}` : ''}`)
@@ -247,7 +304,7 @@ export async function PUT(request: Request) {
       if (!['admin', 'tech_admin', 'staff'].includes(session.role)) {
         return NextResponse.json({ error: 'Không có quyền sửa phiếu' }, { status: 403 })
       }
-      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('ket_qua, trang_thai_hd').eq('id', id).single()
+      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('ket_qua, trang_thai_hd, ktv_id, ktv2_id').eq('id', id).single()
       if (!cur) return NextResponse.json({ error: 'Không tìm thấy công việc' }, { status: 404 })
       // Admin sửa được mọi trạng thái; tech_admin/staff chỉ sửa khi phiếu chưa bắt đầu
       // (Chờ nhận / Đã nhận) — sau khi KTV bấm Đang làm thì không cho sửa nữa
@@ -287,6 +344,8 @@ export async function PUT(request: Request) {
           report: reportNorm || null, ghi_chu,
           ket_qua: nextKetQua,
           trang_thai_hd: nextTrangThaiHd,
+          // API tự DM người mới được gán (bên dưới) -> chặn webhook DB bắn trùng
+          telegram_sent: true,
         })
         .eq('id', id)
       if (upErr?.code === '23505') {
@@ -308,6 +367,12 @@ export async function PUT(request: Request) {
           if (vtErr) console.error('Lỗi cập nhật vật tư:', vtErr)
         }
       }
+
+      // DM người MỚI được gán khi admin sửa phiếu (thay webhook DB nhánh UPDATE)
+      await notifyReassign(
+        { id_khach_hang, ngay: ngay || new Date().toISOString().split('T')[0], ma_may, loai_cong_viec, ghi_chu, ktv_id: ktv_id || null, ktv2_id: ktv2_id || null },
+        cur.ktv_id || null, cur.ktv2_id || null, session.full_name
+      )
 
       await broadcastJobsChanged()
       await logAudit(session, 'Sửa công việc', `id ${id}${ma_may ? ` — máy ${ma_may}` : ''}`)
