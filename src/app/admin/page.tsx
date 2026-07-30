@@ -255,6 +255,8 @@ export default function AdminDashboard() {
   const [taiChinhTab, setTaiChinhTab] = useState<"cong_no" | "thue_cpc">("cong_no")
   // Số phiếu cứng chưa hoàn (badge nhắc ở tab con Hoàn phiếu)
   const [phieuChuaHoan, setPhieuChuaHoan] = useState(0)
+  const [unfinishedPastJobs, setUnfinishedPastJobs] = useState<Job[]>([])
+  const [unfinishedOpen, setUnfinishedOpen] = useState(false)
   const [cauHinh, setCauHinh] = useState<Record<string, string>>({})
 
   // Ẩn/hiện tab (lớn + con) theo role. Admin thấy hết; Hệ thống khóa admin-only.
@@ -480,14 +482,16 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [jobsRes, customersRes, usersRes, inventoryRes, danhMucRes, cauHinhRes, dangGiuRes] = await Promise.all([
+      const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+      const [jobsRes, customersRes, usersRes, inventoryRes, danhMucRes, cauHinhRes, dangGiuRes, unfinishedRes] = await Promise.all([
         fetch(buildJobsUrl()),
         fetch('/api/admin/khach-hang'),
         fetch('/api/admin/users'),
         fetch('/api/admin/kho-hang'),
         fetch('/api/admin/danh-muc'),
         fetch('/api/admin/cau-hinh'),
-        fetch('/api/admin/kho-hang/dang-giu')
+        fetch('/api/admin/kho-hang/dang-giu'),
+        fetch(`/api/admin/cong-viec?denNgay=${yesterdayStr}&ket_qua=Chờ nhận,Đã nhận,Đang làm,Lắp tiếp`)
       ])
 
       // Phiên hết hạn hoặc bị thu hồi -> quay về màn hình đăng nhập
@@ -504,6 +508,7 @@ export default function AdminDashboard() {
       const danhMucData = await danhMucRes.json()
       const cauHinhData = await cauHinhRes.json()
       const dangGiuData = await dangGiuRes.json()
+      const unfinishedData = await unfinishedRes.json()
 
       if (jobsData.data) setJobs(jobsData.data)
       if (customersData.data) setCustomers(customersData.data)
@@ -512,6 +517,7 @@ export default function AdminDashboard() {
       if (danhMucData.data) setDanhMuc(danhMucData.data)
       if (cauHinhData.data) setCauHinh(cauHinhData.data)
       if (dangGiuData.data) setCommitted(dangGiuData.data)
+      if (unfinishedData.data) setUnfinishedPastJobs(unfinishedData.data)
     } catch (error) {
       console.error("Error fetching data:", error)
     } finally {
@@ -1050,12 +1056,63 @@ export default function AdminDashboard() {
 
         {/* Thanh tab con của Sổ công tác (chỉ hiện khi Hoàn phiếu được bật cho role) */}
         {activeTab === "cong_viec" && subVisible('cong_viec', 'hoan_phieu') && (
-          <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
+          <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto mb-4">
             <button onClick={() => setCongTacTab("giao_viec")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveCongTacTab === 'giao_viec' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Giao việc</button>
             <button onClick={() => setCongTacTab("hoan_phieu")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${effectiveCongTacTab === 'hoan_phieu' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
               Hoàn phiếu
               {phieuChuaHoan > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{phieuChuaHoan}</span>}
             </button>
+          </div>
+        )}
+
+        {activeTab === "cong_viec" && effectiveCongTacTab === "giao_viec" && unfinishedPastJobs.length > 0 && (
+          <div className="bg-rose-50 border border-rose-200 rounded-xl overflow-hidden shadow-sm mb-4">
+            <button onClick={() => setUnfinishedOpen(o => !o)} className="w-full flex items-center gap-2 px-4 py-3 text-left">
+              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+              <span className="text-sm font-semibold text-rose-800">{unfinishedPastJobs.length} phiếu của các ngày trước chưa bấm Hoàn thành</span>
+              <span className="text-xs text-rose-600">(nhắc nhở KTV chốt phiếu)</span>
+              <svg className={`w-4 h-4 text-rose-600 ml-auto transition-transform ${unfinishedOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            {unfinishedOpen && (
+              <div className="border-t border-rose-200 max-h-64 overflow-y-auto bg-white">
+                <table className="w-full text-left text-sm text-slate-600">
+                  <thead className="bg-rose-50/50 text-xs text-rose-800">
+                    <tr>
+                      <th className="px-4 py-2 font-medium">Ngày</th>
+                      <th className="px-4 py-2 font-medium">Số phiếu</th>
+                      <th className="px-4 py-2 font-medium">Khách hàng / Mã máy</th>
+                      <th className="px-4 py-2 font-medium">Loại việc</th>
+                      <th className="px-4 py-2 font-medium">Phụ trách</th>
+                      <th className="px-4 py-2 font-medium text-center">Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {unfinishedPastJobs.map(j => (
+                      <tr key={j.id} className="hover:bg-slate-50">
+                        <td className="px-4 py-2 text-xs">{formatDate(j.ngay)}</td>
+                        <td className="px-4 py-2 font-mono text-xs">{j.report || '—'}</td>
+                        <td className="px-4 py-2">
+                          <div className="font-medium text-slate-800">{j.soct_khach_hang?.ten_khach_hang || '—'}</div>
+                          <div className="text-xs text-slate-500 font-mono">{j.ma_may || '—'}</div>
+                        </td>
+                        <td className="px-4 py-2">{j.loai_cong_viec}</td>
+                        <td className="px-4 py-2 text-xs">
+                          {j.soct_users?.full_name ? (
+                            <>
+                              <div className="font-medium">{j.soct_users.full_name}</div>
+                              {j.ktv2?.full_name && <div className="text-slate-500">+{j.ktv2.full_name}</div>}
+                            </>
+                          ) : <span className="text-slate-400 italic">Chưa gán</span>}
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">{j.ket_qua}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
@@ -4945,8 +5002,24 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
 
 function BaoCaoKtvTool({ technicians, showNotification }: { technicians: any[], showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [ktvId, setKtvId] = useState('')
-  const [tuNgay, setTuNgay] = useState(new Date().toISOString().split('T')[0])
-  const [denNgay, setDenNgay] = useState(new Date().toISOString().split('T')[0])
+  const [tuNgay, setTuNgay] = useState(() => {
+    const d = new Date()
+    let count = 0
+    while (count < 2) {
+      d.setDate(d.getDate() - 1)
+      if (d.getDay() !== 0 && d.getDay() !== 6) count++
+    }
+    return d.toISOString().split('T')[0]
+  })
+  const [denNgay, setDenNgay] = useState(() => {
+    const d = new Date()
+    let count = 0
+    while (count < 1) {
+      d.setDate(d.getDate() - 1)
+      if (d.getDay() !== 0 && d.getDay() !== 6) count++
+    }
+    return d.toISOString().split('T')[0]
+  })
 
   const [data, setData] = useState<{ trang_thai: any[], jobs: any[], extras: any[] }>({ trang_thai: [], jobs: [], extras: [] })
   const [loading, setLoading] = useState(false)

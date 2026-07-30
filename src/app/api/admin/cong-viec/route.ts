@@ -98,6 +98,7 @@ export async function GET(request: Request) {
     const report = (searchParams.get('report') || '').trim() // tìm theo số phiếu
     const tuNgay = searchParams.get('tuNgay') || ''   // lọc từ ngày (YYYY-MM-DD)
     const denNgay = searchParams.get('denNgay') || '' // lọc đến ngày
+    const ketQuaList = searchParams.get('ket_qua') || '' // lọc theo trạng thái
 
     const data = await selectAll((from, to) => {
       let query = supabaseAdmin
@@ -146,6 +147,9 @@ export async function GET(request: Request) {
       } else {
         if (tuNgay) query = query.gte('ngay', tuNgay)
         if (denNgay) query = query.lte('ngay', denNgay)
+      }
+      if (ketQuaList) {
+        query = query.in('ket_qua', ketQuaList.split(','))
       }
       return query
     })
