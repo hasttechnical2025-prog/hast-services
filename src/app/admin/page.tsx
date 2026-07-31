@@ -2982,8 +2982,8 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [closing, setClosing] = useState<{ id: string, so_report: string, ngay_thay: string } | null>(null)
-  // Bộ lọc BBGĐ — mặc định Chờ thay + Chưa báo giá
-  const [gdFilters, setGdFilters] = useState({ maMay: "", trangThai: "cho_thay", baoGia: "chua" })
+  // Bộ lọc BBGĐ — mặc định Chờ thay + Tất cả báo giá
+  const [gdFilters, setGdFilters] = useState({ maMay: "", trangThai: "cho_thay", baoGia: "" })
   // Hộp thoại làm báo giá từ biên bản giám định
   const [quoteGd, setQuoteGd] = useState<any | null>(null)
   const [quoteRows, setQuoteRows] = useState<BaoGiaRow[]>([])
