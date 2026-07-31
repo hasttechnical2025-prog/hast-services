@@ -3832,12 +3832,12 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
             </div>
           </div>
 
-          <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+          <div className="overflow-x-auto h-[600px] overflow-y-auto">
             <table className="w-full text-left text-xs text-slate-600 min-w-[550px]">
               <thead className="bg-slate-50 text-slate-500 font-semibold uppercase sticky top-0 border-b border-slate-200 z-10">
                 <tr>
                   <th className="px-3 py-2 min-w-[180px]">Vật tư</th>
-                  <th className="px-3 py-2 text-center w-24">Model</th>
+                  <th className="px-3 py-2 text-center w-32 max-w-[150px]">Model</th>
                   <th className="px-3 py-2 text-center w-16">Tồn / KD</th>
                   <th className="px-3 py-2 text-center w-14">Chờ về</th>
                   <th className="px-3 py-2 text-center w-20 min-w-[70px]">SL đặt</th>
@@ -3877,7 +3877,7 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
                           <div className="font-mono font-bold text-slate-700">{item.ma_hang}</div>
                           <div className="text-slate-500 font-normal leading-relaxed">{item.ten_hang}</div>
                         </td>
-                        <td className="px-3 py-2.5 text-center text-[11px] text-slate-500 leading-tight">{item.model || '—'}</td>
+                        <td className="px-3 py-2.5 text-center text-[11px] text-slate-500 leading-tight w-32 max-w-[150px] break-words whitespace-normal">{item.model || '—'}</td>
                         {(() => {
                           const giu = committed[item.ma_hang] || 0
                           const kd = (Number(item.ton_kho) || 0) - giu
@@ -3934,8 +3934,8 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
         </div>
 
         {/* BÊN PHẢI: GIỎ HÀNG & THÔNG TIN ĐƠN (2/5) */}
-        <div className="lg:col-span-2 border border-slate-200 rounded-xl p-5 bg-slate-50/50 space-y-4 flex flex-col shadow-sm justify-between">
-          <div className="space-y-4">
+        <div className="lg:col-span-2 border border-slate-200 rounded-xl p-5 bg-slate-50/50 flex flex-col shadow-sm gap-4">
+          <div className="space-y-4 shrink-0">
             <h3 className="text-base font-bold text-slate-700">Giỏ hàng đặt</h3>
 
             <div className="space-y-3">
@@ -3967,61 +3967,61 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* BẢNG GIỎ HÀNG */}
-            <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
-              <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 flex justify-between items-center">
-                <h4 className="text-xs font-bold text-slate-600 uppercase">Danh sách đã chọn ({lines.length})</h4>
-                {lines.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setLines([])}
-                    className="text-[10px] text-red-500 font-bold hover:underline"
-                  >
-                    Xóa hết
-                  </button>
-                )}
-              </div>
-              <div className="p-3 space-y-2 max-h-[220px] overflow-y-auto">
-                {lines.length === 0 ? (
-                  <div className="text-center text-slate-400 py-6 text-xs italic">
-                    Chưa nhặt vật tư nào. Nhập số lượng bên trái và bấm &quot;Nhặt&quot;.
-                  </div>
-                ) : (
-                  lines.map((l, i) => {
-                    const item = inventory.find(inv => inv.ma_hang === l.ma_hang)
-                    return (
-                      <div key={l.ma_hang} className="flex gap-2 items-center justify-between bg-slate-50/50 p-2 rounded border border-slate-100">
-                        <div className="flex-1 min-w-0 pr-1">
-                          <div className="font-mono font-bold text-xs text-slate-700">{l.ma_hang}</div>
-                          <div className="text-[10px] text-slate-500 truncate" title={item?.ten_hang}>{item?.ten_hang || '—'}</div>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <Input
-                            type="number"
-                            min="1"
-                            className="h-7 w-16 text-xs bg-white text-center"
-                            value={l.sl_dat}
-                            onChange={(e) => updLine(i, 'sl_dat', e.target.value)}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => rmLine(i)}
-                            className="text-slate-400 hover:text-red-500 p-1 rounded hover:bg-red-50 transition"
-                            title="Xóa dòng"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+          {/* BẢNG GIỎ HÀNG */}
+          <div className="border border-slate-200 rounded-lg overflow-hidden bg-white flex flex-col flex-1 min-h-[250px]">
+            <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 flex justify-between items-center shrink-0">
+              <h4 className="text-xs font-bold text-slate-600 uppercase">Danh sách đã chọn ({lines.length})</h4>
+              {lines.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setLines([])}
+                  className="text-[10px] text-red-500 font-bold hover:underline"
+                >
+                  Xóa hết
+                </button>
+              )}
+            </div>
+            <div className="p-3 space-y-2 flex-1 overflow-y-auto">
+              {lines.length === 0 ? (
+                <div className="text-center text-slate-400 py-6 text-xs italic">
+                  Chưa nhặt vật tư nào. Nhập số lượng bên trái và bấm &quot;Nhặt&quot;.
+                </div>
+              ) : (
+                lines.map((l, i) => {
+                  const item = inventory.find(inv => inv.ma_hang === l.ma_hang)
+                  return (
+                    <div key={l.ma_hang} className="flex gap-2 items-center justify-between bg-slate-50/50 p-2 rounded border border-slate-100">
+                      <div className="flex-1 min-w-0 pr-1">
+                        <div className="font-mono font-bold text-xs text-slate-700">{l.ma_hang}</div>
+                        <div className="text-[10px] text-slate-500 truncate" title={item?.ten_hang}>{item?.ten_hang || '—'}</div>
                       </div>
-                    )
-                  })
-                )}
-              </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Input
+                          type="number"
+                          min="1"
+                          className="h-7 w-16 text-xs bg-white text-center"
+                          value={l.sl_dat}
+                          onChange={(e) => updLine(i, 'sl_dat', e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => rmLine(i)}
+                          className="text-slate-400 hover:text-red-500 p-1 rounded hover:bg-red-50 transition"
+                          title="Xóa dòng"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 pt-2 border-t border-slate-200">
+          <div className="flex flex-col gap-2 pt-2 border-t border-slate-200 shrink-0">
             {editingDraftId && (
               <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 p-2 rounded flex justify-between items-center mb-1">
                 <span>Đang sửa đơn nháp: <b>{form.so_don_hang}</b></span>
