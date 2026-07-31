@@ -3832,7 +3832,7 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
             </div>
           </div>
 
-          <div className="overflow-x-auto h-[600px] overflow-y-auto">
+          <div className="overflow-x-auto h-[850px] overflow-y-auto">
             <table className="w-full text-left text-xs text-slate-600 min-w-[550px]">
               <thead className="bg-slate-50 text-slate-500 font-semibold uppercase sticky top-0 border-b border-slate-200 z-10">
                 <tr>
