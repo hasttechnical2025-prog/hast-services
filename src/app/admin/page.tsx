@@ -716,6 +716,17 @@ export default function AdminDashboard() {
       }
     }
 
+    let shouldCloseGiamDinh = dongGiamDinh
+    if (!dongGiamDinh && mayStatus && mayStatus.giam_dinh.length > 0) {
+      const msg = `Máy này đang có ${mayStatus.giam_dinh.length} biên bản giám định CHƯA THAY vật tư.\nBạn có muốn tự động Đóng (đánh dấu đã thay) các biên bản này luôn không?\n\n- Chọn OK: Đóng giám định & Lưu phiếu\n- Chọn Cancel: Chỉ Lưu phiếu`
+      if (window.confirm(msg)) {
+        if (!formData.report.trim()) {
+          return showNotification('error', "Cần điền Số phiếu (Report) để có thể đóng giám định. Vui lòng bổ sung số phiếu và lưu lại.")
+        }
+        shouldCloseGiamDinh = true
+      }
+    }
+
     try {
       const res = await fetch('/api/admin/cong-viec', {
         method: editingJobId ? 'PUT' : 'POST',
@@ -727,7 +738,7 @@ export default function AdminDashboard() {
 
       if (res.ok) {
         // Đóng (các) biên bản giám định chờ thay nếu được tick, dùng số phiếu của việc
-        if (dongGiamDinh && mayStatus && mayStatus.giam_dinh.length > 0) {
+        if (shouldCloseGiamDinh && mayStatus && mayStatus.giam_dinh.length > 0) {
           if (!formData.report.trim()) {
             showNotification('error', "Đã tạo việc, nhưng cần Số phiếu để đóng giám định.")
           } else {
