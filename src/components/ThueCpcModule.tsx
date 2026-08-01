@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import DateField from "@/components/DateField"
 import { chotSoDate, counterStatus, CounterStatus, kyTruoc } from "@/lib/thue-cpc"
 import { supabase } from "@/lib/supabase"
+import { Save, FileText, RefreshCw } from "lucide-react"
 
 const THUECPC_TOPIC = "soct_thuecpc"
 const DATA_EVENT = "changed"
@@ -359,6 +360,7 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
   const [loading, setLoading] = useState(true)
   const [edits, setEdits] = useState<Record<string, { so_bw: string, so_mau: string, ghi_chu: string }>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [exportingId, setExportingId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [onlyDue, setOnlyDue] = useState(false)
 
@@ -393,6 +395,40 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
     } catch (e: any) { showNotification('error', e.message) }
     finally { setSavingId(null) }
   }
+
+  const exportQuick = async (r: any) => {
+    setExportingId(r.id)
+    try {
+      // 1. Tìm xem có bảng kê cũ của kỳ này không
+      const listRes = await fetch(`/api/admin/thue-cpc/bang-ke?thang_nam=${thang}`).then(res => res.json())
+      const existing = (listRes.data || []).find((b: any) => b.loai === 'rieng' && b.soct_khach_hang?.ma_may === r.ma_may)
+
+      // 2. Nếu có, xóa bảng kê cũ trước
+      if (existing) {
+        await fetch(`/api/admin/thue-cpc/bang-ke?id=${existing.id}`, { method: 'DELETE' })
+      }
+
+      // 3. Tạo bảng kê mới với counter hiện tại
+      const createRes = await fetch('/api/admin/thue-cpc/bang-ke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ thang_nam: thang, loai: 'rieng', id_khach_hang: r.id })
+      })
+      const createData = await createRes.json()
+      if (!createRes.ok) throw new Error(createData.error || 'Lỗi tạo bảng kê')
+
+      // 4. Mở link tải file
+      const a = document.createElement('a')
+      a.href = `/api/admin/thue-cpc/bang-ke/export?id=${createData.data.id}&chan_trang=1`
+      a.click()
+      showNotification('success', `Đã tự động tạo và xuất bảng kê`)
+    } catch (err: any) {
+      showNotification('error', err.message || 'Lỗi xuất bảng kê')
+    } finally {
+      setExportingId(null)
+    }
+  }
+
   const setEdit = (id: string, k: string, v: string) => setEdits(p => ({ ...p, [id]: { ...p[id], [k]: v } }))
 
   const rows = data?.rows || []
@@ -494,7 +530,33 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
                       className={`h-8 w-28 ${r.may_mau === false ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''}`} />
                   </td>
                   <td className="px-3 py-2"><Input value={edits[r.id]?.ghi_chu ?? ''} onChange={e => setEdit(r.id, 'ghi_chu', e.target.value)} className="h-8 w-40" /></td>
-                  <td className="px-3 py-2 text-right"><Button onClick={() => saveRow(r)} disabled={savingId === r.id} className="h-8 text-xs bg-blue-600 hover:bg-blue-700">{savingId === r.id ? '…' : 'Lưu'}</Button></td>
+                  <td className="px-3 py-2 text-right whitespace-nowrap">
+                    <div className="flex justify-end gap-1.5">
+                      <Button
+                        onClick={() => saveRow(r)}
+                        disabled={savingId === r.id}
+                        className="h-8 w-8 p-0 bg-blue-600 hover:bg-blue-700 text-white rounded flex items-center justify-center shrink-0"
+                        title="Lưu chỉ số counter"
+                      >
+                        {savingId === r.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      </Button>
+
+                      {!r.id_hop_dong_khung ? (
+                        <Button
+                          onClick={() => exportQuick(r)}
+                          disabled={exportingId === r.id || (r.so_bw === null && r.so_mau === null)}
+                          className="h-8 w-8 p-0 bg-emerald-600 hover:bg-emerald-700 text-white rounded flex items-center justify-center shrink-0 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                          title={r.so_bw === null && r.so_mau === null ? "Cần lưu counter trước khi xuất" : "Xuất bảng kê nhanh (.docx)"}
+                        >
+                          {exportingId === r.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                        </Button>
+                      ) : (
+                        <div className="w-8 h-8 flex items-center justify-center text-slate-300 text-[10px] shrink-0 cursor-help" title="Máy thuộc HĐ khung — Vui lòng xuất tại tab Bảng kê">
+                          —
+                        </div>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
