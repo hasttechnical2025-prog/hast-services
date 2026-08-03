@@ -36,7 +36,15 @@ type Notify = (type: 'success' | 'error', message: string) => void
 
 const money = (v: any) => Math.round(Number(v) || 0).toLocaleString('vi-VN')
 const fmtInt = (v: any) => (v === null || v === undefined || v === '' ? '—' : (Number(v) || 0).toLocaleString('vi-VN'))
-const monthNow = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` }
+const monthNow = () => {
+  const d = new Date()
+  if (d.getDate() <= 20) {
+    // Mẹo an toàn: Đưa ngày về mùng 1 trước khi lùi tháng để tránh lỗi tràn lịch JS
+    d.setDate(1)
+    d.setMonth(d.getMonth() - 1)
+  }
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
 // Bỏ dấu tiếng Việt để tìm kiếm fuzzy
 const norm = (s: any) => (s || '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()
 
