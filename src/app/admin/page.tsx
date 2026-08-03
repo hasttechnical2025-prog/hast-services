@@ -360,8 +360,13 @@ export default function AdminDashboard() {
     if (!currentAdmin) return
     let alive = true
     const vnNow = new Date(Date.now() + 7 * 3600 * 1000)
-    const thang = vnNow.toISOString().slice(0, 7)
     const today = vnNow.toISOString().slice(0, 10)
+    const dTmp = new Date(vnNow.getTime())
+    if (dTmp.getUTCDate() <= 20) {
+      dTmp.setUTCDate(1)
+      dTmp.setUTCMonth(dTmp.getUTCMonth() - 1)
+    }
+    const thang = dTmp.toISOString().slice(0, 7)
     fetch(`/api/admin/thue-cpc/counter?thang_nam=${thang}`)
       .then(r => r.ok ? r.json() : { data: { rows: [] } })
       .then(j => {
