@@ -229,8 +229,35 @@ async function giamDinh(terms: string[][]): Promise<ToolResult> {
 // ===== Tool B3: Bảo trì theo khách/nơi — liệt kê máy thuộc diện bảo trì + trạng thái tháng này =====
 async function baoTri(terms: string[][]): Promise<ToolResult> {
   const columns = [{ key: 'khach', label: 'Khách hàng' }, { key: 'ma_may', label: 'Mã máy' }, { key: 'model', label: 'Model' }, { key: 'loai_hd', label: 'Loại HĐ' }, { key: 'trang_thai', label: 'Bảo trì tháng này' }]
-  if (terms.length === 0) return { summary: 'Chưa xác định được khách/nơi cần tra.', rows: [], columns }
   const thang = new Date().toISOString().slice(0, 7)
+
+  if (terms.length === 0) {
+    const customers = await selectAll((from, to) => supabaseAdmin
+      .from('soct_khach_hang')
+      .select('ma_may, ten_khach_hang, dia_chi, model, loai_hd, thang_bao_tri, bat_dau_tu_thang, tam_dung_tu_thang')
+      .range(from, to))
+    const { data: btRecords } = await supabaseAdmin.from('soct_bao_tri').select('ma_may').eq('thang_nam', thang)
+    const done = new Set((btRecords || []).map((r: any) => String(r.ma_may).toLowerCase()))
+
+    const dien = (customers as any[]).filter(c => c.ma_may && LOAI_HD_BAO_TRI.includes(String(c.loai_hd || '').trim()))
+    let totalCount = 0
+    let doneCount = 0
+    let pendingCount = 0
+
+    dien.forEach(c => {
+      if (canBaoTriThang(c, thang)) {
+        totalCount++
+        if (done.has(String(c.ma_may).toLowerCase())) {
+          doneCount++
+        } else {
+          pendingCount++
+        }
+      }
+    })
+
+    const summary = `Để xem danh sách chi tiết các máy cần bảo trì hoặc chưa bảo trì, bạn vui lòng truy cập vào tab **Theo dõi máy > Bảo trì** trên thanh điều hướng.\n\nThống kê nhanh trong **tháng ${thang}**: Hệ thống có tổng cộng **${totalCount} máy** cần bảo trì, hiện tại đã hoàn thành **${doneCount} máy** và còn **${pendingCount} máy** chưa bảo trì.`
+    return { summary, rows: [], columns }
+  }
 
   const customers = await selectAll((from, to) => supabaseAdmin
     .from('soct_khach_hang')
@@ -258,7 +285,20 @@ async function baoTri(terms: string[][]): Promise<ToolResult> {
 // ===== Tool B4: Máy thuê / CPC theo địa chỉ hoặc khách =====
 async function thueCpc(terms: string[][], loai: string): Promise<ToolResult> {
   const columns = [{ key: 'khach', label: 'Khách hàng' }, { key: 'ma_may', label: 'Mã máy' }, { key: 'model', label: 'Model' }, { key: 'loai_hd', label: 'Loại' }, { key: 'dia_chi', label: 'Địa chỉ' }]
-  if (terms.length === 0) return { summary: 'Chưa xác định được nơi/khách cần tra.', rows: [], columns }
+
+  if (terms.length === 0) {
+    const wanted = ['Máy thuê', 'Máy CPC'].includes(loai) ? [loai] : ['Máy thuê', 'Máy CPC']
+    const { count } = await supabaseAdmin
+      .from('soct_khach_hang')
+      .select('id', { count: 'exact', head: true })
+      .in('loai_hd', wanted)
+
+    const totalCount = count || 0
+    const typeLabel = loai === 'Máy thuê' ? 'máy thuê' : loai === 'Máy CPC' ? 'máy CPC' : 'máy thuê/CPC'
+
+    const summary = `Để xem danh sách chi tiết toàn bộ các máy đang cho thuê, bạn vui lòng truy cập vào tab **Tài chính > Thuê / CPC** trên thanh điều hướng.\n\nThống kê nhanh: Hệ thống hiện đang quản lý tổng cộng **${totalCount} ${typeLabel}**.`
+    return { summary, rows: [], columns }
+  }
 
   const wanted = ['Máy thuê', 'Máy CPC'].includes(loai) ? [loai] : ['Máy thuê', 'Máy CPC']
   const customers = await selectAll((from, to) => supabaseAdmin
@@ -596,13 +636,13 @@ Chọn 1 công cụ và rút tham số:
 - donHang: hỏi LIỆT KÊ đơn đặt hàng theo THỜI GIAN, KHÔNG gắn mã hàng cụ thể (VD "tháng này có đơn đặt hàng nào", "các đơn đặt hàng tháng 6", "gần đây đặt gì") -> nếu rõ tháng thì điền thang dạng YYYY-MM, "tháng này"/"gần đây" thì để thang rỗng.
 - congNo: hỏi CÔNG NỢ / còn nợ bao nhiêu của một KHÁCH -> điền khach.
 - giamDinh: hỏi GIÁM ĐỊNH chưa thay / còn giám định nào của một KHÁCH -> điền khach.
-- baoTri: hỏi về BẢO TRÌ ở một KHÁCH/NƠI (có máy nào bảo trì, máy nào chưa bảo trì, máy thuộc diện bảo trì) -> điền khach (và/hoặc dia_chi nếu là nơi chốn).
+- baoTri: hỏi về BẢO TRÌ ở một KHÁCH/NƠI (có máy nào bảo trì, máy nào chưa bảo trì, máy thuộc diện bảo trì, "sổ" hoặc "số" cần bảo trì tháng này/hôm nay) -> điền khach (và/hoặc dia_chi nếu là nơi chốn). QUAN TRỌNG: Lịch bảo trì chỉ quản lý theo tháng. Nếu hỏi số lượng/danh sách bảo trì chung chung, hỏi theo ngày cụ thể hoặc khoảng ngày (VD "bao nhiêu sổ cần bảo trì từ 1/8 đến 10/8", "các máy chưa bảo trì hôm nay") -> điền thang là tháng tương ứng (YYYY-MM) và để ngay trống.
 - thueCpc: hỏi DANH SÁCH MÁY THUÊ / MÁY CPC ở đâu / của ai (KHÔNG hỏi về counter) -> điền dia_chi (nơi chốn) hoặc khach, và loai nếu rõ.
 - counter: hỏi VIỆC LẤY COUNTER máy thuê-CPC — máy nào CẦN LẤY / SẮP đến hạn / QUÁ HẠN, "khách X đã lấy counter chưa" -> tinh_trang="qua_han" nếu chỉ hỏi quá hạn; điền khach/ma_may nếu hỏi cụ thể. QUAN TRỌNG: nếu hỏi theo NGÀY CHỐT SỐ ("máy nào cần lấy counter ngày 25") -> điền ngay = ngày đó (YYYY-MM-DD, tháng/năm của hôm nay).
 - counterMay: hỏi CHỈ SỐ COUNTER ĐÃ GHI của một máy là bao nhiêu (VD "counter máy 958 ở vp tw đảng" -> model="958"; "mã máy 36114 counter bao nhiêu" -> ma_may="36114"; "máy Y có counter tháng 7 là bao nhiêu") -> điền model HOẶC ma_may theo quy tắc phân biệt bên dưới, kèm khach nếu có; hỏi 1 THÁNG cụ thể thì điền thang (YYYY-MM). (Khác counter: bên kia hỏi CÓ CẦN LẤY không, bên này hỏi SỐ LÀ BAO NHIÊU.)
 - phieu: hỏi về MỘT SỐ PHIẾU / SỐ REPORT cụ thể — tổng tiền của phiếu, phiếu đã LÊN HÓA ĐƠN chưa, phiếu của khách nào/ngày nào/ai làm (VD "tổng tiền của phiếu 958020 là bao nhiêu", "số phiếu 958021 đã lên hóa đơn chưa", "report 958015 của khách nào") -> điền so_phieu = dãy số phiếu đó.
 - giaBan: hỏi GIÁ BÁN / bán bao nhiêu tiền của một VẬT TƯ (có thể kèm khách) (VD "mực im2500 phòng tccb bán giá bao nhiêu", "giá bán trống c301i", "mực máy 2500 bán bao nhiêu") -> điền ma_hang = mô tả vật tư, khach nếu có nêu khách.
-- congViec: THỐNG KÊ / LIỆT KÊ phiếu công việc theo THỜI GIAN và/hoặc LOẠI VIỆC và/hoặc TRẠNG THÁI và/hoặc khách (VD "ngày 16/7 có bao nhiêu phiếu sửa chữa", "hôm nay có phiếu nào chưa xong", "hôm nay lắp mấy máy") -> điền ngay (YYYY-MM-DD) nếu hỏi 1 ngày, hoặc thang (YYYY-MM) nếu hỏi tháng; loai_viec = loại công việc (Sửa máy, Thay vật tư, Lắp máy, Bảo trì, Giao mực, Bảo hành...) nếu có; tinh_trang = "chua_xong" nếu hỏi phiếu CHƯA XONG/chưa hoàn thành/còn dở, "da_xong" nếu hỏi ĐÃ XONG/hoàn thành, để rỗng nếu không nói; khach nếu giới hạn 1 khách.
+- congViec: THỐNG KÊ / LIỆT KÊ phiếu công việc theo THỜI GIAN và/hoặc LOẠI VIỆC và/hoặc TRẠNG THÁI và/hoặc khách (VD "ngày 16/7 có bao nhiêu phiếu sửa chữa", "hôm nay có phiếu nào chưa xong", "hôm nay lắp mấy máy") -> điền ngay (YYYY-MM-DD) nếu hỏi 1 ngày, hoặc thang (YYYY-MM) nếu hỏi tháng; loai_viec = loại công việc (Sửa máy, Thay vật tư, Lắp máy, Bảo trì, Giao mực, Bảo hành...) nếu có; tinh_trang = "chua_xong" nếu hỏi phiếu công việc CHƯA XONG/chưa hoàn thành/còn dở (không áp dụng cho bảo trì định kỳ), "da_xong" nếu hỏi ĐÃ XONG/hoàn thành, để rỗng nếu không nói; khach nếu giới hạn 1 khách. LƯU Ý: nếu hỏi "sổ bảo trì" hoặc "số cần bảo trì" -> phân loại về baoTri chứ không phải congViec.
 - vatTuMay: hỏi LỊCH SỬ THAY VẬT TƯ / linh kiện / lấy mực — của một MÃ MÁY, một MODEL, hoặc một KHÁCH (VD "máy 36114 đã thay vật tư gì" -> ma_may; "phòng pv06 gần đây thay gì" -> khach; "máy 958 thay linh kiện gì" -> model; "lần gần nhất thay vật tư cho máy 35778") -> điền ma_may / model / khach tùy cách hỏi.
 - khachHang: tra THÔNG TIN khách hàng/điểm máy — địa chỉ ở đâu, model máy gì, KHÁCH DÙNG MÁY GÌ, LIỆT KÊ MÁY của một khách, hoặc "MÃ MÁY 12345 CỦA KHÁCH NÀO" (VD "công ty X địa chỉ ở đâu", "khách Y dùng máy gì", "liệt kê các máy có hdbt của vp tw đảng", "mã máy 36114 của khách nào") -> điền khach nếu có; điền ma_may khi hỏi "mã máy ..."; điền model khi hỏi "máy <model>"; nếu câu nêu LOẠI HĐ (HĐBT, MF, Máy thuê, Máy CPC) thì điền loai.
 - none: không thuộc các loại trên.
