@@ -144,19 +144,25 @@ export default function AdminBatchScanQR() {
 
             // Phân tích mã (Ví dụ: "36110#Bảo trì")
             const parts = decodedText.split('#')
-            const maMayQuet = parts[0].trim().toUpperCase()
+            const rawMaMay = parts[0]
 
-            if (!maMayQuet) return
+            // Loại bỏ các ký tự điều khiển ẩn và zero-width space/BOM của iOS
+            const maMayQuetClean = rawMaMay.replace(/[​-‍﻿]/g, '').replace(/[\x00-\x1F\x7F-\x9F]/g, '').trim()
+
+            if (!maMayQuetClean) return
 
             // Rung nhẹ phản hồi
             if (navigator.vibrate) {
               navigator.vibrate(100)
             }
 
+            const normStr = (s: string) => (s || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
+            const maMayQuetNorm = normStr(maMayQuetClean)
+
             setScannedItems(prev => {
-              if (prev.some(item => item.ma_may === maMayQuet)) return prev
-              const cust = customers.find(c => c.ma_may && c.ma_may.toUpperCase() === maMayQuet) || null
-              return [...prev, { ma_may: maMayQuet, customer: cust }]
+              if (prev.some(item => normStr(item.ma_may) === maMayQuetNorm)) return prev
+              const cust = customers.find(c => c.ma_may && normStr(c.ma_may) === maMayQuetNorm) || null
+              return [...prev, { ma_may: maMayQuetClean, customer: cust }]
             })
           },
           (errorMessage: string) => {
