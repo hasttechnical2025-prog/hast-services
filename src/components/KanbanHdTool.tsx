@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import MonthField from "@/components/MonthField"
 import { supabase } from "@/lib/supabase"
 
 type VatTu = {
@@ -451,12 +452,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
         <div className="flex items-center gap-3 flex-wrap">
           <label className="flex items-center gap-1.5 text-xs text-slate-600">
             Kỳ đối chiếu:
-            <input
-              type="month"
-              value={thang}
-              onChange={e => setThang(e.target.value)}
-              className="h-8 px-2 rounded-md border border-slate-200 text-xs bg-white focus:ring-1 focus:ring-blue-500 outline-none"
-            />
+            <MonthField value={thang} onChange={setThang} className="h-8 px-2 text-xs w-36" />
           </label>
 
           {role !== 'kthc' && (

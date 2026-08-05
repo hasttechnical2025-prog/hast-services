@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase"
 import { chotSoDate, counterStatus } from "@/lib/thue-cpc"
 import ThueCpcModule from "@/components/ThueCpcModule"
 import KanbanHdTool from "@/components/KanbanHdTool"
+import MonthField from "@/components/MonthField"
 import NghiPhepDuyet from "@/components/NghiPhepDuyet"
 import BaoGiaEditor, { type BaoGiaRow } from "@/components/BaoGiaEditor"
 import TroLyAI from "@/components/TroLyAI"
@@ -3506,7 +3507,7 @@ function NhapHangThangTool({ showNotification }: { showNotification: (type: 'suc
       <div className="flex items-end gap-3 flex-wrap">
         <div className="space-y-1">
           <label className="text-xs font-semibold text-slate-600">Lọc theo tháng (để trống = tất cả)</label>
-          <input type="month" value={thang} onChange={(e) => setThang(e.target.value)} className="h-10 px-3 rounded-md border border-slate-200 text-sm outline-none bg-white block" />
+          <MonthField value={thang} onChange={setThang} className="h-10 px-3 text-sm w-44" />
         </div>
         {thang && <Button variant="outline" onClick={() => setThang("")} className="h-10">Xem tất cả</Button>}
       </div>
@@ -4703,7 +4704,7 @@ function BaoCaoThangTool({ showNotification }: { showNotification: (type: 'succe
       <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div className="space-y-1">
           <label className="text-xs font-semibold text-slate-600">Tháng báo cáo</label>
-          <input type="month" value={thang} onChange={(e) => setThang(e.target.value)} className="h-10 px-3 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500 block" />
+          <MonthField value={thang} onChange={setThang} className="h-10 px-3 text-sm w-44" />
           <p className="text-xs text-slate-400 max-w-md">Số liệu Mục 1–5 tự tính theo tháng. Mục 3 (máy thuê/CPC, tỉ lệ, lũy kế) và Mục 6–8 nhập tay bên dưới. Báo cáo chỉ để in & nộp, không lưu.</p>
         </div>
         <Button onClick={exportDocx} disabled={exporting || loading || !preview} className="gap-2 h-10 shrink-0">
@@ -4795,7 +4796,7 @@ function BaoCaoThangTool({ showNotification }: { showNotification: (type: 'succe
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Tháng</label>
-                <input type="month" value={dsoForm.thang} onChange={(e) => setDsoForm({ ...dsoForm, thang: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white block" />
+                <MonthField value={dsoForm.thang} onChange={(v) => setDsoForm({ ...dsoForm, thang: v })} className="h-9 px-2 text-xs w-40" />
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Thực tế</label>
@@ -6566,7 +6567,7 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
         <div className="flex flex-col sm:flex-row sm:items-end gap-4">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">Tháng bảo trì</label>
-            <input type="month" value={thangNam} onChange={(e) => setThangNam(e.target.value)} className="h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white block" />
+            <MonthField value={thangNam} onChange={setThangNam} className="h-10 px-3 text-sm w-44" />
           </div>
           <p className="text-sm text-slate-500 flex-1">
             Dán danh sách <b>mã máy</b> đã bảo trì trong tháng (cách nhau bởi xuống dòng, dấu phẩy hoặc khoảng trắng).<br />

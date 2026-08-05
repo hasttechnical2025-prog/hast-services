@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import DateField from "@/components/DateField"
+import MonthField from "@/components/MonthField"
 import { chotSoDate, counterStatus, CounterStatus, kyTruoc } from "@/lib/thue-cpc"
 import { supabase } from "@/lib/supabase"
 import { Save, FileText, RefreshCw } from "lucide-react"
@@ -473,7 +474,7 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
         <div className="flex items-center gap-2 flex-wrap">
           <Input placeholder="Tìm khách / mã máy / serial / vị trí…" value={search} onChange={e => setSearch(e.target.value)} className="w-64 h-9" />
           <label className="flex items-center gap-2 text-sm text-slate-600">Kỳ
-            <input type="month" value={thang} onChange={e => setThang(e.target.value)} className="h-9 px-3 rounded-md border border-slate-200 text-sm bg-white" />
+            <MonthField value={thang} onChange={setThang} className="h-9 w-40" />
           </label>
         </div>
       </div>
@@ -770,7 +771,7 @@ function BangKeTab({ showNotification }: { showNotification: Notify }) {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h3 className="font-bold text-slate-800">Bảng kê thanh toán</h3>
         <label className="flex items-center gap-2 text-sm text-slate-600">Kỳ
-          <input type="month" value={thang} onChange={e => setThang(e.target.value)} className="h-9 px-3 rounded-md border border-slate-200 text-sm bg-white" />
+          <MonthField value={thang} onChange={setThang} className="h-9 w-40" />
         </label>
       </div>
 
