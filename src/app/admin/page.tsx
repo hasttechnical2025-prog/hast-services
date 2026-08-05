@@ -5785,13 +5785,15 @@ const DANH_MUC_NHOMS = [
 
 // Khách hàng cụm: một khách (mã số) gom nhiều điểm máy. Chỉ admin. Gán/gỡ máy thủ công.
 function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { customers: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
-  const [clusters, setClusters] = useState<{ ma_khach_hang: string, ten_khach_hang: string, dia_chi: string, so_may: number, members: { id: string, ma_may: string, ten_khach_hang: string }[] }[]>([])
+  const [clusters, setClusters] = useState<{ ma_khach_hang: string, ten_khach_hang: string, dia_chi: string, ma_so_thue?: string | null, email_ke_toan?: string | null, so_may: number, members: { id: string, ma_may: string, ten_khach_hang: string }[] }[]>([])
   const [assignedIds, setAssignedIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [selMa, setSelMa] = useState<string | null>(null)
   const [working, setWorking] = useState(false)
   const [newMa, setNewMa] = useState(''), [newTen, setNewTen] = useState(''), [newDc, setNewDc] = useState('')
   const [editing, setEditing] = useState(false), [edMa, setEdMa] = useState(''), [edTen, setEdTen] = useState(''), [edDc, setEdDc] = useState('')
+  const [newMst, setNewMst] = useState(''), [newEmail, setNewEmail] = useState('')
+  const [edMst, setEdMst] = useState(''), [edEmail, setEdEmail] = useState('')
   const [cumSearch, setCumSearch] = useState(''), [maySearch, setMaySearch] = useState('')
   const [pickIds, setPickIds] = useState<string[]>([])
 
@@ -5828,15 +5830,15 @@ function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { custom
   const addCluster = async () => {
     const ma = newMa.trim(), ten = newTen.trim()
     if (!ma || !ten) return showNotification('error', 'Nhập mã và tên khách hàng')
-    if (await call('POST', { ma_khach_hang: ma, ten_khach_hang: ten, dia_chi: newDc.trim() })) {
-      showNotification('success', 'Đã tạo cụm.'); setNewMa(''); setNewTen(''); setNewDc(''); setSelMa(ma); await fetchClusters()
+    if (await call('POST', { ma_khach_hang: ma, ten_khach_hang: ten, dia_chi: newDc.trim(), ma_so_thue: newMst.trim(), email_ke_toan: newEmail.trim() })) {
+      showNotification('success', 'Đã tạo cụm.'); setNewMa(''); setNewTen(''); setNewDc(''); setNewMst(''); setNewEmail(''); setSelMa(ma); await fetchClusters()
     }
   }
   const saveEdit = async () => {
     if (!sel || !edTen.trim()) return showNotification('error', 'Tên không được để trống')
     const maMoi = edMa.trim()
     if (!maMoi) return showNotification('error', 'Mã khách hàng không được để trống')
-    if (await call('PUT', { ma_khach_hang: sel.ma_khach_hang, ma_moi: maMoi, ten_khach_hang: edTen.trim(), dia_chi: edDc.trim() })) {
+    if (await call('PUT', { ma_khach_hang: sel.ma_khach_hang, ma_moi: maMoi, ten_khach_hang: edTen.trim(), dia_chi: edDc.trim(), ma_so_thue: edMst.trim(), email_ke_toan: edEmail.trim() })) {
       setEditing(false); if (maMoi !== sel.ma_khach_hang) setSelMa(maMoi); await fetchClusters(); onUpdateSuccess()
     }
   }
@@ -5878,6 +5880,10 @@ function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { custom
               <Input placeholder="Tên khách hàng" className="bg-white" value={newTen} onChange={e => setNewTen(e.target.value)} />
             </div>
             <Input placeholder="Địa chỉ (xuất hóa đơn)" className="bg-white" value={newDc} onChange={e => setNewDc(e.target.value)} />
+            <div className="grid grid-cols-2 gap-2">
+              <Input placeholder="Mã số thuế" className="bg-white" value={newMst} onChange={e => setNewMst(e.target.value)} />
+              <Input placeholder="Email kế toán" className="bg-white" value={newEmail} onChange={e => setNewEmail(e.target.value)} />
+            </div>
             <Button onClick={addCluster} disabled={working} className="gap-1 w-full"><Plus className="w-4 h-4" /> Tạo cụm</Button>
           </div>
 
@@ -5913,6 +5919,10 @@ function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { custom
                       <Input className="bg-white w-40" value={edMa} onChange={e => setEdMa(e.target.value)} placeholder="Mã KH (số)" />
                       <Input className="bg-white" value={edTen} onChange={e => setEdTen(e.target.value)} placeholder="Tên khách hàng" />
                       <Input className="bg-white" value={edDc} onChange={e => setEdDc(e.target.value)} placeholder="Địa chỉ" />
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input className="bg-white" value={edMst} onChange={e => setEdMst(e.target.value)} placeholder="Mã số thuế" />
+                        <Input className="bg-white" value={edEmail} onChange={e => setEdEmail(e.target.value)} placeholder="Email kế toán" />
+                      </div>
                       <div className="flex gap-2">
                         <Button onClick={saveEdit} disabled={working} className="h-8 text-xs px-3">Lưu</Button>
                         <Button variant="outline" onClick={() => setEditing(false)} className="h-8 text-xs px-3">Hủy</Button>
@@ -5925,12 +5935,16 @@ function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { custom
                         <h3 className="text-base font-semibold text-slate-800 truncate">{sel.ten_khach_hang}</h3>
                       </div>
                       {sel.dia_chi && <p className="text-sm text-slate-500 mt-0.5">{sel.dia_chi}</p>}
+                      <div className="flex gap-3 mt-1.5 flex-wrap">
+                        {sel.ma_so_thue && <p className="text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">MST: {sel.ma_so_thue}</p>}
+                        {sel.email_ke_toan && <p className="text-[11px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">Email: {sel.email_ke_toan}</p>}
+                      </div>
                     </>
                   )}
                 </div>
                 {!editing && (
                   <div className="flex gap-1 shrink-0">
-                    <button onClick={() => { setEditing(true); setEdMa(sel.ma_khach_hang); setEdTen(sel.ten_khach_hang); setEdDc(sel.dia_chi || '') }} className="text-blue-500 hover:text-blue-700 p-1"><PenSquare className="w-4 h-4" /></button>
+                    <button onClick={() => { setEditing(true); setEdMa(sel.ma_khach_hang); setEdTen(sel.ten_khach_hang); setEdDc(sel.dia_chi || ''); setEdMst(sel.ma_so_thue || ''); setEdEmail(sel.email_ke_toan || '') }} className="text-blue-500 hover:text-blue-700 p-1"><PenSquare className="w-4 h-4" /></button>
                     <button onClick={() => delCluster(sel.ma_khach_hang)} className="text-red-500 hover:text-red-700 p-1"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 )}
