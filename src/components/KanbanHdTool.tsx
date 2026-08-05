@@ -328,8 +328,40 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                 <div className={`absolute top-0 left-0 bottom-0 w-1 ${state === 'Chờ xuất HĐ' ? 'bg-blue-400' : state === 'Đang xử lý HĐ' ? 'bg-amber-400' : state === 'Đã lên hóa đơn' ? 'bg-emerald-500' : 'bg-indigo-500'}`}></div>
 
                 <div className="pl-1.5 space-y-2">
-                  <div className="font-bold text-slate-800 text-xs leading-snug line-clamp-2">
-                    {card.customer?.ten_khach_hang || 'Khách hàng lẻ'}
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="font-bold text-slate-800 text-xs leading-snug line-clamp-2">
+                      {card.customer?.ten_khach_hang || 'Khách hàng lẻ'}
+                    </div>
+                    {state === 'Chờ xuất HĐ' && (
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          if (window.confirm("Bạn có chắc chắn muốn thu hồi (các) phiếu này quay lại Công nợ không?")) {
+                            try {
+                              const targetIds = card.tickets.map((t: any) => t.id)
+                              const res = await fetch('/api/admin/kanban-hd', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ ids: targetIds, trang_thai_hd: 'Chưa hóa đơn' })
+                              })
+                              if (res.ok) {
+                                showNotification('success', 'Đã thu hồi phiếu quay lại Công nợ.')
+                                load()
+                              } else {
+                                const err = await res.json()
+                                showNotification('error', err.error || 'Lỗi thu hồi')
+                              }
+                            } catch {
+                              showNotification('error', 'Lỗi kết nối')
+                            }
+                          }
+                        }}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 px-1 py-0.5 rounded transition text-[10px] font-bold shrink-0 border border-red-200"
+                        title="Thu hồi quay lại Công nợ"
+                      >
+                        Thu hồi
+                      </button>
+                    )}
                   </div>
 
                   {card.customer?.ma_so_thue && (
