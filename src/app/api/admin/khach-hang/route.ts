@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { ten_khach_hang, dia_chi, ma_may, serial, model, hang, loai_hd, ngay_het_han_hdbt, thang_bao_tri, bat_dau_tu_thang, tam_dung_tu_thang, ghi_chu_bao_tri } = body
+    const { ten_khach_hang, dia_chi, ma_may, serial, model, hang, loai_hd, ngay_het_han_hdbt, thang_bao_tri, bat_dau_tu_thang, tam_dung_tu_thang, ghi_chu_bao_tri, ma_so_thue, email_ke_toan } = body
 
     if (!ten_khach_hang || !dia_chi) {
       return NextResponse.json({ error: 'Thiếu tên khách hàng hoặc địa chỉ' }, { status: 400 })
@@ -91,7 +91,9 @@ export async function POST(request: Request) {
         thang_bao_tri: thang_bao_tri || null,
         bat_dau_tu_thang: bat_dau_tu_thang || null,
         tam_dung_tu_thang: tam_dung_tu_thang || null,
-        ghi_chu_bao_tri: ghi_chu_bao_tri || null
+        ghi_chu_bao_tri: ghi_chu_bao_tri || null,
+        ma_so_thue: ma_so_thue || null,
+        email_ke_toan: email_ke_toan || null
       })
       .select()
       .single()
@@ -125,7 +127,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Thiếu ID khách hàng' }, { status: 400 })
     }
 
-    const allowed = ['ten_khach_hang', 'ma_may', 'serial', 'dia_chi', 'model', 'hang', 'km_mac_dinh', 'loai_hd', 'ngay_het_han_hdbt', 'thang_bao_tri', 'bat_dau_tu_thang', 'tam_dung_tu_thang', 'ghi_chu_bao_tri']
+    const allowed = ['ten_khach_hang', 'ma_may', 'serial', 'dia_chi', 'model', 'hang', 'km_mac_dinh', 'loai_hd', 'ngay_het_han_hdbt', 'thang_bao_tri', 'bat_dau_tu_thang', 'tam_dung_tu_thang', 'ghi_chu_bao_tri', 'ma_so_thue', 'email_ke_toan']
     const updates: any = {}
     for (const k of allowed) {
       if (body[k] === undefined) continue

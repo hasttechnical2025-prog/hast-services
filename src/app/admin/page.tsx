@@ -6958,6 +6958,8 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
         bat_dau_tu_thang: editing.bat_dau_tu_thang || null,
         tam_dung_tu_thang: editing.tam_dung_tu_thang || null,
         ghi_chu_bao_tri: editing.ghi_chu_bao_tri || null,
+        ma_so_thue: editing.ma_so_thue || null,
+        email_ke_toan: editing.email_ke_toan || null,
       }
       const res = await fetch('/api/admin/khach-hang', {
         method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -7049,7 +7051,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
           <span className="text-sm text-slate-500 whitespace-nowrap">
             {(q || hdFilter !== 'all') ? `${filtered.length} / ${customers.length}` : `Tổng: ${customers.length}`} khách hàng
           </span>
-          <Button onClick={() => setEditing({ ten_khach_hang: "", ma_may: "", serial: "", model: "", hang: "", dia_chi: "", km_mac_dinh: "", loai_hd: "", ngay_het_han_hdbt: "", thang_bao_tri: "", bat_dau_tu_thang: "", tam_dung_tu_thang: "", ghi_chu_bao_tri: "" })} className="gap-1 bg-blue-600 hover:bg-blue-700 h-10 whitespace-nowrap">
+          <Button onClick={() => setEditing({ ten_khach_hang: "", ma_may: "", serial: "", model: "", hang: "", dia_chi: "", km_mac_dinh: "", loai_hd: "", ngay_het_han_hdbt: "", thang_bao_tri: "", bat_dau_tu_thang: "", tam_dung_tu_thang: "", ghi_chu_bao_tri: "", ma_so_thue: "", email_ke_toan: "" })} className="gap-1 bg-blue-600 hover:bg-blue-700 h-10 whitespace-nowrap">
             <Plus className="w-4 h-4" /> Mới
           </Button>
           <ColumnMenu view={col} />
@@ -7141,6 +7143,16 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-600">Địa chỉ</label>
                     <Input value={editing.dia_chi || ""} onChange={(e) => setEditing({ ...editing, dia_chi: e.target.value })} className="bg-white" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-600">Mã số thuế</label>
+                      <Input value={editing.ma_so_thue || ""} onChange={(e) => setEditing({ ...editing, ma_so_thue: e.target.value })} className="bg-white" placeholder="Tùy chọn" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-600">Email kế toán</label>
+                      <Input value={editing.email_ke_toan || ""} onChange={(e) => setEditing({ ...editing, email_ke_toan: e.target.value })} className="bg-white" placeholder="Tùy chọn" />
+                    </div>
                   </div>
 
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide pt-1">Thông tin máy</div>
