@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw } from "lucide-react"
+import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { supabase } from "@/lib/supabase"
@@ -42,7 +42,7 @@ type Ticket = {
   so_luong: number
   created_by: string
   da_nop_phieu: boolean
-  trang_thai_hd: 'Chờ xuất HĐ' | 'Đang xử lý HĐ' | 'Đã lên hóa đơn'
+  trang_thai_hd: 'Chờ xuất HĐ' | 'Đang xử lý HĐ' | 'Đã lên hóa đơn' | 'Đã thanh toán'
   so_hoa_don: string | null
   soct_khach_hang: Customer | null
   soct_users: { full_name: string } | null
@@ -64,7 +64,7 @@ const fmtDate = (s: string) => {
 
 const fmtVnd = (x: number) => Math.round(x || 0).toLocaleString('vi-VN')
 
-export default function KanbanHdTool({ showNotification }: { showNotification: (type: 'success' | 'error', msg: string) => void }) {
+export default function KanbanHdTool({ role = 'staff', showNotification }: { role?: string, showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
   const [grouped, setGrouped] = useState(true) // Bật/tắt tự động gom nhóm theo khách hàng
@@ -120,36 +120,75 @@ export default function KanbanHdTool({ showNotification }: { showNotification: (
   }
 
   // Kéo thẻ (Drag Start)
-  const handleDragStart = (e: React.DragEvent, cardData: { id?: string, ids?: string[] }) => {
+  const handleDragStart = (e: React.DragEvent, cardData: { id?: string, ids?: string[], currentState: string }) => {
     e.dataTransfer.setData("text/plain", JSON.stringify(cardData))
   }
 
   // Thả thẻ (Drop)
-  const handleDrop = async (e: React.DragEvent, targetState: 'Chờ xuất HĐ' | 'Đang xử lý HĐ' | 'Đã lên hóa đơn') => {
+  const handleDrop = async (e: React.DragEvent, targetState: 'Chờ xuất HĐ' | 'Đang xử lý HĐ' | 'Đã lên hóa đơn' | 'Đã thanh toán') => {
     e.preventDefault()
     try {
       const raw = e.dataTransfer.getData("text/plain")
       if (!raw) return
       const cardData = JSON.parse(raw)
       const targetIds = cardData.ids || [cardData.id]
+      const sourceState = cardData.currentState
 
+      // 1. Kiểm tra phân quyền kéo/thả
+      if (role !== 'admin') {
+        if (role === 'tech_admin' || role === 'staff') {
+          // Tech_admin và Staff: Chỉ được kéo từ Cột 1 sang Cột 2 (Bàn giao Kế toán)
+          if (!(sourceState === 'Chờ xuất HĐ' && targetState === 'Đang xử lý HĐ')) {
+            return showNotification('error', 'Bạn chỉ có quyền kéo thẻ từ Cột 1 (Chờ xuất HĐ) sang Cột 2 để bàn giao cho Kế toán.')
+          }
+        } else if (role === 'kthc') {
+          // Kế toán (kthc): Chỉ được làm việc với Cột 2, 3, 4
+          const isAllowedTransition =
+            (sourceState === 'Đang xử lý HĐ' && targetState === 'Đã lên hóa đơn') ||
+            (sourceState === 'Đã lên hóa đơn' && targetState === 'Đã thanh toán') ||
+            (sourceState === 'Đã thanh toán' && targetState === 'Đã lên hóa đơn') ||
+            (sourceState === 'Đã lên hóa đơn' && targetState === 'Đang xử lý HĐ')
+
+          if (!isAllowedTransition) {
+            return showNotification('error', 'Quyền kéo thả không hợp lệ đối với Kế toán.')
+          }
+        }
+      }
+
+      // 2. Thực hiện chuyển trạng thái
       if (targetState === 'Đã lên hóa đơn') {
-        // Nếu kéo sang cột hoàn thành -> Bắt buộc mở Modal để nhập số hóa đơn
+        // Nếu kéo sang Cột 3 -> Bắt buộc mở Modal để nhập số hóa đơn
         const matchedTickets = tickets.filter(t => targetIds.includes(t.id))
-        setInvoiceNum("")
+        setInvoiceNum(matchedTickets[0].so_hoa_don || "")
         setActiveCard({
           type: cardData.ids ? 'group' : 'single',
           tickets: matchedTickets
         })
+      } else if (sourceState === 'Đã lên hóa đơn' && targetState === 'Đang xử lý HĐ') {
+        // Kéo ngược từ Cột 3 về Cột 2 -> Cần xác nhận xóa Số HĐ
+        if (window.confirm("Bạn đang kéo ngược phiếu đã xuất hóa đơn. Số hóa đơn cũ sẽ bị xóa khỏi hệ thống. Bạn có chắc chắn muốn thực hiện?")) {
+          const res = await fetch('/api/admin/kanban-hd', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: targetIds, trang_thai_hd: 'Đang xử lý HĐ', so_hoa_don: null })
+          })
+          if (res.ok) {
+            showNotification('success', 'Đã trả thẻ về trạng thái xử lý hóa đơn.')
+            load()
+          } else {
+            const err = await res.json()
+            showNotification('error', err.error || 'Lỗi chuyển trạng thái')
+          }
+        }
       } else {
-        // Cập nhật trạng thái kéo thả sang Cột 1 hoặc Cột 2
+        // Cập nhật trạng thái trực tiếp (Ví dụ: 1 -> 2, 3 -> 4, 4 -> 3)
         const res = await fetch('/api/admin/kanban-hd', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ids: targetIds, trang_thai_hd: targetState })
         })
         if (res.ok) {
-          showNotification('success', 'Đã chuyển trạng thái phiếu')
+          showNotification('success', 'Đã chuyển trạng thái thẻ thành công.')
           load()
         } else {
           const err = await res.json()
@@ -200,6 +239,7 @@ export default function KanbanHdTool({ showNotification }: { showNotification: (
   const col1Tickets = tickets.filter(t => t.trang_thai_hd === 'Chờ xuất HĐ')
   const col2Tickets = tickets.filter(t => t.trang_thai_hd === 'Đang xử lý HĐ')
   const col3Tickets = tickets.filter(t => t.trang_thai_hd === 'Đã lên hóa đơn')
+  const col4Tickets = tickets.filter(t => t.trang_thai_hd === 'Đã thanh toán')
 
   // Gom nhóm Cột 1 & Cột 2 theo khách hàng nếu bật chế độ grouped
   const getColumnCards = (colTickets: Ticket[], state: string) => {
@@ -229,20 +269,27 @@ export default function KanbanHdTool({ showNotification }: { showNotification: (
 
   const cardsCol1 = getColumnCards(col1Tickets, 'Chờ xuất HĐ')
   const cardsCol2 = getColumnCards(col2Tickets, 'Đang xử lý HĐ')
-  // Cột 3 (Đã hoàn thành) luôn để đơn lẻ từng phiếu để hiển thị rõ số hóa đơn riêng biệt
+
+  // Cột 3 & Cột 4 (Hoàn thành) luôn để đơn lẻ từng phiếu để hiển thị rõ số hóa đơn riêng biệt
   const cardsCol3 = col3Tickets.map(t => ({
     id: t.id,
     customer: t.soct_khach_hang,
     tickets: [t],
     trang_thai_hd: 'Đã lên hóa đơn'
   }))
+  const cardsCol4 = col4Tickets.map(t => ({
+    id: t.id,
+    customer: t.soct_khach_hang,
+    tickets: [t],
+    trang_thai_hd: 'Đã thanh toán'
+  }))
 
-  const renderCardList = (cards: any[], state: 'Chờ xuất HĐ' | 'Đang xử lý HĐ' | 'Đã lên hóa đơn') => {
+  const renderCardList = (cards: any[], state: 'Chờ xuất HĐ' | 'Đang xử lý HĐ' | 'Đã lên hóa đơn' | 'Đã thanh toán') => {
     return (
       <div
         onDragOver={e => e.preventDefault()}
         onDrop={e => handleDrop(e, state)}
-        className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50 min-h-[500px] rounded-b-xl border-t border-slate-100"
+        className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50 min-h-[500px] max-h-[700px] rounded-b-xl border-t border-slate-100"
       >
         {cards.length === 0 ? (
           <div className="text-center py-12 text-xs text-slate-400 italic">
@@ -254,8 +301,8 @@ export default function KanbanHdTool({ showNotification }: { showNotification: (
             const { truocVat, sauVat } = getVatTuStats(allVt)
             const count = card.tickets.length
             const dragData = card.tickets.length > 1
-              ? { ids: card.tickets.map((t: any) => t.id) }
-              : { id: card.tickets[0].id }
+              ? { ids: card.tickets.map((t: any) => t.id), currentState: state }
+              : { id: card.tickets[0].id, currentState: state }
 
             return (
               <div
@@ -263,7 +310,7 @@ export default function KanbanHdTool({ showNotification }: { showNotification: (
                 draggable
                 onDragStart={e => handleDragStart(e, dragData)}
                 onClick={() => {
-                  if (state === 'Đang xử lý HĐ' || state === 'Đã lên hóa đơn') {
+                  if (state === 'Đang xử lý HĐ' || state === 'Đã lên hóa đơn' || state === 'Đã thanh toán') {
                     setInvoiceNum(card.tickets[0].so_hoa_don || "")
                     setActiveCard({
                       type: count > 1 ? 'group' : 'single',
@@ -274,7 +321,7 @@ export default function KanbanHdTool({ showNotification }: { showNotification: (
                 className={`bg-white border rounded-lg p-3 shadow-sm hover:shadow transition cursor-grab active:cursor-grabbing border-slate-200 relative overflow-hidden ${state !== 'Chờ xuất HĐ' ? 'hover:bg-slate-50/50' : ''}`}
               >
                 {/* Đường viền trang trí trạng thái */}
-                <div className={`absolute top-0 left-0 bottom-0 w-1 ${state === 'Chờ xuất HĐ' ? 'bg-blue-500' : state === 'Đang xử lý HĐ' ? 'bg-amber-500' : 'bg-emerald-500'}`}></div>
+                <div className={`absolute top-0 left-0 bottom-0 w-1 ${state === 'Chờ xuất HĐ' ? 'bg-blue-400' : state === 'Đang xử lý HĐ' ? 'bg-amber-400' : state === 'Đã lên hóa đơn' ? 'bg-emerald-500' : 'bg-indigo-500'}`}></div>
 
                 <div className="pl-1.5 space-y-2">
                   <div className="font-bold text-slate-800 text-xs leading-snug line-clamp-2">
@@ -300,12 +347,12 @@ export default function KanbanHdTool({ showNotification }: { showNotification: (
                     <div className="text-[10px] text-slate-400">Thành tiền:</div>
                     <div className="text-right">
                       <div className="text-xs font-bold text-slate-800">{fmtVnd(sauVat)} đ</div>
-                      <div className="text-[9px] text-slate-400">Trước VAT: {fmtVnd(truocVat)}</div>
+                      <div className="text-[9px] text-slate-400 font-mono">Trước VAT: {fmtVnd(truocVat)}</div>
                     </div>
                   </div>
 
-                  {state === 'Đã lên hóa đơn' && card.tickets[0].so_hoa_don && (
-                    <div className="mt-2 bg-emerald-50 text-emerald-800 border border-emerald-100 rounded px-2 py-1 text-[10px] font-semibold flex items-center gap-1">
+                  {card.tickets[0].so_hoa_don && (
+                    <div className={`mt-2 border rounded px-2 py-1 text-[10px] font-semibold flex items-center gap-1 ${state === 'Đã thanh toán' ? 'bg-indigo-50 text-indigo-800 border-indigo-100' : 'bg-emerald-50 text-emerald-800 border-emerald-100'}`}>
                       <CheckCircle className="w-3.5 h-3.5" />
                       HĐ: {card.tickets[0].so_hoa_don}
                     </div>
@@ -347,22 +394,24 @@ export default function KanbanHdTool({ showNotification }: { showNotification: (
       <div className="flex justify-between items-center gap-3 flex-wrap bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
         <div>
           <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-            <Layers className="w-5 h-5 text-blue-600" /> Quy trình xuất Hóa đơn (Kanban)
+            <Layers className="w-5 h-5 text-blue-600" /> Bảng điều phối hóa đơn (Kanban)
           </h2>
           <p className="text-xs text-slate-400">Tech_admin giao việc {`->`} Kế toán xuất hóa đơn trên MISA/Fast/SAPP và dán Số hóa đơn để hoàn tất.</p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={grouped}
-              onChange={e => setGrouped(e.target.checked)}
-              className="w-4 h-4 accent-blue-600"
-            />
-            Tự động gom nhóm theo khách hàng
-          </label>
-          <Button onClick={load} disabled={loading} size="sm" variant="outline" className="h-9 gap-1 text-xs">
+        <div className="flex items-center gap-3 flex-wrap">
+          {role !== 'kthc' && (
+            <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={grouped}
+                onChange={e => setGrouped(e.target.checked)}
+                className="w-4 h-4 accent-blue-600"
+              />
+              Tự động gom nhóm theo khách hàng
+            </label>
+          )}
+          <Button onClick={load} disabled={loading} size="sm" variant="outline" className="h-9 gap-1 text-xs bg-white">
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Tải lại
           </Button>
         </div>
@@ -373,35 +422,47 @@ export default function KanbanHdTool({ showNotification }: { showNotification: (
           Đang tải bảng Kanban...
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {/* CỘT 1: CHỜ XUẤT HĐ */}
-          <div className="border border-slate-200 rounded-xl bg-white flex flex-col shadow-sm">
-            <div className="p-3 bg-blue-50/50 rounded-t-xl flex justify-between items-center">
-              <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wider flex items-center gap-1.5">
-                <Clock className="w-4 h-4" /> 1. Chờ lên hóa đơn ({cardsCol1.length})
-              </h3>
+        <div className={`grid grid-cols-1 gap-5 ${role === 'kthc' ? 'md:grid-cols-3' : 'md:grid-cols-4'}`}>
+          {/* CỘT 1: CHỜ XUẤT HĐ (Chỉ hiện với Admin, Tech_admin, Staff) */}
+          {role !== 'kthc' && (
+            <div className="border border-slate-200 rounded-xl bg-white flex flex-col shadow-sm">
+              <div className="p-3 bg-blue-50/50 rounded-t-xl flex justify-between items-center">
+                <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <Clock className="w-4 h-4" /> 1. Chờ lên hóa đơn ({cardsCol1.length})
+                </h3>
+              </div>
+              {renderCardList(cardsCol1, 'Chờ xuất HĐ')}
             </div>
-            {renderCardList(cardsCol1, 'Chờ xuất HĐ')}
-          </div>
+          )}
 
           {/* CỘT 2: ĐANG XỬ LÝ HĐ */}
           <div className="border border-slate-200 rounded-xl bg-white flex flex-col shadow-sm">
             <div className="p-3 bg-amber-50/50 rounded-t-xl flex justify-between items-center">
               <h3 className="text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
-                <FileText className="w-4 h-4" /> 2. KT-HC lên hóa đơn ({cardsCol2.length})
+                <FileText className="w-4 h-4" /> {role === 'kthc' ? '1.' : '2.'} KT-HC lên hóa đơn ({cardsCol2.length})
               </h3>
             </div>
             {renderCardList(cardsCol2, 'Đang xử lý HĐ')}
           </div>
 
-          {/* CỘT 3: HOÀN THÀNH */}
+          {/* CỘT 3: CHỜ THANH TOÁN (Trạng thái Đã lên hóa đơn) */}
           <div className="border border-slate-200 rounded-xl bg-white flex flex-col shadow-sm">
             <div className="p-3 bg-emerald-50/50 rounded-t-xl flex justify-between items-center">
               <h3 className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
-                <CheckCircle className="w-4 h-4" /> 3. Hoàn thành ({cardsCol3.length})
+                <CheckCircle className="w-4 h-4" /> {role === 'kthc' ? '2.' : '3.'} Chờ thanh toán ({cardsCol3.length})
               </h3>
             </div>
             {renderCardList(cardsCol3, 'Đã lên hóa đơn')}
+          </div>
+
+          {/* CỘT 4: ĐÃ THANH TOÁN */}
+          <div className="border border-slate-200 rounded-xl bg-white flex flex-col shadow-sm">
+            <div className="p-3 bg-indigo-50/50 rounded-t-xl flex justify-between items-center">
+              <h3 className="text-xs font-bold text-indigo-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Landmark className="w-4 h-4" /> {role === 'kthc' ? '3.' : '4.'} Đã thanh toán ({cardsCol4.length})
+              </h3>
+            </div>
+            {renderCardList(cardsCol4, 'Đã thanh toán')}
           </div>
         </div>
       )}
@@ -503,7 +564,7 @@ export default function KanbanHdTool({ showNotification }: { showNotification: (
                                 className={`p-1 bg-white hover:bg-slate-100 border border-slate-200 rounded text-slate-500 transition ${copiedKey === `row_${i}` ? 'text-emerald-600 border-emerald-200' : ''}`}
                                 title="Copy nguyên dòng (Tên	SL	Đơn giá	VAT) để dán nhanh Excel/MISA"
                               >
-                                <Copy className="w-3 h-3" />
+                                <Copy className="w-3.5 h-3.5" />
                               </button>
                             </td>
                           </tr>
@@ -530,7 +591,7 @@ export default function KanbanHdTool({ showNotification }: { showNotification: (
                 </div>
               </div>
 
-              {/* Số hóa đơn đầu vào (Chỉ hiện khi ở cột 2 hoặc để xem lại cột 3) */}
+              {/* Số hóa đơn đầu vào (Chỉ hiện khi ở cột 2 hoặc để xem lại cột 3/4) */}
               {activeCard.tickets[0].trang_thai_hd !== 'Chờ xuất HĐ' && (
                 <div className="space-y-1 bg-blue-50/40 p-4 rounded-lg border border-blue-100">
                   <label className="text-xs font-bold text-blue-800 uppercase tracking-wider flex items-center gap-1">
@@ -541,7 +602,7 @@ export default function KanbanHdTool({ showNotification }: { showNotification: (
                     placeholder="Nhập số hóa đơn (MISA/SAPP/Fast) để hoàn tất"
                     value={invoiceNum}
                     onChange={e => setInvoiceNum(e.target.value)}
-                    disabled={activeCard.tickets[0].trang_thai_hd === 'Đã lên hóa đơn'}
+                    disabled={activeCard.tickets[0].trang_thai_hd !== 'Đang xử lý HĐ'}
                     className="h-10 mt-1 bg-white uppercase font-mono font-bold text-slate-800 border-blue-200 focus:ring-blue-500"
                   />
                   <p className="text-[10px] text-blue-600">Lưu ý: Bắt buộc điền đúng Số hóa đơn đã xuất trên phần mềm để lưu vết đối chiếu.</p>

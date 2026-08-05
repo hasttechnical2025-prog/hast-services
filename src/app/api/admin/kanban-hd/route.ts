@@ -46,14 +46,14 @@ export async function GET(request: Request) {
             )
           )
         `)
-        .in('trang_thai_hd', ['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn'])
+        .in('trang_thai_hd', ['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn', 'Đã thanh toán'])
         .order('ngay', { ascending: false })
         .range(from, to)
     })
 
-    // Lọc lại phía server để cột "Đã lên hóa đơn" chỉ lấy trong tháng này nhằm tránh nặng payload
+    // Lọc lại phía server để cột "Đã lên hóa đơn" & "Đã thanh toán" chỉ lấy trong tháng này nhằm tránh nặng payload
     const filtered = (data || []).filter((j: any) => {
-      if (j.trang_thai_hd === 'Đã lên hóa đơn') {
+      if (j.trang_thai_hd === 'Đã lên hóa đơn' || j.trang_thai_hd === 'Đã thanh toán') {
         return j.ngay >= startOfMonth
       }
       return true
@@ -85,7 +85,7 @@ export async function PUT(request: Request) {
     const targetIds = ids || [id]
 
     // Validate trạng thái
-    const allowedStates = ['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn']
+    const allowedStates = ['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn', 'Đã thanh toán']
     if (!allowedStates.includes(trang_thai_hd)) {
       return NextResponse.json({ error: 'Trạng thái không hợp lệ' }, { status: 400 })
     }
@@ -98,8 +98,16 @@ export async function PUT(request: Request) {
     }
 
     const updates: any = {
-      trang_thai_hd,
-      so_hoa_don: trang_thai_hd === 'Đã lên hóa đơn' ? String(so_hoa_don).trim() : null
+      trang_thai_hd
+    }
+
+    if (trang_thai_hd === 'Đã lên hóa đơn' || trang_thai_hd === 'Đã thanh toán') {
+      if (so_hoa_don !== undefined) {
+         updates.so_hoa_don = String(so_hoa_don).trim()
+      }
+    } else {
+       // Kéo ngược lại cột 1 hoặc cột 2 -> xóa số hóa đơn
+       updates.so_hoa_don = null
     }
 
     // Cập nhật Database
@@ -112,7 +120,7 @@ export async function PUT(request: Request) {
 
     // Nếu là hoàn tất hóa đơn, ta cũng đồng bộ tick cờ hoa_don = true cho tất cả vật tư
     // của các phiếu này (để khớp logic công nợ hiện hành của app)
-    if (trang_thai_hd === 'Đã lên hóa đơn') {
+    if (trang_thai_hd === 'Đã lên hóa đơn' || trang_thai_hd === 'Đã thanh toán') {
       const { error: vtErr } = await supabaseAdmin
         .from('soct_chi_tiet_vat_tu')
         .update({ hoa_don: true })

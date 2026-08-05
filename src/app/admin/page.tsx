@@ -288,7 +288,7 @@ export default function AdminDashboard() {
   const effectiveMonitorTab = firstVisibleSub('theo_doi_may', ['bao_tri', 'giam_dinh'], monitorTab) as "bao_tri" | "giam_dinh"
   const effectiveQuanLyTab = firstVisibleSub('quan_ly', ['nhat_ky', 'khach_hang', 'khach_cum', 'bao_cao', 'nghi_phep'], quanLyTab) as "nhat_ky" | "khach_hang" | "khach_cum" | "bao_cao" | "nghi_phep"
   const effectiveCongTacTab = firstVisibleSub('cong_viec', ['giao_viec', 'hoan_phieu'], congTacTab) as "giao_viec" | "hoan_phieu"
-  const effectiveTaiChinhTab = firstVisibleSub('tai_chinh', ['kanban', 'cong_no', 'thue_cpc'], taiChinhTab) as "kanban" | "cong_no" | "thue_cpc"
+  const effectiveTaiChinhTab = firstVisibleSub('tai_chinh', ['cong_no', 'thue_cpc', 'kanban'], taiChinhTab) as "cong_no" | "thue_cpc" | "kanban"
   const repeatNgay = parseInt(cauHinh.repeat_ngay || '30') || 30
   const nguongTonThap = parseInt(cauHinh.nguong_ton_thap || '0') || 0
 
@@ -647,7 +647,7 @@ export default function AdminDashboard() {
   const handleAddVatTu = () => {
     setFormData(prev => ({
       ...prev,
-      vat_tu: [...prev.vat_tu, { ma_hang: "", so_luong: "1", don_gia: "", vat: "8", hoa_don: true }]
+      vat_tu: [...prev.vat_tu, { ma_hang: "", so_luong: "1", don_gia: "", vat: "8", hoa_don: false }]
     }))
   }
 
@@ -655,7 +655,7 @@ export default function AdminDashboard() {
   const handleAddGiamDinhVatTu = () => {
     if (!mayStatus) return
     const lines = mayStatus.giam_dinh.flatMap((g: any) =>
-      (g.soct_giam_dinh_vat_tu || []).map((v: any) => ({ ma_hang: v.ma_hang, so_luong: String(v.so_luong), don_gia: "", vat: "8", hoa_don: true }))
+      (g.soct_giam_dinh_vat_tu || []).map((v: any) => ({ ma_hang: v.ma_hang, so_luong: String(v.so_luong), don_gia: "", vat: "8", hoa_don: false }))
     )
     if (lines.length === 0) return
     // Bỏ dòng trống mặc định, tránh trùng mã đã có
@@ -1486,24 +1486,24 @@ export default function AdminDashboard() {
         {activeTab === "tai_chinh" && tabVisible('tai_chinh') && (
           <div className="space-y-4">
             <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
-              {subVisible('tai_chinh', 'kanban') && (
-                <button onClick={() => setTaiChinhTab("kanban" as any)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'kanban' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Kanban Hóa đơn</button>
-              )}
               {subVisible('tai_chinh', 'cong_no') && (
                 <button onClick={() => setTaiChinhTab("cong_no")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'cong_no' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Công nợ</button>
               )}
               {subVisible('tai_chinh', 'thue_cpc') && (
                 <button onClick={() => setTaiChinhTab("thue_cpc")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'thue_cpc' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Thuê / CPC</button>
               )}
+              {subVisible('tai_chinh', 'kanban') && (
+                <button onClick={() => setTaiChinhTab("kanban" as any)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'kanban' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Kanban Hóa đơn</button>
+              )}
             </div>
-            {effectiveTaiChinhTab === "kanban" && subVisible('tai_chinh', 'kanban') && (
-              <KanbanHdTool showNotification={showNotification} />
-            )}
             {effectiveTaiChinhTab === "cong_no" && subVisible('tai_chinh', 'cong_no') && (
               <CongNoTool showNotification={showNotification} />
             )}
             {effectiveTaiChinhTab === "thue_cpc" && subVisible('tai_chinh', 'thue_cpc') && (
               <ThueCpcModule showNotification={showNotification} canSub={(g) => subSubVisible('tai_chinh', 'thue_cpc', g)} />
+            )}
+            {effectiveTaiChinhTab === "kanban" && subVisible('tai_chinh', 'kanban') && (
+              <KanbanHdTool role={currentUserRole} showNotification={showNotification} />
             )}
           </div>
         )}
@@ -2726,6 +2726,7 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
           <label className="text-xs font-semibold text-slate-600">Quyền hạn *</label>
           <select className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500" value={formData.role} onChange={(e) => setFormData({...formData, role: e.target.value})}>
             <option value="ktv">Kỹ thuật viên (KTV)</option>
+            <option value="kthc">Kế toán (KTHC)</option>
             <option value="staff">Staff (Chỉ xem sổ)</option>
             <option value="tech_admin">Tech Admin</option>
             <option value="admin">Admin</option>
