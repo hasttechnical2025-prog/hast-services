@@ -61,9 +61,9 @@ export async function buildReportData(thang: string, manual: ManualFields = {}) 
   // ~1000 dòng của PostgREST (lũy kế doanh số tính riêng từ bảng soct_doanh_so_thang).
   const jobs = await selectAll<any>((from, to) => supabaseAdmin
     .from('soct_cong_viec')
-    .select(`ngay, ma_may, loai_cong_viec, so_luong, ket_qua, ghi_chu, report,
+    .select(`ngay, ma_may, loai_cong_viec, so_luong, ket_qua, ghi_chu, report, trang_thai_hd, so_hoa_don,
       soct_khach_hang ( ten_khach_hang, dia_chi, hang, loai_hd ),
-      soct_chi_tiet_vat_tu ( thanh_tien, vat, hoa_don )`)
+      soct_chi_tiet_vat_tu ( thanh_tien, vat, hoa_don, da_tra, so_luong, don_gia )`)
     .gte('ngay', start)
     .lte('ngay', end)
     .range(from, to))
@@ -174,6 +174,17 @@ export async function buildReportData(thang: string, manual: ManualFields = {}) 
   data.NGAY_KY = String(lastDay)
   data.THANG_KY = String(month)
   data.NAM_KY = String(year)
+
+  // ===== Đối chiếu Hóa đơn (Kanban Kế toán) =====
+  const invoicedJobs = jobs.filter((j: any) => j.trang_thai_hd === 'Đã lên hóa đơn' && j.so_hoa_don)
+  const uniqueInvoices = new Set(invoicedJobs.map((j: any) => j.so_hoa_don))
+  const tongTienHdTruocVat = invoicedJobs.reduce((s: number, j: any) => s + (j.soct_chi_tiet_vat_tu || []).reduce((s2: number, v: any) => s2 + (v.hoa_don && !v.da_tra ? v.so_luong * v.don_gia : 0), 0), 0)
+  const tongTienHdVat = invoicedJobs.reduce((s: number, j: any) => s + (j.soct_chi_tiet_vat_tu || []).reduce((s2: number, v: any) => s2 + (v.hoa_don && !v.da_tra ? (v.so_luong * v.don_gia * v.vat) / 100 : 0), 0), 0)
+
+  data.ketoan_so_luong_hd = uniqueInvoices.size
+  data.ketoan_truoc_vat = fmt(tongTienHdTruocVat)
+  data.ketoan_vat = fmt(tongTienHdVat)
+  data.ketoan_sau_vat = fmt(tongTienHdTruocVat + tongTienHdVat)
 
   return data
 }

@@ -8,7 +8,7 @@ import { logAudit } from '@/lib/audit'
 // Các role không phải admin chỉ nhận id/full_name/role (đủ cho dropdown giao việc)
 export async function GET(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireRole('admin', 'tech_admin', 'staff', 'kthc')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
     }

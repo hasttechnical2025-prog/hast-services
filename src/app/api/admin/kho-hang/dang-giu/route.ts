@@ -7,7 +7,7 @@ import { requireRole } from '@/lib/session'
 // Kho chỉ trừ thực khi phiếu Hoàn thành (trigger DB), nên đây là "giữ chỗ mềm" (chỉ tính, không trừ).
 export async function GET() {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireRole('admin', 'tech_admin', 'staff', 'kthc')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
     const rows = await selectAll<any>((from, to) => supabaseAdmin

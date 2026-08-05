@@ -1,0 +1,141 @@
+import { NextResponse } from 'next/server'
+import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
+import { requireRole } from '@/lib/session'
+import { broadcastJobsChanged } from '@/lib/realtime'
+
+// GET: Lấy danh sách phiếu phục vụ Kanban Hóa đơn
+export async function GET(request: Request) {
+  try {
+    const session = await requireRole('admin', 'tech_admin', 'staff', 'kthc')
+    if (!session) {
+      return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
+    }
+
+    const today = new Date()
+    // Đầu tháng hiện tại YYYY-MM-01
+    const startOfMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
+
+    // Load tất cả các phiếu thuộc 3 trạng thái Kanban
+    const data = await selectAll<any>((from, to) => {
+      return supabaseAdmin
+        .from('soct_cong_viec')
+        .select(`
+          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don,
+          soct_khach_hang (
+            id,
+            ten_khach_hang,
+            dia_chi,
+            ma_so_thue,
+            email_ke_toan,
+            ma_khach_cum
+          ),
+          soct_users!ktv_id (
+            full_name
+          ),
+          soct_chi_tiet_vat_tu (
+            id,
+            ma_hang,
+            so_luong,
+            don_gia,
+            vat,
+            thanh_tien,
+            hoa_don,
+            da_tra,
+            soct_kho_hang (
+              ten_hang
+            )
+          )
+        `)
+        .in('trang_thai_hd', ['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn'])
+        .order('ngay', { ascending: false })
+        .range(from, to)
+    })
+
+    // Lọc lại phía server để cột "Đã lên hóa đơn" chỉ lấy trong tháng này nhằm tránh nặng payload
+    const filtered = (data || []).filter((j: any) => {
+      if (j.trang_thai_hd === 'Đã lên hóa đơn') {
+        return j.ngay >= startOfMonth
+      }
+      return true
+    })
+
+    return NextResponse.json({ data: filtered })
+  } catch (error: any) {
+    console.error('Error fetching kanban data:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+// PUT: Cập nhật trạng thái kéo thả hoặc hoàn tất xuất hóa đơn
+// Body: { id, ids?, trang_thai_hd, so_hoa_don? }
+export async function PUT(request: Request) {
+  try {
+    const session = await requireRole('admin', 'tech_admin', 'kthc')
+    if (!session) {
+      return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { id, ids, trang_thai_hd, so_hoa_don } = body
+
+    if (!id && (!Array.isArray(ids) || ids.length === 0)) {
+      return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
+    }
+
+    const targetIds = ids || [id]
+
+    // Validate trạng thái
+    const allowedStates = ['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn']
+    if (!allowedStates.includes(trang_thai_hd)) {
+      return NextResponse.json({ error: 'Trạng thái không hợp lệ' }, { status: 400 })
+    }
+
+    // Nếu hoàn tất xuất hóa đơn (chuyển sang 'Đã lên hóa đơn') -> Yêu cầu bắt buộc số hóa đơn
+    if (trang_thai_hd === 'Đã lên hóa đơn') {
+      if (!so_hoa_don || !String(so_hoa_don).trim()) {
+        return NextResponse.json({ error: 'Yêu cầu điền số hóa đơn trước khi hoàn thành.' }, { status: 400 })
+      }
+    }
+
+    const updates: any = {
+      trang_thai_hd,
+      so_hoa_don: trang_thai_hd === 'Đã lên hóa đơn' ? String(so_hoa_don).trim() : null
+    }
+
+    // Cập nhật Database
+    const { error: upErr } = await supabaseAdmin
+      .from('soct_cong_viec')
+      .update(updates)
+      .in('id', targetIds)
+
+    if (upErr) throw upErr
+
+    // Nếu là hoàn tất hóa đơn, ta cũng đồng bộ tick cờ hoa_don = true cho tất cả vật tư
+    // của các phiếu này (để khớp logic công nợ hiện hành của app)
+    if (trang_thai_hd === 'Đã lên hóa đơn') {
+      const { error: vtErr } = await supabaseAdmin
+        .from('soct_chi_tiet_vat_tu')
+        .update({ hoa_don: true })
+        .in('id_cong_viec', targetIds)
+        .eq('da_tra', false)
+
+      if (vtErr) console.error('Lỗi đồng bộ cờ hoa_don cho vật tư:', vtErr)
+    } else {
+      // Nếu kế toán kéo ngược lại (hủy hóa đơn), ta cũng gỡ cờ hoa_don = false
+      const { error: vtErr } = await supabaseAdmin
+        .from('soct_chi_tiet_vat_tu')
+        .update({ hoa_don: false })
+        .in('id_cong_viec', targetIds)
+
+      if (vtErr) console.error('Lỗi hủy cờ hoa_don cho vật tư:', vtErr)
+    }
+
+    // Gửi realtime thông báo cho các máy khác
+    await broadcastJobsChanged()
+
+    return NextResponse.json({ success: true, count: targetIds.length })
+  } catch (error: any) {
+    console.error('Error updating kanban:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}

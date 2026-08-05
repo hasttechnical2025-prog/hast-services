@@ -6,7 +6,7 @@ import { clearCauHinhCache } from '@/lib/config'
 // Lấy toàn bộ cấu hình dưới dạng object { khoa: gia_tri }
 export async function GET() {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireRole('admin', 'tech_admin', 'staff', 'kthc')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
     }

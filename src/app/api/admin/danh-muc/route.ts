@@ -5,7 +5,7 @@ import { requireRole } from '@/lib/session'
 // Lấy danh mục (tùy chọn lọc theo nhóm). Mọi role văn phòng đều đọc được (form cần).
 export async function GET(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireRole('admin', 'tech_admin', 'staff', 'kthc')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
     }

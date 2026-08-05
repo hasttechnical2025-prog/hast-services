@@ -8,7 +8,7 @@ import { broadcastKhachChanged } from '@/lib/realtime'
 // Lấy danh sách khách hàng
 export async function GET() {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireRole('admin', 'tech_admin', 'staff', 'kthc')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
     }
@@ -16,7 +16,7 @@ export async function GET() {
     // Lấy toàn bộ (khách hàng/máy có thể vượt 1000 dòng)
     const data = await selectAll((from, to) => supabaseAdmin
       .from('soct_khach_hang')
-      .select('id, ten_khach_hang, dia_chi, km_mac_dinh, ma_may, serial, model, hang, loai_hd, ngay_het_han_hdbt, thang_bao_tri, bat_dau_tu_thang, tam_dung_tu_thang, ghi_chu_bao_tri')
+      .select('id, ten_khach_hang, dia_chi, km_mac_dinh, ma_may, serial, model, hang, loai_hd, ngay_het_han_hdbt, thang_bao_tri, bat_dau_tu_thang, tam_dung_tu_thang, ghi_chu_bao_tri, ma_so_thue, email_ke_toan')
       .order('ten_khach_hang')
       .range(from, to))
 

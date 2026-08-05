@@ -104,7 +104,7 @@ export async function GET(request: Request) {
       let query = supabaseAdmin
         .from('soct_cong_viec')
         .select(`
-          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu,
+          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don,
           bat_dau_luc, hoan_thanh_luc, so_phut_xu_ly,
           soct_khach_hang (
             ten_khach_hang,
@@ -235,7 +235,7 @@ export async function POST(request: Request) {
         created_by: session.id,
         // Gán KTV ngay khi tạo -> 'Đã nhận'; chưa gán -> 'Chờ nhận' (vào pool)
         ket_qua: ktv_id ? 'Đã nhận' : 'Chờ nhận',
-        trang_thai_hd: hasHD ? 'Đã lên hóa đơn' : 'Chưa hóa đơn',
+        trang_thai_hd: hasHD ? 'Chờ xuất HĐ' : 'Chưa hóa đơn',
         // API tự gửi Telegram (bên dưới) -> đánh dấu để webhook DB không bắn trùng
         telegram_sent: true,
       })
@@ -334,8 +334,8 @@ export async function PUT(request: Request) {
       //                        ngược lại giữ nguyên (giữ mốc 'Đã báo giá')
       const hasHD = Array.isArray(vat_tu) && vat_tu.some((v: any) => v.hoa_don && v.ma_hang && Number(v.so_luong) > 0)
       const nextTrangThaiHd = hasHD
-        ? 'Đã lên hóa đơn'
-        : (cur.trang_thai_hd === 'Đã lên hóa đơn' ? 'Chưa hóa đơn' : (cur.trang_thai_hd || 'Chưa hóa đơn'))
+        ? (['Đang xử lý HĐ', 'Đã lên hóa đơn'].includes(cur.trang_thai_hd) ? cur.trang_thai_hd : 'Chờ xuất HĐ')
+        : (['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn'].includes(cur.trang_thai_hd) ? 'Chưa hóa đơn' : (cur.trang_thai_hd || 'Chưa hóa đơn'))
 
       const { error: upErr } = await supabaseAdmin
         .from('soct_cong_viec')

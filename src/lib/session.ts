@@ -7,7 +7,7 @@ import { roleCanTab } from '@/lib/tabs'
 // Phiên đăng nhập dùng cookie httpOnly có ký HMAC-SHA256.
 // Token dạng: base64url(payload).signature — client không thể tự sửa role.
 
-export type Role = 'admin' | 'tech_admin' | 'staff' | 'ktv'
+export type Role = 'admin' | 'tech_admin' | 'staff' | 'ktv' | 'kthc'
 
 export type SessionUser = {
   id: string
@@ -111,7 +111,7 @@ export async function requireRole(...roles: Role[]): Promise<SessionPayload | nu
 // (Cài đặt hệ thống). Admin luôn qua. Trả về session nếu hợp lệ, ngược lại null.
 // Nhờ vậy khi admin bật/tắt tab cho role, quyền API tự đổi theo — không cần sửa code.
 export async function requireTab(tabKey: string, subKey?: string): Promise<SessionPayload | null> {
-  const session = await requireRole('admin', 'tech_admin', 'staff')
+  const session = await requireRole('admin', 'tech_admin', 'staff', 'kthc')
   if (!session) return null
   if (session.role === 'admin') return session
   const cfg = await getCauHinh()

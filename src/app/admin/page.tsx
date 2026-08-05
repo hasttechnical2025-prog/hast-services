@@ -10,6 +10,7 @@ import { TAB_TREE, TAB_ROLES, DEFAULT_TAB_VIS } from "@/lib/tabs"
 import { supabase } from "@/lib/supabase"
 import { chotSoDate, counterStatus } from "@/lib/thue-cpc"
 import ThueCpcModule from "@/components/ThueCpcModule"
+import KanbanHdTool from "@/components/KanbanHdTool"
 import NghiPhepDuyet from "@/components/NghiPhepDuyet"
 import BaoGiaEditor, { type BaoGiaRow } from "@/components/BaoGiaEditor"
 import TroLyAI from "@/components/TroLyAI"
@@ -287,7 +288,7 @@ export default function AdminDashboard() {
   const effectiveMonitorTab = firstVisibleSub('theo_doi_may', ['bao_tri', 'giam_dinh'], monitorTab) as "bao_tri" | "giam_dinh"
   const effectiveQuanLyTab = firstVisibleSub('quan_ly', ['nhat_ky', 'khach_hang', 'khach_cum', 'bao_cao', 'nghi_phep'], quanLyTab) as "nhat_ky" | "khach_hang" | "khach_cum" | "bao_cao" | "nghi_phep"
   const effectiveCongTacTab = firstVisibleSub('cong_viec', ['giao_viec', 'hoan_phieu'], congTacTab) as "giao_viec" | "hoan_phieu"
-  const effectiveTaiChinhTab = firstVisibleSub('tai_chinh', ['cong_no', 'thue_cpc'], taiChinhTab) as "cong_no" | "thue_cpc"
+  const effectiveTaiChinhTab = firstVisibleSub('tai_chinh', ['kanban', 'cong_no', 'thue_cpc'], taiChinhTab) as "kanban" | "cong_no" | "thue_cpc"
   const repeatNgay = parseInt(cauHinh.repeat_ngay || '30') || 30
   const nguongTonThap = parseInt(cauHinh.nguong_ton_thap || '0') || 0
 
@@ -298,6 +299,14 @@ export default function AdminDashboard() {
     jobFilterInitRef.current = true
     if (cauHinh.mac_dinh_hom_nay === '0') setJobFilters(f => ({ ...f, tuNgay: '', denNgay: '' }))
   }, [cauHinh])
+
+  // Tự động chuyển tab chính nếu tab hiện tại bị ẩn đối với role này
+  useEffect(() => {
+    if (currentAdmin && !tabVisible(activeTab)) {
+      const avail = ['cong_viec', 'theo_doi_may', 'kho_hang', 'tai_chinh', 'quan_ly', 'he_thong'].find(t => tabVisible(t))
+      if (avail) setActiveTab(avail)
+    }
+  }, [currentAdmin, activeTab, cauHinh]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Đếm số phiếu cứng chưa hoàn -> badge nhắc ở tab con Hoàn phiếu
   const fetchPhieuCount = useCallback(() => {
@@ -1013,12 +1022,14 @@ export default function AdminDashboard() {
           </div>
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
-              <button
-                onClick={() => setActiveTab("cong_viec")}
-                className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'cong_viec' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-              >
-                Sổ công tác
-              </button>
+              {tabVisible('cong_viec') && (
+                <button
+                  onClick={() => setActiveTab("cong_viec")}
+                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'cong_viec' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Sổ công tác
+                </button>
+              )}
 
               {tabVisible('theo_doi_may') && (
                 <button
@@ -1475,6 +1486,9 @@ export default function AdminDashboard() {
         {activeTab === "tai_chinh" && tabVisible('tai_chinh') && (
           <div className="space-y-4">
             <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
+              {subVisible('tai_chinh', 'kanban') && (
+                <button onClick={() => setTaiChinhTab("kanban" as any)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'kanban' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Kanban Hóa đơn</button>
+              )}
               {subVisible('tai_chinh', 'cong_no') && (
                 <button onClick={() => setTaiChinhTab("cong_no")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'cong_no' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Công nợ</button>
               )}
@@ -1482,6 +1496,9 @@ export default function AdminDashboard() {
                 <button onClick={() => setTaiChinhTab("thue_cpc")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'thue_cpc' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Thuê / CPC</button>
               )}
             </div>
+            {effectiveTaiChinhTab === "kanban" && subVisible('tai_chinh', 'kanban') && (
+              <KanbanHdTool showNotification={showNotification} />
+            )}
             {effectiveTaiChinhTab === "cong_no" && subVisible('tai_chinh', 'cong_no') && (
               <CongNoTool showNotification={showNotification} />
             )}
@@ -4656,6 +4673,26 @@ function BaoCaoThangTool({ showNotification }: { showNotification: (type: 'succe
 
       {preview && (
         <>
+          {/* MỤC ĐỐI CHIẾU KẾ TOÁN (KHÔNG IN VÀO FILE WORD) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col justify-center shadow-sm">
+              <div className="text-[10px] font-bold text-blue-600 uppercase mb-1 tracking-wider">Hóa đơn đã xuất</div>
+              <div className="text-2xl font-black text-blue-900">{preview.ketoan_so_luong_hd} <span className="text-sm font-medium text-blue-700">tờ</span></div>
+            </div>
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex flex-col justify-center shadow-sm">
+              <div className="text-[10px] font-bold text-emerald-600 uppercase mb-1 tracking-wider">Doanh số trước thuế</div>
+              <div className="text-xl font-black text-emerald-900">{preview.ketoan_truoc_vat} <span className="text-sm font-medium text-emerald-700">đ</span></div>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col justify-center shadow-sm">
+              <div className="text-[10px] font-bold text-amber-600 uppercase mb-1 tracking-wider">Tiền thuế VAT</div>
+              <div className="text-xl font-black text-amber-900">{preview.ketoan_vat} <span className="text-sm font-medium text-amber-700">đ</span></div>
+            </div>
+            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex flex-col justify-center shadow-sm">
+              <div className="text-[10px] font-bold text-indigo-600 uppercase mb-1 tracking-wider">Tổng cộng (sau thuế)</div>
+              <div className="text-xl font-black text-indigo-900">{preview.ketoan_sau_vat} <span className="text-sm font-medium text-indigo-700">đ</span></div>
+            </div>
+          </div>
+
           {/* MỤC 1 */}
           <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
             <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200"><h4 className="text-sm font-bold text-slate-700">1. Dịch vụ kỹ thuật</h4></div>
