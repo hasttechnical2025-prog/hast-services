@@ -4991,7 +4991,7 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
             <Input placeholder="Tìm tên khách..." className="pl-9 bg-white h-9" value={khSearch} onChange={e => setKhSearch(e.target.value)} />
           </div>
         </div>
-        <div className="border border-slate-200 rounded-lg max-h-52 overflow-y-auto divide-y divide-slate-100">
+        <div className="border border-slate-200 rounded-lg max-h-[500px] overflow-y-auto divide-y divide-slate-100">
           {custs.length === 0 ? (
             <p className="text-sm text-slate-400 text-center py-4">Không có công nợ.</p>
           ) : custs.filter(c => !khSearch || c.ten.toLowerCase().includes(khSearch.trim().toLowerCase())).map(c => (
