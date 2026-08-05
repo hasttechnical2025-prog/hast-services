@@ -322,6 +322,11 @@ export default function AdminDashboard() {
   const [hdbtOpen, setHdbtOpen] = useState(false)
   const [counterDueOpen, setCounterDueOpen] = useState(false)
   const [counterDueList, setCounterDueList] = useState<any[]>([])
+  const [confirmGiamDinhOpen, setConfirmGiamDinhOpen] = useState<{
+    message: string,
+    onConfirm: () => void,
+    onCancel: () => void
+  } | null>(null)
   // Bộ lọc Sổ công tác (mặc định: việc hôm nay)
   const [jobFilters, setJobFilters] = useState<{ search: string, report: string, tuNgay: string, denNgay: string, loaiViec: string[], ktvId: string, hoaDon: string, trangThai: string[] }>(() => {
     const t = new Date().toISOString().split('T')[0]
@@ -730,52 +735,67 @@ export default function AdminDashboard() {
       }
     }
 
-    let shouldCloseGiamDinh = dongGiamDinh
-    if (!dongGiamDinh && mayStatus && mayStatus.giam_dinh.length > 0) {
-      const msg = `Máy này đang có ${mayStatus.giam_dinh.length} biên bản giám định CHƯA THAY vật tư.\nBạn có muốn tự động Đóng (đánh dấu đã thay) các biên bản này luôn không?\n\n- Chọn OK: Đóng giám định & Lưu phiếu\n- Chọn Cancel: Chỉ Lưu phiếu`
-      if (window.confirm(msg)) {
-        if (!formData.report.trim()) {
-          return showNotification('error', "Cần điền Số phiếu (Report) để có thể đóng giám định. Vui lòng bổ sung số phiếu và lưu lại.")
-        }
-        shouldCloseGiamDinh = true
-      }
-    }
+    const executeSave = async (shouldCloseGiamDinh: boolean) => {
+      try {
+        const res = await fetch('/api/admin/cong-viec', {
+          method: editingJobId ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(editingJobId
+            ? { ...formData, id: editingJobId, id_khach_hang: finalCustomerId, edit: true }
+            : { ...formData, id_khach_hang: finalCustomerId })
+        })
 
-    try {
-      const res = await fetch('/api/admin/cong-viec', {
-        method: editingJobId ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingJobId
-          ? { ...formData, id: editingJobId, id_khach_hang: finalCustomerId, edit: true }
-          : { ...formData, id_khach_hang: finalCustomerId })
-      })
-
-      if (res.ok) {
-        // Đóng (các) biên bản giám định chờ thay nếu được tick, dùng số phiếu của việc
-        if (shouldCloseGiamDinh && mayStatus && mayStatus.giam_dinh.length > 0) {
-          if (!formData.report.trim()) {
-            showNotification('error', "Đã tạo việc, nhưng cần Số phiếu để đóng giám định.")
-          } else {
-            await Promise.all(mayStatus.giam_dinh.map((g: any) =>
-              fetch('/api/admin/giam-dinh', {
-                method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: g.id, da_thay: true, ngay_thay: formData.ngay, so_report: formData.report })
-              })
-            ))
+        if (res.ok) {
+          // Đóng (các) biên bản giám định chờ thay nếu được tick, dùng số phiếu của việc
+          if (shouldCloseGiamDinh && mayStatus && mayStatus.giam_dinh.length > 0) {
+            if (!formData.report.trim()) {
+              showNotification('error', "Đã tạo việc, nhưng cần Số phiếu để đóng giám định.")
+            } else {
+              await Promise.all(mayStatus.giam_dinh.map((g: any) =>
+                fetch('/api/admin/giam-dinh', {
+                  method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ id: g.id, da_thay: true, ngay_thay: formData.ngay, so_report: formData.report })
+                })
+              ))
+            }
           }
+          const wasEdit = !!editingJobId
+          closeAndResetModal()
+          showNotification('success', wasEdit ? "Đã cập nhật công việc!" : "Tạo và giao công việc mới thành công!")
+          fetchData() // Refresh list
+        } else {
+          const err = await res.json()
+          showNotification('error', "Lỗi: " + err.error)
         }
-        const wasEdit = !!editingJobId
-        closeAndResetModal()
-        showNotification('success', wasEdit ? "Đã cập nhật công việc!" : "Tạo và giao công việc mới thành công!")
-        fetchData() // Refresh list
-      } else {
-        const err = await res.json()
-        showNotification('error', "Lỗi: " + err.error)
+      } catch (error) {
+        console.error(error)
+        showNotification('error', "Đã xảy ra lỗi khi tạo công việc")
       }
-    } catch (error) {
-      console.error(error)
-      showNotification('error', "Đã xảy ra lỗi khi tạo công việc")
     }
+
+    if (!dongGiamDinh && mayStatus && mayStatus.giam_dinh.length > 0) {
+      const msg = `Máy này đang có ${mayStatus.giam_dinh.length} biên bản giám định CHƯA THAY vật tư.\nBạn có muốn tự động Đóng (đánh dấu đã thay) các biên bản này luôn không?`
+
+      setConfirmGiamDinhOpen({
+        message: msg,
+        onConfirm: () => {
+          if (!formData.report.trim()) {
+            showNotification('error', "Cần điền Số phiếu (Report) để có thể đóng giám định. Vui lòng bổ sung số phiếu và lưu lại.")
+            setConfirmGiamDinhOpen(null)
+            return
+          }
+          setConfirmGiamDinhOpen(null)
+          executeSave(true)
+        },
+        onCancel: () => {
+          setConfirmGiamDinhOpen(null)
+          executeSave(false)
+        }
+      })
+      return // Dừng lại chờ người dùng tương tác modal
+    }
+
+    executeSave(dongGiamDinh)
   }
 
   const handleLogout = async () => {
@@ -1781,6 +1801,27 @@ export default function AdminDashboard() {
             <div className="bg-slate-50 p-4 flex justify-end gap-3 border-t border-slate-100">
               <Button variant="outline" onClick={() => setConfirmDialog({ isOpen: false, id: "", message: "", type: "job" })}>Hủy bỏ</Button>
               <Button variant="destructive" onClick={handleExecuteDelete}>Xác nhận xóa</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Xác nhận Đóng Giám Định (Thay thế window.confirm) */}
+      {confirmGiamDinhOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="p-6 space-y-3">
+              <h3 className="text-lg font-bold text-blue-700 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-500" /> Biên bản giám định chờ thay
+              </h3>
+              <p className="text-sm text-slate-600 whitespace-pre-wrap">
+                {confirmGiamDinhOpen.message}
+              </p>
+            </div>
+            <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
+              <Button variant="outline" onClick={() => setConfirmGiamDinhOpen(null)} className="h-9">Hủy bỏ</Button>
+              <Button variant="outline" onClick={confirmGiamDinhOpen.onCancel} className="h-9 border-slate-300 text-slate-700">Chỉ lưu phiếu (Không đóng)</Button>
+              <Button onClick={confirmGiamDinhOpen.onConfirm} className="h-9 bg-blue-600 hover:bg-blue-700 text-white">Đồng ý đóng</Button>
             </div>
           </div>
         </div>

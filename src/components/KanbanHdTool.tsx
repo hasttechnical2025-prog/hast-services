@@ -72,6 +72,11 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const [invoiceNum, setInvoiceNum] = useState("")
   const [completing, setCompleting] = useState(false)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string
+    message: string
+    onConfirm: () => Promise<void>
+  } | null>(null)
   const [thang, setThang] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -170,20 +175,24 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
         })
       } else if (sourceState === 'Đã lên hóa đơn' && targetState === 'Đang xử lý HĐ') {
         // Kéo ngược từ Cột 3 về Cột 2 -> Cần xác nhận xóa Số HĐ
-        if (window.confirm("Bạn đang kéo ngược phiếu đã xuất hóa đơn. Số hóa đơn cũ sẽ bị xóa khỏi hệ thống. Bạn có chắc chắn muốn thực hiện?")) {
-          const res = await fetch('/api/admin/kanban-hd', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids: targetIds, trang_thai_hd: 'Đang xử lý HĐ', so_hoa_don: null })
-          })
-          if (res.ok) {
-            showNotification('success', 'Đã trả thẻ về trạng thái xử lý hóa đơn.')
-            load()
-          } else {
-            const err = await res.json()
-            showNotification('error', err.error || 'Lỗi chuyển trạng thái')
+        setConfirmDialog({
+          title: "Cảnh báo Kéo ngược",
+          message: "Bạn đang kéo ngược phiếu đã xuất hóa đơn.\nSố hóa đơn cũ sẽ bị xóa khỏi hệ thống.\n\nBạn có chắc chắn muốn thực hiện?",
+          onConfirm: async () => {
+            const res = await fetch('/api/admin/kanban-hd', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ids: targetIds, trang_thai_hd: 'Đang xử lý HĐ', so_hoa_don: null })
+            })
+            if (res.ok) {
+              showNotification('success', 'Đã trả thẻ về trạng thái xử lý hóa đơn.')
+              load()
+            } else {
+              const err = await res.json()
+              showNotification('error', err.error || 'Lỗi chuyển trạng thái')
+            }
           }
-        }
+        })
       } else {
         // Cập nhật trạng thái trực tiếp (Ví dụ: 1 -> 2, 3 -> 4, 4 -> 3)
         const res = await fetch('/api/admin/kanban-hd', {
@@ -334,27 +343,31 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                     </div>
                     {state === 'Chờ xuất HĐ' && (
                       <button
-                        onClick={async (e) => {
+                        onClick={(e) => {
                           e.stopPropagation()
-                          if (window.confirm("Bạn có chắc chắn muốn thu hồi (các) phiếu này quay lại Công nợ không?")) {
-                            try {
-                              const targetIds = card.tickets.map((t: any) => t.id)
-                              const res = await fetch('/api/admin/kanban-hd', {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ ids: targetIds, trang_thai_hd: 'Chưa hóa đơn' })
-                              })
-                              if (res.ok) {
-                                showNotification('success', 'Đã thu hồi phiếu quay lại Công nợ.')
-                                load()
-                              } else {
-                                const err = await res.json()
-                                showNotification('error', err.error || 'Lỗi thu hồi')
+                          setConfirmDialog({
+                            title: "Thu hồi phiếu",
+                            message: "Bạn có chắc chắn muốn thu hồi (các) phiếu này quay lại Công nợ không?",
+                            onConfirm: async () => {
+                              try {
+                                const targetIds = card.tickets.map((t: any) => t.id)
+                                const res = await fetch('/api/admin/kanban-hd', {
+                                  method: 'PUT',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ ids: targetIds, trang_thai_hd: 'Chưa hóa đơn' })
+                                })
+                                if (res.ok) {
+                                  showNotification('success', 'Đã thu hồi phiếu quay lại Công nợ.')
+                                  load()
+                                } else {
+                                  const err = await res.json()
+                                  showNotification('error', err.error || 'Lỗi thu hồi')
+                                }
+                              } catch {
+                                showNotification('error', 'Lỗi kết nối')
                               }
-                            } catch {
-                              showNotification('error', 'Lỗi kết nối')
                             }
-                          }
+                          })
                         }}
                         className="text-red-500 hover:text-red-700 hover:bg-red-50 px-1 py-0.5 rounded transition text-[10px] font-bold shrink-0 border border-red-200"
                         title="Thu hồi quay lại Công nợ"
@@ -670,6 +683,36 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
               )}
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* MODAL XÁC NHẬN (THAY THẾ WINDOW.CONFIRM) */}
+      {confirmDialog && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => setConfirmDialog(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-5 space-y-3">
+              <h3 className="text-lg font-bold text-red-700 flex items-center gap-2">
+                <AlertCircle className="w-5 h-5" /> {confirmDialog.title}
+              </h3>
+              <p className="text-sm text-slate-600 whitespace-pre-wrap">
+                {confirmDialog.message}
+              </p>
+            </div>
+            <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
+              <Button variant="outline" onClick={() => setConfirmDialog(null)} className="h-9">Hủy bỏ</Button>
+              <Button
+                variant="destructive"
+                onClick={async () => {
+                  const act = confirmDialog.onConfirm
+                  setConfirmDialog(null)
+                  await act()
+                }}
+                className="h-9"
+              >
+                Xác nhận
+              </Button>
+            </div>
           </div>
         </div>
       )}
