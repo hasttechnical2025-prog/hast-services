@@ -7158,16 +7158,6 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
                     <label className="text-xs font-semibold text-slate-600">Địa chỉ</label>
                     <Input value={editing.dia_chi || ""} onChange={(e) => setEditing({ ...editing, dia_chi: e.target.value })} className="bg-white" />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-slate-600">Mã số thuế</label>
-                      <Input value={editing.ma_so_thue || ""} onChange={(e) => setEditing({ ...editing, ma_so_thue: e.target.value })} className="bg-white" placeholder="Tùy chọn" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-slate-600">Email kế toán</label>
-                      <Input value={editing.email_ke_toan || ""} onChange={(e) => setEditing({ ...editing, email_ke_toan: e.target.value })} className="bg-white" placeholder="Tùy chọn" />
-                    </div>
-                  </div>
 
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide pt-1">Thông tin máy</div>
                   <div className="grid grid-cols-2 gap-3">
