@@ -239,7 +239,7 @@ export default function AdminDashboard() {
   }, [])
 
   // Lấy role từ thông tin đăng nhập thực tế
-  const currentUserRole = (currentAdmin?.role || 'staff') as 'admin' | 'tech_admin' | 'staff'
+  const currentUserRole = (currentAdmin?.role || 'staff') as 'admin' | 'tech_admin' | 'staff' | 'kthc'
 
   const [activeTab, setActiveTab] = useState("cong_viec")
   // Tab con bên trong "Hệ thống" (dễ mở rộng thêm sau)
@@ -265,7 +265,7 @@ export default function AdminDashboard() {
   const roleVis = (role: string) => ({ ...(DEFAULT_TAB_VIS[role] || {}), ...(tabVisCfg[role] || {}) })
   const tabVisible = (tab: string) => {
     if (currentUserRole === 'admin') return true
-    if (tab === 'cong_viec') return true
+    if (tab === 'cong_viec') return currentUserRole !== 'kthc'
     if (tab === 'he_thong') return false // tab Hệ thống luôn admin-only
     return !!roleVis(currentUserRole)[tab]
   }

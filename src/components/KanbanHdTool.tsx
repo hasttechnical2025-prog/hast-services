@@ -72,11 +72,15 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const [invoiceNum, setInvoiceNum] = useState("")
   const [completing, setCompleting] = useState(false)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  const [thang, setThang] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/kanban-hd')
+      const res = await fetch(`/api/admin/kanban-hd?thang_nam=${thang}`)
       const j = await res.json()
       if (res.ok) {
         setTickets(j.data || [])
@@ -88,7 +92,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     } finally {
       setLoading(false)
     }
-  }, [showNotification])
+  }, [thang, showNotification])
 
   useEffect(() => {
     load()
@@ -400,6 +404,16 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
+          <label className="flex items-center gap-1.5 text-xs text-slate-600">
+            Kỳ đối chiếu:
+            <input
+              type="month"
+              value={thang}
+              onChange={e => setThang(e.target.value)}
+              className="h-8 px-2 rounded-md border border-slate-200 text-xs bg-white focus:ring-1 focus:ring-blue-500 outline-none"
+            />
+          </label>
+
           {role !== 'kthc' && (
             <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer select-none">
               <input

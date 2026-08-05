@@ -11,9 +11,25 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
     }
 
-    const today = new Date()
-    // Đầu tháng hiện tại YYYY-MM-01
-    const startOfMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
+    const { searchParams } = new URL(request.url)
+    const reqThang = searchParams.get('thang_nam')
+
+    let startOfMonth = ''
+    let endOfMonth = ''
+
+    if (reqThang && /^\d{4}-\d{2}$/.test(reqThang)) {
+      const [y, m] = reqThang.split('-')
+      startOfMonth = `${reqThang}-01`
+      const lastDay = new Date(Number(y), Number(m), 0).getDate()
+      endOfMonth = `${reqThang}-${String(lastDay).padStart(2, '0')}`
+    } else {
+      const today = new Date()
+      const y = today.getFullYear()
+      const m = today.getMonth() + 1
+      startOfMonth = `${y}-${String(m).padStart(2, '0')}-01`
+      const lastDay = new Date(y, m, 0).getDate()
+      endOfMonth = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+    }
 
     // Load tất cả các phiếu thuộc 3 trạng thái Kanban
     const data = await selectAll<any>((from, to) => {
@@ -51,10 +67,10 @@ export async function GET(request: Request) {
         .range(from, to)
     })
 
-    // Lọc lại phía server để cột "Đã lên hóa đơn" & "Đã thanh toán" chỉ lấy trong tháng này nhằm tránh nặng payload
+    // Lọc lại phía server để cột "Đã lên hóa đơn" & "Đã thanh toán" chỉ lấy trong kỳ đã chọn
     const filtered = (data || []).filter((j: any) => {
       if (j.trang_thai_hd === 'Đã lên hóa đơn' || j.trang_thai_hd === 'Đã thanh toán') {
-        return j.ngay >= startOfMonth
+        return j.ngay >= startOfMonth && j.ngay <= endOfMonth
       }
       return true
     })
