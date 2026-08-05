@@ -19,7 +19,7 @@ export async function GET() {
         soct_chi_tiet_vat_tu ( ma_hang, so_luong, don_gia, vat, soct_kho_hang ( ten_hang ) )`)
       .not('report', 'is', null)
       .neq('report', '')
-      .neq('trang_thai_hd', 'Đã lên hóa đơn')
+      .not('trang_thai_hd', 'in', '("Chờ xuất HĐ","Đang xử lý HĐ","Đã lên hóa đơn","Đã thanh toán")')
       .order('ngay', { ascending: true })
       .range(from, to))
 
@@ -38,7 +38,7 @@ export async function PUT(request: Request) {
 
     const { ids, trang_thai_hd } = await request.json()
     if (!Array.isArray(ids) || ids.length === 0) return NextResponse.json({ error: 'Chưa chọn phiếu' }, { status: 400 })
-    if (!['Chưa hóa đơn', 'Đã báo giá', 'Đã lên hóa đơn'].includes(trang_thai_hd)) {
+    if (!['Chưa hóa đơn', 'Đã báo giá', 'Đã lên hóa đơn', 'Chờ xuất HĐ'].includes(trang_thai_hd)) {
       return NextResponse.json({ error: 'Trạng thái không hợp lệ' }, { status: 400 })
     }
 
