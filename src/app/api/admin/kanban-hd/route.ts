@@ -101,7 +101,7 @@ export async function PUT(request: Request) {
     const targetIds = ids || [id]
 
     // Validate trạng thái
-    const allowedStates = ['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn', 'Đã thanh toán']
+    const allowedStates = ['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn', 'Đã thanh toán', 'Chưa hóa đơn']
     if (!allowedStates.includes(trang_thai_hd)) {
       return NextResponse.json({ error: 'Trạng thái không hợp lệ' }, { status: 400 })
     }
