@@ -31,19 +31,26 @@ export async function GET(request: Request) {
       endOfMonth = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
     }
 
-    // Load tất cả các phiếu thuộc 3 trạng thái Kanban
+    // Load tất cả các phiếu thuộc 4 trạng thái Kanban
     const data = await selectAll<any>((from, to) => {
       return supabaseAdmin
         .from('soct_cong_viec')
         .select(`
-          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don,
+          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, ngay_xuat_hd,
           soct_khach_hang (
             id,
             ten_khach_hang,
             dia_chi,
             ma_so_thue,
             email_ke_toan,
-            ma_khach_cum
+            ma_khach_cum,
+            soct_khach_cum (
+              ma_khach_hang,
+              ten_khach_hang,
+              dia_chi,
+              ma_so_thue,
+              email_ke_toan
+            )
           ),
           soct_users!ktv_id (
             full_name
@@ -67,9 +74,9 @@ export async function GET(request: Request) {
         .range(from, to)
     })
 
-    // Lọc lại phía server để cột "Đã lên hóa đơn" & "Đã thanh toán" chỉ lấy trong kỳ đã chọn
+    // Lọc lại phía server: Cột 4 (Đã thanh toán) chỉ lấy trong kỳ đối chiếu đã chọn
     const filtered = (data || []).filter((j: any) => {
-      if (j.trang_thai_hd === 'Đã lên hóa đơn' || j.trang_thai_hd === 'Đã thanh toán') {
+      if (j.trang_thai_hd === 'Đã thanh toán') {
         return j.ngay >= startOfMonth && j.ngay <= endOfMonth
       }
       return true
@@ -92,7 +99,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { id, ids, trang_thai_hd, so_hoa_don } = body
+    const { id, ids, trang_thai_hd, so_hoa_don, ngay_xuat_hd } = body
 
     if (!id && (!Array.isArray(ids) || ids.length === 0)) {
       return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
@@ -121,9 +128,13 @@ export async function PUT(request: Request) {
       if (so_hoa_don !== undefined) {
          updates.so_hoa_don = String(so_hoa_don).trim()
       }
+      if (ngay_xuat_hd !== undefined) {
+         updates.ngay_xuat_hd = ngay_xuat_hd || null
+      }
     } else {
-       // Kéo ngược lại cột 1 hoặc cột 2 -> xóa số hóa đơn
+       // Kéo ngược lại cột 1 hoặc cột 2 -> xóa số hóa đơn và ngày xuất hóa đơn
        updates.so_hoa_don = null
+       updates.ngay_xuat_hd = null
     }
 
     // Cập nhật Database

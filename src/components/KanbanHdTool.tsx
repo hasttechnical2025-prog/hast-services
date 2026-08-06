@@ -26,6 +26,12 @@ type Customer = {
   ma_so_thue: string | null
   email_ke_toan: string | null
   ma_khach_cum: string | null
+  soct_khach_cum?: {
+    ten_khach_hang: string
+    dia_chi: string | null
+    ma_so_thue: string | null
+    email_ke_toan: string | null
+  } | null
 }
 
 type Ticket = {
@@ -267,16 +273,17 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     }
     const map = new Map<string, GroupedCard>()
     colTickets.forEach(t => {
-      const kId = t.id_khach_hang
-      if (!map.has(kId)) {
-        map.set(kId, {
-          id: kId,
+      const cumId = t.soct_khach_hang?.ma_khach_cum
+      const groupKey = cumId ? `cum:${cumId}` : `may:${t.id_khach_hang}`
+      if (!map.has(groupKey)) {
+        map.set(groupKey, {
+          id: groupKey,
           customer: t.soct_khach_hang,
           tickets: [],
           trang_thai_hd: state
         })
       }
-      map.get(kId)!.tickets.push(t)
+      map.get(groupKey)!.tickets.push(t)
     })
     return [...map.values()]
   }
@@ -337,52 +344,61 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                 {/* Đường viền trang trí trạng thái */}
                 <div className={`absolute top-0 left-0 bottom-0 w-1 ${state === 'Chờ xuất HĐ' ? 'bg-blue-400' : state === 'Đang xử lý HĐ' ? 'bg-amber-400' : state === 'Đã lên hóa đơn' ? 'bg-emerald-500' : 'bg-indigo-500'}`}></div>
 
-                <div className="pl-1.5 space-y-2">
-                  <div className="flex justify-between items-start gap-2">
-                    <div className="font-bold text-slate-800 text-xs leading-snug line-clamp-2">
-                      {card.customer?.ten_khach_hang || 'Khách hàng lẻ'}
-                    </div>
-                    {state === 'Chờ xuất HĐ' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setConfirmDialog({
-                            title: "Thu hồi phiếu",
-                            message: "Bạn có chắc chắn muốn thu hồi (các) phiếu này quay lại Công nợ không?",
-                            onConfirm: async () => {
-                              try {
-                                const targetIds = card.tickets.map((t: any) => t.id)
-                                const res = await fetch('/api/admin/kanban-hd', {
-                                  method: 'PUT',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ ids: targetIds, trang_thai_hd: 'Chưa hóa đơn' })
-                                })
-                                if (res.ok) {
-                                  showNotification('success', 'Đã thu hồi phiếu quay lại Công nợ.')
-                                  load()
-                                } else {
-                                  const err = await res.json()
-                                  showNotification('error', err.error || 'Lỗi thu hồi')
-                                }
-                              } catch {
-                                showNotification('error', 'Lỗi kết nối')
-                              }
-                            }
-                          })
-                        }}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50 px-1 py-0.5 rounded transition text-[10px] font-bold shrink-0 border border-red-200"
-                        title="Thu hồi quay lại Công nợ"
-                      >
-                        Thu hồi
-                      </button>
-                    )}
-                  </div>
+                {(() => {
+                  const cum = card.customer?.soct_khach_cum
+                  const tenKh = cum ? (cum.ten_khach_hang || '') : (card.customer?.ten_khach_hang || 'Khách hàng lẻ')
+                  const mst = cum ? cum.ma_so_thue : card.customer?.ma_so_thue
 
-                  {card.customer?.ma_so_thue && (
-                    <div className="text-[10px] text-slate-400 font-mono">
-                      MST: {card.customer.ma_so_thue}
+                  return (
+                    <div className="pl-1.5 space-y-2">
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="font-bold text-slate-800 text-xs leading-snug line-clamp-2">
+                          {tenKh}
+                        </div>
+                        {state === 'Chờ xuất HĐ' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setConfirmDialog({
+                                title: "Thu hồi phiếu",
+                                message: "Bạn có chắc chắn muốn thu hồi (các) phiếu này quay lại Công nợ không?",
+                                onConfirm: async () => {
+                                  try {
+                                    const targetIds = card.tickets.map((t: any) => t.id)
+                                    const res = await fetch('/api/admin/kanban-hd', {
+                                      method: 'PUT',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ ids: targetIds, trang_thai_hd: 'Chưa hóa đơn' })
+                                    })
+                                    if (res.ok) {
+                                      showNotification('success', 'Đã thu hồi phiếu quay lại Công nợ.')
+                                      load()
+                                    } else {
+                                      const err = await res.json()
+                                      showNotification('error', err.error || 'Lỗi thu hồi')
+                                    }
+                                  } catch {
+                                    showNotification('error', 'Lỗi kết nối')
+                                  }
+                                }
+                              })
+                            }}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 px-1 py-0.5 rounded transition text-[10px] font-bold shrink-0 border border-red-200"
+                            title="Thu hồi quay lại Công nợ"
+                          >
+                            Thu hồi
+                          </button>
+                        )}
+                      </div>
+
+                      {mst && (
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          MST: {mst}
+                        </div>
+                      )}
                     </div>
-                  )}
+                  )
+                })()}
 
                   <div className="flex justify-between items-center text-[10px] text-slate-500">
                     <span className="bg-slate-100 px-2 py-0.5 rounded font-medium">
@@ -407,7 +423,6 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                       HĐ: {card.tickets[0].so_hoa_don}
                     </div>
                   )}
-                </div>
               </div>
             )
           })
@@ -420,6 +435,13 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const modalAllVt = activeCard ? activeCard.tickets.flatMap(t => t.soct_chi_tiet_vat_tu || []) : []
   const modalStats = getVatTuStats(modalAllVt)
   const modalKh = activeCard?.tickets[0]?.soct_khach_hang
+
+  // Giải quyết thông tin Khách hàng Cụm nếu có, nếu không lấy của khách lẻ
+  const modalCum = modalKh?.soct_khach_cum
+  const modalTenKh = modalCum ? (modalCum.ten_khach_hang || '') : (modalKh?.ten_khach_hang || 'Khách hàng lẻ')
+  const modalMst = modalCum ? modalCum.ma_so_thue : modalKh?.ma_so_thue
+  const modalEmail = modalCum ? modalCum.email_ke_toan : modalKh?.email_ke_toan
+  const modalDiaChi = modalCum ? modalCum.dia_chi : modalKh?.dia_chi
 
   // Gộp các dòng vật tư trùng mã hàng để hóa đơn in gọn gàng
   const aggregatedVatTu: Record<string, { ma_hang: string; ten_hang: string; so_luong: number; don_gia: number; vat: number }> = {}
@@ -543,9 +565,9 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                 <div className="space-y-1">
                   <div className="text-[10px] font-bold text-slate-400 uppercase">Tên khách hàng</div>
                   <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
-                    {modalKh?.ten_khach_hang || 'Khách hàng lẻ'}
+                    {modalTenKh}
                     <button
-                      onClick={() => handleCopy(modalKh?.ten_khach_hang || '', 'ten_kh')}
+                      onClick={() => handleCopy(modalTenKh, 'ten_kh')}
                       className={`p-1 bg-white hover:bg-slate-100 border border-slate-200 rounded text-slate-500 transition ${copiedKey === 'ten_kh' ? 'text-emerald-600 border-emerald-200' : ''}`}
                       title="Copy tên khách hàng"
                     >
@@ -557,10 +579,10 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                 <div className="space-y-1">
                   <div className="text-[10px] font-bold text-slate-400 uppercase">Mã số thuế</div>
                   <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
-                    {modalKh?.ma_so_thue || <span className="text-slate-400 italic">Chưa khai báo MST</span>}
-                    {modalKh?.ma_so_thue && (
+                    {modalMst || <span className="text-slate-400 italic">Chưa khai báo MST</span>}
+                    {modalMst && (
                       <button
-                        onClick={() => handleCopy(modalKh.ma_so_thue || '', 'mst')}
+                        onClick={() => handleCopy(modalMst, 'mst')}
                         className={`p-1 bg-white hover:bg-slate-100 border border-slate-200 rounded text-slate-500 transition ${copiedKey === 'mst' ? 'text-emerald-600 border-emerald-200' : ''}`}
                         title="Copy Mã số thuế"
                       >
@@ -570,15 +592,31 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                   </div>
                 </div>
 
-                <div className="space-y-1 sm:col-span-2">
+                <div className="space-y-1">
                   <div className="text-[10px] font-bold text-slate-400 uppercase">Địa chỉ xuất hóa đơn</div>
                   <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
-                    {modalKh?.dia_chi || '—'}
-                    {modalKh?.dia_chi && (
+                    {modalDiaChi || '—'}
+                    {modalDiaChi && (
                       <button
-                        onClick={() => handleCopy(modalKh.dia_chi || '', 'dia_chi')}
+                        onClick={() => handleCopy(modalDiaChi, 'dia_chi')}
                         className={`p-1 bg-white hover:bg-slate-100 border border-slate-200 rounded text-slate-500 transition ${copiedKey === 'dia_chi' ? 'text-emerald-600 border-emerald-200' : ''}`}
                         title="Copy Địa chỉ"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase">Email nhận hóa đơn</div>
+                  <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                    {modalEmail || <span className="text-slate-400 italic">Chưa khai báo Email</span>}
+                    {modalEmail && (
+                      <button
+                        onClick={() => handleCopy(modalEmail, 'email_kt')}
+                        className={`p-1 bg-white hover:bg-slate-100 border border-slate-200 rounded text-slate-500 transition ${copiedKey === 'email_kt' ? 'text-emerald-600 border-emerald-200' : ''}`}
+                        title="Copy Email nhận HĐ"
                       >
                         <Copy className="w-3.5 h-3.5" />
                       </button>
