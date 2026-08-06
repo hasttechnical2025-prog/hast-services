@@ -74,10 +74,16 @@ export async function GET(request: Request) {
         .range(from, to)
     })
 
-    // Lọc lại phía server: Cột 4 (Đã thanh toán) chỉ lấy trong kỳ đối chiếu đã chọn
+    // Lọc lại phía server:
+    // - Cột 3 (Đã lên hóa đơn / Chờ thanh toán): Lũy kế toàn bộ, nhưng loại bỏ các phiếu
+    //   cũ trong lịch sử chưa qua luồng Kanban (chưa có ngày xuất hóa đơn ngay_xuat_hd).
+    // - Cột 4 (Đã thanh toán): Chỉ lấy trong kỳ đối chiếu đang chọn dựa trên ngay_xuat_hd.
     const filtered = (data || []).filter((j: any) => {
+      if (j.trang_thai_hd === 'Đã lên hóa đơn') {
+        return j.ngay_xuat_hd !== null
+      }
       if (j.trang_thai_hd === 'Đã thanh toán') {
-        return j.ngay >= startOfMonth && j.ngay <= endOfMonth
+        return j.ngay_xuat_hd && j.ngay_xuat_hd >= startOfMonth && j.ngay_xuat_hd <= endOfMonth
       }
       return true
     })
