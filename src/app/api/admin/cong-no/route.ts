@@ -17,6 +17,7 @@ export async function GET() {
       .select(`id, ngay, report, loai_cong_viec, trang_thai_hd, id_khach_hang,
         soct_khach_hang ( ten_khach_hang, dia_chi, ma_khach_cum, soct_khach_cum ( ma_khach_hang, ten_khach_hang, dia_chi ) ),
         soct_chi_tiet_vat_tu ( ma_hang, so_luong, don_gia, vat, soct_kho_hang ( ten_hang ) )`)
+      .eq('ket_qua', 'Hoàn thành')
       .not('report', 'is', null)
       .neq('report', '')
       .not('trang_thai_hd', 'in', '("Chờ xuất HĐ","Đang xử lý HĐ","Đã lên hóa đơn","Đã thanh toán")')
