@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { logAudit } from '@/lib/audit'
+import { broadcastJobsChanged, broadcastKhoChanged } from '@/lib/realtime'
 
 // Trả vật tư về kho (hoặc hủy trả) cho 1 dòng vật tư của phiếu ĐÃ HOÀN THÀNH.
 // Trả -> ton_kho += so_luong; Hủy trả -> ton_kho -= so_luong. Giữ dòng để đối soát.
@@ -46,6 +47,8 @@ export async function POST(request: Request) {
     if (error) throw error
 
     await logAudit(session, want ? 'Trả vật tư về kho' : 'Hủy trả vật tư', `${line.ma_hang} x${line.so_luong}`)
+    await broadcastJobsChanged()
+    await broadcastKhoChanged()
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error tra vat tu:', error)

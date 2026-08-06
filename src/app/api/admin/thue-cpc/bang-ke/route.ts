@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { tinhDongMay, tinhTongBangKe, kyTruoc, MayBilling } from '@/lib/thue-cpc'
+import { broadcastThueCpcChanged } from '@/lib/realtime'
 
 const MAY_BILLING_SELECT =
   'id, ten_khach_hang, ma_may, model, dia_chi, don_gia_bw, don_gia_mau, ' +
@@ -152,6 +153,7 @@ export async function POST(request: Request) {
     const { error: ctErr } = await supabaseAdmin.from('soct_thue_cpc_bk_ct').insert(ctRows)
     if (ctErr) throw ctErr
 
+    await broadcastThueCpcChanged()
     return NextResponse.json({ data: { id: header.id, tong_truoc_vat, tong_sau_vat, vat_rate: vatRate } })
   } catch (error: any) {
     console.error('Error creating bang-ke:', error)
@@ -173,6 +175,7 @@ export async function PUT(request: Request) {
       .select('id, so_hoa_don_ke_toan')
       .single()
     if (error) throw error
+    await broadcastThueCpcChanged()
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error updating bang-ke:', error)
@@ -190,6 +193,7 @@ export async function DELETE(request: Request) {
     if (!id) return NextResponse.json({ error: 'Thiếu id bảng kê' }, { status: 400 })
     const { error } = await supabaseAdmin.from('soct_thue_cpc_bk').delete().eq('id', id)
     if (error) throw error
+    await broadcastThueCpcChanged()
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error deleting bang-ke:', error)
