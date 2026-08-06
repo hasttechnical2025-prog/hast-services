@@ -110,7 +110,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     load()
     // Đăng ký kênh Realtime lắng nghe thay đổi phiếu
     const ch = supabase
-      .channel("soct_jobs_kanban")
+      .channel("soct_jobs")
       .on('broadcast', { event: "changed" }, () => { load() })
       .subscribe()
     return () => {
