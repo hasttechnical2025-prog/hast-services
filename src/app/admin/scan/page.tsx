@@ -346,8 +346,11 @@ export default function AdminBatchScanQR() {
                         {item.customer.ten_khach_hang} ({item.customer.model || '—'})
                       </div>
                     ) : (
-                      <div className="text-[10px] text-red-500 leading-snug truncate">
-                        Chưa có thông tin khách hàng trong hệ thống!
+                      <div className="text-[10px] text-red-500 leading-snug space-y-0.5">
+                        <div>Chưa có thông tin khách hàng trong hệ thống!</div>
+                        <div className="text-[9px] text-slate-400 font-mono">
+                          Mã: &quot;{item.ma_may}&quot; ({item.ma_may.length} ký tự) · DB: {customers.length} khách
+                        </div>
                       </div>
                     )}
                   </div>
