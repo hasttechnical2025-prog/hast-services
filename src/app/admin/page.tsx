@@ -696,6 +696,9 @@ export default function AdminDashboard() {
       if (!formData.ten_khach_hang_moi || !formData.dia_chi_moi) {
         return showNotification('error', "Vui lòng nhập Tên Khách Hàng và Địa Chỉ mới")
       }
+      if (!formData.ma_may || !formData.ma_may.trim()) {
+        return showNotification('error', "Vui lòng nhập Mã máy cho khách hàng mới")
+      }
 
       try {
         const resKh = await fetch('/api/admin/khach-hang', {
@@ -931,10 +934,20 @@ export default function AdminDashboard() {
   })()
 
   const exportJobsExcel = () => {
-    const headers = ['Ngày', 'Khách hàng', 'Địa chỉ', 'Mã máy', 'Loại việc', 'KTV', 'KM', 'Số phiếu', 'Tiền', 'Hóa đơn', 'Trạng thái']
+    const headers = ['Ngày', 'Khách hàng', 'Địa chỉ', 'Mã máy', 'Model', 'SL', 'Loại việc', 'KTV', 'KM', 'Trạng thái']
     const rows = filteredJobs.map(j => {
-      const { tong, coHD } = jobTien(j)
-      return [formatDate(j.ngay), j.soct_khach_hang?.ten_khach_hang, j.soct_khach_hang?.dia_chi, j.ma_may, j.loai_cong_viec, j.soct_users?.full_name || 'Chưa giao', j.km, j.report, tong, coHD ? 'Có HĐ' : 'Chưa HĐ', j.ket_qua]
+      return [
+        formatDate(j.ngay),
+        j.soct_khach_hang?.ten_khach_hang,
+        j.soct_khach_hang?.dia_chi,
+        j.ma_may,
+        j.soct_khach_hang?.model || '',
+        j.so_luong || 1,
+        j.loai_cong_viec,
+        j.soct_users?.full_name || 'Chưa giao',
+        j.km,
+        j.ket_qua
+      ]
     })
     exportRowsToExcel('so-cong-tac', headers, rows)
   }
