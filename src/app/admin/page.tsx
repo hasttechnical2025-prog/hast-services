@@ -350,6 +350,10 @@ export default function AdminDashboard() {
   // Trạng thái máy cho phù hiệu trong form giao việc
   const [mayStatus, setMayStatus] = useState<{ bao_tri_thang: boolean, thang_nam: string, giam_dinh: any[] } | null>(null)
   const [dongGiamDinh, setDongGiamDinh] = useState(false)
+  const [giamDinhSelectOpen, setGiamDinhSelectOpen] = useState<{
+    items: { id: string, ma_hang: string, ten_hang: string, so_luong: number, selected: boolean }[],
+    totalItems: number
+  } | null>(null)
 
   // Lấy các giá trị đang dùng của một nhóm danh mục (fallback về mặc định nếu bảng trống)
   const dmOptions = (nhom: string, fallback: string[] = []) => {
@@ -660,20 +664,21 @@ export default function AdminDashboard() {
 
   // Đưa vật tư đề xuất từ (các) biên bản giám định chờ thay vào ca việc
   const handleAddGiamDinhVatTu = () => {
-    if (!mayStatus) return
+    if (!mayStatus || mayStatus.giam_dinh.length === 0) return
     const lines = mayStatus.giam_dinh.flatMap((g: any) =>
-      (g.soct_giam_dinh_vat_tu || []).map((v: any) => ({ ma_hang: v.ma_hang, so_luong: String(v.so_luong), don_gia: "", vat: "8", hoa_don: false }))
+      (g.soct_giam_dinh_vat_tu || []).map((v: any) => ({
+        id: v.id,
+        ma_hang: v.ma_hang,
+        ten_hang: v.soct_kho_hang?.ten_hang || '',
+        so_luong: v.so_luong,
+        selected: true // Mặc định chọn tất cả
+      }))
     )
-    if (lines.length === 0) return
-    // Bỏ dòng trống mặc định, tránh trùng mã đã có
-    setFormData(prev => {
-      const existing = new Set(prev.vat_tu.filter(v => v.ma_hang).map(v => v.ma_hang))
-      const toAdd = lines.filter(l => !existing.has(l.ma_hang))
-      const base = prev.vat_tu.filter(v => v.ma_hang)
-      return { ...prev, vat_tu: [...base, ...toAdd] }
-    })
-    setDongGiamDinh(true)
-    showNotification('success', "Đã đưa vật tư giám định vào ca.")
+    if (lines.length === 0) {
+      showNotification('error', "Biên bản giám định không có vật tư đề xuất.")
+      return
+    }
+    setGiamDinhSelectOpen({ items: lines, totalItems: lines.length })
   }
 
   const handleUpdateVatTu = (index: number, field: 'ma_hang' | 'so_luong' | 'don_gia' | 'vat' | 'hoa_don', value: string | boolean) => {
@@ -2189,6 +2194,105 @@ export default function AdminDashboard() {
                 <Button type="submit">{editingJobId ? 'Cập nhật công việc' : 'Lưu công việc & Báo KTV'}</Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CHỌN VẬT TƯ GIÁM ĐỊNH ĐỂ THÊM VÀO PHIẾU */}
+      {giamDinhSelectOpen && (
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center shrink-0">
+              <h3 className="font-bold text-slate-800 text-base">Chọn vật tư giám định cần thay</h3>
+              <button onClick={() => setGiamDinhSelectOpen(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none font-bold">✕</button>
+            </div>
+            <div className="p-4 overflow-y-auto space-y-3 flex-1 min-h-0">
+              <p className="text-xs text-slate-500">Vui lòng tick chọn các vật tư khách hàng đồng ý thay thế lần này:</p>
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <table className="w-full text-left text-xs text-slate-600">
+                  <thead className="bg-slate-50 text-slate-500 font-semibold uppercase">
+                    <tr>
+                      <th className="px-3 py-2 text-center w-12 border-r border-slate-200">
+                        <input
+                          type="checkbox"
+                          className="w-3.5 h-3.5 accent-blue-600 cursor-pointer"
+                          checked={giamDinhSelectOpen.items.every(i => i.selected)}
+                          onChange={e => setGiamDinhSelectOpen(prev => prev ? { ...prev, items: prev.items.map(i => ({ ...i, selected: e.target.checked })) } : null)}
+                        />
+                      </th>
+                      <th className="px-3 py-2 border-r border-slate-200">Mã vật tư</th>
+                      <th className="px-3 py-2 border-r border-slate-200">Tên vật tư</th>
+                      <th className="px-3 py-2 text-center">SL</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white font-medium">
+                    {giamDinhSelectOpen.items.map((item, idx) => (
+                      <tr
+                        key={idx}
+                        className="hover:bg-slate-50 cursor-pointer transition-colors"
+                        onClick={() => {
+                          const newItems = [...giamDinhSelectOpen.items]
+                          newItems[idx].selected = !newItems[idx].selected
+                          setGiamDinhSelectOpen(prev => prev ? { ...prev, items: newItems } : null)
+                        }}
+                      >
+                        <td className="px-3 py-2 text-center border-r border-slate-100" onClick={e => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={item.selected}
+                            onChange={() => {
+                              const newItems = [...giamDinhSelectOpen.items]
+                              newItems[idx].selected = !newItems[idx].selected
+                              setGiamDinhSelectOpen(prev => prev ? { ...prev, items: newItems } : null)
+                            }}
+                            className="w-3.5 h-3.5 accent-blue-600 cursor-pointer"
+                          />
+                        </td>
+                        <td className="px-3 py-2 font-mono font-bold text-slate-700 border-r border-slate-100">{item.ma_hang}</td>
+                        <td className="px-3 py-2 border-r border-slate-100 text-slate-800 leading-snug">{item.ten_hang}</td>
+                        <td className="px-3 py-2 text-center font-bold">{item.so_luong}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2 shrink-0">
+              <Button variant="outline" type="button" onClick={() => setGiamDinhSelectOpen(null)} className="h-9 text-xs">Hủy</Button>
+              <Button
+                onClick={() => {
+                  const selectedItems = giamDinhSelectOpen.items.filter(i => i.selected)
+                  if (selectedItems.length === 0) {
+                    showNotification('error', 'Vui lòng chọn ít nhất 1 vật tư để nạp vào phiếu.')
+                    return
+                  }
+
+                  const isAllSelected = selectedItems.length === giamDinhSelectOpen.totalItems
+
+                  setFormData(prev => {
+                    const existing = new Set(prev.vat_tu.filter(v => v.ma_hang).map(v => v.ma_hang))
+                    const toAdd = selectedItems.filter(l => !existing.has(l.ma_hang)).map(v => ({
+                      ma_hang: v.ma_hang,
+                      so_luong: String(v.so_luong),
+                      don_gia: "",
+                      vat: "8",
+                      hoa_don: false
+                    }))
+                    const base = prev.vat_tu.filter(v => v.ma_hang)
+                    return { ...prev, vat_tu: [...base, ...toAdd] }
+                  })
+
+                  // Tự động tick Đóng giám định nếu chọn toàn bộ vật tư
+                  setDongGiamDinh(isAllSelected)
+
+                  showNotification('success', `Đã nạp ${selectedItems.length} vật tư giám định vào phiếu.`)
+                  setGiamDinhSelectOpen(null)
+                }}
+                className="h-9 text-xs bg-blue-600 hover:bg-blue-700"
+              >
+                Xác nhận & Nạp vào phiếu
+              </Button>
+            </div>
           </div>
         </div>
       )}
