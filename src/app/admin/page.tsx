@@ -1452,7 +1452,7 @@ export default function AdminDashboard() {
               {effectiveKhoTab === "ton_kho" && (
                 <>
                   <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Quản lý Kho Hàng (Vật tư)</h2>
-                  <InventoryManagementTool inventory={inventory} lowStock={nguongTonThap} onUpdateSuccess={fetchData} showNotification={showNotification} confirmDelete={confirmDelete} />
+                  <InventoryManagementTool inventory={inventory} lowStock={nguongTonThap} onUpdateSuccess={fetchData} showNotification={showNotification} confirmDelete={confirmDelete} danhMuc={danhMuc} />
                   <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 mt-8">
                     <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập / Xuất kho hàng (Excel)</h3>
                     <p className="text-sm text-slate-500 mb-4">
@@ -2443,7 +2443,7 @@ const INVENTORY_COLS: ColDef[] = [
   { key: 'thaotac', label: 'Thao tác', locked: true },
 ]
 
-function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, showNotification, confirmDelete }: { inventory: any[], lowStock?: number, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, confirmDelete: (id: string, type: 'job' | 'user' | 'inventory') => void }) {
+function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, showNotification, confirmDelete, danhMuc }: { inventory: any[], lowStock?: number, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, confirmDelete: (id: string, type: 'job' | 'user' | 'inventory') => void, danhMuc: any[] }) {
   const col = useColView('inventory', INVENTORY_COLS)
   const paged = usePaged(inventory)
   const [formData, setFormData] = useState({
@@ -2453,6 +2453,12 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
     hang: "",
     ton_kho: 0
   })
+
+  const dmOptions = (nhom: string, fallback: string[]) => {
+    const items = danhMuc.filter(d => d.nhom === nhom && d.active).map(d => d.gia_tri)
+    return items.length > 0 ? items : fallback
+  }
+  const hangOptions = dmOptions('hang', ['Konica', 'Fuji', 'Epson', 'Khác'])
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
   const [highlightMH, setHighlightMH] = useState("")
@@ -2555,11 +2561,25 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
           <Input value={formData.model} onChange={(e) => setFormData({...formData, model: e.target.value})} placeholder="VD: PP 7136" className="bg-white" />
         </div>
         <div className="space-y-1 lg:col-span-1">
+          <label className="text-xs font-semibold text-slate-600">Hãng</label>
+          <select
+            value={formData.hang}
+            onChange={(e) => setFormData({...formData, hang: e.target.value})}
+            className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">-- Chọn hãng máy --</option>
+            {hangOptions.map(h => (
+              <option key={h} value={h}>{h}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-1 lg:col-span-1">
           <label className="text-xs font-semibold text-slate-600">Số lượng Tồn *</label>
           <Input type="number" required value={formData.ton_kho} onChange={(e) => setFormData({...formData, ton_kho: parseInt(e.target.value) || 0})} className="bg-white" />
         </div>
 
-        <div className="space-y-1 lg:col-span-5 flex justify-end gap-2 mt-2">
+        <div className="space-y-1 lg:col-span-4 flex justify-end items-end gap-2 pb-0.5">
           {isEditing && <Button type="button" variant="outline" onClick={resetForm} className="h-9">Hủy</Button>}
           <Button type="submit" disabled={loading} className="h-9">{loading ? "Đang lưu..." : isEditing ? "Cập nhật vật tư" : "Thêm vật tư mới"}</Button>
         </div>
