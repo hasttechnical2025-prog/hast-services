@@ -2540,34 +2540,33 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
         { label: 'Sắp hết', value: invLow.toLocaleString('vi-VN'), sub: lowStock > 0 ? `tồn ≤ ${lowStock.toLocaleString('vi-VN')}` : 'chưa đặt ngưỡng', icon: AlertTriangle, tint: 'text-amber-600 bg-amber-50 ring-amber-100' },
         { label: 'Hết hàng', value: invOut.toLocaleString('vi-VN'), sub: 'tồn = 0', icon: Trash2, tint: 'text-red-600 bg-red-50 ring-red-100' },
       ]} />
-      <form ref={formRef} onSubmit={handleSave} className="bg-slate-50 p-4 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="space-y-1 lg:col-span-1">
+      <form ref={formRef} onSubmit={handleSave} className="bg-slate-50 p-4 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4">
+        <div className="space-y-1 lg:col-span-2">
           <label className="text-xs font-semibold text-slate-600">Mã hàng *</label>
-          <Input required value={formData.ma_hang} onChange={(e) => setFormData({...formData, ma_hang: e.target.value.toUpperCase()})} disabled={isEditing} placeholder="VD: DR017" className={`bg-white ${dupItem ? 'border-amber-400 focus:ring-amber-400' : ''}`} />
+          <Input required value={formData.ma_hang} onChange={(e) => setFormData({...formData, ma_hang: e.target.value.toUpperCase()})} disabled={isEditing} placeholder="VD: DR017" className={`bg-white h-9 ${dupItem ? 'border-amber-400 focus:ring-amber-400' : ''}`} />
           {dupItem && (
-            <div className="text-xs text-amber-600 flex items-center gap-2 flex-wrap">
-              ⚠ Mã đã tồn tại.
-              <button type="button" onClick={() => handleEdit(dupItem)} className="underline font-medium">Sửa dòng này</button>
-              <button type="button" onClick={() => viewRow(dupItem.ma_hang)} className="underline text-slate-500">Xem dòng</button>
+            <div className="text-[10px] text-amber-600 flex items-center gap-1 flex-wrap mt-1">
+              ⚠ Đã có.
+              <button type="button" onClick={() => handleEdit(dupItem)} className="underline font-medium">Sửa</button>
             </div>
           )}
         </div>
-        <div className="space-y-1 lg:col-span-2">
+        <div className="space-y-1 lg:col-span-3">
           <label className="text-xs font-semibold text-slate-600">Tên hàng / Vật tư *</label>
-          <Input required value={formData.ten_hang} onChange={(e) => setFormData({...formData, ten_hang: e.target.value})} placeholder="VD: Trống lấy ảnh DR017" className="bg-white" />
+          <Input required value={formData.ten_hang} onChange={(e) => setFormData({...formData, ten_hang: e.target.value})} placeholder="VD: Trống lấy ảnh DR017" className="bg-white h-9" />
         </div>
-        <div className="space-y-1 lg:col-span-1">
-          <label className="text-xs font-semibold text-slate-600">Model máy</label>
-          <Input value={formData.model} onChange={(e) => setFormData({...formData, model: e.target.value})} placeholder="VD: PP 7136" className="bg-white" />
+        <div className="space-y-1 lg:col-span-2">
+          <label className="text-xs font-semibold text-slate-600">Model</label>
+          <Input value={formData.model} onChange={(e) => setFormData({...formData, model: e.target.value})} placeholder="VD: PP 7136" className="bg-white h-9" />
         </div>
-        <div className="space-y-1 lg:col-span-1">
+        <div className="space-y-1 lg:col-span-2">
           <label className="text-xs font-semibold text-slate-600">Hãng</label>
           <select
             value={formData.hang}
             onChange={(e) => setFormData({...formData, hang: e.target.value})}
-            className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full h-9 px-3 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-1 focus:ring-blue-500"
           >
-            <option value="">-- Chọn hãng máy --</option>
+            <option value="">-- Chọn hãng --</option>
             {hangOptions.map(h => (
               <option key={h} value={h}>{h}</option>
             ))}
@@ -2575,13 +2574,13 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
         </div>
 
         <div className="space-y-1 lg:col-span-1">
-          <label className="text-xs font-semibold text-slate-600">Số lượng Tồn *</label>
-          <Input type="number" required value={formData.ton_kho} onChange={(e) => setFormData({...formData, ton_kho: parseInt(e.target.value) || 0})} className="bg-white" />
+          <label className="text-xs font-semibold text-slate-600">SL Tồn *</label>
+          <Input type="number" required value={formData.ton_kho} onChange={(e) => setFormData({...formData, ton_kho: parseInt(e.target.value) || 0})} className="bg-white h-9 text-center" />
         </div>
 
-        <div className="space-y-1 lg:col-span-4 flex justify-end items-end gap-2 pb-0.5">
-          {isEditing && <Button type="button" variant="outline" onClick={resetForm} className="h-9">Hủy</Button>}
-          <Button type="submit" disabled={loading} className="h-9">{loading ? "Đang lưu..." : isEditing ? "Cập nhật vật tư" : "Thêm vật tư mới"}</Button>
+        <div className="space-y-1 lg:col-span-2 flex justify-end items-end gap-2 pb-0.5">
+          {isEditing && <Button type="button" variant="outline" onClick={resetForm} className="h-9 px-2 text-xs">Hủy</Button>}
+          <Button type="submit" disabled={loading} className="h-9 w-full sm:w-auto text-xs px-3">{loading ? "Lưu..." : isEditing ? "Cập nhật" : "Thêm mới"}</Button>
         </div>
       </form>
 
