@@ -229,7 +229,7 @@ export default function AdminBatchScanQR() {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
         {notification && (
-          <div className={`fixed top-4 right-4 left-4 z-50 p-4 rounded-md shadow-lg border ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'} transition-all`}>
+          <div className={`fixed top-4 right-4 left-4 z-[9999] p-4 rounded-md shadow-lg border ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'} transition-all`}>
             {notification.message}
           </div>
         )}
@@ -271,7 +271,7 @@ export default function AdminBatchScanQR() {
 
       {/* Thông báo */}
       {notification && (
-        <div className={`fixed top-16 left-4 right-4 z-50 p-3 rounded-lg shadow-lg text-white text-sm font-medium flex items-center justify-between border ${notification.type === 'success' ? 'bg-emerald-600 border-emerald-500' : 'bg-red-600 border-red-500'} transition-all`}>
+        <div className={`fixed top-16 left-4 right-4 z-[9999] p-3 rounded-lg shadow-lg text-white text-sm font-medium flex items-center justify-between border ${notification.type === 'success' ? 'bg-emerald-600 border-emerald-500' : 'bg-red-600 border-red-500'} transition-all`}>
           <span>{notification.message}</span>
           <button onClick={() => setNotification(null)} className="font-bold opacity-75 hover:opacity-100">✕</button>
         </div>

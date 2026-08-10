@@ -997,7 +997,7 @@ export default function AdminDashboard() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         {notification && (
-          <div className={`fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg border ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'} transition-all max-w-sm flex items-start gap-3`}>
+          <div className={`fixed top-4 right-4 z-[9999] p-4 rounded-md shadow-lg border ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'} transition-all max-w-sm flex items-start gap-3`}>
             <div className="text-sm font-medium">{notification.message}</div>
             <button onClick={() => setNotification(null)} className="ml-auto shrink-0 opacity-70 hover:opacity-100">✕</button>
           </div>
@@ -1789,7 +1789,7 @@ export default function AdminDashboard() {
 
       {/* Thông báo (Notification Banner) */}
       {notification && (
-        <div className={`fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg border ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'} transition-all max-w-sm flex items-start gap-3`}>
+        <div className={`fixed top-4 right-4 z-[9999] p-4 rounded-md shadow-lg border ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'} transition-all max-w-sm flex items-start gap-3`}>
           {notification.type === 'success' ? (
             <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
           ) : (
