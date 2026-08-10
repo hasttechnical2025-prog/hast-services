@@ -54,6 +54,7 @@ type Job = {
   so_phut_xu_ly?: number | null
   ktv_id: string | null
   ktv2_id: string | null
+  so_luong?: number
   soct_khach_hang: { ten_khach_hang: string; dia_chi: string; km_mac_dinh: number; model?: string }
   soct_users: { full_name: string } | null
   ktv2: { full_name: string } | null
