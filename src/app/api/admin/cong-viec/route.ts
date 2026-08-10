@@ -5,7 +5,7 @@ import { broadcastJobsChanged } from '@/lib/realtime'
 import { getCauHinh } from '@/lib/config'
 import { logAudit } from '@/lib/audit'
 import { clampTapISO, clampPhut } from '@/lib/thoi-gian'
-import { sendTelegramMessage } from '@/lib/telegram'
+import { sendTelegramMessage, editTelegramMessageText } from '@/lib/telegram'
 
 // Giao mực / Thay vật tư BẮT BUỘC có Số phiếu + ít nhất 1 vật tư (loại khác thì không).
 // Chặn ở server để gọi API trực tiếp cũng không lọt. Trả chuỗi lỗi hoặc null.
@@ -61,16 +61,22 @@ function buildJobMsg(job: any, kh: any, heading: string, extraLine: string | nul
 }
 
 // Phiếu MỚI: chưa gán -> báo group; gán sẵn -> DM KTV chính/kèm.
-async function notifyNewJob(job: any, creatorName: string) {
+async function notifyNewJob(job: any, creatorName: string): Promise<number | null> {
   try {
     const { data: kh } = await supabaseAdmin.from('soct_khach_hang').select('ten_khach_hang, dia_chi').eq('id', job.id_khach_hang).single()
     const u1 = await fetchTgUser(job.ktv_id), u2 = await fetchTgUser(job.ktv2_id)
     const assignee = assigneeLine(u1.name, u2.name)
     const groupChatId = process.env.TELEGRAM_GROUP_CHAT_ID
-    if (!job.ktv_id && groupChatId) await sendTelegramMessage(groupChatId, buildJobMsg(job, kh, '🆕 <b>CÔNG VIỆC MỚI — CHỜ NHẬN</b>', null, assignee, creatorName))
+    if (!job.ktv_id && groupChatId) {
+      const res = await sendTelegramMessage(groupChatId, buildJobMsg(job, kh, '🆕 <b>CÔNG VIỆC MỚI — CHỜ NHẬN</b>', null, assignee, creatorName))
+      if (res.success && res.messageId) {
+        return res.messageId
+      }
+    }
     if (job.ktv_id && u1.tg) await sendTelegramMessage(u1.tg, buildJobMsg(job, kh, '🔔 <b>CÔNG VIỆC ĐƯỢC GIAO</b>', `Xin chào ${esc(u1.name)}, bạn có một công việc!`, assignee, creatorName))
     if (job.ktv2_id && u2.tg) await sendTelegramMessage(u2.tg, buildJobMsg(job, kh, '🔔 <b>CÔNG VIỆC ĐI KÈM ĐƯỢC GIAO</b>', `Xin chào ${esc(u2.name)}, bạn được gán làm KTV kèm cho một công việc!`, assignee, creatorName))
   } catch (e) { console.error('notifyNewJob failed:', e) }
+  return null
 }
 
 // Giao LẠI (admin sửa phiếu): chỉ DM người MỚI được gán (khác người cũ).
@@ -275,7 +281,10 @@ export async function POST(request: Request) {
     }
 
     // Gửi Telegram TRỰC TIẾP (không còn phụ thuộc webhook DB ngoài).
-    await notifyNewJob(data, session.full_name)
+    const msgId = await notifyNewJob(data, session.full_name)
+    if (msgId) {
+      await supabaseAdmin.from('soct_cong_viec').update({ telegram_message_id: msgId }).eq('id', data.id)
+    }
 
     await broadcastJobsChanged()
     await logAudit(session, 'Tạo công việc', `${loai_cong_viec}${ma_may ? ` — máy ${ma_may}` : ''}`)
@@ -395,7 +404,7 @@ export async function PUT(request: Request) {
         .update({ ktv_id: session.id, ket_qua: 'Đã nhận' })
         .eq('id', id)
         .is('ktv_id', null)
-        .select()
+        .select('*, soct_khach_hang(ten_khach_hang, dia_chi)')
         .single()
 
       if (error) {
@@ -403,6 +412,38 @@ export async function PUT(request: Request) {
           return NextResponse.json({ error: 'Việc này đã có người nhận hoặc không tồn tại' }, { status: 409 })
         }
         throw error
+      }
+
+      // Nếu phiếu có telegram_message_id, cập nhật lại tin nhắn gốc trên Telegram
+      if (data && data.telegram_message_id) {
+        const groupChatId = process.env.TELEGRAM_GROUP_CHAT_ID
+        if (groupChatId) {
+          let creatorName = ''
+          if (data.created_by) {
+            const { data: creator } = await supabaseAdmin.from('soct_users').select('full_name').eq('id', data.created_by).single()
+            creatorName = creator?.full_name || ''
+          }
+
+          const kh = (data as any).soct_khach_hang
+          const assigneeText = `👤 <b>Phụ trách:</b> ${esc(session.full_name)}`
+
+          const updatedMsg = [
+            '✅ <b>CÔNG VIỆC ĐÃ CÓ NGƯỜI NHẬN</b>',
+            assigneeText,
+            `🗓 <b>Ngày thực hiện:</b> ${fmtDate(data.ngay)}`,
+            `📌 <b>Loại công việc:</b> ${esc(data.loai_cong_viec)}`,
+            `🏢 <b>Khách hàng:</b> ${esc(kh?.ten_khach_hang || 'Không rõ')}`,
+            `📍 <b>Địa chỉ:</b> ${esc(kh?.dia_chi || 'Không rõ')}`,
+            `🖨 <b>Mã máy:</b> ${esc(data.ma_may || 'N/A')}`,
+            `📝 <b>Ghi chú:</b> ${esc(data.ghi_chu || 'Không')}`,
+            creatorName ? `👤 <b>Người tạo phiếu:</b> ${esc(creatorName)}` : null,
+            '',
+            '<b>HAST — Sổ công tác</b>',
+            'Hệ thống quản lý giao việc tự động',
+          ].filter(l => l !== null && l !== undefined).join('\n')
+
+          await editTelegramMessageText(groupChatId, Number(data.telegram_message_id), updatedMsg)
+        }
       }
 
       await broadcastJobsChanged()
@@ -451,11 +492,49 @@ export async function PUT(request: Request) {
         .from('soct_cong_viec')
         .update({ ktv_id: next_ktv_id, ktv2_id: next_ktv2_id, ket_qua: next_ket_qua })
         .eq('id', id)
-        .select('id, ngay, ma_may, report, loai_cong_viec, created_by, soct_khach_hang ( ten_khach_hang, dia_chi )')
+        .select('id, ngay, ma_may, report, ghi_chu, loai_cong_viec, created_by, telegram_message_id, soct_khach_hang ( ten_khach_hang, dia_chi )')
         .single()
 
       if (error) {
         return NextResponse.json({ error: 'Không thể hủy nhận việc lúc này.' }, { status: 500 })
+      }
+
+      // Nếu phiếu có telegram_message_id, cập nhật lại tin nhắn gốc trên Telegram quay lại pool chờ nhận
+      if (data && data.telegram_message_id) {
+        const groupChatId = process.env.TELEGRAM_GROUP_CHAT_ID
+        if (groupChatId) {
+          let creatorName = ''
+          if (data.created_by) {
+            const { data: creator } = await supabaseAdmin.from('soct_users').select('full_name').eq('id', data.created_by).single()
+            creatorName = creator?.full_name || ''
+          }
+
+          const kh = (data as any).soct_khach_hang
+
+          let assigneeText = ''
+          if (next_ktv_id) {
+            const { data: u1 } = await supabaseAdmin.from('soct_users').select('full_name').eq('id', next_ktv_id).single()
+            assigneeText = `👤 <b>Phụ trách:</b> ${esc(u1?.full_name || 'Không rõ')}`
+          }
+
+          const heading = next_ktv_id === null ? '🆕 <b>CÔNG VIỆC MỚI — CHỜ NHẬN (KTV HỦY NHẬN)</b>' : '✅ <b>CÔNG VIỆC ĐÃ CÓ NGƯỜI PHỤ TRÁCH</b>'
+
+          const updatedMsg = [
+            heading,
+            reason ? `📝 <b>Lý do hủy:</b> ${esc(reason)}` : null,
+            assigneeText ? assigneeText : null,
+            `🗓 <b>Ngày thực hiện:</b> ${fmtDate(data.ngay)}`,
+            `📌 <b>Loại công việc:</b> ${esc(data.loai_cong_viec)}`,
+            `🏢 <b>Khách hàng:</b> ${esc(kh?.ten_khach_hang || 'Không rõ')}`,
+            `📍 <b>Địa chỉ:</b> ${esc(kh?.dia_chi || 'Không rõ')}`,
+            `🖨 <b>Mã máy:</b> ${esc(data.ma_may || 'N/A')}`,
+            `📝 <b>Ghi chú:</b> ${esc(data.ghi_chu || 'Không')}`,
+            creatorName ? `👤 <b>Người tạo phiếu:</b> ${esc(creatorName)}` : null,
+            next_ktv_id === null ? `\n👉 <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://hast-services.vercel.app'}/ktv">Mở App KTV để nhận việc</a>` : null,
+          ].filter(l => l !== null && l !== undefined).join('\n')
+
+          await editTelegramMessageText(groupChatId, Number(data.telegram_message_id), updatedMsg)
+        }
       }
 
       // Bắn group: có việc bị hủy (kèm lý do) — để team/văn phòng biết

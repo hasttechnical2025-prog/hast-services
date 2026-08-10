@@ -1,15 +1,15 @@
 import { isBaoTri } from '@/lib/config'
 
 // Hàm gửi tin nhắn Telegram thông qua Telegram Bot API
-export async function sendTelegramMessage(chatId: string, text: string, replyMarkup?: any): Promise<boolean> {
+export async function sendTelegramMessage(chatId: string, text: string, replyMarkup?: any): Promise<{ success: boolean; messageId?: number }> {
   // Chế độ bảo trì: dừng HẾT tin nhắn (kể cả do admin thao tác) — chặn ở một chỗ
   // để không luồng nào lọt (giao việc, nghỉ phép, hoàn phiếu, nhắc báo cáo...).
-  if (await isBaoTri()) return false
+  if (await isBaoTri()) return { success: false }
 
   const token = process.env.TELEGRAM_BOT_TOKEN
   if (!token) {
     console.error('Missing TELEGRAM_BOT_TOKEN env variable')
-    return false
+    return { success: false }
   }
 
   try {
@@ -26,16 +26,16 @@ export async function sendTelegramMessage(chatId: string, text: string, replyMar
       }),
     })
 
+    const data = await response.json()
     if (!response.ok) {
-      const errData = await response.json()
-      console.error('Failed to send Telegram message:', errData)
-      return false
+      console.error('Failed to send Telegram message:', data)
+      return { success: false }
     }
 
-    return true
+    return { success: true, messageId: data.result?.message_id }
   } catch (error) {
     console.error('Error sending Telegram message:', error)
-    return false
+    return { success: false }
   }
 }
 
