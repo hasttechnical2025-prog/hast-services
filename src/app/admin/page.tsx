@@ -36,6 +36,9 @@ const DATA_EVENT = "changed"
 // tránh lệch ngày lúc 0–7h sáng (toISOString() trả về giờ UTC).
 const todayVN = () => new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
 
+// Bỏ dấu tiếng Việt + thường hóa, để tìm khách theo kiểu "tư pháp 305" gõ không dấu vẫn ra.
+const normKh = (s: string) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().trim()
+
 // Types
 type VatTuChiTiet = {
   id: string
@@ -3118,22 +3121,42 @@ function CustomerCombobox({ customers, value, onPick, onCreateNew }: {
 
   const selected = customers.find(c => c.id === value)
   const selectedLabel = selected ? `${selected.ten_khach_hang}${selected.ma_may ? ` — ${selected.ma_may}` : ''}` : ""
-  const q = query.trim().toLowerCase()
-  const results = (q
-    ? customers.filter(c =>
-        (c.ten_khach_hang || "").toLowerCase().includes(q) ||
-        (c.ma_may || "").toLowerCase().includes(q) ||
-        (c.dia_chi || "").toLowerCase().includes(q) ||
-        (c.model || "").toLowerCase().includes(q))
+
+  // Tìm khách theo "token-AND": tách câu gõ thành các từ, giữ khách nếu MỌI từ đều
+  // xuất hiện đâu đó trong (tên + mã máy + model + địa chỉ) đã bỏ dấu. Nhờ đó
+  // "tư pháp 305" khớp "Bộ Tư pháp — Phòng 305" dù từ khóa nằm rải rác nhiều field.
+  const q = normKh(query)
+  const tokens = q.split(/\s+/).filter(t => t.length >= 2 || /^\d+$/.test(t))
+  // Token toàn số khớp theo ranh giới (305 không dính vào 1305); token chữ khớp chuỗi con.
+  const matchers = tokens.map(t => {
+    if (/^\d+$/.test(t)) { const re = new RegExp(`(?<![0-9])${t}(?![0-9])`); return (hay: string) => re.test(hay) }
+    return (hay: string) => hay.includes(t)
+  })
+  const results = (tokens.length === 0
+    ? customers.slice(0, 50)
     : customers
-  ).slice(0, 50)
+        .filter(c => {
+          const hay = normKh(`${c.ten_khach_hang || ''} ${c.ma_may || ''} ${c.model || ''} ${c.dia_chi || ''}`)
+          return matchers.every(m => m(hay))
+        })
+        // Xếp hạng: gõ đúng mã máy lên đầu → mọi từ khớp trong TÊN khách → còn lại.
+        .map(c => {
+          const maN = normKh(c.ma_may || '')
+          const nameN = normKh(c.ten_khach_hang || '')
+          const score = (maN && maN === q) ? 3 : (matchers.every(m => m(nameN)) ? 2 : 1)
+          return { c, score }
+        })
+        .sort((a, b) => b.score - a.score)
+        .map(s => s.c)
+        .slice(0, 50)
+  )
 
   return (
     <>
       <input
         ref={inputRef}
         className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-        placeholder="Gõ tên khách / mã máy / địa chỉ để tìm..."
+        placeholder="Tìm: tên khách + số phòng (vd: tư pháp 305) / mã máy..."
         value={open ? query : selectedLabel}
         onFocus={() => { setOpen(true); setQuery("") }}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
