@@ -385,7 +385,10 @@ export default function AdminDashboard() {
       .sort((a, b) => new Date(a.ngay_het_han_hdbt).getTime() - new Date(b.ngay_het_han_hdbt).getTime())
   })()
 
-  // Máy thuê/CPC sắp/đã đến hạn lấy counter (báo trước 5 ngày) — panel cạnh cảnh báo HĐBT.
+  // Số ngày báo trước hạn lấy counter (admin chỉnh ở Cài đặt hệ thống; mặc định 3).
+  const counterBaoTruocNgay = parseInt(cauHinh.counter_bao_truoc_ngay || '3') || 3
+
+  // Máy thuê/CPC sắp/đã đến hạn lấy counter (báo trước N ngày) — panel cạnh cảnh báo HĐBT.
   useEffect(() => {
     if (!currentAdmin) return
     let alive = true
@@ -404,7 +407,7 @@ export default function AdminDashboard() {
         const due = (j.data?.rows || [])
           .map((m: any) => {
             const daNhap = m.so_bw != null || m.so_mau != null
-            const st = counterStatus(chotSoDate(thang, m.chot_so_ngay, m.chot_so_cuoi_thang), daNhap, today, 5)
+            const st = counterStatus(chotSoDate(thang, m.chot_so_ngay, m.chot_so_cuoi_thang), daNhap, today, counterBaoTruocNgay)
             return { ...m, _st: st }
           })
           .filter((m: any) => m._st.status === 'overdue' || m._st.status === 'due_soon')
@@ -413,7 +416,7 @@ export default function AdminDashboard() {
       })
       .catch(() => { })
     return () => { alive = false }
-  }, [currentAdmin, activeTab, congTacTab])
+  }, [currentAdmin, activeTab, congTacTab, counterBaoTruocNgay])
 
   const [formData, setFormData] = useState({
     ngay: todayVN(), // Mặc định ngày hôm nay (giờ VN)
@@ -1239,7 +1242,7 @@ export default function AdminDashboard() {
             <button onClick={() => setCounterDueOpen(o => !o)} className="w-full flex items-center gap-2 px-4 py-3 text-left">
               <Clock className="w-5 h-5 text-amber-600 shrink-0" />
               <span className="text-sm font-semibold text-amber-800">{counterDueList.length} máy thuê/CPC sắp/đã đến hạn lấy counter</span>
-              <span className="text-xs text-amber-600">(báo trước 5 ngày — nhập chỉ số công tơ ở tab Thuê/CPC)</span>
+              <span className="text-xs text-amber-600">(báo trước {counterBaoTruocNgay} ngày — nhập chỉ số công tơ ở tab Thuê/CPC)</span>
               <svg className={`w-4 h-4 text-amber-600 ml-auto transition-transform ${counterDueOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
             </button>
             {counterDueOpen && (
@@ -4517,6 +4520,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     hdbt_canh_bao_thang: cauHinh.hdbt_canh_bao_thang || '2',
     nguong_ton_thap: cauHinh.nguong_ton_thap || '0',
     phieu_cung_canh_bao_ngay: cauHinh.phieu_cung_canh_bao_ngay || '3',
+    counter_bao_truoc_ngay: cauHinh.counter_bao_truoc_ngay || '3',
     bao_cao_cho_phep_ngay: cauHinh.bao_cao_cho_phep_ngay || '7',
     phien_van_phong_ngay: cauHinh.phien_van_phong_ngay || '7',
     phien_ktv_ngay: cauHinh.phien_ktv_ngay || '30',
@@ -4589,6 +4593,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
       hdbt_canh_bao_thang: String(parseInt(cfg.hdbt_canh_bao_thang) || 2),
       nguong_ton_thap: String(parseInt(cfg.nguong_ton_thap) || 0),
       phieu_cung_canh_bao_ngay: String(parseInt(cfg.phieu_cung_canh_bao_ngay) || 3),
+      counter_bao_truoc_ngay: String(parseInt(cfg.counter_bao_truoc_ngay) || 3),
       bao_cao_cho_phep_ngay: String(Number.isFinite(parseInt(cfg.bao_cao_cho_phep_ngay)) ? parseInt(cfg.bao_cao_cho_phep_ngay) : 7),
       phien_van_phong_ngay: String(parseInt(cfg.phien_van_phong_ngay) || 7),
       phien_ktv_ngay: String(parseInt(cfg.phien_ktv_ngay) || 30),
@@ -4606,7 +4611,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setSaving(false) }
   }
 
-  const numField = (label: string, key: 'repeat_ngay' | 'hdbt_canh_bao_thang' | 'nguong_ton_thap' | 'vp_lat' | 'vp_lng' | 'phien_van_phong_ngay' | 'phien_ktv_ngay' | 'phieu_cung_canh_bao_ngay' | 'bao_cao_cho_phep_ngay', hint?: string, step?: string) => (
+  const numField = (label: string, key: 'repeat_ngay' | 'hdbt_canh_bao_thang' | 'nguong_ton_thap' | 'vp_lat' | 'vp_lng' | 'phien_van_phong_ngay' | 'phien_ktv_ngay' | 'phieu_cung_canh_bao_ngay' | 'counter_bao_truoc_ngay' | 'bao_cao_cho_phep_ngay', hint?: string, step?: string) => (
     <div className="space-y-1">
       <label className="text-xs font-semibold text-slate-600">{label}</label>
       <Input value={(cfg as any)[key]} onChange={(e) => setCfg({ ...cfg, [key]: e.target.value })} className="bg-white" inputMode="decimal" {...(step ? { step } : {})} />
@@ -4669,6 +4674,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
           {numField('Cảnh báo HĐBT trước (tháng)', 'hdbt_canh_bao_thang')}
           {numField('Ngưỡng tồn thấp (đỏ khi ≤)', 'nguong_ton_thap')}
           {numField('Cảnh báo trễ nộp phiếu (ngày)', 'phieu_cung_canh_bao_ngay')}
+          {numField('Báo trước hạn lấy counter (ngày)', 'counter_bao_truoc_ngay', 'Máy thuê/CPC: cảnh báo trước N ngày tới hạn chốt số')}
           {numField('KTV nộp báo cáo trễ tối đa (ngày)', 'bao_cao_cho_phep_ngay', 'Cho phép nộp/sửa báo cáo lùi về N ngày. 0 = chỉ hôm nay')}
         </div>
         <div className="flex flex-wrap gap-6">
