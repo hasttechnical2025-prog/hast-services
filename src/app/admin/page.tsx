@@ -31,6 +31,11 @@ const DATHANG_TOPIC = "soct_dathang"
 const BAOTRI_TOPIC = "soct_baotri"
 const DATA_EVENT = "changed"
 
+// "Hôm nay" theo giờ VN (UTC+7), trả về YYYY-MM-DD. Dùng cho ngày mặc định của form
+// giao việc — tính tại thời điểm bấm, tránh dính ngày cũ khi để máy qua đêm hoặc
+// tránh lệch ngày lúc 0–7h sáng (toISOString() trả về giờ UTC).
+const todayVN = () => new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
+
 // Types
 type VatTuChiTiet = {
   id: string
@@ -406,7 +411,7 @@ export default function AdminDashboard() {
   }, [currentAdmin, activeTab, congTacTab])
 
   const [formData, setFormData] = useState({
-    ngay: new Date().toISOString().split('T')[0], // Mặc định ngày hôm nay
+    ngay: todayVN(), // Mặc định ngày hôm nay (giờ VN)
     ma_may: "",
     id_khach_hang: "",
     loai_cong_viec: LOAI_CV_FALLBACK[0],
@@ -430,7 +435,7 @@ export default function AdminDashboard() {
     setEditingKetQua('')
     setDongGiamDinh(false)
     setFormData({
-      ngay: new Date().toISOString().split('T')[0],
+      ngay: todayVN(),
       ma_may: "",
       id_khach_hang: "",
       loai_cong_viec: loaiCvMacDinh,
@@ -456,7 +461,7 @@ export default function AdminDashboard() {
     setDongGiamDinh(false)
     setMayStatus(null)
     setFormData({
-      ngay: job.ngay || new Date().toISOString().split('T')[0],
+      ngay: job.ngay || todayVN(),
       ma_may: job.ma_may || '',
       id_khach_hang: job.id_khach_hang || '',
       loai_cong_viec: job.loai_cong_viec || loaiCvMacDinh,
@@ -1290,7 +1295,7 @@ export default function AdminDashboard() {
                       } catch (e: any) { showNotification('error', e.message || 'Không xóa được') }
                     }} />
                   )}
-                  <Button onClick={() => { setEditingJobId(null); setEditingKetQua(''); setIsModalOpen(true) }} className="gap-2"><Plus className="w-4 h-4" /> Giao việc mới</Button>
+                  <Button onClick={() => { setEditingJobId(null); setEditingKetQua(''); setFormData(f => ({ ...f, ngay: todayVN() })); setIsModalOpen(true) }} className="gap-2"><Plus className="w-4 h-4" /> Giao việc mới</Button>
                 </div>
               </div>
 
