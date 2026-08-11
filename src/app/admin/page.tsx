@@ -349,6 +349,8 @@ export default function AdminDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingJobId, setEditingJobId] = useState<string | null>(null)
   const [editingKetQua, setEditingKetQua] = useState<string>('')
+  const [submitting, setSubmitting] = useState(false)  // chống double-submit khi tạo/sửa phiếu
+  const submittingRef = useRef(false)                  // khóa đồng bộ (state React cập nhật bất đồng bộ)
   const [traJobId, setTraJobId] = useState<string | null>(null)
   const [customers, setCustomers] = useState<any[]>([])
   const [technicians, setTechnicians] = useState<any[]>([])
@@ -437,6 +439,7 @@ export default function AdminDashboard() {
     setEditingJobId(null)
     setEditingKetQua('')
     setDongGiamDinh(false)
+    submittingRef.current = false; setSubmitting(false)
     setFormData({
       ngay: todayVN(),
       ma_may: "",
@@ -702,16 +705,21 @@ export default function AdminDashboard() {
 
   const handleCreateJob = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (submittingRef.current) return   // đang lưu -> bỏ qua cú bấm lặp (chống tạo trùng phiếu)
+    submittingRef.current = true
+    setSubmitting(true)
+    // Nhả khóa + báo lỗi cho các nhánh dừng sớm (validation không đạt).
+    const fail = (msg: string) => { submittingRef.current = false; setSubmitting(false); return showNotification('error', msg) }
 
     let finalCustomerId = formData.id_khach_hang
 
     // Nếu là máy mới / khách hàng mới, tiến hành tạo Khách hàng trước
     if (formData.id_khach_hang === "NEW") {
       if (!formData.ten_khach_hang_moi || !formData.dia_chi_moi) {
-        return showNotification('error', "Vui lòng nhập Tên Khách Hàng và Địa Chỉ mới")
+        return fail("Vui lòng nhập Tên Khách Hàng và Địa Chỉ mới")
       }
       if (!formData.ma_may || !formData.ma_may.trim()) {
-        return showNotification('error', "Vui lòng nhập Mã máy cho khách hàng mới")
+        return fail("Vui lòng nhập Mã máy cho khách hàng mới")
       }
 
       try {
@@ -735,21 +743,21 @@ export default function AdminDashboard() {
         finalCustomerId = newKh.data.id
       } catch (error: any) {
         console.error(error)
-        return showNotification('error', "Không tạo được khách hàng: " + error.message)
+        return fail("Không tạo được khách hàng: " + error.message)
       }
     }
 
     if (!finalCustomerId || finalCustomerId === "NEW") {
-      return showNotification('error', "Vui lòng chọn khách hàng hoặc khai báo thông tin khách hàng mới")
+      return fail("Vui lòng chọn khách hàng hoặc khai báo thông tin khách hàng mới")
     }
 
     // Giao mực / Thay vật tư BẮT BUỘC có Số phiếu + ít nhất 1 vật tư (loại khác thì không).
     if (LOAI_CV_CAN_VAT_TU.includes((formData.loai_cong_viec || '').trim())) {
       if (!String(formData.report || '').trim()) {
-        return showNotification('error', `"${formData.loai_cong_viec}" bắt buộc phải có Số phiếu (Report).`)
+        return fail(`"${formData.loai_cong_viec}" bắt buộc phải có Số phiếu (Report).`)
       }
       if (!formData.vat_tu.some(v => String(v.ma_hang || '').trim())) {
-        return showNotification('error', `"${formData.loai_cong_viec}" bắt buộc phải có ít nhất 1 vật tư/linh kiện.`)
+        return fail(`"${formData.loai_cong_viec}" bắt buộc phải có ít nhất 1 vật tư/linh kiện.`)
       }
     }
 
@@ -788,6 +796,9 @@ export default function AdminDashboard() {
       } catch (error) {
         console.error(error)
         showNotification('error', "Đã xảy ra lỗi khi tạo công việc")
+      } finally {
+        submittingRef.current = false   // nhả khóa sau khi lưu xong (thành/bại)
+        setSubmitting(false)
       }
     }
 
@@ -800,6 +811,7 @@ export default function AdminDashboard() {
           if (!formData.report.trim()) {
             showNotification('error', "Cần điền Số phiếu (Report) để có thể đóng giám định. Vui lòng bổ sung số phiếu và lưu lại.")
             setConfirmGiamDinhOpen(null)
+            submittingRef.current = false; setSubmitting(false)   // nhả khóa, cho lưu lại
             return
           }
           setConfirmGiamDinhOpen(null)
@@ -2198,8 +2210,8 @@ export default function AdminDashboard() {
               </div>
 
               <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
-                <Button type="button" variant="outline" onClick={closeAndResetModal}>Hủy</Button>
-                <Button type="submit">{editingJobId ? 'Cập nhật công việc' : 'Lưu công việc & Báo KTV'}</Button>
+                <Button type="button" variant="outline" onClick={closeAndResetModal} disabled={submitting}>Hủy</Button>
+                <Button type="submit" disabled={submitting}>{submitting ? 'Đang lưu...' : (editingJobId ? 'Cập nhật công việc' : 'Lưu công việc & Báo KTV')}</Button>
               </div>
             </form>
           </div>
