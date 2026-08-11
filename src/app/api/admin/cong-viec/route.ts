@@ -72,6 +72,11 @@ async function notifyNewJob(job: any, creatorName: string): Promise<number | nul
       if (res.success && res.messageId) {
         return res.messageId
       }
+      // Gửi group fail (bot bị kick / sai chat id / đang bảo trì) HOẶC thiếu message_id ->
+      // phiếu sẽ KHÔNG có id để cập nhật "ĐÃ CÓ NGƯỜI NHẬN" về sau. Log để soi được nguyên nhân.
+      console.error(`[notifyNewJob] gửi tin CHỜ NHẬN không lấy được message_id (job ${job.id}): success=${res.success}, messageId=${res.messageId}`)
+    } else if (!job.ktv_id && !groupChatId) {
+      console.error('[notifyNewJob] thiếu env TELEGRAM_GROUP_CHAT_ID -> không gửi được tin CHỜ NHẬN lên group')
     }
     if (job.ktv_id && u1.tg) await sendTelegramMessage(u1.tg, buildJobMsg(job, kh, '🔔 <b>CÔNG VIỆC ĐƯỢC GIAO</b>', `Xin chào ${esc(u1.name)}, bạn có một công việc!`, assignee, creatorName))
     if (job.ktv2_id && u2.tg) await sendTelegramMessage(u2.tg, buildJobMsg(job, kh, '🔔 <b>CÔNG VIỆC ĐI KÈM ĐƯỢC GIAO</b>', `Xin chào ${esc(u2.name)}, bạn được gán làm KTV kèm cho một công việc!`, assignee, creatorName))
@@ -328,7 +333,12 @@ export async function POST(request: Request) {
     // Gửi Telegram TRỰC TIẾP (không còn phụ thuộc webhook DB ngoài).
     const msgId = await notifyNewJob(data, session.full_name)
     if (msgId) {
-      await supabaseAdmin.from('soct_cong_viec').update({ telegram_message_id: msgId }).eq('id', data.id)
+      const { error: tgErr } = await supabaseAdmin.from('soct_cong_viec').update({ telegram_message_id: msgId }).eq('id', data.id)
+      // Ghi id fail -> tin "CHỜ NHẬN" sẽ đứng yên (không đổi khi có người nhận). Log để soi.
+      if (tgErr) console.error(`[cong-viec] lưu telegram_message_id thất bại (job ${data.id}, msgId ${msgId}):`, tgErr)
+    } else if (!data.ktv_id) {
+      // Phiếu CHỜ NHẬN nhưng không có message_id (gửi group fail) -> tin group không tự cập nhật.
+      console.error(`[cong-viec] phiếu ${data.id} (CHỜ NHẬN) không có telegram_message_id -> tin group sẽ KHÔNG đổi trạng thái khi có người nhận.`)
     }
 
     await broadcastJobsChanged()
