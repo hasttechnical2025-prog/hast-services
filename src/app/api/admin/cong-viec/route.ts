@@ -90,6 +90,51 @@ async function notifyReassign(job: any, prevKtv1: string | null, prevKtv2: strin
   } catch (e) { console.error('notifyReassign failed:', e) }
 }
 
+// SỬA TẠI CHỖ tin nhắn CHỜ NHẬN/ĐÃ CÓ NGƯỜI NHẬN trên group cho khớp trạng thái phân
+// công HIỆN TẠI của phiếu. Dùng CHUNG cho: KTV nhận từ pool, admin gán/bỏ gán KTV -> mọi
+// đường đều cập nhật đồng nhất, không đẻ tin mới (nếu phiếu có telegram_message_id).
+async function syncGroupJobMessage(jobId: string): Promise<void> {
+  try {
+    const groupChatId = process.env.TELEGRAM_GROUP_CHAT_ID
+    if (!groupChatId) return
+    const { data } = await supabaseAdmin
+      .from('soct_cong_viec')
+      .select('ngay, ma_may, ghi_chu, loai_cong_viec, created_by, ktv_id, ktv2_id, telegram_message_id, soct_khach_hang ( ten_khach_hang, dia_chi )')
+      .eq('id', jobId).single()
+    if (!data || !data.telegram_message_id) return
+
+    const kh = (data as any).soct_khach_hang
+    let creatorName = ''
+    if (data.created_by) {
+      const { data: creator } = await supabaseAdmin.from('soct_users').select('full_name').eq('id', data.created_by).single()
+      creatorName = creator?.full_name || ''
+    }
+    const u1 = await fetchTgUser(data.ktv_id), u2 = await fetchTgUser(data.ktv2_id)
+    const hasOwner = !!data.ktv_id
+    const phuTrach = u1.name && u2.name ? `👥 <b>Phụ trách:</b> ${esc(u1.name)} (chính), ${esc(u2.name)} (kèm)`
+      : u1.name ? `👤 <b>Phụ trách:</b> ${esc(u1.name)}` : null
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://hast-services.vercel.app'
+
+    const msg = [
+      hasOwner ? '✅ <b>CÔNG VIỆC ĐÃ CÓ NGƯỜI NHẬN</b>' : '🆕 <b>CÔNG VIỆC MỚI — CHỜ NHẬN</b>',
+      phuTrach,
+      `🗓 <b>Ngày thực hiện:</b> ${fmtDate(data.ngay)}`,
+      `📌 <b>Loại công việc:</b> ${esc(data.loai_cong_viec)}`,
+      `🏢 <b>Khách hàng:</b> ${esc(kh?.ten_khach_hang || 'Không rõ')}`,
+      `📍 <b>Địa chỉ:</b> ${esc(kh?.dia_chi || 'Không rõ')}`,
+      `🖨 <b>Mã máy:</b> ${esc(data.ma_may || 'N/A')}`,
+      `📝 <b>Ghi chú:</b> ${esc(data.ghi_chu || 'Không')}`,
+      creatorName ? `👤 <b>Người tạo phiếu:</b> ${esc(creatorName)}` : null,
+      hasOwner ? null : `\n👉 <a href="${appUrl}/ktv">Mở App KTV</a>`,
+      '',
+      '<b>HAST — Sổ công tác</b>',
+      'Hệ thống quản lý giao việc tự động',
+    ].filter(l => l !== null && l !== undefined).join('\n')
+
+    await editTelegramMessageText(groupChatId, Number(data.telegram_message_id), msg)
+  } catch (e) { console.error('syncGroupJobMessage failed:', e) }
+}
+
 // Lấy danh sách công việc kèm thông tin khách hàng, kỹ thuật viên và vật tư liên quan
 // KTV thấy việc gán cho chính mình VÀ việc chưa gán ai (pool chờ nhận)
 export async function GET(request: Request) {
@@ -386,6 +431,9 @@ export async function PUT(request: Request) {
         { id_khach_hang, ngay: ngay || new Date().toISOString().split('T')[0], ma_may, loai_cong_viec, ghi_chu, ktv_id: ktv_id || null, ktv2_id: ktv2_id || null },
         cur.ktv_id || null, cur.ktv2_id || null, session.full_name
       )
+      // Đồng bộ tin group: gán KTV -> "ĐÃ CÓ NGƯỜI NHẬN"; bỏ gán -> quay lại "CHỜ NHẬN".
+      // Chỉ khi phiếu còn ở giai đoạn tiền-xử lý (tin group CHỜ NHẬN/ĐÃ CÓ NGƯỜI NHẬN mới có nghĩa).
+      if (preWork) await syncGroupJobMessage(id)
 
       await broadcastJobsChanged()
       await logAudit(session, 'Sửa công việc', `id ${id}${ma_may ? ` — máy ${ma_may}` : ''}`)
@@ -401,7 +449,8 @@ export async function PUT(request: Request) {
     if (session.role === 'ktv' && claim === true) {
       const { data, error } = await supabaseAdmin
         .from('soct_cong_viec')
-        .update({ ktv_id: session.id, ket_qua: 'Đã nhận' })
+        // telegram_sent=true: webhook DB không bắn DM thừa cho chính KTV vừa tự bấm nhận.
+        .update({ ktv_id: session.id, ket_qua: 'Đã nhận', telegram_sent: true })
         .eq('id', id)
         .is('ktv_id', null)
         .select('*, soct_khach_hang(ten_khach_hang, dia_chi)')
@@ -414,37 +463,8 @@ export async function PUT(request: Request) {
         throw error
       }
 
-      // Nếu phiếu có telegram_message_id, cập nhật lại tin nhắn gốc trên Telegram
-      if (data && data.telegram_message_id) {
-        const groupChatId = process.env.TELEGRAM_GROUP_CHAT_ID
-        if (groupChatId) {
-          let creatorName = ''
-          if (data.created_by) {
-            const { data: creator } = await supabaseAdmin.from('soct_users').select('full_name').eq('id', data.created_by).single()
-            creatorName = creator?.full_name || ''
-          }
-
-          const kh = (data as any).soct_khach_hang
-          const assigneeText = `👤 <b>Phụ trách:</b> ${esc(session.full_name)}`
-
-          const updatedMsg = [
-            '✅ <b>CÔNG VIỆC ĐÃ CÓ NGƯỜI NHẬN</b>',
-            assigneeText,
-            `🗓 <b>Ngày thực hiện:</b> ${fmtDate(data.ngay)}`,
-            `📌 <b>Loại công việc:</b> ${esc(data.loai_cong_viec)}`,
-            `🏢 <b>Khách hàng:</b> ${esc(kh?.ten_khach_hang || 'Không rõ')}`,
-            `📍 <b>Địa chỉ:</b> ${esc(kh?.dia_chi || 'Không rõ')}`,
-            `🖨 <b>Mã máy:</b> ${esc(data.ma_may || 'N/A')}`,
-            `📝 <b>Ghi chú:</b> ${esc(data.ghi_chu || 'Không')}`,
-            creatorName ? `👤 <b>Người tạo phiếu:</b> ${esc(creatorName)}` : null,
-            '',
-            '<b>HAST — Sổ công tác</b>',
-            'Hệ thống quản lý giao việc tự động',
-          ].filter(l => l !== null && l !== undefined).join('\n')
-
-          await editTelegramMessageText(groupChatId, Number(data.telegram_message_id), updatedMsg)
-        }
-      }
+      // Cập nhật tin group tại chỗ -> "ĐÃ CÓ NGƯỜI NHẬN" (dùng chung với luồng admin gán).
+      await syncGroupJobMessage(id)
 
       await broadcastJobsChanged()
       return NextResponse.json({ data })
