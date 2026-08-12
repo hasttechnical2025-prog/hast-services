@@ -6,7 +6,10 @@ import { logAudit } from '@/lib/audit'
 export const runtime = 'nodejs'
 
 const normSerial = (s: any) => String(s ?? '').replace(/\s+/g, '').toUpperCase()
-const normName = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/[^a-z0-9]+/g, '')
+// Từ chung của tên đơn vị -> bỏ khi so khớp để không coi 2 tên là "khác khách" chỉ vì
+// khác cách viết ("CN Công ty OBAYASHI" vs "Chi nhánh Công ty OBAYASHI" = cùng khách).
+const KH_STOP_TT = new Set(['cong', 'ty', 'tnhh', 'cp', 'cph', 'cn', 'chi', 'nhanh', 'nha', 'may', 'viet', 'nam', 'vietnam', 'cty', 'du', 'an', 'tap', 'doan', 'trach', 'nhiem', 'huu', 'han'])
+const nameTokens = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length >= 2 && !KH_STOP_TT.has(t))
 
 // "Kho máy thuê": biên bản giám định máy thuê/CPC do app Techbot lập (bảng `inspections`).
 // HAST và Techbot DÙNG CHUNG một Supabase project -> đọc/ghi thẳng, không cần cầu nối API.
@@ -32,6 +35,7 @@ export async function GET() {
       .from('soct_khach_hang')
       .select('serial, ten_khach_hang, loai_hd')
       .not('serial', 'is', null)
+      .in('loai_hd', ['Máy thuê', 'Máy CPC']) // chỉ máy ĐANG cho thuê/CPC mới tính là "đang thuê"
       .range(from, to))
     const serMap = new Map<string, { khach: string; loai_hd: string }>()
     for (const m of (hastMays || []) as any[]) {
@@ -43,10 +47,10 @@ export async function GET() {
       const d = r.data || {}
       const cur = r.serial ? serMap.get(normSerial(r.serial)) : undefined
       const khachHienTai = cur?.khach || ''
-      const a = normName(khachHienTai), b = normName(r.khach_hang)
-      // "Đã cho khách khác thuê": HAST có khách hiện tại, và khác khách lúc giám định
-      // (không trùng, không chứa nhau -> tránh báo nhầm do khác cách viết).
-      const daThueLai = !!a && !!b && a !== b && !a.includes(b) && !b.includes(a)
+      // "Đã cho khách khác thuê": có khách đang thuê (máy thuê/CPC) và tên KHÔNG chia sẻ
+      // từ khóa đặc trưng nào với khách lúc giám định (đã bỏ "công ty/CN/chi nhánh...").
+      const ta = nameTokens(khachHienTai), tb = nameTokens(r.khach_hang)
+      const daThueLai = !!khachHienTai && ta.length > 0 && tb.length > 0 && !ta.some(t => tb.includes(t))
       return {
         id: r.id,
         serial: r.serial || '',

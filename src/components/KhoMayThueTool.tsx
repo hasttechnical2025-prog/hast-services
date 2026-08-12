@@ -114,7 +114,7 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
               <th className="text-left px-3 py-2 font-semibold">Tình trạng</th>
               <th className="text-left px-3 py-2 font-semibold whitespace-nowrap">Counter</th>
               <th className="text-left px-3 py-2 font-semibold whitespace-nowrap">Ngày</th>
-              <th className="px-3 py-2"></th>
+              <th className="text-center px-3 py-2 font-semibold whitespace-nowrap">Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -138,9 +138,9 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
                 <td className="px-3 py-2 whitespace-nowrap">{r.counter || '—'}</td>
                 <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.ngay)}</td>
                 <td className="px-3 py-2 whitespace-nowrap">
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setDetail(r)} className="text-slate-600 hover:text-blue-700 inline-flex items-center gap-1 text-xs font-medium"><FileText className="w-3.5 h-3.5" /> Chi tiết</button>
-                    <button onClick={() => setEditing({ ...r })} className="text-blue-600 hover:text-blue-800 inline-flex items-center gap-1 text-xs font-medium"><PenSquare className="w-3.5 h-3.5" /> Sửa</button>
+                  <div className="flex items-center justify-center gap-3">
+                    <button onClick={() => setDetail(r)} title="Xem chi tiết vật tư" className="text-slate-500 hover:text-blue-700"><FileText className="w-4 h-4" /></button>
+                    <button onClick={() => setEditing({ ...r })} title="Sửa biên bản" className="text-blue-600 hover:text-blue-800"><PenSquare className="w-4 h-4" /></button>
                   </div>
                 </td>
               </tr>
