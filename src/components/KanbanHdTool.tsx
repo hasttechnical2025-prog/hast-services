@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark } from "lucide-react"
+import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark, Pencil } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import MonthField from "@/components/MonthField"
@@ -16,6 +16,8 @@ type VatTu = {
   thanh_tien: number
   hoa_don: boolean
   da_tra: boolean
+  ten_hang_hd?: string | null // tên ghi đè cho riêng dòng phiếu
+  ten_hd?: string             // tên hiển thị đã giải quyết ưu tiên (server tính)
   soct_kho_hang: { ten_hang: string } | null
 }
 
@@ -79,6 +81,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const [invoiceNum, setInvoiceNum] = useState("")
   const [completing, setCompleting] = useState(false)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  const [editName, setEditName] = useState<{ ma_hang: string; ten: string } | null>(null) // sửa tên hàng trong modal
+  const [savingName, setSavingName] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState<{
     title: string
     message: string
@@ -95,7 +99,15 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       const res = await fetch(`/api/admin/kanban-hd?thang_nam=${thang}`)
       const j = await res.json()
       if (res.ok) {
-        setTickets(j.data || [])
+        const fresh: Ticket[] = j.data || []
+        setTickets(fresh)
+        // Modal đang mở -> ánh xạ lại thẻ theo dữ liệu mới để tên/tiền cập nhật ngay.
+        setActiveCard(prev => {
+          if (!prev) return prev
+          const byId = new Map(fresh.map(t => [t.id, t]))
+          const remapped = prev.tickets.map(t => byId.get(t.id)).filter(Boolean) as Ticket[]
+          return remapped.length ? { ...prev, tickets: remapped } : null
+        })
       } else {
         showNotification('error', j.error || 'Lỗi tải danh sách Kanban')
       }
@@ -117,6 +129,9 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       supabase.removeChannel(ch)
     }
   }, [load])
+
+  // Đóng modal -> bỏ trạng thái đang sửa tên (tránh sót khi mở thẻ khác)
+  useEffect(() => { if (!activeCard) setEditName(null) }, [activeCard])
 
   // Tính tổng tiền cho 1 mảng vật tư của các phiếu
   const getVatTuStats = (vtList: VatTu[]) => {
@@ -253,6 +268,35 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     } finally {
       setCompleting(false)
     }
+  }
+
+  // scope_key của khách đang mở modal (khớp cách gom: cụm nếu có, else điểm máy).
+  const modalScopeKey = (() => {
+    const t0 = activeCard?.tickets[0]
+    if (!t0) return ''
+    return t0.soct_khach_hang?.ma_khach_cum ? `cum:${t0.soct_khach_hang.ma_khach_cum}` : `may:${t0.id_khach_hang}`
+  })()
+
+  // Lưu tên hàng: phamvi 'hoa_don' (chỉ dòng của phiếu này) hoặc 'khach' (mặc định cho khách).
+  const saveName = async (pham_vi: 'hoa_don' | 'khach') => {
+    if (!editName || !activeCard) return
+    setSavingName(true)
+    try {
+      const res = await fetch('/api/admin/ten-hang-rieng', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pham_vi, ma_hang: editName.ma_hang, ten_hang: editName.ten,
+          ...(pham_vi === 'hoa_don'
+            ? { ticket_ids: activeCard.tickets.map(t => t.id) }
+            : { scope_key: modalScopeKey }),
+        }),
+      })
+      if (res.ok) {
+        showNotification('success', pham_vi === 'khach' ? 'Đã lưu tên mặc định cho khách.' : 'Đã đổi tên cho hóa đơn này.')
+        setEditName(null)
+        load()
+      } else { const e = await res.json(); showNotification('error', e.error || 'Lỗi lưu tên') }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setSavingName(false) }
   }
 
   // Phân bổ thẻ lên các cột
@@ -450,7 +494,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     if (!aggregatedVatTu[k]) {
       aggregatedVatTu[k] = {
         ma_hang: v.ma_hang,
-        ten_hang: v.soct_kho_hang?.ten_hang || v.ma_hang,
+        ten_hang: v.ten_hd || v.soct_kho_hang?.ten_hang || v.ma_hang,
         so_luong: 0,
         don_gia: v.don_gia,
         vat: v.vat
@@ -644,9 +688,42 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                       {modalDisplayRows.map((v, i) => {
                         const tt = v.so_luong * v.don_gia
                         const copyText = `${v.ten_hang}\t${v.so_luong}\t${v.don_gia}\t${v.vat}`
+                        if (editName?.ma_hang === v.ma_hang) {
+                          return (
+                            <tr key={i} className="bg-blue-50/40">
+                              <td colSpan={6} className="px-3 py-2.5">
+                                <div className="flex flex-col gap-2">
+                                  <Input
+                                    value={editName.ten}
+                                    onChange={e => setEditName({ ma_hang: v.ma_hang, ten: e.target.value })}
+                                    placeholder="Tên hàng trên hóa đơn (để trống = trả về tên mặc định)"
+                                    className="h-9 bg-white text-xs"
+                                  />
+                                  <div className="flex flex-wrap gap-2 items-center">
+                                    <Button size="sm" onClick={() => saveName('hoa_don')} disabled={savingName} className="h-8 text-xs bg-blue-600 hover:bg-blue-700">Chỉ hóa đơn này</Button>
+                                    <Button size="sm" variant="outline" onClick={() => saveName('khach')} disabled={savingName} className="h-8 text-xs">Mặc định cho khách</Button>
+                                    <button onClick={() => setEditName(null)} className="text-xs text-slate-500 hover:text-slate-700 px-1">Hủy</button>
+                                    <span className="text-[10px] text-slate-400 ml-auto font-mono">Mã: {v.ma_hang}</span>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        }
                         return (
                           <tr key={i} className="hover:bg-slate-50/50">
-                            <td className="px-3 py-2.5 font-medium">{v.ten_hang}</td>
+                            <td className="px-3 py-2.5 font-medium">
+                              <div className="flex items-center gap-1.5">
+                                <span>{v.ten_hang}</span>
+                                <button
+                                  onClick={() => setEditName({ ma_hang: v.ma_hang, ten: v.ten_hang })}
+                                  title="Đổi tên hàng hiển thị trên hóa đơn"
+                                  className="text-slate-300 hover:text-blue-600 shrink-0"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
                             <td className="px-3 py-2.5 text-center">{v.so_luong}</td>
                             <td className="px-3 py-2.5 text-right font-mono">{fmtVnd(v.don_gia)}</td>
                             <td className="px-3 py-2.5 text-center font-mono">{v.vat}%</td>

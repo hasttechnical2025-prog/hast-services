@@ -16,13 +16,25 @@ export async function GET() {
       .from('soct_cong_viec')
       .select(`id, ngay, report, loai_cong_viec, trang_thai_hd, id_khach_hang,
         soct_khach_hang ( ten_khach_hang, dia_chi, ma_khach_cum, soct_khach_cum ( ma_khach_hang, ten_khach_hang, dia_chi ) ),
-        soct_chi_tiet_vat_tu ( ma_hang, so_luong, don_gia, vat, soct_kho_hang ( ten_hang ) )`)
+        soct_chi_tiet_vat_tu ( ma_hang, so_luong, don_gia, vat, ten_hang_hd, soct_kho_hang ( ten_hang ) )`)
       .eq('ket_qua', 'Hoàn thành')
       .not('report', 'is', null)
       .neq('report', '')
       .not('trang_thai_hd', 'in', '("Chờ xuất HĐ","Đang xử lý HĐ","Đã lên hóa đơn","Đã thanh toán")')
       .order('ngay', { ascending: true })
       .range(from, to))
+
+    // Gắn tên hàng hiển thị (ten_hd): ten_hang_hd (dòng) > tên riêng theo khách > kho > mã.
+    const { data: overrides } = await supabaseAdmin.from('soct_ten_hang_rieng').select('scope_key, ma_hang, ten_hang')
+    const ovMap = new Map<string, string>()
+    for (const o of (overrides || []) as any[]) ovMap.set(`${o.scope_key}::${o.ma_hang}`, o.ten_hang)
+    for (const t of (data || []) as any[]) {
+      const kh = t.soct_khach_hang
+      const scopeKey = kh?.ma_khach_cum ? `cum:${kh.ma_khach_cum}` : `may:${t.id_khach_hang}`
+      for (const v of (t.soct_chi_tiet_vat_tu || [])) {
+        v.ten_hd = v.ten_hang_hd || ovMap.get(`${scopeKey}::${v.ma_hang}`) || v.soct_kho_hang?.ten_hang || v.ma_hang
+      }
+    }
 
     return NextResponse.json({ data })
   } catch (error: any) {

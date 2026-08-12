@@ -5138,7 +5138,7 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
   //  - khoanh vùng đúng phiếu khi Đánh dấu báo giá / Lên hóa đơn (thanh toán từng phần).
   const buildRows = (tickets: any[], gopMa: boolean): BaoGiaRow[] => {
     const lines = tickets.flatMap((t: any) => (t.soct_chi_tiet_vat_tu || []).map((v: any) => ({
-      ten: v.soct_kho_hang?.ten_hang || v.ma_hang || '', sl: Number(v.so_luong) || 0, gia: Number(v.don_gia) || 0, vat: Number(v.vat) || 0,
+      ten: v.ten_hd || v.soct_kho_hang?.ten_hang || v.ma_hang || '', sl: Number(v.so_luong) || 0, gia: Number(v.don_gia) || 0, vat: Number(v.vat) || 0,
       soPhieu: t.report || '', srcId: t.id as string,
     })))
     if (!gopMa) return lines.map((l: any) => ({ ten: l.ten, sl: l.sl, gia: l.gia, vat: l.vat, dvt: 'Cái', gc: '', soPhieu: l.soPhieu, srcIds: [l.srcId] }))
