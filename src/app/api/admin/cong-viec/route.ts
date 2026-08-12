@@ -52,7 +52,7 @@ function buildJobMsg(job: any, kh: any, heading: string, extraLine: string | nul
     `📌 <b>Loại công việc:</b> ${esc(job.loai_cong_viec)}`,
     `🏢 <b>Khách hàng:</b> ${esc(kh?.ten_khach_hang || 'Không rõ')}`,
     `📍 <b>Địa chỉ:</b> ${esc(kh?.dia_chi || 'Không rõ')}`,
-    `🖨 <b>Mã máy:</b> ${esc(job.ma_may || 'N/A')}`,
+    `🖨 <b>Model máy:</b> ${esc(kh?.model || 'N/A')}`,
     `📝 <b>Ghi chú:</b> ${esc(job.ghi_chu || 'Không')}`,
     creatorName ? `👤 <b>Người tạo phiếu:</b> ${esc(creatorName)}` : null,
     '', `👉 <a href="${appUrl}/ktv">Mở App KTV</a>`, '',
@@ -63,7 +63,7 @@ function buildJobMsg(job: any, kh: any, heading: string, extraLine: string | nul
 // Phiếu MỚI: chưa gán -> báo group; gán sẵn -> DM KTV chính/kèm.
 async function notifyNewJob(job: any, creatorName: string): Promise<number | null> {
   try {
-    const { data: kh } = await supabaseAdmin.from('soct_khach_hang').select('ten_khach_hang, dia_chi').eq('id', job.id_khach_hang).single()
+    const { data: kh } = await supabaseAdmin.from('soct_khach_hang').select('ten_khach_hang, dia_chi, model').eq('id', job.id_khach_hang).single()
     const u1 = await fetchTgUser(job.ktv_id), u2 = await fetchTgUser(job.ktv2_id)
     const assignee = assigneeLine(u1.name, u2.name)
     const groupChatId = process.env.TELEGRAM_GROUP_CHAT_ID
@@ -87,7 +87,7 @@ async function notifyNewJob(job: any, creatorName: string): Promise<number | nul
 // Giao LẠI (admin sửa phiếu): chỉ DM người MỚI được gán (khác người cũ).
 async function notifyReassign(job: any, prevKtv1: string | null, prevKtv2: string | null, creatorName: string) {
   try {
-    const { data: kh } = await supabaseAdmin.from('soct_khach_hang').select('ten_khach_hang, dia_chi').eq('id', job.id_khach_hang).single()
+    const { data: kh } = await supabaseAdmin.from('soct_khach_hang').select('ten_khach_hang, dia_chi, model').eq('id', job.id_khach_hang).single()
     const u1 = await fetchTgUser(job.ktv_id), u2 = await fetchTgUser(job.ktv2_id)
     const assignee = assigneeLine(u1.name, u2.name)
     if (job.ktv_id && job.ktv_id !== prevKtv1 && u1.tg) await sendTelegramMessage(u1.tg, buildJobMsg(job, kh, '🔔 <b>CÔNG VIỆC ĐƯỢC GIAO</b>', `Xin chào ${esc(u1.name)}, bạn có một công việc!`, assignee, creatorName))
@@ -104,7 +104,7 @@ async function syncGroupJobMessage(jobId: string): Promise<void> {
     if (!groupChatId) return
     const { data } = await supabaseAdmin
       .from('soct_cong_viec')
-      .select('ngay, ma_may, ghi_chu, loai_cong_viec, created_by, ktv_id, ktv2_id, telegram_message_id, soct_khach_hang ( ten_khach_hang, dia_chi )')
+      .select('ngay, ma_may, ghi_chu, loai_cong_viec, created_by, ktv_id, ktv2_id, telegram_message_id, soct_khach_hang ( ten_khach_hang, dia_chi, model )')
       .eq('id', jobId).single()
     if (!data || !data.telegram_message_id) return
 
@@ -127,7 +127,7 @@ async function syncGroupJobMessage(jobId: string): Promise<void> {
       `📌 <b>Loại công việc:</b> ${esc(data.loai_cong_viec)}`,
       `🏢 <b>Khách hàng:</b> ${esc(kh?.ten_khach_hang || 'Không rõ')}`,
       `📍 <b>Địa chỉ:</b> ${esc(kh?.dia_chi || 'Không rõ')}`,
-      `🖨 <b>Mã máy:</b> ${esc(data.ma_may || 'N/A')}`,
+      `🖨 <b>Model máy:</b> ${esc(kh?.model || 'N/A')}`,
       `📝 <b>Ghi chú:</b> ${esc(data.ghi_chu || 'Không')}`,
       creatorName ? `👤 <b>Người tạo phiếu:</b> ${esc(creatorName)}` : null,
       hasOwner ? null : `\n👉 <a href="${appUrl}/ktv">Mở App KTV</a>`,

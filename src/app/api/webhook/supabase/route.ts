@@ -16,7 +16,7 @@ function fmtDate(s: any): string {
 function buildJobMessage(
   heading: string,
   record: any,
-  khachHang: { ten_khach_hang?: string; dia_chi?: string } | null,
+  khachHang: { ten_khach_hang?: string; dia_chi?: string; model?: string } | null,
   appUrl: string,
   extraLine?: string,
   creatorName?: string,
@@ -30,7 +30,7 @@ function buildJobMessage(
     `📌 <b>Loại công việc:</b> ${esc(record.loai_cong_viec)}`,
     `🏢 <b>Khách hàng:</b> ${esc(khachHang?.ten_khach_hang || 'Không rõ')}`,
     `📍 <b>Địa chỉ:</b> ${esc(khachHang?.dia_chi || 'Không rõ')}`,
-    `🖨 <b>Mã máy:</b> ${esc(record.ma_may || 'N/A')}`,
+    `🖨 <b>Model máy:</b> ${esc(khachHang?.model || 'N/A')}`,
     `📝 <b>Ghi chú:</b> ${esc(record.ghi_chu || 'Không')}`,
     creatorName ? `👤 <b>Người tạo phiếu:</b> ${esc(creatorName)}` : null,
     '',
@@ -106,7 +106,7 @@ export async function POST(request: Request) {
     // 4. Lấy thông tin phụ (Khách hàng, Người tạo, Tên KTV)
     const { data: khachHang } = await supabaseAdmin
       .from('soct_khach_hang')
-      .select('ten_khach_hang, dia_chi')
+      .select('ten_khach_hang, dia_chi, model')
       .eq('id', record.id_khach_hang)
       .single()
 
