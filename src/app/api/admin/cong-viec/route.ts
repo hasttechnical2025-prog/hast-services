@@ -192,8 +192,9 @@ export async function GET(request: Request) {
         .range(from, to)
 
       if (session.role === 'ktv') {
-        // Việc của mình + việc trong pool (chưa gán KTV)
-        query = query.or(`ktv_id.eq.${session.id},ktv_id.is.null`)
+        // Việc mình làm CHÍNH + việc mình làm KÈM (ktv2_id) + việc trong pool (chưa gán KTV).
+        // Thiếu ktv2_id -> KTV kèm không nhận được phiếu từ server dù client có lọc đúng.
+        query = query.or(`ktv_id.eq.${session.id},ktv2_id.eq.${session.id},ktv_id.is.null`)
       }
       if (dateStr) query = query.eq('ngay', dateStr)
       // Tìm theo Số phiếu là tìm TOÀN CỤC (bỏ qua lọc ngày) để luôn thấy phiếu cũ;
