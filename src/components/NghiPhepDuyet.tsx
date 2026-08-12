@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { Check, X, CalendarClock, RefreshCw } from "lucide-react"
-import { supabase } from "@/lib/supabase"
+import { useRealtimeRefetch } from "@/lib/useRealtime"
 import { LEAVE_TOPIC, LEAVE_EVENT } from "@/lib/realtime"
 import { LOAI_LABEL, moTaKhoang, type LoaiNghi, type Buoi } from "@/lib/nghi-phep"
 
@@ -48,10 +48,8 @@ export default function NghiPhepDuyet({ notify, onPending }: {
   }, [onPending])
 
   useEffect(() => { fetchData() }, [fetchData])
-  useEffect(() => {
-    const ch = supabase.channel(LEAVE_TOPIC).on('broadcast', { event: LEAVE_EVENT }, () => fetchData()).subscribe()
-    return () => { supabase.removeChannel(ch) }
-  }, [fetchData])
+  // Realtime "tự lành": đơn nghỉ đăng ký/duyệt từ nơi khác -> màn duyệt tự cập nhật
+  useRealtimeRefetch(LEAVE_TOPIC, LEAVE_EVENT, () => fetchData())
 
   const decide = async (id: string, action: 'duyet' | 'tu_choi', ghi_chu?: string) => {
     setBusy(id)

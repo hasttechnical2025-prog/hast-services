@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { Send, Trash2, CalendarClock, RefreshCw } from "lucide-react"
 import DateField from "@/components/DateField"
-import { supabase } from "@/lib/supabase"
+import { useRealtimeRefetch } from "@/lib/useRealtime"
 import { LEAVE_TOPIC, LEAVE_EVENT } from "@/lib/realtime"
 import { LOAI_LABEL, BUOI_LABEL, TRANG_THAI_LABEL, moTaKhoang, type LoaiNghi, type Buoi } from "@/lib/nghi-phep"
 
@@ -40,10 +40,8 @@ export default function NghiPhepDangKy({ notify }: { notify: (type: 'success' | 
     catch { /* giữ dữ liệu cũ */ } finally { setLoading(false) }
   }, [])
   useEffect(() => { fetchList() }, [fetchList])
-  useEffect(() => {
-    const ch = supabase.channel(LEAVE_TOPIC).on('broadcast', { event: LEAVE_EVENT }, () => fetchList()).subscribe()
-    return () => { supabase.removeChannel(ch) }
-  }, [fetchList])
+  // Realtime "tự lành": đơn nghỉ đổi (đăng ký/duyệt) từ nơi khác -> danh sách tự cập nhật
+  useRealtimeRefetch(LEAVE_TOPIC, LEAVE_EVENT, () => fetchList())
 
   const submit = async () => {
     if (!form.tu_ngay || !form.den_ngay) return notify('error', 'Chọn từ ngày / đến ngày')

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import DateField from "@/components/DateField"
 import MonthField from "@/components/MonthField"
 import { chotSoDate, counterStatus, CounterStatus, kyTruoc } from "@/lib/thue-cpc"
-import { supabase } from "@/lib/supabase"
+import { useRealtimeRefetch } from "@/lib/useRealtime"
 import { Save, FileText, RefreshCw } from "lucide-react"
 
 const THUECPC_TOPIC = "soct_thuecpc"
@@ -91,10 +91,8 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
   const [counterThang, setCounterThang] = useState(monthNow()) // kỳ đang chọn ở tab Nhập counter (nâng lên để badge bám theo)
   const [badgeVer, setBadgeVer] = useState(0) // tăng sau mỗi lần lưu counter -> badge tính lại
   const [reloadKey, setReloadKey] = useState(0) // realtime: đổi từ máy khác -> remount tab active để tải lại
-  useEffect(() => {
-    const ch = supabase.channel(THUECPC_TOPIC).on('broadcast', { event: DATA_EVENT }, () => { setReloadKey(v => v + 1); setBadgeVer(v => v + 1) }).subscribe()
-    return () => { supabase.removeChannel(ch) }
-  }, [])
+  // Realtime "tự lành": counter/đơn giá đổi từ máy khác -> remount tab active để tải lại
+  useRealtimeRefetch(THUECPC_TOPIC, DATA_EVENT, () => { setReloadKey(v => v + 1); setBadgeVer(v => v + 1) })
   const allTabs: [typeof sub, string][] = [
     ['don_gia', 'Đơn giá HĐ'],
     ['counter', 'Nhập counter'],

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import AccountSettings from "@/components/AccountSettings"
 import NghiPhepDuyet from "@/components/NghiPhepDuyet"
-import { supabase } from "@/lib/supabase"
+import { useRealtimeRefetch } from "@/lib/useRealtime"
 import { LEAVE_TOPIC, LEAVE_EVENT } from "@/lib/realtime"
 import { fmtThoiLuong } from "@/lib/thoi-gian"
 
@@ -75,12 +75,8 @@ export default function OfficeMobile() {
   const fetchLeaveCount = async () => {
     try { const r = await fetch('/api/admin/nghi-phep?count=1'); const j = await r.json(); if (r.ok) setLeaveCount(j.count || 0) } catch { /* bỏ qua */ }
   }
-  useEffect(() => {
-    if (!user) return
-    fetchLeaveCount()
-    const ch = supabase.channel(LEAVE_TOPIC).on('broadcast', { event: LEAVE_EVENT }, () => fetchLeaveCount()).subscribe()
-    return () => { supabase.removeChannel(ch) }
-  }, [user])
+  useEffect(() => { if (user) fetchLeaveCount() }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
+  useRealtimeRefetch(LEAVE_TOPIC, LEAVE_EVENT, () => fetchLeaveCount(), !!user)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault(); setLoginLoading(true)
@@ -216,12 +212,9 @@ function ViecHomNay() {
       if (Array.isArray(j.data)) setJobs(j.data)
     } catch { /* giữ danh sách cũ nếu lỗi mạng */ } finally { setLoading(false) }
   }
-  useEffect(() => { fetchJobs() }, [])
-  // Realtime: KTV nhận/đổi trạng thái -> tự cập nhật
-  useEffect(() => {
-    const ch = supabase.channel(JOBS_TOPIC).on('broadcast', { event: JOBS_EVENT }, () => fetchJobs()).subscribe()
-    return () => { supabase.removeChannel(ch) }
-  }, [])
+  useEffect(() => { fetchJobs() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Realtime "tự lành": KTV nhận/đổi trạng thái -> tự cập nhật
+  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => fetchJobs())
 
   const counts = useMemo(() => {
     let choNhan = 0, dangLam = 0, xong = 0

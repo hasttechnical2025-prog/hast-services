@@ -7,7 +7,6 @@ import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { TAB_TREE, TAB_ROLES, DEFAULT_TAB_VIS } from "@/lib/tabs"
-import { supabase } from "@/lib/supabase"
 import { chotSoDate, counterStatus } from "@/lib/thue-cpc"
 import ThueCpcModule from "@/components/ThueCpcModule"
 import KanbanHdTool from "@/components/KanbanHdTool"
@@ -18,6 +17,7 @@ import TroLyAI from "@/components/TroLyAI"
 import { hdbtStatus, loaiHdBadge } from "@/lib/hd-status"
 import { fmtThoiLuong } from "@/lib/thoi-gian"
 import { LOAI_HD_BAO_TRI, canBaoTriThang, dangTamDung, coBaoTriThang, moTaLichBaoTri, fmtThang, parseThangBaoTri, formatThangBaoTri, doiChieuNam, thangDaToi, CELL_DA_LAM, CELL_THIEU, CELL_CHUA_TOI } from "@/lib/bao-tri"
+import { useRealtimeRefetch } from "@/lib/useRealtime"
 
 // Kênh realtime (đồng bộ với lib/realtime.ts + app KTV): server phát broadcast sau mỗi thay đổi việc
 const JOBS_TOPIC = "soct_jobs"
@@ -587,22 +587,14 @@ export default function AdminDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMounted, currentAdmin, jobFilters.report, jobFilters.tuNgay, jobFilters.denNgay])
 
-  // Realtime: KTV nhận/đổi trạng thái việc -> trang office tự cập nhật (không cần F5)
-  const fetchDataRef = useRef(fetchData)
-  fetchDataRef.current = fetchData
-  const fetchPhieuCountRef = useRef(fetchPhieuCount)
-  fetchPhieuCountRef.current = fetchPhieuCount
-  useEffect(() => {
-    if (!currentAdmin) return
-    const channel = supabase
-      .channel(JOBS_TOPIC)
-      .on('broadcast', { event: JOBS_EVENT }, () => { fetchDataRef.current(); fetchPhieuCountRef.current() })
-      .subscribe()
-    // Kho / Khách đổi từ máy khác -> tải lại dữ liệu office (danh sách kho, khách...)
-    const khoCh = supabase.channel(KHO_TOPIC).on('broadcast', { event: DATA_EVENT }, () => fetchDataRef.current()).subscribe()
-    const khachCh = supabase.channel(KHACH_TOPIC).on('broadcast', { event: DATA_EVENT }, () => fetchDataRef.current()).subscribe()
-    return () => { supabase.removeChannel(channel); supabase.removeChannel(khoCh); supabase.removeChannel(khachCh) }
-  }, [currentAdmin])
+  // Realtime "tự lành": KTV nhận/đổi việc + kho/khách đổi từ máy khác -> office tự cập nhật.
+  // Nghe broadcast + bù refetch khi focus lại / mạng về / kênh nối lại (không cần F5).
+  useRealtimeRefetch(
+    [JOBS_TOPIC, KHO_TOPIC, KHACH_TOPIC],
+    DATA_EVENT,
+    () => { fetchData(); fetchPhieuCount() },
+    !!currentAdmin,
+  )
 
   // Tìm kiếm theo mã máy để điền tự động
   const handleMaMayChange = (val: string) => {
@@ -3266,12 +3258,8 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
     finally { setLoading(false) }
   }
   useEffect(() => { fetchRecords() }, [])
-  // Realtime: giám định đổi (tạo/sửa/đã thay/đã báo giá) từ máy khác -> tự cập nhật
-  const gdRef = useRef(fetchRecords); gdRef.current = fetchRecords
-  useEffect(() => {
-    const ch = supabase.channel(GIAMDINH_TOPIC).on('broadcast', { event: DATA_EVENT }, () => gdRef.current()).subscribe()
-    return () => { supabase.removeChannel(ch) }
-  }, [])
+  // Realtime "tự lành": giám định đổi (tạo/sửa/đã thay/đã báo giá) từ máy khác -> tự cập nhật
+  useRealtimeRefetch(GIAMDINH_TOPIC, DATA_EVENT, () => fetchRecords())
 
   const addVt = () => setVatTu(prev => [...prev, { ma_hang: "", so_luong: "1", ghi_chu: "" }])
   const updateVt = (i: number, field: 'ma_hang' | 'so_luong' | 'ghi_chu', val: string) => {
@@ -3788,12 +3776,8 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
     finally { setLoading(false) }
   }
   useEffect(() => { fetchOrders() }, [])
-  // Realtime: đơn đặt hàng / hàng về đổi từ máy khác -> danh sách tự cập nhật
-  const dhRef = useRef(fetchOrders); dhRef.current = fetchOrders
-  useEffect(() => {
-    const ch = supabase.channel(DATHANG_TOPIC).on('broadcast', { event: DATA_EVENT }, () => dhRef.current()).subscribe()
-    return () => { supabase.removeChannel(ch) }
-  }, [])
+  // Realtime "tự lành": đơn đặt hàng / hàng về đổi từ máy khác -> danh sách tự cập nhật
+  useRealtimeRefetch(DATHANG_TOPIC, DATA_EVENT, () => fetchOrders())
 
   // Sinh số đơn mặc định PO-YYMMDD-NNN theo ngày + số thứ tự trong ngày
   const genSoDon = (ngay: string) => {
@@ -5085,12 +5069,8 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
     catch { showNotification('error', 'Lỗi kết nối!') } finally { setLoading(false) }
   }
   useEffect(() => { fetchList() }, [])
-  // Realtime: đánh dấu báo giá / lên hóa đơn từ máy khác -> danh sách công nợ tự cập nhật
-  const cnRef = useRef(fetchList); cnRef.current = fetchList
-  useEffect(() => {
-    const ch = supabase.channel(CONGNO_TOPIC).on('broadcast', { event: DATA_EVENT }, () => cnRef.current()).subscribe()
-    return () => { supabase.removeChannel(ch) }
-  }, [])
+  // Realtime "tự lành": đánh dấu báo giá / lên hóa đơn từ máy khác -> công nợ tự cập nhật
+  useRealtimeRefetch(CONGNO_TOPIC, DATA_EVENT, () => fetchList())
 
   // Gom phiếu theo KHÁCH CỤM khi điểm máy đã gán cụm (ma_khach_cum); còn lại gom theo
   // điểm máy (mỗi máy lẻ = 1 khách) như cũ. => chưa gán vẫn chạy y hệt trước đây.
@@ -5540,13 +5520,8 @@ function PhieuCungTool({ nguongNgay, currentUserRole, showNotification }: { nguo
     catch { showNotification('error', 'Lỗi kết nối!') } finally { setLoading(false) }
   }
   useEffect(() => { fetchList() }, [])
-  // Realtime: phiếu đổi trạng thái nộp (từ máy khác) -> danh sách tự cập nhật
-  const fetchListRef = useRef(fetchList)
-  fetchListRef.current = fetchList
-  useEffect(() => {
-    const ch = supabase.channel(JOBS_TOPIC).on('broadcast', { event: JOBS_EVENT }, () => fetchListRef.current()).subscribe()
-    return () => { supabase.removeChannel(ch) }
-  }, [])
+  // Realtime "tự lành": phiếu đổi trạng thái nộp (từ máy khác) -> danh sách tự cập nhật
+  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => fetchList())
 
   const fmt = (s: string) => { if (!s) return ''; const d = new Date(s); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` }
   const daysOf = (s: string) => Math.floor((Date.now() - new Date(s).getTime()) / 86400000)
@@ -6526,12 +6501,8 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
   }
 
   useEffect(() => { fetchRecords(thangNam) }, [thangNam])
-  // Realtime: ghi nhận bảo trì từ máy khác -> danh sách tháng đang xem tự cập nhật
-  const btRef = useRef(() => { }); btRef.current = () => fetchRecords(thangNam)
-  useEffect(() => {
-    const ch = supabase.channel(BAOTRI_TOPIC).on('broadcast', { event: DATA_EVENT }, () => btRef.current()).subscribe()
-    return () => { supabase.removeChannel(ch) }
-  }, [])
+  // Realtime "tự lành": ghi nhận bảo trì từ máy khác -> danh sách tháng đang xem tự cập nhật
+  useRealtimeRefetch(BAOTRI_TOPIC, DATA_EVENT, () => fetchRecords(thangNam))
   const paged = usePaged(records)
   const chuaBaoTriPaged = usePaged(chuaBaoTri)
   const tamDungPaged = usePaged(tamDung)
