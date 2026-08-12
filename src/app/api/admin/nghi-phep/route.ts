@@ -18,7 +18,9 @@ export async function GET(request: Request) {
     const session = await requireRole('admin', 'tech_admin')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
-    if (new URL(request.url).searchParams.get('count')) {
+    const sp = new URL(request.url).searchParams
+
+    if (sp.get('count')) {
       const { count, error } = await supabaseAdmin
         .from('soct_nghi_phep')
         .select('id', { count: 'exact', head: true })
@@ -27,20 +29,33 @@ export async function GET(request: Request) {
       return NextResponse.json({ count: count || 0 })
     }
 
+    // Người nghỉ HÔM NAY (đã duyệt + chờ duyệt) — cho banner Sổ công tác biết ai nghỉ,
+    // đã duyệt hay chưa (tránh quên đã duyệt cho ai). Bỏ đơn đã từ chối.
+    if (sp.get('today')) {
+      const today = todayStr()
+      const { data, error } = await supabaseAdmin
+        .from('soct_nghi_phep').select(SEL)
+        .lte('tu_ngay', today).gte('den_ngay', today)
+        .in('trang_thai', ['cho_duyet', 'da_duyet'])
+        .order('trang_thai', { ascending: true })
+      if (error) throw error
+      return NextResponse.json({ data: data || [] })
+    }
+
     const { data: pending, error: pErr } = await supabaseAdmin
       .from('soct_nghi_phep').select(SEL)
       .eq('trang_thai', 'cho_duyet')
       .order('tu_ngay', { ascending: true })
     if (pErr) throw pErr
 
-    const { data: upcoming, error: uErr } = await supabaseAdmin
+    // Toàn bộ đơn (mọi trạng thái) — mới nhất trước — để xem lịch sử đã duyệt/từ chối.
+    const { data: all, error: aErr } = await supabaseAdmin
       .from('soct_nghi_phep').select(SEL)
-      .eq('trang_thai', 'da_duyet')
-      .gte('den_ngay', todayStr())
-      .order('tu_ngay', { ascending: true })
-    if (uErr) throw uErr
+      .order('tu_ngay', { ascending: false })
+      .range(0, 999)
+    if (aErr) throw aErr
 
-    return NextResponse.json({ pending: pending || [], upcoming: upcoming || [] })
+    return NextResponse.json({ pending: pending || [], all: all || [] })
   } catch (error: any) {
     console.error('Error fetching nghi-phep (admin):', error)
     return NextResponse.json({ error: error.message }, { status: 500 })

@@ -24,12 +24,20 @@ const loaiBadge = (l: LoaiNghi) =>
     : l === 'viec_rieng' ? 'bg-amber-50 text-amber-700 border-amber-100'
       : 'bg-emerald-50 text-emerald-700 border-emerald-100'
 
+const TT_LABEL: Record<string, string> = { cho_duyet: 'Chờ duyệt', da_duyet: 'Đã duyệt', tu_choi: 'Từ chối' }
+const ttBadge = (t: string) =>
+  t === 'da_duyet' ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    : t === 'tu_choi' ? 'bg-rose-50 text-rose-700 border-rose-200'
+      : 'bg-amber-50 text-amber-700 border-amber-200'
+const FILTERS: [string, string][] = [['all', 'Tất cả'], ['cho_duyet', 'Chờ duyệt'], ['da_duyet', 'Đã duyệt'], ['tu_choi', 'Từ chối']]
+
 export default function NghiPhepDuyet({ notify, onPending }: {
   notify?: (type: 'success' | 'error', msg: string) => void
   onPending?: (n: number) => void
 }) {
   const [pending, setPending] = useState<Don[]>([])
-  const [upcoming, setUpcoming] = useState<Don[]>([])
+  const [all, setAll] = useState<Don[]>([])
+  const [filter, setFilter] = useState<string>('all')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
   const [reject, setReject] = useState<Don | null>(null)
@@ -41,7 +49,7 @@ export default function NghiPhepDuyet({ notify, onPending }: {
       const j = await res.json()
       if (res.ok) {
         setPending(j.pending || [])
-        setUpcoming(j.upcoming || [])
+        setAll(j.all || [])
         onPending?.((j.pending || []).length)
       }
     } catch { /* giữ dữ liệu cũ */ } finally { setLoading(false) }
@@ -64,11 +72,14 @@ export default function NghiPhepDuyet({ notify, onPending }: {
     } catch { notify?.('error', 'Lỗi kết nối!') } finally { setBusy(null) }
   }
 
-  const DonCard = ({ d, actionable }: { d: Don; actionable: boolean }) => (
+  const DonCard = ({ d, actionable, status }: { d: Don; actionable: boolean; status?: boolean }) => (
     <div className="bg-white rounded-xl border border-slate-200 p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="font-semibold text-slate-800 text-sm">{d.soct_users?.full_name || '—'}</div>
-        <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border shrink-0 ${loaiBadge(d.loai)}`}>{LOAI_LABEL[d.loai]}</span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {status && <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${ttBadge(d.trang_thai)}`}>{TT_LABEL[d.trang_thai] || d.trang_thai}</span>}
+          <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${loaiBadge(d.loai)}`}>{LOAI_LABEL[d.loai]}</span>
+        </div>
       </div>
       <div className="text-xs text-slate-600 mt-1 flex items-center gap-1">
         <CalendarClock className="w-3.5 h-3.5 text-slate-400" /> {moTaKhoang(d.tu_ngay, d.den_ngay, d.buoi)}
@@ -108,12 +119,23 @@ export default function NghiPhepDuyet({ notify, onPending }: {
       )}
 
       <div>
-        <h3 className="text-sm font-bold text-slate-700 mb-2">Sắp nghỉ (đã duyệt)</h3>
-        {upcoming.length === 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-4 text-center text-xs text-slate-400">Chưa có lịch nghỉ nào sắp tới.</div>
-        ) : (
-          <div className="space-y-2">{upcoming.map(d => <DonCard key={d.id} d={d} actionable={false} />)}</div>
-        )}
+        <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+          <h3 className="text-sm font-bold text-slate-700">Toàn bộ đơn nghỉ ({all.length})</h3>
+          <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
+            {FILTERS.map(([k, label]) => (
+              <button key={k} onClick={() => setFilter(k)}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${filter === k ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>{label}</button>
+            ))}
+          </div>
+        </div>
+        {(() => {
+          const list = filter === 'all' ? all : all.filter(d => d.trang_thai === filter)
+          return list.length === 0 ? (
+            <div className="bg-white rounded-xl border border-slate-200 p-4 text-center text-xs text-slate-400">Không có đơn nào.</div>
+          ) : (
+            <div className="space-y-2">{list.map(d => <DonCard key={d.id} d={d} actionable={false} status />)}</div>
+          )
+        })()}
       </div>
 
       {/* Modal từ chối */}

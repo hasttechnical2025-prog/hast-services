@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom"
-import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy, X } from "lucide-react"
+import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy, X, Palmtree } from "lucide-react"
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,6 +17,7 @@ import BaoGiaEditor, { type BaoGiaRow } from "@/components/BaoGiaEditor"
 import TroLyAI from "@/components/TroLyAI"
 import { hdbtStatus, loaiHdBadge } from "@/lib/hd-status"
 import { fmtThoiLuong } from "@/lib/thoi-gian"
+import { LOAI_LABEL, moTaKhoang } from "@/lib/nghi-phep"
 import { LOAI_HD_BAO_TRI, canBaoTriThang, dangTamDung, coBaoTriThang, moTaLichBaoTri, fmtThang, parseThangBaoTri, formatThangBaoTri, doiChieuNam, thangDaToi, CELL_DA_LAM, CELL_THIEU, CELL_CHUA_TOI } from "@/lib/bao-tri"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
 
@@ -333,6 +334,7 @@ export default function AdminDashboard() {
   const [hdbtOpen, setHdbtOpen] = useState(false)
   const [counterDueOpen, setCounterDueOpen] = useState(false)
   const [counterDueList, setCounterDueList] = useState<any[]>([])
+  const [leaveToday, setLeaveToday] = useState<any[]>([]) // ai nghỉ hôm nay (banner Sổ công tác)
   const [confirmGiamDinhOpen, setConfirmGiamDinhOpen] = useState<{
     message: string,
     onConfirm: () => void,
@@ -418,6 +420,18 @@ export default function AdminDashboard() {
       .catch(() => { })
     return () => { alive = false }
   }, [currentAdmin, activeTab, congTacTab, counterBaoTruocNgay])
+
+  // Ai nghỉ HÔM NAY (đã duyệt + chờ duyệt) -> banner Sổ công tác. Chỉ admin/tech_admin
+  // được API cho phép (staff/kthc gọi sẽ 401 -> banner rỗng, không sao).
+  useEffect(() => {
+    if (!currentAdmin || !['admin', 'tech_admin'].includes(currentUserRole)) { setLeaveToday([]); return }
+    let alive = true
+    fetch('/api/admin/nghi-phep?today=1')
+      .then(r => r.ok ? r.json() : { data: [] })
+      .then(j => { if (alive) setLeaveToday(j.data || []) })
+      .catch(() => { })
+    return () => { alive = false }
+  }, [currentAdmin, currentUserRole, activeTab])
 
   const [formData, setFormData] = useState({
     ngay: todayVN(), // Mặc định ngày hôm nay (giờ VN)
@@ -1260,6 +1274,27 @@ export default function AdminDashboard() {
                 </table>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === "cong_viec" && effectiveCongTacTab === "giao_viec" && leaveToday.length > 0 && (
+          <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Palmtree className="w-5 h-5 text-indigo-600 shrink-0" />
+              <span className="text-sm font-semibold text-indigo-800">Hôm nay có {leaveToday.length} người nghỉ</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {leaveToday.map((d: any) => {
+                const approved = d.trang_thai === 'da_duyet'
+                return (
+                  <div key={d.id} className="flex items-center gap-2 bg-white border border-indigo-100 rounded-lg px-3 py-1.5">
+                    <span className="text-sm font-medium text-slate-800">{d.soct_users?.full_name || '—'}</span>
+                    <span className="text-xs text-slate-500">{LOAI_LABEL[d.loai as keyof typeof LOAI_LABEL] || d.loai} · {moTaKhoang(d.tu_ngay, d.den_ngay, d.buoi)}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${approved ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{approved ? 'Đã duyệt' : 'Chờ duyệt'}</span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
 
