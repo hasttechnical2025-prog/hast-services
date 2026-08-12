@@ -375,15 +375,15 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                 draggable
                 onDragStart={e => handleDragStart(e, dragData)}
                 onClick={() => {
-                  if (state === 'Đang xử lý HĐ' || state === 'Đã lên hóa đơn' || state === 'Đã thanh toán') {
-                    setInvoiceNum(card.tickets[0].so_hoa_don || "")
-                    setActiveCard({
-                      type: count > 1 ? 'group' : 'single',
-                      tickets: card.tickets
-                    })
-                  }
+                  // Mở thẻ ở MỌI cột (kể cả Cột 1 Chờ lên HĐ) để tech_admin sửa tên hàng
+                  // TRƯỚC khi bàn giao kế toán. Modal tự ẩn phần Số HĐ / nút Hoàn tất ở Cột 1.
+                  setInvoiceNum(card.tickets[0].so_hoa_don || "")
+                  setActiveCard({
+                    type: count > 1 ? 'group' : 'single',
+                    tickets: card.tickets
+                  })
                 }}
-                className={`bg-white border rounded-lg p-3 shadow-sm hover:shadow transition cursor-grab active:cursor-grabbing border-slate-200 relative overflow-hidden ${state !== 'Chờ xuất HĐ' ? 'hover:bg-slate-50/50' : ''}`}
+                className={`bg-white border rounded-lg p-3 shadow-sm hover:shadow transition cursor-grab active:cursor-grabbing border-slate-200 relative overflow-hidden hover:bg-slate-50/50`}
               >
                 {/* Đường viền trang trí trạng thái */}
                 <div className={`absolute top-0 left-0 bottom-0 w-1 ${state === 'Chờ xuất HĐ' ? 'bg-blue-400' : state === 'Đang xử lý HĐ' ? 'bg-amber-400' : state === 'Đã lên hóa đơn' ? 'bg-emerald-500' : 'bg-indigo-500'}`}></div>
@@ -603,6 +603,12 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
 
             {/* Content (Scrollable) */}
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
+
+              {activeCard.tickets[0].trang_thai_hd === 'Chờ xuất HĐ' && (
+                <div className="text-xs bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-blue-700">
+                  Bấm <Pencil className="w-3 h-3 inline -mt-0.5" /> cạnh tên hàng để đổi tên hiển thị trên hóa đơn <b>trước khi</b> kéo sang cột kế toán.
+                </div>
+              )}
 
               {/* Thông tin khách hàng & MST */}
               <div className="bg-slate-50/70 p-4 rounded-lg border border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-4">
