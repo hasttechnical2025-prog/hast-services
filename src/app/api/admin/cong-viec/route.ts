@@ -160,7 +160,7 @@ export async function GET(request: Request) {
       let query = supabaseAdmin
         .from('soct_cong_viec')
         .select(`
-          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don,
+          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, nguon_nhan,
           bat_dau_luc, hoan_thanh_luc, so_phut_xu_ly,
           soct_khach_hang (
             ten_khach_hang,
@@ -292,6 +292,8 @@ export async function POST(request: Request) {
         created_by: session.id,
         // Gán KTV ngay khi tạo -> 'Đã nhận'; chưa gán -> 'Chờ nhận' (vào pool)
         ket_qua: ktv_id ? 'Đã nhận' : 'Chờ nhận',
+        // Nguồn nhận: tạo có KTV = giao trực tiếp; chưa gán = null (chờ KTV tự nhận)
+        nguon_nhan: ktv_id ? 'giao' : null,
         trang_thai_hd: hasHD ? 'Chờ xuất HĐ' : 'Chưa hóa đơn',
         // API tự gửi Telegram (bên dưới) -> đánh dấu để webhook DB không bắn trùng
         telegram_sent: true,
@@ -393,6 +395,13 @@ export async function PUT(request: Request) {
       const nextKetQua = preWork ? (ktv_id ? 'Đã nhận' : 'Chờ nhận') : cur.ket_qua
       const reportNorm = report ? String(report).trim() : ''
 
+      // Nguồn nhận: bỏ gán -> null; gán KTV MỚI (khác chính cũ) -> 'giao'; không đổi
+      // chính -> giữ nguyên (không ghi đè, để không xóa dấu 'tu_nhan' của phiếu KTV tự nhận).
+      const nguonNhanUpd: { nguon_nhan?: string | null } =
+        !ktv_id ? { nguon_nhan: null }
+          : ktv_id !== cur.ktv_id ? { nguon_nhan: 'giao' }
+            : {}
+
       // Đồng bộ trạng thái hóa đơn (công nợ) với cờ hoa_don của vật tư:
       //  - có vật tư đã HĐ  -> 'Đã lên hóa đơn' (ra khỏi công nợ)
       //  - không có         -> nếu trước đó đã lên HĐ thì trả về 'Chưa hóa đơn' (bỏ HĐ),
@@ -413,6 +422,7 @@ export async function PUT(request: Request) {
           report: reportNorm || null, ghi_chu,
           ket_qua: nextKetQua,
           trang_thai_hd: nextTrangThaiHd,
+          ...nguonNhanUpd,
           // API tự DM người mới được gán (bên dưới) -> chặn webhook DB bắn trùng
           telegram_sent: true,
         })
@@ -461,7 +471,7 @@ export async function PUT(request: Request) {
       const { data, error } = await supabaseAdmin
         .from('soct_cong_viec')
         // telegram_sent=true: webhook DB không bắn DM thừa cho chính KTV vừa tự bấm nhận.
-        .update({ ktv_id: session.id, ket_qua: 'Đã nhận', telegram_sent: true })
+        .update({ ktv_id: session.id, ket_qua: 'Đã nhận', nguon_nhan: 'tu_nhan', telegram_sent: true })
         .eq('id', id)
         .is('ktv_id', null)
         .select('*, soct_khach_hang(ten_khach_hang, dia_chi)')
@@ -518,10 +528,15 @@ export async function PUT(request: Request) {
         next_ktv2_id = null
       }
 
+      // Nguồn nhận: chỉ đổi khi CHÍNH thay đổi (KTV chính rút). KTV kèm lên chính = 'giao'
+      // (vốn do admin gán kèm); về pool = null. KTV kèm rút -> chính giữ nguyên, không đụng.
+      const nguonNhanRel: { nguon_nhan?: string | null } =
+        curJob.ktv_id === session.id ? { nguon_nhan: next_ktv_id ? 'giao' : null } : {}
+
       // 3. Cập nhật db
       const { data, error } = await supabaseAdmin
         .from('soct_cong_viec')
-        .update({ ktv_id: next_ktv_id, ktv2_id: next_ktv2_id, ket_qua: next_ket_qua })
+        .update({ ktv_id: next_ktv_id, ktv2_id: next_ktv2_id, ket_qua: next_ket_qua, ...nguonNhanRel })
         .eq('id', id)
         .select('id, ngay, ma_may, report, ghi_chu, loai_cong_viec, created_by, telegram_message_id, soct_khach_hang ( ten_khach_hang, dia_chi )')
         .single()

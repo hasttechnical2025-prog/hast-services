@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom"
-import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy, X, Palmtree } from "lucide-react"
+import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy, X, Palmtree, Send, Hand } from "lucide-react"
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -62,6 +62,7 @@ type Job = {
   ghi_chu: string
   report?: string
   so_phut_xu_ly?: number | null
+  nguon_nhan?: string | null
   ktv_id: string | null
   ktv2_id: string | null
   so_luong?: number
@@ -1452,15 +1453,20 @@ export default function AdminDashboard() {
                           })()}
                         </td>}
                         {jobsCol.show('trang_thai') && <td className="px-4 py-3 whitespace-nowrap">
-                          <span className={`inline-block whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-medium border
-                            ${job.ket_qua === 'Hoàn thành' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                              job.ket_qua === 'Đang làm' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                              job.ket_qua === 'Lắp tiếp' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                              job.ket_qua === 'Đã nhận' ? 'bg-violet-50 text-violet-700 border-violet-200' :
-                              'bg-slate-100 text-slate-700 border-slate-200'}`}
-                          >
-                            {job.ket_qua}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`inline-block whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-medium border
+                              ${job.ket_qua === 'Hoàn thành' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                job.ket_qua === 'Đang làm' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                job.ket_qua === 'Lắp tiếp' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                job.ket_qua === 'Đã nhận' ? 'bg-violet-50 text-violet-700 border-violet-200' :
+                                'bg-slate-100 text-slate-700 border-slate-200'}`}
+                            >
+                              {job.ket_qua}
+                            </span>
+                            {/* Nguồn nhận: máy bay giấy xanh = giao trực tiếp; bàn tay xanh lá = KTV tự nhận */}
+                            {job.nguon_nhan === 'giao' && <span title="Giao trực tiếp cho KTV" className="inline-flex text-indigo-500"><Send className="w-3.5 h-3.5" /></span>}
+                            {job.nguon_nhan === 'tu_nhan' && <span title="KTV tự nhận trên app" className="inline-flex text-emerald-500"><Hand className="w-3.5 h-3.5" /></span>}
+                          </div>
                         </td>}
                         {jobsCol.show('thaotac') && <td className="px-4 py-3 text-right whitespace-nowrap">
                           {(['Chờ nhận', 'Đã nhận'].includes(job.ket_qua) || currentUserRole === 'admin') && (
