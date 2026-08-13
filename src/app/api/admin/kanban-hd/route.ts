@@ -150,6 +150,10 @@ export async function PUT(request: Request) {
       }
       if (ngay_xuat_hd !== undefined) {
          updates.ngay_xuat_hd = ngay_xuat_hd || null
+      } else if (trang_thai_hd === 'Đã lên hóa đơn') {
+        // CHỐT ngày xuất hóa đơn = hôm nay (giờ VN) nếu client không gửi. Thiếu dòng này thì
+        // ngay_xuat_hd = NULL -> GET lọc mất thẻ ở cột "Chờ thanh toán" (thẻ biến mất khỏi board).
+        updates.ngay_xuat_hd = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
       }
     } else {
        // Kéo ngược lại cột 1 hoặc cột 2 -> xóa số hóa đơn và ngày xuất hóa đơn
