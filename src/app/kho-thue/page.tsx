@@ -2,10 +2,10 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { RefreshCw, Search, X, LogOut, AlertTriangle, Boxes } from "lucide-react"
+import { RefreshCw, Search, X, LogOut, AlertTriangle, Boxes, FileText } from "lucide-react"
 
-// Trang mobile CHỈ ĐỌC cho bộ phận Kinh doanh: tra cứu Kho máy thuê (biên bản giám định
-// từ Techbot). Không sửa. Dùng chung API /api/admin/kho-may-thue (GET mở cho role kinh_doanh).
+// Trang CHỈ ĐỌC cho bộ phận Kinh doanh: tra cứu Kho máy thuê (biên bản giám định từ
+// Techbot). Tối ưu cho PC (bảng rộng). Không sửa. GET /api/admin/kho-may-thue mở cho role kinh_doanh.
 
 type Insp = {
   id: string; serial: string; model: string; khach_hang: string; dia_chi: string
@@ -28,7 +28,7 @@ const norm = (s: string) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g,
 const fmtDate = (s: string) => { if (!s) return ''; const d = new Date(s); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` }
 const OK_ROLES = ['kinh_doanh', 'admin']
 
-export default function KhoThueMobilePage() {
+export default function KhoThuePage() {
   const [user, setUser] = useState<{ full_name: string; role: string } | null>(null)
   const [booting, setBooting] = useState(true)
   const [loginForm, setLoginForm] = useState({ username: "", password: "" })
@@ -38,6 +38,7 @@ export default function KhoThueMobilePage() {
   const [rows, setRows] = useState<Insp[]>([])
   const [loading, setLoading] = useState(false)
   const [q, setQ] = useState("")
+  const [onlyReRented, setOnlyReRented] = useState(false)
   const [detail, setDetail] = useState<Insp | null>(null)
 
   const fetchList = useCallback(async () => {
@@ -49,7 +50,6 @@ export default function KhoThueMobilePage() {
     } catch { /* giữ dữ liệu cũ */ } finally { setLoading(false) }
   }, [])
 
-  // Khôi phục phiên
   useEffect(() => {
     (async () => {
       try {
@@ -75,14 +75,16 @@ export default function KhoThueMobilePage() {
 
   const logout = async () => { try { await fetch('/api/auth/logout', { method: 'POST' }) } catch {} setUser(null); setRows([]) }
 
+  const reRentedCount = useMemo(() => rows.filter(r => r.da_thue_lai).length, [rows])
   const filtered = useMemo(() => {
     const toks = norm(q.trim()).split(/\s+/).filter(Boolean)
-    if (!toks.length) return rows
     return rows.filter(r => {
-      const hay = norm(`${r.serial} ${r.model} ${r.khach_hang} ${r.khach_hien_tai} ${r.dia_chi}`)
+      if (onlyReRented && !r.da_thue_lai) return false
+      if (!toks.length) return true
+      const hay = norm(`${r.serial} ${r.model} ${r.khach_hang} ${r.khach_hien_tai} ${r.dia_chi} ${r.ktv}`)
       return toks.every(t => hay.includes(t))
     })
-  }, [rows, q])
+  }, [rows, q, onlyReRented])
 
   // ── Màn đăng nhập ─────────────────────────────────────────────
   if (booting) return <div className="min-h-screen flex items-center justify-center text-slate-400 text-sm">Đang tải…</div>
@@ -115,52 +117,83 @@ export default function KhoThueMobilePage() {
     )
   }
 
-  // ── Danh sách ─────────────────────────────────────────────────
+  // ── Danh sách (bảng, tối ưu PC) ───────────────────────────────
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-2">
-        <Boxes className="w-5 h-5 text-blue-600 shrink-0" />
-        <div className="min-w-0">
-          <div className="text-sm font-bold text-slate-800 leading-tight">Kho máy thuê</div>
-          <div className="text-[11px] text-slate-400 truncate">{user.full_name}</div>
+      {/* Thanh trên */}
+      <div className="bg-white border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0"><Boxes className="w-5 h-5" /></div>
+          <div className="min-w-0">
+            <div className="text-base font-bold text-slate-800 leading-tight">Kho máy thuê</div>
+            <div className="text-xs text-slate-400">Bộ phận Kinh doanh · {user.full_name}</div>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="outline" onClick={fetchList} disabled={loading} className="gap-1 h-9"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Làm mới</Button>
+            <Button variant="outline" onClick={logout} className="gap-1 h-9 text-slate-600"><LogOut className="w-4 h-4" /> Đăng xuất</Button>
+          </div>
         </div>
-        <button onClick={fetchList} className="ml-auto p-2 text-slate-400 hover:text-blue-600" title="Làm mới"><RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} /></button>
-        <button onClick={logout} className="p-2 text-slate-400 hover:text-rose-600" title="Đăng xuất"><LogOut className="w-5 h-5" /></button>
       </div>
 
-      <div className="p-4 space-y-3 max-w-xl mx-auto">
-        <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm serial / model / khách..." className="pl-9 bg-white h-11" />
-        </div>
-        <div className="text-xs text-slate-400">{filtered.length} máy · chạm để xem chi tiết vật tư.</div>
-
-        {loading && rows.length === 0 ? (
-          <p className="text-center text-sm text-slate-400 py-10">Đang tải…</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-center text-sm text-slate-400 py-10">Không có máy nào.</p>
-        ) : (
-          <div className="space-y-2.5">
-            {filtered.map(r => (
-              <button key={r.id} onClick={() => setDetail(r)}
-                className={`w-full text-left bg-white rounded-xl border p-3.5 active:bg-slate-50 ${r.da_thue_lai ? 'border-rose-200' : 'border-slate-200'}`}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-sm font-semibold text-slate-800">{r.serial || '—'}</span>
-                  <span className="text-xs text-slate-400">{fmtDate(r.ngay)}</span>
-                </div>
-                <div className="text-xs text-slate-500 mt-0.5">{r.model || '—'}</div>
-                <div className="text-sm text-slate-700 mt-1.5">{r.khach_hang || '—'}</div>
-                {r.khach_hien_tai && (
-                  <div className={`text-xs mt-1 ${r.da_thue_lai ? 'text-rose-700 font-medium' : 'text-slate-500'}`}>
-                    {r.da_thue_lai && <AlertTriangle className="w-3.5 h-3.5 inline -mt-0.5 mr-1" />}
-                    Đang thuê: {r.khach_hien_tai}
-                  </div>
-                )}
-                {r.tinh_trang && <div className="text-xs text-slate-400 mt-1 line-clamp-2">{r.tinh_trang}</div>}
-              </button>
-            ))}
+      <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
+        {/* Bộ lọc */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm serial / model / khách..." className="pl-9 bg-white w-80" />
           </div>
-        )}
+          <label className="flex items-center gap-1.5 text-sm text-slate-700 cursor-pointer select-none">
+            <input type="checkbox" checked={onlyReRented} onChange={e => setOnlyReRented(e.target.checked)} className="w-4 h-4 accent-rose-600" />
+            Chỉ máy đã cho khách khác thuê {reRentedCount > 0 && <span className="text-rose-600 font-semibold">({reRentedCount})</span>}
+          </label>
+          <span className="text-sm text-slate-500 ml-auto">{filtered.length} máy</span>
+        </div>
+
+        {/* Bảng */}
+        <div className="overflow-x-auto border border-slate-200 rounded-lg bg-white">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-slate-600">
+              <tr>
+                <th className="text-left px-3 py-2.5 font-semibold whitespace-nowrap">Serial</th>
+                <th className="text-left px-3 py-2.5 font-semibold whitespace-nowrap">Model</th>
+                <th className="text-left px-3 py-2.5 font-semibold whitespace-nowrap">Khách lúc giám định</th>
+                <th className="text-left px-3 py-2.5 font-semibold whitespace-nowrap">Khách đang thuê</th>
+                <th className="text-left px-3 py-2.5 font-semibold">Tình trạng</th>
+                <th className="text-left px-3 py-2.5 font-semibold whitespace-nowrap">Counter</th>
+                <th className="text-left px-3 py-2.5 font-semibold whitespace-nowrap">KTV</th>
+                <th className="text-left px-3 py-2.5 font-semibold whitespace-nowrap">Ngày</th>
+                <th className="text-center px-3 py-2.5 font-semibold whitespace-nowrap">Chi tiết</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && rows.length === 0 ? (
+                <tr><td colSpan={9} className="text-center text-slate-400 py-10">Đang tải…</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={9} className="text-center text-slate-400 py-10">Không có máy nào.</td></tr>
+              ) : filtered.map(r => (
+                <tr key={r.id} className={`border-t border-slate-100 align-top hover:bg-slate-50/60 ${r.da_thue_lai ? 'bg-rose-50/40' : ''}`}>
+                  <td className="px-3 py-2.5 font-mono whitespace-nowrap">{r.serial || '—'}</td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">{r.model || '—'}</td>
+                  <td className="px-3 py-2.5">{r.khach_hang || '—'}</td>
+                  <td className="px-3 py-2.5">
+                    {r.khach_hien_tai
+                      ? <span className={r.da_thue_lai ? 'text-rose-700 font-medium' : 'text-slate-600'}>
+                          {r.da_thue_lai && <AlertTriangle className="w-3.5 h-3.5 inline -mt-0.5 mr-1" />}{r.khach_hien_tai}
+                        </span>
+                      : <span className="text-slate-300">—</span>}
+                  </td>
+                  <td className="px-3 py-2.5 min-w-[16rem] text-slate-600">{r.tinh_trang || '—'}</td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">{r.counter || '—'}</td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">{r.ktv || '—'}</td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">{fmtDate(r.ngay)}</td>
+                  <td className="px-3 py-2.5 text-center">
+                    <button onClick={() => setDetail(r)} title="Xem chi tiết vật tư" className="text-slate-500 hover:text-blue-700 inline-flex"><FileText className="w-4 h-4" /></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Chi tiết */}
@@ -168,26 +201,29 @@ export default function KhoThueMobilePage() {
         const d = detail.chi_tiet || {}
         const vt = VAT_TU_FIELDS.filter(([k]) => String(d[k] ?? '').trim())
         return (
-          <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50" onMouseDown={() => setDetail(null)}>
-            <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[88vh] flex flex-col overflow-hidden" onMouseDown={e => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onMouseDown={() => setDetail(null)}>
+            <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" onMouseDown={e => e.stopPropagation()}>
               <div className="flex items-center justify-between p-4 border-b border-slate-100">
-                <h3 className="text-base font-semibold text-slate-800">Chi tiết giám định</h3>
-                <button onClick={() => setDetail(null)} className="text-slate-400 p-1"><X className="w-5 h-5" /></button>
+                <h3 className="text-base font-semibold text-slate-800 flex items-center gap-2"><FileText className="w-5 h-5 text-blue-600" /> Chi tiết giám định</h3>
+                <button onClick={() => setDetail(null)} className="text-slate-400 hover:text-slate-600 p-1"><X className="w-5 h-5" /></button>
               </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="flex-1 overflow-y-auto p-5 space-y-4">
                 {detail.da_thue_lai && (
                   <div className="text-sm bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 text-rose-700 flex items-start gap-2">
                     <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                    <span>Máy đã <b>cho khách khác thuê</b>: hiện đang thuê <b>{detail.khach_hien_tai}</b>{detail.loai_hd_hien_tai ? ` (${detail.loai_hd_hien_tai})` : ''}.</span>
+                    <span>Máy đã <b>cho khách khác thuê</b>. Lúc giám định: <b>{detail.khach_hang || '—'}</b> → hiện đang thuê: <b>{detail.khach_hien_tai}</b>{detail.loai_hd_hien_tai ? ` (${detail.loai_hd_hien_tai})` : ''}.</span>
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
                   <Info label="Serial" value={detail.serial} mono />
                   <Info label="Model" value={detail.model} />
+                  <Info label="Mã máy" value={d.code} mono />
                   <Info label="Khách lúc giám định" value={detail.khach_hang} />
                   <Info label="Khách đang thuê" value={detail.khach_hien_tai} />
                   <Info label="Counter" value={detail.counter} />
+                  <Info label="KTV giám định" value={detail.ktv} />
                   <Info label="Ngày lập" value={fmtDate(detail.ngay)} />
+                  <Info label="Ngày kiểm tra" value={d.ins_date} />
                 </div>
                 {String(d.machine_condition ?? '').trim() && (
                   <div className="space-y-1">
@@ -195,14 +231,20 @@ export default function KhoThueMobilePage() {
                     <div className="text-sm text-slate-700 bg-slate-50 rounded-md px-3 py-2 whitespace-pre-wrap">{d.machine_condition}</div>
                   </div>
                 )}
+                {String(d.ly_do ?? '').trim() && (
+                  <div className="space-y-1">
+                    <div className="text-[11px] font-bold text-slate-400 uppercase">Lý do giám định</div>
+                    <div className="text-sm text-slate-700 bg-slate-50 rounded-md px-3 py-2 whitespace-pre-wrap">{d.ly_do}</div>
+                  </div>
+                )}
                 <div className="space-y-2">
-                  <div className="text-[11px] font-bold text-slate-400 uppercase">Chi tiết vật tư ({vt.length})</div>
+                  <div className="text-[11px] font-bold text-slate-400 uppercase">Chi tiết vật tư / bộ phận ({vt.length})</div>
                   {vt.length === 0 ? (
                     <p className="text-xs text-slate-400">Biên bản không ghi chi tiết vật tư.</p>
                   ) : (
-                    <div className="border border-slate-200 rounded-lg divide-y divide-slate-100">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 border border-slate-200 rounded-lg p-3">
                       {vt.map(([k, label]) => (
-                        <div key={k} className="flex items-center justify-between gap-2 text-sm px-3 py-1.5">
+                        <div key={k} className="flex items-center justify-between gap-2 text-sm border-b border-dashed border-slate-100 py-0.5">
                           <span className="text-slate-500">{label}</span>
                           <span className="font-medium text-slate-800 text-right">{String(d[k])}</span>
                         </div>
@@ -211,8 +253,8 @@ export default function KhoThueMobilePage() {
                   )}
                 </div>
               </div>
-              <div className="p-4 border-t border-slate-100">
-                <Button onClick={() => setDetail(null)} className="w-full h-11">Đóng</Button>
+              <div className="p-4 border-t border-slate-100 flex justify-end">
+                <Button onClick={() => setDetail(null)}>Đóng</Button>
               </div>
             </div>
           </div>
