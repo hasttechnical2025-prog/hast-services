@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
-import { requireTab } from '@/lib/session'
+import { requireTab, requireRole } from '@/lib/session'
 import { logAudit } from '@/lib/audit'
 
 export const runtime = 'nodejs'
@@ -18,7 +18,9 @@ const nameTokens = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]
 
 export async function GET() {
   try {
-    const session = await requireTab('tai_chinh', 'tai_chinh.kho_may_thue')
+    // Đọc: role có tab Kho máy thuê (admin/tech_admin/staff/kthc), HOẶC bộ phận kinh doanh (chỉ xem).
+    let session = await requireTab('tai_chinh', 'tai_chinh.kho_may_thue')
+    if (!session) session = await requireRole('kinh_doanh')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
     const { data, error } = await supabaseAdmin

@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       .from('soct_users')
       .select('id, full_name, role, password')
       .eq('username', username)
-      .in('role', ['admin', 'tech_admin', 'staff', 'kthc'])
+      .in('role', ['admin', 'tech_admin', 'staff', 'kthc', 'kinh_doanh'])
       .single()
 
     if (error || !data) {

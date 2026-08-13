@@ -862,6 +862,12 @@ export default function AdminDashboard() {
 
       if (res.ok) {
         const { data: user } = await res.json()
+        // Kinh doanh không dùng trang Admin -> hướng sang trang Kho máy thuê (mobile).
+        if (user.role === 'kinh_doanh') {
+          setLoginForm({ username: "", password: "" })
+          showNotification('error', 'Tài khoản Kinh doanh — vui lòng mở trang /kho-thue (trên điện thoại).')
+          return
+        }
         setCurrentAdmin(user)
         setLoginForm({ username: "", password: "" })
         showNotification('success', `Chào mừng ${user.full_name} đăng nhập thành công!`)
@@ -2969,6 +2975,7 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
           <select className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500" value={formData.role} onChange={(e) => setFormData({...formData, role: e.target.value})}>
             <option value="ktv">Kỹ thuật viên (KTV)</option>
             <option value="kthc">Kế toán (KTHC)</option>
+            <option value="kinh_doanh">Kinh doanh (chỉ Kho máy thuê, mobile)</option>
             <option value="staff">Staff (Chỉ xem sổ)</option>
             <option value="tech_admin">Tech Admin</option>
             <option value="admin">Admin</option>

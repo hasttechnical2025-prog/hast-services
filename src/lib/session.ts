@@ -7,7 +7,7 @@ import { roleCanTab } from '@/lib/tabs'
 // Phiên đăng nhập dùng cookie httpOnly có ký HMAC-SHA256.
 // Token dạng: base64url(payload).signature — client không thể tự sửa role.
 
-export type Role = 'admin' | 'tech_admin' | 'staff' | 'ktv' | 'kthc'
+export type Role = 'admin' | 'tech_admin' | 'staff' | 'ktv' | 'kthc' | 'kinh_doanh'
 
 export type SessionUser = {
   id: string
