@@ -5366,6 +5366,21 @@ function BaoCaoKtvTool({ technicians, showNotification }: { technicians: any[], 
   const tgList = data.jobs.map((j: any) => Number(j.so_phut_xu_ly)).filter((p: number) => p > 0 && p <= 240)
   const tgTB = tgList.length ? Math.round(tgList.reduce((s: number, p: number) => s + p, 0) / tgList.length) : null
 
+  // Tách TG xử lý trung bình theo TỪNG LOẠI CÔNG VIỆC (Lắp máy, Sửa chữa, Cài đặt, Bảo trì...).
+  const tgByType = (() => {
+    const m = new Map<string, number[]>()
+    for (const j of data.jobs as any[]) {
+      const p = Number(j.so_phut_xu_ly)
+      if (!(p > 0 && p <= 240)) continue
+      const loai = String(j.loai_cong_viec || '').trim() || 'Khác'
+      if (!m.has(loai)) m.set(loai, [])
+      m.get(loai)!.push(p)
+    }
+    return [...m.entries()]
+      .map(([loai, arr]) => ({ loai, n: arr.length, tb: Math.round(arr.reduce((s, p) => s + p, 0) / arr.length) }))
+      .sort((a, b) => b.n - a.n)
+  })()
+
   return (
     <div className="space-y-4">
       {/* Bộ lọc */}
@@ -5421,6 +5436,19 @@ function BaoCaoKtvTool({ technicians, showNotification }: { technicians: any[], 
         </div>
         <div className="text-xs text-slate-400">Từ <b>{tgList.length}</b> phiếu có đo thời gian (đã bỏ ca quá 4 giờ).</div>
         <div className="text-xs text-slate-400">Lưu ý: gồm cả di chuyển/chờ — là con số tham khảo, không phải năng suất.</div>
+
+        {tgByType.length > 0 && (
+          <div className="w-full flex flex-wrap gap-2 pt-2 border-t border-slate-100 mt-1">
+            <span className="text-xs text-slate-500 self-center mr-1">Theo loại việc:</span>
+            {tgByType.map(t => (
+              <span key={t.loai} className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-full px-3 py-1 text-xs">
+                <span className="text-slate-600">{t.loai}</span>
+                <b className="text-slate-800">{fmtThoiLuong(t.tb)}</b>
+                <span className="text-slate-400">({t.n})</span>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {loading ? (
