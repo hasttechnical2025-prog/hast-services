@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark, Pencil } from "lucide-react"
+import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark, Pencil, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import MonthField from "@/components/MonthField"
@@ -53,6 +53,7 @@ type Ticket = {
   da_nop_phieu: boolean
   trang_thai_hd: 'Chờ xuất HĐ' | 'Đang xử lý HĐ' | 'Đã lên hóa đơn' | 'Đã thanh toán'
   so_hoa_don: string | null
+  ngay_xuat_hd?: string | null
   soct_khach_hang: Customer | null
   soct_users: { full_name: string } | null
   soct_chi_tiet_vat_tu: VatTu[]
@@ -72,10 +73,12 @@ const fmtDate = (s: string) => {
 }
 
 const fmtVnd = (x: number) => Math.round(x || 0).toLocaleString('vi-VN')
+const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()
 
 export default function KanbanHdTool({ role = 'staff', showNotification }: { role?: string, showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState("") // tìm khách / số phiếu / số hóa đơn
   const [grouped, setGrouped] = useState(true) // Bật/tắt tự động gom nhóm theo khách hàng
   const [activeCard, setActiveCard] = useState<{ type: 'single' | 'group', tickets: Ticket[] } | null>(null)
   const [invoiceNum, setInvoiceNum] = useState("")
@@ -188,13 +191,20 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
 
       // 2. Thực hiện chuyển trạng thái
       if (targetState === 'Đã lên hóa đơn') {
-        // Nếu kéo sang Cột 3 -> Bắt buộc mở Modal để nhập số hóa đơn
         const matchedTickets = tickets.filter(t => targetIds.includes(t.id))
-        setInvoiceNum(matchedTickets[0].so_hoa_don || "")
-        setActiveCard({
-          type: cardData.ids ? 'group' : 'single',
-          tickets: matchedTickets
-        })
+        if (sourceState === 'Đang xử lý HĐ') {
+          // Cột 2 -> Cột 3: mở Modal để nhập Số hóa đơn lần đầu
+          setInvoiceNum(matchedTickets[0].so_hoa_don || "")
+          setActiveCard({ type: cardData.ids ? 'group' : 'single', tickets: matchedTickets })
+        } else {
+          // Cột 4 -> Cột 3 (bỏ đánh dấu đã thanh toán): giữ nguyên số HĐ + ngày xuất, chuyển thẳng.
+          const res = await fetch('/api/admin/kanban-hd', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: targetIds, trang_thai_hd: 'Đã lên hóa đơn', so_hoa_don: matchedTickets[0].so_hoa_don, ngay_xuat_hd: matchedTickets[0].ngay_xuat_hd })
+          })
+          if (res.ok) { showNotification('success', 'Đã chuyển về "Chờ thanh toán".'); load() }
+          else { const err = await res.json(); showNotification('error', err.error || 'Lỗi chuyển trạng thái') }
+        }
       } else if (sourceState === 'Đã lên hóa đơn' && targetState === 'Đang xử lý HĐ') {
         // Kéo ngược từ Cột 3 về Cột 2 -> Cần xác nhận xóa Số HĐ
         setConfirmDialog({
@@ -299,11 +309,23 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setSavingName(false) }
   }
 
+  // Tìm kiếm: khách hàng (cụm/lẻ) + số phiếu (report) + số hóa đơn. Áp cho CẢ 4 cột ->
+  // gõ vào là thấy phiếu đang nằm cột nào = trạng thái hóa đơn/thanh toán.
+  const sTokens = norm(search.trim()).split(/\s+/).filter(Boolean)
+  const matchSearch = (t: Ticket) => {
+    if (!sTokens.length) return true
+    const kh = t.soct_khach_hang; const cum = kh?.soct_khach_cum
+    const ten = cum ? (cum.ten_khach_hang || '') : (kh?.ten_khach_hang || '')
+    const hay = norm(`${ten} ${t.report || ''} ${t.so_hoa_don || ''}`)
+    return sTokens.every(tok => hay.includes(tok))
+  }
+  const shown = tickets.filter(matchSearch)
+
   // Phân bổ thẻ lên các cột
-  const col1Tickets = tickets.filter(t => t.trang_thai_hd === 'Chờ xuất HĐ')
-  const col2Tickets = tickets.filter(t => t.trang_thai_hd === 'Đang xử lý HĐ')
-  const col3Tickets = tickets.filter(t => t.trang_thai_hd === 'Đã lên hóa đơn')
-  const col4Tickets = tickets.filter(t => t.trang_thai_hd === 'Đã thanh toán')
+  const col1Tickets = shown.filter(t => t.trang_thai_hd === 'Chờ xuất HĐ')
+  const col2Tickets = shown.filter(t => t.trang_thai_hd === 'Đang xử lý HĐ')
+  const col3Tickets = shown.filter(t => t.trang_thai_hd === 'Đã lên hóa đơn')
+  const col4Tickets = shown.filter(t => t.trang_thai_hd === 'Đã thanh toán')
 
   // Gom nhóm Cột 1 & Cột 2 theo khách hàng nếu bật chế độ grouped
   const getColumnCards = (colTickets: Ticket[], state: string) => {
@@ -399,7 +421,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                         <div className="font-bold text-slate-800 text-xs leading-snug line-clamp-2">
                           {tenKh}
                         </div>
-                        {state === 'Chờ xuất HĐ' && (
+                        {(state === 'Chờ xuất HĐ' || role === 'admin') && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
@@ -516,6 +538,10 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm khách / số phiếu / số HĐ..." className="pl-8 h-9 w-64 bg-white text-sm" />
+          </div>
           <label className="flex items-center gap-1.5 text-xs text-slate-600">
             Kỳ đối chiếu:
             <MonthField value={thang} onChange={setThang} className="h-8 px-2 text-xs w-36" />
