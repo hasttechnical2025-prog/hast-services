@@ -81,7 +81,7 @@ export default function KhoThuePage() {
     return rows.filter(r => {
       if (onlyReRented && !r.da_thue_lai) return false
       if (!toks.length) return true
-      const hay = norm(`${r.serial} ${r.model} ${r.khach_hang} ${r.khach_hien_tai} ${r.dia_chi} ${r.ktv}`)
+      const hay = norm(`${r.serial} ${r.model} ${r.khach_hang} ${r.khach_hien_tai} ${r.dia_chi}`)
       return toks.every(t => hay.includes(t))
     })
   }, [rows, q, onlyReRented])
@@ -96,7 +96,7 @@ export default function KhoThuePage() {
           <div className="text-center space-y-1">
             <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto"><Boxes className="w-6 h-6" /></div>
             <h1 className="text-lg font-bold text-slate-800">Kho máy thuê</h1>
-            <p className="text-xs text-slate-400">Bộ phận Kinh doanh — đăng nhập để tra cứu</p>
+            <p className="text-xs text-slate-400">Đăng nhập để tra cứu</p>
           </div>
           <div className="space-y-3">
             <div className="space-y-1">
@@ -126,7 +126,7 @@ export default function KhoThuePage() {
           <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0"><Boxes className="w-5 h-5" /></div>
           <div className="min-w-0">
             <div className="text-base font-bold text-slate-800 leading-tight">Kho máy thuê</div>
-            <div className="text-xs text-slate-400">Bộ phận Kinh doanh · {user.full_name}</div>
+            <div className="text-xs text-slate-400">{user.full_name}</div>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <Button variant="outline" onClick={fetchList} disabled={loading} className="gap-1 h-9"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Làm mới</Button>
@@ -160,16 +160,14 @@ export default function KhoThuePage() {
                 <th className="text-left px-3 py-2.5 font-semibold whitespace-nowrap">Khách đang thuê</th>
                 <th className="text-left px-3 py-2.5 font-semibold">Tình trạng</th>
                 <th className="text-left px-3 py-2.5 font-semibold whitespace-nowrap">Counter</th>
-                <th className="text-left px-3 py-2.5 font-semibold whitespace-nowrap">KTV</th>
-                <th className="text-left px-3 py-2.5 font-semibold whitespace-nowrap">Ngày</th>
                 <th className="text-center px-3 py-2.5 font-semibold whitespace-nowrap">Chi tiết</th>
               </tr>
             </thead>
             <tbody>
               {loading && rows.length === 0 ? (
-                <tr><td colSpan={9} className="text-center text-slate-400 py-10">Đang tải…</td></tr>
+                <tr><td colSpan={7} className="text-center text-slate-400 py-10">Đang tải…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={9} className="text-center text-slate-400 py-10">Không có máy nào.</td></tr>
+                <tr><td colSpan={7} className="text-center text-slate-400 py-10">Không có máy nào.</td></tr>
               ) : filtered.map(r => (
                 <tr key={r.id} className={`border-t border-slate-100 align-top hover:bg-slate-50/60 ${r.da_thue_lai ? 'bg-rose-50/40' : ''}`}>
                   <td className="px-3 py-2.5 font-mono whitespace-nowrap">{r.serial || '—'}</td>
@@ -184,8 +182,6 @@ export default function KhoThuePage() {
                   </td>
                   <td className="px-3 py-2.5 min-w-[16rem] text-slate-600">{r.tinh_trang || '—'}</td>
                   <td className="px-3 py-2.5 whitespace-nowrap">{r.counter || '—'}</td>
-                  <td className="px-3 py-2.5 whitespace-nowrap">{r.ktv || '—'}</td>
-                  <td className="px-3 py-2.5 whitespace-nowrap">{fmtDate(r.ngay)}</td>
                   <td className="px-3 py-2.5 text-center">
                     <button onClick={() => setDetail(r)} title="Xem chi tiết vật tư" className="text-slate-500 hover:text-blue-700 inline-flex"><FileText className="w-4 h-4" /></button>
                   </td>
