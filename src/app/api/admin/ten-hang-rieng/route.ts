@@ -6,9 +6,37 @@ import { logAudit } from '@/lib/audit'
 
 export const runtime = 'nodejs'
 
-// Đổi tên hàng hóa hiển thị trên hóa đơn (2 phạm vi). Tên rỗng => xóa ghi đè (trả mặc định).
-//  - pham_vi 'hoa_don': ghi ten_hang_hd cho các dòng (theo ma_hang) của các phiếu chỉ định.
-//  - pham_vi 'khach'  : upsert soct_ten_hang_rieng theo scope_key + ma_hang (mặc định cho khách).
+// Ghi đè TÊN + ĐƠN GIÁ hàng hóa cho hóa đơn. Ba phạm vi:
+//  - 'hoa_don' : ghi thẳng vào dòng phiếu (ten_hang_hd + don_gia THẬT). Dùng cho sửa lẻ + nhập Excel.
+//  - 'khach'   : lưu MẪU theo khách (soct_ten_hang_rieng: ten_hang và/hoặc don_gia). KHÔNG tự áp.
+//  - 'ap_khach': áp MẪU của khách vào các dòng phiếu (bấm nút -> buộc rà soát, không tự điền ngầm).
+
+// Áp {ma_hang -> {ten?, gia?}} vào dòng vật tư của ticketIds. ten: chuỗi (rỗng = trả tên kho) |
+// undefined (giữ nguyên). gia: số | undefined (giữ nguyên). Ghi cả thanh_tien = don_gia * so_luong.
+async function applyToLines(ticketIds: string[], byMa: Map<string, { ten?: string; gia?: number }>) {
+  if (byMa.size === 0) return
+  const { data: lines, error } = await supabaseAdmin
+    .from('soct_chi_tiet_vat_tu').select('id, ma_hang, so_luong').in('id_cong_viec', ticketIds)
+  if (error) throw error
+  for (const l of (lines || []) as any[]) {
+    const u = byMa.get(l.ma_hang)
+    if (!u) continue
+    const patch: any = {}
+    if (u.ten !== undefined) patch.ten_hang_hd = String(u.ten).trim() || null
+    if (u.gia !== undefined && Number.isFinite(u.gia)) { patch.don_gia = u.gia; patch.thanh_tien = u.gia * (Number(l.so_luong) || 0) }
+    if (Object.keys(patch).length) {
+      const { error: e2 } = await supabaseAdmin.from('soct_chi_tiet_vat_tu').update(patch).eq('id', l.id)
+      if (e2) throw e2
+    }
+  }
+}
+
+const parseGia = (v: any): number | undefined => {
+  if (v === '' || v === null || v === undefined) return undefined
+  const n = Number(String(v).replace(/[^\d.-]/g, ''))
+  return Number.isFinite(n) ? n : undefined
+}
+
 export async function PUT(request: Request) {
   try {
     const session = await requireRole('admin', 'tech_admin', 'kthc')
@@ -16,33 +44,61 @@ export async function PUT(request: Request) {
 
     const body = await request.json()
     const pham_vi = body.pham_vi
-    const ma_hang = String(body.ma_hang || '').trim()
-    const ten = String(body.ten_hang || '').trim()
-    if (!ma_hang) return NextResponse.json({ error: 'Thiếu mã hàng' }, { status: 400 })
 
     if (pham_vi === 'hoa_don') {
       const ids: string[] = Array.isArray(body.ticket_ids) ? body.ticket_ids : []
-      if (ids.length === 0) return NextResponse.json({ error: 'Thiếu phiếu cần đổi tên' }, { status: 400 })
-      const { error } = await supabaseAdmin
-        .from('soct_chi_tiet_vat_tu')
-        .update({ ten_hang_hd: ten || null })
-        .in('id_cong_viec', ids)
-        .eq('ma_hang', ma_hang)
-      if (error) throw error
-      await logAudit(session, 'Đổi tên hàng (hóa đơn này)', `${ma_hang} → ${ten || '(mặc định)'}`)
+      if (ids.length === 0) return NextResponse.json({ error: 'Thiếu phiếu' }, { status: 400 })
+      // Chấp nhận 1 mục (ma_hang + ten_hang?/don_gia?) hoặc mảng items (nhập Excel).
+      const items = Array.isArray(body.items) ? body.items
+        : [{ ma_hang: body.ma_hang, ten_hang: body.ten_hang, don_gia: body.don_gia }]
+      const byMa = new Map<string, { ten?: string; gia?: number }>()
+      for (const it of items) {
+        const ma = String(it.ma_hang || '').trim()
+        if (!ma) continue
+        byMa.set(ma, {
+          ten: it.ten_hang !== undefined ? String(it.ten_hang) : undefined,
+          gia: parseGia(it.don_gia),
+        })
+      }
+      if (byMa.size === 0) return NextResponse.json({ error: 'Không có mã hàng hợp lệ' }, { status: 400 })
+      await applyToLines(ids, byMa)
+      await logAudit(session, 'Sửa tên/giá hàng (hóa đơn)', `${byMa.size} mã · ${ids.length} phiếu`)
+
     } else if (pham_vi === 'khach') {
       const scope_key = String(body.scope_key || '').trim()
-      if (!scope_key) return NextResponse.json({ error: 'Thiếu khách hàng' }, { status: 400 })
-      if (!ten) {
-        const { error } = await supabaseAdmin.from('soct_ten_hang_rieng')
-          .delete().eq('scope_key', scope_key).eq('ma_hang', ma_hang)
-        if (error) throw error
+      const ma_hang = String(body.ma_hang || '').trim()
+      if (!scope_key || !ma_hang) return NextResponse.json({ error: 'Thiếu khách / mã hàng' }, { status: 400 })
+      const { data: cur } = await supabaseAdmin.from('soct_ten_hang_rieng')
+        .select('ten_hang, don_gia').eq('scope_key', scope_key).eq('ma_hang', ma_hang).maybeSingle()
+      const newTen = body.ten_hang !== undefined ? (String(body.ten_hang).trim() || null) : (cur?.ten_hang ?? null)
+      const giaIn = parseGia(body.don_gia)
+      const newGia = body.don_gia !== undefined ? (giaIn ?? null) : (cur?.don_gia ?? null)
+      if (newTen == null && newGia == null) {
+        await supabaseAdmin.from('soct_ten_hang_rieng').delete().eq('scope_key', scope_key).eq('ma_hang', ma_hang)
       } else {
         const { error } = await supabaseAdmin.from('soct_ten_hang_rieng')
-          .upsert({ scope_key, ma_hang, ten_hang: ten, updated_at: new Date().toISOString() }, { onConflict: 'scope_key,ma_hang' })
+          .upsert({ scope_key, ma_hang, ten_hang: newTen, don_gia: newGia, updated_at: new Date().toISOString() }, { onConflict: 'scope_key,ma_hang' })
         if (error) throw error
       }
-      await logAudit(session, 'Đổi tên hàng (mặc định khách)', `${scope_key} · ${ma_hang} → ${ten || '(xóa)'}`)
+      await logAudit(session, 'Lưu mẫu tên/giá khách', `${scope_key} · ${ma_hang}`)
+
+    } else if (pham_vi === 'ap_khach') {
+      const ids: string[] = Array.isArray(body.ticket_ids) ? body.ticket_ids : []
+      const scope_key = String(body.scope_key || '').trim()
+      if (ids.length === 0 || !scope_key) return NextResponse.json({ error: 'Thiếu phiếu / khách' }, { status: 400 })
+      const { data: tpl } = await supabaseAdmin.from('soct_ten_hang_rieng')
+        .select('ma_hang, ten_hang, don_gia').eq('scope_key', scope_key)
+      const byMa = new Map<string, { ten?: string; gia?: number }>()
+      for (const t of (tpl || []) as any[]) {
+        byMa.set(t.ma_hang, {
+          ten: t.ten_hang != null ? String(t.ten_hang) : undefined,
+          gia: t.don_gia != null ? Number(t.don_gia) : undefined,
+        })
+      }
+      if (byMa.size === 0) return NextResponse.json({ error: 'Khách này chưa có mẫu tên/giá nào đã lưu.' }, { status: 400 })
+      await applyToLines(ids, byMa)
+      await logAudit(session, 'Áp mẫu tên/giá khách', `${scope_key} · ${ids.length} phiếu`)
+
     } else {
       return NextResponse.json({ error: 'Phạm vi không hợp lệ' }, { status: 400 })
     }

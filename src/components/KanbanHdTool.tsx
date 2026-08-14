@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark, Pencil, Search } from "lucide-react"
+import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark, Pencil, Search, Download, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import MonthField from "@/components/MonthField"
@@ -54,6 +54,7 @@ type Ticket = {
   trang_thai_hd: 'Chờ xuất HĐ' | 'Đang xử lý HĐ' | 'Đã lên hóa đơn' | 'Đã thanh toán'
   so_hoa_don: string | null
   ngay_xuat_hd?: string | null
+  _co_mau?: boolean // khách có mẫu tên/giá đã lưu (để hiện nút "Áp mẫu khách")
   soct_khach_hang: Customer | null
   soct_users: { full_name: string } | null
   soct_chi_tiet_vat_tu: VatTu[]
@@ -84,7 +85,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const [invoiceNum, setInvoiceNum] = useState("")
   const [completing, setCompleting] = useState(false)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
-  const [editName, setEditName] = useState<{ ma_hang: string; ten: string } | null>(null) // sửa tên hàng trong modal
+  const [editName, setEditName] = useState<{ ma_hang: string; ten: string; gia: string } | null>(null) // sửa tên + đơn giá trong modal
   const [savingName, setSavingName] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState<{
     title: string
@@ -287,7 +288,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     return t0.soct_khach_hang?.ma_khach_cum ? `cum:${t0.soct_khach_hang.ma_khach_cum}` : `may:${t0.id_khach_hang}`
   })()
 
-  // Lưu tên hàng: phamvi 'hoa_don' (chỉ dòng của phiếu này) hoặc 'khach' (mặc định cho khách).
+  // Lưu tên + đơn giá: 'hoa_don' (ghi thẳng dòng phiếu này) hoặc 'khach' (lưu MẪU cho khách).
   const saveName = async (pham_vi: 'hoa_don' | 'khach') => {
     if (!editName || !activeCard) return
     setSavingName(true)
@@ -295,18 +296,73 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       const res = await fetch('/api/admin/ten-hang-rieng', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          pham_vi, ma_hang: editName.ma_hang, ten_hang: editName.ten,
+          pham_vi, ma_hang: editName.ma_hang, ten_hang: editName.ten, don_gia: editName.gia,
           ...(pham_vi === 'hoa_don'
             ? { ticket_ids: activeCard.tickets.map(t => t.id) }
             : { scope_key: modalScopeKey }),
         }),
       })
       if (res.ok) {
-        showNotification('success', pham_vi === 'khach' ? 'Đã lưu tên mặc định cho khách.' : 'Đã đổi tên cho hóa đơn này.')
+        showNotification('success', pham_vi === 'khach' ? 'Đã lưu mẫu tên/giá cho khách.' : 'Đã cập nhật hóa đơn này.')
         setEditName(null)
         load()
-      } else { const e = await res.json(); showNotification('error', e.error || 'Lỗi lưu tên') }
+      } else { const e = await res.json(); showNotification('error', e.error || 'Lỗi lưu') }
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setSavingName(false) }
+  }
+
+  // Áp MẪU tên/giá đã lưu của khách vào các dòng của phiếu này (bấm nút -> ghi vào dòng).
+  const applyTemplate = async () => {
+    if (!activeCard) return
+    setSavingName(true)
+    try {
+      const res = await fetch('/api/admin/ten-hang-rieng', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pham_vi: 'ap_khach', scope_key: modalScopeKey, ticket_ids: activeCard.tickets.map(t => t.id) }),
+      })
+      if (res.ok) { showNotification('success', 'Đã áp mẫu tên/giá của khách. Vui lòng kiểm tra lại.'); load() }
+      else { const e = await res.json(); showNotification('error', e.error || 'Lỗi áp mẫu') }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setSavingName(false) }
+  }
+
+  // Xuất Excel danh sách vật tư (Mã hàng · Tên · SL · Đơn giá · VAT · Thành tiền) để sửa hàng loạt.
+  const exportExcel = async () => {
+    if (!activeCard) return
+    const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
+    const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('HangHoa')
+    ws.addRow(['Mã hàng', 'Tên hàng', 'SL', 'Đơn giá', 'VAT (%)', 'Thành tiền (chưa VAT)'])
+    for (const v of modalDisplayRows) ws.addRow([v.ma_hang, v.ten_hang, v.so_luong, v.don_gia, v.vat, v.so_luong * v.don_gia])
+    ws.getRow(1).font = { bold: true }
+    const buf = await wb.xlsx.writeBuffer()
+    const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+    const a = document.createElement('a')
+    a.href = url; a.download = `hanghoa-${activeCard.tickets[0]?.so_hoa_don || activeCard.tickets[0]?.report || 'phieu'}.xlsx`; a.click(); URL.revokeObjectURL(url)
+  }
+
+  // Nhập lại Excel -> cập nhật ĐƠN GIÁ (thật) + TÊN (ghi đè hóa đơn) cho dòng của phiếu này, khớp mã hàng.
+  const importExcel = async (file: File) => {
+    if (!activeCard) return
+    setSavingName(true)
+    try {
+      const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
+      const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer())
+      const ws = wb.worksheets[0]
+      const cell = (v: any) => (v && typeof v === 'object' && 'result' in v) ? v.result : v
+      const items: { ma_hang: string; ten_hang: string; don_gia: any }[] = []
+      ws.eachRow({ includeEmpty: false }, (row: any, idx: number) => {
+        if (idx === 1) return // bỏ dòng tiêu đề
+        const vals = row.values as any[]
+        const ma = String(cell(vals[1]) ?? '').trim()
+        if (!ma) return
+        items.push({ ma_hang: ma, ten_hang: String(cell(vals[2]) ?? ''), don_gia: cell(vals[4]) })
+      })
+      if (items.length === 0) { showNotification('error', 'File không có dòng hợp lệ.'); return }
+      const res = await fetch('/api/admin/ten-hang-rieng', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pham_vi: 'hoa_don', ticket_ids: activeCard.tickets.map(t => t.id), items }),
+      })
+      if (res.ok) { showNotification('success', `Đã cập nhật ${items.length} mặt hàng từ Excel.`); load() }
+      else { const e = await res.json(); showNotification('error', e.error || 'Lỗi nhập Excel') }
+    } catch { showNotification('error', 'Lỗi đọc file Excel') } finally { setSavingName(false) }
   }
 
   // Tìm kiếm: khách hàng (cụm/lẻ) + số phiếu (report) + số hóa đơn. Áp cho CẢ 4 cột ->
@@ -703,7 +759,21 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
 
               {/* Bảng chi tiết sản phẩm / dịch vụ */}
               <div className="space-y-2">
-                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Danh sách sản phẩm dịch vụ ({modalDisplayRows.length} mặt hàng)</div>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Danh sách sản phẩm dịch vụ ({modalDisplayRows.length} mặt hàng)</div>
+                  <div className="flex items-center gap-1.5">
+                    {activeCard.tickets[0]?._co_mau && (
+                      <Button size="sm" variant="outline" onClick={applyTemplate} disabled={savingName} className="h-8 text-xs gap-1 border-amber-300 text-amber-700 hover:bg-amber-50" title="Điền tên + đơn giá đã lưu của khách này (rồi kiểm tra lại)">
+                        <CheckSquare className="w-3.5 h-3.5" /> Áp mẫu khách
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" onClick={exportExcel} className="h-8 text-xs gap-1"><Download className="w-3.5 h-3.5" /> Xuất Excel</Button>
+                    <label className="h-8 px-3 text-xs gap-1 inline-flex items-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer text-slate-700">
+                      <Upload className="w-3.5 h-3.5" /> Nhập Excel
+                      <input type="file" accept=".xlsx" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) importExcel(f); e.target.value = '' }} />
+                    </label>
+                  </div>
+                </div>
                 <div className="border border-slate-200 rounded-lg overflow-hidden">
                   <table className="w-full text-left text-xs text-slate-600">
                     <thead className="bg-slate-50 text-slate-500 font-semibold uppercase">
@@ -725,15 +795,24 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                             <tr key={i} className="bg-blue-50/40">
                               <td colSpan={6} className="px-3 py-2.5">
                                 <div className="flex flex-col gap-2">
-                                  <Input
-                                    value={editName.ten}
-                                    onChange={e => setEditName({ ma_hang: v.ma_hang, ten: e.target.value })}
-                                    placeholder="Tên hàng trên hóa đơn (để trống = trả về tên mặc định)"
-                                    className="h-9 bg-white text-xs"
-                                  />
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                    <Input
+                                      value={editName.ten}
+                                      onChange={e => setEditName({ ...editName, ten: e.target.value })}
+                                      placeholder="Tên hàng trên hóa đơn"
+                                      className="h-9 bg-white text-xs sm:col-span-2"
+                                    />
+                                    <Input
+                                      value={editName.gia}
+                                      onChange={e => setEditName({ ...editName, gia: e.target.value })}
+                                      placeholder="Đơn giá"
+                                      inputMode="numeric"
+                                      className="h-9 bg-white text-xs text-right"
+                                    />
+                                  </div>
                                   <div className="flex flex-wrap gap-2 items-center">
                                     <Button size="sm" onClick={() => saveName('hoa_don')} disabled={savingName} className="h-8 text-xs bg-blue-600 hover:bg-blue-700">Chỉ hóa đơn này</Button>
-                                    <Button size="sm" variant="outline" onClick={() => saveName('khach')} disabled={savingName} className="h-8 text-xs">Mặc định cho khách</Button>
+                                    <Button size="sm" variant="outline" onClick={() => saveName('khach')} disabled={savingName} className="h-8 text-xs">Lưu mẫu cho khách</Button>
                                     <button onClick={() => setEditName(null)} className="text-xs text-slate-500 hover:text-slate-700 px-1">Hủy</button>
                                     <span className="text-[10px] text-slate-400 ml-auto font-mono">Mã: {v.ma_hang}</span>
                                   </div>
@@ -748,8 +827,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                               <div className="flex items-center gap-1.5">
                                 <span>{v.ten_hang}</span>
                                 <button
-                                  onClick={() => setEditName({ ma_hang: v.ma_hang, ten: v.ten_hang })}
-                                  title="Đổi tên hàng hiển thị trên hóa đơn"
+                                  onClick={() => setEditName({ ma_hang: v.ma_hang, ten: v.ten_hang, gia: v.don_gia ? String(v.don_gia) : '' })}
+                                  title="Đổi tên / đơn giá hiển thị trên hóa đơn"
                                   className="text-slate-300 hover:text-blue-600 shrink-0"
                                 >
                                   <Pencil className="w-3.5 h-3.5" />

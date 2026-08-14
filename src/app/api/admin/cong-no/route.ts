@@ -24,15 +24,11 @@ export async function GET() {
       .order('ngay', { ascending: true })
       .range(from, to))
 
-    // Gắn tên hàng hiển thị (ten_hd): ten_hang_hd (dòng) > tên riêng theo khách > kho > mã.
-    const { data: overrides } = await supabaseAdmin.from('soct_ten_hang_rieng').select('scope_key, ma_hang, ten_hang')
-    const ovMap = new Map<string, string>()
-    for (const o of (overrides || []) as any[]) ovMap.set(`${o.scope_key}::${o.ma_hang}`, o.ten_hang)
+    // Tên hàng hiển thị = ten_hang_hd (đã ghi vào dòng) > kho > mã. Mẫu "riêng theo khách"
+    // không tự áp (chỉ áp bằng nút ở Kanban -> ghi vào dòng).
     for (const t of (data || []) as any[]) {
-      const kh = t.soct_khach_hang
-      const scopeKey = kh?.ma_khach_cum ? `cum:${kh.ma_khach_cum}` : `may:${t.id_khach_hang}`
       for (const v of (t.soct_chi_tiet_vat_tu || [])) {
-        v.ten_hd = v.ten_hang_hd || ovMap.get(`${scopeKey}::${v.ma_hang}`) || v.soct_kho_hang?.ten_hang || v.ma_hang
+        v.ten_hd = v.ten_hang_hd || v.soct_kho_hang?.ten_hang || v.ma_hang
       }
     }
 

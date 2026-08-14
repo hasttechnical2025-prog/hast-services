@@ -89,16 +89,17 @@ export async function GET(request: Request) {
       return true
     })
 
-    // Gắn tên hàng hiển thị (ten_hd) theo ưu tiên: ten_hang_hd (dòng) > tên riêng theo
-    // khách (soct_ten_hang_rieng) > tên kho > mã hàng. scope_key khớp cách gom khách.
-    const { data: overrides } = await supabaseAdmin.from('soct_ten_hang_rieng').select('scope_key, ma_hang, ten_hang')
-    const ovMap = new Map<string, string>()
-    for (const o of (overrides || []) as any[]) ovMap.set(`${o.scope_key}::${o.ma_hang}`, o.ten_hang)
+    // Tên hàng hiển thị = ten_hang_hd (đã ghi vào dòng) > tên kho > mã hàng. Mẫu "riêng theo
+    // khách" KHÔNG tự áp ở đây nữa — chỉ áp khi bấm nút (ghi vào dòng) để buộc rà soát.
+    // _co_mau: khách (theo scope) đã lưu mẫu tên/giá -> client hiện nút "Áp mẫu khách".
+    const { data: tplScopes } = await supabaseAdmin.from('soct_ten_hang_rieng').select('scope_key')
+    const scopeSet = new Set((tplScopes || []).map((s: any) => s.scope_key))
     for (const t of filtered as any[]) {
       const kh = t.soct_khach_hang
       const scopeKey = kh?.ma_khach_cum ? `cum:${kh.ma_khach_cum}` : `may:${t.id_khach_hang}`
+      t._co_mau = scopeSet.has(scopeKey)
       for (const v of (t.soct_chi_tiet_vat_tu || [])) {
-        v.ten_hd = v.ten_hang_hd || ovMap.get(`${scopeKey}::${v.ma_hang}`) || v.soct_kho_hang?.ten_hang || v.ma_hang
+        v.ten_hd = v.ten_hang_hd || v.soct_kho_hang?.ten_hang || v.ma_hang
       }
     }
 
