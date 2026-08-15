@@ -36,7 +36,8 @@ export async function GET(request: Request) {
       return supabaseAdmin
         .from('soct_cong_viec')
         .select(`
-          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, ngay_xuat_hd,
+          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, ngay_xuat_hd, nguoi_xuat_hd,
+          nguoi_xuat:soct_users!nguoi_xuat_hd ( full_name ),
           soct_khach_hang (
             id,
             ten_khach_hang,
@@ -114,7 +115,7 @@ export async function GET(request: Request) {
 // Body: { id, ids?, trang_thai_hd, so_hoa_don? }
 export async function PUT(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'kthc')
+    const session = await requireRole('admin', 'tech_admin', 'staff', 'kthc')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
     }
@@ -156,10 +157,16 @@ export async function PUT(request: Request) {
         // ngay_xuat_hd = NULL -> GET lọc mất thẻ ở cột "Chờ thanh toán" (thẻ biến mất khỏi board).
         updates.ngay_xuat_hd = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
       }
+      // Lưu người lập hóa đơn (ai bấm Hoàn tất) để hiển thị + đối chiếu.
+      if (trang_thai_hd === 'Đã lên hóa đơn') updates.nguoi_xuat_hd = session.id
     } else {
-       // Kéo ngược lại cột 1 hoặc cột 2 -> xóa số hóa đơn và ngày xuất hóa đơn
-       updates.so_hoa_don = null
-       updates.ngay_xuat_hd = null
+      // Trả về "Đang xử lý HĐ" (kéo ngược để sửa): GIỮ số hóa đơn để re-complete khỏi gõ lại,
+      // chỉ xóa ngày xuất. Về hẳn Chờ xuất/Công nợ mới xóa số HĐ + người lập.
+      updates.ngay_xuat_hd = null
+      if (trang_thai_hd === 'Chờ xuất HĐ' || trang_thai_hd === 'Chưa hóa đơn') {
+        updates.so_hoa_don = null
+        updates.nguoi_xuat_hd = null
+      }
     }
 
     // Cập nhật Database

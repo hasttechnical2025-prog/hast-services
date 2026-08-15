@@ -54,6 +54,7 @@ type Ticket = {
   trang_thai_hd: 'Chờ xuất HĐ' | 'Đang xử lý HĐ' | 'Đã lên hóa đơn' | 'Đã thanh toán'
   so_hoa_don: string | null
   ngay_xuat_hd?: string | null
+  nguoi_xuat?: { full_name: string } | null // người lập hóa đơn (kế toán bấm Hoàn tất)
   _co_mau?: boolean // khách có mẫu tên/giá đã lưu (để hiện nút "Áp mẫu khách")
   soct_khach_hang: Customer | null
   soct_users: { full_name: string } | null
@@ -75,11 +76,14 @@ const fmtDate = (s: string) => {
 
 const fmtVnd = (x: number) => Math.round(x || 0).toLocaleString('vi-VN')
 const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()
+// Số ngày kể từ ngày xuất hóa đơn (tính tuổi nợ đọng ở cột Chờ thanh toán).
+const daysSince = (d: any): number | null => { if (!d) return null; const t = new Date(d).getTime(); return isNaN(t) ? null : Math.max(0, Math.floor((Date.now() - t) / 86400000)) }
 
 export default function KanbanHdTool({ role = 'staff', showNotification }: { role?: string, showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("") // tìm khách / số phiếu / số hóa đơn
+  const [col3ChiKyNay, setCol3ChiKyNay] = useState(false) // cột Chờ thanh toán: lọc theo kỳ hay lũy kế
   const [grouped, setGrouped] = useState(true) // Bật/tắt tự động gom nhóm theo khách hàng
   const [activeCard, setActiveCard] = useState<{ type: 'single' | 'group', tickets: Ticket[] } | null>(null)
   const [invoiceNum, setInvoiceNum] = useState("")
@@ -172,7 +176,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       // 1. Kiểm tra phân quyền kéo/thả
       if (role !== 'admin') {
         if (role === 'tech_admin' || role === 'staff') {
-          // Tech_admin và Staff: Chỉ được kéo từ Cột 1 sang Cột 2 (Bàn giao Kế toán)
+          // Tech_admin & Staff: chỉ kéo Cột 1 -> Cột 2 (bàn giao Kế toán) + thu hồi về Công nợ.
           if (!(sourceState === 'Chờ xuất HĐ' && targetState === 'Đang xử lý HĐ')) {
             return showNotification('error', 'Bạn chỉ có quyền kéo thẻ từ Cột 1 (Chờ xuất HĐ) sang Cột 2 để bàn giao cho Kế toán.')
           }
@@ -207,18 +211,19 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
           else { const err = await res.json(); showNotification('error', err.error || 'Lỗi chuyển trạng thái') }
         }
       } else if (sourceState === 'Đã lên hóa đơn' && targetState === 'Đang xử lý HĐ') {
-        // Kéo ngược từ Cột 3 về Cột 2 -> Cần xác nhận xóa Số HĐ
+        // Kéo ngược Cột 3 -> Cột 2 để sửa. GIỮ số HĐ (hệ thống nhớ lại) -> khi hoàn tất lại
+        // khỏi gõ số HĐ. Chỉ gỡ ngày xuất + cờ hóa đơn (ra khỏi "chờ thanh toán").
         setConfirmDialog({
-          title: "Cảnh báo Kéo ngược",
-          message: "Bạn đang kéo ngược phiếu đã xuất hóa đơn.\nSố hóa đơn cũ sẽ bị xóa khỏi hệ thống.\n\nBạn có chắc chắn muốn thực hiện?",
+          title: "Trả về xử lý hóa đơn",
+          message: "Trả phiếu này về cột 'KT-HC lên hóa đơn' để sửa?\nSố hóa đơn được GIỮ LẠI (khi hoàn tất lại sẽ điền sẵn).",
           onConfirm: async () => {
             const res = await fetch('/api/admin/kanban-hd', {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ ids: targetIds, trang_thai_hd: 'Đang xử lý HĐ', so_hoa_don: null })
+              body: JSON.stringify({ ids: targetIds, trang_thai_hd: 'Đang xử lý HĐ' })
             })
             if (res.ok) {
-              showNotification('success', 'Đã trả thẻ về trạng thái xử lý hóa đơn.')
+              showNotification('success', 'Đã trả thẻ về xử lý hóa đơn (giữ số HĐ).')
               load()
             } else {
               const err = await res.json()
@@ -246,25 +251,36 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     }
   }
 
-  // Hoàn tất xuất hóa đơn (Modal Submit)
+  // Hoàn tất xuất hóa đơn (Modal Submit). Có cảnh báo số HĐ trùng của KHÁCH KHÁC (chống gõ nhầm).
   const handleCompleteInvoice = async () => {
     if (!activeCard) return
     const cleanedInvoice = invoiceNum.trim()
-    if (!cleanedInvoice) {
-      return showNotification('error', 'Vui lòng nhập Số hóa đơn!')
-    }
+    if (!cleanedInvoice) return showNotification('error', 'Vui lòng nhập Số hóa đơn!')
 
+    const currentIds = new Set(activeCard.tickets.map(t => t.id))
+    const curKh = activeCard.tickets[0]?.id_khach_hang
+    const dup = tickets.find(t => !currentIds.has(t.id) && (t.so_hoa_don || '').trim().toUpperCase() === cleanedInvoice.toUpperCase() && t.id_khach_hang !== curKh)
+    if (dup) {
+      const dupKh = dup.soct_khach_hang?.soct_khach_cum?.ten_khach_hang || dup.soct_khach_hang?.ten_khach_hang || 'khách khác'
+      setConfirmDialog({
+        title: 'Số hóa đơn có thể trùng',
+        message: `Số hóa đơn "${cleanedInvoice}" đã dùng cho phiếu của "${dupKh}".\nBạn có chắc muốn dùng lại số này?`,
+        onConfirm: async () => { await doCompleteInvoice(cleanedInvoice) },
+      })
+      return
+    }
+    await doCompleteInvoice(cleanedInvoice)
+  }
+
+  const doCompleteInvoice = async (cleanedInvoice: string) => {
+    if (!activeCard) return
     setCompleting(true)
     try {
       const targetIds = activeCard.tickets.map(t => t.id)
       const res = await fetch('/api/admin/kanban-hd', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ids: targetIds,
-          trang_thai_hd: 'Đã lên hóa đơn',
-          so_hoa_don: cleanedInvoice
-        })
+        body: JSON.stringify({ ids: targetIds, trang_thai_hd: 'Đã lên hóa đơn', so_hoa_don: cleanedInvoice })
       })
       if (res.ok) {
         showNotification('success', `Đã xuất hóa đơn ${cleanedInvoice} thành công!`)
@@ -279,6 +295,20 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     } finally {
       setCompleting(false)
     }
+  }
+
+  // Chuyển trạng thái trực tiếp từ NÚT trong modal (thay cho kéo thả — dùng được trên mobile).
+  const moveStatus = async (targetState: string, keepInvoice = false) => {
+    if (!activeCard) return
+    setCompleting(true)
+    try {
+      const targetIds = activeCard.tickets.map(t => t.id)
+      const body: any = { ids: targetIds, trang_thai_hd: targetState }
+      if (keepInvoice) { body.so_hoa_don = activeCard.tickets[0]?.so_hoa_don; body.ngay_xuat_hd = activeCard.tickets[0]?.ngay_xuat_hd }
+      const res = await fetch('/api/admin/kanban-hd', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      if (res.ok) { showNotification('success', 'Đã chuyển trạng thái.'); setActiveCard(null); load() }
+      else { const err = await res.json(); showNotification('error', err.error || 'Lỗi chuyển trạng thái') }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setCompleting(false) }
   }
 
   // scope_key của khách đang mở modal (khớp cách gom: cụm nếu có, else điểm máy).
@@ -380,7 +410,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   // Phân bổ thẻ lên các cột
   const col1Tickets = shown.filter(t => t.trang_thai_hd === 'Chờ xuất HĐ')
   const col2Tickets = shown.filter(t => t.trang_thai_hd === 'Đang xử lý HĐ')
-  const col3Tickets = shown.filter(t => t.trang_thai_hd === 'Đã lên hóa đơn')
+  const col3Tickets = shown.filter(t => t.trang_thai_hd === 'Đã lên hóa đơn'
+    && (!col3ChiKyNay || String(t.ngay_xuat_hd || '').startsWith(thang)))
   const col4Tickets = shown.filter(t => t.trang_thai_hd === 'Đã thanh toán')
 
   // Gom nhóm Cột 1 & Cột 2 theo khách hàng nếu bật chế độ grouped
@@ -539,10 +570,22 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                     </div>
                   </div>
 
-                  {card.tickets[0].so_hoa_don && (
-                    <div className={`mt-2 border rounded px-2 py-1 text-[10px] font-semibold flex items-center gap-1 ${state === 'Đã thanh toán' ? 'bg-indigo-50 text-indigo-800 border-indigo-100' : 'bg-emerald-50 text-emerald-800 border-emerald-100'}`}>
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      HĐ: {card.tickets[0].so_hoa_don}
+                  {(state === 'Đã lên hóa đơn' || state === 'Đã thanh toán') && card.tickets[0].so_hoa_don && (
+                    <div className="mt-2 space-y-1">
+                      <div className={`border rounded px-2 py-1 text-[10px] font-semibold flex items-center gap-1 ${state === 'Đã thanh toán' ? 'bg-indigo-50 text-indigo-800 border-indigo-100' : 'bg-emerald-50 text-emerald-800 border-emerald-100'}`}>
+                        <CheckCircle className="w-3.5 h-3.5" /> HĐ: {card.tickets[0].so_hoa_don}
+                      </div>
+                      {(card.tickets[0].nguoi_xuat?.full_name || card.tickets[0].ngay_xuat_hd) && (
+                        <div className="text-[9px] text-slate-400">
+                          {[card.tickets[0].nguoi_xuat?.full_name ? `KT: ${card.tickets[0].nguoi_xuat.full_name}` : '', card.tickets[0].ngay_xuat_hd ? fmtDate(card.tickets[0].ngay_xuat_hd) : ''].filter(Boolean).join(' · ')}
+                        </div>
+                      )}
+                      {state === 'Đã lên hóa đơn' && (() => {
+                        const d = daysSince(card.tickets[0].ngay_xuat_hd)
+                        if (d == null) return null
+                        const cls = d > 30 ? 'bg-red-50 text-red-700 border-red-200' : d > 15 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-500 border-slate-200'
+                        return <div className={`inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold ${cls}`}>Chờ thu {d} ngày</div>
+                      })()}
                     </div>
                   )}
               </div>
@@ -598,9 +641,15 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
             <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm khách / số phiếu / số HĐ..." className="pl-8 h-9 w-64 bg-white text-sm" />
           </div>
-          <label className="flex items-center gap-1.5 text-xs text-slate-600">
+          <label className="flex items-center gap-1.5 text-xs text-slate-600" title="Kỳ đối chiếu chỉ lọc cột 'Đã thanh toán' (và cột 'Chờ thanh toán' nếu bật tùy chọn bên cạnh). Cột 1, 2 luôn hiện toàn bộ.">
             Kỳ đối chiếu:
             <MonthField value={thang} onChange={setThang} className="h-8 px-2 text-xs w-36" />
+            <span className="text-[10px] text-slate-400">(áp cột Đã thanh toán)</span>
+          </label>
+
+          <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer select-none" title="Bật: cột Chờ thanh toán chỉ hiện HĐ trong kỳ đang chọn. Tắt: lũy kế toàn bộ nợ chưa thu.">
+            <input type="checkbox" checked={col3ChiKyNay} onChange={e => setCol3ChiKyNay(e.target.checked)} className="w-4 h-4 accent-blue-600" />
+            Chờ thanh toán: chỉ kỳ này
           </label>
 
           {role !== 'kthc' && (
@@ -892,17 +941,37 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
             </div>
 
             {/* Footer */}
-            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2 shrink-0">
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2 shrink-0 flex-wrap">
               <Button variant="outline" onClick={() => setActiveCard(null)} className="h-10">Đóng</Button>
-              {activeCard.tickets[0].trang_thai_hd === 'Đang xử lý HĐ' && (
-                <Button
-                  onClick={handleCompleteInvoice}
-                  disabled={completing || !invoiceNum.trim()}
-                  className="h-10 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
-                >
-                  {completing ? 'Đang xử lý...' : 'Hoàn tất xuất hóa đơn'}
-                </Button>
-              )}
+              {/* Nút chuyển trạng thái (thay kéo thả — dùng được trên điện thoại), theo vai trò + cột. */}
+              {(() => {
+                const st = activeCard.tickets[0].trang_thai_hd
+                const canGiao = role === 'admin' || role === 'tech_admin' || role === 'staff'
+                const canKt = role === 'admin' || role === 'kthc'
+                return <>
+                  {st === 'Chờ xuất HĐ' && canGiao && (
+                    <Button onClick={() => moveStatus('Đang xử lý HĐ')} disabled={completing} className="h-10">Bàn giao Kế toán →</Button>
+                  )}
+                  {st === 'Đã lên hóa đơn' && canKt && (
+                    <>
+                      <Button variant="outline" onClick={() => moveStatus('Đang xử lý HĐ')} disabled={completing} className="h-10">← Trả về xử lý</Button>
+                      <Button onClick={() => moveStatus('Đã thanh toán', true)} disabled={completing} className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Đã thanh toán →</Button>
+                    </>
+                  )}
+                  {st === 'Đã thanh toán' && canKt && (
+                    <Button variant="outline" onClick={() => moveStatus('Đã lên hóa đơn', true)} disabled={completing} className="h-10">← Bỏ đánh dấu thanh toán</Button>
+                  )}
+                  {st === 'Đang xử lý HĐ' && (
+                    <Button
+                      onClick={handleCompleteInvoice}
+                      disabled={completing || !invoiceNum.trim()}
+                      className="h-10 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                    >
+                      {completing ? 'Đang xử lý...' : 'Hoàn tất xuất hóa đơn'}
+                    </Button>
+                  )}
+                </>
+              })()}
             </div>
 
           </div>
