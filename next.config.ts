@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
   // Route đọc template bằng fs.readFileSync -> phải khai ở đây, nếu không Vercel không
   // bundle file và route sẽ lỗi "file not found" trên production.
   outputFileTracingIncludes: {
+    // pdfjs dựng "fake worker" bằng cách import động pdf.worker.mjs -> Next KHÔNG trace được
+    // đường dẫn động này, nên phải khai tường minh để Vercel đóng gói file worker cùng route.
+    '/api/admin/phieu-pdf': ['./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'],
     '/api/admin/bao-cao': ['./src/lib/report/template.docx'],
     '/api/admin/bao-cao-ktv': ['./src/lib/report/bao-cao-ktv-template.docx'],
     '/api/admin/bao-gia': ['./src/lib/report/bao-gia-template.docx'],
