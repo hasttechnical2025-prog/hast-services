@@ -369,6 +369,16 @@ export default function AdminDashboard() {
     totalItems: number
   } | null>(null)
 
+  // Nhập phiếu từ file PDF (mẫu công tác cố định)
+  const [pdfImporting, setPdfImporting] = useState(false)
+  const [pdfWarnings, setPdfWarnings] = useState<string[]>([])
+  const pdfFileRef = useRef<HTMLInputElement>(null)
+  // Tên hàng lấy từ PDF theo mã (để tiền-điền khi admin thêm mã lạ vào kho)
+  const [pdfTenByMa, setPdfTenByMa] = useState<Record<string, string>>({})
+  // Modal admin thêm mã hàng lạ vào kho (khóa lưu phiếu tới khi thêm xong)
+  const [khoAddModal, setKhoAddModal] = useState<{ items: { ma_hang: string, ten_hang: string }[] } | null>(null)
+  const [khoAdding, setKhoAdding] = useState(false)
+
   // Lấy các giá trị đang dùng của một nhóm danh mục (fallback về mặc định nếu bảng trống)
   const dmOptions = (nhom: string, fallback: string[] = []) => {
     const items = danhMuc.filter(d => d.nhom === nhom && d.active).map(d => d.gia_tri)
@@ -458,6 +468,7 @@ export default function AdminDashboard() {
     setEditingJobId(null)
     setEditingKetQua('')
     setDongGiamDinh(false)
+    setPdfWarnings([]); setPdfTenByMa({}); setKhoAddModal(null)
     submittingRef.current = false; setSubmitting(false)
     setFormData({
       ngay: todayVN(),
@@ -714,6 +725,91 @@ export default function AdminDashboard() {
     setFormData(prev => ({ ...prev, vat_tu: newVatTu }))
   }
 
+  // Danh sách mã hàng của phiếu hiện tại CHƯA có trong kho (không lưu được vì ràng buộc FK).
+  const unknownMaHang = () => {
+    const seen = new Set<string>()
+    const out: string[] = []
+    for (const v of formData.vat_tu) {
+      const ma = String(v.ma_hang || '').trim()
+      if (!ma || seen.has(ma)) continue
+      seen.add(ma)
+      if (!inventory.find(i => i.ma_hang === ma)) out.push(ma)
+    }
+    return out
+  }
+
+  // Nhập phiếu từ file PDF -> tiền-điền form. Bóc tách ở server (deterministic), đối chiếu mã
+  // máy/mã hàng với danh sách đã tải. KHÔNG tự lưu — tech_admin rà lại rồi bấm Lưu.
+  const handleImportPdf = async (file: File) => {
+    setPdfImporting(true)
+    setPdfWarnings([])
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/admin/phieu-pdf', { method: 'POST', body: fd })
+      const j = await res.json()
+      if (!res.ok) { showNotification('error', j.error || 'Không đọc được phiếu'); return }
+      const p = j.data as {
+        so_phieu: string; ma_may: string; model: string; khach_ten: string; dia_chi: string;
+        mst: string; loai_goc: string; loai_mapped: string | null;
+        vat_tu: { ma_hang: string; ten_hang: string; so_luong: number; don_gia: number }[]
+      }
+
+      const warns: string[] = []
+      const ma_may = (p.ma_may || '').trim()
+      const matched = ma_may ? customers.find(c => c.ma_may && c.ma_may.toLowerCase() === ma_may.toLowerCase()) : undefined
+
+      // Loại việc: dùng ánh xạ nếu nhận diện được + còn trong danh mục, ngược lại giữ mặc định + cảnh báo.
+      let loai = formData.loai_cong_viec
+      if (p.loai_mapped && loaiCvOptions.includes(p.loai_mapped)) loai = p.loai_mapped
+      else if (p.loai_goc) warns.push(`Không nhận diện được loại việc từ "${p.loai_goc}" — hãy chọn tay.`)
+
+      const vat_tu = (p.vat_tu || []).map(v => ({
+        ma_hang: String(v.ma_hang || ''),
+        so_luong: String(v.so_luong || 1),
+        don_gia: String(v.don_gia ?? ''),  // đơn giá lấy nguyên từ phiếu (kể cả 0 — không cảnh báo)
+        vat: '8',
+        hoa_don: false,  // mặc định CHƯA hóa đơn — để Kanban/kế toán quyết sau
+      }))
+
+      // Lưu tên hàng theo mã (để prefill khi thêm mã lạ vào kho)
+      const tenByMa: Record<string, string> = {}
+      for (const v of (p.vat_tu || [])) if (v.ma_hang) tenByMa[String(v.ma_hang)] = v.ten_hang || ''
+      setPdfTenByMa(tenByMa)
+
+      setFormData(prev => ({
+        ...prev,
+        ma_may,
+        loai_cong_viec: loai,
+        report: p.so_phieu || prev.report,
+        vat_tu,
+        ...(matched
+          ? { id_khach_hang: matched.id, ten_khach_hang_moi: '', dia_chi_moi: '', model_moi: '' }
+          : { id_khach_hang: 'NEW', ten_khach_hang_moi: p.khach_ten || '', dia_chi_moi: p.dia_chi || '', model_moi: p.model || '' }),
+      }))
+
+      // Cảnh báo
+      if (!ma_may) warns.push('Phiếu không có mã máy — hãy nhập/chọn khách hàng.')
+      else if (!matched) warns.push(`Mã máy "${ma_may}" chưa có trong hệ thống — đã điền sẵn khách mới từ phiếu (kiểm tra kỹ), hoặc xóa mã máy để chọn khách có sẵn.`)
+      const unknown = (p.vat_tu || []).map(v => String(v.ma_hang)).filter((ma, i, a) => ma && a.indexOf(ma) === i && !inventory.find(x => x.ma_hang === ma))
+      if (unknown.length) {
+        warns.push(currentUserRole === 'admin'
+          ? `Mã hàng chưa có trong kho: ${unknown.join(', ')}. Khi bấm Lưu sẽ hiện nút "Thêm vào kho".`
+          : `Mã hàng chưa có trong kho: ${unknown.join(', ')}. Cần ADMIN thêm vào kho trước khi lưu được phiếu.`)
+      }
+      if (p.so_phieu && jobs.some(x => String(x.report || '').trim() === p.so_phieu.trim())) {
+        warns.push(`⚠ Số phiếu "${p.so_phieu}" đã tồn tại trong danh sách hiện tại — kiểm tra tránh tạo trùng.`)
+      }
+      setPdfWarnings(warns)
+      showNotification('success', `Đã đọc phiếu ${p.so_phieu || ''} — ${vat_tu.length} vật tư. Vui lòng rà soát trước khi lưu.`)
+    } catch {
+      showNotification('error', 'Lỗi kết nối khi đọc phiếu PDF')
+    } finally {
+      setPdfImporting(false)
+      if (pdfFileRef.current) pdfFileRef.current.value = ''
+    }
+  }
+
   const handleCreateJob = async (e: React.FormEvent) => {
     e.preventDefault()
     if (submittingRef.current) return   // đang lưu -> bỏ qua cú bấm lặp (chống tạo trùng phiếu)
@@ -770,6 +866,18 @@ export default function AdminDashboard() {
       if (!formData.vat_tu.some(v => String(v.ma_hang || '').trim())) {
         return fail(`"${formData.loai_cong_viec}" bắt buộc phải có ít nhất 1 vật tư/linh kiện.`)
       }
+    }
+
+    // Chặn lưu khi còn mã hàng CHƯA có trong kho (ràng buộc FK sẽ báo lỗi khó hiểu).
+    // Chỉ ADMIN được thêm mã vào kho -> mở modal thêm; vai trò khác phải báo admin thêm trước.
+    const unknown = unknownMaHang()
+    if (unknown.length > 0) {
+      if (currentUserRole !== 'admin') {
+        return fail(`Cần ADMIN thêm mã hàng vào kho trước khi lưu: ${unknown.join(', ')}`)
+      }
+      submittingRef.current = false; setSubmitting(false)  // nhả khóa, chờ admin thêm kho rồi lưu lại
+      setKhoAddModal({ items: unknown.map(ma => ({ ma_hang: ma, ten_hang: pdfTenByMa[ma] || '' })) })
+      return
     }
 
     const executeSave = async (shouldCloseGiamDinh: boolean) => {
@@ -1936,6 +2044,35 @@ export default function AdminDashboard() {
                   Nếu thay đổi vật tư của phiếu đã trừ kho, hãy chỉnh tồn ở tab Kho hàng hoặc dùng nút "Trả vật tư" cho đúng.
                 </div>
               )}
+
+              {/* Nhập nhanh từ file PDF phiếu công tác (chỉ khi tạo mới) -> tiền-điền, rà rồi Lưu */}
+              {!editingJobId && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50/60 px-4 py-3">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="text-sm text-slate-700">
+                      <b>Nhập từ file PDF</b> <span className="text-slate-500">— đọc phiếu công tác để điền sẵn khách, số phiếu, vật tư. Luôn kiểm tra lại trước khi lưu.</span>
+                    </div>
+                    <input
+                      ref={pdfFileRef}
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImportPdf(f) }}
+                    />
+                    <Button type="button" variant="outline" size="sm" disabled={pdfImporting}
+                      onClick={() => pdfFileRef.current?.click()}
+                      className="h-9 gap-2 border-blue-300 text-blue-700 hover:bg-blue-100 shrink-0">
+                      {pdfImporting ? 'Đang đọc...' : <>📄 Chọn file PDF</>}
+                    </Button>
+                  </div>
+                  {pdfWarnings.length > 0 && (
+                    <ul className="mt-2 space-y-1 text-xs text-amber-800 list-disc pl-5">
+                      {pdfWarnings.map((w, i) => <li key={i}>{w}</li>)}
+                    </ul>
+                  )}
+                </div>
+              )}
+
               {/* Cụm: Ngày (20%) & KTV chính (40%) & KTV kèm (40%) */}
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
                 <div className="space-y-2 lg:col-span-1">
@@ -2221,6 +2358,13 @@ export default function AdminDashboard() {
                               </div>
                             )
                           })()}
+
+                          {/* Mã hàng CHƯA có trong kho (thường do nhập từ PDF) -> chưa lưu được */}
+                          {vt.ma_hang && !selectedItem && (
+                            <div className="text-xs px-2.5 py-1 rounded border font-medium bg-amber-50 border-amber-200 text-amber-800">
+                              ⚠ Mã <span className="font-mono font-semibold">{vt.ma_hang}</span> chưa có trong kho{pdfTenByMa[vt.ma_hang] ? <> — {pdfTenByMa[vt.ma_hang]}</> : null}. {currentUserRole === 'admin' ? 'Bấm Lưu để thêm mã vào kho.' : 'Cần admin thêm vào kho trước khi lưu.'}
+                            </div>
+                          )}
                         </div>
                       )
                     })
@@ -2263,6 +2407,58 @@ export default function AdminDashboard() {
                 <Button type="submit" disabled={submitting}>{submitting ? 'Đang lưu...' : (editingJobId ? 'Cập nhật công việc' : 'Lưu công việc & Báo KTV')}</Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ADMIN THÊM MÃ HÀNG LẠ VÀO KHO (mở khi bấm Lưu mà còn mã chưa có trong kho) */}
+      {khoAddModal && (
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center shrink-0">
+              <h3 className="font-bold text-slate-800 text-base">Thêm mã hàng mới vào kho</h3>
+              <button onClick={() => setKhoAddModal(null)} disabled={khoAdding} className="text-slate-400 hover:text-slate-600 text-xl leading-none font-bold">✕</button>
+            </div>
+            <div className="p-4 overflow-y-auto space-y-3 flex-1 min-h-0">
+              <p className="text-xs text-slate-500">Các mã dưới đây chưa có trong kho nên chưa lưu được phiếu. Kiểm tra/chỉnh tên rồi thêm vào kho (tồn khởi tạo = 0). Chỉ admin được thao tác này.</p>
+              {khoAddModal.items.map((it, idx) => (
+                <div key={it.ma_hang} className="flex items-center gap-2">
+                  <span className="font-mono text-sm font-semibold text-slate-700 w-32 shrink-0 truncate" title={it.ma_hang}>{it.ma_hang}</span>
+                  <Input
+                    className="h-9 bg-white flex-1"
+                    placeholder="Tên hàng"
+                    value={it.ten_hang}
+                    onChange={(e) => setKhoAddModal(prev => prev ? { items: prev.items.map((x, i) => i === idx ? { ...x, ten_hang: e.target.value } : x) } : null)}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2 shrink-0">
+              <Button variant="outline" type="button" onClick={() => setKhoAddModal(null)} disabled={khoAdding} className="h-9 text-xs">Hủy</Button>
+              <Button
+                disabled={khoAdding}
+                onClick={async () => {
+                  if (khoAddModal.items.some(it => !it.ten_hang.trim())) { showNotification('error', 'Vui lòng nhập tên cho tất cả mã hàng.'); return }
+                  setKhoAdding(true)
+                  try {
+                    for (const it of khoAddModal.items) {
+                      const res = await fetch('/api/admin/kho-hang', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ma_hang: it.ma_hang, ten_hang: it.ten_hang.trim(), ton_kho: 0 })
+                      })
+                      if (!res.ok) { const j = await res.json(); throw new Error(j.error || 'Lỗi thêm mã ' + it.ma_hang) }
+                    }
+                    await fetchData()  // nạp lại kho -> mã đã có, lưu phiếu được
+                    setKhoAddModal(null)
+                    showNotification('success', 'Đã thêm mã hàng vào kho. Bấm "Lưu công việc" lại để lưu phiếu.')
+                  } catch (err: any) {
+                    showNotification('error', err.message || 'Lỗi thêm mã vào kho')
+                  } finally {
+                    setKhoAdding(false)
+                  }
+                }}
+                className="h-9 text-xs">{khoAdding ? 'Đang thêm...' : 'Thêm vào kho'}</Button>
+            </div>
           </div>
         </div>
       )}
@@ -3125,7 +3321,7 @@ function MaterialCombobox({ inventory, value, onChange, committed }: { inventory
         ref={inputRef}
         className="w-full h-9 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
         placeholder="Gõ mã / tên / model để tìm vật tư..."
-        value={open ? query : (selected ? `${selected.ma_hang} - ${selected.ten_hang}` : "")}
+        value={open ? query : (selected ? `${selected.ma_hang} - ${selected.ten_hang}` : (value || ""))}
         onFocus={() => { setOpen(true); setQuery("") }}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
