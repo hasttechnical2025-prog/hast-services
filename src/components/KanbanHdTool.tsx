@@ -54,6 +54,7 @@ type Ticket = {
   trang_thai_hd: 'Chờ xuất HĐ' | 'Đang xử lý HĐ' | 'Đã lên hóa đơn' | 'Đã thanh toán'
   so_hoa_don: string | null
   ngay_xuat_hd?: string | null
+  so_tien_da_thu?: number // đã thu theo số hóa đơn (công nợ phải thu)
   nguoi_xuat?: { full_name: string } | null // người lập hóa đơn (kế toán bấm Hoàn tất)
   _co_mau?: boolean // khách có mẫu tên/giá đã lưu (để hiện nút "Áp mẫu khách")
   soct_khach_hang: Customer | null
@@ -75,6 +76,8 @@ const fmtDate = (s: string) => {
 }
 
 const fmtVnd = (x: number) => Math.round(x || 0).toLocaleString('vi-VN')
+const parseMoney = (s: any) => Number(String(s ?? '').replace(/\D/g, '')) || 0
+const fmtMoneyInput = (s: any) => { const n = String(s ?? '').replace(/\D/g, ''); return n ? Number(n).toLocaleString('vi-VN') : '' }
 const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()
 // Số ngày kể từ ngày xuất hóa đơn (tính tuổi nợ đọng ở cột Chờ thanh toán).
 const daysSince = (d: any): number | null => { if (!d) return null; const t = new Date(d).getTime(); return isNaN(t) ? null : Math.max(0, Math.floor((Date.now() - t) / 86400000)) }
@@ -84,6 +87,9 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("") // tìm khách / số phiếu / số hóa đơn
   const [col3ChiKyNay, setCol3ChiKyNay] = useState(false) // cột Chờ thanh toán: lọc theo kỳ hay lũy kế
+  const [payModal, setPayModal] = useState<{ soHd: string; ticketIds: string[]; tong: number; daThu: number; tenKh: string; soPhieu: string[] } | null>(null)
+  const [payInput, setPayInput] = useState("")
+  const [paying, setPaying] = useState(false)
   const [grouped, setGrouped] = useState(true) // Bật/tắt tự động gom nhóm theo khách hàng
   const [activeCard, setActiveCard] = useState<{ type: 'single' | 'group', tickets: Ticket[] } | null>(null)
   const [invoiceNum, setInvoiceNum] = useState("")
@@ -231,8 +237,11 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
             }
           }
         })
+      } else if (sourceState === 'Đã lên hóa đơn' && targetState === 'Đã thanh toán') {
+        // Cột 3 -> Cột 4: KHÔNG chuyển thẳng — mở modal Thu tiền (ghi số tiền khách trả theo HĐ).
+        openPayModal(targetIds)
       } else {
-        // Cập nhật trạng thái trực tiếp (Ví dụ: 1 -> 2, 3 -> 4, 4 -> 3)
+        // Cập nhật trạng thái trực tiếp (Ví dụ: 1 -> 2, 4 -> 3)
         const res = await fetch('/api/admin/kanban-hd', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -312,6 +321,77 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   }
 
   // scope_key của khách đang mở modal (khớp cách gom: cụm nếu có, else điểm máy).
+  // Mở modal Thu tiền cho một HÓA ĐƠN (theo danh sách phiếu cùng số HĐ).
+  const openPayModal = (ticketIds: string[]) => {
+    const ts = tickets.filter(t => ticketIds.includes(t.id))
+    if (ts.length === 0) return
+    const soHd = ts[0].so_hoa_don || ''
+    const tong = Math.round(getVatTuStats(ts.flatMap(t => t.soct_chi_tiet_vat_tu || [])).sauVat)
+    const daThu = Number(ts[0].so_tien_da_thu) || 0
+    const cum = ts[0].soct_khach_hang?.soct_khach_cum
+    const tenKh = cum ? (cum.ten_khach_hang || '') : (ts[0].soct_khach_hang?.ten_khach_hang || 'Khách lẻ')
+    setPayInput("")
+    setPayModal({ soHd, ticketIds, tong, daThu, tenKh, soPhieu: ts.map(t => t.report || '—') })
+  }
+
+  // Gọi API ghi thu tiền (cộng dồn); chuyen=true thì chuyển cả hóa đơn sang Đã thanh toán.
+  const doPay = async (them: number, chuyen: boolean) => {
+    if (!payModal) return
+    setPaying(true)
+    try {
+      const res = await fetch('/api/admin/hd-thu', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ so_hoa_don: payModal.soHd, so_tien_them: them, chuyen }),
+      })
+      if (res.ok) {
+        showNotification('success', chuyen ? 'Đã thu đủ — chuyển sang Đã thanh toán.' : 'Đã ghi nhận thanh toán.')
+        setPayModal(null); load()
+      } else { const e = await res.json(); showNotification('error', e.error || 'Lỗi ghi thu') }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setPaying(false) }
+  }
+
+  // Bấm Xác nhận trong modal Thu tiền -> phân nhánh thiếu / đủ / dư.
+  const submitPay = () => {
+    if (!payModal) return
+    const them = parseMoney(payInput)
+    if (them <= 0) return showNotification('error', 'Nhập số tiền khách thanh toán.')
+    const moi = payModal.daThu + them
+    const con = payModal.tong - moi
+    if (con > 0) {
+      // Còn thiếu -> ghi nhận, thẻ ở lại Chờ thanh toán.
+      doPay(them, false)
+    } else if (con === 0) {
+      setConfirmDialog({
+        title: 'Đã thu đủ',
+        message: `Hóa đơn ${payModal.soHd} đã thu đủ ${fmtVnd(payModal.tong)} đ.\nChuyển sang "Đã thanh toán"?`,
+        onConfirm: async () => { await doPay(them, true) },
+      })
+    } else {
+      setConfirmDialog({
+        title: 'Khách trả DƯ',
+        message: `Tổng hóa đơn ${fmtVnd(payModal.tong)} đ, nhưng đã thu ${fmtVnd(moi)} đ (dư ${fmtVnd(-con)} đ).\nVẫn ghi nhận và chuyển sang "Đã thanh toán"?`,
+        onConfirm: async () => { await doPay(them, true) },
+      })
+    }
+  }
+
+  // Admin đặt lại số đã thu của hóa đơn (cứu khi gõ nhầm).
+  const resetThu = () => {
+    if (!payModal) return
+    setConfirmDialog({
+      title: 'Đặt lại số đã thu',
+      message: `Đặt lại "đã thu" của hóa đơn ${payModal.soHd} về 0?`,
+      onConfirm: async () => {
+        setPaying(true)
+        try {
+          const res = await fetch('/api/admin/hd-thu', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ so_hoa_don: payModal.soHd, reset: true }) })
+          if (res.ok) { showNotification('success', 'Đã đặt lại số đã thu.'); setPayModal(null); load() }
+          else { const e = await res.json(); showNotification('error', e.error || 'Lỗi đặt lại') }
+        } catch { showNotification('error', 'Lỗi kết nối') } finally { setPaying(false) }
+      },
+    })
+  }
+
   const modalScopeKey = (() => {
     const t0 = activeCard?.tickets[0]
     if (!t0) return ''
@@ -444,19 +524,19 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const cardsCol1 = getColumnCards(col1Tickets, 'Chờ xuất HĐ')
   const cardsCol2 = getColumnCards(col2Tickets, 'Đang xử lý HĐ')
 
-  // Cột 3 & Cột 4 (Hoàn thành) luôn để đơn lẻ từng phiếu để hiển thị rõ số hóa đơn riêng biệt
-  const cardsCol3 = col3Tickets.map(t => ({
-    id: t.id,
-    customer: t.soct_khach_hang,
-    tickets: [t],
-    trang_thai_hd: 'Đã lên hóa đơn'
-  }))
-  const cardsCol4 = col4Tickets.map(t => ({
-    id: t.id,
-    customer: t.soct_khach_hang,
-    tickets: [t],
-    trang_thai_hd: 'Đã thanh toán'
-  }))
+  // Cột 3 & Cột 4: GOM THEO SỐ HÓA ĐƠN (1 thẻ = 1 hóa đơn = đơn vị thu tiền). Thẻ liệt kê
+  // các số phiếu bên trong -> kế toán thu theo HĐ, tech_admin vẫn thấy từng số phiếu.
+  const groupByHd = (list: Ticket[], state: string) => {
+    const m = new Map<string, any>()
+    for (const t of list) {
+      const key = t.so_hoa_don || `noHD:${t.id}`
+      if (!m.has(key)) m.set(key, { id: `hd:${key}`, customer: t.soct_khach_hang, tickets: [], trang_thai_hd: state })
+      m.get(key).tickets.push(t)
+    }
+    return [...m.values()]
+  }
+  const cardsCol3 = groupByHd(col3Tickets, 'Đã lên hóa đơn')
+  const cardsCol4 = groupByHd(col4Tickets, 'Đã thanh toán')
 
   const renderCardList = (cards: any[], state: 'Chờ xuất HĐ' | 'Đang xử lý HĐ' | 'Đã lên hóa đơn' | 'Đã thanh toán') => {
     return (
@@ -553,11 +633,11 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                   )
                 })()}
 
-                  <div className="flex justify-between items-center text-[10px] text-slate-500">
-                    <span className="bg-slate-100 px-2 py-0.5 rounded font-medium">
-                      {count > 1 ? `${count} phiếu gộp` : `Phiếu: ${card.tickets[0].report || '—'}`}
+                  <div className="flex justify-between items-start gap-2 text-[10px] text-slate-500">
+                    <span className="bg-slate-100 px-2 py-0.5 rounded font-medium leading-relaxed">
+                      {count > 1 ? `${count} phiếu: ${card.tickets.map((t: any) => t.report || '—').join(', ')}` : `Phiếu: ${card.tickets[0].report || '—'}`}
                     </span>
-                    <span className="font-mono text-slate-400">
+                    <span className="font-mono text-slate-400 shrink-0">
                       {count === 1 ? fmtDate(card.tickets[0].ngay) : ''}
                     </span>
                   </div>
@@ -581,10 +661,21 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                         </div>
                       )}
                       {state === 'Đã lên hóa đơn' && (() => {
-                        const d = daysSince(card.tickets[0].ngay_xuat_hd)
-                        if (d == null) return null
-                        const cls = d > 30 ? 'bg-red-50 text-red-700 border-red-200' : d > 15 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-500 border-slate-200'
-                        return <div className={`inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold ${cls}`}>Chờ thu {d} ngày</div>
+                        const daThu = Number(card.tickets[0].so_tien_da_thu) || 0
+                        const con = Math.max(0, sauVat - daThu)
+                        return <div className="flex flex-wrap items-center gap-1.5">
+                          {daThu > 0 && (
+                            <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-blue-50 text-blue-700 border-blue-200">
+                              Đã thu {fmtVnd(daThu)}{con > 0 ? ` · còn ${fmtVnd(con)}` : ' · đủ'}
+                            </span>
+                          )}
+                          {(() => {
+                            const d = daysSince(card.tickets[0].ngay_xuat_hd)
+                            if (d == null) return null
+                            const cls = d > 30 ? 'bg-red-50 text-red-700 border-red-200' : d > 15 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-500 border-slate-200'
+                            return <span className={`inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold ${cls}`}>Chờ thu {d} ngày</span>
+                          })()}
+                        </div>
                       })()}
                     </div>
                   )}
@@ -955,7 +1046,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                   {st === 'Đã lên hóa đơn' && canKt && (
                     <>
                       <Button variant="outline" onClick={() => moveStatus('Đang xử lý HĐ')} disabled={completing} className="h-10">← Trả về xử lý</Button>
-                      <Button onClick={() => moveStatus('Đã thanh toán', true)} disabled={completing} className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Đã thanh toán →</Button>
+                      <Button onClick={() => { const ids = activeCard.tickets.map(t => t.id); setActiveCard(null); openPayModal(ids) }} disabled={completing} className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Thu tiền / Thanh toán →</Button>
                     </>
                   )}
                   {st === 'Đã thanh toán' && canKt && (
@@ -977,6 +1068,49 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
           </div>
         </div>
       )}
+
+      {/* MODAL THU TIỀN (theo số hóa đơn) */}
+      {payModal && (() => {
+        const con = Math.max(0, payModal.tong - payModal.daThu)
+        return (
+          <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4" onClick={() => setPayModal(null)}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                <h3 className="text-base font-bold text-slate-800 flex items-center gap-1.5"><Landmark className="w-5 h-5 text-indigo-600" /> Thu tiền hóa đơn</h3>
+                <button onClick={() => setPayModal(null)} className="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="text-sm">
+                  <div className="font-semibold text-slate-800">{payModal.tenKh}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">Số HĐ: <b className="font-mono">{payModal.soHd || '—'}</b> · {payModal.soPhieu.length} phiếu ({payModal.soPhieu.join(', ')})</div>
+                </div>
+                <div className="bg-slate-50 rounded-lg border border-slate-100 p-3 space-y-1.5 text-sm">
+                  <div className="flex justify-between"><span className="text-slate-500">Tổng hóa đơn (sau VAT):</span><b className="font-mono">{fmtVnd(payModal.tong)} đ</b></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Đã thu trước đó:</span><span className="font-mono">{fmtVnd(payModal.daThu)} đ</span></div>
+                  <div className="flex justify-between border-t border-dashed border-slate-200 pt-1.5"><span className="font-semibold text-slate-700">Còn phải thu:</span><b className="font-mono text-blue-700">{fmtVnd(con)} đ</b></div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Số tiền khách thanh toán (đợt này)</label>
+                  <div className="flex gap-2">
+                    <Input value={payInput} onChange={e => setPayInput(fmtMoneyInput(e.target.value))} inputMode="numeric" placeholder="0" className="h-10 bg-white text-right font-mono font-bold text-slate-800" />
+                    <Button variant="outline" onClick={() => setPayInput(fmtMoneyInput(String(con)))} className="h-10 whitespace-nowrap">Trả đủ</Button>
+                  </div>
+                  <p className="text-[10px] text-slate-400">Trả thiếu → thẻ ở lại &quot;Chờ thanh toán&quot;. Trả đủ/dư → xác nhận rồi chuyển &quot;Đã thanh toán&quot;.</p>
+                </div>
+              </div>
+              <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center gap-2">
+                {role === 'admin'
+                  ? <button onClick={resetThu} disabled={paying} className="text-xs text-slate-400 hover:text-rose-600">Đặt lại đã thu</button>
+                  : <span />}
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setPayModal(null)} disabled={paying} className="h-10">Đóng</Button>
+                  <Button onClick={submitPay} disabled={paying || !parseMoney(payInput)} className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">{paying ? 'Đang ghi...' : 'Ghi nhận'}</Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* MODAL XÁC NHẬN (THAY THẾ WINDOW.CONFIRM) */}
       {confirmDialog && (

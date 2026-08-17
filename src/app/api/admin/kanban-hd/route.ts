@@ -95,10 +95,15 @@ export async function GET(request: Request) {
     // _co_mau: khách (theo scope) đã lưu mẫu tên/giá -> client hiện nút "Áp mẫu khách".
     const { data: tplScopes } = await supabaseAdmin.from('soct_ten_hang_rieng').select('scope_key')
     const scopeSet = new Set((tplScopes || []).map((s: any) => s.scope_key))
+    // Số tiền đã thu theo số hóa đơn (công nợ phải thu) -> gắn vào từng phiếu để hiện badge/thu tiền.
+    const { data: thuRows } = await supabaseAdmin.from('soct_hd_thu').select('so_hoa_don, so_tien_da_thu')
+    const thuMap = new Map<string, number>()
+    for (const r of (thuRows || []) as any[]) thuMap.set(r.so_hoa_don, Number(r.so_tien_da_thu) || 0)
     for (const t of filtered as any[]) {
       const kh = t.soct_khach_hang
       const scopeKey = kh?.ma_khach_cum ? `cum:${kh.ma_khach_cum}` : `may:${t.id_khach_hang}`
       t._co_mau = scopeSet.has(scopeKey)
+      t.so_tien_da_thu = t.so_hoa_don ? (thuMap.get(t.so_hoa_don) || 0) : 0
       for (const v of (t.soct_chi_tiet_vat_tu || [])) {
         v.ten_hd = v.ten_hang_hd || v.soct_kho_hang?.ten_hang || v.ma_hang
       }
