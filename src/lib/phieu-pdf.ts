@@ -57,7 +57,9 @@ function itemsToLines(items: { x: number; y: number; str: string }[]): string[] 
 // tràn sang trang 2), gộp chung.
 export async function extractPdfLines(buffer: Buffer | Uint8Array): Promise<string[]> {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
-  const data = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer)
+  // pdfjs 4.x TỪ CHỐI Buffer của Node (dù Buffer kế thừa Uint8Array) -> phải là Uint8Array thuần.
+  // new Uint8Array(buffer) sao chép sang mảng thuần (constructor = Uint8Array, không phải Buffer).
+  const data = new Uint8Array(buffer)
   const doc = await pdfjs.getDocument({ data, useSystemFonts: true, isEvalSupported: false }).promise
   const allLines: string[] = []
   for (let p = 1; p <= doc.numPages; p++) {
