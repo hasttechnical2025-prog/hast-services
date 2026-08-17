@@ -18,9 +18,9 @@ const nameTokens = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]
 
 export async function GET() {
   try {
-    // Đọc: role có tab Kho máy thuê (admin/tech_admin/staff/kthc), HOẶC bộ phận kinh doanh (chỉ xem).
+    // Đọc: role có tab Kho máy thuê, HOẶC kinh doanh (trang /kho-thue), HOẶC tech_admin (app /m).
     let session = await requireTab('tai_chinh', 'tai_chinh.kho_may_thue')
-    if (!session) session = await requireRole('kinh_doanh')
+    if (!session) session = await requireRole('kinh_doanh', 'tech_admin')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
     const { data, error } = await supabaseAdmin
