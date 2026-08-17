@@ -2066,8 +2066,12 @@ export default function AdminDashboard() {
                     </Button>
                   </div>
                   {pdfWarnings.length > 0 && (
-                    <ul className="mt-2 space-y-1 text-xs text-amber-800 list-disc pl-5">
-                      {pdfWarnings.map((w, i) => <li key={i}>{w}</li>)}
+                    <ul className="mt-2 space-y-1 text-xs list-disc pl-5">
+                      {pdfWarnings.map((w, i) => {
+                        // Cảnh báo trùng số phiếu = quan trọng -> đỏ đậm cho dễ đập vào mắt.
+                        const isDup = w.includes('đã tồn tại')
+                        return <li key={i} className={isDup ? 'text-red-600 font-bold' : 'text-amber-800'}>{w}</li>
+                      })}
                     </ul>
                   )}
                 </div>
