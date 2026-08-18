@@ -32,6 +32,10 @@ type Job = {
   so_phut_xu_ly?: number | null
   ktv_id: string | null
   ktv2_id: string | null
+  moi_ktv_id?: string | null
+  moi_boi?: string | null
+  moi_ktv?: { full_name: string } | null
+  moi_boi_user?: { full_name: string } | null
   soct_khach_hang: { ten_khach_hang: string; dia_chi: string; km_mac_dinh: number }
   ktv2: { full_name: string } | null
   soct_chi_tiet_vat_tu: Array<{
@@ -72,6 +76,10 @@ export default function KtvMobileWeb() {
   const [finishTarget, setFinishTarget] = useState<{ jobId: string, phut: string } | null>(null)
   const [pendingSync, setPendingSync] = useState(0)
   const [claimConfirm, setClaimConfirm] = useState<Job | null>(null)
+  // Chuyển việc KTV→KTV (lời mời): picker chọn người nhận + danh sách đồng nghiệp
+  const [transferTarget, setTransferTarget] = useState<Job | null>(null)
+  const [colleagues, setColleagues] = useState<{ id: string; full_name: string }[]>([])
+  const [transferring, setTransferring] = useState(false)
   const [releaseReason, setReleaseReason] = useState("")
   const [releasing, setReleasing] = useState(false)
 
@@ -419,6 +427,76 @@ export default function KtvMobileWeb() {
     }
   }
 
+  // ===== CHUYỂN VIỆC KTV→KTV (lời mời) =====
+  // Mở picker: tải danh sách đồng nghiệp (KTV active, trừ mình) rồi hiện modal chọn người nhận.
+  const openTransfer = async (job: Job) => {
+    setTransferTarget(job)
+    if (colleagues.length === 0) {
+      try {
+        const res = await fetch('/api/ktv/dong-nghiep')
+        const j = await res.json()
+        if (res.ok && j.data) setColleagues(j.data)
+      } catch { /* để rỗng, người dùng thấy "không có đồng nghiệp" */ }
+    }
+  }
+
+  const putInvite = async (jobId: string, payload: any) => {
+    const res = await fetch('/api/admin/cong-viec', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: jobId, ...payload })
+    })
+    return { ok: res.ok, j: await res.json().catch(() => ({})) }
+  }
+
+  // Bên MỜI (từ màn chi tiết): gửi / thu hồi lời mời -> cập nhật local ngay để badge phản ánh.
+  const sendInvite = async (job: Job, ktvId: string, ktvName: string) => {
+    setTransferring(true)
+    try {
+      const { ok, j } = await putInvite(job.id, { invite: true, moi_ktv_id: ktvId })
+      if (ok) {
+        const patch = { moi_ktv_id: ktvId, moi_ktv: { full_name: ktvName } }
+        setJobs(prev => prev.map(x => x.id === job.id ? { ...x, ...patch } : x))
+        setActiveJob(prev => (prev && prev.id === job.id) ? { ...prev, ...patch } : prev)
+        setTransferTarget(null)
+        showNotification('success', `Đã gửi lời mời cho ${ktvName}. Chờ đồng nghiệp bấm Nhận.`)
+      } else showNotification('error', j.error || 'Không gửi được lời mời')
+    } catch { showNotification('error', 'Lỗi kết nối mạng') }
+    finally { setTransferring(false) }
+  }
+  const cancelInvite = async (job: Job) => {
+    setTransferring(true)
+    try {
+      const { ok, j } = await putInvite(job.id, { cancelInvite: true })
+      if (ok) {
+        const patch = { moi_ktv_id: null, moi_ktv: null }
+        setJobs(prev => prev.map(x => x.id === job.id ? { ...x, ...patch } : x))
+        setActiveJob(prev => (prev && prev.id === job.id) ? { ...prev, ...patch } : prev)
+        showNotification('success', 'Đã thu hồi lời mời.')
+      } else showNotification('error', j.error || 'Không thu hồi được')
+    } catch { showNotification('error', 'Lỗi kết nối mạng') }
+    finally { setTransferring(false) }
+  }
+
+  // Bên ĐƯỢC MỜI (từ hộp thư lời mời): nhận / từ chối -> đổi quyền sở hữu, refetch cho chuẩn.
+  const acceptInvite = async (jobId: string) => {
+    setTransferring(true)
+    try {
+      const { ok, j } = await putInvite(jobId, { acceptInvite: true })
+      if (ok) { showNotification('success', 'Đã nhận việc chuyển. Việc đã vào "Việc của tôi".'); setActiveJob(null); fetchKtvJobs() }
+      else showNotification('error', j.error || 'Không nhận được việc')
+    } catch { showNotification('error', 'Lỗi kết nối mạng') }
+    finally { setTransferring(false) }
+  }
+  const declineInvite = async (jobId: string) => {
+    setTransferring(true)
+    try {
+      const { ok, j } = await putInvite(jobId, { declineInvite: true })
+      if (ok) { showNotification('success', 'Đã từ chối lời mời.'); setActiveJob(null); fetchKtvJobs() }
+      else showNotification('error', j.error || 'Không từ chối được')
+    } catch { showNotification('error', 'Lỗi kết nối mạng') }
+    finally { setTransferring(false) }
+  }
+
   // Đổi trạng thái qua HÀNG ĐỢI: cập nhật giao diện ngay (lạc quan) rồi tự gửi server
   // (kể cả sau khi có sóng trở lại) — không mất thao tác dưới hầm. so_phut chỉ dùng cho Hoàn thành.
   const applyStatus = (jobId: string, nextStatus: 'Đang làm' | 'Hoàn thành' | 'Lắp tiếp', so_phut?: number) => {
@@ -510,6 +588,10 @@ export default function KtvMobileWeb() {
     ? jobs.filter(j => (j.ktv_id === currentKtv.id || j.ktv2_id === currentKtv.id) && j.ket_qua !== 'Hoàn thành')
     : []
   const poolJobs = jobs.filter(j => !j.ktv_id && j.ket_qua !== 'Hoàn thành')
+  // Lời mời nhận việc gửi tới mình (người khác chuyển): việc vẫn của họ tới khi mình bấm Nhận.
+  const invites = currentKtv
+    ? jobs.filter(j => j.moi_ktv_id === currentKtv.id && j.ket_qua === 'Đã nhận')
+    : []
   // Phiếu cứng đã hoàn thành nhưng chưa nộp bản giấy về VP
   const unreturned = currentKtv
     ? jobs.filter(j => j.ktv_id === currentKtv.id && j.ket_qua === 'Hoàn thành' && j.report && !j.da_nop_phieu)
@@ -703,6 +785,48 @@ export default function KtvMobileWeb() {
                             <span key={j.id} className="text-xs font-mono bg-white text-amber-800 border border-amber-200 px-2 py-0.5 rounded">{j.report}</span>
                           ))}
                         </div>
+                      </div>
+                    )}
+
+                    {/* MỤC 0: LỜI MỜI NHẬN VIỆC (người khác chuyển cho mình) */}
+                    {invites.length > 0 && (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 px-1">
+                          <Send className="w-4 h-4 text-violet-600" />
+                          <h4 className="font-bold text-violet-700 text-sm">Lời mời nhận việc</h4>
+                          <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-semibold">{invites.length}</span>
+                        </div>
+                        {invites.map((job) => (
+                          <div key={job.id} className="bg-white p-4 rounded-xl shadow-sm border border-violet-200 space-y-3">
+                            <div className="flex justify-between items-start">
+                              <span className="text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-100 px-2 py-0.5 rounded">
+                                {job.moi_boi_user?.full_name || 'KTV'} mời bạn
+                              </span>
+                              <span className="text-xs text-slate-400 font-mono">{formatDate(job.ngay)}</span>
+                            </div>
+                            <div className="space-y-1">
+                              <h4 className="font-bold text-slate-800 text-base">{job.soct_khach_hang?.ten_khach_hang}</h4>
+                              <div className="text-xs text-slate-500 flex items-center gap-1">
+                                <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                                <span className="truncate">{job.soct_khach_hang?.dia_chi}</span>
+                              </div>
+                            </div>
+                            <div className="border-t border-slate-100 pt-2 flex justify-between items-center text-xs text-slate-500">
+                              <div>Loại việc: <span className="font-semibold text-slate-700">{job.loai_cong_viec}</span></div>
+                              <div className="font-mono text-slate-400">Mã máy: {job.ma_may || 'N/A'}</div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button onClick={() => acceptInvite(job.id)} disabled={transferring}
+                                className="flex-1 bg-violet-600 hover:bg-violet-700 text-white gap-2 h-10 text-sm rounded-lg">
+                                <CheckCircle className="w-4 h-4" /> Nhận việc
+                              </Button>
+                              <Button variant="outline" onClick={() => declineInvite(job.id)} disabled={transferring}
+                                className="border-red-200 text-red-600 hover:bg-red-50 h-10 text-sm rounded-lg px-3 shrink-0">
+                                Từ chối
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
 
@@ -1145,6 +1269,26 @@ export default function KtvMobileWeb() {
                       </Button>
                     )}
                   </div>
+
+                  {/* Chuyển việc cho KTV khác (chỉ KTV chính, khi 'Đã nhận' — chưa bắt đầu) */}
+                  {activeJob.ktv_id === currentKtv?.id && activeJob.ket_qua === 'Đã nhận' && (
+                    <div className="pt-2">
+                      {activeJob.moi_ktv_id ? (
+                        <div className="flex items-center justify-between gap-2 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
+                          <span className="text-xs text-violet-700">⏳ Đang mời <b>{activeJob.moi_ktv?.full_name || 'KTV'}</b> nhận việc…</span>
+                          <button onClick={() => cancelInvite(activeJob)} disabled={transferring} className="text-xs font-semibold text-red-600 hover:underline shrink-0">Thu hồi</button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          onClick={() => openTransfer(activeJob)}
+                          className="w-full border-violet-200 text-violet-700 hover:bg-violet-50 gap-2 h-10 text-sm rounded-lg"
+                        >
+                          <Send className="w-4 h-4" /> Chuyển việc cho KTV khác
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1153,6 +1297,34 @@ export default function KtvMobileWeb() {
       </main>
 
       {showSettings && <AccountSettings notify={(m, ok) => showNotification(ok ? 'success' : 'error', m)} onClose={() => setShowSettings(false)} />}
+
+      {/* Modal chọn KTV để chuyển việc (gửi lời mời) */}
+      {transferTarget && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center shrink-0">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2"><Send className="w-5 h-5 text-violet-600" /> Chuyển việc cho</h3>
+              <button onClick={() => setTransferTarget(null)} className="text-slate-400 hover:text-slate-600 text-xl font-bold leading-none">✕</button>
+            </div>
+            <p className="px-4 pt-3 text-xs text-slate-500">Gửi <b>lời mời</b> — đồng nghiệp phải bấm "Nhận" thì việc mới chuyển. Bạn vẫn giữ việc cho tới lúc đó.</p>
+            <div className="p-3 overflow-y-auto flex-1 min-h-0 space-y-1.5">
+              {colleagues.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-6">Không có KTV nào khác đang hoạt động.</p>
+              ) : colleagues.map(c => (
+                <button
+                  key={c.id}
+                  disabled={transferring}
+                  onClick={() => sendInvite(transferTarget, c.id, c.full_name)}
+                  className="w-full text-left px-3 py-3 rounded-lg border border-slate-200 hover:border-violet-300 hover:bg-violet-50 text-sm font-medium text-slate-700 disabled:opacity-50 flex items-center justify-between"
+                >
+                  <span>{c.full_name}</span>
+                  <Send className="w-4 h-4 text-violet-400" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal xác nhận hủy nhận việc (lý do tùy chọn) */}
       {releaseTarget && (

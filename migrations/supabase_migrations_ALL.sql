@@ -1004,3 +1004,12 @@ CREATE TABLE IF NOT EXISTS public.soct_hd_thu (
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.soct_hd_thu ENABLE ROW LEVEL SECURITY;
+
+
+-- ===== MIGRATION 48: Chuyển việc KTV + mốc nhận/nhắc =====
+ALTER TABLE public.soct_cong_viec
+    ADD COLUMN IF NOT EXISTS moi_ktv_id UUID REFERENCES public.soct_users(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS moi_boi    UUID REFERENCES public.soct_users(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS moi_luc    TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS nhan_luc   TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS nhac_luc   TIMESTAMPTZ;

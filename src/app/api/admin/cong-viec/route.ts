@@ -161,7 +161,7 @@ export async function GET(request: Request) {
         .from('soct_cong_viec')
         .select(`
           id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, nguon_nhan,
-          bat_dau_luc, hoan_thanh_luc, so_phut_xu_ly,
+          bat_dau_luc, hoan_thanh_luc, so_phut_xu_ly, moi_ktv_id, moi_boi, moi_luc, nhan_luc,
           soct_khach_hang (
             ten_khach_hang,
             dia_chi,
@@ -171,6 +171,12 @@ export async function GET(request: Request) {
             full_name
           ),
           ktv2:soct_users!ktv2_id (
+            full_name
+          ),
+          moi_ktv:soct_users!moi_ktv_id (
+            full_name
+          ),
+          moi_boi_user:soct_users!moi_boi (
             full_name
           ),
           soct_chi_tiet_vat_tu (
@@ -192,9 +198,10 @@ export async function GET(request: Request) {
         .range(from, to)
 
       if (session.role === 'ktv') {
-        // Việc mình làm CHÍNH + việc mình làm KÈM (ktv2_id) + việc trong pool (chưa gán KTV).
+        // Việc mình làm CHÍNH + việc mình làm KÈM (ktv2_id) + việc trong pool (chưa gán KTV)
+        // + việc được người khác MỜI mình nhận (moi_ktv_id) -> để hiện hộp thư lời mời.
         // Thiếu ktv2_id -> KTV kèm không nhận được phiếu từ server dù client có lọc đúng.
-        query = query.or(`ktv_id.eq.${session.id},ktv2_id.eq.${session.id},ktv_id.is.null`)
+        query = query.or(`ktv_id.eq.${session.id},ktv2_id.eq.${session.id},moi_ktv_id.eq.${session.id},ktv_id.is.null`)
       }
       if (dateStr) query = query.eq('ngay', dateStr)
       // Tìm theo Số phiếu là tìm TOÀN CỤC (bỏ qua lọc ngày) để luôn thấy phiếu cũ;
@@ -294,6 +301,8 @@ export async function POST(request: Request) {
         ket_qua: ktv_id ? 'Đã nhận' : 'Chờ nhận',
         // Nguồn nhận: tạo có KTV = giao trực tiếp; chưa gán = null (chờ KTV tự nhận)
         nguon_nhan: ktv_id ? 'giao' : null,
+        // Giao sẵn KTV -> đóng dấu mốc NHẬN (phục vụ nhắc "đã nhận nhưng chưa Đang làm")
+        nhan_luc: ktv_id ? new Date().toISOString() : null,
         trang_thai_hd: hasHD ? 'Chờ xuất HĐ' : 'Chưa hóa đơn',
         // API tự gửi Telegram (bên dưới) -> đánh dấu để webhook DB không bắn trùng
         telegram_sent: true,
@@ -401,6 +410,11 @@ export async function PUT(request: Request) {
         !ktv_id ? { nguon_nhan: null }
           : ktv_id !== cur.ktv_id ? { nguon_nhan: 'giao' }
             : {}
+      // Mốc NHẬN (nhắc trạng thái): gán KTV chính MỚI -> đóng dấu now + reset nhắc; bỏ gán -> xóa.
+      const nhanLucUpd: { nhan_luc?: string | null; nhac_luc?: null } =
+        !ktv_id ? { nhan_luc: null }
+          : ktv_id !== cur.ktv_id ? { nhan_luc: new Date().toISOString(), nhac_luc: null }
+            : {}
 
       // Đồng bộ trạng thái hóa đơn (công nợ) với cờ hoa_don của vật tư:
       //  - có vật tư đã HĐ  -> 'Đã lên hóa đơn' (ra khỏi công nợ)
@@ -423,6 +437,7 @@ export async function PUT(request: Request) {
           ket_qua: nextKetQua,
           trang_thai_hd: nextTrangThaiHd,
           ...nguonNhanUpd,
+          ...nhanLucUpd,
           // API tự DM người mới được gán (bên dưới) -> chặn webhook DB bắn trùng
           telegram_sent: true,
         })
@@ -471,7 +486,8 @@ export async function PUT(request: Request) {
       const { data, error } = await supabaseAdmin
         .from('soct_cong_viec')
         // telegram_sent=true: webhook DB không bắn DM thừa cho chính KTV vừa tự bấm nhận.
-        .update({ ktv_id: session.id, ket_qua: 'Đã nhận', nguon_nhan: 'tu_nhan', telegram_sent: true })
+        // nhan_luc: mốc nhận (nhắc trạng thái); nhac_luc=null: bắt đầu chu kỳ nhắc mới.
+        .update({ ktv_id: session.id, ket_qua: 'Đã nhận', nguon_nhan: 'tu_nhan', telegram_sent: true, nhan_luc: new Date().toISOString(), nhac_luc: null })
         .eq('id', id)
         .is('ktv_id', null)
         .select('*, soct_khach_hang(ten_khach_hang, dia_chi)')
@@ -536,7 +552,8 @@ export async function PUT(request: Request) {
       // 3. Cập nhật db
       const { data, error } = await supabaseAdmin
         .from('soct_cong_viec')
-        .update({ ktv_id: next_ktv_id, ktv2_id: next_ktv2_id, ket_qua: next_ket_qua, ...nguonNhanRel })
+        // Hủy nhận -> xóa luôn lời mời chuyển việc đang treo (nếu có) để không bị nhận nhầm.
+        .update({ ktv_id: next_ktv_id, ktv2_id: next_ktv2_id, ket_qua: next_ket_qua, ...nguonNhanRel, moi_ktv_id: null, moi_boi: null, moi_luc: null })
         .eq('id', id)
         .select('id, ngay, ma_may, report, ghi_chu, loai_cong_viec, created_by, telegram_message_id, soct_khach_hang ( ten_khach_hang, dia_chi )')
         .single()
@@ -629,6 +646,110 @@ export async function PUT(request: Request) {
       return NextResponse.json({ data })
     }
 
+    // ===== CHUYỂN VIỆC KTV→KTV DẠNG "LỜI MỜI" =====
+    // A (đang giữ việc, 'Đã nhận') mời B nhận thay: đặt moi_ktv_id=B; việc VẪN của A tới khi B bấm Nhận.
+    const invJobSel = 'id, ktv_id, ktv2_id, ket_qua, ma_may, report, ngay, loai_cong_viec, ghi_chu, moi_ktv_id, moi_boi, soct_khach_hang ( ten_khach_hang, dia_chi )'
+    const appUrlKtv = () => (process.env.NEXT_PUBLIC_APP_URL || 'https://hast-services.vercel.app') + '/ktv'
+    const buildInviteMsg = (cur: any, fromName: string) => {
+      const kh = cur.soct_khach_hang
+      return [
+        '🔁 <b>LỜI MỜI NHẬN VIỆC</b>',
+        `${esc(fromName)} muốn chuyển việc này cho bạn:`,
+        `🗓 <b>Ngày:</b> ${fmtDate(cur.ngay)}`,
+        `📌 <b>Loại việc:</b> ${esc(cur.loai_cong_viec)}`,
+        `🏢 <b>Khách hàng:</b> ${esc(kh?.ten_khach_hang || 'N/A')}`,
+        `📍 <b>Địa chỉ:</b> ${esc(kh?.dia_chi || 'N/A')}`,
+        `🖨 <b>Mã máy:</b> ${esc(cur.ma_may || 'N/A')}`,
+        `\n👉 <a href="${appUrlKtv()}">Mở App KTV để Nhận / Từ chối</a>`,
+      ].join('\n')
+    }
+
+    // A gửi lời mời cho B
+    if (session.role === 'ktv' && body.invite === true) {
+      const targetId = body.moi_ktv_id
+      if (!targetId) return NextResponse.json({ error: 'Chưa chọn KTV để chuyển' }, { status: 400 })
+      if (targetId === session.id) return NextResponse.json({ error: 'Không thể tự mời chính mình' }, { status: 400 })
+      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select(invJobSel).eq('id', id).single()
+      if (!cur) return NextResponse.json({ error: 'Không tìm thấy việc' }, { status: 404 })
+      if (cur.ktv_id !== session.id) return NextResponse.json({ error: 'Chỉ chuyển được việc bạn đang giữ.' }, { status: 403 })
+      if (cur.ket_qua !== 'Đã nhận') return NextResponse.json({ error: 'Chỉ chuyển khi việc còn ở "Đã nhận" (chưa bắt đầu).' }, { status: 409 })
+      const { data: target } = await supabaseAdmin.from('soct_users').select('id, full_name, telegram_id, role, is_active').eq('id', targetId).single()
+      if (!target || target.role !== 'ktv' || target.is_active === false) return NextResponse.json({ error: 'KTV nhận không hợp lệ.' }, { status: 400 })
+
+      const { error } = await supabaseAdmin.from('soct_cong_viec')
+        .update({ moi_ktv_id: targetId, moi_boi: session.id, moi_luc: new Date().toISOString() }).eq('id', id)
+      if (error) throw error
+      if (target.telegram_id) await sendTelegramMessage(target.telegram_id, buildInviteMsg(cur, session.full_name))
+      await broadcastJobsChanged()
+      await logAudit(session, 'Mời chuyển việc', `phiếu ${cur.report || id} → ${target.full_name}`)
+      return NextResponse.json({ success: true })
+    }
+
+    // A thu hồi lời mời (chưa được B trả lời)
+    if (session.role === 'ktv' && body.cancelInvite === true) {
+      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('id, moi_boi, ktv_id, report').eq('id', id).single()
+      if (!cur || (cur.moi_boi !== session.id && cur.ktv_id !== session.id)) {
+        return NextResponse.json({ error: 'Không có lời mời để thu hồi.' }, { status: 403 })
+      }
+      const { error } = await supabaseAdmin.from('soct_cong_viec')
+        .update({ moi_ktv_id: null, moi_boi: null, moi_luc: null }).eq('id', id)
+      if (error) throw error
+      await broadcastJobsChanged()
+      return NextResponse.json({ success: true })
+    }
+
+    // B nhận lời mời -> việc chuyển sang B
+    if (session.role === 'ktv' && body.acceptInvite === true) {
+      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select(invJobSel).eq('id', id).single()
+      if (!cur) return NextResponse.json({ error: 'Không tìm thấy việc' }, { status: 404 })
+      if (cur.moi_ktv_id !== session.id) return NextResponse.json({ error: 'Lời mời không dành cho bạn hoặc đã bị thu hồi.' }, { status: 409 })
+      if (cur.ket_qua !== 'Đã nhận') return NextResponse.json({ error: 'Việc đã đổi trạng thái — không nhận chuyển được nữa.' }, { status: 409 })
+      const fromId = cur.moi_boi
+
+      const { error } = await supabaseAdmin.from('soct_cong_viec').update({
+        ktv_id: session.id,
+        // Nếu B vốn là KTV kèm của chính việc này -> gỡ khỏi ô kèm để không trùng.
+        ktv2_id: cur.ktv2_id === session.id ? null : cur.ktv2_id,
+        nguon_nhan: 'chuyen',
+        nhan_luc: new Date().toISOString(),
+        nhac_luc: null,
+        moi_ktv_id: null, moi_boi: null, moi_luc: null,
+      }).eq('id', id)
+      if (error) throw error
+
+      await syncGroupJobMessage(id) // office thấy người phụ trách mới
+      // DM báo người chuyển (A)
+      if (fromId) {
+        const { data: fromU } = await supabaseAdmin.from('soct_users').select('telegram_id').eq('id', fromId).single()
+        if (fromU?.telegram_id) {
+          const kh = (cur as any).soct_khach_hang
+          await sendTelegramMessage(fromU.telegram_id, `✅ <b>${esc(session.full_name)}</b> đã NHẬN việc bạn chuyển: ${esc(kh?.ten_khach_hang || cur.ma_may || cur.report || '')}.`)
+        }
+      }
+      await broadcastJobsChanged()
+      await logAudit(session, 'Nhận việc chuyển', `phiếu ${cur.report || id}`)
+      return NextResponse.json({ success: true })
+    }
+
+    // B từ chối lời mời -> việc vẫn của A
+    if (session.role === 'ktv' && body.declineInvite === true) {
+      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('id, moi_ktv_id, moi_boi, ma_may, report, soct_khach_hang ( ten_khach_hang )').eq('id', id).single()
+      if (!cur || cur.moi_ktv_id !== session.id) return NextResponse.json({ error: 'Lời mời không dành cho bạn.' }, { status: 409 })
+      const fromId = cur.moi_boi
+      const { error } = await supabaseAdmin.from('soct_cong_viec')
+        .update({ moi_ktv_id: null, moi_boi: null, moi_luc: null }).eq('id', id)
+      if (error) throw error
+      if (fromId) {
+        const { data: fromU } = await supabaseAdmin.from('soct_users').select('telegram_id').eq('id', fromId).single()
+        if (fromU?.telegram_id) {
+          const kh = (cur as any).soct_khach_hang
+          await sendTelegramMessage(fromU.telegram_id, `❌ <b>${esc(session.full_name)}</b> đã TỪ CHỐI việc bạn chuyển: ${esc(kh?.ten_khach_hang || cur.ma_may || cur.report || '')}. Việc vẫn thuộc bạn.`)
+        }
+      }
+      await broadcastJobsChanged()
+      return NextResponse.json({ success: true })
+    }
+
     const updates: any = {}
 
     if (session.role === 'ktv') {
@@ -648,6 +769,9 @@ export async function PUT(request: Request) {
         const t = clampTapISO(tapped_at, cur?.created_at, Date.now())
         if (ket_qua === 'Đang làm' && cur && cur.bat_dau_luc == null) {
           updates.bat_dau_luc = t
+          updates.nhac_luc = null // sang pha "Đang làm" -> bắt đầu chu kỳ nhắc mới
+          // Bắt đầu làm -> hủy mọi lời mời chuyển việc đang treo.
+          updates.moi_ktv_id = null; updates.moi_boi = null; updates.moi_luc = null
         }
         if (ket_qua === 'Hoàn thành') {
           if (cur && cur.hoan_thanh_luc == null) updates.hoan_thanh_luc = t
