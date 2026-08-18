@@ -1465,7 +1465,7 @@ export default function AdminDashboard() {
                     <DedupeReportsTool onSuccess={fetchData} showNotification={showNotification} />
                   )}
                   {currentUserRole === 'admin' && (
-                    <ClearAllButton count={jobs.length} label="phiếu giao việc" onConfirm={async () => {
+                    <ClearAllButton count={jobs.length} label="phiếu giao việc" heightClass="h-10" onConfirm={async () => {
                       try {
                         const res = await fetch('/api/admin/cong-viec?all=1', { method: 'DELETE' })
                         const j = await res.json().catch(() => ({}))
@@ -4029,7 +4029,7 @@ function DedupeReportsTool({ onSuccess, showNotification }: { onSuccess: () => v
 
   return (
     <>
-      <Button variant="outline" onClick={openModal} className="gap-2 border-amber-200 text-amber-700 hover:bg-amber-50"><Copy className="w-4 h-4" /> Dọn trùng</Button>
+      <Button variant="outline" onClick={openModal} className="gap-2 border-amber-300 text-amber-700 hover:bg-amber-50 hover:border-amber-400"><Copy className="w-4 h-4" /> Dọn trùng</Button>
       {open && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
@@ -4058,7 +4058,7 @@ function DedupeReportsTool({ onSuccess, showNotification }: { onSuccess: () => v
   )
 }
 
-function ClearAllButton({ count, label, onConfirm }: { count: number, label: string, onConfirm: () => Promise<void> }) {
+function ClearAllButton({ count, label, onConfirm, heightClass = 'h-9' }: { count: number, label: string, onConfirm: () => Promise<void>, heightClass?: string }) {
   const [open, setOpen] = useState(false)
   const [txt, setTxt] = useState("")
   const [busy, setBusy] = useState(false)
@@ -4066,7 +4066,7 @@ function ClearAllButton({ count, label, onConfirm }: { count: number, label: str
   const ok = ['XÓA', 'XOA'].includes(txt.trim().toUpperCase())
   return (
     <>
-      <Button variant="outline" onClick={() => { setOpen(true); setTxt("") }} className="border-red-200 text-red-600 hover:bg-red-50 gap-1 h-9 text-xs shrink-0"><Trash2 className="w-3.5 h-3.5" /> Xóa toàn bộ</Button>
+      <Button variant="outline" onClick={() => { setOpen(true); setTxt("") }} className={`border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 gap-1 ${heightClass} text-sm shrink-0`}><Trash2 className="w-4 h-4" /> Xóa toàn bộ</Button>
       {open && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
@@ -6049,7 +6049,7 @@ function PhieuCungTool({ nguongNgay, currentUserRole, showNotification }: { nguo
           <span className="text-xs text-slate-500 ml-auto whitespace-nowrap">{filtered.length} phiếu</span>
           <ColumnMenu view={col} />
           {currentUserRole === 'admin' && (
-            <Button onClick={submitAll} disabled={submittingAll || chuaNop.length === 0} variant="outline" className="gap-2 h-9 border-emerald-200 text-emerald-700 hover:bg-emerald-50">{submittingAll ? 'Đang nộp...' : 'Nộp toàn bộ'}</Button>
+            <Button onClick={submitAll} disabled={submittingAll || chuaNop.length === 0} variant="outline" className="gap-2 h-9 border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-400">{submittingAll ? 'Đang nộp...' : 'Nộp toàn bộ'}</Button>
           )}
           <Button onClick={remind} disabled={reminding || chuaNop.length === 0} variant="outline" className="gap-2 h-9">{reminding ? 'Đang nhắc...' : 'Nhắc KTV qua Telegram'}</Button>
         </div>
