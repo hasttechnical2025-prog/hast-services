@@ -1125,7 +1125,7 @@ export default function AdminDashboard() {
   })()
 
   const exportJobsExcel = () => {
-    const headers = ['Ngày', 'Khách hàng', 'Địa chỉ', 'Mã máy', 'Model', 'SL', 'Loại việc', 'KTV', 'KM', 'Trạng thái']
+    const headers = ['Ngày', 'Khách hàng', 'Địa chỉ', 'Mã máy', 'Model', 'SL', 'Loại việc', 'KTV', 'KM', 'Trạng thái', 'Ghi chú']
     const rows = filteredJobs.map(j => {
       return [
         formatDate(j.ngay),
@@ -1137,7 +1137,8 @@ export default function AdminDashboard() {
         j.loai_cong_viec,
         j.soct_users?.full_name || 'Chưa giao',
         j.km,
-        j.ket_qua
+        j.ket_qua,
+        j.ghi_chu || ''
       ]
     })
     exportRowsToExcel('so-cong-tac', headers, rows)
