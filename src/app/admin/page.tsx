@@ -1071,7 +1071,7 @@ export default function AdminDashboard() {
     const f = jobFilters
     if (f.search) {
       const q = f.search.trim().toLowerCase()
-      const hay = `${j.soct_khach_hang?.ten_khach_hang || ''} ${j.soct_khach_hang?.dia_chi || ''} ${j.ma_may || ''}`.toLowerCase()
+      const hay = `${j.soct_khach_hang?.ten_khach_hang || ''} ${j.soct_khach_hang?.dia_chi || ''} ${j.soct_khach_hang?.vi_tri_dat_may || ''} ${j.ma_may || ''}`.toLowerCase()
       if (!hay.includes(q)) return false
     }
     // Tìm theo số phiếu -> tìm toàn cục, bỏ qua lọc ngày (khớp với phía server)
@@ -1536,7 +1536,7 @@ export default function AdminDashboard() {
                         {jobsCol.show('khach') && <td className="px-4 py-3">
                           <div className="font-medium text-slate-800">{job.soct_khach_hang?.ten_khach_hang}</div>
                           <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                            <MapPin className="w-3 h-3" /> {job.soct_khach_hang?.dia_chi}
+                            <MapPin className="w-3 h-3" /> {job.soct_khach_hang?.vi_tri_dat_may || job.soct_khach_hang?.dia_chi}
                           </div>
                         </td>}
                         {jobsCol.show('ma_may') && <td className="px-4 py-3">
