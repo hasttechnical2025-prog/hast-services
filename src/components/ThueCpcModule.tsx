@@ -304,6 +304,22 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
             {numField('Cam kết tối thiểu Màu', 'cam_ket_toi_thieu_mau')}
           </div>
 
+          {/* Định mức miễn phí và cam kết tối thiểu là 2 kiểu HĐ khác nhau — 1 máy chỉ nên có 1
+              trong 2 (theo cùng loại đen/màu). Nhập cả 2 thường là nhầm; cảnh báo để rà lại
+              (không chặn cứng). Nếu vẫn lưu cả 2, hệ thống ưu tiên CAM KẾT tối thiểu. */}
+          {(() => {
+            const nz = (v: any) => Number(v) > 0
+            const conflictBw = nz(f.dinh_muc_mien_phi_bw) && nz(f.cam_ket_toi_thieu_bw)
+            const conflictMau = nz(f.dinh_muc_mien_phi_mau) && nz(f.cam_ket_toi_thieu_mau)
+            if (!conflictBw && !conflictMau) return null
+            const loai = [conflictBw ? 'Đen' : '', conflictMau ? 'Màu' : ''].filter(Boolean).join(' và ')
+            return (
+              <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                ⚠ Loại <b>{loai}</b> đang có <b>cả</b> Định mức miễn phí <b>và</b> Cam kết tối thiểu — một máy chỉ nên theo <b>một</b> kiểu. Vui lòng kiểm tra lại. (Nếu vẫn lưu, hệ thống ưu tiên <b>Cam kết tối thiểu</b>.)
+              </div>
+            )
+          })()}
+
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <label className="block">
               <span className="text-xs font-medium text-slate-500">Trách nhiệm kỹ thuật</span>
