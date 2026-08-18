@@ -1237,6 +1237,15 @@ export default function AdminDashboard() {
   }
 
   // Các nhóm cảnh báo cho chuông thông báo (header, mọi tab). NotificationCenter tự ẩn nhóm rỗng.
+  // Nhắc CHỈ admin (tech_admin/staff không có vai trò sửa các dữ liệu này): dữ liệu máy thuê còn thiếu.
+  const rentalMays = currentUserRole === 'admin'
+    ? customers.filter(c => ['Máy thuê', 'Máy CPC'].includes(String(c.loai_hd || '').trim()))
+    : []
+  const mappedModelSet = new Set(mucMap.map((r: any) => normModel(r.model_may)))
+  const modelsChuaMapMuc = [...new Set(rentalMays.filter(c => c.model && String(c.model).trim()).map(c => String(c.model).trim()))]
+    .filter(m => !mappedModelSet.has(normModel(m)))
+  const mayChuaViTri = rentalMays.filter(c => !String(c.vi_tri_dat_may || '').trim())
+
   const alertSections: AlertSection[] = [
     {
       key: 'muc', icon: Droplets, tone: 'red', label: 'Mực máy thuê đã hết', count: mucCanhBao.length,
@@ -1336,6 +1345,36 @@ export default function AdminDashboard() {
               </div>
             )
           })}
+        </div>
+      ),
+    },
+    // Nhắc dữ liệu máy thuê còn thiếu — CHỈ admin (rentalMays rỗng với role khác nên count=0, tự ẩn).
+    {
+      key: 'chua_map_muc', icon: Droplets, tone: 'amber', label: 'Model máy thuê chưa map mực', count: modelsChuaMapMuc.length,
+      detail: (
+        <div className="px-1 py-1 space-y-1">
+          <p className="text-[11px] text-slate-500 px-1">Chưa map mực → không cảnh báo được tồn. Vào Tài chính › Kho máy thuê để gán.</p>
+          <div className="flex flex-wrap gap-1.5">
+            {modelsChuaMapMuc.map((m) => <span key={m} className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded px-2 py-0.5">{m}</span>)}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'chua_vi_tri', icon: MapPin, tone: 'amber', label: 'Máy thuê chưa có Nơi đặt máy', count: mayChuaViTri.length,
+      detail: (
+        <div className="px-1 py-1 space-y-1">
+          <p className="text-[11px] text-slate-500 px-1">Thiếu nơi đặt máy → KTV thấy địa chỉ hóa đơn, dễ đi nhầm. Điền ở Danh sách khách hàng.</p>
+          <div className="border border-amber-100 rounded-lg overflow-hidden">
+            <table className="w-full text-left text-xs text-slate-600">
+              <tbody className="divide-y divide-slate-100">
+                {mayChuaViTri.slice(0, 30).map((c: any) => (
+                  <tr key={c.id}><td className="px-2.5 py-1.5 font-mono">{c.ma_may || '—'}</td><td className="px-2 py-1.5"><span className="font-medium text-slate-800">{c.ten_khach_hang}</span></td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {mayChuaViTri.length > 30 && <p className="text-[10px] text-slate-400 px-1">…và {mayChuaViTri.length - 30} máy nữa.</p>}
         </div>
       ),
     },

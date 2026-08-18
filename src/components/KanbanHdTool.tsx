@@ -169,6 +169,11 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     e.dataTransfer.setData("text/plain", JSON.stringify(cardData))
   }
 
+  // Đếm dòng hàng còn ĐƠN GIÁ 0đ (chưa trả về kho). Dùng để cảnh báo trước khi bàn giao kế
+  // toán — sau bàn giao KHÔNG sửa được giá nữa, dễ để lọt giá 0 vào hóa đơn.
+  const countZeroPrice = (ts: Ticket[]) =>
+    ts.reduce((n, t) => n + (t.soct_chi_tiet_vat_tu || []).filter(v => !v.da_tra && (Number(v.don_gia) || 0) === 0).length, 0)
+
   // Thả thẻ (Drop)
   const handleDrop = async (e: React.DragEvent, targetState: 'Chờ xuất HĐ' | 'Đang xử lý HĐ' | 'Đã lên hóa đơn' | 'Đã thanh toán') => {
     e.preventDefault()
@@ -242,18 +247,33 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
         openPayModal(targetIds)
       } else {
         // Cập nhật trạng thái trực tiếp (Ví dụ: 1 -> 2, 4 -> 3)
-        const res = await fetch('/api/admin/kanban-hd', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids: targetIds, trang_thai_hd: targetState })
-        })
-        if (res.ok) {
-          showNotification('success', 'Đã chuyển trạng thái thẻ thành công.')
-          load()
-        } else {
-          const err = await res.json()
-          showNotification('error', err.error || 'Lỗi chuyển trạng thái')
+        const doMove = async () => {
+          const res = await fetch('/api/admin/kanban-hd', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: targetIds, trang_thai_hd: targetState })
+          })
+          if (res.ok) {
+            showNotification('success', 'Đã chuyển trạng thái thẻ thành công.')
+            load()
+          } else {
+            const err = await res.json()
+            showNotification('error', err.error || 'Lỗi chuyển trạng thái')
+          }
         }
+        // Bàn giao kế toán (Cột 1 -> 2) mà còn dòng giá 0đ -> hỏi xác nhận (sau đó khóa sửa giá).
+        if (sourceState === 'Chờ xuất HĐ' && targetState === 'Đang xử lý HĐ') {
+          const z = countZeroPrice(tickets.filter(t => targetIds.includes(t.id)))
+          if (z > 0) {
+            setConfirmDialog({
+              title: 'Còn dòng đơn giá 0đ',
+              message: `Phiếu còn ${z} dòng hàng đơn giá 0đ. Sau khi bàn giao kế toán sẽ KHÔNG sửa được giá nữa. Bàn giao luôn?`,
+              onConfirm: doMove,
+            })
+            return
+          }
+        }
+        await doMove()
       }
     } catch {
       showNotification('error', 'Lỗi kéo thả thẻ')
@@ -308,6 +328,22 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
 
   // Chuyển trạng thái trực tiếp từ NÚT trong modal (thay cho kéo thả — dùng được trên mobile).
   const moveStatus = async (targetState: string, keepInvoice = false) => {
+    if (!activeCard) return
+    // Bàn giao kế toán (Cột 1 -> 2) mà còn dòng giá 0đ -> hỏi xác nhận trước.
+    if (targetState === 'Đang xử lý HĐ' && activeCard.tickets[0]?.trang_thai_hd === 'Chờ xuất HĐ') {
+      const z = countZeroPrice(activeCard.tickets)
+      if (z > 0) {
+        setConfirmDialog({
+          title: 'Còn dòng đơn giá 0đ',
+          message: `Phiếu còn ${z} dòng hàng đơn giá 0đ. Sau khi bàn giao kế toán sẽ KHÔNG sửa được giá nữa. Bàn giao luôn?`,
+          onConfirm: () => doMoveStatus(targetState, keepInvoice),
+        })
+        return
+      }
+    }
+    await doMoveStatus(targetState, keepInvoice)
+  }
+  const doMoveStatus = async (targetState: string, keepInvoice = false) => {
     if (!activeCard) return
     setCompleting(true)
     try {

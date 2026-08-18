@@ -78,7 +78,7 @@ export default function KtvMobileWeb() {
   const [claimConfirm, setClaimConfirm] = useState<Job | null>(null)
   // Chuyển việc KTV→KTV (lời mời): picker chọn người nhận + danh sách đồng nghiệp
   const [transferTarget, setTransferTarget] = useState<Job | null>(null)
-  const [colleagues, setColleagues] = useState<{ id: string; full_name: string }[]>([])
+  const [colleagues, setColleagues] = useState<{ id: string; full_name: string; nghi?: boolean; buoi?: string }[]>([])
   const [transferring, setTransferring] = useState(false)
   const [releaseReason, setReleaseReason] = useState("")
   const [releasing, setReleasing] = useState(false)
@@ -1310,15 +1310,15 @@ export default function KtvMobileWeb() {
             <div className="p-3 overflow-y-auto flex-1 min-h-0 space-y-1.5">
               {colleagues.length === 0 ? (
                 <p className="text-sm text-slate-400 text-center py-6">Không có KTV nào khác đang hoạt động.</p>
-              ) : colleagues.map(c => (
+              ) : [...colleagues].sort((a, b) => Number(a.nghi) - Number(b.nghi)).map(c => (
                 <button
                   key={c.id}
                   disabled={transferring}
                   onClick={() => sendInvite(transferTarget, c.id, c.full_name)}
-                  className="w-full text-left px-3 py-3 rounded-lg border border-slate-200 hover:border-violet-300 hover:bg-violet-50 text-sm font-medium text-slate-700 disabled:opacity-50 flex items-center justify-between"
+                  className={`w-full text-left px-3 py-3 rounded-lg border text-sm font-medium disabled:opacity-50 flex items-center justify-between ${c.nghi ? 'border-slate-100 bg-slate-50 text-slate-400 hover:border-amber-200' : 'border-slate-200 text-slate-700 hover:border-violet-300 hover:bg-violet-50'}`}
                 >
-                  <span>{c.full_name}</span>
-                  <Send className="w-4 h-4 text-violet-400" />
+                  <span className="flex items-center gap-2">{c.full_name}{c.nghi && <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5">nghỉ hôm nay</span>}</span>
+                  <Send className={`w-4 h-4 ${c.nghi ? 'text-slate-300' : 'text-violet-400'}`} />
                 </button>
               ))}
             </div>
