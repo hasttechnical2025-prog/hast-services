@@ -36,7 +36,7 @@ type Job = {
   moi_boi?: string | null
   moi_ktv?: { full_name: string } | null
   moi_boi_user?: { full_name: string } | null
-  soct_khach_hang: { ten_khach_hang: string; dia_chi: string; km_mac_dinh: number }
+  soct_khach_hang: { ten_khach_hang: string; dia_chi: string; km_mac_dinh: number; vi_tri_dat_may?: string | null }
   ktv2: { full_name: string } | null
   soct_chi_tiet_vat_tu: Array<{
     id: string
@@ -622,7 +622,7 @@ export default function KtvMobileWeb() {
         <h4 className="font-bold text-slate-800 text-base">{job.soct_khach_hang?.ten_khach_hang}</h4>
         <div className="text-xs text-slate-500 flex items-center gap-1">
           <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-          <span className="truncate">{job.soct_khach_hang?.dia_chi}</span>
+          <span className="truncate">{job.soct_khach_hang?.vi_tri_dat_may || job.soct_khach_hang?.dia_chi}</span>
         </div>
       </div>
 
@@ -808,7 +808,7 @@ export default function KtvMobileWeb() {
                               <h4 className="font-bold text-slate-800 text-base">{job.soct_khach_hang?.ten_khach_hang}</h4>
                               <div className="text-xs text-slate-500 flex items-center gap-1">
                                 <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                                <span className="truncate">{job.soct_khach_hang?.dia_chi}</span>
+                                <span className="truncate">{job.soct_khach_hang?.vi_tri_dat_may || job.soct_khach_hang?.dia_chi}</span>
                               </div>
                             </div>
                             <div className="border-t border-slate-100 pt-2 flex justify-between items-center text-xs text-slate-500">
@@ -1146,7 +1146,7 @@ export default function KtvMobileWeb() {
 
                     <div className="text-sm text-slate-600 flex items-start gap-1.5">
                       <MapPin className="w-4 h-4 shrink-0 text-slate-400 mt-0.5" />
-                      <span>{activeJob.soct_khach_hang?.dia_chi}</span>
+                      <span>{activeJob.soct_khach_hang?.vi_tri_dat_may || activeJob.soct_khach_hang?.dia_chi}</span>
                     </div>
                   </div>
 

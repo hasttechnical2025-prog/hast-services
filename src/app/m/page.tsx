@@ -297,9 +297,9 @@ function ViecHomNay() {
                     <div className="font-semibold text-slate-800 text-sm leading-snug">{j.soct_khach_hang?.ten_khach_hang || '(Không rõ khách)'}</div>
                     <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border shrink-0 ${statusBadge(s)}`}>{s}</span>
                   </div>
-                  {j.soct_khach_hang?.dia_chi && (
+                  {(j.soct_khach_hang?.vi_tri_dat_may || j.soct_khach_hang?.dia_chi) && (
                     <div className="flex items-start gap-1 text-[11px] text-slate-400 mt-1">
-                      <MapPin className="w-3 h-3 mt-0.5 shrink-0" /><span className="line-clamp-1">{j.soct_khach_hang.dia_chi}</span>
+                      <MapPin className="w-3 h-3 mt-0.5 shrink-0" /><span className="line-clamp-1">{j.soct_khach_hang.vi_tri_dat_may || j.soct_khach_hang.dia_chi}</span>
                     </div>
                   )}
                   <div className="text-xs text-slate-500 mt-1.5">
@@ -339,7 +339,7 @@ function JobDetailSheet({ job, onClose }: { job: any, onClose: () => void }) {
         <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold border ${statusBadge(s)}`}>{s}</span>
 
         <dl className="text-sm space-y-2 pt-1">
-          {job.soct_khach_hang?.dia_chi && <Row label="Địa chỉ" value={job.soct_khach_hang.dia_chi} />}
+          {(job.soct_khach_hang?.vi_tri_dat_may || job.soct_khach_hang?.dia_chi) && <Row label="Địa chỉ" value={job.soct_khach_hang.vi_tri_dat_may || job.soct_khach_hang.dia_chi} />}
           <Row label="Mã máy" value={job.ma_may || '—'} />
           {job.soct_khach_hang?.model && <Row label="Model" value={job.soct_khach_hang.model} />}
           <Row label="Loại việc" value={job.loai_cong_viec || '—'} />

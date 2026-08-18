@@ -44,6 +44,11 @@ function assigneeLine(n1: string, n2: string): string | null {
   if (n2) return `👤 <b>Phân công:</b> ${esc(n2)} (kèm)`
   return null
 }
+// Địa chỉ KTV cần đến: ƯU TIÊN vị trí đặt máy (máy thuê hay khác địa chỉ hóa đơn),
+// thiếu thì mới dùng địa chỉ (hóa đơn) của khách. Tránh KTV đi nhầm chỗ.
+function khDiaChi(kh: any): string {
+  return kh?.vi_tri_dat_may || kh?.dia_chi || 'Không rõ'
+}
 function buildJobMsg(job: any, kh: any, heading: string, extraLine: string | null, assignee: string | null, creatorName?: string): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://hast-services.vercel.app'
   return [
@@ -51,7 +56,7 @@ function buildJobMsg(job: any, kh: any, heading: string, extraLine: string | nul
     `🗓 <b>Ngày thực hiện:</b> ${fmtDate(job.ngay)}`,
     `📌 <b>Loại công việc:</b> ${esc(job.loai_cong_viec)}`,
     `🏢 <b>Khách hàng:</b> ${esc(kh?.ten_khach_hang || 'Không rõ')}`,
-    `📍 <b>Địa chỉ:</b> ${esc(kh?.dia_chi || 'Không rõ')}`,
+    `📍 <b>Địa chỉ:</b> ${esc(khDiaChi(kh))}`,
     `🖨 <b>Model máy:</b> ${esc(kh?.model || 'N/A')}`,
     `📝 <b>Ghi chú:</b> ${esc(job.ghi_chu || 'Không')}`,
     creatorName ? `👤 <b>Người tạo phiếu:</b> ${esc(creatorName)}` : null,
@@ -63,7 +68,7 @@ function buildJobMsg(job: any, kh: any, heading: string, extraLine: string | nul
 // Phiếu MỚI: chưa gán -> báo group; gán sẵn -> DM KTV chính/kèm.
 async function notifyNewJob(job: any, creatorName: string): Promise<number | null> {
   try {
-    const { data: kh } = await supabaseAdmin.from('soct_khach_hang').select('ten_khach_hang, dia_chi, model').eq('id', job.id_khach_hang).single()
+    const { data: kh } = await supabaseAdmin.from('soct_khach_hang').select('ten_khach_hang, dia_chi, model, vi_tri_dat_may').eq('id', job.id_khach_hang).single()
     const u1 = await fetchTgUser(job.ktv_id), u2 = await fetchTgUser(job.ktv2_id)
     const assignee = assigneeLine(u1.name, u2.name)
     const groupChatId = process.env.TELEGRAM_GROUP_CHAT_ID
@@ -87,7 +92,7 @@ async function notifyNewJob(job: any, creatorName: string): Promise<number | nul
 // Giao LẠI (admin sửa phiếu): chỉ DM người MỚI được gán (khác người cũ).
 async function notifyReassign(job: any, prevKtv1: string | null, prevKtv2: string | null, creatorName: string) {
   try {
-    const { data: kh } = await supabaseAdmin.from('soct_khach_hang').select('ten_khach_hang, dia_chi, model').eq('id', job.id_khach_hang).single()
+    const { data: kh } = await supabaseAdmin.from('soct_khach_hang').select('ten_khach_hang, dia_chi, model, vi_tri_dat_may').eq('id', job.id_khach_hang).single()
     const u1 = await fetchTgUser(job.ktv_id), u2 = await fetchTgUser(job.ktv2_id)
     const assignee = assigneeLine(u1.name, u2.name)
     if (job.ktv_id && job.ktv_id !== prevKtv1 && u1.tg) await sendTelegramMessage(u1.tg, buildJobMsg(job, kh, '🔔 <b>CÔNG VIỆC ĐƯỢC GIAO</b>', `Xin chào ${esc(u1.name)}, bạn có một công việc!`, assignee, creatorName))
@@ -104,7 +109,7 @@ async function syncGroupJobMessage(jobId: string): Promise<void> {
     if (!groupChatId) return
     const { data } = await supabaseAdmin
       .from('soct_cong_viec')
-      .select('ngay, ma_may, ghi_chu, loai_cong_viec, created_by, ktv_id, ktv2_id, telegram_message_id, soct_khach_hang ( ten_khach_hang, dia_chi, model )')
+      .select('ngay, ma_may, ghi_chu, loai_cong_viec, created_by, ktv_id, ktv2_id, telegram_message_id, soct_khach_hang ( ten_khach_hang, dia_chi, model, vi_tri_dat_may )')
       .eq('id', jobId).single()
     if (!data || !data.telegram_message_id) return
 
@@ -126,7 +131,7 @@ async function syncGroupJobMessage(jobId: string): Promise<void> {
       `🗓 <b>Ngày thực hiện:</b> ${fmtDate(data.ngay)}`,
       `📌 <b>Loại công việc:</b> ${esc(data.loai_cong_viec)}`,
       `🏢 <b>Khách hàng:</b> ${esc(kh?.ten_khach_hang || 'Không rõ')}`,
-      `📍 <b>Địa chỉ:</b> ${esc(kh?.dia_chi || 'Không rõ')}`,
+      `📍 <b>Địa chỉ:</b> ${esc(khDiaChi(kh))}`,
       `🖨 <b>Model máy:</b> ${esc(kh?.model || 'N/A')}`,
       `📝 <b>Ghi chú:</b> ${esc(data.ghi_chu || 'Không')}`,
       creatorName ? `👤 <b>Người tạo phiếu:</b> ${esc(creatorName)}` : null,
@@ -165,7 +170,8 @@ export async function GET(request: Request) {
           soct_khach_hang (
             ten_khach_hang,
             dia_chi,
-            model
+            model,
+            vi_tri_dat_may
           ),
           soct_users!ktv_id (
             full_name
@@ -513,7 +519,7 @@ export async function PUT(request: Request) {
       // 1. Lấy thông tin phiếu hiện tại
       const { data: curJob, error: fetchErr } = await supabaseAdmin
         .from('soct_cong_viec')
-        .select('id, ktv_id, ktv2_id, ket_qua, ngay, ma_may, report, loai_cong_viec, created_by, soct_khach_hang ( ten_khach_hang, dia_chi )')
+        .select('id, ktv_id, ktv2_id, ket_qua, ngay, ma_may, report, loai_cong_viec, created_by, soct_khach_hang ( ten_khach_hang, dia_chi, vi_tri_dat_may )')
         .eq('id', id)
         .in('ket_qua', ['Đã nhận', 'Chờ nhận'])
         .single()
@@ -555,7 +561,7 @@ export async function PUT(request: Request) {
         // Hủy nhận -> xóa luôn lời mời chuyển việc đang treo (nếu có) để không bị nhận nhầm.
         .update({ ktv_id: next_ktv_id, ktv2_id: next_ktv2_id, ket_qua: next_ket_qua, ...nguonNhanRel, moi_ktv_id: null, moi_boi: null, moi_luc: null })
         .eq('id', id)
-        .select('id, ngay, ma_may, report, ghi_chu, loai_cong_viec, created_by, telegram_message_id, soct_khach_hang ( ten_khach_hang, dia_chi )')
+        .select('id, ngay, ma_may, report, ghi_chu, loai_cong_viec, created_by, telegram_message_id, soct_khach_hang ( ten_khach_hang, dia_chi, vi_tri_dat_may )')
         .single()
 
       if (error) {
@@ -589,7 +595,7 @@ export async function PUT(request: Request) {
             `🗓 <b>Ngày thực hiện:</b> ${fmtDate(data.ngay)}`,
             `📌 <b>Loại công việc:</b> ${esc(data.loai_cong_viec)}`,
             `🏢 <b>Khách hàng:</b> ${esc(kh?.ten_khach_hang || 'Không rõ')}`,
-            `📍 <b>Địa chỉ:</b> ${esc(kh?.dia_chi || 'Không rõ')}`,
+            `📍 <b>Địa chỉ:</b> ${esc(khDiaChi(kh))}`,
             `🖨 <b>Mã máy:</b> ${esc(data.ma_may || 'N/A')}`,
             `📝 <b>Ghi chú:</b> ${esc(data.ghi_chu || 'Không')}`,
             creatorName ? `👤 <b>Người tạo phiếu:</b> ${esc(creatorName)}` : null,
@@ -633,7 +639,7 @@ export async function PUT(request: Request) {
           `🗓 <b>Ngày:</b> ${fmtDate(data.ngay)}`,
           `📌 <b>Loại việc:</b> ${esc(data.loai_cong_viec)}`,
           `🏢 <b>Khách hàng:</b> ${esc(kh?.ten_khach_hang || 'Không rõ')}`,
-          `📍 <b>Địa chỉ:</b> ${esc(kh?.dia_chi || 'Không rõ')}`,
+          `📍 <b>Địa chỉ:</b> ${esc(khDiaChi(kh))}`,
           `🖨 <b>Mã máy:</b> ${esc(data.ma_may || 'N/A')}`,
           creatorName ? `👤 <b>Người tạo phiếu:</b> ${esc(creatorName)}` : null,
           next_ktv_id === null ? `\n👉 <a href="${appUrl}/ktv">Mở App KTV để nhận việc</a>` : null,
@@ -648,7 +654,7 @@ export async function PUT(request: Request) {
 
     // ===== CHUYỂN VIỆC KTV→KTV DẠNG "LỜI MỜI" =====
     // A (đang giữ việc, 'Đã nhận') mời B nhận thay: đặt moi_ktv_id=B; việc VẪN của A tới khi B bấm Nhận.
-    const invJobSel = 'id, ktv_id, ktv2_id, ket_qua, ma_may, report, ngay, loai_cong_viec, ghi_chu, moi_ktv_id, moi_boi, soct_khach_hang ( ten_khach_hang, dia_chi )'
+    const invJobSel = 'id, ktv_id, ktv2_id, ket_qua, ma_may, report, ngay, loai_cong_viec, ghi_chu, moi_ktv_id, moi_boi, soct_khach_hang ( ten_khach_hang, dia_chi, vi_tri_dat_may )'
     const appUrlKtv = () => (process.env.NEXT_PUBLIC_APP_URL || 'https://hast-services.vercel.app') + '/ktv'
     const buildInviteMsg = (cur: any, fromName: string) => {
       const kh = cur.soct_khach_hang
@@ -658,7 +664,7 @@ export async function PUT(request: Request) {
         `🗓 <b>Ngày:</b> ${fmtDate(cur.ngay)}`,
         `📌 <b>Loại việc:</b> ${esc(cur.loai_cong_viec)}`,
         `🏢 <b>Khách hàng:</b> ${esc(kh?.ten_khach_hang || 'N/A')}`,
-        `📍 <b>Địa chỉ:</b> ${esc(kh?.dia_chi || 'N/A')}`,
+        `📍 <b>Địa chỉ:</b> ${esc(khDiaChi(kh))}`,
         `🖨 <b>Mã máy:</b> ${esc(cur.ma_may || 'N/A')}`,
         `\n👉 <a href="${appUrlKtv()}">Mở App KTV để Nhận / Từ chối</a>`,
       ].join('\n')

@@ -499,7 +499,8 @@ export default function AdminDashboard() {
     // Dùng khi máy mới hoàn toàn chưa có trong db
     ten_khach_hang_moi: "",
     dia_chi_moi: "",
-    model_moi: ""
+    model_moi: "",
+    vi_tri_dat_may_moi: ""
   })
 
   // Đóng modal & reset form
@@ -524,7 +525,8 @@ export default function AdminDashboard() {
       vat_tu: [],
       ten_khach_hang_moi: "",
       dia_chi_moi: "",
-      model_moi: ""
+      model_moi: "",
+    vi_tri_dat_may_moi: ""
     })
   }
 
@@ -548,7 +550,7 @@ export default function AdminDashboard() {
       report: job.report || '',
       ghi_chu: job.ghi_chu || '',
       vat_tu: (job.soct_chi_tiet_vat_tu || []).map((v: any) => ({ ma_hang: v.ma_hang, so_luong: String(v.so_luong), don_gia: String(v.don_gia ?? ''), vat: String(v.vat ?? ''), hoa_don: !!v.hoa_don })),
-      ten_khach_hang_moi: "", dia_chi_moi: "", model_moi: ""
+      ten_khach_hang_moi: "", dia_chi_moi: "", model_moi: "", vi_tri_dat_may_moi: ""
     })
     setIsModalOpen(true)
   }
@@ -675,7 +677,8 @@ export default function AdminDashboard() {
           id_khach_hang: matched.id,
           ten_khach_hang_moi: "",
           dia_chi_moi: "",
-          model_moi: ""
+          model_moi: "",
+    vi_tri_dat_may_moi: ""
         }))
       } else {
         // Nếu không tìm thấy, xóa liên kết khách hàng cũ để giữ form sạch
@@ -876,6 +879,7 @@ export default function AdminDashboard() {
           body: JSON.stringify({
             ten_khach_hang: formData.ten_khach_hang_moi,
             dia_chi: formData.dia_chi_moi,
+            vi_tri_dat_may: formData.vi_tri_dat_may_moi,
             ma_may: formData.ma_may,
             model: formData.model_moi
           })
@@ -2178,10 +2182,10 @@ export default function AdminDashboard() {
                           onCreateNew={() => setFormData(prev => ({ ...prev, id_khach_hang: 'NEW' }))}
                         />
                       )}
-                      {selected && (selected.model || selected.dia_chi) && (
+                      {selected && (selected.model || selected.vi_tri_dat_may || selected.dia_chi) && (
                         <div className="flex flex-wrap gap-2 text-xs pt-1">
                           {selected.model && <span className="text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100">Model: <b>{selected.model}</b></span>}
-                          {selected.dia_chi && <span className="text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100 max-w-full truncate" title={selected.dia_chi}>Địa chỉ: <b>{selected.dia_chi}</b></span>}
+                          {(selected.vi_tri_dat_may || selected.dia_chi) && <span className="inline-flex items-center gap-1 text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100 max-w-full truncate" title={selected.vi_tri_dat_may || selected.dia_chi}><MapPin className="w-3 h-3 shrink-0" /><b className="truncate">{selected.vi_tri_dat_may || selected.dia_chi}</b></span>}
                         </div>
                       )}
                     </div>
@@ -2202,6 +2206,10 @@ export default function AdminDashboard() {
                     <div className="space-y-2">
                        <label className="text-sm font-medium text-slate-700">Model máy</label>
                        <Input placeholder="VD: bizhub 950i" value={formData.model_moi} onChange={(e) => setFormData({...formData, model_moi: e.target.value})} />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                       <label className="text-sm font-medium text-slate-700 flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-blue-500" /> Nơi đặt máy <span className="font-normal text-slate-400 text-xs">(KTV đến — để trống nếu trùng địa chỉ hóa đơn)</span></label>
+                       <Input placeholder="VD: Tầng 3, chi nhánh Nội Bài" value={formData.vi_tri_dat_may_moi} onChange={(e) => setFormData({...formData, vi_tri_dat_may_moi: e.target.value})} />
                     </div>
                   </div>
                 )}
@@ -7571,6 +7579,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
         ma_may: editing.ma_may,
         serial: editing.serial,
         dia_chi: editing.dia_chi,
+        vi_tri_dat_may: editing.vi_tri_dat_may || null,
         model: editing.model,
         hang: editing.hang,
         loai_hd: editing.loai_hd,
@@ -7762,8 +7771,10 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
                     <Input value={editing.ten_khach_hang || ""} onChange={(e) => setEditing({ ...editing, ten_khach_hang: e.target.value })} className="bg-white" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-600">Địa chỉ</label>
+                    <label className="text-xs font-semibold text-slate-600">Địa chỉ <span className="font-normal text-slate-400">(hóa đơn)</span></label>
                     <Input value={editing.dia_chi || ""} onChange={(e) => setEditing({ ...editing, dia_chi: e.target.value })} className="bg-white" />
+                    <label className="text-xs font-semibold text-slate-600 flex items-center gap-1 mt-2"><MapPin className="w-3 h-3 text-blue-500" /> Nơi đặt máy <span className="font-normal text-slate-400">(KTV đến — để trống nếu trùng địa chỉ)</span></label>
+                    <Input value={editing.vi_tri_dat_may || ""} onChange={(e) => setEditing({ ...editing, vi_tri_dat_may: e.target.value })} placeholder="VD: Tầng 3, chi nhánh Nội Bài" className="bg-white" />
                   </div>
 
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide pt-1">Thông tin máy</div>
