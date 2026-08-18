@@ -1013,3 +1013,14 @@ ALTER TABLE public.soct_cong_viec
     ADD COLUMN IF NOT EXISTS moi_luc    TIMESTAMPTZ,
     ADD COLUMN IF NOT EXISTS nhan_luc   TIMESTAMPTZ,
     ADD COLUMN IF NOT EXISTS nhac_luc   TIMESTAMPTZ;
+
+
+-- ===== MIGRATION 49: Map model máy thuê -> mã mực =====
+CREATE TABLE IF NOT EXISTS public.soct_muc_may_thue (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    model_may TEXT NOT NULL,
+    ma_hang   TEXT NOT NULL REFERENCES public.soct_kho_hang(ma_hang) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE (model_may, ma_hang)
+);
+CREATE INDEX IF NOT EXISTS idx_muc_may_thue_model ON public.soct_muc_may_thue (model_may);

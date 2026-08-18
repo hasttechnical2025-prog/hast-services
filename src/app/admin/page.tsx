@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom"
-import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy, X, Palmtree, Send, Hand } from "lucide-react"
+import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy, X, Palmtree, Send, Hand, Bell, Droplets } from "lucide-react"
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -270,7 +270,6 @@ export default function AdminDashboard() {
   // Số phiếu cứng chưa hoàn (badge nhắc ở tab con Hoàn phiếu)
   const [phieuChuaHoan, setPhieuChuaHoan] = useState(0)
   const [unfinishedPastJobs, setUnfinishedPastJobs] = useState<Job[]>([])
-  const [unfinishedOpen, setUnfinishedOpen] = useState(false)
   const [cauHinh, setCauHinh] = useState<Record<string, string>>({})
 
   // Ẩn/hiện tab (lớn + con) theo role. Admin thấy hết; Hệ thống khóa admin-only.
@@ -332,10 +331,9 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (currentUserRole) fetchPhieuCount()
   }, [currentUserRole, activeTab, congTacTab, fetchPhieuCount])
-  const [hdbtOpen, setHdbtOpen] = useState(false)
-  const [counterDueOpen, setCounterDueOpen] = useState(false)
   const [counterDueList, setCounterDueList] = useState<any[]>([])
   const [leaveToday, setLeaveToday] = useState<any[]>([]) // ai nghỉ hôm nay (banner Sổ công tác)
+  const [mucMap, setMucMap] = useState<any[]>([])         // map model máy thuê -> mã mực (theo dõi tồn mực)
   const [confirmGiamDinhOpen, setConfirmGiamDinhOpen] = useState<{
     message: string,
     onConfirm: () => void,
@@ -443,6 +441,48 @@ export default function AdminDashboard() {
       .catch(() => { })
     return () => { alive = false }
   }, [currentAdmin, currentUserRole, activeTab])
+
+  // Map mực máy thuê (mọi role office đọc được) -> tính cảnh báo tồn mực ở chuông.
+  const fetchMucMap = () => {
+    fetch('/api/admin/muc-may-thue')
+      .then(r => r.ok ? r.json() : { data: [] })
+      .then(j => setMucMap(j.data || []))
+      .catch(() => { })
+  }
+  useEffect(() => {
+    if (!currentAdmin) return
+    fetchMucMap()
+  }, [currentAdmin])
+
+  // Cảnh báo mực máy thuê: mã mực có khả dụng (tồn − đang giữ) ≤ 0. Kèm model + số máy thuê phụ thuộc.
+  const normModel = (s: any) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+  const mucCanhBao = (() => {
+    if (!mucMap.length) return [] as any[]
+    const modelsByMa = new Map<string, Set<string>>()
+    for (const r of mucMap) {
+      if (!modelsByMa.has(r.ma_hang)) modelsByMa.set(r.ma_hang, new Set())
+      modelsByMa.get(r.ma_hang)!.add(r.model_may)
+    }
+    const rentalCount = new Map<string, number>() // normModel -> số máy thuê/CPC
+    for (const c of customers) {
+      if (['Máy thuê', 'Máy CPC'].includes(String(c.loai_hd || '').trim()) && c.model) {
+        const k = normModel(c.model)
+        rentalCount.set(k, (rentalCount.get(k) || 0) + 1)
+      }
+    }
+    const out: any[] = []
+    for (const [ma, models] of modelsByMa) {
+      const inv = inventory.find(i => i.ma_hang === ma)
+      const ton = Number(inv?.ton_kho) || 0
+      const giu = committed[ma] || 0
+      const khaDung = ton - giu
+      if (khaDung > 0) continue // chỉ báo khi HẾT (khả dụng ≤ 0)
+      const modelArr = [...models]
+      const soMay = modelArr.reduce((s, m) => s + (rentalCount.get(normModel(m)) || 0), 0)
+      out.push({ ma_hang: ma, ten_hang: inv?.ten_hang || ma, ton, giu, kha_dung: khaDung, models: modelArr, so_may: soMay })
+    }
+    return out.sort((a, b) => a.kha_dung - b.kha_dung)
+  })()
 
   const [formData, setFormData] = useState({
     ngay: todayVN(), // Mặc định ngày hôm nay (giờ VN)
@@ -1191,6 +1231,111 @@ export default function AdminDashboard() {
     )
   }
 
+  // Các nhóm cảnh báo cho chuông thông báo (header, mọi tab). NotificationCenter tự ẩn nhóm rỗng.
+  const alertSections: AlertSection[] = [
+    {
+      key: 'muc', icon: Droplets, tone: 'red', label: 'Mực máy thuê đã hết', count: mucCanhBao.length,
+      detail: (
+        <div className="border border-red-100 rounded-lg overflow-hidden">
+          <table className="w-full text-left text-xs text-slate-600">
+            <thead className="bg-red-50 text-red-800"><tr><th className="px-2.5 py-1.5 font-medium">Mã / tên mực</th><th className="px-2 py-1.5 font-medium text-center">Khả dụng</th><th className="px-2 py-1.5 font-medium text-center">Máy</th></tr></thead>
+            <tbody className="divide-y divide-slate-100">
+              {mucCanhBao.map((m: any) => (
+                <tr key={m.ma_hang}>
+                  <td className="px-2.5 py-1.5"><span className="font-mono font-semibold text-slate-700">{m.ma_hang}</span><div className="text-slate-500 truncate max-w-[170px]" title={m.ten_hang}>{m.ten_hang}</div></td>
+                  <td className="px-2 py-1.5 text-center font-semibold text-red-600">{m.kha_dung}{m.giu > 0 && <div className="text-[10px] text-slate-400 font-normal">tồn {m.ton} · giữ {m.giu}</div>}</td>
+                  <td className="px-2 py-1.5 text-center">{m.so_may}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ),
+    },
+    {
+      key: 'unfinished', icon: AlertTriangle, tone: 'red', label: 'Phiếu ngày trước chưa Hoàn thành', count: unfinishedPastJobs.length,
+      detail: (
+        <div className="border border-rose-100 rounded-lg overflow-hidden">
+          <table className="w-full text-left text-xs text-slate-600">
+            <thead className="bg-rose-50 text-rose-800"><tr><th className="px-2.5 py-1.5 font-medium">Ngày</th><th className="px-2 py-1.5 font-medium">Khách / mã máy</th><th className="px-2 py-1.5 font-medium text-center">TT</th></tr></thead>
+            <tbody className="divide-y divide-slate-100">
+              {unfinishedPastJobs.map((j: any) => (
+                <tr key={j.id}>
+                  <td className="px-2.5 py-1.5 whitespace-nowrap">{formatDate(j.ngay)}</td>
+                  <td className="px-2 py-1.5"><div className="font-medium text-slate-800 truncate max-w-[150px]">{j.soct_khach_hang?.ten_khach_hang || '—'}</div><div className="text-[10px] text-slate-400 font-mono">{j.ma_may || '—'} · {j.soct_users?.full_name || 'Chưa gán'}</div></td>
+                  <td className="px-2 py-1.5 text-center"><span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 whitespace-nowrap">{j.ket_qua}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ),
+    },
+    {
+      key: 'hdbt', icon: ClipboardCheck, tone: 'amber', label: `HĐBT/thuê sắp hết hạn (${hdbtCanhBaoThang} tháng)`, count: hdbtExpiring.length,
+      detail: (
+        <div className="border border-amber-100 rounded-lg overflow-hidden">
+          <table className="w-full text-left text-xs text-slate-600">
+            <thead className="bg-amber-50 text-amber-800"><tr><th className="px-2.5 py-1.5 font-medium">Mã máy</th><th className="px-2 py-1.5 font-medium">Khách</th><th className="px-2 py-1.5 font-medium text-center">Hết hạn</th></tr></thead>
+            <tbody className="divide-y divide-slate-100">
+              {hdbtExpiring.map((c: any) => {
+                const st = hdbtStatus(c.ngay_het_han_hdbt)
+                return (
+                  <tr key={c.id}>
+                    <td className="px-2.5 py-1.5 font-mono">{c.ma_may || '—'}</td>
+                    <td className="px-2 py-1.5"><div className="font-medium text-slate-800 truncate max-w-[130px]">{c.ten_khach_hang}</div><div className="text-[10px] text-slate-400">{c.loai_hd || '—'}</div></td>
+                    <td className="px-2 py-1.5 text-center whitespace-nowrap">{st && <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${st.cls}`} title={st.note}>{st.label}</span>}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      ),
+    },
+    {
+      key: 'counter', icon: Clock, tone: 'amber', label: 'Máy thuê/CPC đến hạn lấy counter', count: counterDueList.length,
+      detail: (
+        <div className="border border-amber-100 rounded-lg overflow-hidden">
+          <table className="w-full text-left text-xs text-slate-600">
+            <thead className="bg-amber-50 text-amber-800"><tr><th className="px-2.5 py-1.5 font-medium">Mã máy</th><th className="px-2 py-1.5 font-medium">Khách</th><th className="px-2 py-1.5 font-medium text-center">TT</th></tr></thead>
+            <tbody className="divide-y divide-slate-100">
+              {counterDueList.map((m: any) => {
+                const overdue = m._st.status === 'overdue'
+                const label = overdue ? `Quá ${m._st.days}n` : (m._st.days === 0 ? 'Hôm nay' : `Còn ${m._st.days}n`)
+                const cls = overdue ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                return (
+                  <tr key={m.id}>
+                    <td className="px-2.5 py-1.5 font-mono">{m.ma_may || '—'}</td>
+                    <td className="px-2 py-1.5"><div className="font-medium text-slate-800 truncate max-w-[130px]">{m.ten_khach_hang}</div><div className="text-[10px] text-slate-400">{m.loai_hd || '—'}</div></td>
+                    <td className="px-2 py-1.5 text-center whitespace-nowrap"><span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${cls}`}>{label}</span></td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      ),
+    },
+    {
+      key: 'leave', icon: Palmtree, tone: 'blue', label: 'Nghỉ hôm nay', count: leaveToday.length,
+      detail: (
+        <div className="flex flex-wrap gap-1.5 px-1 py-1">
+          {leaveToday.map((d: any) => {
+            const approved = d.trang_thai === 'da_duyet'
+            return (
+              <div key={d.id} className="flex items-center gap-1.5 bg-white border border-indigo-100 rounded-lg px-2 py-1">
+                <span className="text-xs font-medium text-slate-800">{d.soct_users?.full_name || '—'}</span>
+                <span className="text-[10px] text-slate-500">{LOAI_LABEL[d.loai as keyof typeof LOAI_LABEL] || d.loai} · {moTaKhoang(d.tu_ngay, d.den_ngay, d.buoi)}</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold border ${approved ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{approved ? 'Đã duyệt' : 'Chờ duyệt'}</span>
+              </div>
+            )
+          })}
+        </div>
+      ),
+    },
+  ]
+
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       {tabVisible('tro_ly') && <TroLyAI />}
@@ -1260,6 +1405,8 @@ export default function AdminDashboard() {
               </button>
             </div>
 
+            <NotificationCenter sections={alertSections} />
+
             <Button onClick={handleLogout} variant="outline" className="text-slate-600 hover:text-red-600 hover:bg-red-50 gap-1 text-xs px-3 py-1">
               Đăng xuất
             </Button>
@@ -1277,141 +1424,6 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {activeTab === "cong_viec" && effectiveCongTacTab === "giao_viec" && unfinishedPastJobs.length > 0 && (
-          <div className="bg-rose-50 border border-rose-200 rounded-xl overflow-hidden shadow-sm mb-4">
-            <button onClick={() => setUnfinishedOpen(o => !o)} className="w-full flex items-center gap-2 px-4 py-3 text-left">
-              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
-              <span className="text-sm font-semibold text-rose-800">{unfinishedPastJobs.length} phiếu của các ngày trước chưa bấm Hoàn thành</span>
-              <span className="text-xs text-rose-600">(nhắc nhở KTV chốt phiếu)</span>
-              <svg className={`w-4 h-4 text-rose-600 ml-auto transition-transform ${unfinishedOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-            </button>
-            {unfinishedOpen && (
-              <div className="border-t border-rose-200 max-h-64 overflow-y-auto bg-white">
-                <table className="w-full text-left text-sm text-slate-600">
-                  <thead className="bg-rose-50/50 text-xs text-rose-800">
-                    <tr>
-                      <th className="px-4 py-2 font-medium">Ngày</th>
-                      <th className="px-4 py-2 font-medium">Số phiếu</th>
-                      <th className="px-4 py-2 font-medium">Khách hàng / Mã máy</th>
-                      <th className="px-4 py-2 font-medium">Loại việc</th>
-                      <th className="px-4 py-2 font-medium">Phụ trách</th>
-                      <th className="px-4 py-2 font-medium text-center">Trạng thái</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {unfinishedPastJobs.map(j => (
-                      <tr key={j.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-2 text-xs">{formatDate(j.ngay)}</td>
-                        <td className="px-4 py-2 font-mono text-xs">{j.report || '—'}</td>
-                        <td className="px-4 py-2">
-                          <div className="font-medium text-slate-800">{j.soct_khach_hang?.ten_khach_hang || '—'}</div>
-                          <div className="text-xs text-slate-500 font-mono">{j.ma_may || '—'}</div>
-                        </td>
-                        <td className="px-4 py-2">{j.loai_cong_viec}</td>
-                        <td className="px-4 py-2 text-xs">
-                          {j.soct_users?.full_name ? (
-                            <>
-                              <div className="font-medium">{j.soct_users.full_name}</div>
-                              {j.ktv2?.full_name && <div className="text-slate-500">+{j.ktv2.full_name}</div>}
-                            </>
-                          ) : <span className="text-slate-400 italic">Chưa gán</span>}
-                        </td>
-                        <td className="px-4 py-2 text-center">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">{j.ket_qua}</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "cong_viec" && effectiveCongTacTab === "giao_viec" && hdbtExpiring.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
-            <button onClick={() => setHdbtOpen(o => !o)} className="w-full flex items-center gap-2 px-4 py-3 text-left">
-              <svg className="w-5 h-5 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-              <span className="text-sm font-semibold text-amber-800">{hdbtExpiring.length} khách sắp/đã hết hạn hợp đồng bảo trì/thuê máy</span>
-              <span className="text-xs text-amber-600">(trong {hdbtCanhBaoThang} tháng — liên hệ ký tiếp/gia hạn hợp đồng)</span>
-              <svg className={`w-4 h-4 text-amber-600 ml-auto transition-transform ${hdbtOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-            </button>
-            {hdbtOpen && (
-              <div className="border-t border-amber-200 max-h-64 overflow-y-auto bg-white">
-                <table className="w-full text-left text-sm text-slate-600">
-                  <thead className="bg-amber-50/50 text-xs text-amber-800"><tr><th className="px-4 py-2 font-medium">Mã máy</th><th className="px-4 py-2 font-medium">Khách hàng</th><th className="px-4 py-2 font-medium">Loại HĐ</th><th className="px-4 py-2 font-medium text-center">Hết hạn</th></tr></thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {hdbtExpiring.map(c => {
-                      const st = hdbtStatus(c.ngay_het_han_hdbt)
-                      return (
-                        <tr key={c.id}>
-                          <td className="px-4 py-2 font-mono text-xs">{c.ma_may || '—'}</td>
-                          <td className="px-4 py-2 font-medium text-slate-800">{c.ten_khach_hang}</td>
-                          <td className="px-4 py-2">{c.loai_hd || '—'}</td>
-                          <td className="px-4 py-2 text-center whitespace-nowrap">{st && <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${st.cls}`} title={st.note}>{st.label}</span>}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "cong_viec" && effectiveCongTacTab === "giao_viec" && counterDueList.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
-            <button onClick={() => setCounterDueOpen(o => !o)} className="w-full flex items-center gap-2 px-4 py-3 text-left">
-              <Clock className="w-5 h-5 text-amber-600 shrink-0" />
-              <span className="text-sm font-semibold text-amber-800">{counterDueList.length} máy thuê/CPC sắp/đã đến hạn lấy counter</span>
-              <span className="text-xs text-amber-600">(báo trước {counterBaoTruocNgay} ngày — nhập chỉ số công tơ ở tab Thuê/CPC)</span>
-              <svg className={`w-4 h-4 text-amber-600 ml-auto transition-transform ${counterDueOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-            </button>
-            {counterDueOpen && (
-              <div className="border-t border-amber-200 max-h-64 overflow-y-auto bg-white">
-                <table className="w-full text-left text-sm text-slate-600">
-                  <thead className="bg-amber-50/50 text-xs text-amber-800"><tr><th className="px-4 py-2 font-medium">Mã máy</th><th className="px-4 py-2 font-medium">Khách hàng</th><th className="px-4 py-2 font-medium">Loại HĐ</th><th className="px-4 py-2 font-medium text-center">Trạng thái</th></tr></thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {counterDueList.map(m => {
-                      const overdue = m._st.status === 'overdue'
-                      const label = overdue ? `Quá hạn ${m._st.days} ngày` : (m._st.days === 0 ? 'Đến hạn hôm nay' : `Còn ${m._st.days} ngày`)
-                      const cls = overdue ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'
-                      return (
-                        <tr key={m.id}>
-                          <td className="px-4 py-2 font-mono text-xs">{m.ma_may || '—'}</td>
-                          <td className="px-4 py-2 font-medium text-slate-800">{m.ten_khach_hang}</td>
-                          <td className="px-4 py-2">{m.loai_hd || '—'}</td>
-                          <td className="px-4 py-2 text-center whitespace-nowrap"><span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${cls}`}>{label}</span></td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "cong_viec" && effectiveCongTacTab === "giao_viec" && leaveToday.length > 0 && (
-          <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3">
-            <div className="flex items-center gap-2 mb-2">
-              <Palmtree className="w-5 h-5 text-indigo-600 shrink-0" />
-              <span className="text-sm font-semibold text-indigo-800">Hôm nay có {leaveToday.length} người nghỉ</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {leaveToday.map((d: any) => {
-                const approved = d.trang_thai === 'da_duyet'
-                return (
-                  <div key={d.id} className="flex items-center gap-2 bg-white border border-indigo-100 rounded-lg px-3 py-1.5">
-                    <span className="text-sm font-medium text-slate-800">{d.soct_users?.full_name || '—'}</span>
-                    <span className="text-xs text-slate-500">{LOAI_LABEL[d.loai as keyof typeof LOAI_LABEL] || d.loai} · {moTaKhoang(d.tu_ngay, d.den_ngay, d.buoi)}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${approved ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{approved ? 'Đã duyệt' : 'Chờ duyệt'}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
 
         {activeTab === "cong_viec" && effectiveCongTacTab === "giao_viec" && (
           <StatCards items={[
@@ -1720,7 +1732,12 @@ export default function AdminDashboard() {
               <ThueCpcModule showNotification={showNotification} canSub={(g) => subSubVisible('tai_chinh', 'thue_cpc', g)} />
             )}
             {effectiveTaiChinhTab === "kho_may_thue" && subVisible('tai_chinh', 'kho_may_thue') && (
-              <KhoMayThueTool showNotification={showNotification} />
+              <>
+                {currentUserRole === 'admin' && (
+                  <MucMayThueTool customers={customers} inventory={inventory} committed={committed} mucMap={mucMap} onUpdate={fetchMucMap} showNotification={showNotification} />
+                )}
+                <KhoMayThueTool showNotification={showNotification} />
+              </>
             )}
           </div>
         )}
@@ -3281,6 +3298,155 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
             </div>
           </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+// Panel quản lý map "model máy thuê → mã mực" (chỉ admin). Liệt kê các model máy đang thuê/CPC,
+// mỗi model gắn nhiều mã mực (chọn từ kho). Chỉ mã nằm ở đây mới được cảnh báo tồn ở chuông.
+function MucMayThueTool({ customers, inventory, committed, mucMap, onUpdate, showNotification }: {
+  customers: any[], inventory: any[], committed: Record<string, number>, mucMap: any[],
+  onUpdate: () => void, showNotification: (t: 'success' | 'error', m: string) => void
+}) {
+  const [q, setQ] = useState("")
+  const [busy, setBusy] = useState(false)
+
+  // Model máy thuê/CPC (distinct) + số máy.
+  const models = (() => {
+    const m = new Map<string, number>()
+    for (const c of customers) {
+      if (['Máy thuê', 'Máy CPC'].includes(String(c.loai_hd || '').trim()) && c.model && String(c.model).trim()) {
+        const k = String(c.model).trim()
+        m.set(k, (m.get(k) || 0) + 1)
+      }
+    }
+    return [...m.entries()].map(([model, so]) => ({ model, so })).sort((a, b) => a.model.localeCompare(b.model))
+  })()
+  const ql = q.trim().toLowerCase()
+  const shown = ql ? models.filter(m => m.model.toLowerCase().includes(ql)) : models
+  const maByModel = (model: string) => mucMap.filter(r => r.model_may === model)
+
+  const addMuc = async (model: string, ma_hang: string) => {
+    if (!ma_hang) return
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/muc-may-thue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model_may: model, ma_hang }) })
+      if (res.ok) { onUpdate() } else { const j = await res.json(); showNotification('error', j.error || 'Không thêm được') }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setBusy(false) }
+  }
+  const removeMuc = async (id: string) => {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/muc-may-thue?id=' + encodeURIComponent(id), { method: 'DELETE' })
+      if (res.ok) { onUpdate() } else showNotification('error', 'Không xóa được')
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setBusy(false) }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-4">
+      <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2"><Droplets className="w-4 h-4 text-red-500" /> Mực dự phòng máy thuê</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Gán mã mực cho từng model. Khi khả dụng (tồn − đang giữ) ≤ 0, chuông sẽ cảnh báo.</p>
+        </div>
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input placeholder="Tìm model máy..." className="pl-9 bg-white h-9" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+      </div>
+      <div className="p-3 space-y-2 max-h-[520px] overflow-y-auto">
+        {shown.length === 0 ? (
+          <p className="text-sm text-slate-400 text-center py-6">{models.length === 0 ? 'Chưa có model máy thuê/CPC nào.' : 'Không có model khớp tìm kiếm.'}</p>
+        ) : shown.map(({ model, so }) => {
+          const rows = maByModel(model)
+          return (
+            <div key={model} className="border border-slate-200 rounded-lg p-3">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-sm font-semibold text-slate-800">{model}</span>
+                <span className="text-xs text-slate-500">{so} máy</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {rows.length === 0 ? <span className="text-xs text-slate-400 italic">Chưa gán mực</span> : rows.map((r: any) => {
+                  const inv = inventory.find(i => i.ma_hang === r.ma_hang)
+                  const kd = (Number(inv?.ton_kho) || 0) - (committed[r.ma_hang] || 0)
+                  return (
+                    <span key={r.id} className={`inline-flex items-center gap-1.5 rounded-full pl-2 pr-1 py-1 text-xs border ${kd <= 0 ? 'bg-red-50 border-red-200 text-red-700' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                      <span className="font-mono font-medium">{r.ma_hang}</span>
+                      <span className="text-slate-400">·</span>
+                      <span title={inv?.ten_hang}>KD {kd}</span>
+                      <button type="button" disabled={busy} onClick={() => removeMuc(r.id)} className="hover:bg-red-100 rounded-full p-0.5 text-slate-400 hover:text-red-600"><X className="w-3 h-3" /></button>
+                    </span>
+                  )
+                })}
+              </div>
+              <div className="max-w-md">
+                <MaterialCombobox inventory={inventory} value="" onChange={(ma) => addMuc(model, ma)} committed={committed} />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// Chuông thông báo: gom mọi cảnh báo/nhắc việc (mực máy thuê, phiếu chưa hoàn, HĐBT, counter,
+// nghỉ phép) vào 1 icon ở header (theo suốt mọi tab). Bấm mở bảng, mỗi nhóm bung ra chi tiết.
+type AlertSection = { key: string; icon: any; label: string; count: number; tone: 'red' | 'amber' | 'blue'; detail: React.ReactNode }
+
+function NotificationCenter({ sections }: { sections: AlertSection[] }) {
+  const [open, setOpen] = useState(false)
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const active = sections.filter(s => s.count > 0)
+  const total = active.reduce((s, x) => s + x.count, 0)
+  const worst = active.some(s => s.tone === 'red') ? 'red' : active.some(s => s.tone === 'amber') ? 'amber' : active.length ? 'blue' : 'none'
+  const btnCls = worst === 'red' ? 'bg-red-50 border-red-200 text-red-600'
+    : worst === 'amber' ? 'bg-amber-50 border-amber-200 text-amber-600'
+    : worst === 'blue' ? 'bg-blue-50 border-blue-200 text-blue-600'
+    : 'bg-white border-slate-200 text-slate-400'
+  const badgeCls = worst === 'red' ? 'bg-red-500' : worst === 'amber' ? 'bg-amber-500' : 'bg-blue-500'
+  const iconTone = (t: string) => t === 'red' ? 'text-red-600' : t === 'amber' ? 'text-amber-600' : 'text-blue-600'
+  const dotTone = (t: string) => t === 'red' ? 'bg-red-500' : t === 'amber' ? 'bg-amber-500' : 'bg-blue-500'
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => setOpen(o => !o)} title="Cảnh báo & nhắc việc"
+        className={`relative w-9 h-9 rounded-full border flex items-center justify-center transition ${btnCls}`}>
+        <Bell className="w-[18px] h-[18px]" />
+        {total > 0 && <span className={`absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full text-white text-[10px] font-bold flex items-center justify-center ${badgeCls}`}>{total}</span>}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-[55]" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 mt-2 w-[360px] max-w-[92vw] max-h-[75vh] overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl z-[56]">
+            <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white">
+              <span className="text-sm font-semibold text-slate-700">Cảnh báo &amp; nhắc việc</span>
+              <span className="text-xs text-slate-400">{total > 0 ? `${total} mục` : 'Không có'}</span>
+            </div>
+            {active.length === 0 ? (
+              <div className="px-4 py-8 text-center text-sm text-slate-400">Không có cảnh báo nào.</div>
+            ) : (
+              <div className="p-1.5">
+                {active.map(s => {
+                  const Icon = s.icon
+                  const isOpen = expanded === s.key
+                  return (
+                    <div key={s.key}>
+                      <button type="button" onClick={() => setExpanded(e => e === s.key ? null : s.key)}
+                        className="w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg hover:bg-slate-50 text-left">
+                        <Icon className={`w-[18px] h-[18px] shrink-0 ${iconTone(s.tone)}`} />
+                        <span className="flex-1 text-sm text-slate-700">{s.label}</span>
+                        <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-white text-[11px] font-bold flex items-center justify-center ${dotTone(s.tone)}`}>{s.count}</span>
+                        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      {isOpen && <div className="px-1 pb-2">{s.detail}</div>}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   )
