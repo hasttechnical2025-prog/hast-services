@@ -715,6 +715,10 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     aggregatedVatTu[k].so_luong += v.so_luong
   })
   const modalDisplayRows = Object.values(aggregatedVatTu)
+  // Chỉ được sửa tên/đơn giá/nhập Excel khi phiếu CÒN Ở "Chờ xuất HĐ" (chưa đưa sang kế toán).
+  // Đã chuyển sang kế toán để lên hóa đơn -> mọi role chỉ COPY, không sửa (khóa để đúng số liệu HĐ).
+  // Cần sửa thì admin kéo thẻ về cột "Chờ lên hóa đơn" trước.
+  const canEditItems = activeCard?.tickets[0]?.trang_thai_hd === 'Chờ xuất HĐ'
 
   return (
     <div className="space-y-4">
@@ -902,16 +906,18 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Danh sách sản phẩm dịch vụ ({modalDisplayRows.length} mặt hàng)</div>
                   <div className="flex items-center gap-1.5">
-                    {activeCard.tickets[0]?._co_mau && (
+                    {canEditItems && activeCard.tickets[0]?._co_mau && (
                       <Button size="sm" variant="outline" onClick={applyTemplate} disabled={savingName} className="h-8 text-xs gap-1 border-amber-300 text-amber-700 hover:bg-amber-50" title="Điền tên + đơn giá đã lưu của khách này (rồi kiểm tra lại)">
                         <CheckSquare className="w-3.5 h-3.5" /> Áp mẫu khách
                       </Button>
                     )}
                     <Button size="sm" variant="outline" onClick={exportExcel} className="h-8 text-xs gap-1"><Download className="w-3.5 h-3.5" /> Xuất Excel</Button>
-                    <label className="h-8 px-3 text-xs gap-1 inline-flex items-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer text-slate-700">
-                      <Upload className="w-3.5 h-3.5" /> Nhập Excel
-                      <input type="file" accept=".xlsx" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) importExcel(f); e.target.value = '' }} />
-                    </label>
+                    {canEditItems && (
+                      <label className="h-8 px-3 text-xs gap-1 inline-flex items-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer text-slate-700">
+                        <Upload className="w-3.5 h-3.5" /> Nhập Excel
+                        <input type="file" accept=".xlsx" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) importExcel(f); e.target.value = '' }} />
+                      </label>
+                    )}
                   </div>
                 </div>
                 <div className="border border-slate-200 rounded-lg overflow-hidden">
@@ -930,7 +936,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                       {modalDisplayRows.map((v, i) => {
                         const tt = v.so_luong * v.don_gia
                         const copyText = `${v.ten_hang}\t${v.so_luong}\t${v.don_gia}\t${v.vat}`
-                        if (editName?.ma_hang === v.ma_hang) {
+                        if (canEditItems && editName?.ma_hang === v.ma_hang) {
                           return (
                             <tr key={i} className="bg-blue-50/40">
                               <td colSpan={6} className="px-3 py-2.5">
@@ -966,13 +972,15 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                             <td className="px-3 py-2.5 font-medium">
                               <div className="flex items-center gap-1.5">
                                 <span>{v.ten_hang}</span>
-                                <button
-                                  onClick={() => setEditName({ ma_hang: v.ma_hang, ten: v.ten_hang, gia: v.don_gia ? String(v.don_gia) : '' })}
-                                  title="Đổi tên / đơn giá hiển thị trên hóa đơn"
-                                  className="text-slate-300 hover:text-blue-600 shrink-0"
-                                >
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </button>
+                                {canEditItems && (
+                                  <button
+                                    onClick={() => setEditName({ ma_hang: v.ma_hang, ten: v.ten_hang, gia: v.don_gia ? String(v.don_gia) : '' })}
+                                    title="Đổi tên / đơn giá hiển thị trên hóa đơn"
+                                    className="text-slate-300 hover:text-blue-600 shrink-0"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
                               </div>
                             </td>
                             <td className="px-3 py-2.5 text-center">{v.so_luong}</td>
