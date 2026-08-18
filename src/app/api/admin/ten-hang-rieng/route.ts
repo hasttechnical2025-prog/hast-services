@@ -31,6 +31,21 @@ async function applyToLines(ticketIds: string[], byMa: Map<string, { ten?: strin
   }
 }
 
+// Chặn sửa tên/giá khi phiếu ĐÃ CHUYỂN SANG KẾ TOÁN (không còn ở "Chờ xuất HĐ").
+// Bịt kẽ hở: gọi API trực tiếp, hoặc modal mở sẵn bị "kẹt" khi người khác đã kéo thẻ đi.
+// Áp cho MỌI role (kể cả admin) cho nhất quán — muốn sửa thì kéo thẻ về cột "Chờ lên hóa đơn" trước.
+// Trả về chuỗi lỗi nếu có phiếu bị khóa, ngược lại null.
+async function lockedTickets(ticketIds: string[]): Promise<string | null> {
+  if (ticketIds.length === 0) return null
+  const { data, error } = await supabaseAdmin
+    .from('soct_cong_viec').select('id, report, trang_thai_hd').in('id', ticketIds)
+  if (error) throw error
+  const locked = (data || []).filter((t: any) => t.trang_thai_hd !== 'Chờ xuất HĐ')
+  if (locked.length === 0) return null
+  const rep = locked.map((t: any) => t.report || t.id).slice(0, 3).join(', ')
+  return `Phiếu đã chuyển sang kế toán — không sửa được (${rep}${locked.length > 3 ? '…' : ''}). Kéo thẻ về cột "Chờ lên hóa đơn" trước khi sửa.`
+}
+
 const parseGia = (v: any): number | undefined => {
   if (v === '' || v === null || v === undefined) return undefined
   const n = Number(String(v).replace(/[^\d.-]/g, ''))
@@ -48,6 +63,8 @@ export async function PUT(request: Request) {
     if (pham_vi === 'hoa_don') {
       const ids: string[] = Array.isArray(body.ticket_ids) ? body.ticket_ids : []
       if (ids.length === 0) return NextResponse.json({ error: 'Thiếu phiếu' }, { status: 400 })
+      const lockMsg = await lockedTickets(ids)
+      if (lockMsg) return NextResponse.json({ error: lockMsg }, { status: 409 })
       // Chấp nhận 1 mục (ma_hang + ten_hang?/don_gia?) hoặc mảng items (nhập Excel).
       const items = Array.isArray(body.items) ? body.items
         : [{ ma_hang: body.ma_hang, ten_hang: body.ten_hang, don_gia: body.don_gia }]
@@ -86,6 +103,8 @@ export async function PUT(request: Request) {
       const ids: string[] = Array.isArray(body.ticket_ids) ? body.ticket_ids : []
       const scope_key = String(body.scope_key || '').trim()
       if (ids.length === 0 || !scope_key) return NextResponse.json({ error: 'Thiếu phiếu / khách' }, { status: 400 })
+      const lockMsg = await lockedTickets(ids)
+      if (lockMsg) return NextResponse.json({ error: lockMsg }, { status: 409 })
       const { data: tpl } = await supabaseAdmin.from('soct_ten_hang_rieng')
         .select('ma_hang, ten_hang, don_gia').eq('scope_key', scope_key)
       const byMa = new Map<string, { ten?: string; gia?: number }>()
