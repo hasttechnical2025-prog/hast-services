@@ -3018,8 +3018,8 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
           <Input type="number" required value={formData.ton_kho} onChange={(e) => setFormData({...formData, ton_kho: parseInt(e.target.value) || 0})} className="bg-white h-9 text-center" />
         </div>
 
-        <div className="space-y-1 lg:col-span-2 flex justify-end items-end gap-2 pb-0.5">
-          {isEditing && <Button type="button" variant="outline" onClick={resetForm} className="h-9 px-2 text-xs">Hủy</Button>}
+        <div className="lg:col-span-2 flex justify-end items-end gap-2 pb-0.5">
+          {isEditing && <Button type="button" variant="outline" onClick={resetForm} className="h-9 px-3 text-xs">Hủy</Button>}
           <Button type="submit" disabled={loading} className="h-9 w-full sm:w-auto text-xs px-3">{loading ? "Lưu..." : isEditing ? "Cập nhật" : "Thêm mới"}</Button>
         </div>
       </form>
@@ -3248,7 +3248,7 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
             <option value="admin">Admin</option>
           </select>
         </div>
-        <div className="space-y-1 lg:col-span-2 flex items-end gap-2">
+        <div className="lg:col-span-2 flex items-end gap-2">
           {isEditing && <Button type="button" variant="outline" onClick={resetForm} className="h-10">Hủy sửa</Button>}
           <Button type="submit" disabled={loading} className="h-10 w-full sm:w-auto">{loading ? "Đang lưu..." : isEditing ? "Cập nhật tài khoản" : "Tạo tài khoản mới"}</Button>
         </div>
