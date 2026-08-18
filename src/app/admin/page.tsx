@@ -1242,7 +1242,7 @@ export default function AdminDashboard() {
             <tbody className="divide-y divide-slate-100">
               {mucCanhBao.map((m: any) => (
                 <tr key={m.ma_hang}>
-                  <td className="px-2.5 py-1.5"><span className="font-mono font-semibold text-slate-700">{m.ma_hang}</span><div className="text-slate-500 truncate max-w-[170px]" title={m.ten_hang}>{m.ten_hang}</div></td>
+                  <td className="px-2.5 py-1.5"><span className="font-mono font-semibold text-slate-700">{m.ma_hang}</span><div className="text-slate-500" title={m.ten_hang}>{m.ten_hang}</div></td>
                   <td className="px-2 py-1.5 text-center font-semibold text-red-600">{m.kha_dung}{m.giu > 0 && <div className="text-[10px] text-slate-400 font-normal">tồn {m.ton} · giữ {m.giu}</div>}</td>
                   <td className="px-2 py-1.5 text-center">{m.so_may}</td>
                 </tr>
@@ -1262,7 +1262,7 @@ export default function AdminDashboard() {
               {unfinishedPastJobs.map((j: any) => (
                 <tr key={j.id}>
                   <td className="px-2.5 py-1.5 whitespace-nowrap">{formatDate(j.ngay)}</td>
-                  <td className="px-2 py-1.5"><div className="font-medium text-slate-800 truncate max-w-[150px]">{j.soct_khach_hang?.ten_khach_hang || '—'}</div><div className="text-[10px] text-slate-400 font-mono">{j.ma_may || '—'} · {j.soct_users?.full_name || 'Chưa gán'}</div></td>
+                  <td className="px-2 py-1.5"><div className="font-medium text-slate-800">{j.soct_khach_hang?.ten_khach_hang || '—'}</div><div className="text-[10px] text-slate-400 font-mono">{j.ma_may || '—'} · {j.soct_users?.full_name || 'Chưa gán'}</div></td>
                   <td className="px-2 py-1.5 text-center"><span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 whitespace-nowrap">{j.ket_qua}</span></td>
                 </tr>
               ))}
@@ -1283,7 +1283,7 @@ export default function AdminDashboard() {
                 return (
                   <tr key={c.id}>
                     <td className="px-2.5 py-1.5 font-mono">{c.ma_may || '—'}</td>
-                    <td className="px-2 py-1.5"><div className="font-medium text-slate-800 truncate max-w-[130px]">{c.ten_khach_hang}</div><div className="text-[10px] text-slate-400">{c.loai_hd || '—'}</div></td>
+                    <td className="px-2 py-1.5"><div className="font-medium text-slate-800">{c.ten_khach_hang}</div><div className="text-[10px] text-slate-400">{c.loai_hd || '—'}</div></td>
                     <td className="px-2 py-1.5 text-center whitespace-nowrap">{st && <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${st.cls}`} title={st.note}>{st.label}</span>}</td>
                   </tr>
                 )
@@ -1307,7 +1307,7 @@ export default function AdminDashboard() {
                 return (
                   <tr key={m.id}>
                     <td className="px-2.5 py-1.5 font-mono">{m.ma_may || '—'}</td>
-                    <td className="px-2 py-1.5"><div className="font-medium text-slate-800 truncate max-w-[130px]">{m.ten_khach_hang}</div><div className="text-[10px] text-slate-400">{m.loai_hd || '—'}</div></td>
+                    <td className="px-2 py-1.5"><div className="font-medium text-slate-800">{m.ten_khach_hang}</div><div className="text-[10px] text-slate-400">{m.loai_hd || '—'}</div></td>
                     <td className="px-2 py-1.5 text-center whitespace-nowrap"><span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${cls}`}>{label}</span></td>
                   </tr>
                 )
@@ -3418,7 +3418,7 @@ function NotificationCenter({ sections }: { sections: AlertSection[] }) {
       {open && (
         <>
           <div className="fixed inset-0 z-[55]" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 mt-2 w-[360px] max-w-[92vw] max-h-[75vh] overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl z-[56]">
+          <div className="absolute right-0 mt-2 w-[520px] max-w-[94vw] max-h-[75vh] overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl z-[56]">
             <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white">
               <span className="text-sm font-semibold text-slate-700">Cảnh báo &amp; nhắc việc</span>
               <span className="text-xs text-slate-400">{total > 0 ? `${total} mục` : 'Không có'}</span>
