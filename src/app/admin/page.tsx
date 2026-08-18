@@ -1134,7 +1134,7 @@ export default function AdminDashboard() {
       return [
         formatDate(j.ngay),
         j.soct_khach_hang?.ten_khach_hang,
-        j.soct_khach_hang?.dia_chi,
+        j.soct_khach_hang?.vi_tri_dat_may || j.soct_khach_hang?.dia_chi, // ưu tiên nơi đặt máy
         j.ma_may,
         j.soct_khach_hang?.model || '',
         j.so_luong || 1,
