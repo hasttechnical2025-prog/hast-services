@@ -16,6 +16,8 @@ const nextConfig: NextConfig = {
     '/api/admin/bao-cao-ktv': ['./src/lib/report/bao-cao-ktv-template.docx'],
     '/api/admin/bao-gia': ['./src/lib/report/bao-gia-template.docx'],
     '/api/admin/thue-cpc/bang-ke/export': ['./src/lib/report/bang-ke-don-may.docx', './src/lib/report/bang-ke-da-may.docx'],
+    '/api/admin/bbbg': ['./src/lib/report/bbbg-cuc-tha.docx', './src/lib/report/bbbg-nhnn.docx'],
+    '/api/admin/dntt': ['./src/lib/report/dntt.docx'],
   },
 };
 

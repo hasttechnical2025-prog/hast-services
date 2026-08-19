@@ -57,6 +57,8 @@ type Ticket = {
   so_hoa_don: string | null
   ngay_xuat_hd?: string | null
   so_tien_da_thu?: number // đã thu theo số hóa đơn (công nợ phải thu)
+  dntt_luc?: string | null // đã xuất Đề nghị thanh toán
+  so_dntt?: string | null
   nguoi_xuat?: { full_name: string } | null // người lập hóa đơn (kế toán bấm Hoàn tất)
   _co_mau?: boolean // khách có mẫu tên/giá đã lưu (để hiện nút "Áp mẫu khách")
   soct_khach_hang: Customer | null
@@ -169,6 +171,19 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   // Kéo thẻ (Drag Start)
   const handleDragStart = (e: React.DragEvent, cardData: { id?: string, ids?: string[], currentState: string }) => {
     e.dataTransfer.setData("text/plain", JSON.stringify(cardData))
+  }
+
+  // Xuất Đề nghị thanh toán (.docx) cho 1 số hóa đơn. Tải file + cập nhật badge (load lại).
+  const exportDntt = async (so_hd: string) => {
+    try {
+      const res = await fetch(`/api/admin/dntt?so_hd=${encodeURIComponent(so_hd)}`)
+      if (!res.ok) { const j = await res.json().catch(() => ({})); showNotification('error', j.error || 'Lỗi xuất ĐNTT'); return }
+      const blob = await res.blob()
+      const cd = res.headers.get('Content-Disposition') || ''
+      const fname = decodeURIComponent((cd.match(/filename="?([^"]+)"?/) || [])[1] || 'DNTT.docx')
+      const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = fname; a.click(); URL.revokeObjectURL(url)
+      showNotification('success', 'Đã xuất Đề nghị thanh toán.'); load()
+    } catch { showNotification('error', 'Lỗi kết nối') }
   }
 
   // Đếm dòng hàng còn ĐƠN GIÁ 0đ (chưa trả về kho). Dùng để cảnh báo trước khi bàn giao kế
@@ -709,6 +724,21 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                     <div className="mt-2 space-y-1">
                       <div className={`border rounded px-2 py-1 text-[10px] font-semibold flex items-center gap-1 ${state === 'Đã thanh toán' ? 'bg-indigo-50 text-indigo-800 border-indigo-100' : 'bg-emerald-50 text-emerald-800 border-emerald-100'}`}>
                         <CheckCircle className="w-3.5 h-3.5" /> HĐ: {card.tickets[0].so_hoa_don}
+                      </div>
+                      {/* Xuất Đề nghị thanh toán (.docx) cho hóa đơn này + badge đã xuất */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); exportDntt(card.tickets[0].so_hoa_don) }}
+                          className="text-[10px] font-semibold px-2 py-0.5 rounded border border-blue-200 text-blue-700 hover:bg-blue-50 inline-flex items-center gap-1"
+                          title="Xuất Đề nghị thanh toán (.docx)"
+                        >
+                          <FileText className="w-3 h-3" /> Xuất ĐNTT
+                        </button>
+                        {card.tickets.some((t: any) => t.dntt_luc) && (
+                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            ✓ đã xuất{card.tickets.find((t: any) => t.so_dntt)?.so_dntt ? ' ' + card.tickets.find((t: any) => t.so_dntt).so_dntt : ''}
+                          </span>
+                        )}
                       </div>
                       {(card.tickets[0].nguoi_xuat?.full_name || card.tickets[0].ngay_xuat_hd) && (
                         <div className="text-[9px] text-slate-400">

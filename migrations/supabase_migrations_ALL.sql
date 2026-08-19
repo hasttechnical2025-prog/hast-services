@@ -1029,3 +1029,19 @@ CREATE INDEX IF NOT EXISTS idx_muc_may_thue_model ON public.soct_muc_may_thue (m
 -- ===== MIGRATION 50: mien_phi (phiếu xuất miễn phí MF) =====
 ALTER TABLE public.soct_cong_viec
     ADD COLUMN IF NOT EXISTS mien_phi BOOLEAN NOT NULL DEFAULT false;
+
+
+-- ===== MIGRATION 51: BBBG + ĐNTT =====
+ALTER TABLE public.soct_cong_viec
+    ADD COLUMN IF NOT EXISTS bbbg_luc TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS dntt_luc TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS so_dntt  TEXT;
+CREATE TABLE IF NOT EXISTS public.soct_dntt_seq (
+    nam INT PRIMARY KEY,
+    seq INT NOT NULL DEFAULT 0
+);
+CREATE OR REPLACE FUNCTION public.next_dntt_seq(p_nam INT) RETURNS INT AS $$
+    INSERT INTO public.soct_dntt_seq (nam, seq) VALUES (p_nam, 1)
+    ON CONFLICT (nam) DO UPDATE SET seq = soct_dntt_seq.seq + 1
+    RETURNING seq;
+$$ LANGUAGE sql;

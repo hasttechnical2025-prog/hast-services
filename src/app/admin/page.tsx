@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom"
-import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy, X, Palmtree, Send, Hand, Bell, Droplets } from "lucide-react"
+import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy, X, Palmtree, Send, Hand, Bell, Droplets, FileText } from "lucide-react"
+import { BBBG_TEMPLATE_LIST } from "@/lib/bbbg-templates"
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -63,6 +64,8 @@ type Job = {
   report?: string
   so_phut_xu_ly?: number | null
   nguon_nhan?: string | null
+  mien_phi?: boolean
+  bbbg_luc?: string | null
   ktv_id: string | null
   ktv2_id: string | null
   so_luong?: number
@@ -1657,6 +1660,11 @@ export default function AdminDashboard() {
                           </div>
                         </td>}
                         {jobsCol.show('thaotac') && <td className="px-4 py-3 text-right whitespace-nowrap">
+                          {(job.soct_chi_tiet_vat_tu || []).length > 0 && (
+                            <span className="inline-block align-middle mr-1">
+                              <BbbgExportButton jobId={job.id} bbbgLuc={job.bbbg_luc} onExported={fetchData} showNotification={showNotification} />
+                            </span>
+                          )}
                           {(['Chờ nhận', 'Đã nhận'].includes(job.ket_qua) || currentUserRole === 'admin') && (
                             <button onClick={() => handleEditJob(job)} title={['Chờ nhận', 'Đã nhận'].includes(job.ket_qua) ? 'Sửa phiếu' : 'Sửa phiếu (admin)'} className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 transition">
                               <PenSquare className="w-4 h-4" />
@@ -3465,6 +3473,50 @@ function MucMayThueTool({ customers, inventory, committed, mucMap, onUpdate, sho
           )
         })}
       </div>
+    </div>
+  )
+}
+
+// Nút xuất Biên bản bàn giao (.docx) cho 1 phiếu — chọn mẫu (theo khách) qua dropdown.
+// Badge chấm xanh nếu đã xuất (bbbg_luc). Chỉ hiện ở phiếu có vật tư.
+function BbbgExportButton({ jobId, bbbgLuc, onExported, showNotification }: {
+  jobId: string, bbbgLuc?: string | null, onExported: () => void, showNotification: (t: 'success' | 'error', m: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const doExport = async (mau: string) => {
+    setOpen(false); setBusy(true)
+    try {
+      const res = await fetch(`/api/admin/bbbg?id=${jobId}&mau=${encodeURIComponent(mau)}`)
+      if (!res.ok) { const j = await res.json().catch(() => ({})); showNotification('error', j.error || 'Lỗi xuất BBBG'); return }
+      const blob = await res.blob()
+      const cd = res.headers.get('Content-Disposition') || ''
+      const fname = decodeURIComponent((cd.match(/filename="?([^"]+)"?/) || [])[1] || 'BBBG.docx')
+      const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = fname; a.click(); URL.revokeObjectURL(url)
+      showNotification('success', 'Đã xuất Biên bản bàn giao.'); onExported()
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setBusy(false) }
+  }
+  return (
+    <div className="relative inline-block">
+      <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(o => !o) }} disabled={busy}
+        title={bbbgLuc ? 'Đã xuất BBBG — xuất lại' : 'Xuất Biên bản bàn giao'}
+        className={`relative p-1 rounded hover:bg-slate-100 transition ${bbbgLuc ? 'text-emerald-600' : 'text-slate-500 hover:text-blue-600'}`}>
+        <FileText className="w-4 h-4" />
+        {bbbgLuc && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-white" />}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setOpen(false) }} />
+          <div className="absolute right-0 mt-1 w-52 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1" onClick={e => e.stopPropagation()}>
+            <div className="px-3 py-1 text-[10px] font-semibold text-slate-400 uppercase">Chọn mẫu BBBG</div>
+            {BBBG_TEMPLATE_LIST.map(t => (
+              <button key={t.key} onClick={() => doExport(t.key)} className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2">
+                <FileText className="w-3.5 h-3.5 text-blue-500" /> {t.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }
