@@ -734,7 +734,7 @@ function BangKeTab({ showNotification }: { showNotification: Notify }) {
   const [target, setTarget] = useState('')
   const [soHd, setSoHd] = useState('')
   const [creating, setCreating] = useState(false)
-  const [chanTrang, setChanTrang] = useState(true)
+  const [chanTrang, setChanTrang] = useState(false)
   const [detail, setDetail] = useState<any | null>(null)
   const [confirmDel, setConfirmDel] = useState<any | null>(null)
   const [deleting, setDeleting] = useState(false)
