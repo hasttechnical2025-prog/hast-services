@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { RefreshCw, Search, PenSquare, X, FileText, AlertTriangle } from "lucide-react"
+import { RefreshCw, Search, PenSquare, X, FileText, AlertTriangle, Printer } from "lucide-react"
 
 // Kho máy thuê: danh sách biên bản giám định máy thuê/CPC lấy từ app Techbot (bảng
 // `inspections`, chung Supabase). Xem chi tiết vật tư + sửa; cảnh báo máy đã cho khách khác thuê.
@@ -81,6 +81,19 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
 
   const reRentedCount = useMemo(() => rows.filter(r => r.da_thue_lai).length, [rows])
 
+  // Xuất lại BIÊN BẢN GIÁM ĐỊNH .docx (đúng mẫu Techbot) để in. Tải file rồi mở Word in.
+  const exportBienBan = async (r: Insp) => {
+    try {
+      const res = await fetch(`/api/admin/kho-may-thue/bien-ban?id=${encodeURIComponent(r.id)}`)
+      if (!res.ok) { const j = await res.json().catch(() => ({})); showNotification('error', j.error || 'Lỗi xuất biên bản'); return }
+      const blob = await res.blob()
+      const cd = res.headers.get('Content-Disposition') || ''
+      const fname = decodeURIComponent((cd.match(/filename="?([^"]+)"?/) || [])[1] || 'Bien-ban-giam-dinh.docx')
+      const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = fname; a.click(); URL.revokeObjectURL(url)
+      showNotification('success', 'Đã xuất biên bản giám định (.docx).')
+    } catch { showNotification('error', 'Lỗi kết nối') }
+  }
+
   const save = async () => {
     if (!editing) return
     setSaving(true)
@@ -151,6 +164,7 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
                 <td className="px-3 py-2 whitespace-nowrap">
                   <div className="flex items-center justify-center gap-3">
                     <button onClick={() => setDetail(r)} title="Xem chi tiết vật tư" className="text-slate-500 hover:text-blue-700"><FileText className="w-4 h-4" /></button>
+                    <button onClick={() => exportBienBan(r)} title="Xuất biên bản giám định (.docx) để in" className="text-slate-500 hover:text-emerald-700"><Printer className="w-4 h-4" /></button>
                     <button onClick={() => setEditing({ ...r })} title="Sửa biên bản" className="text-blue-600 hover:text-blue-800"><PenSquare className="w-4 h-4" /></button>
                   </div>
                 </td>
