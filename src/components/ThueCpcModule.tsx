@@ -442,7 +442,7 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
 
       // 4. Mở link tải file
       const a = document.createElement('a')
-      a.href = `/api/admin/thue-cpc/bang-ke/export?id=${createData.data.id}&chan_trang=1`
+      a.href = `/api/admin/thue-cpc/bang-ke/export?id=${createData.data.id}&chan_trang=0`
       a.click()
       showNotification('success', `Đã tự động tạo và xuất bảng kê`)
     } catch (err: any) {
