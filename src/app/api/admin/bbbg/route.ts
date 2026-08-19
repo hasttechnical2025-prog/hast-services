@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     const lines = ((job.soct_chi_tiet_vat_tu || []) as any[]).filter(v => !v.da_tra)
     if (lines.length === 0) return NextResponse.json({ error: 'Phiếu không có vật tư để bàn giao' }, { status: 400 })
 
-    const ds = lines.map((v, i) => ({
+    const ds: any[] = lines.map((v, i) => ({
       stt: String(i + 1),
       ten: v.soct_kho_hang?.ten_hang || v.ma_hang,
       dvt: 'Cái',                 // kho chưa có ĐVT -> mặc định "Cái" (tech_admin sửa tay sau nếu cần)
@@ -52,6 +52,10 @@ export async function GET(request: Request) {
       tinh_trang: 'Hàng mới 100%',
       ghi_chu: '',
     }))
+    // Mẫu cần giữ đủ số dòng (VD NHNN = 10): đệm dòng TRỐNG (chỉ có STT) cho đủ như mẫu gốc.
+    if (tpl.padRows && ds.length < tpl.padRows) {
+      for (let i = ds.length; i < tpl.padRows; i++) ds.push({ stt: String(i + 1), ten: '', dvt: '', sl: '', tinh_trang: '', ghi_chu: '' })
+    }
     const buf = render(tpl.file, { ds, VI_TRI: kh?.vi_tri_dat_may || kh?.dia_chi || '' })
 
     // Badge "đã xuất BBBG"
