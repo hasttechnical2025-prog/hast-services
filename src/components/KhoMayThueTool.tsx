@@ -44,6 +44,17 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
   const [editing, setEditing] = useState<Insp | null>(null)
   const [detail, setDetail] = useState<Insp | null>(null)
   const [saving, setSaving] = useState(false)
+  const [vatTu, setVatTu] = useState<Record<string, string>>({}) // chi tiết trống/mực khi sửa
+
+  // Nạp chi tiết trống/mực khi MỞ modal sửa (key theo id -> không reset khi gõ trường khác).
+  useEffect(() => {
+    if (!editing) return
+    const d = editing.chi_tiet || {}
+    const v: Record<string, string> = {}
+    for (const [k] of VAT_TU_FIELDS) v[k] = String(d[k] ?? '')
+    setVatTu(v)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing?.id])
 
   const fetchList = useCallback(async () => {
     setLoading(true)
@@ -77,7 +88,7 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
       const res = await fetch('/api/admin/kho-may-thue', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editing.id, khach_hang: editing.khach_hang, dia_chi: editing.dia_chi, tinh_trang: editing.tinh_trang, counter: editing.counter }),
+        body: JSON.stringify({ id: editing.id, khach_hang: editing.khach_hang, dia_chi: editing.dia_chi, tinh_trang: editing.tinh_trang, counter: editing.counter, vat_tu: vatTu }),
       })
       if (res.ok) { showNotification('success', 'Đã cập nhật biên bản.'); setEditing(null); fetchList() }
       else { const e = await res.json(); showNotification('error', e.error || 'Lỗi lưu') }
@@ -217,36 +228,55 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
         )
       })()}
 
-      {/* MODAL SỬA */}
+      {/* MODAL SỬA (nội dung chung + chi tiết trống mực) */}
       {editing && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onMouseDown={() => setEditing(null)}>
-          <div className="bg-white rounded-xl w-full max-w-md p-5 space-y-4" onMouseDown={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-800">Cập nhật biên bản</h3>
-              <button onClick={() => setEditing(null)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" onMouseDown={e => e.stopPropagation()}>
+            <div className="p-5 border-b border-slate-100">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-800">Cập nhật biên bản</h3>
+                <button onClick={() => setEditing(null)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Máy <b className="font-mono">{editing.serial || '—'}</b> · {editing.model || '—'} · lập {fmtDate(editing.ngay)}
+              </p>
             </div>
-            <p className="text-xs text-slate-500">
-              Máy <b className="font-mono">{editing.serial || '—'}</b> · {editing.model || '—'} · lập {fmtDate(editing.ngay)}
-            </p>
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Khách hàng (lúc giám định)</label>
-                <Input value={editing.khach_hang} onChange={e => setEditing({ ...editing, khach_hang: e.target.value })} className="bg-white" />
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">Khách hàng (lúc giám định)</label>
+                  <Input value={editing.khach_hang} onChange={e => setEditing({ ...editing, khach_hang: e.target.value })} className="bg-white" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">Địa chỉ</label>
+                  <Input value={editing.dia_chi} onChange={e => setEditing({ ...editing, dia_chi: e.target.value })} className="bg-white" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">Counter (đen / màu)</label>
+                  <Input value={editing.counter} onChange={e => setEditing({ ...editing, counter: e.target.value })} className="bg-white" placeholder="VD: 12.000 / 3.400" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">Tình trạng máy</label>
+                  <textarea value={editing.tinh_trang} onChange={e => setEditing({ ...editing, tinh_trang: e.target.value })} rows={4} className="w-full p-2.5 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Địa chỉ</label>
-                <Input value={editing.dia_chi} onChange={e => setEditing({ ...editing, dia_chi: e.target.value })} className="bg-white" />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Counter (đen / màu)</label>
-                <Input value={editing.counter} onChange={e => setEditing({ ...editing, counter: e.target.value })} className="bg-white" placeholder="VD: 12.000 / 3.400" />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Tình trạng máy</label>
-                <textarea value={editing.tinh_trang} onChange={e => setEditing({ ...editing, tinh_trang: e.target.value })} rows={4} className="w-full p-2.5 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500" />
+
+              {/* Chi tiết trống / mực / vật tư — ghi vào biên bản Techbot (data jsonb). Để trống = bỏ qua. */}
+              <div className="space-y-2">
+                <div className="text-[11px] font-bold text-slate-400 uppercase">Chi tiết trống / mực / vật tư</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 border border-slate-200 rounded-lg p-3">
+                  {VAT_TU_FIELDS.map(([k, label]) => (
+                    <label key={k} className="flex items-center gap-2">
+                      <span className="text-xs text-slate-500 w-24 shrink-0">{label}</span>
+                      <Input value={vatTu[k] ?? ''} onChange={e => setVatTu({ ...vatTu, [k]: e.target.value })} className="h-8 bg-white text-sm flex-1" placeholder="—" />
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
-            <div className="flex justify-end gap-2 pt-1">
+
+            <div className="p-4 border-t border-slate-100 flex justify-end gap-2">
               <Button variant="outline" onClick={() => setEditing(null)} disabled={saving}>Hủy</Button>
               <Button onClick={save} disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</Button>
             </div>

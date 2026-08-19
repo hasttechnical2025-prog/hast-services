@@ -84,19 +84,28 @@ export async function PUT(request: Request) {
     const session = await requireTab('tai_chinh', 'tai_chinh.kho_may_thue')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
-    const { id, khach_hang, dia_chi, tinh_trang, counter } = await request.json()
+    const { id, khach_hang, dia_chi, tinh_trang, counter, vat_tu } = await request.json()
     if (!id) return NextResponse.json({ error: 'Thiếu ID biên bản' }, { status: 400 })
 
     const { data: cur, error: e1 } = await supabaseAdmin.from('inspections').select('data').eq('id', id).single()
     if (e1 || !cur) return NextResponse.json({ error: 'Không tìm thấy biên bản' }, { status: 404 })
 
     const old = cur.data || {}
-    const newData = {
+    const newData: Record<string, any> = {
       ...old,
       khach_hang: khach_hang ?? old.khach_hang ?? '',
       dia_chi: dia_chi ?? old.dia_chi ?? '',
       machine_condition: tinh_trang ?? old.machine_condition ?? '',
       counter: counter ?? old.counter ?? '',
+    }
+    // Chi tiết trống/mực (jsonb data chung với Techbot). Chỉ merge các key được PHÉP (whitelist).
+    const VT_KEYS = ['toner_k', 'toner_c', 'toner_m', 'toner_y', 'drum_k', 'drum_c', 'drum_m', 'drum_y',
+      'dev_k', 'dev_c', 'dev_m', 'dev_y', 'fuse', 'belt', 'roller', 'feed0', 'feed1', 'feed2',
+      'feed_df', 'feed_du', 'finisher', 'options', 'others']
+    if (vat_tu && typeof vat_tu === 'object') {
+      for (const k of VT_KEYS) {
+        if (k in vat_tu) newData[k] = String((vat_tu as any)[k] ?? '').trim()
+      }
     }
 
     const { error } = await supabaseAdmin
