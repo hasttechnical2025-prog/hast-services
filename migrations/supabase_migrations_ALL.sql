@@ -1024,3 +1024,8 @@ CREATE TABLE IF NOT EXISTS public.soct_muc_may_thue (
     UNIQUE (model_may, ma_hang)
 );
 CREATE INDEX IF NOT EXISTS idx_muc_may_thue_model ON public.soct_muc_may_thue (model_may);
+
+
+-- ===== MIGRATION 50: mien_phi (phiếu xuất miễn phí MF) =====
+ALTER TABLE public.soct_cong_viec
+    ADD COLUMN IF NOT EXISTS mien_phi BOOLEAN NOT NULL DEFAULT false;

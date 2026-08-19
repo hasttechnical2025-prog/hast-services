@@ -165,7 +165,7 @@ export async function GET(request: Request) {
       let query = supabaseAdmin
         .from('soct_cong_viec')
         .select(`
-          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, nguon_nhan,
+          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, mien_phi, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, nguon_nhan,
           bat_dau_luc, hoan_thanh_luc, so_phut_xu_ly, moi_ktv_id, moi_boi, moi_luc, nhan_luc,
           soct_khach_hang (
             ten_khach_hang,
@@ -251,6 +251,7 @@ export async function POST(request: Request) {
       ktv2_id,
       report,
       ghi_chu,
+      mien_phi,
       vat_tu // mảng: [{ ma_hang, so_luong, don_gia, vat, hoa_don }]
     } = body
 
@@ -301,6 +302,7 @@ export async function POST(request: Request) {
         ktv2_id: ktv2_id || null,
         report: reportNorm || null,
         ghi_chu,
+        mien_phi: !!mien_phi,
         repeat_call,
         created_by: session.id,
         // Gán KTV ngay khi tạo -> 'Đã nhận'; chưa gán -> 'Chờ nhận' (vào pool)
@@ -379,7 +381,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { id, claim, release, reason, ket_qua, ktv_id, ktv2_id, report, ghi_chu, edit, tapped_at, so_phut } = body
+    const { id, claim, release, reason, ket_qua, ktv_id, ktv2_id, report, ghi_chu, mien_phi, edit, tapped_at, so_phut } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
@@ -440,6 +442,7 @@ export async function PUT(request: Request) {
           ktv_id: ktv_id || null,
           ktv2_id: ktv2_id || null,
           report: reportNorm || null, ghi_chu,
+          mien_phi: !!mien_phi,
           ket_qua: nextKetQua,
           trang_thai_hd: nextTrangThaiHd,
           ...nguonNhanUpd,

@@ -24,6 +24,7 @@ type VatTu = {
 type Customer = {
   id: string
   ten_khach_hang: string
+  loai_hd?: string | null
   dia_chi: string
   ma_so_thue: string | null
   email_ke_toan: string | null
@@ -46,6 +47,7 @@ type Ticket = {
   ket_qua: string
   report: string | null
   ghi_chu: string
+  mien_phi?: boolean // phiếu xuất MIỄN PHÍ (MF) — vật tư máy thuê/CPC
   ktv_id: string | null
   ktv2_id: string | null
   so_luong: number
@@ -665,6 +667,23 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                           MST: {mst}
                         </div>
                       )}
+                      {/* Badge Miễn phí (MF) — kế toán nhận biết phiếu 0đ máy thuê/CPC. Kèm cảnh báo
+                          nếu đánh dấu MF nhưng vẫn có tiền (dễ là quên bỏ giá / đánh dấu nhầm). */}
+                      {(() => {
+                        const allMF = card.tickets.every((t: any) => t.mien_phi)
+                        const someMF = card.tickets.some((t: any) => t.mien_phi)
+                        if (!someMF) return null
+                        const loai = String(card.customer?.loai_hd || '').trim()
+                        const loaiLbl = loai === 'Máy thuê' ? ' · Thuê' : loai === 'Máy CPC' ? ' · CPC' : ''
+                        return (
+                          <div className="flex flex-wrap gap-1">
+                            {allMF
+                              ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">MF{loaiLbl}</span>
+                              : <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">MF một phần</span>}
+                            {allMF && sauVat > 0 && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-200" title="Đánh dấu MF nhưng vẫn có tiền — kiểm tra lại">⚠ có tiền</span>}
+                          </div>
+                        )
+                      })()}
                     </div>
                   )
                 })()}

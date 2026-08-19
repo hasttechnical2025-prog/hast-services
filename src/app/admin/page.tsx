@@ -495,6 +495,7 @@ export default function AdminDashboard() {
     ktv2_id: "",
     report: "",
     ghi_chu: "",
+    mien_phi: false, // phiếu xuất MIỄN PHÍ (MF) — chủ yếu vật tư máy thuê/CPC
     vat_tu: [] as {ma_hang: string, so_luong: string, don_gia: string, vat: string, hoa_don: boolean}[],
     // Dùng khi máy mới hoàn toàn chưa có trong db
     ten_khach_hang_moi: "",
@@ -522,6 +523,7 @@ export default function AdminDashboard() {
       ktv2_id: "",
       report: "",
       ghi_chu: "",
+      mien_phi: false,
       vat_tu: [],
       ten_khach_hang_moi: "",
       dia_chi_moi: "",
@@ -549,6 +551,7 @@ export default function AdminDashboard() {
       ktv2_id: job.ktv2_id || '',
       report: job.report || '',
       ghi_chu: job.ghi_chu || '',
+      mien_phi: !!job.mien_phi,
       vat_tu: (job.soct_chi_tiet_vat_tu || []).map((v: any) => ({ ma_hang: v.ma_hang, so_luong: String(v.so_luong), don_gia: String(v.don_gia ?? ''), vat: String(v.vat ?? ''), hoa_don: !!v.hoa_don })),
       ten_khach_hang_moi: "", dia_chi_moi: "", model_moi: "", vi_tri_dat_may_moi: ""
     })
@@ -729,6 +732,19 @@ export default function AdminDashboard() {
       .catch(() => {})
     return () => { cancelled = true }
   }, [formData.ma_may, customers])
+
+  // Mặc định "Hình thức xuất": máy Thuê/CPC -> Miễn phí (MF); máy khác -> Có phí.
+  // Chỉ tự đặt khi TẠO MỚI (không đè giá trị đã lưu khi đang sửa phiếu). Người dùng vẫn đổi tay.
+  // Vì key theo mã máy: đổi máy -> đặt lại mặc định; đổi tay MF/Có phí thì mã máy không đổi -> giữ nguyên.
+  useEffect(() => {
+    if (editingJobId) return
+    const mm = formData.ma_may.trim()
+    const m = mm ? customers.find(c => c.ma_may && c.ma_may.toLowerCase() === mm.toLowerCase()) : undefined
+    const rental = ['Máy thuê', 'Máy CPC'].includes(String(m?.loai_hd || '').trim())
+    setFormData(f => (f.mien_phi === rental ? f : { ...f, mien_phi: rental }))
+    // Chỉ theo mã máy (không để customers refetch làm reset lựa chọn tay của người dùng).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.ma_may, editingJobId])
 
   // Xử lý thêm vật tư
   const handleAddVatTu = () => {
@@ -2362,6 +2378,18 @@ export default function AdminDashboard() {
                     <span className="text-xs text-amber-600 italic mt-1 block">Hệ thống sẽ tự tính KM khi lưu</span>
                   )}
                 </div>
+              </div>
+
+              {/* Hình thức xuất: Có phí / Miễn phí (MF). Máy Thuê/CPC mặc định MF -> badge cho kế toán. */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <label className="text-sm font-medium text-slate-700">Hình thức xuất vật tư:</label>
+                <div className="inline-flex rounded-md border border-slate-300 overflow-hidden">
+                  <button type="button" onClick={() => setFormData({ ...formData, mien_phi: false })}
+                    className={`px-3 h-9 text-sm transition ${!formData.mien_phi ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>Có phí</button>
+                  <button type="button" onClick={() => setFormData({ ...formData, mien_phi: true })}
+                    className={`px-3 h-9 text-sm transition border-l border-slate-300 ${formData.mien_phi ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>Miễn phí (MF)</button>
+                </div>
+                {formData.mien_phi && <span className="text-xs text-emerald-600">Kế toán sẽ thấy badge <b>MF</b> trên Kanban.</span>}
               </div>
 
               {/* Vật tư đi kèm */}
