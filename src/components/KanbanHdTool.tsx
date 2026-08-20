@@ -710,7 +710,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       ws.addRow(MINV_HEADERS); ws.getRow(1).font = { bold: true }
       // UTC-midnight để exceljs lưu ĐÚNG ngày lịch (local-midnight bị lùi 1 ngày khi ghi UTC).
       const d = new Date(); const ngayHD = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
-      for (const inv of valid) for (const row of buildMinvoiceRows(inv.tickets, kyHieuMinvoice.trim(), ngayHD, inv.soDonHang)) ws.addRow(row)
+      for (const inv of valid) for (const row of buildMinvoiceRows(inv.tickets, kyHieuMinvoice.trim().toUpperCase(), ngayHD, inv.soDonHang)) ws.addRow(row)
       ws.getColumn(3).numFmt = 'dd/mm/yyyy'
       const buf = await wb.xlsx.writeBuffer()
       const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
