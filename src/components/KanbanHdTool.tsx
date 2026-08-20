@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark, Pencil, Search, Download, Upload } from "lucide-react"
+import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark, Pencil, Search, Download, Upload, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import MonthField from "@/components/MonthField"
@@ -912,7 +912,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   return (
     <div className="space-y-4">
       {/* Header điều phối */}
-      <div className="flex justify-between items-center gap-3 flex-wrap bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+        {/* Tiêu đề */}
         <div>
           <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
             <Layers className="w-5 h-5 text-blue-600" /> Bảng điều phối hóa đơn (Kanban)
@@ -920,39 +921,45 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
           <p className="text-xs text-slate-400">Tech_admin giao việc {`->`} Kế toán xuất hóa đơn trên MISA/Fast/SAPP và dán Số hóa đơn để hoàn tất.</p>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm khách / số phiếu / số HĐ..." className="pl-8 h-9 w-64 bg-white text-sm" />
+        {/* Hàng 1: LỌC (trái) · HÀNH ĐỘNG (phải) */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm khách / số phiếu / số HĐ..." className="pl-8 h-9 w-64 bg-white text-sm" />
+            </div>
+            <label className="flex items-center gap-1.5 text-xs text-slate-600">
+              Kỳ đối chiếu:
+              <MonthField value={thang} onChange={setThang} className="h-8 px-2 text-xs w-36" />
+              <span className="inline-flex" title="Kỳ đối chiếu áp cho cột 'Đã thanh toán'. Tick 'chỉ kỳ này' bên dưới để áp thêm cột 'Chờ thanh toán'. Cột 1, 2 luôn hiện toàn bộ.">
+                <Info className="w-3.5 h-3.5 text-slate-400 cursor-help shrink-0" aria-label="Trợ giúp" />
+              </span>
+            </label>
           </div>
-          <label className="flex items-center gap-1.5 text-xs text-slate-600" title="Kỳ đối chiếu chỉ lọc cột 'Đã thanh toán' (và cột 'Chờ thanh toán' nếu bật tùy chọn bên cạnh). Cột 1, 2 luôn hiện toàn bộ.">
-            Kỳ đối chiếu:
-            <MonthField value={thang} onChange={setThang} className="h-8 px-2 text-xs w-36" />
-            <span className="text-[10px] text-slate-400">(áp cột Đã thanh toán)</span>
-          </label>
 
-          <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer select-none" title="Bật: cột Chờ thanh toán chỉ hiện HĐ trong kỳ đang chọn. Tắt: lũy kế toàn bộ nợ chưa thu.">
-            <input type="checkbox" checked={col3ChiKyNay} onChange={e => setCol3ChiKyNay(e.target.checked)} className="w-4 h-4 accent-blue-600" />
+          {/* Hành động dồn phải, cạnh nhau */}
+          <div className="flex items-center gap-2">
+            <Button onClick={load} disabled={loading} size="sm" variant="outline" className="h-9 gap-1 text-xs bg-white">
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Tải lại
+            </Button>
+            <Button onClick={() => setExportOpen(true)} size="sm" variant="outline" className="h-9 gap-1 text-xs bg-white">
+              <Download className="w-3.5 h-3.5" /> Xuất Excel công nợ
+            </Button>
+          </div>
+        </div>
+
+        {/* Hàng 2: TÙY CHỌN hiển thị (chữ nhỏ, xám) */}
+        <div className="flex items-center gap-5 flex-wrap pt-2.5 border-t border-slate-100">
+          <label className="flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer select-none" title="Bật: cột Chờ thanh toán chỉ hiện HĐ trong kỳ đang chọn. Tắt: lũy kế toàn bộ nợ chưa thu.">
+            <input type="checkbox" checked={col3ChiKyNay} onChange={e => setCol3ChiKyNay(e.target.checked)} className="w-3.5 h-3.5 accent-blue-600" />
             Chờ thanh toán: chỉ kỳ này
           </label>
-
           {role !== 'kthc' && (
-            <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={grouped}
-                onChange={e => setGrouped(e.target.checked)}
-                className="w-4 h-4 accent-blue-600"
-              />
+            <label className="flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer select-none">
+              <input type="checkbox" checked={grouped} onChange={e => setGrouped(e.target.checked)} className="w-3.5 h-3.5 accent-blue-600" />
               Tự động gom nhóm theo khách hàng
             </label>
           )}
-          <Button onClick={() => setExportOpen(true)} size="sm" variant="outline" className="h-9 gap-1 text-xs bg-white">
-            <Download className="w-3.5 h-3.5" /> Xuất Excel công nợ
-          </Button>
-          <Button onClick={load} disabled={loading} size="sm" variant="outline" className="h-9 gap-1 text-xs bg-white">
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Tải lại
-          </Button>
         </div>
       </div>
 
