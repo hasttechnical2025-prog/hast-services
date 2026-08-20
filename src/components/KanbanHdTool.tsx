@@ -60,6 +60,7 @@ type Ticket = {
   so_tien_da_thu?: number // đã thu theo số hóa đơn (công nợ phải thu)
   dntt_luc?: string | null // đã xuất Đề nghị thanh toán
   so_dntt?: string | null
+  lam_tron?: number // khoản làm tròn tổng sau thuế (đồng, cho phép âm)
   nguoi_xuat?: { full_name: string } | null // người lập hóa đơn (kế toán bấm Hoàn tất)
   _co_mau?: boolean // khách có mẫu tên/giá đã lưu (để hiện nút "Áp mẫu khách")
   soct_khach_hang: Customer | null
@@ -86,6 +87,8 @@ const fmtMoneyInput = (s: any) => { const n = String(s ?? '').replace(/\D/g, '')
 const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()
 // Số ngày kể từ ngày xuất hóa đơn (tính tuổi nợ đọng ở cột Chờ thanh toán).
 const daysSince = (d: any): number | null => { if (!d) return null; const t = new Date(d).getTime(); return isNaN(t) ? null : Math.max(0, Math.floor((Date.now() - t) / 86400000)) }
+// Tổng khoản làm tròn của một nhóm phiếu (đồng, cho phép âm) — cộng vào tổng sau thuế.
+const cardLamTron = (tickets: Ticket[]) => tickets.reduce((s, t) => s + (Number(t.lam_tron) || 0), 0)
 
 export default function KanbanHdTool({ role = 'staff', showNotification }: { role?: string, showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [tickets, setTickets] = useState<Ticket[]>([])
@@ -119,6 +122,11 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const [expCutoff, setExpCutoff] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })
   const [expTu, setExpTu] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01` })
   const [expDen, setExpDen] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })
+
+  // Đặt tổng sau thuế mục tiêu (làm tròn) trong modal.
+  const [roundOpen, setRoundOpen] = useState(false)
+  const [roundVal, setRoundVal] = useState("")
+  const [savingRound, setSavingRound] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -158,7 +166,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   }, [load])
 
   // Đóng modal -> bỏ trạng thái đang sửa tên (tránh sót khi mở thẻ khác)
-  useEffect(() => { if (!activeCard) setEditName(null) }, [activeCard])
+  useEffect(() => { if (!activeCard) { setEditName(null); setRoundOpen(false) } }, [activeCard])
 
   // Tính tổng tiền cho 1 mảng vật tư của các phiếu
   const getVatTuStats = (vtList: VatTu[]) => {
@@ -388,7 +396,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     const ts = tickets.filter(t => ticketIds.includes(t.id))
     if (ts.length === 0) return
     const soHd = ts[0].so_hoa_don || ''
-    const tong = Math.round(getVatTuStats(ts.flatMap(t => t.soct_chi_tiet_vat_tu || [])).sauVat)
+    const tong = Math.round(getVatTuStats(ts.flatMap(t => t.soct_chi_tiet_vat_tu || [])).sauVat) + cardLamTron(ts)
     const daThu = Number(ts[0].so_tien_da_thu) || 0
     const cum = ts[0].soct_khach_hang?.soct_khach_cum
     const tenKh = cum ? (cum.ten_khach_hang || '') : (ts[0].soct_khach_hang?.ten_khach_hang || 'Khách lẻ')
@@ -496,6 +504,26 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setSavingName(false) }
   }
 
+  // Đặt tổng sau thuế mục tiêu -> lưu CHÊNH LỆCH LÀM TRÒN (delta = mục tiêu − tổng tự tính).
+  const saveLamTron = async () => {
+    if (!activeCard) return
+    const target = parseMoney(roundVal)
+    const rawTong = Math.round(getVatTuStats(activeCard.tickets.flatMap(t => t.soct_chi_tiet_vat_tu || [])).sauVat)
+    const delta = target - rawTong
+    if (Math.abs(delta) > 1000) { showNotification('error', 'Chênh lệch làm tròn vượt ±1.000đ — kiểm tra lại số nhập.'); return }
+    setSavingRound(true)
+    try {
+      const res = await fetch('/api/admin/lam-tron', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticket_ids: activeCard.tickets.map(t => t.id), lam_tron: delta }),
+      })
+      if (res.ok) {
+        showNotification('success', delta === 0 ? 'Đã bỏ làm tròn.' : `Đã đặt tổng ${fmtVnd(target)}đ (làm tròn ${delta > 0 ? '+' : ''}${fmtVnd(delta)}).`)
+        setRoundOpen(false); load()
+      } else { const e = await res.json(); showNotification('error', e.error || 'Lỗi lưu làm tròn') }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setSavingRound(false) }
+  }
+
   // Xuất Excel danh sách vật tư (Mã hàng · Tên · SL · Đơn giá · VAT · Thành tiền) để sửa hàng loạt.
   const exportExcel = async () => {
     if (!activeCard) return
@@ -532,7 +560,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     cards.forEach((card: any, i: number) => {
       const t0 = card.tickets[0]
       const allVt = card.tickets.flatMap((t: any) => t.soct_chi_tiet_vat_tu || [])
-      const { truocVat, tienVat, sauVat, activeVt } = getVatTuStats(allVt)
+      const { truocVat, sauVat, activeVt } = getVatTuStats(allVt)
       // Mức VAT hiển thị: đồng nhất -> số (VD 8); trộn nhiều mức -> 'mix'; không có -> ''.
       const rates = [...new Set(activeVt.map((v: any) => Number(v.vat) || 0))]
       const vatRate: number | string = rates.length === 0 ? '' : rates.length === 1 ? rates[0] : 'mix'
@@ -541,7 +569,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       const mst = (cum ? cum.ma_so_thue : card.customer?.ma_so_thue) || ''
       const diaChi = (cum ? cum.dia_chi : card.customer?.dia_chi) || ''
       const soPhieu = card.tickets.map((t: any) => t.report || '—').join(', ')
-      const tong = Math.round(sauVat)
+      const truoc = Math.round(truocVat)
+      const tong = Math.round(sauVat) + cardLamTron(card.tickets) // cộng làm tròn
       const daThu = Math.round(Number(t0.so_tien_da_thu) || 0)
       const conNo = Math.max(0, tong - daThu)
       const du = daThu - tong
@@ -552,7 +581,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       const row: any[] = [
         i + 1, 'Kỹ thuật', '', t0.so_hoa_don || '', toDate(t0.ngay_xuat_hd),
         tenKh, mst, diaChi, soPhieu, card.tickets.length,
-        Math.round(truocVat), vatRate, Math.round(tienVat), tong, daThu,
+        truoc, vatRate, tong - truoc, tong, daThu,
       ]
       if (isChuaThu) row.push(conNo, tuoiNo == null ? '' : tuoiNo)
       row.push(t0.nguoi_xuat?.full_name || '', soDntt, mf, du > 0 ? `(dư ${fmtVnd(du)})` : '')
@@ -710,6 +739,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
           cards.map(card => {
             const allVt = card.tickets.flatMap((t: any) => t.soct_chi_tiet_vat_tu || [])
             const { truocVat, sauVat } = getVatTuStats(allVt)
+            const tong = Math.round(sauVat) + cardLamTron(card.tickets) // tổng sau thuế đã cộng làm tròn
             const count = card.tickets.length
             const dragData = card.tickets.length > 1
               ? { ids: card.tickets.map((t: any) => t.id), currentState: state }
@@ -799,7 +829,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                             {allMF
                               ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">MF{loaiLbl}</span>
                               : <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">MF một phần</span>}
-                            {allMF && sauVat > 0 && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-200" title="Đánh dấu MF nhưng vẫn có tiền — kiểm tra lại">⚠ có tiền</span>}
+                            {allMF && tong > 0 && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-200" title="Đánh dấu MF nhưng vẫn có tiền — kiểm tra lại">⚠ có tiền</span>}
                           </div>
                         )
                       })()}
@@ -819,7 +849,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                   <div className="pt-1.5 border-t border-dashed border-slate-100 flex justify-between items-end">
                     <div className="text-[10px] text-slate-400">Thành tiền:</div>
                     <div className="text-right">
-                      <div className="text-xs font-bold text-slate-800">{fmtVnd(sauVat)} đ</div>
+                      <div className="text-xs font-bold text-slate-800">{fmtVnd(tong)} đ</div>
                       <div className="text-[9px] text-slate-400 font-mono">Trước VAT: {fmtVnd(truocVat)}</div>
                     </div>
                   </div>
@@ -851,7 +881,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                       )}
                       {state === 'Đã lên hóa đơn' && (() => {
                         const daThu = Number(card.tickets[0].so_tien_da_thu) || 0
-                        const con = Math.max(0, sauVat - daThu)
+                        const con = Math.max(0, tong - daThu)
                         return <div className="flex flex-wrap items-center gap-1.5">
                           {daThu > 0 && (
                             <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-blue-50 text-blue-700 border-blue-200">
@@ -879,6 +909,11 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   // Thu thập toàn bộ danh sách vật tư gộp để hiển thị trong Modal copy
   const modalAllVt = activeCard ? activeCard.tickets.flatMap(t => t.soct_chi_tiet_vat_tu || []) : []
   const modalStats = getVatTuStats(modalAllVt)
+  // Tổng đã cộng khoản làm tròn; VAT = tổng − trước thuế để 3 số luôn khớp nhau.
+  const modalLamTron = activeCard ? cardLamTron(activeCard.tickets) : 0
+  const modalTruoc = Math.round(modalStats.truocVat)
+  const modalTong = Math.round(modalStats.sauVat) + modalLamTron
+  const modalVat = modalTong - modalTruoc
   const modalKh = activeCard?.tickets[0]?.soct_khach_hang
 
   // Giải quyết thông tin Khách hàng Cụm nếu có, nếu không lấy của khách lẻ
@@ -1254,16 +1289,39 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
               <div className="bg-slate-50/50 p-4 rounded-lg border border-slate-100 flex flex-col gap-2">
                 <div className="flex justify-between items-center text-xs text-slate-500">
                   <span>Tổng tiền hàng (trước thuế):</span>
-                  <span className="font-mono font-bold text-slate-700">{fmtVnd(modalStats.truocVat)} đ</span>
+                  <span className="font-mono font-bold text-slate-700">{fmtVnd(modalTruoc)} đ</span>
                 </div>
                 <div className="flex justify-between items-center text-xs text-slate-500">
                   <span>Tiền thuế VAT:</span>
-                  <span className="font-mono font-bold text-slate-700">{fmtVnd(modalStats.tienVat)} đ</span>
+                  <span className="font-mono font-bold text-slate-700">{fmtVnd(modalVat)} đ</span>
                 </div>
-                <div className="flex justify-between items-center text-sm border-t border-dashed border-slate-200 pt-2 font-bold text-slate-800">
+                {modalLamTron !== 0 && (
+                  <div className="flex justify-between items-center text-xs text-amber-600">
+                    <span>Chênh lệch làm tròn:</span>
+                    <span className="font-mono font-bold">{modalLamTron > 0 ? '+' : ''}{fmtVnd(modalLamTron)} đ</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center gap-2 text-sm border-t border-dashed border-slate-200 pt-2 font-bold text-slate-800">
                   <span>TỔNG CỘNG THANH TOÁN (sau thuế):</span>
-                  <span className="font-mono text-blue-700 text-base">{fmtVnd(modalStats.sauVat)} đ</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-mono text-blue-700 text-base">{fmtVnd(modalTong)} đ</span>
+                    {canEditItems && !roundOpen && (
+                      <button onClick={() => { setRoundVal(fmtMoneyInput(String(modalTong))); setRoundOpen(true) }} title="Đặt tổng sau thuế thành số tròn (chênh lệch lưu vào khoản làm tròn)" className="text-slate-300 hover:text-blue-600">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
+                {canEditItems && roundOpen && (
+                  <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-dashed border-slate-200">
+                    <span className="text-[11px] text-slate-500">Đặt tổng sau thuế:</span>
+                    <Input value={roundVal} onChange={e => setRoundVal(fmtMoneyInput(e.target.value))} inputMode="numeric" className="h-8 w-36 text-right text-xs font-mono bg-white" />
+                    <span className="text-[11px] text-slate-400">đ</span>
+                    <Button size="sm" onClick={saveLamTron} disabled={savingRound} className="h-8 text-xs bg-blue-600 hover:bg-blue-700">Lưu</Button>
+                    <button onClick={() => setRoundVal(fmtMoneyInput(String(Math.round(modalStats.sauVat))))} className="text-[11px] text-slate-500 hover:text-slate-700 px-1" title="Đặt lại về số tự tính (bỏ làm tròn)">Bỏ làm tròn</button>
+                    <button onClick={() => setRoundOpen(false)} className="text-[11px] text-slate-500 hover:text-slate-700 px-1">Hủy</button>
+                  </div>
+                )}
               </div>
 
               {/* Số hóa đơn đầu vào (Chỉ hiện khi ở cột 2 hoặc để xem lại cột 3/4) */}

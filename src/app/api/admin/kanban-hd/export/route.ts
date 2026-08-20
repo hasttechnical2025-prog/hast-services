@@ -10,7 +10,7 @@ import { requireRole } from '@/lib/session'
 // Lọc theo số phiếu/khách/số HĐ (q) làm ở CLIENT (dùng lại matchSearch của KanbanHdTool).
 
 const SELECT = `
-  id, ngay, id_khach_hang, report, mien_phi, trang_thai_hd, so_hoa_don, ngay_xuat_hd, nguoi_xuat_hd, dntt_luc, so_dntt,
+  id, ngay, id_khach_hang, report, mien_phi, trang_thai_hd, so_hoa_don, ngay_xuat_hd, nguoi_xuat_hd, dntt_luc, so_dntt, lam_tron,
   nguoi_xuat:soct_users!nguoi_xuat_hd ( full_name ),
   soct_khach_hang (
     id, ten_khach_hang, loai_hd, dia_chi, ma_so_thue, ma_khach_cum,

@@ -54,7 +54,7 @@ const parseGia = (v: any): number | undefined => {
 
 export async function PUT(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'kthc')
+    const session = await requireRole('admin', 'tech_admin', 'staff', 'kthc')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const body = await request.json()

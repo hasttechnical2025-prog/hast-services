@@ -1045,3 +1045,11 @@ CREATE OR REPLACE FUNCTION public.next_dntt_seq(p_nam INT) RETURNS INT AS $$
     ON CONFLICT (nam) DO UPDATE SET seq = soct_dntt_seq.seq + 1
     RETURNING seq;
 $$ LANGUAGE sql;
+
+
+-- ============================================================================
+-- MIGRATION 52: lam_tron (chênh lệch làm tròn tổng sau thuế)
+-- ============================================================================
+
+ALTER TABLE public.soct_cong_viec
+    ADD COLUMN IF NOT EXISTS lam_tron INTEGER NOT NULL DEFAULT 0;
