@@ -1217,7 +1217,10 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        <form onSubmit={handleAdminLogin} className="bg-white p-8 rounded-xl shadow-md border border-slate-200 w-full max-w-sm space-y-5">
+        {/* data-allow-enter: NGOẠI LỆ có chủ đích — Enter = đăng nhập ở CHÍNH form này (xem AGENTS.md).
+            Global blocker (NoKeyShortcuts) vẫn chặn Enter ở mọi nơi khác. Rủi ro thấp: cổng một lần,
+            trước khi có dữ liệu để lỡ tay; Enter khi thiếu field chỉ là một lần đăng nhập hụt. */}
+        <form onSubmit={handleAdminLogin} data-allow-enter className="bg-white p-8 rounded-xl shadow-md border border-slate-200 w-full max-w-sm space-y-5">
           <div className="text-center space-y-1">
             <div className="bg-blue-600 p-2.5 rounded-lg w-max mx-auto mb-3">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>

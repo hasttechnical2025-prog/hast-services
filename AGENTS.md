@@ -26,7 +26,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Nguyên tắc: **chỉ CLICK vào nút được thiết kế mới có tác dụng**. Enter KHÔNG submit form / bấm hộ nút Lưu · Đăng nhập · Tra cứu; Esc KHÔNG bấm hộ nút Hủy / đóng hộp thoại. Lý do: người dùng hay bấm Enter theo quán tính khi app đang chờ tải dữ liệu → tạo/lưu nhầm.
 - Đã chặn tập trung ở `NoKeyShortcuts` (root layout, listener capture trên `document`) → **không cần** và **không nên** vá từng form.
 - **Không thêm** `onKeyDown` bắt `Enter`/`Escape` để chạy hành động — sẽ bị chặn, thành code chết. Mọi hành động phải có nút bấm.
-- Ngoại lệ có chủ đích (đừng phá): Enter trong `<textarea>` = xuống dòng; đang gõ tiếng Việt bằng bộ gõ (`isComposing`/keyCode 229).
+- Ngoại lệ có chủ đích (đừng phá): Enter trong `<textarea>` = xuống dòng; đang gõ tiếng Việt bằng bộ gõ (`isComposing`/keyCode 229); vùng có **`data-allow-enter`** (ô chat Trợ lý AI **và FORM ĐĂNG NHẬP `/admin`** — Enter = đăng nhập, cho phép vì là cổng một lần, trước khi có dữ liệu để lỡ tay). Chỉ mở `data-allow-enter` cho các cổng rủi ro thấp như đăng nhập, KHÔNG mở cho form nhập liệu.
 
 ## Xuất CSV
 - Nút "Xuất CSV" chỉ xuất đúng dữ liệu ĐANG hiển thị sau khi lọc (danh sách đã filter), cột khớp thông tin hiển thị. Ghi BOM UTF-8 (`'﻿'`) để Excel đọc tiếng Việt đúng.
