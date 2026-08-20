@@ -1053,3 +1053,13 @@ $$ LANGUAGE sql;
 
 ALTER TABLE public.soct_cong_viec
     ADD COLUMN IF NOT EXISTS lam_tron INTEGER NOT NULL DEFAULT 0;
+
+
+-- ============================================================================
+-- MIGRATION 53: MF (miễn phí) -> trạng thái tài chính KẾT THÚC 'Miễn phí' (ra khỏi Kanban/Công nợ)
+-- ============================================================================
+
+UPDATE public.soct_cong_viec
+SET trang_thai_hd = 'Miễn phí'
+WHERE mien_phi = true
+  AND trang_thai_hd IN ('Chờ xuất HĐ', 'Đang xử lý HĐ', 'Chưa hóa đơn', 'Đã báo giá');

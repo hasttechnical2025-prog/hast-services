@@ -20,7 +20,7 @@ export async function GET() {
       .eq('ket_qua', 'Hoàn thành')
       .not('report', 'is', null)
       .neq('report', '')
-      .not('trang_thai_hd', 'in', '("Chờ xuất HĐ","Đang xử lý HĐ","Đã lên hóa đơn","Đã thanh toán")')
+      .not('trang_thai_hd', 'in', '("Chờ xuất HĐ","Đang xử lý HĐ","Đã lên hóa đơn","Đã thanh toán","Miễn phí")')
       .order('ngay', { ascending: true })
       .range(from, to))
 

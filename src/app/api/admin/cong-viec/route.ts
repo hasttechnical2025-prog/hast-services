@@ -311,7 +311,9 @@ export async function POST(request: Request) {
         nguon_nhan: ktv_id ? 'giao' : null,
         // Giao sẵn KTV -> đóng dấu mốc NHẬN (phục vụ nhắc "đã nhận nhưng chưa Đang làm")
         nhan_luc: ktv_id ? new Date().toISOString() : null,
-        trang_thai_hd: hasHD ? 'Chờ xuất HĐ' : 'Chưa hóa đơn',
+        // MF (miễn phí) = không thu tiền/không lên HĐ/không công nợ -> trạng thái tài chính KẾT THÚC 'Miễn phí'
+        // (ra khỏi Kanban + Công nợ; vẫn nằm trong Sổ công tác). Ngược lại theo cờ hoa_don của vật tư.
+        trang_thai_hd: mien_phi ? 'Miễn phí' : (hasHD ? 'Chờ xuất HĐ' : 'Chưa hóa đơn'),
         // API tự gửi Telegram (bên dưới) -> đánh dấu để webhook DB không bắn trùng
         telegram_sent: true,
       })
@@ -429,9 +431,14 @@ export async function PUT(request: Request) {
       //  - không có         -> nếu trước đó đã lên HĐ thì trả về 'Chưa hóa đơn' (bỏ HĐ),
       //                        ngược lại giữ nguyên (giữ mốc 'Đã báo giá')
       const hasHD = Array.isArray(vat_tu) && vat_tu.some((v: any) => v.hoa_don && v.ma_hang && Number(v.so_luong) > 0)
-      const nextTrangThaiHd = hasHD
-        ? (['Đang xử lý HĐ', 'Đã lên hóa đơn'].includes(cur.trang_thai_hd) ? cur.trang_thai_hd : 'Chờ xuất HĐ')
-        : (['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn'].includes(cur.trang_thai_hd) ? 'Chưa hóa đơn' : (cur.trang_thai_hd || 'Chưa hóa đơn'))
+      // MF -> trạng thái KẾT THÚC 'Miễn phí' (ra khỏi Kanban/Công nợ). Bỏ MF thì tính lại từ đầu
+      // (coi mốc cũ 'Miễn phí' như 'Chưa hóa đơn' để không bị kẹt).
+      const baseHd = cur.trang_thai_hd === 'Miễn phí' ? 'Chưa hóa đơn' : cur.trang_thai_hd
+      const nextTrangThaiHd = mien_phi
+        ? 'Miễn phí'
+        : hasHD
+          ? (['Đang xử lý HĐ', 'Đã lên hóa đơn'].includes(baseHd) ? baseHd : 'Chờ xuất HĐ')
+          : (['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn'].includes(baseHd) ? 'Chưa hóa đơn' : (baseHd || 'Chưa hóa đơn'))
 
       const { error: upErr } = await supabaseAdmin
         .from('soct_cong_viec')
