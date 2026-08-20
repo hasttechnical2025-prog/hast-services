@@ -5,6 +5,7 @@ import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSqu
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import MonthField from "@/components/MonthField"
+import DateField from "@/components/DateField"
 import { supabase } from "@/lib/supabase"
 
 type VatTu = {
@@ -110,6 +111,14 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   })
+
+  // Xuất Excel công nợ (dữ liệu thô cho kthc pivot) — 2 sheet: chưa thu / đã thanh toán.
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [expPhongBan, setExpPhongBan] = useState<'tat_ca' | 'ky_thuat' | 'kinh_doanh'>('tat_ca')
+  const [expCutoff, setExpCutoff] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })
+  const [expTu, setExpTu] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01` })
+  const [expDen, setExpDen] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -501,6 +510,101 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     a.href = url; a.download = `hanghoa-${activeCard.tickets[0]?.so_hoa_don || activeCard.tickets[0]?.report || 'phieu'}.xlsx`; a.click(); URL.revokeObjectURL(url)
   }
 
+  // ── XUẤT EXCEL CÔNG NỢ (dữ liệu thô cho kthc pivot) ─────────────────────────────
+  // 2 sheet: "Cong no chua thu" (cột 3, lũy kế đến cutoff) + "Da thanh toan" (cột 4, range).
+  // Bảng phẳng: 1 dòng = 1 số HĐ, AutoFilter + freeze header, KHÔNG subtotal/tổng.
+  const buildCongNoSheet = (ws: any, list: Ticket[], isChuaThu: boolean) => {
+    const headers = ['STT', 'Phòng ban', 'NV kinh doanh', 'Số HĐ', 'Ngày HĐ', 'Khách hàng', 'MST', 'Địa chỉ', 'Số phiếu', 'SL phiếu', 'Trước VAT', 'VAT (%)', 'Tiền VAT', 'Tổng sau VAT', 'Đã thu']
+    if (isChuaThu) headers.push('Còn nợ', 'Tuổi nợ')
+    headers.push('Người lập HĐ', 'Số ĐNTT', 'MF', 'Ghi chú')
+    ws.addRow(headers)
+
+    const cards = groupByHd(list, isChuaThu ? 'Đã lên hóa đơn' : 'Đã thanh toán')
+    const khName = (c: any) => { const cum = c.customer?.soct_khach_cum; return norm(cum ? (cum.ten_khach_hang || '') : (c.customer?.ten_khach_hang || '')) }
+    cards.sort((a: any, b: any) => {
+      const ka = khName(a), kb = khName(b)
+      if (ka !== kb) return ka < kb ? -1 : 1
+      const da = a.tickets[0]?.ngay_xuat_hd || '', db = b.tickets[0]?.ngay_xuat_hd || ''
+      return da < db ? -1 : da > db ? 1 : 0
+    })
+    const toDate = (s?: string | null) => { if (!s) return null; const [y, m, d] = String(s).split('-').map(Number); return (y && m && d) ? new Date(y, m - 1, d) : null }
+
+    cards.forEach((card: any, i: number) => {
+      const t0 = card.tickets[0]
+      const allVt = card.tickets.flatMap((t: any) => t.soct_chi_tiet_vat_tu || [])
+      const { truocVat, tienVat, sauVat, activeVt } = getVatTuStats(allVt)
+      // Mức VAT hiển thị: đồng nhất -> số (VD 8); trộn nhiều mức -> 'mix'; không có -> ''.
+      const rates = [...new Set(activeVt.map((v: any) => Number(v.vat) || 0))]
+      const vatRate: number | string = rates.length === 0 ? '' : rates.length === 1 ? rates[0] : 'mix'
+      const cum = card.customer?.soct_khach_cum
+      const tenKh = cum ? (cum.ten_khach_hang || '') : (card.customer?.ten_khach_hang || 'Khách hàng lẻ')
+      const mst = (cum ? cum.ma_so_thue : card.customer?.ma_so_thue) || ''
+      const diaChi = (cum ? cum.dia_chi : card.customer?.dia_chi) || ''
+      const soPhieu = card.tickets.map((t: any) => t.report || '—').join(', ')
+      const tong = Math.round(sauVat)
+      const daThu = Math.round(Number(t0.so_tien_da_thu) || 0)
+      const conNo = Math.max(0, tong - daThu)
+      const du = daThu - tong
+      const mf = card.tickets.every((t: any) => t.mien_phi) ? 'x' : card.tickets.some((t: any) => t.mien_phi) ? 'một phần' : ''
+      const soDntt = card.tickets.find((t: any) => t.so_dntt)?.so_dntt || ''
+      const tuoiNo = daysSince(t0.ngay_xuat_hd)
+
+      const row: any[] = [
+        i + 1, 'Kỹ thuật', '', t0.so_hoa_don || '', toDate(t0.ngay_xuat_hd),
+        tenKh, mst, diaChi, soPhieu, card.tickets.length,
+        Math.round(truocVat), vatRate, Math.round(tienVat), tong, daThu,
+      ]
+      if (isChuaThu) row.push(conNo, tuoiNo == null ? '' : tuoiNo)
+      row.push(t0.nguoi_xuat?.full_name || '', soDntt, mf, du > 0 ? `(dư ${fmtVnd(du)})` : '')
+      ws.addRow(row)
+    })
+
+    ws.getRow(1).font = { bold: true }
+    ws.views = [{ state: 'frozen', ySplit: 1 }]
+    const lastCol = ws.getColumn(headers.length).letter
+    ws.autoFilter = `A1:${lastCol}${Math.max(1, ws.rowCount)}`
+    const moneyCols = isChuaThu ? [11, 13, 14, 15, 16] : [11, 13, 14, 15]
+    moneyCols.forEach(c => { ws.getColumn(c).numFmt = '#,##0' })
+    ws.getColumn(12).numFmt = '0"%"' // VAT (%): giá trị số, hiện "8%"
+    ws.getColumn(5).numFmt = 'dd/mm/yyyy'
+    const widths = isChuaThu
+      ? [5, 10, 16, 10, 12, 32, 14, 32, 24, 8, 14, 8, 12, 14, 14, 14, 8, 16, 12, 6, 14]
+      : [5, 10, 16, 10, 12, 32, 14, 32, 24, 8, 14, 8, 12, 14, 14, 16, 12, 6, 14]
+    widths.forEach((w, idx) => { ws.getColumn(idx + 1).width = w })
+  }
+
+  const runExportCongNo = async () => {
+    setExporting(true)
+    try {
+      const params = new URLSearchParams({ phong_ban: expPhongBan })
+      if (expCutoff) params.set('cutoff', expCutoff)
+      if (expTu) params.set('tu', expTu)
+      if (expDen) params.set('den', expDen)
+      const res = await fetch(`/api/admin/kanban-hd/export?${params.toString()}`)
+      const j = await res.json()
+      if (!res.ok) { showNotification('error', j.error || 'Lỗi tải dữ liệu xuất'); return }
+      const chuaThu: Ticket[] = (j.chua_thu || []).filter(matchSearch)
+      const daThanhToan: Ticket[] = (j.da_thanh_toan || []).filter(matchSearch)
+      if (chuaThu.length === 0 && daThanhToan.length === 0) {
+        showNotification('error', 'Không có dữ liệu công nợ khớp bộ lọc.')
+        return
+      }
+      const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
+      const wb = new ExcelJS.Workbook()
+      buildCongNoSheet(wb.addWorksheet('Cong no chua thu'), chuaThu, true)
+      buildCongNoSheet(wb.addWorksheet('Da thanh toan'), daThanhToan, false)
+      const buf = await wb.xlsx.writeBuffer()
+      const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+      const a = document.createElement('a')
+      const stamp = fmtDate(new Date().toISOString()).replace(/\//g, '-')
+      a.href = url; a.download = `cong-no_${stamp}.xlsx`; a.click(); URL.revokeObjectURL(url)
+      showNotification('success', 'Đã xuất file công nợ.')
+      setExportOpen(false)
+    } catch {
+      showNotification('error', 'Lỗi xuất Excel')
+    } finally { setExporting(false) }
+  }
+
   // Nhập lại Excel -> cập nhật ĐƠN GIÁ (thật) + TÊN (ghi đè hóa đơn) cho dòng của phiếu này, khớp mã hàng.
   const importExcel = async (file: File) => {
     if (!activeCard) return
@@ -843,6 +947,9 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
               Tự động gom nhóm theo khách hàng
             </label>
           )}
+          <Button onClick={() => setExportOpen(true)} size="sm" variant="outline" className="h-9 gap-1 text-xs bg-white">
+            <Download className="w-3.5 h-3.5" /> Xuất Excel công nợ
+          </Button>
           <Button onClick={load} disabled={loading} size="sm" variant="outline" className="h-9 gap-1 text-xs bg-white">
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Tải lại
           </Button>
@@ -895,6 +1002,53 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
               </h3>
             </div>
             {renderCardList(cardsCol4, 'Đã thanh toán')}
+          </div>
+        </div>
+      )}
+
+      {/* HỘP THOẠI XUẤT EXCEL CÔNG NỢ (dữ liệu thô) */}
+      {exportOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => !exporting && setExportOpen(false)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-1.5">
+                <Download className="w-5 h-5 text-blue-600" /> Xuất Excel công nợ
+              </h3>
+              <button onClick={() => !exporting && setExportOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+            </div>
+            <div className="p-5 space-y-4 text-sm">
+              <p className="text-[11px] text-slate-500">File dữ liệu thô, 2 sheet (Chưa thu · Đã thanh toán) để tự pivot/tổng hợp báo cáo.</p>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Phòng ban</label>
+                <div className="flex gap-1.5">
+                  {(([['tat_ca', 'Tất cả'], ['ky_thuat', 'Kỹ thuật'], ['kinh_doanh', 'Kinh doanh']]) as [typeof expPhongBan, string][]).map(([v, l]) => (
+                    <button key={v} onClick={() => setExpPhongBan(v)}
+                      className={`px-3 py-1.5 rounded border text-xs font-medium transition ${expPhongBan === v ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>{l}</button>
+                  ))}
+                </div>
+                {expPhongBan === 'kinh_doanh' && <p className="text-[11px] text-amber-600 mt-1.5">Phòng Kinh doanh chưa có dữ liệu (lệnh xuất hàng chưa triển khai) — file sẽ trống.</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">① Công nợ chưa thu — Nợ tính đến ngày</label>
+                <DateField value={expCutoff} onChange={setExpCutoff} heightClass="h-9" className="w-44" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">② Đã thanh toán — theo ngày xuất HĐ</label>
+                <div className="flex items-center gap-2">
+                  <DateField value={expTu} onChange={setExpTu} heightClass="h-9" className="w-36" />
+                  <span className="text-slate-400 text-xs">đến</span>
+                  <DateField value={expDen} onChange={setExpDen} heightClass="h-9" className="w-36" />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">Để trống một đầu = không giới hạn đầu đó.</p>
+              </div>
+              {search.trim() && <div className="text-[11px] text-blue-700 bg-blue-50 border border-blue-100 rounded px-2 py-1.5">Đang áp bộ tìm kiếm: &quot;{search.trim()}&quot;</div>}
+            </div>
+            <div className="p-4 border-t border-slate-100 flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setExportOpen(false)} disabled={exporting} className="text-xs">Hủy</Button>
+              <Button size="sm" onClick={runExportCongNo} disabled={exporting} className="gap-1 text-xs">
+                {exporting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />} Xuất
+              </Button>
+            </div>
           </div>
         </div>
       )}

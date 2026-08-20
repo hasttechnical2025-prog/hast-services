@@ -40,6 +40,21 @@
 4. NV sửa/hủy lệnh của mình bị **khóa ở trạng thái nào** (giống khóa sửa sau khi sang kế toán)?
 5. Đặt cọc thu **trước khi có số HĐ** (lệnh còn cột 1) hay chỉ sau khi lên HĐ? → chỗ nhập tiền.
 
+## Báo cáo doanh số / công nợ theo NV — QUA FILE EXCEL THÔ (đã chốt 2026-08-20)
+
+- **KHÔNG làm màn báo cáo trong app.** kthc tự pivot trên Excel. App chỉ cấp **dữ liệu thô**.
+- Dùng chung **export công nợ Kanban** ([kanban-cong-no-export-spec.md](kanban-cong-no-export-spec.md)):
+  file phẳng, 2 sheet (chưa thu / đã thanh toán), có sẵn cột **Phòng ban** + **NV kinh doanh** và
+  **bộ lọc phòng ban** (Tất cả / Kỹ thuật / Kinh doanh). Lệnh xuất hàng chỉ cần **UNION nguồn**
+  `soct_lenh_xuat` vào endpoint export, điền Phòng ban="Kinh doanh" + tên NV → kthc pivot ra
+  doanh số phòng kỹ thuật / phòng kinh doanh / từng NV.
+- **1 lệnh = 1 NV** (`nguoi_kinh_doanh_id` FK đơn, KHÔNG bảng phụ chia %). `sale_admin` **đổi được**
+  (reassign); báo cáo quy theo NV **đang gắn**.
+- Doanh số/công nợ quy **theo lệnh → NV của lệnh**, KHÔNG theo khách (1 khách nhiều NV).
+- File thô nên có đủ 2 mốc để kthc tự tính: **Doanh số** (Tổng sau VAT, theo ngày xuất HĐ) và
+  **Đã thu** — CHỈ khoản `soct_thu_tien.trang_thai = 'da_duyet'` (khoản NV tự khai chờ duyệt KHÔNG
+  tính; đây là lý do có bước kế toán duyệt).
+
 ## Bám các luật/hạ tầng sẵn có (đã thiết lập)
 
 - **Phân quyền tab/role**: `src/lib/tabs.ts` (`DEFAULT_TAB_VIS`, `TAB_ROLES`, `roleCanTab`) + `requireTab`/`requireRole` (`src/lib/session.ts`). Server enforce, UI hide.
