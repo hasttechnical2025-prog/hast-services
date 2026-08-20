@@ -121,7 +121,8 @@ function buildMinvoiceRows(tickets: Ticket[], kyHieu: string, ngayHD: Date, soDo
     row[0] = kyHieu; row[1] = soDonHang            // mọi dòng
     if (idx === 0) {                                // chỉ dòng đầu: đầu HĐ + khách
       row[2] = ngayHD; row[3] = 'VND'; row[9] = 'TM/CK'; row[11] = 1
-      row[6] = tenDonVi; row[7] = mst; row[8] = diaChi; row[10] = email
+      // Tên đơn vị mua IN HOA (chuẩn hóa đơn); địa chỉ giữ chữ thường như nhập.
+      row[6] = tenDonVi.toUpperCase(); row[7] = mst; row[8] = diaChi; row[10] = email
     }
     row[14] = 1; row[15] = idx + 1                  // Tính chất=hàng hoá; STT
     row[16] = it.ma_hang; row[17] = it.ten_hang; row[18] = 'Cái'
@@ -859,6 +860,17 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                         <div className="font-bold text-slate-800 text-xs leading-snug line-clamp-2">
                           {tenKh}
                         </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                        {/* Xuất riêng THẺ NÀY ra M-invoice (1 chạm) — chỉ kế toán, chỉ cột KT-HC lên hóa đơn */}
+                        {state === 'Đang xử lý HĐ' && isKeToan && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); exportMinvoice([{ tickets: card.tickets, soDonHang: soDonHangCard(card.tickets) }], `minvoice-${soDonHangCard(card.tickets)}.xlsx`) }}
+                            title="Xuất riêng thẻ này ra file M-invoice"
+                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-1 rounded transition border border-blue-200"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         {(state === 'Chờ xuất HĐ' || role === 'admin') && (
                           <button
                             onClick={(e) => {
@@ -893,6 +905,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                             Thu hồi
                           </button>
                         )}
+                        </div>
                       </div>
 
                       {mst && (
@@ -1060,7 +1073,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
             {isKeToan && (
               <div className="flex items-center gap-1.5 text-xs text-slate-600" title="Ký hiệu mẫu số hóa đơn (TT78) dùng khi Xuất Excel M-invoice. Kế toán tự khai/đổi.">
                 <span className="font-medium">Ký hiệu HĐ:</span>
-                <Input value={kyHieuEdit} onChange={e => setKyHieuEdit(e.target.value)} placeholder="1C26TST" className="h-8 w-28 bg-white text-xs font-mono uppercase" />
+                <Input value={kyHieuEdit} onChange={e => setKyHieuEdit(e.target.value.toUpperCase())} placeholder="1C26TST" className="h-8 w-28 bg-white text-xs font-mono uppercase" />
                 <Button size="sm" variant="outline" onClick={saveKyHieu} disabled={savingKyHieu || kyHieuEdit.trim() === kyHieuMinvoice.trim()} className="h-8 text-xs px-2">Lưu</Button>
               </div>
             )}

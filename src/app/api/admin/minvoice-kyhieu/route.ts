@@ -13,7 +13,8 @@ export async function PUT(request: Request) {
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const { gia_tri } = await request.json()
-    const val = String(gia_tri ?? '').trim()
+    // Ký hiệu HĐ luôn IN HOA (mẫu số TT78) -> hiển thị & đổ ra file M-invoice đồng nhất, khỏi lệch.
+    const val = String(gia_tri ?? '').trim().toUpperCase()
 
     const { error } = await supabaseAdmin
       .from('soct_cau_hinh')
