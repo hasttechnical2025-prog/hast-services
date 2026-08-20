@@ -943,6 +943,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   // Đã chuyển sang kế toán để lên hóa đơn -> mọi role chỉ COPY, không sửa (khóa để đúng số liệu HĐ).
   // Cần sửa thì admin kéo thẻ về cột "Chờ lên hóa đơn" trước.
   const canEditItems = activeCard?.tickets[0]?.trang_thai_hd === 'Chờ xuất HĐ'
+  // Chỉ kế toán (admin/kthc) mới nhập số HĐ + hoàn tất xuất hóa đơn. tech_admin/staff chỉ bàn giao.
+  const isKeToan = role === 'admin' || role === 'kthc'
 
   return (
     <div className="space-y-4">
@@ -1335,10 +1337,12 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                     placeholder="Nhập số hóa đơn (MISA/SAPP/Fast) để hoàn tất"
                     value={invoiceNum}
                     onChange={e => setInvoiceNum(e.target.value)}
-                    disabled={activeCard.tickets[0].trang_thai_hd !== 'Đang xử lý HĐ'}
-                    className="h-10 mt-1 bg-white uppercase font-mono font-bold text-slate-800 border-blue-200 focus:ring-blue-500"
+                    disabled={activeCard.tickets[0].trang_thai_hd !== 'Đang xử lý HĐ' || !isKeToan}
+                    className="h-10 mt-1 bg-white uppercase font-mono font-bold text-slate-800 border-blue-200 focus:ring-blue-500 disabled:bg-slate-100 disabled:text-slate-400"
                   />
-                  <p className="text-[10px] text-blue-600">Lưu ý: Bắt buộc điền đúng Số hóa đơn đã xuất trên phần mềm để lưu vết đối chiếu.</p>
+                  {activeCard.tickets[0].trang_thai_hd === 'Đang xử lý HĐ' && !isKeToan
+                    ? <p className="text-[10px] text-amber-600">Chỉ kế toán (KT-HC) mới nhập số hóa đơn và hoàn tất. Bạn chỉ xem/đối chiếu.</p>
+                    : <p className="text-[10px] text-blue-600">Lưu ý: Bắt buộc điền đúng Số hóa đơn đã xuất trên phần mềm để lưu vết đối chiếu.</p>}
                 </div>
               )}
             </div>
@@ -1364,7 +1368,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                   {st === 'Đã thanh toán' && canKt && (
                     <Button variant="outline" onClick={() => moveStatus('Đã lên hóa đơn', true)} disabled={completing} className="h-10">← Bỏ đánh dấu thanh toán</Button>
                   )}
-                  {st === 'Đang xử lý HĐ' && (
+                  {st === 'Đang xử lý HĐ' && canKt && (
                     <Button
                       onClick={handleCompleteInvoice}
                       disabled={completing || !invoiceNum.trim()}

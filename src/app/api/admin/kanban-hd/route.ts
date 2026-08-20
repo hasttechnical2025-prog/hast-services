@@ -141,6 +141,14 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Trạng thái không hợp lệ' }, { status: 400 })
     }
 
+    // Chỉ KẾ TOÁN (admin/kthc) mới được LÊN HÓA ĐƠN / XÁC NHẬN THANH TOÁN.
+    // tech_admin/staff chỉ bàn giao (cột 1 -> 2) và thu hồi — chặn ở server để bịt kẽ hở
+    // gọi API trực tiếp / nút modal chưa gate. (Khớp luật kéo thả phía client.)
+    const isKeToan = session.role === 'admin' || session.role === 'kthc'
+    if (!isKeToan && (trang_thai_hd === 'Đã lên hóa đơn' || trang_thai_hd === 'Đã thanh toán')) {
+      return NextResponse.json({ error: 'Chỉ kế toán (KT-HC) mới được lên hóa đơn / xác nhận thanh toán.' }, { status: 403 })
+    }
+
     // Nếu hoàn tất xuất hóa đơn (chuyển sang 'Đã lên hóa đơn') -> Yêu cầu bắt buộc số hóa đơn
     if (trang_thai_hd === 'Đã lên hóa đơn') {
       if (!so_hoa_don || !String(so_hoa_don).trim()) {
