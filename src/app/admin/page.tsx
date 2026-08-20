@@ -5067,7 +5067,6 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     geocode_import: (cauHinh.geocode_import ?? '1') !== '0',
     bao_tri: (cauHinh.bao_tri ?? '0') === '1',
     bao_tri_key: cauHinh.bao_tri_key || '',
-    minvoice_ky_hieu: cauHinh.minvoice_ky_hieu || '',
   })
   const [tabVis, setTabVis] = useState<Record<string, Record<string, boolean>>>(() => {
     let parsed: any = {}; try { parsed = JSON.parse(cauHinh.tab_visibility || '{}') } catch {}
@@ -5141,7 +5140,6 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
       geocode_import: cfg.geocode_import ? '1' : '0',
       bao_tri: cfg.bao_tri ? '1' : '0',
       bao_tri_key: cfg.bao_tri_key.trim(),
-      minvoice_ky_hieu: cfg.minvoice_ky_hieu.trim(),
       tab_visibility: JSON.stringify(tabVis),
     }
     try {
@@ -5203,11 +5201,6 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
           </div>
           {numField('Vĩ độ VP (lat)', 'vp_lat', 'Dùng để tính KM tới khách', 'any')}
           {numField('Kinh độ VP (lng)', 'vp_lng', 'VD: 105.809180', 'any')}
-          <div className="space-y-1 md:col-span-1">
-            <label className="text-xs font-semibold text-slate-600">Ký hiệu HĐ M-invoice</label>
-            <Input value={cfg.minvoice_ky_hieu} onChange={(e) => setCfg({ ...cfg, minvoice_ky_hieu: e.target.value })} placeholder="VD: 1C26TST" className="bg-white font-mono" />
-            <p className="text-xs text-slate-400">Điền cho nút &quot;Xuất Excel M-invoice&quot; ở Kanban. Đổi theo năm/ký hiệu TT78.</p>
-          </div>
         </div>
       </div>
 
