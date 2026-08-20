@@ -90,6 +90,48 @@ const daysSince = (d: any): number | null => { if (!d) return null; const t = ne
 // Tổng khoản làm tròn của một nhóm phiếu (đồng, cho phép âm) — cộng vào tổng sau thuế.
 const cardLamTron = (tickets: Ticket[]) => tickets.reduce((s, t) => s + (Number(t.lam_tron) || 0), 0)
 
+// Gộp vật tư theo (mã hàng + đơn giá), bỏ dòng đã trả về kho. Dùng cho export M-invoice.
+function aggVatTu(vtList: VatTu[]) {
+  const map: Record<string, { ma_hang: string; ten_hang: string; so_luong: number; don_gia: number; vat: number }> = {}
+  vtList.filter(v => !v.da_tra).forEach(v => {
+    const k = `${v.ma_hang}_${v.don_gia}`
+    if (!map[k]) map[k] = { ma_hang: v.ma_hang, ten_hang: v.ten_hd || v.soct_kho_hang?.ten_hang || v.ma_hang, so_luong: 0, don_gia: v.don_gia, vat: v.vat }
+    map[k].so_luong += v.so_luong
+  })
+  return Object.values(map)
+}
+
+// 32 cột đúng mẫu import M-invoice (Sheet1). GIỮ NGUYÊN thứ tự & chữ (kể cả lỗi chính tả gốc).
+const MINV_HEADERS = ['Ký hiệu(*)', 'Số đơn hàng(*)', 'Ngày hoá đơn(*)', 'Đơn vị tiền tệ(*)', 'Tên người mua', 'Mã Người mua', 'Tên đơn vị mua', 'Mã số thuê', 'Địa chỉ(*)', 'HTTT(*)', 'Email', 'Tỷ giá(*)', 'STK Người mua', 'Ngân hàng Người mua', 'Tính chất(*)', 'Số thứ tự(*)', 'Mã hàng', 'Tên hàng(*)', 'Đơn vị tính', 'Số lượng', 'Đơn giá', 'Thành tiền trước thuế(*)', 'PT chiết khấu', 'Tiền CK', 'Thuế(*)', 'Tiền thuế(*)', 'Tổng tiền(*)', 'Căn cước công dân', 'Mã đơn vị quan thệ ngân sách', 'Số hộ chiếu', 'Mã cửa hàng', 'Tên cửa hàng']
+
+// Dựng các dòng M-invoice cho MỘT hóa đơn (1 nhóm phiếu). Thông tin khách + ngày chỉ ở dòng đầu;
+// Ký hiệu + Số đơn hàng ở mọi dòng (khóa gom). KHÔNG áp làm tròn (M-invoice tự tính, kthc sửa tay).
+function buildMinvoiceRows(tickets: Ticket[], kyHieu: string, ngayHD: Date, soDonHang: string): any[][] {
+  const kh = tickets[0]?.soct_khach_hang
+  const cum = kh?.soct_khach_cum
+  const tenDonVi = cum ? (cum.ten_khach_hang || '') : (kh?.ten_khach_hang || '')
+  const mst = (cum ? cum.ma_so_thue : kh?.ma_so_thue) || ''
+  const diaChi = (cum ? cum.dia_chi : kh?.dia_chi) || ''
+  const email = (cum ? cum.email_ke_toan : kh?.email_ke_toan) || ''
+  const items = aggVatTu(tickets.flatMap(t => t.soct_chi_tiet_vat_tu || []))
+  return items.map((it, idx) => {
+    const thanhTien = Math.round(it.so_luong * it.don_gia)
+    const tienThue = Math.round(it.so_luong * it.don_gia * (Number(it.vat) || 0) / 100)
+    const row = new Array(32).fill('')
+    row[0] = kyHieu; row[1] = soDonHang            // mọi dòng
+    if (idx === 0) {                                // chỉ dòng đầu: đầu HĐ + khách
+      row[2] = ngayHD; row[3] = 'VND'; row[9] = 'TM/CK'; row[11] = 1
+      row[6] = tenDonVi; row[7] = mst; row[8] = diaChi; row[10] = email
+    }
+    row[14] = 1; row[15] = idx + 1                  // Tính chất=hàng hoá; STT
+    row[16] = it.ma_hang; row[17] = it.ten_hang; row[18] = 'Cái'
+    row[19] = it.so_luong; row[20] = it.don_gia
+    row[21] = thanhTien; row[22] = 0; row[23] = 0
+    row[24] = Number(it.vat) || 0; row[25] = tienThue; row[26] = thanhTien + tienThue
+    return row
+  })
+}
+
 export default function KanbanHdTool({ role = 'staff', showNotification }: { role?: string, showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
@@ -127,6 +169,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const [roundOpen, setRoundOpen] = useState(false)
   const [roundVal, setRoundVal] = useState("")
   const [savingRound, setSavingRound] = useState(false)
+  // Ký hiệu HĐ M-invoice (từ Cấu hình) — cho nút Xuất Excel M-invoice.
+  const [kyHieuMinvoice, setKyHieuMinvoice] = useState("")
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -152,6 +196,11 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       setLoading(false)
     }
   }, [thang, showNotification])
+
+  // Lấy ký hiệu M-invoice từ cấu hình (1 lần).
+  useEffect(() => {
+    fetch('/api/admin/cau-hinh').then(r => r.json()).then(j => { if (j?.data) setKyHieuMinvoice(j.data.minvoice_ky_hieu || '') }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     load()
@@ -634,6 +683,29 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     } finally { setExporting(false) }
   }
 
+  // Số đơn hàng (khóa gom M-invoice) cho 1 thẻ = số phiếu ĐẦU (nhiều phiếu vẫn 1 khóa chung).
+  const soDonHangCard = (ts: Ticket[]) => ts[0]?.report || ts[0]?.id?.slice(0, 8) || ''
+
+  // Xuất Excel ĐÚNG MẪU M-invoice (import qua "Tạo hóa đơn từ file excel"). invoices: mỗi phần tử = 1 HĐ.
+  const exportMinvoice = async (invoices: { tickets: Ticket[]; soDonHang: string }[], filename: string) => {
+    if (!kyHieuMinvoice.trim()) { showNotification('error', 'Chưa khai "Ký hiệu HĐ M-invoice" ở Hệ thống → Cấu hình.'); return }
+    const valid = invoices.filter(inv => aggVatTu(inv.tickets.flatMap(t => t.soct_chi_tiet_vat_tu || [])).length > 0)
+    if (valid.length === 0) { showNotification('error', 'Không có dòng hàng để xuất.'); return }
+    try {
+      const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
+      const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Sheet1')
+      ws.addRow(MINV_HEADERS); ws.getRow(1).font = { bold: true }
+      // UTC-midnight để exceljs lưu ĐÚNG ngày lịch (local-midnight bị lùi 1 ngày khi ghi UTC).
+      const d = new Date(); const ngayHD = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+      for (const inv of valid) for (const row of buildMinvoiceRows(inv.tickets, kyHieuMinvoice.trim(), ngayHD, inv.soDonHang)) ws.addRow(row)
+      ws.getColumn(3).numFmt = 'dd/mm/yyyy'
+      const buf = await wb.xlsx.writeBuffer()
+      const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+      const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url)
+      showNotification('success', `Đã xuất ${valid.length} hóa đơn cho M-invoice.`)
+    } catch { showNotification('error', 'Lỗi xuất Excel M-invoice') }
+  }
+
   // Nhập lại Excel -> cập nhật ĐƠN GIÁ (thật) + TÊN (ghi đè hóa đơn) cho dòng của phiếu này, khớp mã hàng.
   const importExcel = async (file: File) => {
     if (!activeCard) return
@@ -1020,10 +1092,18 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
 
           {/* CỘT 2: ĐANG XỬ LÝ HĐ */}
           <div className="border border-slate-200 rounded-xl bg-white flex flex-col shadow-sm">
-            <div className="p-3 bg-amber-50/50 rounded-t-xl flex justify-between items-center">
+            <div className="p-3 bg-amber-50/50 rounded-t-xl flex justify-between items-center gap-2">
               <h3 className="text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
                 <FileText className="w-4 h-4" /> {role === 'kthc' ? '1.' : '2.'} KT-HC lên hóa đơn ({cardsCol2.length})
               </h3>
+              {cardsCol2.length > 0 && (
+                <button
+                  onClick={() => { const d = new Date(); const stamp = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}`; exportMinvoice(cardsCol2.map((c: any) => ({ tickets: c.tickets, soDonHang: soDonHangCard(c.tickets) })), `minvoice-cot2-${stamp}.xlsx`) }}
+                  title="Xuất TẤT CẢ thẻ ở cột này thành 1 file Excel M-invoice (tạo hàng loạt)"
+                  className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-blue-200 text-blue-700 bg-white hover:bg-blue-50">
+                  <Download className="w-3 h-3" /> M-invoice
+                </button>
+              )}
             </div>
             {renderCardList(cardsCol2, 'Đang xử lý HĐ')}
           </div>
@@ -1195,6 +1275,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                       </Button>
                     )}
                     <Button size="sm" variant="outline" onClick={exportExcel} className="h-8 text-xs gap-1"><Download className="w-3.5 h-3.5" /> Xuất Excel</Button>
+                    <Button size="sm" variant="outline" onClick={() => activeCard && exportMinvoice([{ tickets: activeCard.tickets, soDonHang: soDonHangCard(activeCard.tickets) }], `minvoice-${soDonHangCard(activeCard.tickets)}.xlsx`)} className="h-8 text-xs gap-1 border-blue-300 text-blue-700 hover:bg-blue-50" title="Xuất file Excel đúng mẫu M-invoice để import (Tạo hóa đơn từ file excel)"><Download className="w-3.5 h-3.5" /> Xuất M-invoice</Button>
                     {canEditItems && (
                       <label className="h-8 px-3 text-xs gap-1 inline-flex items-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer text-slate-700">
                         <Upload className="w-3.5 h-3.5" /> Nhập Excel
@@ -1203,6 +1284,19 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                     )}
                   </div>
                 </div>
+                {/* Copy CẢ CỘT (số thô) -> dán xuống 1 cột M-invoice nếu phần mềm cho phép (1 lần/cột). */}
+                {modalDisplayRows.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-slate-500">
+                    <span className="font-semibold text-slate-600">Copy cả cột:</span>
+                    {([['ten', 'Tên', modalDisplayRows.map(v => v.ten_hang)], ['sl', 'SL', modalDisplayRows.map(v => String(v.so_luong))], ['gia', 'Đơn giá', modalDisplayRows.map(v => String(v.don_gia))], ['vat', 'VAT', modalDisplayRows.map(v => String(v.vat))]] as [string, string, string[]][]).map(([key, label, vals]) => (
+                      <button key={key} onClick={() => handleCopy(vals.join('\n'), `col_${key}`)}
+                        className={`px-2 py-0.5 rounded border transition ${copiedKey === `col_${key}` ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+                        {copiedKey === `col_${key}` ? '✓ ' : ''}{label}
+                      </button>
+                    ))}
+                    <span className="text-slate-400">(dán xuống 1 cột)</span>
+                  </div>
+                )}
                 <div className="border border-slate-200 rounded-lg overflow-hidden">
                   <table className="w-full text-left text-xs text-slate-600">
                     <thead className="bg-slate-50 text-slate-500 font-semibold uppercase">
