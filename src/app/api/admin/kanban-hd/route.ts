@@ -36,7 +36,7 @@ export async function GET(request: Request) {
       return supabaseAdmin
         .from('soct_cong_viec')
         .select(`
-          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, mien_phi, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, ngay_xuat_hd, nguoi_xuat_hd, dntt_luc, so_dntt, lam_tron,
+          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, mien_phi, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, ngay_xuat_hd, nguoi_xuat_hd, dntt_luc, so_dntt, lam_tron, ten_khach_hd, nguon,
           nguoi_xuat:soct_users!nguoi_xuat_hd ( full_name ),
           soct_khach_hang (
             id,
@@ -68,6 +68,7 @@ export async function GET(request: Request) {
             da_tra,
             ten_hang_hd,
             thu_tu,
+            don_vi_tinh,
             soct_kho_hang (
               ten_hang
             )

@@ -20,6 +20,7 @@ type VatTu = {
   ten_hang_hd?: string | null // tên ghi đè cho riêng dòng phiếu
   ten_hd?: string             // tên hiển thị đã giải quyết ưu tiên (server tính)
   thu_tu?: number             // thứ tự dòng (kéo-thả sắp xếp ở cột "Chờ lên hóa đơn")
+  don_vi_tinh?: string | null // ĐVT (Tháng/Bản/Chiếc… cho phiếu Thuê/CPC; mặc định "Cái")
   soct_kho_hang: { ten_hang: string } | null
 }
 
@@ -62,6 +63,8 @@ type Ticket = {
   dntt_luc?: string | null // đã xuất Đề nghị thanh toán
   so_dntt?: string | null
   lam_tron?: number // khoản làm tròn tổng sau thuế (đồng, cho phép âm)
+  ten_khach_hd?: string | null // tên người mua ghi đè trên hóa đơn (bảng kê gộp Thuê/CPC = tên hợp đồng)
+  nguon?: string | null // 'thue_cpc' = phiếu sinh từ bảng kê Thuê/CPC (mỗi phiếu = 1 thẻ riêng)
   nguoi_xuat?: { full_name: string } | null // người lập hóa đơn (kế toán bấm Hoàn tất)
   _co_mau?: boolean // khách có mẫu tên/giá đã lưu (để hiện nút "Áp mẫu khách")
   soct_khach_hang: Customer | null
@@ -93,10 +96,10 @@ const cardLamTron = (tickets: Ticket[]) => tickets.reduce((s, t) => s + (Number(
 
 // Gộp vật tư theo (mã hàng + đơn giá), bỏ dòng đã trả về kho, SẮP theo thu_tu. Dùng cho export M-invoice.
 function aggVatTu(vtList: VatTu[]) {
-  const map: Record<string, { ma_hang: string; ten_hang: string; so_luong: number; don_gia: number; vat: number; _ord: number }> = {}
+  const map: Record<string, { ma_hang: string; ten_hang: string; so_luong: number; don_gia: number; vat: number; dvt: string; _ord: number }> = {}
   vtList.filter(v => !v.da_tra).forEach(v => {
     const k = `${v.ma_hang}_${Number(v.don_gia) || 0}`
-    if (!map[k]) map[k] = { ma_hang: v.ma_hang, ten_hang: v.ten_hd || v.soct_kho_hang?.ten_hang || v.ma_hang, so_luong: 0, don_gia: v.don_gia, vat: v.vat, _ord: Number.POSITIVE_INFINITY }
+    if (!map[k]) map[k] = { ma_hang: v.ma_hang, ten_hang: v.ten_hd || v.soct_kho_hang?.ten_hang || v.ma_hang, so_luong: 0, don_gia: v.don_gia, vat: v.vat, dvt: v.don_vi_tinh || '', _ord: Number.POSITIVE_INFINITY }
     map[k].so_luong += v.so_luong
     map[k]._ord = Math.min(map[k]._ord, Number(v.thu_tu ?? 1e9))
   })
@@ -111,7 +114,8 @@ const MINV_HEADERS = ['Ký hiệu(*)', 'Số đơn hàng(*)', 'Ngày hoá đơn(
 function buildMinvoiceRows(tickets: Ticket[], kyHieu: string, ngayHD: Date, soDonHang: string): any[][] {
   const kh = tickets[0]?.soct_khach_hang
   const cum = kh?.soct_khach_cum
-  const tenDonVi = cum ? (cum.ten_khach_hang || '') : (kh?.ten_khach_hang || '')
+  // Tên người mua: ghi đè (ten_khach_hd, VD bảng kê gộp Thuê/CPC) > cụm > khách lẻ.
+  const tenDonVi = tickets[0]?.ten_khach_hd || (cum ? (cum.ten_khach_hang || '') : (kh?.ten_khach_hang || ''))
   const mst = (cum ? cum.ma_so_thue : kh?.ma_so_thue) || ''
   const diaChi = (cum ? cum.dia_chi : kh?.dia_chi) || ''
   const email = (cum ? cum.email_ke_toan : kh?.email_ke_toan) || ''
@@ -128,7 +132,7 @@ function buildMinvoiceRows(tickets: Ticket[], kyHieu: string, ngayHD: Date, soDo
       row[6] = tenDonVi.toUpperCase(); row[7] = mst; row[8] = diaChi; row[10] = email
     }
     row[14] = 1; row[15] = idx + 1                  // Tính chất=hàng hoá; STT
-    row[16] = it.ma_hang; row[17] = it.ten_hang; row[18] = 'Cái'
+    row[16] = it.ma_hang; row[17] = it.ten_hang; row[18] = it.dvt || 'Cái'
     row[19] = it.so_luong; row[20] = it.don_gia
     row[21] = thanhTien; row[22] = 0; row[23] = 0
     row[24] = Number(it.vat) || 0; row[25] = tienThue; row[26] = thanhTien + tienThue
@@ -465,7 +469,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     const tong = Math.round(getVatTuStats(ts.flatMap(t => t.soct_chi_tiet_vat_tu || [])).sauVat) + cardLamTron(ts)
     const daThu = Number(ts[0].so_tien_da_thu) || 0
     const cum = ts[0].soct_khach_hang?.soct_khach_cum
-    const tenKh = cum ? (cum.ten_khach_hang || '') : (ts[0].soct_khach_hang?.ten_khach_hang || 'Khách lẻ')
+    const tenKh = ts[0].ten_khach_hd || (cum ? (cum.ten_khach_hang || '') : (ts[0].soct_khach_hang?.ten_khach_hang || 'Khách lẻ'))
     setPayInput("")
     setPayModal({ soHd, ticketIds, tong, daThu, tenKh, soPhieu: ts.map(t => t.report || '—') })
   }
@@ -631,7 +635,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       const rates = [...new Set(activeVt.map((v: any) => Number(v.vat) || 0))]
       const vatRate: number | string = rates.length === 0 ? '' : rates.length === 1 ? rates[0] : 'mix'
       const cum = card.customer?.soct_khach_cum
-      const tenKh = cum ? (cum.ten_khach_hang || '') : (card.customer?.ten_khach_hang || 'Khách hàng lẻ')
+      const tenKh = card.tickets[0]?.ten_khach_hd || (cum ? (cum.ten_khach_hang || '') : (card.customer?.ten_khach_hang || 'Khách hàng lẻ'))
       const mst = (cum ? cum.ma_so_thue : card.customer?.ma_so_thue) || ''
       const diaChi = (cum ? cum.dia_chi : card.customer?.dia_chi) || ''
       const soPhieu = card.tickets.map((t: any) => t.report || '—').join(', ')
@@ -800,7 +804,9 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     const map = new Map<string, GroupedCard>()
     colTickets.forEach(t => {
       const cumId = t.soct_khach_hang?.ma_khach_cum
-      const groupKey = cumId ? `cum:${cumId}` : `may:${t.id_khach_hang}`
+      // Phiếu Thuê/CPC = MỖI PHIẾU 1 THẺ RIÊNG (1 bảng kê = 1 hóa đơn) — không gộp chung khách/máy
+      // để tránh lẫn với phiếu kỹ thuật cùng máy.
+      const groupKey = t.nguon === 'thue_cpc' ? `tc:${t.id}` : (cumId ? `cum:${cumId}` : `may:${t.id_khach_hang}`)
       if (!map.has(groupKey)) {
         map.set(groupKey, {
           id: groupKey,
@@ -873,7 +879,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
 
                 {(() => {
                   const cum = card.customer?.soct_khach_cum
-                  const tenKh = cum ? (cum.ten_khach_hang || '') : (card.customer?.ten_khach_hang || 'Khách hàng lẻ')
+                  const tenKh = card.tickets[0]?.ten_khach_hd || (cum ? (cum.ten_khach_hang || '') : (card.customer?.ten_khach_hang || 'Khách hàng lẻ'))
                   const mst = cum ? cum.ma_so_thue : card.customer?.ma_so_thue
 
                   return (
@@ -1037,7 +1043,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
 
   // Giải quyết thông tin Khách hàng Cụm nếu có, nếu không lấy của khách lẻ
   const modalCum = modalKh?.soct_khach_cum
-  const modalTenKh = modalCum ? (modalCum.ten_khach_hang || '') : (modalKh?.ten_khach_hang || 'Khách hàng lẻ')
+  const modalTenKh = activeCard?.tickets[0]?.ten_khach_hd || (modalCum ? (modalCum.ten_khach_hang || '') : (modalKh?.ten_khach_hang || 'Khách hàng lẻ'))
   const modalMst = modalCum ? modalCum.ma_so_thue : modalKh?.ma_so_thue
   const modalEmail = modalCum ? modalCum.email_ke_toan : modalKh?.email_ke_toan
   const modalDiaChi = modalCum ? modalCum.dia_chi : modalKh?.dia_chi

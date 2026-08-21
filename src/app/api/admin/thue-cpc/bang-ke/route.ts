@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     const thang_nam = searchParams.get('thang_nam')
     let q = supabaseAdmin
       .from('soct_thue_cpc_bk')
-      .select('id, thang_nam, loai, tong_truoc_vat, vat_rate, tong_sau_vat, so_hoa_don_ke_toan, created_at, soct_khach_hang(ten_khach_hang, ma_may), soct_thue_cpc_hop_dong_khung(ten_hop_dong)')
+      .select('id, thang_nam, loai, tong_truoc_vat, vat_rate, tong_sau_vat, so_hoa_don_ke_toan, id_cong_viec, created_at, soct_khach_hang(ten_khach_hang, ma_may), soct_thue_cpc_hop_dong_khung(ten_hop_dong)')
       .order('created_at', { ascending: false })
     if (thang_nam) q = q.eq('thang_nam', thang_nam)
     const { data, error } = await q

@@ -203,6 +203,9 @@ export async function GET(request: Request) {
         .order('created_at', { ascending: false })
         .range(from, to)
 
+      // Ẩn phiếu SINH TỪ Thuê/CPC (nguon='thue_cpc') khỏi Sổ công tác — chúng chỉ phục vụ Kanban HĐ.
+      query = query.or('nguon.is.null,nguon.neq.thue_cpc')
+
       if (session.role === 'ktv') {
         // Việc mình làm CHÍNH + việc mình làm KÈM (ktv2_id) + việc trong pool (chưa gán KTV)
         // + việc được người khác MỜI mình nhận (moi_ktv_id) -> để hiện hộp thư lời mời.

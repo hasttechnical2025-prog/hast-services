@@ -1080,3 +1080,19 @@ UPDATE public.soct_chi_tiet_vat_tu c
 SET thu_tu = r.rn
 FROM ranked r
 WHERE c.id = r.id;
+
+
+-- ============================================================================
+-- MIGRATION 55: Đẩy bảng kê Thuê/CPC sang Kanban (don_vi_tinh, nguon, ten_khach_hd, link bk, mã DV)
+-- ============================================================================
+
+ALTER TABLE public.soct_chi_tiet_vat_tu ADD COLUMN IF NOT EXISTS don_vi_tinh TEXT;
+ALTER TABLE public.soct_cong_viec       ADD COLUMN IF NOT EXISTS nguon TEXT;
+ALTER TABLE public.soct_cong_viec       ADD COLUMN IF NOT EXISTS ten_khach_hd TEXT;
+ALTER TABLE public.soct_thue_cpc_bk      ADD COLUMN IF NOT EXISTS id_cong_viec UUID REFERENCES public.soct_cong_viec(id) ON DELETE SET NULL;
+INSERT INTO public.soct_kho_hang (ma_hang, ten_hang, ton_kho) VALUES
+    ('DVTM',  'Dịch vụ thuê máy', 0),
+    ('DVBDT', 'Số bản sử dụng đen trắng trong kỳ', 0),
+    ('DVBM',  'Số bản sử dụng màu trong kỳ', 0),
+    ('DVCR',  'Dịch vụ đầu đọc thẻ', 0)
+ON CONFLICT (ma_hang) DO NOTHING;

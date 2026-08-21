@@ -852,9 +852,21 @@ function BangKeTab({ showNotification }: { showNotification: Notify }) {
                   <td className="px-3 py-2 text-right font-semibold text-slate-800">{money(b.tong_sau_vat)}</td>
                   <td className="px-3 py-2 text-xs text-slate-500">{b.so_hoa_don_ke_toan || '—'}</td>
                   <td className="px-3 py-2">
-                    <div className="flex gap-2 justify-end">
+                    <div className="flex gap-2 justify-end items-center">
                       <button onClick={() => setDetail(b.id)} className="text-slate-600 hover:underline text-xs font-medium">Xem</button>
                       <a href={exportUrl(b.id)} className="text-emerald-600 hover:underline text-xs font-medium">Tải Word</a>
+                      {b.id_cong_viec
+                        ? <span className="text-slate-400 text-xs font-medium" title="Đã tạo phiếu Kanban cho bảng kê này">Đã đẩy ✓</span>
+                        : <button
+                            onClick={async () => {
+                              try {
+                                const res = await fetch('/api/admin/thue-cpc/bang-ke/day-kanban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: b.id }) })
+                                const j = await res.json()
+                                if (res.ok) { showNotification('success', 'Đã đẩy sang Kanban (kthc lên hóa đơn).'); loadList() }
+                                else showNotification('error', j.error || 'Lỗi đẩy Kanban')
+                              } catch { showNotification('error', 'Lỗi kết nối') }
+                            }}
+                            className="text-blue-600 hover:underline text-xs font-medium" title="Sinh phiếu đẩy sang Kanban cho kế toán lên hóa đơn">Đẩy Kanban</button>}
                       <button onClick={() => setConfirmDel(b)} className="text-red-600 hover:underline text-xs font-medium">Xóa</button>
                     </div>
                   </td>
