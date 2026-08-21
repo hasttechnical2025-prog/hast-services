@@ -118,9 +118,10 @@ function buildMinvoiceRows(tickets: Ticket[], kyHieu: string, ngayHD: Date, soDo
     const thanhTien = Math.round(it.so_luong * it.don_gia)
     const tienThue = Math.round(it.so_luong * it.don_gia * (Number(it.vat) || 0) / 100)
     const row = new Array(32).fill('')
-    row[0] = kyHieu; row[1] = soDonHang            // mọi dòng
-    if (idx === 0) {                                // chỉ dòng đầu: đầu HĐ + khách
-      row[2] = ngayHD; row[3] = 'VND'; row[9] = 'TM/CK'; row[11] = 1
+    // Mọi dòng: Ký hiệu, Số đơn hàng, Ngày HĐ, HTTT (M-invoice BẮT BUỘC Ngày + HTTT ở MỌI dòng).
+    row[0] = kyHieu; row[1] = soDonHang; row[2] = ngayHD; row[9] = 'TM/CK'
+    if (idx === 0) {                                // chỉ dòng đầu: các trường đầu HĐ + khách còn lại
+      row[3] = 'VND'; row[11] = 1
       // Tên đơn vị mua IN HOA (chuẩn hóa đơn); địa chỉ giữ chữ thường như nhập.
       row[6] = tenDonVi.toUpperCase(); row[7] = mst; row[8] = diaChi; row[10] = email
     }
