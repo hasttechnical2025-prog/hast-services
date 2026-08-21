@@ -330,7 +330,7 @@ export async function POST(request: Request) {
     if (vat_tu && Array.isArray(vat_tu) && vat_tu.length > 0) {
       const validVatTu = vat_tu.filter(v => v.ma_hang && v.so_luong > 0)
       if (validVatTu.length > 0) {
-        const vatTuInserts = validVatTu.map(v => {
+        const vatTuInserts = validVatTu.map((v, idx) => {
           const so_luong = parseInt(v.so_luong, 10) || 0
           const don_gia = parseFloat(v.don_gia) || 0
           return {
@@ -340,7 +340,8 @@ export async function POST(request: Request) {
             don_gia,
             vat: parseFloat(v.vat) || 0,
             thanh_tien: don_gia * so_luong, // chưa gồm VAT
-            hoa_don: !!v.hoa_don
+            hoa_don: !!v.hoa_don,
+            thu_tu: idx // giữ đúng thứ tự nhập ở form giao việc
           }
         })
 
@@ -468,10 +469,10 @@ export async function PUT(request: Request) {
       if (Array.isArray(vat_tu) && vat_tu.length > 0) {
         const valid = vat_tu.filter((v: any) => v.ma_hang && v.so_luong > 0)
         if (valid.length > 0) {
-          const inserts = valid.map((v: any) => {
+          const inserts = valid.map((v: any, idx: number) => {
             const sl = parseInt(v.so_luong, 10) || 0
             const dg = parseFloat(v.don_gia) || 0
-            return { id_cong_viec: id, ma_hang: v.ma_hang, so_luong: sl, don_gia: dg, vat: parseFloat(v.vat) || 0, thanh_tien: dg * sl, hoa_don: !!v.hoa_don }
+            return { id_cong_viec: id, ma_hang: v.ma_hang, so_luong: sl, don_gia: dg, vat: parseFloat(v.vat) || 0, thanh_tien: dg * sl, hoa_don: !!v.hoa_don, thu_tu: idx } // thu_tu = thứ tự form khi sửa
           })
           const { error: vtErr } = await supabaseAdmin.from('soct_chi_tiet_vat_tu').insert(inserts)
           if (vtErr) console.error('Lỗi cập nhật vật tư:', vtErr)

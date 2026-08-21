@@ -77,14 +77,16 @@ export async function POST(request: Request) {
     // Gắn vật tư cho từng phiếu vừa tạo
     const vatTuRows: any[] = []
     inserted!.forEach((row: any, i: number) => {
+      let ord = 0 // thu_tu theo thứ tự nhập trong từng phiếu (chỉ đếm dòng hợp lệ)
       for (const v of jobVatTu[i]) {
         if (!v.ma_hang || !(Number(v.so_luong) > 0)) continue
         const sl = parseInt(v.so_luong, 10) || 0
         const dg = parseFloat(v.don_gia) || 0
         vatTuRows.push({
           id_cong_viec: row.id, ma_hang: v.ma_hang, so_luong: sl, don_gia: dg,
-          vat: parseFloat(v.vat) || 0, thanh_tien: dg * sl, hoa_don: !!v.hoa_don,
+          vat: parseFloat(v.vat) || 0, thanh_tien: dg * sl, hoa_don: !!v.hoa_don, thu_tu: ord,
         })
+        ord++
       }
     })
     let vatTuCount = 0
