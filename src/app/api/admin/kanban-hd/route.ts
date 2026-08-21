@@ -157,6 +157,16 @@ export async function PUT(request: Request) {
       }
     }
 
+    // Về "Chờ xuất HĐ"/"Chưa hóa đơn" = KHỞI ĐỘNG LẠI vòng hóa đơn -> reset TOÀN BỘ trạng thái:
+    // số HĐ, ngày xuất, người lập, ĐNTT + XÓA bản ghi thu tiền (soct_hd_thu theo số HĐ cũ).
+    // Trước đó chỉ null số HĐ/người lập -> "đã thu" cũ vẫn dính khi nhập lại đúng số HĐ.
+    const isReset = trang_thai_hd === 'Chờ xuất HĐ' || trang_thai_hd === 'Chưa hóa đơn'
+    let oldSoHds: string[] = []
+    if (isReset) {
+      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('so_hoa_don').in('id', targetIds)
+      oldSoHds = [...new Set((cur || []).map((r: any) => r.so_hoa_don).filter(Boolean))]
+    }
+
     const updates: any = {
       trang_thai_hd
     }
@@ -178,9 +188,11 @@ export async function PUT(request: Request) {
       // Trả về "Đang xử lý HĐ" (kéo ngược để sửa): GIỮ số hóa đơn để re-complete khỏi gõ lại,
       // chỉ xóa ngày xuất. Về hẳn Chờ xuất/Công nợ mới xóa số HĐ + người lập.
       updates.ngay_xuat_hd = null
-      if (trang_thai_hd === 'Chờ xuất HĐ' || trang_thai_hd === 'Chưa hóa đơn') {
+      if (isReset) {
         updates.so_hoa_don = null
         updates.nguoi_xuat_hd = null
+        updates.dntt_luc = null   // gỡ cờ "đã xuất ĐNTT"
+        updates.so_dntt = null
       }
     }
 
@@ -210,6 +222,13 @@ export async function PUT(request: Request) {
         .in('id_cong_viec', targetIds)
 
       if (vtErr) console.error('Lỗi hủy cờ hoa_don cho vật tư:', vtErr)
+    }
+
+    // Khởi động lại vòng hóa đơn -> XÓA bản ghi thu tiền theo số HĐ cũ (tránh "đã thu" cũ hiện lại
+    // khi kế toán nhập lại đúng số HĐ). Cả nhóm cùng số HĐ được thu hồi nên xóa theo số HĐ là đúng.
+    if (isReset && oldSoHds.length > 0) {
+      const { error: thuErr } = await supabaseAdmin.from('soct_hd_thu').delete().in('so_hoa_don', oldSoHds)
+      if (thuErr) console.error('Lỗi xóa thu tiền khi thu hồi:', thuErr)
     }
 
     // Gửi realtime thông báo cho các máy khác
