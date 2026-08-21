@@ -67,6 +67,7 @@ export async function GET(request: Request) {
             hoa_don,
             da_tra,
             ten_hang_hd,
+            thu_tu,
             soct_kho_hang (
               ten_hang
             )

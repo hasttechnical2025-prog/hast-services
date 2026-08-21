@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark, Pencil, Search, Download, Upload, Info } from "lucide-react"
+import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark, Pencil, Search, Download, Upload, Info, GripVertical } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import MonthField from "@/components/MonthField"
@@ -19,6 +19,7 @@ type VatTu = {
   da_tra: boolean
   ten_hang_hd?: string | null // tên ghi đè cho riêng dòng phiếu
   ten_hd?: string             // tên hiển thị đã giải quyết ưu tiên (server tính)
+  thu_tu?: number             // thứ tự dòng (kéo-thả sắp xếp ở cột "Chờ lên hóa đơn")
   soct_kho_hang: { ten_hang: string } | null
 }
 
@@ -90,15 +91,16 @@ const daysSince = (d: any): number | null => { if (!d) return null; const t = ne
 // Tổng khoản làm tròn của một nhóm phiếu (đồng, cho phép âm) — cộng vào tổng sau thuế.
 const cardLamTron = (tickets: Ticket[]) => tickets.reduce((s, t) => s + (Number(t.lam_tron) || 0), 0)
 
-// Gộp vật tư theo (mã hàng + đơn giá), bỏ dòng đã trả về kho. Dùng cho export M-invoice.
+// Gộp vật tư theo (mã hàng + đơn giá), bỏ dòng đã trả về kho, SẮP theo thu_tu. Dùng cho export M-invoice.
 function aggVatTu(vtList: VatTu[]) {
-  const map: Record<string, { ma_hang: string; ten_hang: string; so_luong: number; don_gia: number; vat: number }> = {}
+  const map: Record<string, { ma_hang: string; ten_hang: string; so_luong: number; don_gia: number; vat: number; _ord: number }> = {}
   vtList.filter(v => !v.da_tra).forEach(v => {
-    const k = `${v.ma_hang}_${v.don_gia}`
-    if (!map[k]) map[k] = { ma_hang: v.ma_hang, ten_hang: v.ten_hd || v.soct_kho_hang?.ten_hang || v.ma_hang, so_luong: 0, don_gia: v.don_gia, vat: v.vat }
+    const k = `${v.ma_hang}_${Number(v.don_gia) || 0}`
+    if (!map[k]) map[k] = { ma_hang: v.ma_hang, ten_hang: v.ten_hd || v.soct_kho_hang?.ten_hang || v.ma_hang, so_luong: 0, don_gia: v.don_gia, vat: v.vat, _ord: Number.POSITIVE_INFINITY }
     map[k].so_luong += v.so_luong
+    map[k]._ord = Math.min(map[k]._ord, Number(v.thu_tu ?? 1e9))
   })
-  return Object.values(map)
+  return Object.values(map).sort((a, b) => a._ord - b._ord)
 }
 
 // 32 cột đúng mẫu import M-invoice (Sheet1). GIỮ NGUYÊN thứ tự & chữ (kể cả lỗi chính tả gốc).
@@ -149,6 +151,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [editName, setEditName] = useState<{ ma_hang: string; ten: string; gia: string } | null>(null) // sửa tên + đơn giá trong modal
   const [savingName, setSavingName] = useState(false)
+  const [dragVtIdx, setDragVtIdx] = useState<number | null>(null) // kéo-thả sắp xếp dòng vật tư
   const [confirmDialog, setConfirmDialog] = useState<{
     title: string
     message: string
@@ -697,6 +700,24 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     } finally { setExporting(false) }
   }
 
+  // Kéo-thả đổi thứ tự dòng vật tư (chỉ cột "Chờ lên hóa đơn"). from/to = chỉ số trong modalDisplayRows.
+  const moveVatTu = async (from: number, to: number) => {
+    if (!activeCard || from === to) return
+    const keys = modalDisplayRows.map(v => `${v.ma_hang}_${Number(v.don_gia) || 0}`)
+    if (from < 0 || from >= keys.length || to < 0 || to >= keys.length) return
+    const [moved] = keys.splice(from, 1)
+    keys.splice(to, 0, moved)
+    setSavingName(true)
+    try {
+      const res = await fetch('/api/admin/vat-tu-thu-tu', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticket_ids: activeCard.tickets.map(t => t.id), order: keys }),
+      })
+      if (res.ok) { load() }
+      else { const e = await res.json(); showNotification('error', e.error || 'Lỗi đổi thứ tự') }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setSavingName(false) }
+  }
+
   // Số đơn hàng (khóa gom M-invoice) cho 1 thẻ = số phiếu ĐẦU (nhiều phiếu vẫn 1 khóa chung).
   const soDonHangCard = (ts: Ticket[]) => ts[0]?.report || ts[0]?.id?.slice(0, 8) || ''
 
@@ -1022,21 +1043,24 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const modalDiaChi = modalCum ? modalCum.dia_chi : modalKh?.dia_chi
 
   // Gộp các dòng vật tư trùng mã hàng để hóa đơn in gọn gàng
-  const aggregatedVatTu: Record<string, { ma_hang: string; ten_hang: string; so_luong: number; don_gia: number; vat: number }> = {}
+  const aggregatedVatTu: Record<string, { ma_hang: string; ten_hang: string; so_luong: number; don_gia: number; vat: number; _ord: number }> = {}
   modalAllVt.filter(v => !v.da_tra).forEach(v => {
-    const k = `${v.ma_hang}_${v.don_gia}`
+    const k = `${v.ma_hang}_${Number(v.don_gia) || 0}`
     if (!aggregatedVatTu[k]) {
       aggregatedVatTu[k] = {
         ma_hang: v.ma_hang,
         ten_hang: v.ten_hd || v.soct_kho_hang?.ten_hang || v.ma_hang,
         so_luong: 0,
         don_gia: v.don_gia,
-        vat: v.vat
+        vat: v.vat,
+        _ord: Number.POSITIVE_INFINITY
       }
     }
     aggregatedVatTu[k].so_luong += v.so_luong
+    aggregatedVatTu[k]._ord = Math.min(aggregatedVatTu[k]._ord, Number(v.thu_tu ?? 1e9))
   })
-  const modalDisplayRows = Object.values(aggregatedVatTu)
+  // Sắp theo thu_tu (kéo-thả). Dòng cùng thứ tự (chưa sắp) giữ nguyên tương đối.
+  const modalDisplayRows = Object.values(aggregatedVatTu).sort((a, b) => a._ord - b._ord)
   // Chỉ được sửa tên/đơn giá/nhập Excel khi phiếu CÒN Ở "Chờ xuất HĐ" (chưa đưa sang kế toán).
   // Đã chuyển sang kế toán để lên hóa đơn -> mọi role chỉ COPY, không sửa (khóa để đúng số liệu HĐ).
   // Cần sửa thì admin kéo thẻ về cột "Chờ lên hóa đơn" trước.
@@ -1301,7 +1325,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
               {/* Bảng chi tiết sản phẩm / dịch vụ */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Danh sách sản phẩm dịch vụ ({modalDisplayRows.length} mặt hàng)</div>
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Danh sách sản phẩm dịch vụ ({modalDisplayRows.length} mặt hàng){canEditItems && <span className="ml-1.5 normal-case font-normal text-[10px] text-slate-400">· kéo ⠿ để đổi thứ tự</span>}</div>
                   <div className="flex items-center gap-1.5">
                     {canEditItems && activeCard.tickets[0]?._co_mau && (
                       <Button size="sm" variant="outline" onClick={applyTemplate} disabled={savingName} className="h-8 text-xs gap-1 border-amber-300 text-amber-700 hover:bg-amber-50" title="Điền tên + đơn giá đã lưu của khách này (rồi kiểm tra lại)">
@@ -1381,9 +1405,18 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                           )
                         }
                         return (
-                          <tr key={i} className="hover:bg-slate-50/50">
+                          <tr
+                            key={i}
+                            draggable={!!canEditItems}
+                            onDragStart={canEditItems ? (e => { setDragVtIdx(i); e.dataTransfer.effectAllowed = 'move' }) : undefined}
+                            onDragOver={canEditItems ? (e => e.preventDefault()) : undefined}
+                            onDrop={canEditItems ? (e => { e.preventDefault(); if (dragVtIdx != null) moveVatTu(dragVtIdx, i); setDragVtIdx(null) }) : undefined}
+                            onDragEnd={() => setDragVtIdx(null)}
+                            className={`hover:bg-slate-50/50 ${canEditItems ? 'cursor-move' : ''} ${dragVtIdx === i ? 'opacity-40' : ''}`}
+                          >
                             <td className="px-3 py-2.5 font-medium">
                               <div className="flex items-center gap-1.5">
+                                {canEditItems && <GripVertical className="w-3.5 h-3.5 text-slate-300 shrink-0" />}
                                 <span>{v.ten_hang}</span>
                                 {canEditItems && (
                                   <button

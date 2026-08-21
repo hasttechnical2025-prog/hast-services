@@ -1063,3 +1063,20 @@ UPDATE public.soct_cong_viec
 SET trang_thai_hd = 'Miễn phí'
 WHERE mien_phi = true
   AND trang_thai_hd IN ('Chờ xuất HĐ', 'Đang xử lý HĐ', 'Chưa hóa đơn', 'Đã báo giá');
+
+
+-- ============================================================================
+-- MIGRATION 54: thu_tu vật tư (kéo-thả sắp xếp dòng ở cột "Chờ lên hóa đơn")
+-- ============================================================================
+
+ALTER TABLE public.soct_chi_tiet_vat_tu
+    ADD COLUMN IF NOT EXISTS thu_tu INT NOT NULL DEFAULT 0;
+
+WITH ranked AS (
+    SELECT id, ROW_NUMBER() OVER (PARTITION BY id_cong_viec ORDER BY created_at, id) - 1 AS rn
+    FROM public.soct_chi_tiet_vat_tu
+)
+UPDATE public.soct_chi_tiet_vat_tu c
+SET thu_tu = r.rn
+FROM ranked r
+WHERE c.id = r.id;
