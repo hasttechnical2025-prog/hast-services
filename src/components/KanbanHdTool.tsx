@@ -903,9 +903,12 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
+                              const laThueCpc = card.tickets.every((t: any) => t.nguon === 'thue_cpc')
                               setConfirmDialog({
-                                title: "Thu hồi phiếu",
-                                message: "Bạn có chắc chắn muốn thu hồi (các) phiếu này quay lại Công nợ không?",
+                                title: laThueCpc ? "Gỡ phiếu Thuê/CPC" : "Thu hồi phiếu",
+                                message: laThueCpc
+                                  ? "Phiếu Thuê/CPC không có Công nợ. Thu hồi = GỠ phiếu này khỏi Kanban (bảng kê sẽ đẩy lại được). Tiếp tục?"
+                                  : "Bạn có chắc chắn muốn thu hồi (các) phiếu này quay lại Công nợ không?",
                                 onConfirm: async () => {
                                   try {
                                     const targetIds = card.tickets.map((t: any) => t.id)
@@ -915,7 +918,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                                       body: JSON.stringify({ ids: targetIds, trang_thai_hd: 'Chưa hóa đơn' })
                                     })
                                     if (res.ok) {
-                                      showNotification('success', 'Đã thu hồi phiếu quay lại Công nợ.')
+                                      showNotification('success', laThueCpc ? 'Đã gỡ phiếu Thuê/CPC khỏi Kanban.' : 'Đã thu hồi phiếu quay lại Công nợ.')
                                       load()
                                     } else {
                                       const err = await res.json()

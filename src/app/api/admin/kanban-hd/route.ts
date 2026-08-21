@@ -135,12 +135,31 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
     }
 
-    const targetIds = ids || [id]
+    let targetIds = ids || [id]
 
     // Validate trạng thái
     const allowedStates = ['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn', 'Đã thanh toán', 'Chưa hóa đơn']
     if (!allowedStates.includes(trang_thai_hd)) {
       return NextResponse.json({ error: 'Trạng thái không hợp lệ' }, { status: 400 })
+    }
+
+    // THU HỒI phiếu Thuê/CPC (nguon='thue_cpc'): KHÔNG có Công nợ -> GỠ KHỎI KANBAN (xóa phiếu).
+    // Bảng kê tự bỏ liên kết (bk.id_cong_viec ON DELETE SET NULL) -> "Đẩy Kanban" lại được.
+    if (trang_thai_hd === 'Chưa hóa đơn') {
+      const { data: srcs } = await supabaseAdmin.from('soct_cong_viec').select('id, nguon, so_hoa_don').in('id', targetIds)
+      const rental = (srcs || []).filter((s: any) => s.nguon === 'thue_cpc')
+      if (rental.length > 0) {
+        const rIds = rental.map((s: any) => s.id)
+        const rHds = [...new Set(rental.map((s: any) => s.so_hoa_don).filter(Boolean))]
+        if (rHds.length) await supabaseAdmin.from('soct_hd_thu').delete().in('so_hoa_don', rHds)
+        await supabaseAdmin.from('soct_chi_tiet_vat_tu').delete().in('id_cong_viec', rIds)
+        await supabaseAdmin.from('soct_cong_viec').delete().in('id', rIds)
+        targetIds = targetIds.filter((x: string) => !rIds.includes(x))
+        if (targetIds.length === 0) {
+          await broadcastJobsChanged()
+          return NextResponse.json({ success: true, count: rIds.length, removed_thue_cpc: rIds.length })
+        }
+      }
     }
 
     // Chỉ KẾ TOÁN (admin/kthc) mới được LÊN HÓA ĐƠN / XÁC NHẬN THANH TOÁN.
