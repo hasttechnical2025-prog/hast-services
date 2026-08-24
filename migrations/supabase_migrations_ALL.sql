@@ -1116,3 +1116,10 @@ ALTER TABLE public.soct_cong_viec ADD COLUMN IF NOT EXISTS phieu_goc_id UUID REF
 -- ============================================================================
 
 ALTER TABLE public.soct_cong_viec ADD COLUMN IF NOT EXISTS ly_do_tra TEXT;
+
+
+-- ============================================================================
+-- MIGRATION 58: dntt_lan (đếm số lần xuất ĐNTT)
+-- ============================================================================
+
+ALTER TABLE public.soct_cong_viec ADD COLUMN IF NOT EXISTS dntt_lan INT NOT NULL DEFAULT 0;

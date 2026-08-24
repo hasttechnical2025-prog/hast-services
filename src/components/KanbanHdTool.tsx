@@ -60,8 +60,9 @@ type Ticket = {
   so_hoa_don: string | null
   ngay_xuat_hd?: string | null
   so_tien_da_thu?: number // đã thu theo số hóa đơn (công nợ phải thu)
-  dntt_luc?: string | null // đã xuất Đề nghị thanh toán
+  dntt_luc?: string | null // lần xuất ĐNTT gần nhất (thời điểm)
   so_dntt?: string | null
+  dntt_lan?: number // số lần đã xuất ĐNTT
   lam_tron?: number // khoản làm tròn tổng sau thuế (đồng, cho phép âm)
   ten_khach_hd?: string | null // tên người mua ghi đè trên hóa đơn (bảng kê gộp Thuê/CPC = tên hợp đồng)
   nguon?: string | null // 'thue_cpc' = phiếu sinh từ bảng kê Thuê/CPC (mỗi phiếu = 1 thẻ riêng)
@@ -1022,11 +1023,20 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                         >
                           <FileText className="w-3 h-3" /> Xuất ĐNTT
                         </button>
-                        {card.tickets.some((t: any) => t.dntt_luc) && (
-                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            ✓ đã xuất{card.tickets.find((t: any) => t.so_dntt)?.so_dntt ? ' ' + card.tickets.find((t: any) => t.so_dntt).so_dntt : ''}
-                          </span>
-                        )}
+                        {(() => {
+                          // Badge = NGÀY xuất gần nhất (dntt_luc, giờ VN) + SỐ LẦN xuất trong ngoặc. VD "đã xuất 24-8 (2)".
+                          const t = card.tickets.find((x: any) => x.dntt_luc)
+                          if (!t) return null
+                          const d = new Date(new Date(t.dntt_luc).getTime() + 7 * 3600 * 1000)
+                          const label = `${d.getUTCDate()}-${d.getUTCMonth() + 1}`
+                          const lan = Math.max(0, ...card.tickets.map((x: any) => Number(x.dntt_lan) || 0))
+                          const soDntt = card.tickets.find((x: any) => x.so_dntt)?.so_dntt || ''
+                          return (
+                            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200" title={`ĐNTT số ${soDntt} · đã xuất ${lan} lần · lần gần nhất ${label}`}>
+                              ✓ đã xuất {label}{lan > 0 ? ` (${lan})` : ''}
+                            </span>
+                          )
+                        })()}
                       </div>
                       {(card.tickets[0].nguoi_xuat?.full_name || card.tickets[0].ngay_xuat_hd) && (
                         <div className="text-[9px] text-slate-400">

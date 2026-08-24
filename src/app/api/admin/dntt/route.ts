@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
     const { data: tickets, error } = await supabaseAdmin
       .from('soct_cong_viec')
-      .select(`id, so_dntt, ngay, ngay_xuat_hd, id_khach_hang, lam_tron,
+      .select(`id, so_dntt, ngay, ngay_xuat_hd, id_khach_hang, lam_tron, dntt_lan,
         soct_khach_hang ( ten_khach_hang, soct_khach_cum ( ten_khach_hang ) ),
         soct_chi_tiet_vat_tu ( thanh_tien, vat, da_tra )`)
       .eq('so_hoa_don', so_hd)
@@ -65,13 +65,16 @@ export async function GET(request: Request) {
 
     const kh0: any = (tickets as any[])[0].soct_khach_hang
     const tenKh = (kh0?.soct_khach_cum?.ten_khach_hang || kh0?.ten_khach_hang || '').toUpperCase()
+    // ĐỒNG NHẤT: ngày trên thư (Hà Nội, ngày…) + ngày trong bảng đều = NGÀY XUẤT HÓA ĐƠN (ngay_xuat_hd).
+    const rawHd = String((tickets as any[])[0].ngay_xuat_hd || (tickets as any[])[0].ngay || '')
+    const [hdY, hdM, hdD] = rawHd.split('-')
     const ngayHd = fmtDMY((tickets as any[])[0].ngay_xuat_hd || (tickets as any[])[0].ngay)
 
     const buf = render('dntt.docx', {
       SO_DNTT: so_dntt,
-      NGAY: String(now.getUTCDate()).padStart(2, '0'),
-      THANG: String(now.getUTCMonth() + 1).padStart(2, '0'),
-      NAM: String(nam),
+      NGAY: hdD || String(now.getUTCDate()).padStart(2, '0'),
+      THANG: hdM || String(now.getUTCMonth() + 1).padStart(2, '0'),
+      NAM: hdY || String(nam),
       TEN_KH: tenKh,
       NGAY_HD: ngayHd, SO_HD: so_hd,
       TIEN: money(tong), CONG: money(tong), TONG: money(tong),
@@ -79,7 +82,9 @@ export async function GET(request: Request) {
       BANG_CHU: docSoTien(tong),
     })
 
-    await supabaseAdmin.from('soct_cong_viec').update({ dntt_luc: new Date().toISOString() }).eq('so_hoa_don', so_hd)
+    // Đóng dấu thời gian xuất gần nhất + TĂNG số lần xuất (badge "đã xuất DD-M (N)").
+    const newLan = Math.max(0, ...(tickets as any[]).map(t => Number(t.dntt_lan) || 0)) + 1
+    await supabaseAdmin.from('soct_cong_viec').update({ dntt_luc: new Date().toISOString(), dntt_lan: newLan }).eq('so_hoa_don', so_hd)
     await logAudit(session, 'Xuất ĐNTT', `HĐ ${so_hd} · số ${so_dntt}`)
 
     const fname = `DNTT-${so_dntt}-HD${so_hd}.docx`
