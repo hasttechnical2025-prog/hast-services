@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 
-// "Đang giữ" = tổng SL vật tư của các phiếu CHƯA 'Hoàn thành' (Chờ nhận/Đã nhận/Đang làm/Lắp tiếp),
+// "Đang giữ" = tổng SL vật tư của các phiếu CHƯA 'Hoàn thành' (Chờ nhận/Đã nhận/Đang làm/Chưa hoàn thành),
 // bỏ các dòng đã trả kho. Dùng để hiển thị Tồn khả dụng (= Tồn - Đang giữ) khi lập phiếu / đặt hàng.
 // Kho chỉ trừ thực khi phiếu Hoàn thành (trigger DB), nên đây là "giữ chỗ mềm" (chỉ tính, không trừ).
 export async function GET() {

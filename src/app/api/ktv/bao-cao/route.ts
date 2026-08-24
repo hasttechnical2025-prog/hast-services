@@ -69,7 +69,7 @@ export async function GET(request: Request) {
     }
 
     // 2. Lấy danh sách việc trong Sổ công tác của KTV trong ngày (KTV chính OR KTV kèm)
-    // Lấy trạng thái Đang làm, Hoàn thành, Lắp tiếp, Đã nhận
+    // Lấy trạng thái Đang làm, Hoàn thành, Chưa hoàn thành, Đã nhận
     const { data: jobs, error: jobsErr } = await supabaseAdmin
       .from('soct_cong_viec')
       .select(`

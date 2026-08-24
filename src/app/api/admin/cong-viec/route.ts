@@ -166,7 +166,7 @@ export async function GET(request: Request) {
         .from('soct_cong_viec')
         .select(`
           id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, mien_phi, bbbg_luc, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, nguon_nhan,
-          bat_dau_luc, hoan_thanh_luc, so_phut_xu_ly, moi_ktv_id, moi_boi, moi_luc, nhan_luc,
+          bat_dau_luc, hoan_thanh_luc, so_phut_xu_ly, moi_ktv_id, moi_boi, moi_luc, nhan_luc, ngay_hen, phieu_goc_id,
           soct_khach_hang (
             ten_khach_hang,
             dia_chi,
@@ -387,7 +387,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { id, claim, release, reason, ket_qua, ktv_id, ktv2_id, report, ghi_chu, mien_phi, edit, tapped_at, so_phut } = body
+    const { id, claim, release, reason, ket_qua, ktv_id, ktv2_id, report, ghi_chu, mien_phi, edit, tapped_at, so_phut, ngay_hen } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
@@ -414,7 +414,7 @@ export async function PUT(request: Request) {
       const loiVTedit = loiThieuVatTu(loai_cong_viec, report, vat_tu)
       if (loiVTedit) return NextResponse.json({ error: loiVTedit }, { status: 400 })
       // Nếu phiếu còn ở giai đoạn tiền-xử lý: gán KTV -> 'Đã nhận', bỏ gán -> 'Chờ nhận'.
-      // Nếu đã Đang làm/Hoàn thành/Lắp tiếp (admin sửa): giữ nguyên trạng thái.
+      // Nếu đã Đang làm/Hoàn thành/Chưa hoàn thành (admin sửa): giữ nguyên trạng thái.
       const nextKetQua = preWork ? (ktv_id ? 'Đã nhận' : 'Chờ nhận') : cur.ket_qua
       const reportNorm = report ? String(report).trim() : ''
 
@@ -781,7 +781,8 @@ export async function PUT(request: Request) {
 
       // Đóng dấu mốc thời gian (GHI MỘT LẦN -> gửi lại từ hàng đợi offline không ghi đè).
       // Giờ chạm do client gửi (tapped_at) được clamp trong [lúc tạo phiếu, giờ server].
-      if (ket_qua === 'Đang làm' || ket_qua === 'Hoàn thành') {
+      // 'Chưa hoàn thành' = KẾT THÚC BUỔI này (làm dở) -> ghi giờ buổi như Hoàn thành + ngày hẹn làm tiếp.
+      if (ket_qua === 'Đang làm' || ket_qua === 'Hoàn thành' || ket_qua === 'Chưa hoàn thành') {
         const { data: cur } = await supabaseAdmin
           .from('soct_cong_viec')
           .select('bat_dau_luc, hoan_thanh_luc, so_phut_xu_ly, created_at')
@@ -793,9 +794,13 @@ export async function PUT(request: Request) {
           // Bắt đầu làm -> hủy mọi lời mời chuyển việc đang treo.
           updates.moi_ktv_id = null; updates.moi_boi = null; updates.moi_luc = null
         }
-        if (ket_qua === 'Hoàn thành') {
+        if (ket_qua === 'Hoàn thành' || ket_qua === 'Chưa hoàn thành') {
           if (cur && cur.hoan_thanh_luc == null) updates.hoan_thanh_luc = t
           if (cur && cur.so_phut_xu_ly == null && so_phut != null) updates.so_phut_xu_ly = clampPhut(so_phut)
+        }
+        // Ngày hẹn làm tiếp (chỉ 'Chưa hoàn thành'). Ghi kể cả gửi lại từ hàng đợi (giá trị cố định).
+        if (ket_qua === 'Chưa hoàn thành' && ngay_hen !== undefined) {
+          updates.ngay_hen = ngay_hen || null
         }
       }
     } else {

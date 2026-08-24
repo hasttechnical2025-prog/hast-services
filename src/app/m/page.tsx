@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import AccountSettings from "@/components/AccountSettings"
 import NghiPhepDuyet from "@/components/NghiPhepDuyet"
+import LamTiepBanner from "@/components/LamTiepBanner"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
 import { LEAVE_TOPIC, LEAVE_EVENT } from "@/lib/realtime"
 import { fmtThoiLuong } from "@/lib/thoi-gian"
@@ -140,7 +141,10 @@ export default function OfficeMobile() {
 
       <main className="flex-1 p-4 max-w-md mx-auto w-full">
         {tab === 'viec' && (
-          <ViecHomNay />
+          <div className="space-y-3">
+            <LamTiepBanner showNotification={notify} />
+            <ViecHomNay />
+          </div>
         )}
 
         {tab === 'qr' && (
@@ -183,12 +187,12 @@ export default function OfficeMobile() {
 }
 
 // ── Tab Việc hôm nay (chỉ xem — nắm việc khi đi hiện trường) ────────────
-const STATUS_ORDER = ['Chờ nhận', 'Đã nhận', 'Đang làm', 'Lắp tiếp', 'Hoàn thành']
+const STATUS_ORDER = ['Chờ nhận', 'Đã nhận', 'Đang làm', 'Chưa hoàn thành', 'Hoàn thành']
 const statusOf = (j: any) => (j.ktv_id ? (j.ket_qua || 'Đã nhận') : 'Chờ nhận')
 const statusBadge = (s: string) =>
   s === 'Hoàn thành' ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
     : s === 'Đang làm' ? 'bg-blue-50 text-blue-700 border-blue-100'
-      : s === 'Lắp tiếp' ? 'bg-amber-50 text-amber-700 border-amber-100'
+      : s === 'Chưa hoàn thành' ? 'bg-amber-50 text-amber-700 border-amber-100'
         : s === 'Đã nhận' ? 'bg-violet-50 text-violet-700 border-violet-100'
           : 'bg-slate-100 text-slate-600 border-slate-200'
 const norm = (s: any) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd')

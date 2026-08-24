@@ -1096,3 +1096,16 @@ INSERT INTO public.soct_kho_hang (ma_hang, ten_hang, ton_kho) VALUES
     ('DVBM',  'Số bản sử dụng màu trong kỳ', 0),
     ('DVCR',  'Dịch vụ đầu đọc thẻ', 0)
 ON CONFLICT (ma_hang) DO NOTHING;
+
+
+-- ============================================================================
+-- MIGRATION 56: Chưa hoàn thành (làm nhiều buổi) — đổi ket_qua + ngay_hen + phieu_goc_id
+-- ============================================================================
+
+ALTER TABLE public.soct_cong_viec DROP CONSTRAINT IF EXISTS soct_cong_viec_ket_qua_check;
+UPDATE public.soct_cong_viec SET ket_qua = 'Chưa hoàn thành' WHERE ket_qua = 'Lắp tiếp';
+ALTER TABLE public.soct_cong_viec
+    ADD CONSTRAINT soct_cong_viec_ket_qua_check
+    CHECK (ket_qua IN ('Chờ nhận', 'Đã nhận', 'Đang làm', 'Hoàn thành', 'Chưa hoàn thành'));
+ALTER TABLE public.soct_cong_viec ADD COLUMN IF NOT EXISTS ngay_hen DATE;
+ALTER TABLE public.soct_cong_viec ADD COLUMN IF NOT EXISTS phieu_goc_id UUID REFERENCES public.soct_cong_viec(id) ON DELETE SET NULL;

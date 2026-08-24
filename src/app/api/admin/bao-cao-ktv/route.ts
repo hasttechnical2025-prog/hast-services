@@ -40,7 +40,7 @@ export async function GET(request: Request) {
           id, ngay, ktv_id, ktv2_id, ma_may, loai_cong_viec, ket_qua, counter, ghi_chu_ktv, so_phut_xu_ly,
           soct_khach_hang ( ten_khach_hang )
         `)
-        .in('ket_qua', ['Hoàn thành', 'Đang làm', 'Lắp tiếp'])
+        .in('ket_qua', ['Hoàn thành', 'Đang làm', 'Chưa hoàn thành'])
         .order('ngay', { ascending: false })
         .range(from, to)
 
@@ -127,7 +127,7 @@ export async function POST(request: Request) {
       `)
       .eq('ngay', ngay)
       .or(`ktv_id.eq.${ktv_id},ktv2_id.eq.${ktv_id}`)
-      .in('ket_qua', ['Hoàn thành', 'Đang làm', 'Lắp tiếp'])
+      .in('ket_qua', ['Hoàn thành', 'Đang làm', 'Chưa hoàn thành'])
       .order('created_at', { ascending: true })
 
     if (jErr) throw jErr

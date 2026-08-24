@@ -80,7 +80,7 @@ export async function POST(request: Request) {
     const ktv2Id = record.ktv2_id
 
     // Chỉ báo cho việc mới giao: 'Chờ nhận' (vào pool) hoặc 'Đã nhận' (gán KTV lúc tạo).
-    // Việc đã Đang làm/Hoàn thành/Lắp tiếp (VD import lịch sử) -> KHÔNG bắn, tránh spam.
+    // Việc đã Đang làm/Hoàn thành/Chưa hoàn thành (VD import lịch sử) -> KHÔNG bắn, tránh spam.
     if (record.ket_qua && !['Chờ nhận', 'Đã nhận'].includes(record.ket_qua)) {
       return NextResponse.json({ message: 'Not a new job, skip notify' })
     }

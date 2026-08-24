@@ -293,7 +293,7 @@ export async function getMissingReports(dateStr?: string): Promise<MissingReport
     .from('soct_cong_viec')
     .select('id, ngay, ktv_id, ktv2_id, counter, ghi_chu_ktv')
     .in('ngay', validDateStrs)
-    .in('ket_qua', ['Hoàn thành', 'Đang làm', 'Lắp tiếp'])
+    .in('ket_qua', ['Hoàn thành', 'Đang làm', 'Chưa hoàn thành'])
 
   // 5. Đối chiếu KTV nợ báo cáo
   const missingReports: MissingReportItem[] = []

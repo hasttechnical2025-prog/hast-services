@@ -1,4 +1,4 @@
-// Hàng đợi offline cho thao tác đổi trạng thái của KTV (bấm Đang làm / Lắp tiếp / Hoàn thành).
+// Hàng đợi offline cho thao tác đổi trạng thái của KTV (bấm Đang làm / Chưa hoàn thành / Hoàn thành).
 // Vì sao cần: KTV thao tác dưới hầm không sóng -> gửi thẳng sẽ THẤT BẠI và mất luôn thao tác.
 // Cơ chế: đóng dấu GIỜ CHẠM ngay tại máy (đã hiệu chỉnh lệch đồng hồ theo server), lưu vào
 // localStorage, giao diện đổi trạng thái ngay (lạc quan), rồi TỰ GỬI LẠI khi có sóng —
@@ -9,7 +9,7 @@
 const QUEUE_KEY = 'hast_status_queue'
 const OFFSET_KEY = 'hast_clock_offset'
 
-type QItem = { qid: string; jobId: string; ket_qua: string; tapped_at: string; so_phut?: number; tries: number }
+type QItem = { qid: string; jobId: string; ket_qua: string; tapped_at: string; so_phut?: number; ngay_hen?: string; tries: number }
 
 let clockOffset = 0        // giờ server - giờ máy (ms)
 let flushing = false
@@ -50,13 +50,13 @@ export function onPendingChange(cb: (n: number) => void): () => void {
 }
 
 // ---- xếp hàng 1 thao tác ----
-export function enqueueStatus(item: { jobId: string; ket_qua: string; tapped_at?: string; so_phut?: number }) {
+export function enqueueStatus(item: { jobId: string; ket_qua: string; tapped_at?: string; so_phut?: number; ngay_hen?: string }) {
   const q = readQueue()
   q.push({
     qid: (crypto as any)?.randomUUID?.() || String(Date.now()) + Math.random(),
     jobId: item.jobId, ket_qua: item.ket_qua,
     tapped_at: item.tapped_at || nowISO(),
-    so_phut: item.so_phut, tries: 0,
+    so_phut: item.so_phut, ngay_hen: item.ngay_hen, tries: 0,
   })
   writeQueue(q)
   void flushQueue()
@@ -80,7 +80,7 @@ export async function flushQueue(): Promise<void> {
       try {
         const res = await fetch('/api/admin/cong-viec', {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: it.jobId, ket_qua: it.ket_qua, tapped_at: it.tapped_at, so_phut: it.so_phut }),
+          body: JSON.stringify({ id: it.jobId, ket_qua: it.ket_qua, tapped_at: it.tapped_at, so_phut: it.so_phut, ngay_hen: it.ngay_hen }),
         })
         if (res.ok) { removeByQid(it.qid); continue }         // xong 1 mục
         if (res.status >= 400 && res.status < 500 && res.status !== 429) {

@@ -12,6 +12,7 @@ import { chotSoDate, counterStatus } from "@/lib/thue-cpc"
 import ThueCpcModule from "@/components/ThueCpcModule"
 import KanbanHdTool from "@/components/KanbanHdTool"
 import KhoMayThueTool from "@/components/KhoMayThueTool"
+import LamTiepBanner from "@/components/LamTiepBanner"
 import MonthField from "@/components/MonthField"
 import NghiPhepDuyet from "@/components/NghiPhepDuyet"
 import BaoGiaEditor, { type BaoGiaRow } from "@/components/BaoGiaEditor"
@@ -605,7 +606,7 @@ export default function AdminDashboard() {
         fetch('/api/admin/danh-muc'),
         fetch('/api/admin/cau-hinh'),
         fetch('/api/admin/kho-hang/dang-giu'),
-        fetch(`/api/admin/cong-viec?denNgay=${yesterdayStr}&ket_qua=Chờ nhận,Đã nhận,Đang làm,Lắp tiếp`)
+        fetch(`/api/admin/cong-viec?denNgay=${yesterdayStr}&ket_qua=Chờ nhận,Đã nhận,Đang làm,Chưa hoàn thành`)
       ])
 
       // Phiên hết hạn hoặc bị thu hồi -> quay về màn hình đăng nhập
@@ -1492,6 +1493,10 @@ export default function AdminDashboard() {
 
 
         {activeTab === "cong_viec" && effectiveCongTacTab === "giao_viec" && (
+          <LamTiepBanner showNotification={showNotification} onCreated={fetchData} />
+        )}
+
+        {activeTab === "cong_viec" && effectiveCongTacTab === "giao_viec" && (
           <StatCards items={[
             { label: 'Tổng việc', value: jobStats.total.toLocaleString('vi-VN'), sub: `trên ${jobs.length.toLocaleString('vi-VN')} tất cả`, icon: ClipboardList, tint: 'text-blue-600 bg-blue-50 ring-blue-100' },
             { label: 'Hoàn thành', value: jobStats.done.toLocaleString('vi-VN'), sub: jobStats.total ? `${Math.round(jobStats.done / jobStats.total * 100)}% khối lượng` : '—', icon: CheckCircle2, tint: 'text-emerald-600 bg-emerald-50 ring-emerald-100' },
@@ -1559,7 +1564,7 @@ export default function AdminDashboard() {
                   <option value="chua">Chưa hóa đơn</option>
                   <option value="co_tien">Có phát sinh tiền</option>
                 </select>
-                <MultiCheckDropdown label="Trạng thái" options={['Chờ nhận', 'Đã nhận', 'Đang làm', 'Hoàn thành', 'Lắp tiếp']} selected={jobFilters.trangThai} onChange={(v) => setJobFilters({ ...jobFilters, trangThai: v })} />
+                <MultiCheckDropdown label="Trạng thái" options={['Chờ nhận', 'Đã nhận', 'Đang làm', 'Hoàn thành', 'Chưa hoàn thành']} selected={jobFilters.trangThai} onChange={(v) => setJobFilters({ ...jobFilters, trangThai: v })} />
                 {jobFilterActive && <button onClick={clearJobFilters} className="text-xs text-red-600 hover:underline font-medium px-1">Bỏ lọc</button>}
                 <span className="text-xs text-slate-500 ml-auto whitespace-nowrap">{filteredJobs.length} / {jobs.length} việc</span>
                 <ColumnMenu view={jobsCol} />
@@ -1649,7 +1654,7 @@ export default function AdminDashboard() {
                             <span className={`inline-block whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-medium border
                               ${job.ket_qua === 'Hoàn thành' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                                 job.ket_qua === 'Đang làm' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                job.ket_qua === 'Lắp tiếp' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                job.ket_qua === 'Chưa hoàn thành' ? 'bg-amber-50 text-amber-700 border-amber-200' :
                                 job.ket_qua === 'Đã nhận' ? 'bg-violet-50 text-violet-700 border-violet-200' :
                                 'bg-slate-100 text-slate-700 border-slate-200'}`}
                             >
@@ -6350,7 +6355,7 @@ function ImportJobsTool({ customers, technicians, inventory, onSuccess, showNoti
               <div className="text-sm text-slate-500 space-y-1">
                 <p><b>Quan trọng:</b> import <b>Khách hàng</b> + <b>Kho hàng</b> trước (phiếu tham chiếu Mã máy & Mã hàng).</p>
                 <p><b>Cột:</b> {IMPORT_JOB_COLS.join(' | ')}. Nhiều dòng <b>cùng Số phiếu</b> = 1 phiếu nhiều vật tư (thông tin phiếu lấy ở dòng đầu). Phiếu không có vật tư → để trống Mã hàng.</p>
-                <p>Cột <b>HĐ</b>: ghi <code>x</code> nếu vật tư đã có hóa đơn. Trạng thái: Chờ nhận/Đã nhận/Đang làm/Hoàn thành/Lắp tiếp (trống = Hoàn thành).</p>
+                <p>Cột <b>HĐ</b>: ghi <code>x</code> nếu vật tư đã có hóa đơn. Trạng thái: Chờ nhận/Đã nhận/Đang làm/Hoàn thành/Chưa hoàn thành (trống = Hoàn thành).</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={downloadTemplate} className="gap-2"><Download className="w-4 h-4" /> Tải file mẫu</Button>

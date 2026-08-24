@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { supabase } from "@/lib/supabase"
 import AccountSettings from "@/components/AccountSettings"
 import NghiPhepDangKy from "@/components/NghiPhepDangKy"
+import DateField from "@/components/DateField"
 import { initClockOffset, startQueueSync, enqueueStatus, nowISO, onPendingChange } from "@/lib/status-queue"
 import { phutGiua, lamTronPhut, fmtThoiLuong } from "@/lib/thoi-gian"
 
@@ -30,6 +31,7 @@ type Job = {
   bat_dau_luc?: string | null
   hoan_thanh_luc?: string | null
   so_phut_xu_ly?: number | null
+  ngay_hen?: string | null
   ktv_id: string | null
   ktv2_id: string | null
   moi_ktv_id?: string | null
@@ -74,6 +76,8 @@ export default function KtvMobileWeb() {
   const [releaseTarget, setReleaseTarget] = useState<Job | null>(null)
   // Hộp thoại xác nhận thời lượng khi bấm Hoàn thành + số thao tác còn chờ đồng bộ
   const [finishTarget, setFinishTarget] = useState<{ jobId: string, phut: string } | null>(null)
+  // Hộp thoại "Chưa hoàn thành": chọn NGÀY HẸN làm tiếp + giờ buổi này.
+  const [chuaHtTarget, setChuaHtTarget] = useState<{ jobId: string, phut: string, ngay_hen: string } | null>(null)
   const [pendingSync, setPendingSync] = useState(0)
   const [claimConfirm, setClaimConfirm] = useState<Job | null>(null)
   // Chuyển việc KTV→KTV (lời mời): picker chọn người nhận + danh sách đồng nghiệp
@@ -499,28 +503,37 @@ export default function KtvMobileWeb() {
 
   // Đổi trạng thái qua HÀNG ĐỢI: cập nhật giao diện ngay (lạc quan) rồi tự gửi server
   // (kể cả sau khi có sóng trở lại) — không mất thao tác dưới hầm. so_phut chỉ dùng cho Hoàn thành.
-  const applyStatus = (jobId: string, nextStatus: 'Đang làm' | 'Hoàn thành' | 'Lắp tiếp', so_phut?: number) => {
+  const applyStatus = (jobId: string, nextStatus: 'Đang làm' | 'Hoàn thành' | 'Chưa hoàn thành', so_phut?: number, ngay_hen?: string) => {
     const tapped = nowISO()
     setJobs(prev => prev.map(j => {
       if (j.id !== jobId) return j
       const patch: Partial<Job> = { ket_qua: nextStatus }
       if (nextStatus === 'Đang làm' && !j.bat_dau_luc) patch.bat_dau_luc = tapped
-      if (nextStatus === 'Hoàn thành') { patch.hoan_thanh_luc = tapped; if (so_phut != null) patch.so_phut_xu_ly = so_phut }
+      // 'Chưa hoàn thành' cũng ghi giờ buổi (kết thúc buổi làm dở) + ngày hẹn.
+      if (nextStatus === 'Hoàn thành' || nextStatus === 'Chưa hoàn thành') { patch.hoan_thanh_luc = tapped; if (so_phut != null) patch.so_phut_xu_ly = so_phut }
+      if (nextStatus === 'Chưa hoàn thành' && ngay_hen) patch.ngay_hen = ngay_hen
       return { ...j, ...patch }
     }))
-    enqueueStatus({ jobId, ket_qua: nextStatus, tapped_at: tapped, so_phut })
+    enqueueStatus({ jobId, ket_qua: nextStatus, tapped_at: tapped, so_phut, ngay_hen })
     const online = typeof navigator === 'undefined' || navigator.onLine !== false
     showNotification('success', online ? `Đã chuyển trạng thái sang: ${nextStatus}` : 'Đã lưu — sẽ tự gửi khi có mạng.')
-    if (nextStatus === 'Hoàn thành') setActiveJob(null)
+    if (nextStatus === 'Hoàn thành' || nextStatus === 'Chưa hoàn thành') setActiveJob(null)
     else if (activeJob && activeJob.id === jobId) setActiveJob(prev => prev ? { ...prev, ket_qua: nextStatus, ...(nextStatus === 'Đang làm' && !prev.bat_dau_luc ? { bat_dau_luc: tapped } : {}) } : null)
   }
 
-  // Đang làm / Lắp tiếp: áp thẳng. Hoàn thành: mở hộp thoại xác nhận thời lượng.
-  const handleUpdateStatus = (jobId: string, nextStatus: 'Đang làm' | 'Hoàn thành' | 'Lắp tiếp') => {
+  // Đang làm / Chưa hoàn thành: áp thẳng. Hoàn thành: mở hộp thoại xác nhận thời lượng.
+  const handleUpdateStatus = (jobId: string, nextStatus: 'Đang làm' | 'Hoàn thành' | 'Chưa hoàn thành') => {
     if (nextStatus === 'Hoàn thành') {
       const job = jobs.find(j => j.id === jobId)
       const goiY = phutGiua(job?.bat_dau_luc, nowISO()) // mặc định = từ lúc bấm Đang làm tới giờ
       setFinishTarget({ jobId, phut: goiY == null ? '' : String(lamTronPhut(goiY, 5)) })
+      return
+    }
+    if (nextStatus === 'Chưa hoàn thành') {
+      const job = jobs.find(j => j.id === jobId)
+      const goiY = phutGiua(job?.bat_dau_luc, nowISO())
+      const todayVN = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
+      setChuaHtTarget({ jobId, phut: goiY == null ? '' : String(lamTronPhut(goiY, 5)), ngay_hen: todayVN })
       return
     }
     applyStatus(jobId, nextStatus)
@@ -600,7 +613,7 @@ export default function KtvMobileWeb() {
   const statusBadge = (status: string) =>
     `${status === 'Hoàn thành' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
       status === 'Đang làm' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
-      status === 'Lắp tiếp' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
+      status === 'Chưa hoàn thành' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
       status === 'Đã nhận' ? 'bg-violet-50 text-violet-700 border border-violet-100' :
       'bg-slate-100 text-slate-600'}`
 
@@ -1132,7 +1145,7 @@ export default function KtvMobileWeb() {
                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border
                       ${activeJob.ket_qua === 'Hoàn thành' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                         activeJob.ket_qua === 'Đang làm' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                        activeJob.ket_qua === 'Lắp tiếp' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                        activeJob.ket_qua === 'Chưa hoàn thành' ? 'bg-amber-50 text-amber-700 border-amber-200' :
                         (activeJob.ktv_id && activeJob.ket_qua === 'Đã nhận') ? 'bg-violet-50 text-violet-700 border-violet-200' :
                         'bg-slate-100 text-slate-700 border-slate-200'}`}
                     >
@@ -1245,11 +1258,11 @@ export default function KtvMobileWeb() {
                     {(activeJob.ktv_id === currentKtv?.id || activeJob.ktv2_id === currentKtv?.id) && activeJob.ket_qua === 'Đang làm' && (
                       <>
                         <Button
-                          onClick={() => handleUpdateStatus(activeJob.id, 'Lắp tiếp')}
+                          onClick={() => handleUpdateStatus(activeJob.id, 'Chưa hoàn thành')}
                           variant="outline"
                           className="w-1/2 border-amber-200 text-amber-700 hover:bg-amber-50 gap-2 h-11 text-sm rounded-lg"
                         >
-                          <AlertTriangle className="w-4 h-4" /> Lắp tiếp
+                          <AlertTriangle className="w-4 h-4" /> Chưa hoàn thành
                         </Button>
                         <Button
                           onClick={() => handleUpdateStatus(activeJob.id, 'Hoàn thành')}
@@ -1260,13 +1273,10 @@ export default function KtvMobileWeb() {
                       </>
                     )}
 
-                    {(activeJob.ktv_id === currentKtv?.id || activeJob.ktv2_id === currentKtv?.id) && activeJob.ket_qua === 'Lắp tiếp' && (
-                      <Button
-                        onClick={() => handleUpdateStatus(activeJob.id, 'Hoàn thành')}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2 h-11 text-sm rounded-lg"
-                      >
-                        <CheckCircle className="w-4 h-4" /> Hoàn thành
-                      </Button>
+                    {activeJob.ket_qua === 'Chưa hoàn thành' && (
+                      <div className="w-full bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800">
+                        Đã kết thúc buổi làm dở{activeJob.ngay_hen ? <> — hẹn làm tiếp <b>{formatDate(activeJob.ngay_hen)}</b></> : ''}. Văn phòng sẽ tạo phiếu làm tiếp vào ngày hẹn.
+                      </div>
                     )}
                   </div>
 
@@ -1413,6 +1423,56 @@ export default function KtvMobileWeb() {
                 <Button variant="outline" onClick={() => setFinishTarget(null)}>Hủy</Button>
                 <Button onClick={() => { const jid = finishTarget.jobId; setFinishTarget(null); applyStatus(jid, 'Hoàn thành', phutNum) }} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                   Xác nhận hoàn thành
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* HỘP THOẠI "CHƯA HOÀN THÀNH": chọn ngày hẹn làm tiếp + giờ buổi này */}
+      {chuaHtTarget && (() => {
+        const phutNum = parseInt(chuaHtTarget.phut || '0', 10) || 0
+        const setPhut = (v: number) => setChuaHtTarget(f => f ? { ...f, phut: String(Math.max(0, v)) } : f)
+        const QUICK = [15, 30, 45, 60, 90, 120]
+        return (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+              <div className="p-5 space-y-3">
+                <h3 className="text-base font-bold text-amber-700 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5" /> Chưa hoàn thành
+                </h3>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-slate-700">Hẹn ngày làm tiếp <span className="text-red-500">*</span></label>
+                  <DateField value={chuaHtTarget.ngay_hen} onChange={(v) => setChuaHtTarget(f => f ? { ...f, ngay_hen: v } : f)} heightClass="h-11" />
+                  <p className="text-[11px] text-slate-400">Có thể chọn hôm nay hoặc ngày khác theo lịch hẹn khách. Đến ngày này, văn phòng sẽ được nhắc tạo phiếu làm tiếp.</p>
+                </div>
+                <div className="pt-1">
+                  <p className="text-sm text-slate-600">Thời gian đã làm buổi này? (làm tròn, chỉnh nếu cần)</p>
+                  <div className="flex items-center justify-center gap-3 py-1">
+                    <button type="button" onClick={() => setPhut(phutNum - 5)} className="w-9 h-9 rounded-lg border border-slate-200 text-lg text-slate-600">−</button>
+                    <div className="text-center min-w-[92px]">
+                      <div className="text-xl font-bold text-slate-800">{fmtThoiLuong(phutNum) === '—' ? '0p' : fmtThoiLuong(phutNum)}</div>
+                      <div className="text-[11px] text-slate-400">{phutNum} phút</div>
+                    </div>
+                    <button type="button" onClick={() => setPhut(phutNum + 5)} className="w-9 h-9 rounded-lg border border-slate-200 text-lg text-slate-600">+</button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 justify-center">
+                    {QUICK.map(m => (
+                      <button key={m} type="button" onClick={() => setPhut(m)}
+                        className={`px-2.5 h-8 rounded-lg text-xs font-semibold border ${phutNum === m ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-slate-600 border-slate-200'}`}>
+                        {fmtThoiLuong(m)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
+                <Button variant="outline" onClick={() => setChuaHtTarget(null)}>Hủy</Button>
+                <Button
+                  onClick={() => { if (!chuaHtTarget.ngay_hen) { showNotification('error', 'Chọn ngày hẹn làm tiếp.'); return } const t = chuaHtTarget; setChuaHtTarget(null); applyStatus(t.jobId, 'Chưa hoàn thành', phutNum, t.ngay_hen) }}
+                  className="bg-amber-600 hover:bg-amber-700 text-white">
+                  Xác nhận
                 </Button>
               </div>
             </div>
