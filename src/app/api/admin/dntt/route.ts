@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
     const { data: tickets, error } = await supabaseAdmin
       .from('soct_cong_viec')
-      .select(`id, so_dntt, ngay, ngay_xuat_hd, id_khach_hang,
+      .select(`id, so_dntt, ngay, ngay_xuat_hd, id_khach_hang, lam_tron,
         soct_khach_hang ( ten_khach_hang, soct_khach_cum ( ten_khach_hang ) ),
         soct_chi_tiet_vat_tu ( thanh_tien, vat, da_tra )`)
       .eq('so_hoa_don', so_hd)
@@ -49,7 +49,8 @@ export async function GET(request: Request) {
         tong += tt + tt * (Number(v.vat) || 0) / 100
       }
     }
-    tong = Math.round(tong)
+    // Cộng KHOẢN LÀM TRÒN (lam_tron) như Kanban -> tổng ĐNTT khớp số đã chỉnh (VD 6.190.000, không lẻ 1đ).
+    tong = Math.round(tong) + (tickets as any[]).reduce((s, t) => s + (Number(t.lam_tron) || 0), 0)
 
     // Số ĐNTT: dùng lại nếu đã cấp; chưa thì cấp mới theo năm (atomic qua RPC) rồi lưu cho mọi phiếu.
     const now = new Date(Date.now() + 7 * 3600 * 1000)
