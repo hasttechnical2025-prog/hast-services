@@ -21,6 +21,7 @@ export async function GET(request: Request) {
         .neq('report', '')
         .eq('ket_qua', 'Hoàn thành')
         .eq('da_nop_phieu', false)
+        .or('nguon.is.null,nguon.neq.thue_cpc') // loại phiếu Thuê/CPC (billing tự sinh, không có phiếu giấy)
       if (error) throw error
       return NextResponse.json({ count: count ?? 0 })
     }
@@ -33,6 +34,7 @@ export async function GET(request: Request) {
       .not('report', 'is', null)
       .neq('report', '')
       .eq('ket_qua', 'Hoàn thành')
+      .or('nguon.is.null,nguon.neq.thue_cpc') // loại phiếu Thuê/CPC (billing tự sinh, không có phiếu giấy)
       .order('ngay', { ascending: true })
       .range(from, to))
 
@@ -64,6 +66,7 @@ export async function PUT(request: Request) {
         .neq('report', '')
         .eq('ket_qua', 'Hoàn thành')
         .eq('da_nop_phieu', !nop)
+        .or('nguon.is.null,nguon.neq.thue_cpc') // không đụng phiếu Thuê/CPC
         .select('id')
       if (error) throw error
       await broadcastJobsChanged()
@@ -111,6 +114,7 @@ export async function POST(request: Request) {
       .eq('ket_qua', 'Hoàn thành')
       .eq('da_nop_phieu', false)
       .not('ktv_id', 'is', null)
+      .or('nguon.is.null,nguon.neq.thue_cpc') // loại phiếu Thuê/CPC (billing tự sinh)
     if (error) throw error
 
     // Gom theo KTV
