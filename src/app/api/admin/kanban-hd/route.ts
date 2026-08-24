@@ -46,7 +46,7 @@ export async function GET(request: Request) {
       return supabaseAdmin
         .from('soct_cong_viec')
         .select(`
-          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, mien_phi, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, ngay_xuat_hd, nguoi_xuat_hd, dntt_luc, so_dntt, lam_tron, ten_khach_hd, nguon,
+          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, mien_phi, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, ngay_xuat_hd, nguoi_xuat_hd, dntt_luc, so_dntt, lam_tron, ten_khach_hd, nguon, ly_do_tra,
           nguoi_xuat:soct_users!nguoi_xuat_hd ( full_name ),
           soct_khach_hang (
             id,
@@ -139,7 +139,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { id, ids, trang_thai_hd, so_hoa_don, ngay_xuat_hd } = body
+    const { id, ids, trang_thai_hd, so_hoa_don, ngay_xuat_hd, ly_do_tra } = body
 
     if (!id && (!Array.isArray(ids) || ids.length === 0)) {
       return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
@@ -224,6 +224,14 @@ export async function PUT(request: Request) {
         updates.dntt_luc = null   // gỡ cờ "đã xuất ĐNTT"
         updates.so_dntt = null
       }
+    }
+
+    // Lý do KẾ TOÁN TRẢ LẠI (Cột 2 -> Cột 1): set khi trả về "Chờ xuất HĐ" kèm lý do;
+    // TỰ XÓA khi bàn giao lại (-> "Đang xử lý HĐ") vì thông tin đã được sửa.
+    if (trang_thai_hd === 'Đang xử lý HĐ') {
+      updates.ly_do_tra = null
+    } else if (ly_do_tra !== undefined) {
+      updates.ly_do_tra = String(ly_do_tra || '').trim() || null
     }
 
     // Cập nhật Database

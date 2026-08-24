@@ -65,6 +65,7 @@ type Ticket = {
   lam_tron?: number // khoản làm tròn tổng sau thuế (đồng, cho phép âm)
   ten_khach_hd?: string | null // tên người mua ghi đè trên hóa đơn (bảng kê gộp Thuê/CPC = tên hợp đồng)
   nguon?: string | null // 'thue_cpc' = phiếu sinh từ bảng kê Thuê/CPC (mỗi phiếu = 1 thẻ riêng)
+  ly_do_tra?: string | null // lý do kế toán trả phiếu về Cột 1 (thiếu/sai thông tin lên HĐ)
   nguoi_xuat?: { full_name: string } | null // người lập hóa đơn (kế toán bấm Hoàn tất)
   _co_mau?: boolean // khách có mẫu tên/giá đã lưu (để hiện nút "Áp mẫu khách")
   soct_khach_hang: Customer | null
@@ -156,6 +157,9 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const [editName, setEditName] = useState<{ ma_hang: string; ten: string; gia: string } | null>(null) // sửa tên + đơn giá trong modal
   const [savingName, setSavingName] = useState(false)
   const [dragVtIdx, setDragVtIdx] = useState<number | null>(null) // kéo-thả sắp xếp dòng vật tư
+  // Kế toán TRẢ LẠI phiếu về Cột 1 kèm lý do (cho tech_admin/staff sửa).
+  const [returnTarget, setReturnTarget] = useState<{ ids: string[]; reason: string } | null>(null)
+  const [returning, setReturning] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState<{
     title: string
     message: string
@@ -722,6 +726,22 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setSavingName(false) }
   }
 
+  // Kế toán TRẢ LẠI phiếu (Cột 2 -> Cột 1) kèm lý do -> tech_admin/staff sửa thông tin.
+  const doReturn = async () => {
+    if (!returnTarget) return
+    const reason = returnTarget.reason.trim()
+    if (!reason) { showNotification('error', 'Nhập lý do trả lại để tech_admin biết cần sửa gì.'); return }
+    setReturning(true)
+    try {
+      const res = await fetch('/api/admin/kanban-hd', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: returnTarget.ids, trang_thai_hd: 'Chờ xuất HĐ', ly_do_tra: reason }),
+      })
+      if (res.ok) { showNotification('success', 'Đã trả phiếu về "Chờ lên hóa đơn" (kèm lý do).'); setReturnTarget(null); setActiveCard(null); load() }
+      else { const e = await res.json(); showNotification('error', e.error || 'Lỗi trả phiếu') }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setReturning(false) }
+  }
+
   // Số đơn hàng (khóa gom M-invoice) cho 1 thẻ = số phiếu ĐẦU (nhiều phiếu vẫn 1 khóa chung).
   const soDonHangCard = (ts: Ticket[]) => ts[0]?.report || ts[0]?.id?.slice(0, 8) || ''
 
@@ -942,6 +962,12 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                       {mst && (
                         <div className="text-[10px] text-slate-400 font-mono">
                           MST: {mst}
+                        </div>
+                      )}
+                      {/* Kế toán TRẢ LẠI: hiện lý do cần sửa (ở Cột 1) */}
+                      {state === 'Chờ xuất HĐ' && card.tickets.find((t: any) => t.ly_do_tra)?.ly_do_tra && (
+                        <div className="text-[10px] bg-rose-50 border border-rose-200 text-rose-700 rounded px-1.5 py-1 leading-snug">
+                          <b>KT trả lại:</b> {card.tickets.find((t: any) => t.ly_do_tra)?.ly_do_tra}
                         </div>
                       )}
                       {/* Badge Miễn phí (MF) — kế toán nhận biết phiếu 0đ máy thuê/CPC. Kèm cảnh báo
@@ -1260,6 +1286,11 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
             {/* Content (Scrollable) */}
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
+              {activeCard.tickets[0].trang_thai_hd === 'Chờ xuất HĐ' && activeCard.tickets.find(t => t.ly_do_tra)?.ly_do_tra && (
+                <div className="text-xs bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 text-rose-800">
+                  <b>⚠ Kế toán trả lại — cần sửa:</b> {activeCard.tickets.find(t => t.ly_do_tra)?.ly_do_tra}
+                </div>
+              )}
               {activeCard.tickets[0].trang_thai_hd === 'Chờ xuất HĐ' && (
                 <div className="text-xs bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-blue-700">
                   Bấm <Pencil className="w-3 h-3 inline -mt-0.5" /> cạnh tên hàng để đổi tên hiển thị trên hóa đơn <b>trước khi</b> kéo sang cột kế toán.
@@ -1541,13 +1572,24 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                     <Button variant="outline" onClick={() => moveStatus('Đã lên hóa đơn', true)} disabled={completing} className="h-10">← Bỏ đánh dấu thanh toán</Button>
                   )}
                   {st === 'Đang xử lý HĐ' && canKt && (
-                    <Button
-                      onClick={handleCompleteInvoice}
-                      disabled={completing || !invoiceNum.trim()}
-                      className="h-10 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
-                    >
-                      {completing ? 'Đang xử lý...' : 'Hoàn tất xuất hóa đơn'}
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => setReturnTarget({ ids: activeCard.tickets.map(t => t.id), reason: '' })}
+                        disabled={completing}
+                        className="h-10 border-rose-200 text-rose-700 hover:bg-rose-50"
+                        title="Trả phiếu về 'Chờ lên hóa đơn' cho tech_admin/staff sửa thông tin"
+                      >
+                        ← Trả lại (thiếu thông tin)
+                      </Button>
+                      <Button
+                        onClick={handleCompleteInvoice}
+                        disabled={completing || !invoiceNum.trim()}
+                        className="h-10 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                      >
+                        {completing ? 'Đang xử lý...' : 'Hoàn tất xuất hóa đơn'}
+                      </Button>
+                    </>
                   )}
                 </>
               })()}
@@ -1601,6 +1643,34 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       })()}
 
       {/* MODAL XÁC NHẬN (THAY THẾ WINDOW.CONFIRM) */}
+      {/* HỘP THOẠI KẾ TOÁN TRẢ LẠI PHIẾU (nhập lý do) */}
+      {returnTarget && (
+        <div className="fixed inset-0 bg-black/50 z-[75] flex items-center justify-center p-4" onClick={() => !returning && setReturnTarget(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-4 bg-rose-50 border-b border-rose-100">
+              <h3 className="text-base font-bold text-rose-800">Trả phiếu về &quot;Chờ lên hóa đơn&quot;</h3>
+              <p className="text-xs text-rose-600 mt-0.5">Phiếu quay lại cột 1 cho tech_admin/staff sửa. Nêu rõ cần sửa gì.</p>
+            </div>
+            <div className="p-5">
+              <label className="text-xs font-semibold text-slate-600">Lý do trả lại <span className="text-red-500">*</span></label>
+              <textarea
+                value={returnTarget.reason}
+                onChange={e => setReturnTarget(r => r ? { ...r, reason: e.target.value } : r)}
+                placeholder="VD: Thiếu MST khách; sai đơn giá dòng Mực TN514; chưa có địa chỉ xuất hóa đơn…"
+                rows={4}
+                className="mt-1 w-full rounded-md border border-slate-200 p-2.5 text-sm outline-none focus:ring-2 focus:ring-rose-300 resize-none"
+              />
+            </div>
+            <div className="p-4 border-t border-slate-100 flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setReturnTarget(null)} disabled={returning} className="text-xs">Hủy</Button>
+              <Button size="sm" onClick={doReturn} disabled={returning || !returnTarget.reason.trim()} className="text-xs bg-rose-600 hover:bg-rose-700 text-white">
+                {returning ? 'Đang trả…' : 'Trả lại phiếu'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {confirmDialog && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => setConfirmDialog(null)}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>

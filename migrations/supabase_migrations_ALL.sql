@@ -1109,3 +1109,10 @@ ALTER TABLE public.soct_cong_viec
     CHECK (ket_qua IN ('Chờ nhận', 'Đã nhận', 'Đang làm', 'Hoàn thành', 'Chưa hoàn thành'));
 ALTER TABLE public.soct_cong_viec ADD COLUMN IF NOT EXISTS ngay_hen DATE;
 ALTER TABLE public.soct_cong_viec ADD COLUMN IF NOT EXISTS phieu_goc_id UUID REFERENCES public.soct_cong_viec(id) ON DELETE SET NULL;
+
+
+-- ============================================================================
+-- MIGRATION 57: ly_do_tra (kế toán trả phiếu Cột 2 -> Cột 1 kèm lý do)
+-- ============================================================================
+
+ALTER TABLE public.soct_cong_viec ADD COLUMN IF NOT EXISTS ly_do_tra TEXT;
