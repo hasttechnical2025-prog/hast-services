@@ -275,6 +275,7 @@ export default function AdminDashboard() {
   const [phieuChuaHoan, setPhieuChuaHoan] = useState(0)
   const [unfinishedPastJobs, setUnfinishedPastJobs] = useState<Job[]>([])
   const [cauHinh, setCauHinh] = useState<Record<string, string>>({})
+  const [kanbanCounts, setKanbanCounts] = useState<{ col1: number, col2: number }>({ col1: 0, col2: 0 })
 
   // Ẩn/hiện tab (lớn + con) theo role. Admin thấy hết; Hệ thống khóa admin-only.
   const tabVisCfg: Record<string, Record<string, boolean>> = (() => { try { return JSON.parse(cauHinh.tab_visibility || '{}') } catch { return {} } })()
@@ -457,6 +458,17 @@ export default function AdminDashboard() {
     if (!currentAdmin) return
     fetchMucMap()
   }, [currentAdmin])
+
+  // Đếm phiếu Kanban Cột 1 (Chờ lên HĐ) & Cột 2 (KT-HC lên HĐ) cho chuông — nhắc office bàn giao/lên HĐ.
+  // Chỉ office thấy chuông (admin/tech_admin/staff); refresh định kỳ.
+  useEffect(() => {
+    if (!['admin', 'tech_admin', 'staff'].includes(currentUserRole)) return
+    const load = () => fetch('/api/admin/kanban-hd?count=1').then(r => r.json())
+      .then(j => { if (j && typeof j.col1 === 'number') setKanbanCounts({ col1: j.col1, col2: j.col2 }) }).catch(() => { })
+    load()
+    const t = setInterval(load, 60000)
+    return () => clearInterval(t)
+  }, [currentUserRole])
 
   // Cảnh báo mực máy thuê: mã mực có khả dụng (tồn − đang giữ) ≤ 0. Kèm model + số máy thuê phụ thuộc.
   const normModel = (s: any) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
@@ -1303,6 +1315,22 @@ export default function AdminDashboard() {
               ))}
             </tbody>
           </table>
+        </div>
+      ),
+    },
+    {
+      key: 'kanban_c1', icon: ClipboardList, tone: 'amber', label: 'Phiếu chờ lên hóa đơn (Kanban Cột 1)', count: kanbanCounts.col1,
+      detail: (
+        <div className="text-xs text-slate-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 leading-relaxed">
+          <b>{kanbanCounts.col1}</b> phiếu đang ở Cột 1 (Chờ lên hóa đơn). Vào <b>Tài chính → Kanban Hóa đơn</b> để rà duyệt: <b>bàn giao kế toán</b> lên hóa đơn, hoặc <b>thu hồi</b> về Công nợ nếu chưa cần.
+        </div>
+      ),
+    },
+    {
+      key: 'kanban_c2', icon: ClipboardList, tone: 'amber', label: 'Phiếu chờ kế toán lên hóa đơn (Kanban Cột 2)', count: kanbanCounts.col2,
+      detail: (
+        <div className="text-xs text-slate-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 leading-relaxed">
+          <b>{kanbanCounts.col2}</b> phiếu đã bàn giao, đang chờ <b>kế toán (KT-HC) lên hóa đơn</b> (Cột 2). Nhắc kế toán xử lý.
         </div>
       ),
     },

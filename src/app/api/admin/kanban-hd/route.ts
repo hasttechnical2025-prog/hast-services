@@ -12,6 +12,16 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url)
+
+    // ?count=1 -> chỉ trả SỐ LƯỢNG phiếu ở Cột 1 (Chờ xuất HĐ) & Cột 2 (Đang xử lý HĐ) cho chuông.
+    if (searchParams.get('count') === '1') {
+      const [c1, c2] = await Promise.all([
+        supabaseAdmin.from('soct_cong_viec').select('id', { count: 'exact', head: true }).eq('trang_thai_hd', 'Chờ xuất HĐ'),
+        supabaseAdmin.from('soct_cong_viec').select('id', { count: 'exact', head: true }).eq('trang_thai_hd', 'Đang xử lý HĐ'),
+      ])
+      return NextResponse.json({ col1: c1.count || 0, col2: c2.count || 0 })
+    }
+
     const reqThang = searchParams.get('thang_nam')
 
     let startOfMonth = ''
