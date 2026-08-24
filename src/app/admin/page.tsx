@@ -7929,6 +7929,17 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
                     <label className="text-xs font-semibold text-slate-600 flex items-center gap-1 mt-2"><MapPin className="w-3 h-3 text-blue-500" /> Nơi đặt máy <span className="font-normal text-slate-400">(KTV đến — để trống nếu trùng địa chỉ)</span></label>
                     <Input value={editing.vi_tri_dat_may || ""} onChange={(e) => setEditing({ ...editing, vi_tri_dat_may: e.target.value })} placeholder="VD: Tầng 3, chi nhánh Nội Bài" className="bg-white" />
                   </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-600">Mã số thuế <span className="font-normal text-slate-400">(hóa đơn)</span></label>
+                      <Input value={editing.ma_so_thue || ""} onChange={(e) => setEditing({ ...editing, ma_so_thue: e.target.value })} placeholder="MST của điểm máy này" className="bg-white font-mono" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-600">Email nhận HĐ</label>
+                      <Input value={editing.email_ke_toan || ""} onChange={(e) => setEditing({ ...editing, email_ke_toan: e.target.value })} placeholder="Email kế toán (tùy chọn)" className="bg-white" />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-slate-400 -mt-1">Điểm máy CHƯA gán vào cụm khách → MST/Email này được dùng khi lên hóa đơn. Nếu đã gán cụm thì lấy theo cụm.</p>
 
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide pt-1">Thông tin máy</div>
                   <div className="grid grid-cols-2 gap-3">
