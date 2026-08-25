@@ -146,7 +146,7 @@ export function kyLabel(thang_nam: string, kieu_ky: string | null | undefined, c
   const [nam, thang] = String(thang_nam).split('-')
   if (kieu_ky === 'tu_den') {
     const { dau, cuoi } = kyNgayHoaDon(thang_nam, chot_so_ngay, cuoi_thang)
-    if (dau && cuoi) return `từ ${dau} đến ${cuoi}`
+    if (dau && cuoi) return `từ ngày ${dau} đến ${cuoi}`
   }
   return `tháng ${Number(thang)}/${nam}`
 }
