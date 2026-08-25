@@ -276,6 +276,9 @@ export default function AdminDashboard() {
   const [unfinishedPastJobs, setUnfinishedPastJobs] = useState<Job[]>([])
   const [cauHinh, setCauHinh] = useState<Record<string, string>>({})
   const [kanbanCounts, setKanbanCounts] = useState<{ col1: number, col2: number }>({ col1: 0, col2: 0 })
+  // Đo chiều cao header (tab cha sticky) -> đặt CSS var --head-h để thanh tab con sticky ngay dưới.
+  const headerRef = useRef<HTMLElement>(null)
+  const [headH, setHeadH] = useState(80)
 
   // Ẩn/hiện tab (lớn + con) theo role. Admin thấy hết; Hệ thống khóa admin-only.
   const tabVisCfg: Record<string, Record<string, boolean>> = (() => { try { return JSON.parse(cauHinh.tab_visibility || '{}') } catch { return {} } })()
@@ -469,6 +472,18 @@ export default function AdminDashboard() {
     const t = setInterval(load, 60000)
     return () => clearInterval(t)
   }, [currentUserRole])
+
+  // Đo chiều cao header (thay đổi khi wrap trên mobile / bật chuông…) -> cập nhật --head-h.
+  useEffect(() => {
+    const el = headerRef.current
+    if (!el) return
+    const measure = () => setHeadH(el.offsetHeight)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    window.addEventListener('resize', measure)
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure) }
+  }, [currentAdmin])
 
   // Cảnh báo mực máy thuê: mã mực có khả dụng (tồn − đang giữ) ≤ 0. Kèm model + số máy thuê phụ thuộc.
   const normModel = (s: any) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
@@ -1430,11 +1445,11 @@ export default function AdminDashboard() {
   ]
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
+    <div className="min-h-screen bg-slate-50 p-6" style={{ ['--head-h' as any]: `${headH}px` }}>
       {tabVisible('tro_ly') && <TroLyAI />}
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <header className="sticky top-0 z-30 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-xl shadow-md border border-slate-200 gap-4">
+        <header ref={headerRef} className="sticky top-0 z-30 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-xl shadow-md border border-slate-200 gap-4">
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="Logo" className="h-11 w-auto object-contain rounded-lg" />
@@ -1510,7 +1525,7 @@ export default function AdminDashboard() {
 
         {/* Thanh tab con của Sổ công tác (chỉ hiện khi Hoàn phiếu được bật cho role) */}
         {activeTab === "cong_viec" && subVisible('cong_viec', 'hoan_phieu') && (
-          <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto mb-4">
+          <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto mb-4">
             <button onClick={() => setCongTacTab("giao_viec")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveCongTacTab === 'giao_viec' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Giao việc</button>
             <button onClick={() => setCongTacTab("hoan_phieu")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${effectiveCongTacTab === 'hoan_phieu' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
               Hoàn phiếu
@@ -1731,7 +1746,7 @@ export default function AdminDashboard() {
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             {/* Thanh tab con của Kho hàng */}
             <div className="p-4 border-b border-slate-200 bg-slate-50/50">
-              <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
+              <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto">
                 {([['ton_kho','Tồn kho'],['dat_hang','Đặt hàng'],['thong_ke','Thống kê nhập']] as const)
                   .filter(([k]) => subVisible('kho_hang', k))
                   .map(([k,l]) => (
@@ -1784,7 +1799,7 @@ export default function AdminDashboard() {
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             {/* Thanh tab con của Theo dõi máy */}
             <div className="p-4 border-b border-slate-200 bg-slate-50/50">
-              <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
+              <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto">
                 {([['bao_tri','Bảo trì'],['giam_dinh','Giám định']] as const)
                   .filter(([k]) => subVisible('theo_doi_may', k))
                   .map(([k,l]) => (
@@ -1812,7 +1827,7 @@ export default function AdminDashboard() {
         {/* Tài chính — gộp Công nợ + Thuê/CPC */}
         {activeTab === "tai_chinh" && tabVisible('tai_chinh') && (
           <div className="space-y-4">
-            <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
+            <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto">
               {subVisible('tai_chinh', 'cong_no') && (
                 <button onClick={() => setTaiChinhTab("cong_no")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'cong_no' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Công nợ</button>
               )}
@@ -1850,7 +1865,7 @@ export default function AdminDashboard() {
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             {/* Thanh tab con của Quản lý */}
             <div className="p-4 border-b border-slate-200 bg-slate-50/50">
-              <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
+              <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto">
                 {subVisible('quan_ly', 'nhat_ky') && (
                   <button
                     onClick={() => setQuanLyTab("nhat_ky" as any)}
@@ -1968,7 +1983,7 @@ export default function AdminDashboard() {
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             {/* Thanh tab con của Hệ thống */}
             <div className="p-4 border-b border-slate-200 bg-slate-50/50">
-              <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
+              <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto">
                 {currentUserRole === 'admin' && (<>
                 <button
                   onClick={() => setSystemTab("cai_dat")}
@@ -6821,7 +6836,7 @@ function DanhMucTool({ danhMuc, setDanhMuc, onUpdateSuccess, showNotification }:
       {/* Quản lý danh mục dropdown */}
       <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
         <h3 className="text-lg font-semibold text-slate-700">Danh mục dropdown</h3>
-        <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
+        <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
           {DANH_MUC_NHOMS.map(n => (
             <button key={n.key} onClick={() => { setNhom(n.key); setEditId(null) }} className={`px-3 py-1.5 rounded-md font-medium text-xs transition whitespace-nowrap ${nhom === n.key ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>{n.label}</button>
           ))}
