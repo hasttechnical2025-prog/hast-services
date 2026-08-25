@@ -874,6 +874,25 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const cardsCol3 = groupByHd(col3Tickets, 'Đã lên hóa đơn')
   const cardsCol4 = groupByHd(col4Tickets, 'Đã thanh toán')
 
+  // Tổng nợ đọng cột 3 (Chờ thanh toán) theo TUỔI NỢ (ngay_xuat_hd) — 3 mức khớp màu badge thẻ:
+  // <15 ngày (trong hạn) · 15–30 ngày (chớm quá hạn) · >30 ngày (quá hạn). Chỉ tính HĐ còn nợ
+  // (đã thu < tổng). 1 thẻ = 1 hóa đơn. Banner đầu cột cho MỌI role cùng theo dõi.
+  const col3Debt = (() => {
+    const b = { n0: 0, t0: 0, n1: 0, t1: 0, n2: 0, t2: 0, nAll: 0, tAll: 0 }
+    for (const c of cardsCol3) {
+      const { sauVat } = getVatTuStats(c.tickets.flatMap((t: any) => t.soct_chi_tiet_vat_tu || []))
+      const tong = Math.round(sauVat) + cardLamTron(c.tickets)
+      const con = Math.max(0, tong - (Number(c.tickets[0].so_tien_da_thu) || 0))
+      if (con <= 0) continue // đã thu đủ (chưa kịp sang cột 4) -> không phải nợ đọng
+      const d = daysSince(c.tickets[0].ngay_xuat_hd)
+      b.nAll++; b.tAll += con
+      if (d != null && d > 30) { b.n2++; b.t2 += con }
+      else if (d != null && d >= 15) { b.n1++; b.t1 += con }
+      else { b.n0++; b.t0 += con }
+    }
+    return b
+  })()
+
   const renderCardList = (cards: any[], state: 'Chờ xuất HĐ' | 'Đang xử lý HĐ' | 'Đã lên hóa đơn' | 'Đã thanh toán') => {
     return (
       <div
@@ -1280,6 +1299,31 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                 <CheckCircle className="w-4 h-4" /> {role === 'kthc' ? '2.' : '3.'} Chờ thanh toán ({cardsCol3.length})
               </h3>
             </div>
+            {/* Banner NỢ ĐỌNG theo tuổi (mọi role theo dõi): tổng còn nợ + 3 mức <15 / 15–30 / >30 ngày. */}
+            {col3Debt.nAll > 0 && (
+              <div className="mx-3 mt-2 -mb-1 space-y-1">
+                <div className="text-[10px] text-slate-600">
+                  Còn nợ: <b className="text-slate-800">{fmtVnd(col3Debt.tAll)} đ</b> · {col3Debt.nAll} hóa đơn
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {col3Debt.n2 > 0 && (
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-red-50 text-red-700 border-red-200" title={`Quá hạn: còn nợ ${fmtVnd(col3Debt.t2)} đ`}>
+                      🔴 &gt;30 ngày: {col3Debt.n2} HĐ · {fmtVnd(col3Debt.t2)}
+                    </span>
+                  )}
+                  {col3Debt.n1 > 0 && (
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-amber-50 text-amber-700 border-amber-200" title={`Chớm quá hạn: còn nợ ${fmtVnd(col3Debt.t1)} đ`}>
+                      🟠 15–30 ngày: {col3Debt.n1} HĐ · {fmtVnd(col3Debt.t1)}
+                    </span>
+                  )}
+                  {col3Debt.n0 > 0 && (
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-slate-50 text-slate-500 border-slate-200" title={`Trong hạn: còn nợ ${fmtVnd(col3Debt.t0)} đ`}>
+                      ⚪ &lt;15 ngày: {col3Debt.n0} HĐ · {fmtVnd(col3Debt.t0)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
             {renderCardList(cardsCol3, 'Đã lên hóa đơn')}
           </div>
 
