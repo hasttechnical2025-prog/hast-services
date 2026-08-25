@@ -1135,3 +1135,20 @@ ALTER TABLE public.soct_khach_hang ADD COLUMN IF NOT EXISTS ten_may_hd TEXT;
 ALTER TABLE public.soct_khach_hang DROP CONSTRAINT IF EXISTS soct_khach_hang_kieu_ky_check;
 ALTER TABLE public.soct_khach_hang ADD CONSTRAINT soct_khach_hang_kieu_ky_check
   CHECK (kieu_ky IN ('thang', 'tu_den'));
+
+
+-- ============================================================================
+-- MIGRATION 60: minvoice_xuat (chống hóa đơn đúp khi xuất M-invoice)
+-- ============================================================================
+
+ALTER TABLE public.soct_cong_viec ADD COLUMN IF NOT EXISTS minvoice_luc TIMESTAMPTZ;
+ALTER TABLE public.soct_cong_viec ADD COLUMN IF NOT EXISTS minvoice_lan INT NOT NULL DEFAULT 0;
+
+CREATE OR REPLACE FUNCTION public.stamp_minvoice(p_ids uuid[])
+RETURNS void LANGUAGE sql AS $$
+  UPDATE public.soct_cong_viec
+  SET minvoice_luc = now(),
+      minvoice_lan = COALESCE(minvoice_lan, 0) + 1
+  WHERE id = ANY(p_ids)
+    AND trang_thai_hd = 'Đang xử lý HĐ';
+$$;

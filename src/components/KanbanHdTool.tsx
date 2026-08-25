@@ -67,6 +67,8 @@ type Ticket = {
   ten_khach_hd?: string | null // tên người mua ghi đè trên hóa đơn (bảng kê gộp Thuê/CPC = tên hợp đồng)
   nguon?: string | null // 'thue_cpc' = phiếu sinh từ bảng kê Thuê/CPC (mỗi phiếu = 1 thẻ riêng)
   ly_do_tra?: string | null // lý do kế toán trả phiếu về Cột 1 (thiếu/sai thông tin lên HĐ)
+  minvoice_luc?: string | null // lần xuất M-invoice gần nhất (NULL = chưa xuất) — chống xuất trùng
+  minvoice_lan?: number // số lần đã xuất M-invoice
   nguoi_xuat?: { full_name: string } | null // người lập hóa đơn (kế toán bấm Hoàn tất)
   _co_mau?: boolean // khách có mẫu tên/giá đã lưu (để hiện nút "Áp mẫu khách")
   soct_khach_hang: Customer | null
@@ -95,6 +97,10 @@ const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, ''
 const daysSince = (d: any): number | null => { if (!d) return null; const t = new Date(d).getTime(); return isNaN(t) ? null : Math.max(0, Math.floor((Date.now() - t) / 86400000)) }
 // Tổng khoản làm tròn của một nhóm phiếu (đồng, cho phép âm) — cộng vào tổng sau thuế.
 const cardLamTron = (tickets: Ticket[]) => tickets.reduce((s, t) => s + (Number(t.lam_tron) || 0), 0)
+// Thẻ ĐÃ XUẤT M-invoice = mọi phiếu trong thẻ đều có dấu minvoice_luc (xuất theo cả thẻ).
+const cardMinvoiceExported = (tickets: Ticket[]) => tickets.length > 0 && tickets.every(t => !!t.minvoice_luc)
+// Thẻ CHỜ ĐỐI CHIẾU = đã xuất file nhưng CHƯA có số HĐ thật -> nuôi banner đếm + badge cảnh báo.
+const cardMinvoicePending = (tickets: Ticket[]) => cardMinvoiceExported(tickets) && !tickets.some(t => t.so_hoa_don)
 
 // Gộp vật tư theo (mã hàng + đơn giá), bỏ dòng đã trả về kho, SẮP theo thu_tu. Dùng cho export M-invoice.
 function aggVatTu(vtList: VatTu[]) {
@@ -762,6 +768,13 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       const buf = await wb.xlsx.writeBuffer()
       const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
       const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url)
+      // Đóng dấu "đã xuất M-invoice" cho mọi phiếu vừa xuất -> chống xuất trùng + nuôi banner đếm.
+      const ids = Array.from(new Set(valid.flatMap(inv => inv.tickets.map(t => t.id))))
+      try {
+        const r = await fetch('/api/admin/minvoice-xuat', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticket_ids: ids }) })
+        if (!r.ok) { const e = await r.json(); showNotification('error', e.error || 'Đã tải file nhưng chưa đóng dấu được — kiểm tra lại.') }
+      } catch { showNotification('error', 'Đã tải file nhưng chưa đóng dấu được (lỗi mạng).') }
+      await load()
       showNotification('success', `Đã xuất ${valid.length} hóa đơn cho M-invoice.`)
     } catch { showNotification('error', 'Lỗi xuất Excel M-invoice') }
   }
@@ -843,6 +856,9 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
 
   const cardsCol1 = getColumnCards(col1Tickets, 'Chờ xuất HĐ')
   const cardsCol2 = getColumnCards(col2Tickets, 'Đang xử lý HĐ')
+  // M-invoice: thẻ CHƯA xuất (nút hàng loạt chỉ đụng các thẻ này) & số thẻ đã xuất nhưng CHƯA có số HĐ.
+  const cardsCol2ChuaXuat = cardsCol2.filter((c: any) => !cardMinvoiceExported(c.tickets))
+  const col2PendingCount = cardsCol2.filter((c: any) => cardMinvoicePending(c.tickets)).length
 
   // Cột 3 & Cột 4: GOM THEO SỐ HÓA ĐƠN (1 thẻ = 1 hóa đơn = đơn vị thu tiền). Thẻ liệt kê
   // các số phiếu bên trong -> kế toán thu theo HĐ, tech_admin vẫn thấy từng số phiếu.
@@ -910,16 +926,30 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                           {tenKh}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
-                        {/* Xuất riêng THẺ NÀY ra M-invoice (1 chạm) — chỉ kế toán, chỉ cột KT-HC lên hóa đơn */}
-                        {state === 'Đang xử lý HĐ' && isKeToan && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); exportMinvoice([{ tickets: card.tickets, soDonHang: soDonHangCard(card.tickets) }], `minvoice-${soDonHangCard(card.tickets)}.xlsx`) }}
-                            title="Xuất riêng thẻ này ra file M-invoice"
-                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-1 rounded transition border border-blue-200"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                        {/* Xuất riêng THẺ NÀY ra M-invoice (1 chạm) — chỉ kế toán, chỉ cột KT-HC lên hóa đơn.
+                            Thẻ đã xuất -> nút chuyển "Xuất lại" (cam) + XÁC NHẬN, vì xuất lại = có thể tạo HĐ trùng. */}
+                        {state === 'Đang xử lý HĐ' && isKeToan && (() => {
+                          const daXuat = cardMinvoiceExported(card.tickets)
+                          const doExport = () => exportMinvoice([{ tickets: card.tickets, soDonHang: soDonHangCard(card.tickets) }], `minvoice-${soDonHangCard(card.tickets)}.xlsx`)
+                          return (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (daXuat) {
+                                  setConfirmDialog({
+                                    title: 'Xuất lại M-invoice thẻ này?',
+                                    message: 'Thẻ này ĐÃ xuất M-invoice. Chỉ xuất lại khi đã đối chiếu MISA và chắc chắn hóa đơn CHƯA được tạo (VD lỡ quên import). Nếu MISA đã có hóa đơn, hãy nhập số HĐ thay vì xuất lại (xuất lại có thể gây hóa đơn đúp).',
+                                    onConfirm: doExport,
+                                  })
+                                } else doExport()
+                              }}
+                              title={daXuat ? 'Thẻ đã xuất — bấm để XUẤT LẠI (có xác nhận)' : 'Xuất riêng thẻ này ra file M-invoice'}
+                              className={`p-1 rounded transition border ${daXuat ? 'text-amber-600 hover:text-amber-800 hover:bg-amber-50 border-amber-300' : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50 border-blue-200'}`}
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                          )
+                        })()}
                         {(state === 'Chờ xuất HĐ' || role === 'admin') && (
                           <button
                             onClick={(e) => {
@@ -985,6 +1015,18 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                               ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">MF{loaiLbl}</span>
                               : <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">MF một phần</span>}
                             {allMF && tong > 0 && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-200" title="Đánh dấu MF nhưng vẫn có tiền — kiểm tra lại">⚠ có tiền</span>}
+                          </div>
+                        )
+                      })()}
+                      {/* Badge M-invoice: thẻ ĐÃ xuất mà CHƯA có số HĐ -> nhắc kthc đối chiếu MISA (chống quên/đúp). */}
+                      {state === 'Đang xử lý HĐ' && cardMinvoicePending(card.tickets) && (() => {
+                        const t = card.tickets.find((x: any) => x.minvoice_luc)
+                        const d = new Date(new Date(t.minvoice_luc).getTime() + 7 * 3600 * 1000)
+                        const label = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+                        const lan = Math.max(0, ...card.tickets.map((x: any) => Number(x.minvoice_lan) || 0))
+                        return (
+                          <div className="text-[10px] bg-amber-50 border border-amber-300 text-amber-800 rounded px-1.5 py-1 leading-snug" title="Đã xuất file M-invoice, chờ nhập số HĐ. Đối chiếu MISA rồi nhập số HĐ để chốt.">
+                            ⚠ Đã xuất M-inv {label}{lan > 1 ? ` (${lan}×)` : ''} — <b>chưa có số HĐ</b>
                           </div>
                         )
                       })()}
@@ -1199,15 +1241,35 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
               <h3 className="text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
                 <FileText className="w-4 h-4" /> {role === 'kthc' ? '1.' : '2.'} KT-HC lên hóa đơn ({cardsCol2.length})
               </h3>
-              {cardsCol2.length > 0 && isKeToan && (
+              {isKeToan && (
                 <button
-                  onClick={() => { const d = new Date(); const stamp = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}`; exportMinvoice(cardsCol2.map((c: any) => ({ tickets: c.tickets, soDonHang: soDonHangCard(c.tickets) })), `minvoice-cot2-${stamp}.xlsx`) }}
-                  title="Xuất TẤT CẢ thẻ ở cột này thành 1 file Excel M-invoice (tạo hàng loạt)"
-                  className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-blue-200 text-blue-700 bg-white hover:bg-blue-50">
-                  <Download className="w-3 h-3" /> M-invoice
+                  disabled={cardsCol2ChuaXuat.length === 0}
+                  onClick={() => {
+                    const runExport = () => {
+                      const d = new Date(); const stamp = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}`
+                      return exportMinvoice(cardsCol2ChuaXuat.map((c: any) => ({ tickets: c.tickets, soDonHang: soDonHangCard(c.tickets) })), `minvoice-cot2-${stamp}.xlsx`)
+                    }
+                    // Còn phiếu đã xuất mà CHƯA có số HĐ -> nhắc đối chiếu MISA trước khi tạo lô mới (chống đúp).
+                    if (col2PendingCount > 0) {
+                      setConfirmDialog({
+                        title: 'Còn phiếu chưa chốt số HĐ',
+                        message: `Đang có ${col2PendingCount} phiếu ĐÃ xuất M-invoice lần trước nhưng CHƯA nhập số HĐ. Bạn đã đối chiếu (đã lên trên MISA) chưa?\n\nBấm Đồng ý để chỉ xuất ${cardsCol2ChuaXuat.length} phiếu MỚI (chưa xuất). Các phiếu đã xuất sẽ KHÔNG xuất lại (tránh hóa đơn đúp).`,
+                        onConfirm: runExport,
+                      })
+                    } else runExport()
+                  }}
+                  title={cardsCol2ChuaXuat.length === 0 ? 'Mọi thẻ trong cột đã xuất M-invoice' : `Xuất ${cardsCol2ChuaXuat.length} thẻ CHƯA xuất thành 1 file M-invoice`}
+                  className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed">
+                  <Download className="w-3 h-3" /> M-invoice{cardsCol2ChuaXuat.length > 0 ? ` (${cardsCol2ChuaXuat.length} chưa xuất)` : ''}
                 </button>
               )}
             </div>
+            {/* Banner an toàn: đếm phiếu ĐÃ xuất file nhưng CHƯA nhập số HĐ -> nhắc đối chiếu MISA, chống quên. */}
+            {isKeToan && col2PendingCount > 0 && (
+              <div className="mx-3 mt-2 -mb-1 text-[10px] leading-snug bg-amber-50 border border-amber-200 text-amber-800 rounded px-2 py-1.5">
+                ⚠ <b>{col2PendingCount}</b> phiếu đã xuất M-invoice nhưng <b>chưa nhập số HĐ</b>. Hãy đối chiếu đã lên hóa đơn trên MISA chưa — nhập số HĐ để chốt sang <i>Chờ thanh toán</i>. (Nếu thực sự chưa lên: mở thẻ, bấm <b>Xuất lại</b>.)
+              </div>
+            )}
             {renderCardList(cardsCol2, 'Đang xử lý HĐ')}
           </div>
 
