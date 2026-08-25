@@ -38,7 +38,7 @@ type Job = {
   moi_boi?: string | null
   moi_ktv?: { full_name: string } | null
   moi_boi_user?: { full_name: string } | null
-  soct_khach_hang: { ten_khach_hang: string; dia_chi: string; km_mac_dinh: number; vi_tri_dat_may?: string | null }
+  soct_khach_hang: { ten_khach_hang: string; dia_chi: string; km_mac_dinh: number; vi_tri_dat_may?: string | null; model?: string | null }
   ktv2: { full_name: string } | null
   soct_chi_tiet_vat_tu: Array<{
     id: string
@@ -641,7 +641,7 @@ export default function KtvMobileWeb() {
 
       <div className="border-t border-slate-100 pt-2 flex justify-between items-center text-xs text-slate-500">
         <div>Loại việc: <span className="font-semibold text-slate-700">{job.loai_cong_viec}</span></div>
-        <div className="font-mono text-slate-400">Mã máy: {job.ma_may || 'N/A'}</div>
+        <div className="text-slate-400">Model: {job.soct_khach_hang?.model || job.ma_may || 'N/A'}</div>
       </div>
 
       {inPool && (
@@ -826,7 +826,7 @@ export default function KtvMobileWeb() {
                             </div>
                             <div className="border-t border-slate-100 pt-2 flex justify-between items-center text-xs text-slate-500">
                               <div>Loại việc: <span className="font-semibold text-slate-700">{job.loai_cong_viec}</span></div>
-                              <div className="font-mono text-slate-400">Mã máy: {job.ma_may || 'N/A'}</div>
+                              <div className="text-slate-400">Model: {job.soct_khach_hang?.model || job.ma_may || 'N/A'}</div>
                             </div>
                             <div className="flex gap-2">
                               <Button onClick={() => acceptInvite(job.id)} disabled={transferring}
@@ -1172,7 +1172,7 @@ export default function KtvMobileWeb() {
 
                   {/* Job Specs */}
                   <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-100 text-xs text-slate-600">
-                    <div>Mã máy: <span className="font-bold text-slate-700 font-mono">{activeJob.ma_may || '-'}</span></div>
+                    <div>Model: <span className="font-bold text-slate-700">{activeJob.soct_khach_hang?.model || activeJob.ma_may || '-'}</span></div>
                     <div>Khoảng cách: <span className="font-bold text-slate-700">{activeJob.km} km</span></div>
                     <div>Loại việc: <span className="font-bold text-slate-700">{activeJob.loai_cong_viec}</span></div>
                     <div>Số phiếu (RP): <span className="font-bold text-slate-700 font-mono">{activeJob.report || 'N/A'}</span></div>
@@ -1493,7 +1493,7 @@ export default function KtvMobileWeb() {
               </p>
               <div className="text-xs text-slate-500 bg-slate-50 rounded-md p-2 space-y-0.5">
                 <div className="font-semibold text-slate-700">{claimConfirm.soct_khach_hang?.ten_khach_hang}</div>
-                <div>Loại việc: {claimConfirm.loai_cong_viec} · Mã máy: {claimConfirm.ma_may || 'N/A'}</div>
+                <div>Loại việc: {claimConfirm.loai_cong_viec} · Model: {claimConfirm.soct_khach_hang?.model || claimConfirm.ma_may || 'N/A'}</div>
               </div>
             </div>
             <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
@@ -1545,7 +1545,7 @@ function JobReportCard({ job, readOnly, draftVal, onValueChange, options }: { jo
 
       <div className="space-y-1">
         <h4 className="font-bold text-slate-800 text-sm leading-snug">{job.soct_khach_hang?.ten_khach_hang}</h4>
-        <div className="text-[11px] text-slate-400 font-mono">Mã máy: {job.ma_may || '—'}</div>
+        <div className="text-[11px] text-slate-400">Model: {job.soct_khach_hang?.model || job.ma_may || '—'}</div>
       </div>
 
       <div className="grid grid-cols-3 gap-2 items-end pt-1">
