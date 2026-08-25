@@ -376,7 +376,7 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
               </label>
               <label className="block col-span-2"><span className="text-xs font-medium text-slate-500">Vị trí đặt máy</span><Input value={f.vi_tri_dat_may} onChange={e => set('vi_tri_dat_may', e.target.value)} className="h-9 mt-1" /></label>
               <label className="block"><span className="text-xs font-medium text-slate-500">Người liên hệ</span><Input value={f.nguoi_lien_he} onChange={e => set('nguoi_lien_he', e.target.value)} className="h-9 mt-1" /></label>
-              <label className="block"><span className="text-xs font-medium text-slate-500">Email</span><Input value={f.email} onChange={e => set('email', e.target.value)} className="h-9 mt-1" /></label>
+              <label className="block"><span className="text-xs font-medium text-slate-500">Email liên hệ (in bảng kê)</span><Input value={f.email} onChange={e => set('email', e.target.value)} className="h-9 mt-1" placeholder="Email người liên hệ — KHÁC email nhận hóa đơn" title="Email này CHỈ in trên bảng kê Thuê/CPC (liên hệ). Email nhận HÓA ĐƠN khai ở Khách cụm / điểm máy." /></label>
               <label className="block col-span-2 md:col-span-1"><span className="text-xs font-medium text-slate-500">Ngày lắp máy</span><div className="mt-1"><DateField value={f.ngay_lap_may || ''} onChange={v => set('ngay_lap_may', v)} heightClass="h-9" /></div></label>
               <label className="block col-span-2 md:col-span-1"><span className="text-xs font-medium text-slate-500">Ngày hết hạn hợp đồng</span><div className="mt-1"><DateField value={f.ngay_het_han_hdbt || ''} onChange={v => set('ngay_het_han_hdbt', v)} heightClass="h-9" /></div></label>
             </div>
