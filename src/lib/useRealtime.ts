@@ -10,13 +10,19 @@ import { supabase } from '@/lib/supabase'
 //  2) tab được focus lại (visibilitychange -> visible);
 //  3) mạng trở lại (sự kiện 'online');
 //  4) kênh SUBSCRIBED lại sau khi nối lại (bỏ qua lần SUBSCRIBED ĐẦU vì component đã tự
-//     fetch lúc mount -> tránh gọi thừa).
-// Nhờ vậy dù lỡ 1 tín hiệu, chỉ cần quay lại tab / mạng về / kênh nối lại là danh sách tự đồng bộ.
+//     fetch lúc mount -> tránh gọi thừa);
+//  5) POLL DỰ PHÒNG (tùy chọn `pollMs`): khi tab đang HIỂN THỊ, cứ pollMs ms refetch 1 lần.
+//     Đây là lưới an toàn cho tình huống "ngồi nhìn màn hình chờ" — không đổi tab, không rớt
+//     mạng, kênh vẫn SUBSCRIBED nhưng WS "chết ngầm" nên lỡ mất tín hiệu broadcast: các mồi
+//     (2)(3)(4) đều KHÔNG kích hoạt -> danh sách kẹt vô hạn tới khi F5. Poll bảo đảm tối đa
+//     pollMs là tự khớp lại. Broadcast vẫn là kênh chính (tức thì); poll chỉ chạy nền, nhẹ,
+//     và TẠM DỪNG khi tab ẩn / mất mạng để khỏi gọi thừa.
 export function useRealtimeRefetch(
   topics: string | string[],
   event: string,
   refetch: () => void,
   enabled: boolean = true,
+  pollMs: number = 0,
 ) {
   // Luôn gọi bản refetch MỚI NHẤT mà không cần re-subscribe kênh.
   const fnRef = useRef(refetch)
@@ -46,11 +52,22 @@ export function useRealtimeRefetch(
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('online', onOnline)
 
+    // Poll dự phòng: chỉ gọi khi tab hiển thị & còn mạng (tránh đánh thức tab nền / gọi offline).
+    let timer: ReturnType<typeof setInterval> | undefined
+    if (pollMs > 0) {
+      timer = setInterval(() => {
+        if (document.visibilityState !== 'visible') return
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) return
+        run()
+      }, pollMs)
+    }
+
     return () => {
       channels.forEach(ch => supabase.removeChannel(ch))
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('online', onOnline)
+      if (timer) clearInterval(timer)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, event, enabled])
+  }, [key, event, enabled, pollMs])
 }

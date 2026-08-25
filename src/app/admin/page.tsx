@@ -697,6 +697,7 @@ export default function AdminDashboard() {
     DATA_EVENT,
     () => { fetchData(); fetchPhieuCount() },
     !!currentAdmin,
+    30000,   // poll dự phòng 30s (chỉ khi tab hiển thị) — lỡ mất broadcast vẫn tự khớp lại
   )
 
   // Tìm kiếm theo mã máy để điền tự động

@@ -4,12 +4,12 @@ import { useState, useEffect, useCallback } from "react"
 import { MapPin, Clipboard, CheckCircle, Play, AlertTriangle, RefreshCw, Inbox, Hand, Send, ChevronLeft, ChevronRight, Plus, Trash2, Calendar, CalendarClock, FileText, Settings, Home } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { supabase } from "@/lib/supabase"
 import AccountSettings from "@/components/AccountSettings"
 import NghiPhepDangKy from "@/components/NghiPhepDangKy"
 import DateField from "@/components/DateField"
 import { initClockOffset, startQueueSync, enqueueStatus, nowISO, onPendingChange } from "@/lib/status-queue"
 import { phutGiua, lamTronPhut, fmtThoiLuong } from "@/lib/thoi-gian"
+import { useRealtimeRefetch } from "@/lib/useRealtime"
 
 // Kênh realtime: đồng bộ với lib/realtime.ts (server phát broadcast sau mỗi thay đổi việc)
 const JOBS_TOPIC = "soct_jobs"
@@ -356,15 +356,9 @@ export default function KtvMobileWeb() {
     }
   }
 
-  // Realtime: lắng nghe tín hiệu thay đổi việc rồi refetch (pool tự cập nhật khi người khác nhận)
-  useEffect(() => {
-    if (!currentKtv) return
-    const channel = supabase
-      .channel(JOBS_TOPIC)
-      .on('broadcast', { event: JOBS_EVENT }, () => { fetchKtvJobs() })
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [currentKtv, fetchKtvJobs])
+  // Realtime "tự lành" cho pool việc: broadcast (tức thì) + mồi focus/mạng/nối-lại + poll 30s
+  // dự phòng khi tab hiển thị (lỡ mất broadcast do WS chết ngầm vẫn tự khớp lại, khỏi phải F5).
+  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => fetchKtvJobs(), !!currentKtv, 30000)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
