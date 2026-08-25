@@ -1743,19 +1743,17 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === "kho_hang" && tabVisible('kho_hang') && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            {/* Thanh tab con của Kho hàng */}
-            <div className="p-4 border-b border-slate-200 bg-slate-50/50">
-              <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto">
-                {([['ton_kho','Tồn kho'],['dat_hang','Đặt hàng'],['thong_ke','Thống kê nhập']] as const)
-                  .filter(([k]) => subVisible('kho_hang', k))
-                  .map(([k,l]) => (
-                  <button key={k} onClick={() => setKhoTab(k as any)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveKhoTab === k ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>{l}</button>
-                ))}
-              </div>
+          <div className="space-y-4">
+            {/* Thanh tab con của Kho hàng — để NGOÀI thẻ overflow-hidden để sticky chạy */}
+            <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto">
+              {([['ton_kho','Tồn kho'],['dat_hang','Đặt hàng'],['thong_ke','Thống kê nhập']] as const)
+                .filter(([k]) => subVisible('kho_hang', k))
+                .map(([k,l]) => (
+                <button key={k} onClick={() => setKhoTab(k as any)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveKhoTab === k ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>{l}</button>
+              ))}
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6 space-y-6">
               {effectiveKhoTab === "ton_kho" && (
                 <>
                   <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Quản lý Kho Hàng (Vật tư)</h2>
@@ -1796,19 +1794,17 @@ export default function AdminDashboard() {
           </div>
         )}
         {activeTab === "theo_doi_may" && tabVisible('theo_doi_may') && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            {/* Thanh tab con của Theo dõi máy */}
-            <div className="p-4 border-b border-slate-200 bg-slate-50/50">
-              <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto">
-                {([['bao_tri','Bảo trì'],['giam_dinh','Giám định']] as const)
-                  .filter(([k]) => subVisible('theo_doi_may', k))
-                  .map(([k,l]) => (
-                  <button key={k} onClick={() => setMonitorTab(k as any)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveMonitorTab === k ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>{l}</button>
-                ))}
-              </div>
+          <div className="space-y-4">
+            {/* Thanh tab con của Theo dõi máy — để NGOÀI thẻ overflow-hidden để sticky chạy */}
+            <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto">
+              {([['bao_tri','Bảo trì'],['giam_dinh','Giám định']] as const)
+                .filter(([k]) => subVisible('theo_doi_may', k))
+                .map(([k,l]) => (
+                <button key={k} onClick={() => setMonitorTab(k as any)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveMonitorTab === k ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>{l}</button>
+              ))}
             </div>
 
-            <div className="p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6">
               {effectiveMonitorTab === "bao_tri" && (
                 <BaoTriTool customers={customers} showNotification={showNotification} canSub={(g) => subSubVisible('theo_doi_may', 'bao_tri', g)} />
               )}
@@ -1862,11 +1858,10 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === "quan_ly" && tabVisible('quan_ly') && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            {/* Thanh tab con của Quản lý */}
-            <div className="p-4 border-b border-slate-200 bg-slate-50/50">
-              <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto">
-                {subVisible('quan_ly', 'nhat_ky') && (
+          <div className="space-y-4">
+            {/* Thanh tab con của Quản lý — để NGOÀI thẻ overflow-hidden để sticky chạy */}
+            <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto">
+              {subVisible('quan_ly', 'nhat_ky') && (
                   <button
                     onClick={() => setQuanLyTab("nhat_ky" as any)}
                     className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveQuanLyTab === 'nhat_ky' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
@@ -1906,10 +1901,9 @@ export default function AdminDashboard() {
                     Nghỉ phép
                   </button>
                 )}
-              </div>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6 space-y-6">
               {/* TAB CON: NHẬT KÝ KTV */}
               {effectiveQuanLyTab === "nhat_ky" && (
                 <BaoCaoKtvTool technicians={technicians} showNotification={showNotification} />
@@ -1980,10 +1974,9 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === "he_thong" && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            {/* Thanh tab con của Hệ thống */}
-            <div className="p-4 border-b border-slate-200 bg-slate-50/50">
-              <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto">
+          <div className="space-y-4">
+            {/* Thanh tab con của Hệ thống — để NGOÀI thẻ overflow-hidden để sticky chạy */}
+            <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto">
                 {currentUserRole === 'admin' && (<>
                 <button
                   onClick={() => setSystemTab("cai_dat")}
@@ -2022,10 +2015,9 @@ export default function AdminDashboard() {
                 >
                   Đổi mật khẩu
                 </button>
-              </div>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6 space-y-6">
               {currentUserRole === 'admin' && (<>
               {/* TAB CON: CÀI ĐẶT HỆ THỐNG */}
               {systemTab === "cai_dat" && (
