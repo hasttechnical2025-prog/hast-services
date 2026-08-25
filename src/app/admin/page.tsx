@@ -621,8 +621,9 @@ export default function AdminDashboard() {
     } catch { /* giữ nguyên danh sách hiện tại nếu lỗi mạng */ }
   }
 
-  const fetchData = async () => {
-    setLoading(true)
+  // silent=true: refetch NGẦM (realtime/poll) — KHÔNG bật spinner toàn màn, tránh cảm giác "reload".
+  const fetchData = async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0]
       const [jobsRes, customersRes, usersRes, inventoryRes, danhMucRes, cauHinhRes, dangGiuRes, unfinishedRes] = await Promise.all([
@@ -695,9 +696,10 @@ export default function AdminDashboard() {
   useRealtimeRefetch(
     [JOBS_TOPIC, KHO_TOPIC, KHACH_TOPIC],
     DATA_EVENT,
-    () => { fetchData(); fetchPhieuCount() },
+    () => { fetchData(true); fetchPhieuCount() },        // broadcast/focus/mạng: refetch NGẦM đầy đủ (kho/khách có thể đổi)
     !!currentAdmin,
-    30000,   // poll dự phòng 30s (chỉ khi tab hiển thị) — lỡ mất broadcast vẫn tự khớp lại
+    30000,                                                // poll dự phòng 30s (chỉ khi tab hiển thị)
+    () => { fetchJobsOnly(); fetchPhieuCount() },         // poll: NHẸ + ngầm — chỉ tải lại danh sách việc
   )
 
   // Tìm kiếm theo mã máy để điền tự động

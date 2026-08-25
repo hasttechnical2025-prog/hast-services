@@ -170,8 +170,9 @@ export default function KtvMobileWeb() {
   const [loginForm, setLoginForm] = useState({ username: "", password: "" })
 
   // Tải danh sách công việc (server đã tự lọc: việc của mình + việc pool chưa gán)
-  const fetchKtvJobs = useCallback(async () => {
-    setLoading(true)
+  // silent=true: refetch NGẦM (realtime/poll) — không bật spinner, không báo lỗi toast, tránh nhấp nháy.
+  const fetchKtvJobs = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const res = await fetch('/api/admin/cong-viec')
       if (res.status === 401) {
@@ -184,9 +185,9 @@ export default function KtvMobileWeb() {
       if (json.data) setJobs(json.data)
     } catch (err) {
       console.error(err)
-      showNotification('error', "Không tải được danh sách công việc")
+      if (!silent) showNotification('error', "Không tải được danh sách công việc")
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [])
 
@@ -358,7 +359,7 @@ export default function KtvMobileWeb() {
 
   // Realtime "tự lành" cho pool việc: broadcast (tức thì) + mồi focus/mạng/nối-lại + poll 30s
   // dự phòng khi tab hiển thị (lỡ mất broadcast do WS chết ngầm vẫn tự khớp lại, khỏi phải F5).
-  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => fetchKtvJobs(), !!currentKtv, 30000)
+  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => fetchKtvJobs(true), !!currentKtv, 30000)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -23,16 +23,23 @@ export function useRealtimeRefetch(
   refetch: () => void,
   enabled: boolean = true,
   pollMs: number = 0,
+  pollFn?: () => void,
 ) {
   // Luôn gọi bản refetch MỚI NHẤT mà không cần re-subscribe kênh.
   const fnRef = useRef(refetch)
   fnRef.current = refetch
+  // pollFn riêng cho lưới poll (thường NHẸ hơn — VD chỉ tải lại danh sách, không tải kèm
+  // khách/kho/danh mục). Không truyền -> poll dùng chung refetch. CẢ HAI nên refetch NGẦM
+  // (không bật spinner toàn màn) để nền tự đồng bộ không gây cảm giác "reload".
+  const pollRef = useRef(pollFn || refetch)
+  pollRef.current = pollFn || refetch
   const key = (Array.isArray(topics) ? topics : [topics]).join('|')
 
   useEffect(() => {
     if (!enabled) return
     const list = key.split('|')
     const run = () => { try { fnRef.current() } catch { /* refetch tự nuốt lỗi */ } }
+    const runPoll = () => { try { pollRef.current() } catch { /* refetch tự nuốt lỗi */ } }
 
     const channels = list.map(topic => {
       let subscribedOnce = false
@@ -58,7 +65,7 @@ export function useRealtimeRefetch(
       timer = setInterval(() => {
         if (document.visibilityState !== 'visible') return
         if (typeof navigator !== 'undefined' && navigator.onLine === false) return
-        run()
+        runPoll()
       }, pollMs)
     }
 
