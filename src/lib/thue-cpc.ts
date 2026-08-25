@@ -11,6 +11,7 @@ export const KH_NUMERIC_FIELDS = [
 export const KH_TEXT_FIELDS = [
   'trach_nhiem_ky_thuat', 'ten_doi_tac_ky_thuat', 'ngay_chot_so',
   'vi_tri_dat_may', 'nguoi_lien_he', 'email', 'serial', 'nv_kinh_doanh',
+  'ten_may_hd', // tên máy in trên dòng "Dịch vụ thuê máy …" (rỗng -> dùng model)
 ] as const
 
 // Kiểu máy billing (1 dòng soct_khach_hang có loai_hd IN ('Máy thuê','Máy CPC'))
@@ -113,6 +114,41 @@ export function chotSoDate(thang_nam: string, chot_so_ngay: number | null | unde
     return new Date(Date.UTC(ny, nIdx, Math.min(chot_so_ngay, lastDayNext)))
   }
   return null
+}
+
+const fmtDMY_UTC = (d: Date): string =>
+  `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
+
+// Ngày ĐẦU/CUỐI kỳ IN TRÊN HÓA ĐƠN của tháng M (KHÁC chotSoDate dùng để nhắc lấy counter):
+//  - Cuối tháng: 1/M  ->  ngày-cuối/M.
+//  - Giữa tháng (ngày D): D/(M-1)  ->  D/M  (kỳ kết thúc bằng lần chốt trong CHÍNH tháng M).
+// D kẹp theo số ngày thực của mỗi tháng (VD chốt 31 ở tháng 30 ngày -> lấy 30).
+export function kyNgayHoaDon(thang_nam: string, chot_so_ngay: number | null | undefined, cuoi_thang: boolean): { dau: string, cuoi: string } {
+  const [y, m] = String(thang_nam).split('-').map(Number) // m: 1-based
+  if (!y || !m) return { dau: '', cuoi: '' }
+  if (cuoi_thang) {
+    const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate()
+    return { dau: fmtDMY_UTC(new Date(Date.UTC(y, m - 1, 1))), cuoi: fmtDMY_UTC(new Date(Date.UTC(y, m - 1, lastDay))) }
+  }
+  const D = Number(chot_so_ngay) || 1
+  const dayIn = (yy: number, mIdx0: number) => Math.min(D, new Date(Date.UTC(yy, mIdx0 + 1, 0)).getUTCDate())
+  const prev = new Date(Date.UTC(y, m - 2, 1)) // tháng M-1 (0-based m-2), tự lùi năm nếu m=1
+  const cur = new Date(Date.UTC(y, m - 1, 1))  // tháng M
+  const dau = new Date(Date.UTC(prev.getUTCFullYear(), prev.getUTCMonth(), dayIn(prev.getUTCFullYear(), prev.getUTCMonth())))
+  const cuoi = new Date(Date.UTC(cur.getUTCFullYear(), cur.getUTCMonth(), dayIn(cur.getUTCFullYear(), cur.getUTCMonth())))
+  return { dau: fmtDMY_UTC(dau), cuoi: fmtDMY_UTC(cuoi) }
+}
+
+// Nhãn KỲ ghi vào TÊN DÒNG thuê máy (DVTM) trên hóa đơn:
+//  - kieu_ky='tu_den' -> "từ DD/MM/YYYY đến DD/MM/YYYY" (tự tính theo chốt số -> sang kỳ tự nhảy).
+//  - còn lại ('thang'/rỗng) -> "tháng M/YYYY".
+export function kyLabel(thang_nam: string, kieu_ky: string | null | undefined, chot_so_ngay: number | null | undefined, cuoi_thang: boolean): string {
+  const [nam, thang] = String(thang_nam).split('-')
+  if (kieu_ky === 'tu_den') {
+    const { dau, cuoi } = kyNgayHoaDon(thang_nam, chot_so_ngay, cuoi_thang)
+    if (dau && cuoi) return `từ ${dau} đến ${cuoi}`
+  }
+  return `tháng ${Number(thang)}/${nam}`
 }
 
 // Chuỗi ngày chốt để in bảng kê (VD "Ngày 25 hàng tháng", "Cuối tháng").

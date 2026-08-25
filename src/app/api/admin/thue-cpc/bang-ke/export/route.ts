@@ -6,7 +6,7 @@ import Docxtemplater from 'docxtemplater'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { docSoTien } from '@/lib/report/bao-gia'
-import { chotSoLabel } from '@/lib/thue-cpc'
+import { chotSoLabel, kyNgayHoaDon } from '@/lib/thue-cpc'
 
 const TEN_CONG_TY = 'Công ty CP Siêu Thanh Hà Nội'
 
@@ -23,25 +23,8 @@ const fmtDMY = (d: any) => {
   if (isNaN(dt.getTime())) return String(d)
   return `${String(dt.getUTCDate()).padStart(2, '0')}/${String(dt.getUTCMonth() + 1).padStart(2, '0')}/${dt.getUTCFullYear()}`
 }
-// Ngày đầu/cuối kỳ IN TRÊN BẢNG KÊ tháng M (KHÁC với chotSoDate dùng để nhắc lấy counter):
-//  - Cuối tháng: 1/M  ->  ngày-cuối/M.
-//  - Giữa tháng (ngày D): D/(M-1)  ->  D/M  (kỳ kết thúc bằng lần chốt trong CHÍNH tháng M).
-// D được kẹp theo số ngày thực của mỗi tháng (VD chốt 31 ở tháng 30 ngày -> lấy 30).
-function kyNgay(thang_nam: string, chot_so_ngay: any, cuoi_thang: boolean): { dau: string, cuoi: string } {
-  const [y, m] = String(thang_nam).split('-').map(Number) // m: 1-based
-  if (!y || !m) return { dau: '', cuoi: '' }
-  if (cuoi_thang) {
-    const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate()
-    return { dau: fmtDMY(new Date(Date.UTC(y, m - 1, 1))), cuoi: fmtDMY(new Date(Date.UTC(y, m - 1, lastDay))) }
-  }
-  const D = Number(chot_so_ngay) || 1
-  const dayIn = (yy: number, mIdx0: number) => Math.min(D, new Date(Date.UTC(yy, mIdx0 + 1, 0)).getUTCDate())
-  const prev = new Date(Date.UTC(y, m - 2, 1)) // tháng M-1 (0-based m-2), tự lùi năm nếu m=1
-  const cur = new Date(Date.UTC(y, m - 1, 1))  // tháng M
-  const dau = new Date(Date.UTC(prev.getUTCFullYear(), prev.getUTCMonth(), dayIn(prev.getUTCFullYear(), prev.getUTCMonth())))
-  const cuoi = new Date(Date.UTC(cur.getUTCFullYear(), cur.getUTCMonth(), dayIn(cur.getUTCFullYear(), cur.getUTCMonth())))
-  return { dau: fmtDMY(dau), cuoi: fmtDMY(cuoi) }
-}
+// Ngày đầu/cuối kỳ in trên bảng kê -> dùng chung `kyNgayHoaDon` (src/lib/thue-cpc.ts).
+const kyNgay = kyNgayHoaDon
 // định mức hiển thị: cam kết tối thiểu ưu tiên, ngược lại định mức miễn phí
 const dinhMuc = (mienPhi: any, camKet: any) => (Number(camKet) > 0 ? Number(camKet) : Number(mienPhi) || 0)
 const ngayLapBangKe = (created: any) => { const d = new Date(created); return `Hà Nội, ngày ${String(d.getDate()).padStart(2, '0')} tháng ${String(d.getMonth() + 1).padStart(2, '0')} năm ${d.getFullYear()}` }

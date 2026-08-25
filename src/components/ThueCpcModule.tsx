@@ -234,6 +234,7 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
     vat_thue_cpc: row.vat_thue_cpc ?? 8, trach_nhiem_ky_thuat: row.trach_nhiem_ky_thuat ?? 'Nội bộ',
     ten_doi_tac_ky_thuat: row.ten_doi_tac_ky_thuat ?? '', ngay_chot_so: row.ngay_chot_so ?? '',
     chot_pick: row.chot_so_cuoi_thang ? 'cuoi' : (row.chot_so_ngay ? String(row.chot_so_ngay) : ''),
+    kieu_ky: row.kieu_ky ?? 'thang', ten_may_hd: row.ten_may_hd ?? '',
     vi_tri_dat_may: row.vi_tri_dat_may ?? '', nguoi_lien_he: row.nguoi_lien_he ?? '', email: row.email ?? '',
     ngay_lap_may: row.ngay_lap_may ?? '', ngay_het_han_hdbt: row.ngay_het_han_hdbt ?? '',
     id_hop_dong_khung: row.id_hop_dong_khung ?? '', serial: row.serial ?? '',
@@ -341,6 +342,14 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
               </select>
             </label>
             <label className="block">
+              <span className="text-xs font-medium text-slate-500">Cách ghi kỳ (dòng thuê máy)</span>
+              <select value={f.kieu_ky} onChange={e => set('kieu_ky', e.target.value)} className="h-9 mt-1 w-full rounded-md border border-slate-200 text-sm px-2 bg-white">
+                <option value="thang">Tháng M/YYYY</option>
+                <option value="tu_den">Từ ngày … đến ngày (tự tính theo chốt số)</option>
+              </select>
+              <span className="text-[10px] text-slate-400">Chọn &quot;Từ ngày…đến ngày&quot; cho khách chốt số giữa tháng — tự nhảy kỳ mỗi tháng.</span>
+            </label>
+            <label className="block">
               <span className="text-xs font-medium text-slate-500">NV Kinh doanh</span>
               <select value={f.nv_kinh_doanh || ''} onChange={e => set('nv_kinh_doanh', e.target.value)} className="h-9 mt-1 w-full rounded-md border border-slate-200 text-sm px-2 bg-white">
                 <option value="">— Chưa gán —</option>
@@ -360,6 +369,11 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
           <div className="border-t border-slate-100 pt-3">
             <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Thông tin in bảng kê</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <label className="block col-span-2 md:col-span-4">
+                <span className="text-xs font-medium text-slate-500">Tên máy trên hóa đơn</span>
+                <Input value={f.ten_may_hd} onChange={e => set('ten_may_hd', e.target.value)} className="h-9 mt-1" placeholder={`Để trống = dùng model (${row.model || 'model máy'}). VD: Konica Minolta bizhub C258`} />
+                <span className="text-[10px] text-slate-400">Ghi vào dòng &quot;Dịch vụ thuê máy …&quot;. Cho phép thêm hãng tùy ý (Konica / Konica Minolta) — đặt 1 lần, dùng mãi.</span>
+              </label>
               <label className="block col-span-2"><span className="text-xs font-medium text-slate-500">Vị trí đặt máy</span><Input value={f.vi_tri_dat_may} onChange={e => set('vi_tri_dat_may', e.target.value)} className="h-9 mt-1" /></label>
               <label className="block"><span className="text-xs font-medium text-slate-500">Người liên hệ</span><Input value={f.nguoi_lien_he} onChange={e => set('nguoi_lien_he', e.target.value)} className="h-9 mt-1" /></label>
               <label className="block"><span className="text-xs font-medium text-slate-500">Email</span><Input value={f.email} onChange={e => set('email', e.target.value)} className="h-9 mt-1" /></label>

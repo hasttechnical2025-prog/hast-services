@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { broadcastJobsChanged, broadcastThueCpcChanged } from '@/lib/realtime'
 import { logAudit } from '@/lib/audit'
+import { kyLabel } from '@/lib/thue-cpc'
 
 export const runtime = 'nodejs'
 
@@ -35,14 +36,17 @@ export async function POST(request: Request) {
 
     const { data: ct, error: ctErr } = await supabaseAdmin
       .from('soct_thue_cpc_bk_ct')
-      .select('*, soct_khach_hang(id, ten_khach_hang, model, don_gia_bw, don_gia_mau, phi_thue_thang)')
+      .select('*, soct_khach_hang(id, ten_khach_hang, model, ten_may_hd, kieu_ky, chot_so_ngay, chot_so_cuoi_thang, don_gia_bw, don_gia_mau, phi_thue_thang)')
       .eq('id_bk', id)
     if (ctErr) throw ctErr
     const rows = ct || []
     if (rows.length === 0) return NextResponse.json({ error: 'Bảng kê không có dòng nào' }, { status: 400 })
 
-    const [nam, thang] = String(bk.thang_nam).split('-')
-    const kyLabel = `tháng ${Number(thang)}/${nam}`
+    // Nhãn kỳ trên dòng thuê máy (DVTM): theo "cách ghi kỳ" của khách (đại diện là máy đầu tiên
+    // của bảng kê). 'tu_den' -> "từ DD/MM/YYYY đến DD/MM/YYYY" (tự tính, sang kỳ tự nhảy);
+    // mặc định -> "tháng M/YYYY". Chỉ áp cho DVTM; dòng số bản giữ "...trong kỳ".
+    const kh0ky: any = (rows[0] as any).soct_khach_hang || {}
+    const kyLbl = kyLabel(bk.thang_nam, kh0ky.kieu_ky, kh0ky.chot_so_ngay, !!kh0ky.chot_so_cuoi_thang)
     const vat = Number(bk.vat_rate ?? 8)
 
     const lines: Line[] = []
@@ -61,7 +65,7 @@ export async function POST(request: Request) {
       const tpMau = Math.max(sumMau - Number(khung.mien_phi_mau || 0), 0)
       const giaThue = Number(khung.phi_co_ban || 0) + sumRental
       const card = Number(khung.card_reader || 0)
-      if (giaThue > 0) lines.push({ ma_hang: 'DVTM', ten: `Dịch vụ thuê máy ${kyLabel}`, dvt: 'Tháng', sl: 1, dg: giaThue })
+      if (giaThue > 0) lines.push({ ma_hang: 'DVTM', ten: `Dịch vụ thuê máy ${kyLbl}`, dvt: 'Tháng', sl: 1, dg: giaThue })
       if (tpBw > 0) lines.push({ ma_hang: 'DVBDT', ten: 'Số bản sử dụng đen trắng trong kỳ', dvt: 'Bản', sl: tpBw, dg: Number(khung.don_gia_bw || 0) })
       if (tpMau > 0) lines.push({ ma_hang: 'DVBM', ten: 'Số bản sử dụng màu trong kỳ', dvt: 'Bản', sl: tpMau, dg: Number(khung.don_gia_mau || 0) })
       if (card > 0) lines.push({ ma_hang: 'DVCR', ten: 'Dịch vụ đầu đọc thẻ', dvt: 'Chiếc', sl: 1, dg: card })
@@ -70,7 +74,9 @@ export async function POST(request: Request) {
     } else {
       const r: any = rows[0]
       const kh: any = r.soct_khach_hang || {}
-      if (Number(r.phi_thue_co_dinh) > 0) lines.push({ ma_hang: 'DVTM', ten: `Dịch vụ thuê máy ${kh.model || ''} ${kyLabel}`.replace(/\s+/g, ' ').trim(), dvt: 'Tháng', sl: 1, dg: Number(r.phi_thue_co_dinh) })
+      // Tên máy trên HĐ: ưu tiên ten_may_hd (cho phép gõ prefix hãng "Konica Minolta ..."), rỗng -> model.
+      const tenMay = (kh.ten_may_hd && String(kh.ten_may_hd).trim()) || kh.model || ''
+      if (Number(r.phi_thue_co_dinh) > 0) lines.push({ ma_hang: 'DVTM', ten: `Dịch vụ thuê máy ${tenMay} ${kyLbl}`.replace(/\s+/g, ' ').trim(), dvt: 'Tháng', sl: 1, dg: Number(r.phi_thue_co_dinh) })
       if (Number(r.so_bw_tinh_phi) > 0) lines.push({ ma_hang: 'DVBDT', ten: 'Số bản sử dụng đen trắng trong kỳ', dvt: 'Bản', sl: Number(r.so_bw_tinh_phi), dg: Number(kh.don_gia_bw || 0) })
       if (Number(r.so_mau_tinh_phi) > 0) lines.push({ ma_hang: 'DVBM', ten: 'Số bản sử dụng màu trong kỳ', dvt: 'Bản', sl: Number(r.so_mau_tinh_phi), dg: Number(kh.don_gia_mau || 0) })
       idKhachHang = r.id_khach_hang

@@ -1123,3 +1123,15 @@ ALTER TABLE public.soct_cong_viec ADD COLUMN IF NOT EXISTS ly_do_tra TEXT;
 -- ============================================================================
 
 ALTER TABLE public.soct_cong_viec ADD COLUMN IF NOT EXISTS dntt_lan INT NOT NULL DEFAULT 0;
+
+
+-- ============================================================================
+-- MIGRATION 59: ky_hoa_don (tự sinh tên dòng thuê máy DVTM theo kỳ + tên máy trên HĐ)
+-- ============================================================================
+
+ALTER TABLE public.soct_khach_hang ADD COLUMN IF NOT EXISTS kieu_ky TEXT NOT NULL DEFAULT 'thang';
+ALTER TABLE public.soct_khach_hang ADD COLUMN IF NOT EXISTS ten_may_hd TEXT;
+
+ALTER TABLE public.soct_khach_hang DROP CONSTRAINT IF EXISTS soct_khach_hang_kieu_ky_check;
+ALTER TABLE public.soct_khach_hang ADD CONSTRAINT soct_khach_hang_kieu_ky_check
+  CHECK (kieu_ky IN ('thang', 'tu_den'));
