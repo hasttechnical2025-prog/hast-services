@@ -66,6 +66,7 @@ export async function buildReportData(thang: string, manual: ManualFields = {}) 
       soct_chi_tiet_vat_tu ( thanh_tien, vat, hoa_don, da_tra, so_luong, don_gia )`)
     .gte('ngay', start)
     .lte('ngay', end)
+    .is('nguon', null) // chỉ VIỆC KTV thật — loại phiếu tổng hợp (thue_cpc billing, tach_hd tách HĐ)
     .range(from, to))
 
   // Toàn bộ máy khách hàng (Mục 2) + chỉ mục theo mã máy để tra hãng
