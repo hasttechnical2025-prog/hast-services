@@ -5656,6 +5656,9 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
   const [khDiaChi, setKhDiaChi] = useState('')
   const [khSearch, setKhSearch] = useState('')
   const [working, setWorking] = useState(false)
+  // Tách hóa đơn: modal chọn dòng LÊN HĐ (tick), dòng không tick tự tách sang phiếu con ở lại Công nợ.
+  const [splitOpen, setSplitOpen] = useState(false)
+  const [splitChecked, setSplitChecked] = useState<Record<string, boolean>>({})
 
 
   const fetchList = async () => {
@@ -5732,6 +5735,37 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
       const res = await fetch('/api/admin/cong-no', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, trang_thai_hd }) })
       if (res.ok) { showNotification('success', `Đã cập nhật ${ids.length} phiếu → ${trang_thai_hd}.`); setSelIds([]); setKhTen(''); setKhDiaChi(''); fetchList() }
       else { const j = await res.json(); showNotification('error', j.error) }
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setWorking(false) }
+  }
+
+  // Phiếu của khách đang chọn CÓ THỂ TÁCH = có ≥2 dòng vật tư còn hiệu lực (chưa trả kho).
+  const splitTickets = selTickets
+    .map((t: any) => ({ t, lines: (t.soct_chi_tiet_vat_tu || []).filter((v: any) => !v.da_tra) }))
+    .filter((x: any) => x.lines.length >= 2)
+    .sort((a: any, b: any) => byReport(a.t, b.t))
+  const openSplit = () => {
+    const init: Record<string, boolean> = {}
+    for (const { lines } of splitTickets) for (const l of lines) init[l.id] = true // mặc định: mọi dòng LÊN HĐ
+    setSplitChecked(init); setSplitOpen(true)
+  }
+  // Tách: với mỗi phiếu có dòng bị BỎ TICK (không lên HĐ) mà vẫn còn ≥1 dòng tick -> gọi endpoint.
+  const doSplit = async () => {
+    const jobs = splitTickets.map(({ t, lines }: any) => {
+      const keep = lines.filter((l: any) => splitChecked[l.id]).map((l: any) => l.id)
+      const drop = lines.filter((l: any) => !splitChecked[l.id])
+      return { id: t.id, report: t.report, keep, dropCount: drop.length }
+    }).filter((j: any) => j.dropCount > 0 && j.keep.length > 0)
+    if (jobs.length === 0) return showNotification('error', 'Chưa có phiếu nào cần tách (bỏ tick dòng muốn để lại Công nợ, và giữ ≥1 dòng lên HĐ).')
+    setWorking(true)
+    try {
+      let ok = 0
+      for (const j of jobs) {
+        const res = await fetch('/api/admin/cong-viec/tach-hoa-don', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_goc: j.id, keep_line_ids: j.keep }) })
+        if (res.ok) ok++
+        else { const e = await res.json(); showNotification('error', `Phiếu ${j.report}: ${e.error || 'lỗi tách'}`) }
+      }
+      if (ok > 0) showNotification('success', `Đã tách ${ok} phiếu. Phần còn lại nằm ở Công nợ (số phiếu -N).`)
+      setSplitOpen(false); setSelIds([]); setKhTen(''); setKhDiaChi(''); fetchList()
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setWorking(false) }
   }
 
@@ -5814,11 +5848,60 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
             }
             footerExtra={
               <>
+                {splitTickets.length > 0 && (
+                  <Button variant="outline" onClick={openSplit} disabled={working} className="h-9 border-amber-300 text-amber-700 hover:bg-amber-50" title="Chọn dòng lên hóa đơn; dòng còn lại tách sang phiếu con ở lại Công nợ">✂ Tách dòng lên HĐ</Button>
+                )}
                 <Button variant="outline" onClick={() => setStatus('Đã báo giá')} disabled={working} className="h-9">Đánh dấu đã báo giá</Button>
                 <Button onClick={() => setStatus('Chờ xuất HĐ')} disabled={working} className="h-9 bg-blue-600 hover:bg-blue-700">📤 Đẩy sang Kế toán (Kanban)</Button>
               </>
             }
           />
+        </div>
+      )}
+
+      {/* MODAL TÁCH HÓA ĐƠN — tick dòng LÊN HĐ, dòng bỏ tick tự tách sang phiếu con (ở lại Công nợ). */}
+      {splitOpen && (
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4" onClick={() => !working && setSplitOpen(false)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-1.5">✂ Tách dòng lên hóa đơn</h3>
+              <button onClick={() => setSplitOpen(false)} className="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
+            </div>
+            <div className="p-4 overflow-y-auto space-y-4">
+              <p className="text-xs text-slate-500 bg-blue-50 border border-blue-100 rounded px-3 py-2">
+                <b>Tick</b> các dòng khách <b>đồng ý lên hóa đơn</b> (giữ ở phiếu gốc). Dòng <b>bỏ tick</b> sẽ được <b>tách sang phiếu con</b> (số phiếu <b>-N</b>), giữ nguyên ở Công nợ để lên HĐ kỳ sau. Chỉ hiện phiếu có ≥2 dòng.
+              </p>
+              {splitTickets.map(({ t, lines }: any) => {
+                const keepN = lines.filter((l: any) => splitChecked[l.id]).length
+                const dropN = lines.length - keepN
+                return (
+                  <div key={t.id} className="border border-slate-200 rounded-lg overflow-hidden">
+                    <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                      <span className="text-sm font-semibold text-slate-700">Phiếu {t.report}</span>
+                      <span className="text-[11px] text-slate-500">{keepN} lên HĐ · {dropN > 0 ? <span className="text-amber-700 font-semibold">{dropN} tách ra</span> : 'không tách'}</span>
+                    </div>
+                    <div className="divide-y divide-slate-50">
+                      {lines.map((l: any) => {
+                        const ten = l.ten_hang_hd || l.soct_kho_hang?.ten_hang || l.ma_hang
+                        const tt = (Number(l.don_gia) || 0) * (Number(l.so_luong) || 0)
+                        return (
+                          <label key={l.id} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">
+                            <input type="checkbox" checked={!!splitChecked[l.id]} onChange={e => setSplitChecked(prev => ({ ...prev, [l.id]: e.target.checked }))} className="w-4 h-4 accent-blue-600 shrink-0" />
+                            <span className="flex-1 min-w-0 truncate text-slate-700">{ten}</span>
+                            <span className="text-xs text-slate-400 shrink-0">SL {l.so_luong} · {fmtN(tt)} đ</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="p-4 border-t border-slate-100 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setSplitOpen(false)} disabled={working} className="h-9">Hủy</Button>
+              <Button onClick={doSplit} disabled={working} className="h-9 bg-amber-600 hover:bg-amber-700">{working ? 'Đang tách...' : 'Xác nhận tách'}</Button>
+            </div>
+          </div>
         </div>
       )}
 
