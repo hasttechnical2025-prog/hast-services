@@ -11,10 +11,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Chỉ Admin mới có quyền thực hiện thao tác này' }, { status: 403 })
     }
 
-    const { id_dat_hang_ct, ngay_nhan, so_luong_nhan } = await request.json()
+    const { id_dat_hang_ct, ngay_nhan, so_luong_nhan, ma_hang } = await request.json()
     const sl = parseInt(so_luong_nhan, 10)
     if (!id_dat_hang_ct || !(sl > 0)) {
       return NextResponse.json({ error: 'Thiếu dòng hàng hoặc số lượng nhận không hợp lệ' }, { status: 400 })
+    }
+
+    // Mã THỰC nhận: mặc định = mã của dòng đặt; cho khai mã khác (NCC giao thay thế).
+    const { data: ct } = await supabaseAdmin.from('soct_dat_hang_ct').select('ma_hang').eq('id', id_dat_hang_ct).single()
+    if (!ct) return NextResponse.json({ error: 'Không tìm thấy dòng đặt hàng' }, { status: 404 })
+    const maThuc = String(ma_hang || '').trim() || ct.ma_hang
+    // Mã thực phải có trong kho thì tồn kho mới được cộng đúng chỗ.
+    const { data: khoItem } = await supabaseAdmin.from('soct_kho_hang').select('ma_hang').eq('ma_hang', maThuc).maybeSingle()
+    if (!khoItem) {
+      return NextResponse.json({ error: `Mã thực nhận "${maThuc}" chưa có trong Kho hàng — hãy thêm mã này vào kho trước khi ghi hàng về.` }, { status: 400 })
     }
 
     const { data, error } = await supabaseAdmin
@@ -23,6 +33,7 @@ export async function POST(request: Request) {
         id_dat_hang_ct,
         ngay_nhan: ngay_nhan || new Date().toISOString().split('T')[0],
         so_luong_nhan: sl,
+        ma_hang: maThuc,
       })
       .select()
       .single()

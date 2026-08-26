@@ -9,7 +9,7 @@ const ORDER_SELECT = `
   soct_dat_hang_ct (
     id, ma_hang, sl_dat, hoan_thanh,
     soct_kho_hang ( ten_hang, ton_kho, model ),
-    soct_hang_ve_dot ( id, ngay_nhan, so_luong_nhan )
+    soct_hang_ve_dot ( id, ngay_nhan, so_luong_nhan, ma_hang )
   )
 `
 

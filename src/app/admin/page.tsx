@@ -4305,7 +4305,7 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [receiving, setReceiving] = useState<{ ctId: string, ngay_nhan: string, so_luong_nhan: string } | null>(null)
+  const [receiving, setReceiving] = useState<{ ctId: string, ngay_nhan: string, so_luong_nhan: string, ma_dat: string, ma_hang: string } | null>(null)
   const [delId, setDelId] = useState<string | null>(null)
   const [orderFilters, setOrderFilters] = useState({ maHang: "", ncc: "", conThieu: true, hvTu: "", hvDen: "" })
 
@@ -4442,7 +4442,7 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
   const REPORT_XLSX_HEADERS = ['Số đơn', 'Ngày đặt', 'Nhà cung cấp', 'Mã hàng', 'Tên hàng', 'Model', 'SL đặt', 'Ghi chú', 'Đã nhận', 'Còn thiếu', 'Các đợt hàng về']
   const reportLineRow = (o: any, l: any) => {
     const nhan = daNhan(l)
-    const receipts = (l.soct_hang_ve_dot || []).map((h: any) => `${fmtDate(h.ngay_nhan)}: ${h.so_luong_nhan}`).join(', ')
+    const receipts = (l.soct_hang_ve_dot || []).map((h: any) => `${fmtDate(h.ngay_nhan)}: ${h.so_luong_nhan}${h.ma_hang && h.ma_hang !== l.ma_hang ? ` (mã ${h.ma_hang})` : ''}`).join(', ')
     return [
       o.so_don_hang || '',
       fmtDate(o.ngay_dat),
@@ -4554,7 +4554,7 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
   }
   const saveReceipt = async () => {
     if (!receiving || !(parseInt(receiving.so_luong_nhan) > 0)) return showNotification('error', "Nhập số lượng nhận")
-    const res = await fetch('/api/admin/hang-ve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(receiving.ctId ? { id_dat_hang_ct: receiving.ctId, ngay_nhan: receiving.ngay_nhan, so_luong_nhan: receiving.so_luong_nhan } : {}) })
+    const res = await fetch('/api/admin/hang-ve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(receiving.ctId ? { id_dat_hang_ct: receiving.ctId, ngay_nhan: receiving.ngay_nhan, so_luong_nhan: receiving.so_luong_nhan, ma_hang: receiving.ma_hang } : {}) })
     if (res.ok) { showNotification('success', "Đã ghi hàng về (tồn kho tự cộng)."); setReceiving(null); onUpdateSuccess(); fetchOrders() }
     else { const err = await res.json(); showNotification('error', err.error) }
   }
@@ -4883,6 +4883,10 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
 
       </div>
 
+      {/* Gợi ý MÃ THỰC NHẬN (đủ mã kho) khi ghi hàng về giao thay thế */}
+      <datalist id="dathang-ma-thuc">
+        {inventory.map((it: any) => <option key={it.ma_hang} value={it.ma_hang}>{it.ten_hang || ''}</option>)}
+      </datalist>
       {/* DANH SÁCH ĐƠN + BỘ LỌC */}
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap px-1">
@@ -4987,28 +4991,37 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
                           <td className={`px-3 py-2 text-center font-medium ${thieu > 0 ? 'text-amber-600' : 'text-slate-400'}`}>{thieu > 0 ? thieu : '—'}</td>
                           <td className="px-3 py-2">
                             <div className="flex flex-wrap gap-1">
-                              {(line.soct_hang_ve_dot || []).map((h: any) => (
-                                <span key={h.id} className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5">
+                              {(line.soct_hang_ve_dot || []).map((h: any) => {
+                                const maThuc = h.ma_hang && h.ma_hang !== line.ma_hang ? h.ma_hang : null // giao thay thế
+                                return (
+                                <span key={h.id} className={`inline-flex items-center gap-1 border rounded px-1.5 py-0.5 ${maThuc ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'}`} title={maThuc ? `Giao thay thế bằng mã ${maThuc}` : undefined}>
                                   {fmtDate(h.ngay_nhan)}: <b>{h.so_luong_nhan}</b>
+                                  {maThuc && <span className="text-[10px] text-amber-700 font-semibold">→ {maThuc}</span>}
                                   {currentUserRole === 'admin' && (
-                                    <button onClick={() => deleteReceipt(h.id, h.so_luong_nhan, line.ma_hang)} className="text-slate-400 hover:text-red-500" title="Xóa đợt này (trừ tồn)">✕</button>
+                                    <button onClick={() => deleteReceipt(h.id, h.so_luong_nhan, h.ma_hang || line.ma_hang)} className="text-slate-400 hover:text-red-500" title="Xóa đợt này (trừ tồn)">✕</button>
                                   )}
                                 </span>
-                              ))}
+                                )
+                              })}
                             </div>
                             {receiving && receiving.ctId === line.id && (
-                              <div className="flex items-end gap-1.5 mt-1.5">
+                              <div className="flex flex-wrap items-end gap-1.5 mt-1.5">
                                 <DateField value={receiving.ngay_nhan} onChange={(v) => setReceiving({ ...receiving, ngay_nhan: v })} heightClass="h-8" className="w-36" />
                                 <Input type="number" min="1" placeholder="SL nhận" value={receiving.so_luong_nhan} onChange={(e) => setReceiving({ ...receiving, so_luong_nhan: e.target.value })} className="h-8 bg-white w-24" />
+                                <label className="flex flex-col">
+                                  <span className="text-[9px] text-slate-400 leading-none mb-0.5">Mã thực nhận</span>
+                                  <Input list="dathang-ma-thuc" value={receiving.ma_hang} onChange={(e) => setReceiving({ ...receiving, ma_hang: e.target.value.trim() })} className={`h-8 bg-white w-40 font-mono ${receiving.ma_hang !== receiving.ma_dat ? 'border-amber-400' : ''}`} title="Mặc định = mã đã đặt; đổi nếu NCC giao mã khác" />
+                                </label>
                                 <Button onClick={saveReceipt} className="h-8 text-xs px-3 bg-emerald-600 hover:bg-emerald-700">Lưu</Button>
                                 <Button variant="outline" onClick={() => setReceiving(null)} className="h-8 text-xs px-3">Hủy</Button>
+                                {receiving.ma_hang !== receiving.ma_dat && <span className="text-[10px] text-amber-700 self-center">Giao thay thế (đặt {receiving.ma_dat})</span>}
                               </div>
                             )}
                           </td>
                           <td className="px-3 py-2 whitespace-nowrap text-right">
                             <div className="flex items-center justify-end gap-2">
                               {currentUserRole === 'admin' && !line.hoan_thanh && (!receiving || receiving.ctId !== line.id) && (
-                                <button onClick={() => setReceiving({ ctId: line.id, ngay_nhan: new Date().toISOString().split('T')[0], so_luong_nhan: "" })} className="text-blue-600 hover:text-blue-800 text-xs font-medium whitespace-nowrap">+ Ghi hàng về</button>
+                                <button onClick={() => setReceiving({ ctId: line.id, ngay_nhan: new Date().toISOString().split('T')[0], so_luong_nhan: "", ma_dat: line.ma_hang, ma_hang: line.ma_hang })} className="text-blue-600 hover:text-blue-800 text-xs font-medium whitespace-nowrap">+ Ghi hàng về</button>
                               )}
                               {/* Có hàng về: tech_admin bị ẩn (chỉ admin xóa được, kèm cảnh báo trừ tồn) */}
                               {!(nhan > 0 && currentUserRole !== 'admin') && (
