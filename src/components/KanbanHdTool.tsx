@@ -161,7 +161,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const [invoiceNum, setInvoiceNum] = useState("")
   const [completing, setCompleting] = useState(false)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
-  const [editName, setEditName] = useState<{ ma_hang: string; ten: string; gia: string } | null>(null) // sửa tên + đơn giá trong modal
+  const [editName, setEditName] = useState<{ ma_hang: string; ten: string; gia: string; dvt: string } | null>(null) // sửa tên + đơn giá + ĐVT trong modal
   const [savingName, setSavingName] = useState(false)
   const [dragVtIdx, setDragVtIdx] = useState<number | null>(null) // kéo-thả sắp xếp dòng vật tư
   // Kế toán TRẢ LẠI phiếu về Cột 1 kèm lý do (cho tech_admin/staff sửa).
@@ -557,7 +557,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       const res = await fetch('/api/admin/ten-hang-rieng', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          pham_vi, ma_hang: editName.ma_hang, ten_hang: editName.ten, don_gia: editName.gia,
+          pham_vi, ma_hang: editName.ma_hang, ten_hang: editName.ten, don_gia: editName.gia, don_vi_tinh: editName.dvt,
           ...(pham_vi === 'hoa_don'
             ? { ticket_ids: activeCard.tickets.map(t => t.id) }
             : { scope_key: modalScopeKey }),
@@ -610,8 +610,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     if (!activeCard) return
     const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('HangHoa')
-    ws.addRow(['Mã hàng', 'Tên hàng', 'SL', 'Đơn giá', 'VAT (%)', 'Thành tiền (chưa VAT)'])
-    for (const v of modalDisplayRows) ws.addRow([v.ma_hang, v.ten_hang, v.so_luong, v.don_gia, v.vat, v.so_luong * v.don_gia])
+    ws.addRow(['Mã hàng', 'Tên hàng', 'SL', 'ĐVT', 'Đơn giá', 'VAT (%)', 'Thành tiền (chưa VAT)'])
+    for (const v of modalDisplayRows) ws.addRow([v.ma_hang, v.ten_hang, v.so_luong, v.dvt || 'Cái', v.don_gia, v.vat, v.so_luong * v.don_gia])
     ws.getRow(1).font = { bold: true }
     const buf = await wb.xlsx.writeBuffer()
     const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
@@ -788,19 +788,21 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer())
       const ws = wb.worksheets[0]
       const cell = (v: any) => (v && typeof v === 'object' && 'result' in v) ? v.result : v
-      const items: { ma_hang: string; ten_hang: string; don_gia: any; thu_tu: number }[] = []
+      // Cột: 1=Mã hàng, 2=Tên hàng, 3=SL, 4=ĐVT, 5=Đơn giá, 6=VAT, 7=Thành tiền.
+      const items: { ma_hang: string; ten_hang: string; don_gia: any; don_vi_tinh: string; thu_tu: number }[] = []
       ws.eachRow({ includeEmpty: false }, (row: any, idx: number) => {
         if (idx === 1) return // bỏ dòng tiêu đề
         const vals = row.values as any[]
         const ma = String(cell(vals[1]) ?? '').trim()
         if (!ma) return
         // thu_tu = VỊ TRÍ DÒNG trong Excel -> nhập lại thì thứ tự hiển thị/đẩy Kanban đi theo Excel.
-        items.push({ ma_hang: ma, ten_hang: String(cell(vals[2]) ?? ''), don_gia: cell(vals[4]), thu_tu: items.length })
+        items.push({ ma_hang: ma, ten_hang: String(cell(vals[2]) ?? ''), don_vi_tinh: String(cell(vals[4]) ?? '').trim(), don_gia: cell(vals[5]), thu_tu: items.length })
       })
       if (items.length === 0) { showNotification('error', 'File không có dòng hợp lệ.'); return }
       const res = await fetch('/api/admin/ten-hang-rieng', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pham_vi: 'hoa_don', ticket_ids: activeCard.tickets.map(t => t.id), items }),
+        // scope_key -> lưu luôn tên/giá/ĐVT thành MẪU cho khách (kỳ sau tự áp).
+        body: JSON.stringify({ pham_vi: 'hoa_don', ticket_ids: activeCard.tickets.map(t => t.id), items, scope_key: modalScopeKey }),
       })
       if (res.ok) { showNotification('success', `Đã cập nhật ${items.length} mặt hàng từ Excel.`); load() }
       else { const e = await res.json(); showNotification('error', e.error || 'Lỗi nhập Excel') }
@@ -1150,7 +1152,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const modalDiaChi = modalCum ? modalCum.dia_chi : modalKh?.dia_chi
 
   // Gộp các dòng vật tư trùng mã hàng để hóa đơn in gọn gàng
-  const aggregatedVatTu: Record<string, { ma_hang: string; ten_hang: string; so_luong: number; don_gia: number; vat: number; _ord: number }> = {}
+  const aggregatedVatTu: Record<string, { ma_hang: string; ten_hang: string; so_luong: number; don_gia: number; vat: number; dvt: string; _ord: number }> = {}
   modalAllVt.filter(v => !v.da_tra).forEach(v => {
     const k = `${v.ma_hang}_${Number(v.don_gia) || 0}`
     if (!aggregatedVatTu[k]) {
@@ -1160,10 +1162,12 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
         so_luong: 0,
         don_gia: v.don_gia,
         vat: v.vat,
+        dvt: (v.don_vi_tinh || '').trim(), // ĐVT (rỗng -> hiển thị "Cái")
         _ord: Number.POSITIVE_INFINITY
       }
     }
     aggregatedVatTu[k].so_luong += v.so_luong
+    if (!aggregatedVatTu[k].dvt && (v.don_vi_tinh || '').trim()) aggregatedVatTu[k].dvt = (v.don_vi_tinh || '').trim()
     aggregatedVatTu[k]._ord = Math.min(aggregatedVatTu[k]._ord, Number(v.thu_tu ?? 1e9))
   })
   // Sắp theo thu_tu (kéo-thả). Dòng cùng thứ tự (chưa sắp) giữ nguyên tương đối.
@@ -1519,12 +1523,16 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                     <span className="text-slate-400">(dán xuống 1 cột)</span>
                   </div>
                 )}
+                <datalist id="dvt-suggest">
+                  {['Cái', 'Hộp', 'Chiếc', 'Bộ', 'Ram', 'Cuộn', 'Chai', 'Lọ', 'Gói', 'Thùng', 'Bình', 'Cây', 'Tờ', 'Kg', 'Mét', 'Tháng', 'Bản'].map(u => <option key={u} value={u} />)}
+                </datalist>
                 <div className="border border-slate-200 rounded-lg overflow-hidden">
                   <table className="w-full text-left text-xs text-slate-600">
                     <thead className="bg-slate-50 text-slate-500 font-semibold uppercase">
                       <tr>
                         <th className="px-3 py-2">Tên vật tư / dịch vụ</th>
                         <th className="px-3 py-2 text-center w-14">SL</th>
+                        <th className="px-3 py-2 text-center w-16">ĐVT</th>
                         <th className="px-3 py-2 text-right w-24">Đơn giá</th>
                         <th className="px-3 py-2 text-center w-14">VAT</th>
                         <th className="px-3 py-2 text-right w-24">Thành tiền</th>
@@ -1538,22 +1546,35 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                         if (canEditItems && editName?.ma_hang === v.ma_hang) {
                           return (
                             <tr key={i} className="bg-blue-50/40">
-                              <td colSpan={6} className="px-3 py-2.5">
+                              <td colSpan={7} className="px-3 py-2.5">
                                 <div className="flex flex-col gap-2">
-                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                    <Input
-                                      value={editName.ten}
-                                      onChange={e => setEditName({ ...editName, ten: e.target.value })}
-                                      placeholder="Tên hàng trên hóa đơn"
-                                      className="h-9 bg-white text-xs sm:col-span-2"
-                                    />
-                                    <Input
-                                      value={editName.gia}
-                                      onChange={e => setEditName({ ...editName, gia: e.target.value })}
-                                      placeholder="Đơn giá"
-                                      inputMode="numeric"
-                                      className="h-9 bg-white text-xs text-right"
-                                    />
+                                  <Input
+                                    value={editName.ten}
+                                    onChange={e => setEditName({ ...editName, ten: e.target.value })}
+                                    placeholder="Tên hàng trên hóa đơn"
+                                    className="h-9 bg-white text-xs"
+                                  />
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <label className="flex flex-col gap-1">
+                                      <span className="text-[10px] text-slate-400">Đơn giá</span>
+                                      <Input
+                                        value={editName.gia}
+                                        onChange={e => setEditName({ ...editName, gia: e.target.value })}
+                                        placeholder="Đơn giá"
+                                        inputMode="numeric"
+                                        className="h-9 bg-white text-xs text-right"
+                                      />
+                                    </label>
+                                    <label className="flex flex-col gap-1">
+                                      <span className="text-[10px] text-slate-400">ĐVT (trống = Cái)</span>
+                                      <Input
+                                        value={editName.dvt}
+                                        onChange={e => setEditName({ ...editName, dvt: e.target.value })}
+                                        placeholder="Cái"
+                                        list="dvt-suggest"
+                                        className="h-9 bg-white text-xs"
+                                      />
+                                    </label>
                                   </div>
                                   <div className="flex flex-wrap gap-2 items-center">
                                     <Button size="sm" onClick={() => saveName('hoa_don')} disabled={savingName} className="h-8 text-xs bg-blue-600 hover:bg-blue-700">Chỉ hóa đơn này</Button>
@@ -1582,8 +1603,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                                 <span>{v.ten_hang}</span>
                                 {canEditItems && (
                                   <button
-                                    onClick={() => setEditName({ ma_hang: v.ma_hang, ten: v.ten_hang, gia: v.don_gia ? String(v.don_gia) : '' })}
-                                    title="Đổi tên / đơn giá hiển thị trên hóa đơn"
+                                    onClick={() => setEditName({ ma_hang: v.ma_hang, ten: v.ten_hang, gia: v.don_gia ? String(v.don_gia) : '', dvt: v.dvt || '' })}
+                                    title="Đổi tên / đơn giá / ĐVT hiển thị trên hóa đơn"
                                     className="text-slate-300 hover:text-blue-600 shrink-0"
                                   >
                                     <Pencil className="w-3.5 h-3.5" />
@@ -1592,6 +1613,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                               </div>
                             </td>
                             <td className="px-3 py-2.5 text-center">{v.so_luong}</td>
+                            <td className="px-3 py-2.5 text-center text-slate-500">{v.dvt || 'Cái'}</td>
                             <td className="px-3 py-2.5 text-right font-mono">{fmtVnd(v.don_gia)}</td>
                             <td className="px-3 py-2.5 text-center font-mono">{v.vat}%</td>
                             <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-800">{fmtVnd(tt)}</td>

@@ -1152,3 +1152,10 @@ RETURNS void LANGUAGE sql AS $$
   WHERE id = ANY(p_ids)
     AND trang_thai_hd = 'Đang xử lý HĐ';
 $$;
+
+
+-- ============================================================================
+-- MIGRATION 61: dvt_ten_hang_rieng (ĐVT trong mẫu tên/giá theo khách)
+-- ============================================================================
+
+ALTER TABLE public.soct_ten_hang_rieng ADD COLUMN IF NOT EXISTS don_vi_tinh TEXT;
