@@ -788,13 +788,14 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer())
       const ws = wb.worksheets[0]
       const cell = (v: any) => (v && typeof v === 'object' && 'result' in v) ? v.result : v
-      const items: { ma_hang: string; ten_hang: string; don_gia: any }[] = []
+      const items: { ma_hang: string; ten_hang: string; don_gia: any; thu_tu: number }[] = []
       ws.eachRow({ includeEmpty: false }, (row: any, idx: number) => {
         if (idx === 1) return // bỏ dòng tiêu đề
         const vals = row.values as any[]
         const ma = String(cell(vals[1]) ?? '').trim()
         if (!ma) return
-        items.push({ ma_hang: ma, ten_hang: String(cell(vals[2]) ?? ''), don_gia: cell(vals[4]) })
+        // thu_tu = VỊ TRÍ DÒNG trong Excel -> nhập lại thì thứ tự hiển thị/đẩy Kanban đi theo Excel.
+        items.push({ ma_hang: ma, ten_hang: String(cell(vals[2]) ?? ''), don_gia: cell(vals[4]), thu_tu: items.length })
       })
       if (items.length === 0) { showNotification('error', 'File không có dòng hợp lệ.'); return }
       const res = await fetch('/api/admin/ten-hang-rieng', {

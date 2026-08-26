@@ -11,9 +11,10 @@ export const runtime = 'nodejs'
 //  - 'khach'   : lưu MẪU theo khách (soct_ten_hang_rieng: ten_hang và/hoặc don_gia). KHÔNG tự áp.
 //  - 'ap_khach': áp MẪU của khách vào các dòng phiếu (bấm nút -> buộc rà soát, không tự điền ngầm).
 
-// Áp {ma_hang -> {ten?, gia?}} vào dòng vật tư của ticketIds. ten: chuỗi (rỗng = trả tên kho) |
-// undefined (giữ nguyên). gia: số | undefined (giữ nguyên). Ghi cả thanh_tien = don_gia * so_luong.
-async function applyToLines(ticketIds: string[], byMa: Map<string, { ten?: string; gia?: number }>) {
+// Áp {ma_hang -> {ten?, gia?, thu_tu?}} vào dòng vật tư của ticketIds. ten: chuỗi (rỗng = trả tên
+// kho) | undefined (giữ nguyên). gia: số | undefined (giữ nguyên). thu_tu: số (thứ tự dòng theo
+// Excel) | undefined (giữ nguyên). Ghi cả thanh_tien = don_gia * so_luong.
+async function applyToLines(ticketIds: string[], byMa: Map<string, { ten?: string; gia?: number; thu_tu?: number }>) {
   if (byMa.size === 0) return
   const { data: lines, error } = await supabaseAdmin
     .from('soct_chi_tiet_vat_tu').select('id, ma_hang, so_luong').in('id_cong_viec', ticketIds)
@@ -24,6 +25,7 @@ async function applyToLines(ticketIds: string[], byMa: Map<string, { ten?: strin
     const patch: any = {}
     if (u.ten !== undefined) patch.ten_hang_hd = String(u.ten).trim() || null
     if (u.gia !== undefined && Number.isFinite(u.gia)) { patch.don_gia = u.gia; patch.thanh_tien = u.gia * (Number(l.so_luong) || 0) }
+    if (u.thu_tu !== undefined && Number.isFinite(u.thu_tu)) patch.thu_tu = u.thu_tu
     if (Object.keys(patch).length) {
       const { error: e2 } = await supabaseAdmin.from('soct_chi_tiet_vat_tu').update(patch).eq('id', l.id)
       if (e2) throw e2
@@ -68,13 +70,15 @@ export async function PUT(request: Request) {
       // Chấp nhận 1 mục (ma_hang + ten_hang?/don_gia?) hoặc mảng items (nhập Excel).
       const items = Array.isArray(body.items) ? body.items
         : [{ ma_hang: body.ma_hang, ten_hang: body.ten_hang, don_gia: body.don_gia }]
-      const byMa = new Map<string, { ten?: string; gia?: number }>()
+      const byMa = new Map<string, { ten?: string; gia?: number; thu_tu?: number }>()
       for (const it of items) {
         const ma = String(it.ma_hang || '').trim()
         if (!ma) continue
+        const tt = Number(it.thu_tu)
         byMa.set(ma, {
           ten: it.ten_hang !== undefined ? String(it.ten_hang) : undefined,
           gia: parseGia(it.don_gia),
+          thu_tu: it.thu_tu !== undefined && Number.isFinite(tt) ? tt : undefined, // vị trí dòng Excel -> thứ tự
         })
       }
       if (byMa.size === 0) return NextResponse.json({ error: 'Không có mã hàng hợp lệ' }, { status: 400 })
@@ -107,7 +111,7 @@ export async function PUT(request: Request) {
       if (lockMsg) return NextResponse.json({ error: lockMsg }, { status: 409 })
       const { data: tpl } = await supabaseAdmin.from('soct_ten_hang_rieng')
         .select('ma_hang, ten_hang, don_gia').eq('scope_key', scope_key)
-      const byMa = new Map<string, { ten?: string; gia?: number }>()
+      const byMa = new Map<string, { ten?: string; gia?: number; thu_tu?: number }>()
       for (const t of (tpl || []) as any[]) {
         byMa.set(t.ma_hang, {
           ten: t.ten_hang != null ? String(t.ten_hang) : undefined,
