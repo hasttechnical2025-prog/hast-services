@@ -1447,12 +1447,12 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
 
                 <div className="space-y-1">
                   <div className="text-[10px] font-bold text-slate-400 uppercase">Địa chỉ xuất hóa đơn</div>
-                  <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
-                    {modalDiaChi || '—'}
+                  <div className="text-sm font-normal text-slate-800 flex items-start gap-1.5">
+                    <span className="min-w-0 break-words">{modalDiaChi || '—'}</span>
                     {modalDiaChi && (
                       <button
                         onClick={() => handleCopy(modalDiaChi, 'dia_chi')}
-                        className={`p-1 bg-white hover:bg-slate-100 border border-slate-200 rounded text-slate-500 transition ${copiedKey === 'dia_chi' ? 'text-emerald-600 border-emerald-200' : ''}`}
+                        className={`shrink-0 p-1 bg-white hover:bg-slate-100 border border-slate-200 rounded text-slate-500 transition ${copiedKey === 'dia_chi' ? 'text-emerald-600 border-emerald-200' : ''}`}
                         title="Copy Địa chỉ"
                       >
                         <Copy className="w-3.5 h-3.5" />
@@ -1463,13 +1463,18 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
 
                 <div className="space-y-1">
                   <div className="text-[10px] font-bold text-slate-400 uppercase">Email nhận hóa đơn</div>
-                  <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
-                    {modalEmail || <span className="text-slate-400 italic">Chưa khai báo Email</span>}
+                  <div className="text-sm font-normal text-slate-800 flex items-start gap-1.5">
+                    {/* Nhiều email M-invoice phân cách bằng ';' -> tách mỗi email 1 dòng cho dễ đọc, chống tràn lề. */}
+                    <div className="min-w-0 break-all leading-snug">
+                      {modalEmail
+                        ? modalEmail.split(';').map((e: string) => e.trim()).filter(Boolean).map((e: string, i: number) => <div key={i}>{e}</div>)
+                        : <span className="text-slate-400 italic">Chưa khai báo Email</span>}
+                    </div>
                     {modalEmail && (
                       <button
                         onClick={() => handleCopy(modalEmail, 'email_kt')}
-                        className={`p-1 bg-white hover:bg-slate-100 border border-slate-200 rounded text-slate-500 transition ${copiedKey === 'email_kt' ? 'text-emerald-600 border-emerald-200' : ''}`}
-                        title="Copy Email nhận HĐ"
+                        className={`shrink-0 p-1 bg-white hover:bg-slate-100 border border-slate-200 rounded text-slate-500 transition ${copiedKey === 'email_kt' ? 'text-emerald-600 border-emerald-200' : ''}`}
+                        title="Copy Email nhận HĐ (đầy đủ, có dấu ;)"
                       >
                         <Copy className="w-3.5 h-3.5" />
                       </button>
