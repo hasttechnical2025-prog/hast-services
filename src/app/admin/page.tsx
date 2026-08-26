@@ -5669,6 +5669,8 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
 
   // Gom phiếu theo KHÁCH CỤM khi điểm máy đã gán cụm (ma_khach_cum); còn lại gom theo
   // điểm máy (mỗi máy lẻ = 1 khách) như cũ. => chưa gán vẫn chạy y hệt trước đây.
+  // So sánh theo SỐ PHIẾU (report), nhận biết số (957075 < 958026) để đối soát dễ.
+  const byReport = (a: any, b: any) => String(a.report || '').localeCompare(String(b.report || ''), undefined, { numeric: true })
   const custs = Array.from(list.reduce((m: Map<string, any>, t: any) => {
     const kh = t.soct_khach_hang
     const cum = kh?.soct_khach_cum
@@ -5683,6 +5685,8 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
     m.get(k).tickets.push(t)
     return m
   }, new Map<string, any>()).values())
+    // Sắp phiếu TĂNG DẦN theo số phiếu trong từng cụm -> hiển thị + bảng đối soát đều theo thứ tự.
+    .map((c: any) => ({ ...c, tickets: [...c.tickets].sort(byReport) }))
   const selCusts = custs.filter(c => selIds.includes(c.id))
   const selTickets = selCusts.flatMap(c => c.tickets)
 
