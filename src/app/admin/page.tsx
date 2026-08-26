@@ -5656,9 +5656,9 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
   const [khDiaChi, setKhDiaChi] = useState('')
   const [khSearch, setKhSearch] = useState('')
   const [working, setWorking] = useState(false)
-  // Tách hóa đơn: modal chọn dòng LÊN HĐ (tick), dòng không tick tự tách sang phiếu con ở lại Công nợ.
+  // Tách hóa đơn: modal nhập SL LÊN HĐ từng dòng; phần dư (SL - keep) tách sang phiếu con ở lại Công nợ.
   const [splitOpen, setSplitOpen] = useState(false)
-  const [splitChecked, setSplitChecked] = useState<Record<string, boolean>>({})
+  const [splitQty, setSplitQty] = useState<Record<string, number>>({}) // line_id -> SL giữ ở gốc (lên HĐ)
 
 
   const fetchList = async () => {
@@ -5738,29 +5738,30 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setWorking(false) }
   }
 
-  // Phiếu của khách đang chọn CÓ THỂ TÁCH = có ≥2 dòng vật tư còn hiệu lực (chưa trả kho).
+  // Phiếu CÓ THỂ TÁCH = có dòng còn hiệu lực (chưa trả kho) và xẻ được: ≥2 dòng, HOẶC 1 dòng SL≥2.
   const splitTickets = selTickets
     .map((t: any) => ({ t, lines: (t.soct_chi_tiet_vat_tu || []).filter((v: any) => !v.da_tra) }))
-    .filter((x: any) => x.lines.length >= 2)
+    .filter((x: any) => x.lines.length >= 1 && (x.lines.length >= 2 || x.lines.some((l: any) => (Number(l.so_luong) || 0) >= 2)))
     .sort((a: any, b: any) => byReport(a.t, b.t))
   const openSplit = () => {
-    const init: Record<string, boolean> = {}
-    for (const { lines } of splitTickets) for (const l of lines) init[l.id] = true // mặc định: mọi dòng LÊN HĐ
-    setSplitChecked(init); setSplitOpen(true)
+    const init: Record<string, number> = {}
+    for (const { lines } of splitTickets) for (const l of lines) init[l.id] = Number(l.so_luong) || 0 // mặc định: giữ HẾT lên HĐ
+    setSplitQty(init); setSplitOpen(true)
   }
-  // Tách: với mỗi phiếu có dòng bị BỎ TICK (không lên HĐ) mà vẫn còn ≥1 dòng tick -> gọi endpoint.
+  // Tách: mỗi phiếu có phần dư (Σ giữ < Σ tổng) mà vẫn giữ ≥1 (SL) -> gọi endpoint theo keep_qty từng dòng.
   const doSplit = async () => {
     const jobs = splitTickets.map(({ t, lines }: any) => {
-      const keep = lines.filter((l: any) => splitChecked[l.id]).map((l: any) => l.id)
-      const drop = lines.filter((l: any) => !splitChecked[l.id])
-      return { id: t.id, report: t.report, keep, dropCount: drop.length }
-    }).filter((j: any) => j.dropCount > 0 && j.keep.length > 0)
-    if (jobs.length === 0) return showNotification('error', 'Chưa có phiếu nào cần tách (bỏ tick dòng muốn để lại Công nợ, và giữ ≥1 dòng lên HĐ).')
+      const linesReq = lines.map((l: any) => ({ line_id: l.id, keep_qty: Math.max(0, Math.min(Number(l.so_luong) || 0, splitQty[l.id] ?? (Number(l.so_luong) || 0))) }))
+      const totalAll = lines.reduce((s: number, l: any) => s + (Number(l.so_luong) || 0), 0)
+      const keptAll = linesReq.reduce((s: number, x: any) => s + x.keep_qty, 0)
+      return { id: t.id, report: t.report, lines: linesReq, moved: totalAll - keptAll, kept: keptAll }
+    }).filter((j: any) => j.moved > 0 && j.kept > 0)
+    if (jobs.length === 0) return showNotification('error', 'Chưa có phiếu nào cần tách (giảm SL lên HĐ ở dòng muốn để lại, và giữ ≥1 để lên HĐ).')
     setWorking(true)
     try {
       let ok = 0
       for (const j of jobs) {
-        const res = await fetch('/api/admin/cong-viec/tach-hoa-don', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_goc: j.id, keep_line_ids: j.keep }) })
+        const res = await fetch('/api/admin/cong-viec/tach-hoa-don', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_goc: j.id, lines: j.lines }) })
         if (res.ok) ok++
         else { const e = await res.json(); showNotification('error', `Phiếu ${j.report}: ${e.error || 'lỗi tách'}`) }
       }
@@ -5869,27 +5870,36 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
             </div>
             <div className="p-4 overflow-y-auto space-y-4">
               <p className="text-xs text-slate-500 bg-blue-50 border border-blue-100 rounded px-3 py-2">
-                <b>Tick</b> các dòng khách <b>đồng ý lên hóa đơn</b> (giữ ở phiếu gốc). Dòng <b>bỏ tick</b> sẽ được <b>tách sang phiếu con</b> (số phiếu <b>-N</b>), giữ nguyên ở Công nợ để lên HĐ kỳ sau. Chỉ hiện phiếu có ≥2 dòng.
+                Nhập <b>SL lên HĐ</b> cho từng dòng (mặc định = đủ SL → lên hết). Phần <b>dư</b> (SL − lên HĐ) sẽ <b>tách sang phiếu con</b> (số phiếu <b>-N</b>), ở lại Công nợ để lên HĐ kỳ sau. Đặt <b>0</b> = tách cả dòng.
               </p>
               {splitTickets.map(({ t, lines }: any) => {
-                const keepN = lines.filter((l: any) => splitChecked[l.id]).length
-                const dropN = lines.length - keepN
+                const totalAll = lines.reduce((s: number, l: any) => s + (Number(l.so_luong) || 0), 0)
+                const keptAll = lines.reduce((s: number, l: any) => s + Math.max(0, Math.min(Number(l.so_luong) || 0, splitQty[l.id] ?? (Number(l.so_luong) || 0))), 0)
+                const movedAll = totalAll - keptAll
                 return (
                   <div key={t.id} className="border border-slate-200 rounded-lg overflow-hidden">
                     <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
                       <span className="text-sm font-semibold text-slate-700">Phiếu {t.report}</span>
-                      <span className="text-[11px] text-slate-500">{keepN} lên HĐ · {dropN > 0 ? <span className="text-amber-700 font-semibold">{dropN} tách ra</span> : 'không tách'}</span>
+                      <span className="text-[11px] text-slate-500">Lên HĐ: SL {keptAll} · {movedAll > 0 ? <span className="text-amber-700 font-semibold">tách SL {movedAll}</span> : 'không tách'}</span>
                     </div>
                     <div className="divide-y divide-slate-50">
                       {lines.map((l: any) => {
                         const ten = l.ten_hang_hd || l.soct_kho_hang?.ten_hang || l.ma_hang
-                        const tt = (Number(l.don_gia) || 0) * (Number(l.so_luong) || 0)
+                        const total = Number(l.so_luong) || 0
+                        const keep = Math.max(0, Math.min(total, splitQty[l.id] ?? total))
+                        const move = total - keep
                         return (
-                          <label key={l.id} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">
-                            <input type="checkbox" checked={!!splitChecked[l.id]} onChange={e => setSplitChecked(prev => ({ ...prev, [l.id]: e.target.checked }))} className="w-4 h-4 accent-blue-600 shrink-0" />
-                            <span className="flex-1 min-w-0 truncate text-slate-700">{ten}</span>
-                            <span className="text-xs text-slate-400 shrink-0">SL {l.so_luong} · {fmtN(tt)} đ</span>
-                          </label>
+                          <div key={l.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+                            <span className="flex-1 min-w-0 truncate text-slate-700" title={ten}>{ten}</span>
+                            <span className="text-xs text-slate-400 shrink-0">SL {total}</span>
+                            <label className="flex items-center gap-1 shrink-0">
+                              <span className="text-[11px] text-slate-500">lên HĐ</span>
+                              <input type="number" min={0} max={total} value={keep}
+                                onChange={e => { const n = Math.max(0, Math.min(total, Math.floor(Number(e.target.value) || 0))); setSplitQty(prev => ({ ...prev, [l.id]: n })) }}
+                                className="w-16 h-8 px-2 rounded border border-slate-200 text-sm text-right bg-white" />
+                            </label>
+                            <span className={`text-[11px] shrink-0 w-20 text-right ${move > 0 ? 'text-amber-700 font-semibold' : 'text-slate-300'}`}>{move > 0 ? `tách ${move}` : '—'}</span>
+                          </div>
                         )
                       })}
                     </div>
