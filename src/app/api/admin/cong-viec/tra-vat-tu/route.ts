@@ -31,13 +31,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ data: line, message: 'Không đổi' })
     }
 
-    // Điều chỉnh tồn kho: trả -> cộng lại; hủy trả -> trừ lại
-    const delta = want ? Number(line.so_luong) : -Number(line.so_luong)
-    const { data: kho } = await supabaseAdmin.from('soct_kho_hang').select('ton_kho').eq('ma_hang', line.ma_hang).single()
-    if (kho) {
-      await supabaseAdmin.from('soct_kho_hang').update({ ton_kho: (Number(kho.ton_kho) || 0) + delta }).eq('ma_hang', line.ma_hang)
-    }
-
+    // Tồn kho tự điều chỉnh qua TRIGGER (mig 62): đổi da_tra -> trigger cộng/trừ kho.
+    // KHÔNG chỉnh ton_kho tay ở đây nữa (sẽ trừ/hoàn ĐÚP với trigger).
     const { data, error } = await supabaseAdmin
       .from('soct_chi_tiet_vat_tu')
       .update({ da_tra: want, ngay_tra: want ? new Date().toISOString().split('T')[0] : null })

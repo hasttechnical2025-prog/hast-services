@@ -1159,3 +1159,67 @@ $$;
 -- ============================================================================
 
 ALTER TABLE public.soct_ten_hang_rieng ADD COLUMN IF NOT EXISTS don_vi_tinh TEXT;
+
+
+-- ============================================================================
+-- MIGRATION 62: kho_reactive (đồng bộ tồn kho phản ứng ở tầng DB)
+-- ============================================================================
+-- (Nội dung đầy đủ ở migrations/supabase_migration_62_kho_reactive.sql — dán cả file vào đây khi chạy DB mới)
+DROP TRIGGER IF EXISTS soct_tr_handle_hoan_thanh_cong_viec ON public.soct_cong_viec;
+DROP FUNCTION IF EXISTS public.soct_fn_handle_hoan_thanh_cong_viec();
+CREATE OR REPLACE FUNCTION public.soct_kho_apply(p_ma_hang text, p_delta numeric)
+RETURNS void AS $$
+BEGIN
+  IF p_ma_hang IS NULL OR COALESCE(p_delta,0) = 0 THEN RETURN; END IF;
+  UPDATE public.soct_kho_hang SET ton_kho = COALESCE(ton_kho,0) - p_delta WHERE ma_hang = p_ma_hang;
+END; $$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION public.soct_phieu_consumes(p_id uuid)
+RETURNS boolean AS $$
+DECLARE v_ket text; v_nguon text;
+BEGIN
+  SELECT ket_qua, nguon INTO v_ket, v_nguon FROM public.soct_cong_viec WHERE id = p_id;
+  RETURN v_ket = 'Hoàn thành' AND COALESCE(v_nguon,'') <> 'thue_cpc';
+END; $$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION public.soct_fn_vattu_kho()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (TG_OP = 'DELETE' OR TG_OP = 'UPDATE') THEN
+    IF NOT COALESCE(OLD.da_tra,false) AND public.soct_phieu_consumes(OLD.id_cong_viec) THEN
+      PERFORM public.soct_kho_apply(OLD.ma_hang, -COALESCE(OLD.so_luong,0)); -- hoàn lại tiêu thụ cũ
+    END IF;
+  END IF;
+  IF (TG_OP = 'INSERT' OR TG_OP = 'UPDATE') THEN
+    IF NOT COALESCE(NEW.da_tra,false) AND public.soct_phieu_consumes(NEW.id_cong_viec) THEN
+      PERFORM public.soct_kho_apply(NEW.ma_hang, COALESCE(NEW.so_luong,0)); -- áp tiêu thụ mới
+    END IF;
+  END IF;
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END; $$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS soct_tr_vattu_kho ON public.soct_chi_tiet_vat_tu;
+CREATE TRIGGER soct_tr_vattu_kho
+AFTER INSERT OR UPDATE OR DELETE ON public.soct_chi_tiet_vat_tu
+FOR EACH ROW EXECUTE FUNCTION public.soct_fn_vattu_kho();
+CREATE OR REPLACE FUNCTION public.soct_fn_phieu_kho()
+RETURNS TRIGGER AS $$
+DECLARE was boolean; now_ boolean; r RECORD;
+BEGIN
+  was  := (OLD.ket_qua = 'Hoàn thành' AND COALESCE(OLD.nguon,'') <> 'thue_cpc');
+  now_ := (NEW.ket_qua = 'Hoàn thành' AND COALESCE(NEW.nguon,'') <> 'thue_cpc');
+  IF was = now_ THEN RETURN NEW; END IF;
+  FOR r IN
+    SELECT ma_hang, so_luong FROM public.soct_chi_tiet_vat_tu
+    WHERE id_cong_viec = NEW.id AND NOT COALESCE(da_tra,false)
+  LOOP
+    IF now_ THEN
+      PERFORM public.soct_kho_apply(r.ma_hang, COALESCE(r.so_luong,0));   -- bật tiêu thụ -> trừ kho
+    ELSE
+      PERFORM public.soct_kho_apply(r.ma_hang, -COALESCE(r.so_luong,0));  -- tắt tiêu thụ -> hoàn kho
+    END IF;
+  END LOOP;
+  RETURN NEW;
+END; $$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS soct_tr_phieu_kho ON public.soct_cong_viec;
+CREATE TRIGGER soct_tr_phieu_kho
+AFTER UPDATE OF ket_qua, nguon ON public.soct_cong_viec
+FOR EACH ROW EXECUTE FUNCTION public.soct_fn_phieu_kho();

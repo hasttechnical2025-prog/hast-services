@@ -353,7 +353,12 @@ export async function POST(request: Request) {
           .from('soct_chi_tiet_vat_tu')
           .insert(vatTuInserts)
 
-        if (vtError) console.error("Lỗi thêm vật tư:", vtError)
+        if (vtError) {
+          // Không để phiếu MỒ CÔI (không vật tư) mà vẫn báo thành công: xóa phiếu vừa tạo + báo lỗi.
+          console.error("Lỗi thêm vật tư:", vtError)
+          await supabaseAdmin.from('soct_cong_viec').delete().eq('id', data.id)
+          return NextResponse.json({ error: 'Lỗi lưu vật tư — đã hủy tạo phiếu, vui lòng thử lại.' }, { status: 500 })
+        }
       }
     }
 
@@ -479,7 +484,10 @@ export async function PUT(request: Request) {
             return { id_cong_viec: id, ma_hang: v.ma_hang, so_luong: sl, don_gia: dg, vat: parseFloat(v.vat) || 0, thanh_tien: dg * sl, hoa_don: !!v.hoa_don, thu_tu: idx } // thu_tu = thứ tự form khi sửa
           })
           const { error: vtErr } = await supabaseAdmin.from('soct_chi_tiet_vat_tu').insert(inserts)
-          if (vtErr) console.error('Lỗi cập nhật vật tư:', vtErr)
+          if (vtErr) {
+            console.error('Lỗi cập nhật vật tư:', vtErr)
+            return NextResponse.json({ error: 'Lỗi lưu vật tư khi sửa phiếu — vui lòng kiểm tra lại danh sách vật tư và lưu lại.' }, { status: 500 })
+          }
         }
       }
 
