@@ -5738,8 +5738,12 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setWorking(false) }
   }
 
+  // CHỈ xét phiếu CÒN TRONG BẢNG đối soát (đã trừ các phiếu bị "Xóa cả phiếu") — khớp với
+  // hành vi Đẩy Kanban. Không lấy toàn bộ phiếu của khách.
+  const rowSrcIds = new Set<string>(rows.flatMap((r: any) => r.srcIds || []))
   // Phiếu CÓ THỂ TÁCH = có dòng còn hiệu lực (chưa trả kho) và xẻ được: ≥2 dòng, HOẶC 1 dòng SL≥2.
   const splitTickets = selTickets
+    .filter((t: any) => rowSrcIds.has(t.id))
     .map((t: any) => ({ t, lines: (t.soct_chi_tiet_vat_tu || []).filter((v: any) => !v.da_tra) }))
     .filter((x: any) => x.lines.length >= 1 && (x.lines.length >= 2 || x.lines.some((l: any) => (Number(l.so_luong) || 0) >= 2)))
     .sort((a: any, b: any) => byReport(a.t, b.t))
