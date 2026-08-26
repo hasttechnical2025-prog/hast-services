@@ -6598,6 +6598,8 @@ function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { custom
   const mayResults = q
     ? unassigned.filter(c => `${c.ten_khach_hang || ''} ${c.ma_may || ''} ${c.model || ''}`.toLowerCase().includes(q)).slice(0, 50)
     : []
+  // Cảnh báo trùng mã cụm NGAY khi gõ (mã cụm là PK, không tạo trùng được).
+  const dupCluster = newMa.trim() ? clusters.find(c => c.ma_khach_hang === newMa.trim()) : null
 
   const call = async (method: string, body?: any, qs = '') => {
     setWorking(true)
@@ -6612,6 +6614,7 @@ function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { custom
   const addCluster = async () => {
     const ma = newMa.trim(), ten = newTen.trim()
     if (!ma || !ten) return showNotification('error', 'Nhập mã và tên khách hàng')
+    if (dupCluster) return showNotification('error', `Mã ${ma} đã dùng cho cụm: ${dupCluster.ten_khach_hang}`)
     if (await call('POST', { ma_khach_hang: ma, ten_khach_hang: ten, dia_chi: newDc.trim(), ma_so_thue: newMst.trim(), email_ke_toan: newEmail.trim() })) {
       showNotification('success', 'Đã tạo cụm.'); setNewMa(''); setNewTen(''); setNewDc(''); setNewMst(''); setNewEmail(''); setSelMa(ma); await fetchClusters()
     }
@@ -6658,15 +6661,18 @@ function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { custom
           <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Tạo cụm mới</p>
             <div className="flex gap-2">
-              <Input placeholder="Mã KH (số)" className="bg-white w-32 shrink-0" value={newMa} onChange={e => setNewMa(e.target.value)} />
+              <Input placeholder="Mã KH (số)" className={`bg-white w-32 shrink-0 ${dupCluster ? 'border-amber-400 focus:ring-amber-400' : ''}`} value={newMa} onChange={e => setNewMa(e.target.value)} />
               <Input placeholder="Tên khách hàng" className="bg-white" value={newTen} onChange={e => setNewTen(e.target.value)} />
             </div>
+            {dupCluster && (
+              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">⚠ Mã <b>{dupCluster.ma_khach_hang}</b> đã dùng cho cụm: <b>{dupCluster.ten_khach_hang}</b>. Chọn mã khác.</p>
+            )}
             <Input placeholder="Địa chỉ (xuất hóa đơn)" className="bg-white" value={newDc} onChange={e => setNewDc(e.target.value)} />
             <div className="grid grid-cols-2 gap-2">
               <Input placeholder="Mã số thuế" className="bg-white" value={newMst} onChange={e => setNewMst(e.target.value)} />
               <Input placeholder="Email kế toán" className="bg-white" value={newEmail} onChange={e => setNewEmail(e.target.value)} />
             </div>
-            <Button onClick={addCluster} disabled={working} className="gap-1 w-full"><Plus className="w-4 h-4" /> Tạo cụm</Button>
+            <Button onClick={addCluster} disabled={working || !!dupCluster} className="gap-1 w-full"><Plus className="w-4 h-4" /> Tạo cụm</Button>
           </div>
 
           <div className="relative">
