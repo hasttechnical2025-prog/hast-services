@@ -4980,13 +4980,14 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
 
               <div className="border border-slate-100 rounded-md overflow-hidden">
                 <table className="w-full text-left text-xs text-slate-600">
-                  <thead className="bg-slate-50 text-slate-500"><tr><th className="px-3 py-2 font-medium">Mã hàng</th><th className="px-3 py-2 font-medium text-center">Đặt</th><th className="px-3 py-2 font-medium text-center">Đã nhận</th><th className="px-3 py-2 font-medium text-center">Còn thiếu</th><th className="px-3 py-2 font-medium">Đợt hàng về</th><th className="px-3 py-2">Thao tác</th></tr></thead>
+                  <thead className="bg-slate-50 text-slate-500"><tr><th className="px-3 py-2 font-medium">Mã hàng</th><th className="px-3 py-2 font-medium">Model</th><th className="px-3 py-2 font-medium text-center">Đặt</th><th className="px-3 py-2 font-medium text-center">Đã nhận</th><th className="px-3 py-2 font-medium text-center">Còn thiếu</th><th className="px-3 py-2 font-medium">Đợt hàng về</th><th className="px-3 py-2">Thao tác</th></tr></thead>
                   <tbody className="divide-y divide-slate-100">
                     {(o.soct_dat_hang_ct || []).map((line: any) => {
                       const nhan = daNhan(line); const thieu = line.sl_dat - nhan
                       return (
                         <tr key={line.id} className={line.hoan_thanh ? 'bg-emerald-50/40' : ''}>
                           <td className="px-3 py-2"><span className="font-mono font-medium text-slate-700">{line.ma_hang}</span> <span className="text-slate-500">{line.soct_kho_hang?.ten_hang || ''}</span></td>
+                          <td className="px-3 py-2 text-slate-500">{line.soct_kho_hang?.model || '—'}</td>
                           <td className="px-3 py-2 text-center">{line.sl_dat}</td>
                           <td className="px-3 py-2 text-center font-medium text-emerald-600">{nhan}</td>
                           <td className={`px-3 py-2 text-center font-medium ${thieu > 0 ? 'text-amber-600' : 'text-slate-400'}`}>{thieu > 0 ? thieu : '—'}</td>
