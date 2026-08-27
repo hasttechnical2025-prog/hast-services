@@ -406,7 +406,7 @@ function CounterTab({ showNotification, thang, setThang, onSaved, refreshVer = 0
   const [savingId, setSavingId] = useState<string | null>(null)
   const [exportingId, setExportingId] = useState<string | null>(null)
   const [pushingId, setPushingId] = useState<string | null>(null)      // đang đẩy Kanban
-  const [pushedMaMay, setPushedMaMay] = useState<Set<string>>(new Set()) // máy đã có phiếu trên Kanban (kỳ này)
+  const [bkByMaMay, setBkByMaMay] = useState<Record<string, any>>({})   // bảng kê RIÊNG của kỳ theo mã máy (suy trạng thái kỳ)
   const [pending, setPending] = useState(false)                         // có cập nhật từ máy khác -> banner
   const lastActionRef = useRef(0)                                       // mốc thao tác của CHÍNH máy này (để bỏ qua echo broadcast)
   const [search, setSearch] = useState('')
@@ -416,6 +416,20 @@ function CounterTab({ showNotification, thang, setThang, onSaved, refreshVer = 0
 
   // Máy thuộc KỸ THUẬT = NV kinh doanh = "Kỹ thuật" HOẶC để trống.
   const laKyThuat = (r: any) => { const nv = String(r.nv_kinh_doanh || '').trim(); return nv === '' || nv === 'Kỹ thuật' }
+  // TRẠNG THÁI KỲ của 1 máy (chân lý an toàn cho kthc + user theo dõi): suy từ counter + bảng kê + phiếu.
+  const kyStatus = (r: any): { key: string, label: string, cls: string } => {
+    if (r.id_hop_dong_khung) return { key: 'khung', label: 'HĐ khung', cls: 'bg-violet-50 text-violet-700 border-violet-200' }
+    const hasCounter = r.so_bw != null || r.so_mau != null
+    const bk = bkByMaMay[r.ma_may]
+    if (!bk) return hasCounter
+      ? { key: 'da_chot', label: 'Đã chốt số', cls: 'bg-blue-50 text-blue-700 border-blue-200' }
+      : { key: 'chua_chot', label: 'Chưa chốt', cls: 'bg-slate-50 text-slate-500 border-slate-200' }
+    if (!bk.id_cong_viec) return { key: 'da_lap', label: 'Đã lập BK', cls: 'bg-amber-50 text-amber-700 border-amber-200' }
+    const p = bk.soct_cong_viec
+    if (p?.so_hoa_don || p?.trang_thai_hd === 'Đã lên hóa đơn' || p?.trang_thai_hd === 'Đã thanh toán')
+      return { key: 'da_hd', label: 'Đã lên HĐ', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+    return { key: 'da_day', label: 'Đã đẩy kế toán', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' }
+  }
   // Ước tính tiền kỳ này của 1 máy LẺ (không thuộc HĐ khung) — dùng đúng công thức server (tinhDongMay).
   const uocTinh = (r: any) => {
     if (r.id_hop_dong_khung) return null // máy thuộc HĐ khung -> tính ở bảng kê gộp bên dưới
@@ -440,12 +454,12 @@ function CounterTab({ showNotification, thang, setThang, onSaved, refreshVer = 0
       const e: Record<string, any> = {}
       for (const r of j.data?.rows || []) e[r.id] = { so_bw: r.so_bw ?? '', so_mau: r.so_mau ?? '', ghi_chu: r.ghi_chu ?? '' }
       setEdits(e)
-      // Nạp trạng thái "đã đẩy Kanban": bảng kê rieng của kỳ này ĐÃ có phiếu (id_cong_viec).
+      // Nạp bảng kê RIÊNG của kỳ theo mã máy -> suy trạng thái kỳ (lập BK / đã đẩy / đã lên HĐ).
       try {
         const bk = await fetch(`/api/admin/thue-cpc/bang-ke?thang_nam=${thang}`).then(r => r.json())
-        const pushed = new Set<string>()
-        for (const b of bk.data || []) if (b.loai === 'rieng' && b.id_cong_viec && b.soct_khach_hang?.ma_may) pushed.add(b.soct_khach_hang.ma_may)
-        setPushedMaMay(pushed)
+        const m: Record<string, any> = {}
+        for (const b of bk.data || []) if (b.loai === 'rieng' && b.soct_khach_hang?.ma_may) m[b.soct_khach_hang.ma_may] = b
+        setBkByMaMay(m)
       } catch { /* không chặn nếu lỗi */ }
       setPending(false)
     } catch { showNotification('error', 'Không tải được counter') }
@@ -479,33 +493,31 @@ function CounterTab({ showNotification, thang, setThang, onSaved, refreshVer = 0
     finally { setSavingId(null) }
   }
 
+  // Tải Word KHÔNG phá bảng kê đã đẩy (giữ trạng thái an toàn):
+  //  - Đã đẩy (có phiếu) -> tải ĐÚNG bảng kê đã đẩy (không tạo lại -> không làm mất link, không tạo phiếu trùng).
+  //  - Chưa đẩy -> làm mới bảng kê theo counter hiện tại (xóa+tạo an toàn vì chưa có phiếu) rồi tải.
+  //  - Chưa có -> tạo rồi tải.
   const exportQuick = async (r: any) => {
     setExportingId(r.id)
     lastActionRef.current = Date.now()
     try {
-      // 1. Tìm xem có bảng kê cũ của kỳ này không
       const listRes = await fetch(`/api/admin/thue-cpc/bang-ke?thang_nam=${thang}`).then(res => res.json())
       const existing = (listRes.data || []).find((b: any) => b.loai === 'rieng' && b.soct_khach_hang?.ma_may === r.ma_may)
-
-      // 2. Nếu có, xóa bảng kê cũ trước
-      if (existing) {
-        await fetch(`/api/admin/thue-cpc/bang-ke?id=${existing.id}`, { method: 'DELETE' })
+      let bkId: string
+      if (existing?.id_cong_viec) {
+        bkId = existing.id // ĐÃ ĐẨY -> giữ nguyên, chỉ tải
+      } else {
+        if (existing) await fetch(`/api/admin/thue-cpc/bang-ke?id=${existing.id}`, { method: 'DELETE' }) // chưa đẩy -> làm mới
+        const createRes = await fetch('/api/admin/thue-cpc/bang-ke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ thang_nam: thang, loai: 'rieng', id_khach_hang: r.id }) })
+        const createData = await createRes.json()
+        if (!createRes.ok) throw new Error(createData.error || 'Lỗi tạo bảng kê')
+        bkId = createData.data.id
+        setBkByMaMay(m => ({ ...m, [r.ma_may]: createData.data })) // cập nhật trạng thái -> "Đã lập BK"
       }
-
-      // 3. Tạo bảng kê mới với counter hiện tại
-      const createRes = await fetch('/api/admin/thue-cpc/bang-ke', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ thang_nam: thang, loai: 'rieng', id_khach_hang: r.id })
-      })
-      const createData = await createRes.json()
-      if (!createRes.ok) throw new Error(createData.error || 'Lỗi tạo bảng kê')
-
-      // 4. Mở link tải file
       const a = document.createElement('a')
-      a.href = `/api/admin/thue-cpc/bang-ke/export?id=${createData.data.id}&chan_trang=0`
+      a.href = `/api/admin/thue-cpc/bang-ke/export?id=${bkId}&chan_trang=0`
       a.click()
-      showNotification('success', `Đã tự động tạo và xuất bảng kê`)
+      showNotification('success', existing?.id_cong_viec ? 'Đã tải bảng kê (bản đã đẩy).' : 'Đã lập & tải bảng kê.')
     } catch (err: any) {
       showNotification('error', err.message || 'Lỗi xuất bảng kê')
     } finally {
@@ -521,20 +533,23 @@ function CounterTab({ showNotification, thang, setThang, onSaved, refreshVer = 0
     try {
       const listRes = await fetch(`/api/admin/thue-cpc/bang-ke?thang_nam=${thang}`).then(res => res.json())
       const existing = (listRes.data || []).find((b: any) => b.loai === 'rieng' && b.soct_khach_hang?.ma_may === r.ma_may)
-      if (existing?.id_cong_viec) {
-        setPushedMaMay(p => new Set(p).add(r.ma_may))
+      if (existing?.id_cong_viec) { // đã đẩy trước đó -> đồng bộ trạng thái, KHÔNG đẩy lại (chống trùng)
+        setBkByMaMay(m => ({ ...m, [r.ma_may]: existing }))
         showNotification('success', `${r.ten_khach_hang} đã đẩy Kanban trước đó`)
         return
       }
-      // Có bảng kê cũ CHƯA đẩy -> xóa để tạo lại theo counter mới nhất
+      // Chưa đẩy: làm mới bảng kê theo counter hiện tại rồi đẩy
+      let bkId = existing?.id
       if (existing) await fetch(`/api/admin/thue-cpc/bang-ke?id=${existing.id}`, { method: 'DELETE' })
       const createRes = await fetch('/api/admin/thue-cpc/bang-ke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ thang_nam: thang, loai: 'rieng', id_khach_hang: r.id }) })
       const createData = await createRes.json()
       if (!createRes.ok) throw new Error(createData.error || 'Lỗi tạo bảng kê')
-      const res = await fetch('/api/admin/thue-cpc/bang-ke/day-kanban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: createData.data.id }) })
+      bkId = createData.data.id
+      const res = await fetch('/api/admin/thue-cpc/bang-ke/day-kanban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: bkId }) })
       const d = await res.json()
       if (!res.ok) throw new Error(d.error || 'Lỗi đẩy Kanban')
-      setPushedMaMay(p => new Set(p).add(r.ma_may))
+      // Cập nhật trạng thái TẠI CHỖ -> "Đã đẩy kế toán" (không tải lại cả danh sách)
+      setBkByMaMay(m => ({ ...m, [r.ma_may]: { ...createData.data, id_cong_viec: d.id_cong_viec, soct_cong_viec: { trang_thai_hd: 'Chờ xuất HĐ', so_hoa_don: null } } }))
       showNotification('success', `Đã đẩy ${r.ten_khach_hang} sang Kanban cho kế toán`)
     } catch (err: any) {
       showNotification('error', err.message || 'Lỗi đẩy Kanban')
@@ -692,45 +707,39 @@ function CounterTab({ showNotification, thang, setThang, onSaved, refreshVer = 0
                     })()}
                   </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
-                    <div className="flex justify-end gap-1.5">
-                      <Button
-                        onClick={() => saveRow(r)}
-                        disabled={savingId === r.id}
-                        className="h-8 w-8 p-0 bg-blue-600 hover:bg-blue-700 text-white rounded flex items-center justify-center shrink-0"
-                        title="Lưu chỉ số counter"
-                      >
-                        {savingId === r.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                      </Button>
-
-                      {!r.id_hop_dong_khung ? (
-                        <>
-                          <Button
-                            onClick={() => exportQuick(r)}
-                            disabled={exportingId === r.id || (r.so_bw === null && r.so_mau === null)}
-                            className="h-8 w-8 p-0 bg-emerald-600 hover:bg-emerald-700 text-white rounded flex items-center justify-center shrink-0 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
-                            title={r.so_bw === null && r.so_mau === null ? "Cần lưu counter trước khi xuất" : "Xuất bảng kê nhanh (.docx)"}
-                          >
-                            {exportingId === r.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-                          </Button>
-                          {pushedMaMay.has(r.ma_may) ? (
-                            <div className="h-8 w-8 flex items-center justify-center text-emerald-600 shrink-0" title="Đã đẩy sang Kanban"><Check className="w-4 h-4" /></div>
-                          ) : (
-                            <Button
-                              onClick={() => pushKanban(r)}
-                              disabled={pushingId === r.id || (r.so_bw === null && r.so_mau === null)}
-                              className="h-8 w-8 p-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded flex items-center justify-center shrink-0 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
-                              title={r.so_bw === null && r.so_mau === null ? "Cần lưu counter trước khi đẩy" : "Đẩy sang Kanban cho kế toán lên hóa đơn"}
-                            >
-                              {pushingId === r.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                    {(() => {
+                      const stt = kyStatus(r)
+                      const daDay = stt.key === 'da_day' || stt.key === 'da_hd'
+                      const noCounter = r.so_bw === null && r.so_mau === null
+                      return (
+                        <div className="flex flex-col items-end gap-1">
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border whitespace-nowrap ${stt.cls}`}>{stt.label}</span>
+                          <div className="flex justify-end gap-1.5">
+                            <Button onClick={() => saveRow(r)} disabled={savingId === r.id} className="h-8 w-8 p-0 bg-blue-600 hover:bg-blue-700 text-white rounded flex items-center justify-center shrink-0" title="Lưu chỉ số counter">
+                              {savingId === r.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                             </Button>
-                          )}
-                        </>
-                      ) : (
-                        <div className="w-8 h-8 flex items-center justify-center text-slate-300 text-[10px] shrink-0 cursor-help" title="Máy thuộc HĐ khung — đẩy Kanban ở phần Bảng kê (gộp)">
-                          —
+                            {!r.id_hop_dong_khung && (
+                              <>
+                                <Button onClick={() => exportQuick(r)} disabled={exportingId === r.id || noCounter}
+                                  className="h-8 w-8 p-0 bg-emerald-600 hover:bg-emerald-700 text-white rounded flex items-center justify-center shrink-0 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                                  title={noCounter ? 'Cần lưu counter trước' : (daDay ? 'Tải bảng kê (bản đã đẩy)' : 'Lập & tải bảng kê (.docx)')}>
+                                  {exportingId === r.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                                </Button>
+                                {daDay ? (
+                                  <div className="h-8 w-8 flex items-center justify-center text-emerald-600 shrink-0" title="Đã đẩy sang Kanban — sửa phải Thu hồi phiếu ở Kanban"><Check className="w-4 h-4" /></div>
+                                ) : (
+                                  <Button onClick={() => pushKanban(r)} disabled={pushingId === r.id || noCounter}
+                                    className="h-8 w-8 p-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded flex items-center justify-center shrink-0 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                                    title={noCounter ? 'Cần lưu counter trước khi đẩy' : 'Đẩy sang Kanban cho kế toán lên hóa đơn'}>
+                                    {pushingId === r.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                          </div>
                         </div>
-                      )}
-                    </div>
+                      )
+                    })()}
                   </td>
                 </tr>
               ))}

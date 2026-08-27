@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { tinhDongMay, tinhTongBangKe, kyTruoc, MayBilling } from '@/lib/thue-cpc'
-import { broadcastThueCpcChanged } from '@/lib/realtime'
+import { broadcastThueCpcChanged, broadcastJobsChanged } from '@/lib/realtime'
 
 const MAY_BILLING_SELECT =
   'id, ten_khach_hang, ma_may, model, dia_chi, don_gia_bw, don_gia_mau, ' +
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     const thang_nam = searchParams.get('thang_nam')
     let q = supabaseAdmin
       .from('soct_thue_cpc_bk')
-      .select('id, thang_nam, loai, tong_truoc_vat, vat_rate, tong_sau_vat, so_hoa_don_ke_toan, id_cong_viec, created_at, soct_khach_hang(ten_khach_hang, ma_may), soct_thue_cpc_hop_dong_khung(ten_hop_dong)')
+      .select('id, thang_nam, loai, tong_truoc_vat, vat_rate, tong_sau_vat, so_hoa_don_ke_toan, id_cong_viec, created_at, soct_khach_hang(ten_khach_hang, ma_may), soct_thue_cpc_hop_dong_khung(ten_hop_dong), soct_cong_viec:id_cong_viec(trang_thai_hd, so_hoa_don)')
       .order('created_at', { ascending: false })
     if (thang_nam) q = q.eq('thang_nam', thang_nam)
     const { data, error } = await q
@@ -191,9 +191,23 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'Thiếu id bảng kê' }, { status: 400 })
+
+    // Bảng kê ĐÃ ĐẨY (có phiếu Kanban): đồng bộ để không mồ côi phiếu.
+    //  - Phiếu còn ở 'Chờ xuất HĐ' (kthc CHƯA xử lý) -> xóa luôn phiếu (thu hồi) rồi xóa bảng kê.
+    //  - Phiếu đã sang KT-HC/đã lên HĐ/đã thanh toán -> CHẶN xóa (kthc đang/đã xử lý, phải thu hồi ở Kanban trước).
+    const { data: bk } = await supabaseAdmin.from('soct_thue_cpc_bk').select('id_cong_viec').eq('id', id).single()
+    if (bk?.id_cong_viec) {
+      const { data: phieu } = await supabaseAdmin.from('soct_cong_viec').select('trang_thai_hd').eq('id', bk.id_cong_viec).maybeSingle()
+      if (phieu && phieu.trang_thai_hd !== 'Chờ xuất HĐ') {
+        return NextResponse.json({ error: 'Bảng kê đã đẩy và kế toán đang/đã xử lý hóa đơn — không xóa được. Hãy Thu hồi phiếu ở Kanban trước.' }, { status: 409 })
+      }
+      if (phieu) await supabaseAdmin.from('soct_cong_viec').delete().eq('id', bk.id_cong_viec) // thu hồi phiếu chờ
+    }
+
     const { error } = await supabaseAdmin.from('soct_thue_cpc_bk').delete().eq('id', id)
     if (error) throw error
     await broadcastThueCpcChanged()
+    await broadcastJobsChanged()
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error deleting bang-ke:', error)
