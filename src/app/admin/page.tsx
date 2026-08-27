@@ -275,7 +275,7 @@ export default function AdminDashboard() {
   const [phieuChuaHoan, setPhieuChuaHoan] = useState(0)
   const [unfinishedPastJobs, setUnfinishedPastJobs] = useState<Job[]>([])
   const [cauHinh, setCauHinh] = useState<Record<string, string>>({})
-  const [kanbanCounts, setKanbanCounts] = useState<{ col1: number, col2: number }>({ col1: 0, col2: 0 })
+  const [kanbanCounts, setKanbanCounts] = useState<{ col1: number, col2: number, col1_phieu: number, col2_phieu: number }>({ col1: 0, col2: 0, col1_phieu: 0, col2_phieu: 0 })
   // Đo chiều cao header (tab cha sticky) -> đặt CSS var --head-h để thanh tab con sticky ngay dưới.
   const headerRef = useRef<HTMLElement>(null)
   const [headH, setHeadH] = useState(80)
@@ -467,7 +467,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!['admin', 'tech_admin', 'staff'].includes(currentUserRole)) return
     const load = () => fetch('/api/admin/kanban-hd?count=1').then(r => r.json())
-      .then(j => { if (j && typeof j.col1 === 'number') setKanbanCounts({ col1: j.col1, col2: j.col2 }) }).catch(() => { })
+      .then(j => { if (j && typeof j.col1 === 'number') setKanbanCounts({ col1: j.col1, col2: j.col2, col1_phieu: j.col1_phieu ?? j.col1, col2_phieu: j.col2_phieu ?? j.col2 }) }).catch(() => { })
     load()
     const t = setInterval(load, 60000)
     return () => clearInterval(t)
@@ -1338,18 +1338,18 @@ export default function AdminDashboard() {
       ),
     },
     {
-      key: 'kanban_c1', icon: ClipboardList, tone: 'amber', label: 'Phiếu chờ lên hóa đơn (Kanban Cột 1)', count: kanbanCounts.col1,
+      key: 'kanban_c1', icon: ClipboardList, tone: 'amber', label: 'Thẻ chờ lên hóa đơn (Kanban Cột 1)', count: kanbanCounts.col1,
       detail: (
         <div className="text-xs text-slate-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 leading-relaxed">
-          <b>{kanbanCounts.col1}</b> phiếu đang ở Cột 1 (Chờ lên hóa đơn). Vào <b>Tài chính → Kanban Hóa đơn</b> để rà duyệt: <b>bàn giao kế toán</b> lên hóa đơn, hoặc <b>thu hồi</b> về Công nợ nếu chưa cần.
+          <b>{kanbanCounts.col1}</b> thẻ{kanbanCounts.col1_phieu !== kanbanCounts.col1 ? ` (gồm ${kanbanCounts.col1_phieu} phiếu)` : ''} đang ở Cột 1 (Chờ lên hóa đơn) — mỗi thẻ = 1 hóa đơn. Vào <b>Tài chính → Kanban Hóa đơn</b>: <b>bàn giao kế toán</b> lên hóa đơn, hoặc <b>thu hồi</b> về Công nợ nếu chưa cần.
         </div>
       ),
     },
     {
-      key: 'kanban_c2', icon: ClipboardList, tone: 'amber', label: 'Phiếu chờ kế toán lên hóa đơn (Kanban Cột 2)', count: kanbanCounts.col2,
+      key: 'kanban_c2', icon: ClipboardList, tone: 'amber', label: 'Thẻ chờ kế toán lên hóa đơn (Kanban Cột 2)', count: kanbanCounts.col2,
       detail: (
         <div className="text-xs text-slate-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 leading-relaxed">
-          <b>{kanbanCounts.col2}</b> phiếu đã bàn giao, đang chờ <b>kế toán (KT-HC) lên hóa đơn</b> (Cột 2). Nhắc kế toán xử lý.
+          <b>{kanbanCounts.col2}</b> thẻ{kanbanCounts.col2_phieu !== kanbanCounts.col2 ? ` (gồm ${kanbanCounts.col2_phieu} phiếu — một số khách gộp nhiều phiếu vào 1 hóa đơn)` : ''} đã bàn giao, đang chờ <b>kế toán (KT-HC) lên hóa đơn</b> (Cột 2). Mỗi thẻ = 1 hóa đơn. Nhắc kế toán xử lý.
         </div>
       ),
     },

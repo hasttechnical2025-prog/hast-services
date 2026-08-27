@@ -13,13 +13,22 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
 
-    // ?count=1 -> chỉ trả SỐ LƯỢNG phiếu ở Cột 1 (Chờ xuất HĐ) & Cột 2 (Đang xử lý HĐ) cho chuông.
+    // ?count=1 -> đếm cho chuông. Trả SỐ THẺ (col1/col2, gom giống Kanban: Thuê/CPC mỗi phiếu 1 thẻ,
+    // còn lại gom theo cụm/khách) + SỐ PHIẾU thô (col1_phieu/col2_phieu) để hiển thị "N thẻ · M phiếu".
     if (searchParams.get('count') === '1') {
-      const [c1, c2] = await Promise.all([
-        supabaseAdmin.from('soct_cong_viec').select('id', { count: 'exact', head: true }).eq('trang_thai_hd', 'Chờ xuất HĐ'),
-        supabaseAdmin.from('soct_cong_viec').select('id', { count: 'exact', head: true }).eq('trang_thai_hd', 'Đang xử lý HĐ'),
-      ])
-      return NextResponse.json({ col1: c1.count || 0, col2: c2.count || 0 })
+      const rows = await selectAll<any>((from, to) => supabaseAdmin
+        .from('soct_cong_viec')
+        .select('id, trang_thai_hd, nguon, id_khach_hang, soct_khach_hang(ma_khach_cum)')
+        .in('trang_thai_hd', ['Chờ xuất HĐ', 'Đang xử lý HĐ'])
+        .range(from, to))
+      const s1 = new Set<string>(), s2 = new Set<string>()
+      let p1 = 0, p2 = 0
+      for (const t of (rows || []) as any[]) {
+        const cumId = t.soct_khach_hang?.ma_khach_cum
+        const key = t.nguon === 'thue_cpc' ? `tc:${t.id}` : (cumId ? `cum:${cumId}` : `may:${t.id_khach_hang}`)
+        if (t.trang_thai_hd === 'Chờ xuất HĐ') { s1.add(key); p1++ } else { s2.add(key); p2++ }
+      }
+      return NextResponse.json({ col1: s1.size, col2: s2.size, col1_phieu: p1, col2_phieu: p2 })
     }
 
     const reqThang = searchParams.get('thang_nam')
