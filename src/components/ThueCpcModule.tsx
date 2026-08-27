@@ -3,14 +3,14 @@
 // Module Billing Máy thuê / CPC (admin). Độc lập hoàn toàn với Sổ công tác.
 // 2 tab: "Danh sách máy" (Đơn giá HĐ + Hợp đồng khung — thiết lập) · "Nhập counter"
 // (nhập chỉ số + ước tính tiền live + Tổng doanh số theo NV/kỹ thuật + Bảng kê/xuất Word/Đẩy Kanban).
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import DateField from "@/components/DateField"
 import MonthField from "@/components/MonthField"
 import { chotSoDate, counterStatus, CounterStatus, kyTruoc, tinhDongMay } from "@/lib/thue-cpc"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
-import { Save, FileText, RefreshCw } from "lucide-react"
+import { Save, FileText, RefreshCw, ArrowRight, Check } from "lucide-react"
 
 const THUECPC_TOPIC = "soct_thuecpc"
 const DATA_EVENT = "changed"
@@ -91,9 +91,8 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
   const [dueCount, setDueCount] = useState(0) // số máy cần lấy counter (badge tab) — theo kỳ đang chọn
   const [counterThang, setCounterThang] = useState(monthNow()) // kỳ đang chọn ở tab Nhập counter (nâng lên để badge bám theo)
   const [badgeVer, setBadgeVer] = useState(0) // tăng sau mỗi lần lưu counter -> badge tính lại
-  const [reloadKey, setReloadKey] = useState(0) // realtime: đổi từ máy khác -> remount tab active để tải lại
-  // Realtime "tự lành": counter/đơn giá đổi từ máy khác -> remount tab active để tải lại
-  useRealtimeRefetch(THUECPC_TOPIC, DATA_EVENT, () => { setReloadKey(v => v + 1); setBadgeVer(v => v + 1) })
+  const [refreshVer, setRefreshVer] = useState(0) // realtime: tăng khi có thay đổi -> BÁO NHẸ cho CounterTab (KHÔNG remount, tránh trôi danh sách đang nhập)
+  useRealtimeRefetch(THUECPC_TOPIC, DATA_EVENT, () => { setRefreshVer(v => v + 1); setBadgeVer(v => v + 1) })
   // Gộp 4 tab cháu cũ -> 2: "Danh sách máy" (đơn giá + hợp đồng khung), "Nhập counter" (counter + bảng kê).
   // Quyền giữ theo key cũ: mỗi tab mới hiện nếu có ÍT NHẤT một phần con được phép.
   const allTabs: [typeof sub, string, boolean][] = [
@@ -127,14 +126,14 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
       </div>
       {active === 'danh_sach' && (
         <div className="space-y-8">
-          {canS('don_gia') && <DonGiaTab key={reloadKey} showNotification={showNotification} />}
-          {canS('khung') && <div className="pt-2 border-t border-slate-100"><KhungTab key={reloadKey} showNotification={showNotification} /></div>}
+          {canS('don_gia') && <DonGiaTab showNotification={showNotification} />}
+          {canS('khung') && <div className="pt-2 border-t border-slate-100"><KhungTab showNotification={showNotification} /></div>}
         </div>
       )}
       {active === 'counter' && (
         <div className="space-y-8">
-          {canS('counter') && <CounterTab key={reloadKey} showNotification={showNotification} thang={counterThang} setThang={setCounterThang} onSaved={() => setBadgeVer(v => v + 1)} />}
-          {canS('bang_ke') && <div className="pt-2 border-t border-slate-100"><BangKeTab key={reloadKey} showNotification={showNotification} thang={counterThang} /></div>}
+          {canS('counter') && <CounterTab showNotification={showNotification} thang={counterThang} setThang={setCounterThang} onSaved={() => setBadgeVer(v => v + 1)} refreshVer={refreshVer} />}
+          {canS('bang_ke') && <div className="pt-2 border-t border-slate-100"><BangKeTab showNotification={showNotification} thang={counterThang} refreshVer={refreshVer} /></div>}
         </div>
       )}
     </div>
@@ -400,12 +399,16 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
 }
 
 // ============================ TAB 2: NHẬP COUNTER ============================
-function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotification: Notify, thang: string, setThang: (v: string) => void, onSaved: () => void }) {
+function CounterTab({ showNotification, thang, setThang, onSaved, refreshVer = 0 }: { showNotification: Notify, thang: string, setThang: (v: string) => void, onSaved: () => void, refreshVer?: number }) {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [edits, setEdits] = useState<Record<string, { so_bw: string, so_mau: string, ghi_chu: string }>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
   const [exportingId, setExportingId] = useState<string | null>(null)
+  const [pushingId, setPushingId] = useState<string | null>(null)      // đang đẩy Kanban
+  const [pushedMaMay, setPushedMaMay] = useState<Set<string>>(new Set()) // máy đã có phiếu trên Kanban (kỳ này)
+  const [pending, setPending] = useState(false)                         // có cập nhật từ máy khác -> banner
+  const lastActionRef = useRef(0)                                       // mốc thao tác của CHÍNH máy này (để bỏ qua echo broadcast)
   const [search, setSearch] = useState('')
   const [onlyDue, setOnlyDue] = useState(false)
   const [nvFilter, setNvFilter] = useState('all') // 'all' (mặc định) | 'ky_thuat' | tên NV cụ thể
@@ -437,14 +440,29 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
       const e: Record<string, any> = {}
       for (const r of j.data?.rows || []) e[r.id] = { so_bw: r.so_bw ?? '', so_mau: r.so_mau ?? '', ghi_chu: r.ghi_chu ?? '' }
       setEdits(e)
+      // Nạp trạng thái "đã đẩy Kanban": bảng kê rieng của kỳ này ĐÃ có phiếu (id_cong_viec).
+      try {
+        const bk = await fetch(`/api/admin/thue-cpc/bang-ke?thang_nam=${thang}`).then(r => r.json())
+        const pushed = new Set<string>()
+        for (const b of bk.data || []) if (b.loai === 'rieng' && b.id_cong_viec && b.soct_khach_hang?.ma_may) pushed.add(b.soct_khach_hang.ma_may)
+        setPushedMaMay(pushed)
+      } catch { /* không chặn nếu lỗi */ }
+      setPending(false)
     } catch { showNotification('error', 'Không tải được counter') }
     finally { setLoading(false) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [thang])
   useEffect(() => { load() }, [load])
+  // Realtime: có thay đổi -> BÁO NHẸ (banner), KHÔNG tự tải lại. Bỏ qua "echo" của chính thao tác vừa rồi (<2.5s).
+  useEffect(() => {
+    if (refreshVer === 0) return
+    if (Date.now() - lastActionRef.current < 2500) return
+    setPending(true)
+  }, [refreshVer])
 
   const saveRow = async (r: any) => {
     setSavingId(r.id)
+    lastActionRef.current = Date.now() // đánh dấu thao tác của mình -> bỏ qua echo broadcast
     try {
       // Máy đen trắng: không lưu counter màu (kể cả giá trị cũ còn sót trong state)
       const e = r.may_mau === false ? { ...edits[r.id], so_mau: '' } : edits[r.id]
@@ -463,6 +481,7 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
 
   const exportQuick = async (r: any) => {
     setExportingId(r.id)
+    lastActionRef.current = Date.now()
     try {
       // 1. Tìm xem có bảng kê cũ của kỳ này không
       const listRes = await fetch(`/api/admin/thue-cpc/bang-ke?thang_nam=${thang}`).then(res => res.json())
@@ -491,6 +510,36 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
       showNotification('error', err.message || 'Lỗi xuất bảng kê')
     } finally {
       setExportingId(null)
+    }
+  }
+
+  // Đẩy sang Kanban IN-PLACE: đảm bảo có bảng kê rieng phản ánh counter hiện tại rồi tạo phiếu Kanban.
+  // Đã đẩy trước đó (bảng kê có id_cong_viec) -> đánh dấu, không tạo trùng. KHÔNG tải lại cả danh sách.
+  const pushKanban = async (r: any) => {
+    setPushingId(r.id)
+    lastActionRef.current = Date.now()
+    try {
+      const listRes = await fetch(`/api/admin/thue-cpc/bang-ke?thang_nam=${thang}`).then(res => res.json())
+      const existing = (listRes.data || []).find((b: any) => b.loai === 'rieng' && b.soct_khach_hang?.ma_may === r.ma_may)
+      if (existing?.id_cong_viec) {
+        setPushedMaMay(p => new Set(p).add(r.ma_may))
+        showNotification('success', `${r.ten_khach_hang} đã đẩy Kanban trước đó`)
+        return
+      }
+      // Có bảng kê cũ CHƯA đẩy -> xóa để tạo lại theo counter mới nhất
+      if (existing) await fetch(`/api/admin/thue-cpc/bang-ke?id=${existing.id}`, { method: 'DELETE' })
+      const createRes = await fetch('/api/admin/thue-cpc/bang-ke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ thang_nam: thang, loai: 'rieng', id_khach_hang: r.id }) })
+      const createData = await createRes.json()
+      if (!createRes.ok) throw new Error(createData.error || 'Lỗi tạo bảng kê')
+      const res = await fetch('/api/admin/thue-cpc/bang-ke/day-kanban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: createData.data.id }) })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error || 'Lỗi đẩy Kanban')
+      setPushedMaMay(p => new Set(p).add(r.ma_may))
+      showNotification('success', `Đã đẩy ${r.ten_khach_hang} sang Kanban cho kế toán`)
+    } catch (err: any) {
+      showNotification('error', err.message || 'Lỗi đẩy Kanban')
+    } finally {
+      setPushingId(null)
     }
   }
 
@@ -530,6 +579,15 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
 
   return (
     <div className="space-y-4">
+      {/* Realtime báo NHẸ: có thay đổi từ máy khác -> người dùng chủ động tải lại (không tự trôi danh sách đang nhập) */}
+      {pending && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center gap-3 text-sm text-blue-800">
+          <RefreshCw className="w-4 h-4" />
+          <span className="flex-1">Có cập nhật mới từ nơi khác.</span>
+          <button onClick={() => load()} className="h-8 px-3 rounded-md bg-blue-600 text-white text-xs font-semibold">Tải lại</button>
+          <button onClick={() => setPending(false)} className="text-blue-400 hover:text-blue-600 text-xs">Bỏ qua</button>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h3 className="font-bold text-slate-800">Nhập counter hàng tháng</h3>
@@ -645,16 +703,30 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
                       </Button>
 
                       {!r.id_hop_dong_khung ? (
-                        <Button
-                          onClick={() => exportQuick(r)}
-                          disabled={exportingId === r.id || (r.so_bw === null && r.so_mau === null)}
-                          className="h-8 w-8 p-0 bg-emerald-600 hover:bg-emerald-700 text-white rounded flex items-center justify-center shrink-0 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
-                          title={r.so_bw === null && r.so_mau === null ? "Cần lưu counter trước khi xuất" : "Xuất bảng kê nhanh (.docx)"}
-                        >
-                          {exportingId === r.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-                        </Button>
+                        <>
+                          <Button
+                            onClick={() => exportQuick(r)}
+                            disabled={exportingId === r.id || (r.so_bw === null && r.so_mau === null)}
+                            className="h-8 w-8 p-0 bg-emerald-600 hover:bg-emerald-700 text-white rounded flex items-center justify-center shrink-0 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                            title={r.so_bw === null && r.so_mau === null ? "Cần lưu counter trước khi xuất" : "Xuất bảng kê nhanh (.docx)"}
+                          >
+                            {exportingId === r.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                          </Button>
+                          {pushedMaMay.has(r.ma_may) ? (
+                            <div className="h-8 w-8 flex items-center justify-center text-emerald-600 shrink-0" title="Đã đẩy sang Kanban"><Check className="w-4 h-4" /></div>
+                          ) : (
+                            <Button
+                              onClick={() => pushKanban(r)}
+                              disabled={pushingId === r.id || (r.so_bw === null && r.so_mau === null)}
+                              className="h-8 w-8 p-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded flex items-center justify-center shrink-0 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                              title={r.so_bw === null && r.so_mau === null ? "Cần lưu counter trước khi đẩy" : "Đẩy sang Kanban cho kế toán lên hóa đơn"}
+                            >
+                              {pushingId === r.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                            </Button>
+                          )}
+                        </>
                       ) : (
-                        <div className="w-8 h-8 flex items-center justify-center text-slate-300 text-[10px] shrink-0 cursor-help" title="Máy thuộc HĐ khung — Vui lòng xuất tại tab Bảng kê">
+                        <div className="w-8 h-8 flex items-center justify-center text-slate-300 text-[10px] shrink-0 cursor-help" title="Máy thuộc HĐ khung — đẩy Kanban ở phần Bảng kê (gộp)">
                           —
                         </div>
                       )}
@@ -804,7 +876,7 @@ function KhungTab({ showNotification }: { showNotification: Notify }) {
 }
 
 // ============================ TAB 4: BẢNG KÊ ============================
-function BangKeTab({ showNotification, thang: thangProp }: { showNotification: Notify, thang?: string }) {
+function BangKeTab({ showNotification, thang: thangProp, refreshVer = 0 }: { showNotification: Notify, thang?: string, refreshVer?: number }) {
   // Kỳ có thể do màn "Nhập counter" điều khiển (đồng bộ 1 kỳ); nếu chạy độc lập thì tự giữ state.
   const [thangState, setThang] = useState(monthNow())
   const thang = thangProp ?? thangState
@@ -829,6 +901,9 @@ function BangKeTab({ showNotification, thang: thangProp }: { showNotification: N
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [thang])
   useEffect(() => { loadList() }, [loadList])
+  // Có thay đổi (VD đẩy Kanban từ màn counter) -> tải lại danh sách bảng kê (list, không có ô đang gõ nên an toàn).
+  const firstRef = useRef(true)
+  useEffect(() => { if (firstRef.current) { firstRef.current = false; return } loadList() }, [refreshVer]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     Promise.all([
       fetch('/api/admin/thue-cpc/khach-hang').then(r => r.json()),
