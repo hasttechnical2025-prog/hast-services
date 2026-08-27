@@ -1922,7 +1922,7 @@ export default function AdminDashboard() {
                   <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
                     <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập / Xuất khách hàng (Excel)</h3>
                     <p className="text-sm text-slate-500 mb-4">
-                      Quy trình: <b>Xóa toàn bộ</b> (nút phía trên) → <b>Xuất Excel</b> để lấy đúng cấu trúc cột → nhập dữ liệu vào file .xlsx → <b>Nhập từ Excel</b>.<br />
+                      Quy trình: <b>Xuất Excel</b> để lấy đúng cấu trúc cột → sửa/thêm dữ liệu vào file .xlsx → <b>Nhập từ Excel</b>. Import <b>cập nhật theo Mã máy</b> (trùng thì sửa, mới thì thêm) — <b>không xóa</b> khách cũ, giữ nguyên lịch sử phiếu. Máy nghỉ dùng cột <b>Tạm dừng từ tháng</b>.<br />
                       <b>Cột:</b> Mã máy | Tên khách hàng | Địa chỉ | Model | Hãng | Km | Loại HĐ | Ngày hết hạn HĐBT (DD/MM/YYYY) | Tháng bảo trì | Bắt đầu từ tháng (MM/YYYY) | Tạm dừng từ tháng (MM/YYYY) | Ghi chú bảo trì. Trùng Mã máy sẽ được cập nhật.<br />
                       <span className="text-xs text-slate-400"><b>Tháng bảo trì</b>: các tháng phải bảo trì, VD <b>2,4,6,8,10,12</b> — để <b>trống = hằng tháng</b>. <b>Bắt đầu từ tháng</b>: máy lắp giữa năm → tháng trước đó không tính bảo trì. <b>Tạm dừng từ tháng</b>: máy khách đã bỏ nhưng còn trong HĐ → không bị đòi bảo trì từ tháng đó, vẫn giữ trong danh sách.</span><br />
                       <span className="text-xs text-slate-400">Để trống cột <b>Km</b> → hệ thống tự tính tọa độ &amp; KM từ địa chỉ (chạy tuần tự ~1s/dòng, danh sách lớn sẽ hơi lâu). Dòng đã có Km giữ nguyên.</span>
@@ -7967,10 +7967,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
             <Plus className="w-4 h-4" /> Mới
           </Button>
           <ColumnMenu view={col} />
-          <ClearAllButton count={customers.length} label="khách hàng" onConfirm={async () => {
-            const res = await fetch('/api/admin/khach-hang?all=1', { method: 'DELETE' })
-            if (res.ok) { showNotification('success', 'Đã xóa toàn bộ khách hàng.'); onUpdateSuccess() } else showNotification('error', 'Xóa không thành công')
-          }} />
+          {/* KHÔNG có "Xóa toàn bộ" khách hàng — sẽ mất sạch lịch sử phiếu/hóa đơn (FK). Import upsert theo mã máy đã tự cập nhật. */}
         </div>
       </div>
 

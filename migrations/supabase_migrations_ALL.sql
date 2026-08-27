@@ -1292,3 +1292,25 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 -- Trigger giữ nguyên (soct_tr_handle_hang_ve_dot) — chỉ thay thân hàm.
+
+
+-- ============================================================================
+-- MIGRATION 64: khach_restrict (chặn xóa khách/điểm máy còn phiếu)
+-- ============================================================================
+DO $$
+DECLARE cname text;
+BEGIN
+  SELECT con.conname INTO cname
+  FROM pg_constraint con
+  JOIN pg_class rel ON rel.oid = con.conrelid
+  WHERE rel.relname = 'soct_cong_viec' AND con.contype = 'f'
+    AND pg_get_constraintdef(con.oid) LIKE '%REFERENCES%soct_khach_hang%'
+    AND pg_get_constraintdef(con.oid) LIKE '%id_khach_hang%';
+  IF cname IS NOT NULL THEN
+    EXECUTE 'ALTER TABLE public.soct_cong_viec DROP CONSTRAINT ' || quote_ident(cname);
+  END IF;
+END $$;
+
+ALTER TABLE public.soct_cong_viec
+  ADD CONSTRAINT soct_cong_viec_id_khach_hang_fkey
+  FOREIGN KEY (id_khach_hang) REFERENCES public.soct_khach_hang(id) ON DELETE RESTRICT;

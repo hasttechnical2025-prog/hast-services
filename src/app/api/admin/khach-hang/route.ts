@@ -182,15 +182,20 @@ export async function DELETE(request: Request) {
     const id = searchParams.get('id')
     const all = searchParams.get('all') === '1'
 
-    if (!all && !id) {
-      return NextResponse.json({ error: 'Thiếu id khách hàng' }, { status: 400 })
+    // AN TOÀN: KHÔNG hỗ trợ "xóa toàn bộ" khách hàng — sẽ mất sạch lịch sử phiếu/hóa đơn.
+    // Cập nhật hàng loạt đã dùng import UPSERT theo mã máy (không cần xóa sạch).
+    if (all) {
+      return NextResponse.json({ error: 'Không hỗ trợ xóa toàn bộ khách hàng (tránh mất lịch sử phiếu/hóa đơn). Import theo mã máy đã tự cập nhật.' }, { status: 400 })
+    }
+    if (!id) return NextResponse.json({ error: 'Thiếu id khách hàng' }, { status: 400 })
+
+    // BẢO VỆ LỊCH SỬ: chặn xóa điểm máy CÒN phiếu (báo rõ trước, thay vì lỗi FK khó hiểu).
+    const { count } = await supabaseAdmin.from('soct_cong_viec').select('id', { count: 'exact', head: true }).eq('id_khach_hang', id)
+    if ((count || 0) > 0) {
+      return NextResponse.json({ error: `Điểm máy này có ${count} phiếu — không xóa được (giữ lịch sử doanh thu/hóa đơn). Nếu máy nghỉ, dùng "Tạm dừng từ tháng".` }, { status: 409 })
     }
 
-    const query = supabaseAdmin.from('soct_khach_hang').delete()
-    const { error } = all
-      ? await query.not('id', 'is', null)
-      : await query.eq('id', id)
-
+    const { error } = await supabaseAdmin.from('soct_khach_hang').delete().eq('id', id)
     if (error) throw error
     await broadcastKhachChanged()
     return NextResponse.json({ success: true })
