@@ -264,13 +264,13 @@ export default function AdminDashboard() {
   // Tab con bên trong "Theo dõi máy"
   const [monitorTab, setMonitorTab] = useState<"bao_tri" | "giam_dinh">("bao_tri")
   // Tab con bên trong "Kho hàng" (tech_admin không thấy Tồn kho -> mặc định Đặt hàng)
-  const [khoTab, setKhoTab] = useState<"ton_kho" | "dat_hang" | "thong_ke">("ton_kho")
+  const [khoTab, setKhoTab] = useState<"ton_kho" | "dat_hang" | "thong_ke" | "may_thue">("ton_kho")
   // Tab con bên trong "Quản lý"
   const [quanLyTab, setQuanLyTab] = useState<"nhat_ky" | "khach_hang" | "khach_cum" | "bao_cao" | "nghi_phep">("nhat_ky")
   // Tab con bên trong "Sổ công tác" (Giao việc / Hoàn phiếu)
   const [congTacTab, setCongTacTab] = useState<"giao_viec" | "hoan_phieu">("giao_viec")
   // Tab con bên trong "Tài chính" (Công nợ / Thuê-CPC)
-  const [taiChinhTab, setTaiChinhTab] = useState<"cong_no" | "thue_cpc" | "kanban" | "kho_may_thue">("cong_no")
+  const [taiChinhTab, setTaiChinhTab] = useState<"cong_no" | "thue_cpc" | "kanban">("cong_no")
   // Số phiếu cứng chưa hoàn (badge nhắc ở tab con Hoàn phiếu)
   const [phieuChuaHoan, setPhieuChuaHoan] = useState(0)
   const [unfinishedPastJobs, setUnfinishedPastJobs] = useState<Job[]>([])
@@ -304,11 +304,11 @@ export default function AdminDashboard() {
   // Nếu tab con đang chọn bị ẩn -> nhảy về tab con hiện đầu tiên
   const firstVisibleSub = (parent: string, subs: string[], current: string) =>
     subVisible(parent, current) ? current : (subs.find(s => subVisible(parent, s)) || current)
-  const effectiveKhoTab = firstVisibleSub('kho_hang', ['ton_kho', 'dat_hang', 'thong_ke'], khoTab)
+  const effectiveKhoTab = firstVisibleSub('kho_hang', ['ton_kho', 'dat_hang', 'thong_ke', 'may_thue'], khoTab)
   const effectiveMonitorTab = firstVisibleSub('theo_doi_may', ['bao_tri', 'giam_dinh'], monitorTab) as "bao_tri" | "giam_dinh"
   const effectiveQuanLyTab = firstVisibleSub('quan_ly', ['nhat_ky', 'khach_hang', 'khach_cum', 'bao_cao', 'nghi_phep'], quanLyTab) as "nhat_ky" | "khach_hang" | "khach_cum" | "bao_cao" | "nghi_phep"
   const effectiveCongTacTab = firstVisibleSub('cong_viec', ['giao_viec', 'hoan_phieu'], congTacTab) as "giao_viec" | "hoan_phieu"
-  const effectiveTaiChinhTab = firstVisibleSub('tai_chinh', ['cong_no', 'kanban', 'thue_cpc', 'kho_may_thue'], taiChinhTab) as "cong_no" | "thue_cpc" | "kanban" | "kho_may_thue"
+  const effectiveTaiChinhTab = firstVisibleSub('tai_chinh', ['cong_no', 'kanban', 'thue_cpc'], taiChinhTab) as "cong_no" | "thue_cpc" | "kanban"
   const repeatNgay = parseInt(cauHinh.repeat_ngay || '30') || 30
   const nguongTonThap = parseInt(cauHinh.nguong_ton_thap || '0') || 0
 
@@ -1750,7 +1750,7 @@ export default function AdminDashboard() {
           <div className="space-y-4">
             {/* Thanh tab con của Kho hàng — để NGOÀI thẻ overflow-hidden để sticky chạy */}
             <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto">
-              {([['ton_kho','Tồn kho'],['dat_hang','Đặt hàng'],['thong_ke','Thống kê nhập']] as const)
+              {([['ton_kho','Tồn kho'],['dat_hang','Đặt hàng'],['thong_ke','Thống kê nhập'],['may_thue','Kho máy thuê']] as const)
                 .filter(([k]) => subVisible('kho_hang', k))
                 .map(([k,l]) => (
                 <button key={k} onClick={() => setKhoTab(k as any)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveKhoTab === k ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>{l}</button>
@@ -1793,6 +1793,14 @@ export default function AdminDashboard() {
               )}
               {effectiveKhoTab === "thong_ke" && (
                 <NhapHangThangTool showNotification={showNotification} />
+              )}
+              {effectiveKhoTab === "may_thue" && (
+                <>
+                  {currentUserRole === 'admin' && (
+                    <MucMayThueTool customers={customers} inventory={inventory} committed={committed} mucMap={mucMap} onUpdate={fetchMucMap} showNotification={showNotification} />
+                  )}
+                  <KhoMayThueTool showNotification={showNotification} />
+                </>
               )}
             </div>
           </div>
@@ -1837,9 +1845,6 @@ export default function AdminDashboard() {
               {subVisible('tai_chinh', 'thue_cpc') && (
                 <button onClick={() => setTaiChinhTab("thue_cpc")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'thue_cpc' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Thuê / CPC</button>
               )}
-              {subVisible('tai_chinh', 'kho_may_thue') && (
-                <button onClick={() => setTaiChinhTab("kho_may_thue")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'kho_may_thue' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Kho máy thuê</button>
-              )}
             </div>
             {effectiveTaiChinhTab === "cong_no" && subVisible('tai_chinh', 'cong_no') && (
               <CongNoTool showNotification={showNotification} />
@@ -1849,14 +1854,6 @@ export default function AdminDashboard() {
             )}
             {effectiveTaiChinhTab === "thue_cpc" && subVisible('tai_chinh', 'thue_cpc') && (
               <ThueCpcModule showNotification={showNotification} canSub={(g) => subSubVisible('tai_chinh', 'thue_cpc', g)} />
-            )}
-            {effectiveTaiChinhTab === "kho_may_thue" && subVisible('tai_chinh', 'kho_may_thue') && (
-              <>
-                {currentUserRole === 'admin' && (
-                  <MucMayThueTool customers={customers} inventory={inventory} committed={committed} mucMap={mucMap} onUpdate={fetchMucMap} showNotification={showNotification} />
-                )}
-                <KhoMayThueTool showNotification={showNotification} />
-              </>
             )}
           </div>
         )}
