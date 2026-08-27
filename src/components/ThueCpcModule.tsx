@@ -1,13 +1,14 @@
 "use client"
 
 // Module Billing Máy thuê / CPC (admin). Độc lập hoàn toàn với Sổ công tác.
-// 4 tab: Đơn giá HĐ · Nhập counter · Hợp đồng khung · Bảng kê (+ xuất Word).
+// 2 tab: "Danh sách máy" (Đơn giá HĐ + Hợp đồng khung — thiết lập) · "Nhập counter"
+// (nhập chỉ số + ước tính tiền live + Tổng doanh số theo NV/kỹ thuật + Bảng kê/xuất Word/Đẩy Kanban).
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import DateField from "@/components/DateField"
 import MonthField from "@/components/MonthField"
-import { chotSoDate, counterStatus, CounterStatus, kyTruoc } from "@/lib/thue-cpc"
+import { chotSoDate, counterStatus, CounterStatus, kyTruoc, tinhDongMay } from "@/lib/thue-cpc"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
 import { Save, FileText, RefreshCw } from "lucide-react"
 
@@ -86,22 +87,21 @@ function SearchSelect({ options, value, onChange, placeholder }: { options: { va
 
 export default function ThueCpcModule({ showNotification, canSub }: { showNotification: Notify, canSub?: (g: string) => boolean }) {
   const canS = canSub || (() => true)
-  const [sub, setSub] = useState<'don_gia' | 'counter' | 'khung' | 'bang_ke'>('don_gia')
+  const [sub, setSub] = useState<'danh_sach' | 'counter'>('danh_sach')
   const [dueCount, setDueCount] = useState(0) // số máy cần lấy counter (badge tab) — theo kỳ đang chọn
   const [counterThang, setCounterThang] = useState(monthNow()) // kỳ đang chọn ở tab Nhập counter (nâng lên để badge bám theo)
   const [badgeVer, setBadgeVer] = useState(0) // tăng sau mỗi lần lưu counter -> badge tính lại
   const [reloadKey, setReloadKey] = useState(0) // realtime: đổi từ máy khác -> remount tab active để tải lại
   // Realtime "tự lành": counter/đơn giá đổi từ máy khác -> remount tab active để tải lại
   useRealtimeRefetch(THUECPC_TOPIC, DATA_EVENT, () => { setReloadKey(v => v + 1); setBadgeVer(v => v + 1) })
-  const allTabs: [typeof sub, string][] = [
-    ['don_gia', 'Đơn giá HĐ'],
-    ['counter', 'Nhập counter'],
-    ['khung', 'Hợp đồng khung'],
-    ['bang_ke', 'Bảng kê'],
+  // Gộp 4 tab cháu cũ -> 2: "Danh sách máy" (đơn giá + hợp đồng khung), "Nhập counter" (counter + bảng kê).
+  // Quyền giữ theo key cũ: mỗi tab mới hiện nếu có ÍT NHẤT một phần con được phép.
+  const allTabs: [typeof sub, string, boolean][] = [
+    ['danh_sach', 'Danh sách máy', canS('don_gia') || canS('khung')],
+    ['counter', 'Nhập counter', canS('counter') || canS('bang_ke')],
   ]
-  // Chỉ hiện tab cháu được phép (ẩn/hiện giao diện); tab đang chọn bị ẩn -> nhảy về cái đầu tiên
-  const tabs = allTabs.filter(([k]) => canS(k))
-  const active = canS(sub) ? sub : (tabs[0]?.[0] ?? sub)
+  const tabs = allTabs.filter(([, , ok]) => ok)
+  const active = tabs.some(([k]) => k === sub) ? sub : (tabs[0]?.[0] ?? sub)
   // Đếm máy cần lấy counter cho KỲ ĐANG CHỌN để gắn badge lên tab
   useEffect(() => {
     const today = vnTodayStr()
@@ -125,10 +125,18 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
           </button>
         ))}
       </div>
-      {active === 'don_gia' && <DonGiaTab key={reloadKey} showNotification={showNotification} />}
-      {active === 'counter' && <CounterTab key={reloadKey} showNotification={showNotification} thang={counterThang} setThang={setCounterThang} onSaved={() => setBadgeVer(v => v + 1)} />}
-      {active === 'khung' && <KhungTab key={reloadKey} showNotification={showNotification} />}
-      {active === 'bang_ke' && <BangKeTab key={reloadKey} showNotification={showNotification} />}
+      {active === 'danh_sach' && (
+        <div className="space-y-8">
+          {canS('don_gia') && <DonGiaTab key={reloadKey} showNotification={showNotification} />}
+          {canS('khung') && <div className="pt-2 border-t border-slate-100"><KhungTab key={reloadKey} showNotification={showNotification} /></div>}
+        </div>
+      )}
+      {active === 'counter' && (
+        <div className="space-y-8">
+          {canS('counter') && <CounterTab key={reloadKey} showNotification={showNotification} thang={counterThang} setThang={setCounterThang} onSaved={() => setBadgeVer(v => v + 1)} />}
+          {canS('bang_ke') && <div className="pt-2 border-t border-slate-100"><BangKeTab key={reloadKey} showNotification={showNotification} thang={counterThang} /></div>}
+        </div>
+      )}
     </div>
   )
 }
@@ -400,6 +408,25 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
   const [exportingId, setExportingId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [onlyDue, setOnlyDue] = useState(false)
+  const [nvFilter, setNvFilter] = useState('ky_thuat') // 'ky_thuat' (mặc định) | 'all' | tên NV cụ thể
+
+  // Máy thuộc KỸ THUẬT = NV kinh doanh = "Kỹ thuật" HOẶC để trống.
+  const laKyThuat = (r: any) => { const nv = String(r.nv_kinh_doanh || '').trim(); return nv === '' || nv === 'Kỹ thuật' }
+  // Ước tính tiền kỳ này của 1 máy LẺ (không thuộc HĐ khung) — dùng đúng công thức server (tinhDongMay).
+  const uocTinh = (r: any) => {
+    if (r.id_hop_dong_khung) return null // máy thuộc HĐ khung -> tính ở bảng kê gộp bên dưới
+    const e = edits[r.id] || {} as any
+    const pInt = (v: any) => (v === '' || v == null ? null : (parseInt(String(v), 10) || 0))
+    const cThis = { so_bw: pInt(e.so_bw), so_mau: r.may_mau === false ? null : pInt(e.so_mau) }
+    const cPrev = { so_bw: r.so_bw_truoc, so_mau: r.so_mau_truoc }
+    return tinhDongMay({
+      id: r.id,
+      don_gia_bw: r.don_gia_bw, don_gia_mau: r.don_gia_mau,
+      dinh_muc_mien_phi_bw: r.dinh_muc_mien_phi_bw, dinh_muc_mien_phi_mau: r.dinh_muc_mien_phi_mau,
+      cam_ket_toi_thieu_bw: r.cam_ket_toi_thieu_bw, cam_ket_toi_thieu_mau: r.cam_ket_toi_thieu_mau,
+      phi_thue_thang: r.phi_thue_thang, vat_thue_cpc: r.vat_thue_cpc,
+    }, cThis, cPrev)
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -483,12 +510,20 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
   })
   const counts = withStatus.reduce((a: any, x: any) => { a[x.st.status] = (a[x.st.status] || 0) + 1; return a }, {})
   const canLay = (counts.overdue || 0) + (counts.due_soon || 0)
+  // Danh sách NV kinh doanh (cho bộ lọc doanh số)
+  const nvList: string[] = Array.from(new Set(rows.map((r: any) => String(r.nv_kinh_doanh || '').trim()).filter((v: string) => v && v !== 'Kỹ thuật'))) as string[]
+  nvList.sort()
+  const okNv = (r: any) => nvFilter === 'all' || (nvFilter === 'ky_thuat' ? laKyThuat(r) : String(r.nv_kinh_doanh || '').trim() === nvFilter)
+  // Tổng ước tính theo bộ lọc NV — CHỈ máy lẻ (HĐ khung tính riêng ở Bảng kê gộp).
+  const tongUocTinh = rows.filter((r: any) => okNv(r) && !r.id_hop_dong_khung)
+    .reduce((s: number, r: any) => s + (uocTinh(r)?.thanh_tien || 0), 0)
+  const soMayLoc = rows.filter((r: any) => okNv(r)).length
   const filtered = withStatus
     .filter(({ r, st }: any) => {
       const q = norm(search)
       const okQ = !q || norm(r.ten_khach_hang).includes(q) || norm(r.ma_may).includes(q) || norm(r.serial).includes(q) || norm(r.vi_tri_dat_may).includes(q)
       const okDue = !onlyDue || st.status === 'overdue' || st.status === 'due_soon'
-      return okQ && okDue
+      return okQ && okDue && okNv(r)
     })
     .sort((a: any, b: any) => (STATUS_RANK[a.st.status as CounterStatus] - STATUS_RANK[b.st.status as CounterStatus]) || (a.r.ten_khach_hang || '').localeCompare(b.r.ten_khach_hang || ''))
 
@@ -523,6 +558,24 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
         </div>
       )}
 
+      {/* Tổng ước tính theo Nhân viên phụ trách (mặc định Kỹ thuật) — chỉ máy lẻ; HĐ khung tính ở Bảng kê */}
+      {!loading && (
+        <div className="flex items-center gap-3 flex-wrap bg-slate-50 border border-slate-100 rounded-lg px-4 py-3">
+          <label className="text-sm text-slate-600 flex items-center gap-2">Doanh số nhóm
+            <select value={nvFilter} onChange={e => setNvFilter(e.target.value)} className="h-9 rounded-md border border-slate-200 text-sm px-2 bg-white">
+              <option value="ky_thuat">Kỹ thuật (mặc định)</option>
+              <option value="all">Tất cả</option>
+              {nvList.map((nv: string) => <option key={nv} value={nv}>{nv}</option>)}
+            </select>
+          </label>
+          <div className="ml-auto text-right">
+            <div className="text-[11px] text-slate-500">Tổng ước tính kỳ {thang} · {soMayLoc} máy</div>
+            <div className="text-xl font-bold text-blue-700">{tongUocTinh.toLocaleString('vi-VN')} đ</div>
+          </div>
+        </div>
+      )}
+      {!loading && nvFilter !== 'all' && <p className="text-[11px] text-slate-400 -mt-2">Tổng chỉ tính máy LẺ; máy thuộc Hợp đồng khung tính ở phần Bảng kê bên dưới.</p>}
+
       {loading ? <div className="text-sm text-slate-400 py-8 text-center">Đang tải…</div> : (
         <div className="overflow-x-auto border border-slate-100 rounded-lg">
           <table className="w-full text-sm">
@@ -537,11 +590,12 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
                 <th className="px-3 py-2 text-right">Màu kỳ {tPrev}</th>
                 <th className="px-3 py-2 text-left">Màu kỳ {tThis}</th>
                 <th className="px-3 py-2 text-left">Ghi chú</th>
+                <th className="px-3 py-2 text-right">Ước tính kỳ</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.length === 0 && <tr><td colSpan={10} className="px-3 py-6 text-center text-slate-400">{rows.length === 0 ? 'Không có máy thuê/CPC.' : (onlyDue ? 'Không có máy cần lấy.' : 'Không khớp tìm kiếm.')}</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={11} className="px-3 py-6 text-center text-slate-400">{rows.length === 0 ? 'Không có máy thuê/CPC.' : (onlyDue ? 'Không có máy cần lấy.' : 'Không khớp tìm kiếm.')}</td></tr>}
               {filtered.map(({ r, st }: any) => (
                 <tr key={r.id} className="hover:bg-slate-50">
                   <td className="px-3 py-2">
@@ -567,6 +621,16 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
                       className={`h-8 w-28 ${r.may_mau === false ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''}`} />
                   </td>
                   <td className="px-3 py-2"><Input value={edits[r.id]?.ghi_chu ?? ''} onChange={e => setEdit(r.id, 'ghi_chu', e.target.value)} className="h-8 w-40" /></td>
+                  <td className="px-3 py-2 text-right whitespace-nowrap">
+                    {r.id_hop_dong_khung ? (
+                      <span className="text-[10px] text-violet-600" title="Máy thuộc HĐ khung — tính gộp ở Bảng kê">HĐ khung</span>
+                    ) : (() => {
+                      const d = uocTinh(r)
+                      if (!d) return <span className="text-slate-300">—</span>
+                      const sb = (d.so_bw_tinh_phi || 0) + (d.so_mau_tinh_phi || 0)
+                      return <div><div className="font-semibold text-slate-700">{Math.round(d.thanh_tien).toLocaleString('vi-VN')} đ</div><div className="text-[10px] text-slate-400">{sb.toLocaleString('vi-VN')} bản tính phí</div></div>
+                    })()}
+                  </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
                     <div className="flex justify-end gap-1.5">
                       <Button
@@ -738,8 +802,10 @@ function KhungTab({ showNotification }: { showNotification: Notify }) {
 }
 
 // ============================ TAB 4: BẢNG KÊ ============================
-function BangKeTab({ showNotification }: { showNotification: Notify }) {
-  const [thang, setThang] = useState(monthNow())
+function BangKeTab({ showNotification, thang: thangProp }: { showNotification: Notify, thang?: string }) {
+  // Kỳ có thể do màn "Nhập counter" điều khiển (đồng bộ 1 kỳ); nếu chạy độc lập thì tự giữ state.
+  const [thangState, setThang] = useState(monthNow())
+  const thang = thangProp ?? thangState
   const [list, setList] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [mays, setMays] = useState<any[]>([])
@@ -798,9 +864,9 @@ function BangKeTab({ showNotification }: { showNotification: Notify }) {
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h3 className="font-bold text-slate-800">Bảng kê thanh toán</h3>
-        <label className="flex items-center gap-2 text-sm text-slate-600">Kỳ
-          <MonthField value={thang} onChange={setThang} className="h-9 w-40" />
-        </label>
+        {thangProp
+          ? <span className="text-xs text-slate-400">Kỳ theo màn Nhập counter: <b className="text-slate-600">{thang}</b></span>
+          : <label className="flex items-center gap-2 text-sm text-slate-600">Kỳ<MonthField value={thang} onChange={setThang} className="h-9 w-40" /></label>}
       </div>
 
       {/* Tạo bảng kê */}

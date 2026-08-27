@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
     const mays = await selectAll((from, to) => supabaseAdmin
       .from('soct_khach_hang')
-      .select('id, ten_khach_hang, ma_may, serial, model, loai_hd, may_mau, vi_tri_dat_may, trach_nhiem_ky_thuat, ten_doi_tac_ky_thuat, ngay_chot_so, chot_so_ngay, chot_so_cuoi_thang, id_hop_dong_khung')
+      .select('id, ten_khach_hang, ma_may, serial, model, loai_hd, may_mau, vi_tri_dat_may, trach_nhiem_ky_thuat, ten_doi_tac_ky_thuat, ngay_chot_so, chot_so_ngay, chot_so_cuoi_thang, id_hop_dong_khung, nv_kinh_doanh, phi_thue_thang, don_gia_bw, don_gia_mau, dinh_muc_mien_phi_bw, dinh_muc_mien_phi_mau, cam_ket_toi_thieu_bw, cam_ket_toi_thieu_mau, vat_thue_cpc')
       .in('loai_hd', LOAI_HD_BILLING)
       .order('ten_khach_hang')
       .range(from, to))
