@@ -408,7 +408,8 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
   const [exportingId, setExportingId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [onlyDue, setOnlyDue] = useState(false)
-  const [nvFilter, setNvFilter] = useState('ky_thuat') // 'ky_thuat' (mặc định) | 'all' | tên NV cụ thể
+  const [nvFilter, setNvFilter] = useState('all') // 'all' (mặc định) | 'ky_thuat' | tên NV cụ thể
+  const [showGhiChu, setShowGhiChu] = useState(false) // cột Ghi chú mặc định ẩn (ít dùng, đỡ tràn bảng)
 
   // Máy thuộc KỸ THUẬT = NV kinh doanh = "Kỹ thuật" HOẶC để trống.
   const laKyThuat = (r: any) => { const nv = String(r.nv_kinh_doanh || '').trim(); return nv === '' || nv === 'Kỹ thuật' }
@@ -532,10 +533,11 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h3 className="font-bold text-slate-800">Nhập counter hàng tháng</h3>
-          <p className="text-xs text-slate-500">Độc lập với Sổ công tác. Nhập chỉ số công-tơ cuối kỳ; cột <b>Kỳ trước</b> là đầu kỳ tham khảo.</p>
+          <p className="text-xs text-slate-500">Nhập chỉ số cuối kỳ; số nhỏ dưới ô là <b>đầu kỳ</b> (kỳ trước) tham khảo.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Input placeholder="Tìm khách / mã máy / serial / vị trí…" value={search} onChange={e => setSearch(e.target.value)} className="w-64 h-9" />
+          <Input placeholder="Tìm khách / mã máy / serial / vị trí…" value={search} onChange={e => setSearch(e.target.value)} className="w-56 h-9" />
+          <button onClick={() => setShowGhiChu(v => !v)} className={`h-9 px-3 rounded-md text-xs font-medium border whitespace-nowrap ${showGhiChu ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white text-slate-500 border-slate-200'}`} title="Bật/tắt cột Ghi chú">Ghi chú</button>
           <label className="flex items-center gap-2 text-sm text-slate-600">Kỳ
             <MonthField value={thang} onChange={setThang} className="h-9 w-40" />
           </label>
@@ -563,8 +565,8 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
         <div className="flex items-center gap-3 flex-wrap bg-slate-50 border border-slate-100 rounded-lg px-4 py-3">
           <label className="text-sm text-slate-600 flex items-center gap-2">Doanh số nhóm
             <select value={nvFilter} onChange={e => setNvFilter(e.target.value)} className="h-9 rounded-md border border-slate-200 text-sm px-2 bg-white">
-              <option value="ky_thuat">Kỹ thuật (mặc định)</option>
               <option value="all">Tất cả</option>
+              <option value="ky_thuat">Kỹ thuật</option>
               {nvList.map((nv: string) => <option key={nv} value={nv}>{nv}</option>)}
             </select>
           </label>
@@ -581,21 +583,19 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
               <tr>
-                <th className="px-3 py-2 text-left">Khách hàng</th>
+                <th className="px-3 py-2 text-left min-w-[180px]">Khách hàng</th>
                 <th className="px-3 py-2 text-left">Mã máy</th>
                 <th className="px-3 py-2 text-center">Ngày chốt</th>
                 <th className="px-3 py-2 text-left">Trạng thái</th>
-                <th className="px-3 py-2 text-right">Đen kỳ {tPrev}</th>
                 <th className="px-3 py-2 text-left">Đen kỳ {tThis}</th>
-                <th className="px-3 py-2 text-right">Màu kỳ {tPrev}</th>
                 <th className="px-3 py-2 text-left">Màu kỳ {tThis}</th>
-                <th className="px-3 py-2 text-left">Ghi chú</th>
+                {showGhiChu && <th className="px-3 py-2 text-left">Ghi chú</th>}
                 <th className="px-3 py-2 text-right">Ước tính kỳ</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.length === 0 && <tr><td colSpan={11} className="px-3 py-6 text-center text-slate-400">{rows.length === 0 ? 'Không có máy thuê/CPC.' : (onlyDue ? 'Không có máy cần lấy.' : 'Không khớp tìm kiếm.')}</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={showGhiChu ? 9 : 8} className="px-3 py-6 text-center text-slate-400">{rows.length === 0 ? 'Không có máy thuê/CPC.' : (onlyDue ? 'Không có máy cần lấy.' : 'Không khớp tìm kiếm.')}</td></tr>}
               {filtered.map(({ r, st }: any) => (
                 <tr key={r.id} className="hover:bg-slate-50">
                   <td className="px-3 py-2">
@@ -612,15 +612,17 @@ function CounterTab({ showNotification, thang, setThang, onSaved }: { showNotifi
                   <td className="px-3 py-2">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap ${STATUS_BADGE[st.status as CounterStatus].cls}`}>{STATUS_BADGE[st.status as CounterStatus].label(st.days)}</span>
                   </td>
-                  <td className="px-3 py-2 text-right text-slate-400">{fmtInt(r.so_bw_truoc)}</td>
-                  <td className="px-3 py-2"><NumInput value={edits[r.id]?.so_bw ?? ''} onChange={v => setEdit(r.id, 'so_bw', v)} className="h-8 w-28" /></td>
-                  <td className="px-3 py-2 text-right text-slate-400">{r.may_mau === false ? '—' : fmtInt(r.so_mau_truoc)}</td>
+                  <td className="px-3 py-2">
+                    <NumInput value={edits[r.id]?.so_bw ?? ''} onChange={v => setEdit(r.id, 'so_bw', v)} className="h-8 w-24" />
+                    <div className="text-[10px] text-slate-400 mt-0.5">đầu kỳ: {fmtInt(r.so_bw_truoc)}</div>
+                  </td>
                   <td className="px-3 py-2">
                     <NumInput value={r.may_mau === false ? '' : (edits[r.id]?.so_mau ?? '')} onChange={v => setEdit(r.id, 'so_mau', v)}
                       disabled={r.may_mau === false} title={r.may_mau === false ? 'Máy đen trắng — không có counter màu' : undefined}
-                      className={`h-8 w-28 ${r.may_mau === false ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''}`} />
+                      className={`h-8 w-24 ${r.may_mau === false ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''}`} />
+                    <div className="text-[10px] text-slate-400 mt-0.5">{r.may_mau === false ? 'máy đen trắng' : `đầu kỳ: ${fmtInt(r.so_mau_truoc)}`}</div>
                   </td>
-                  <td className="px-3 py-2"><Input value={edits[r.id]?.ghi_chu ?? ''} onChange={e => setEdit(r.id, 'ghi_chu', e.target.value)} className="h-8 w-40" /></td>
+                  {showGhiChu && <td className="px-3 py-2"><Input value={edits[r.id]?.ghi_chu ?? ''} onChange={e => setEdit(r.id, 'ghi_chu', e.target.value)} className="h-8 w-40" /></td>}
                   <td className="px-3 py-2 text-right whitespace-nowrap">
                     {r.id_hop_dong_khung ? (
                       <span className="text-[10px] text-violet-600" title="Máy thuộc HĐ khung — tính gộp ở Bảng kê">HĐ khung</span>
