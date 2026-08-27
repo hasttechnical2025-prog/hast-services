@@ -510,6 +510,7 @@ export default function AdminDashboard() {
       if (khaDung > 0) continue // chỉ báo khi HẾT (khả dụng ≤ 0)
       const modelArr = [...models]
       const soMay = modelArr.reduce((s, m) => s + (rentalCount.get(normModel(m)) || 0), 0)
+      if (soMay === 0) continue // model không còn máy thuê nào -> không cần mực dự phòng -> không cảnh báo
       out.push({ ma_hang: ma, ten_hang: inv?.ten_hang || ma, ton, giu, kha_dung: khaDung, models: modelArr, so_may: soMay })
     }
     return out.sort((a, b) => a.kha_dung - b.kha_dung)
