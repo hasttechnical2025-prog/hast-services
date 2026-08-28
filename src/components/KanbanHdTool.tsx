@@ -178,7 +178,9 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const [invoiceNum, setInvoiceNum] = useState("")
   const [completing, setCompleting] = useState(false)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
-  const [editName, setEditName] = useState<{ ma_hang: string; ten: string; gia: string; dvt: string } | null>(null) // sửa tên + đơn giá + ĐVT trong modal
+  // Sửa tên + đơn giá + ĐVT trong modal. Giữ kèm giá trị GỐC (ten0/gia0/dvt0) để khi Lưu chỉ ghi
+  // trường THỰC SỰ đổi — tránh vô tình ghi ten_hang_hd (làm rớt phần ghép "Tên - Mã") khi chỉ sửa ĐVT.
+  const [editName, setEditName] = useState<{ ma_hang: string; ten: string; gia: string; dvt: string; ten0: string; gia0: string; dvt0: string } | null>(null)
   const [savingName, setSavingName] = useState(false)
   const [dragVtIdx, setDragVtIdx] = useState<number | null>(null) // kéo-thả sắp xếp dòng vật tư
   // Kế toán TRẢ LẠI phiếu về Cột 1 kèm lý do (cho tech_admin/staff sửa).
@@ -571,10 +573,16 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     if (!editName || !activeCard) return
     setSavingName(true)
     try {
+      // CHỈ gửi trường THỰC SỰ đổi (so với giá trị gốc). Không đổi tên -> KHÔNG gửi ten_hang -> API
+      // giữ ten_hang_hd cũ (null) -> phần ghép "Tên - Mã" vẫn còn. Tránh sửa ĐVT làm rớt mã.
+      const trim = (s: string) => String(s ?? '').trim()
       const res = await fetch('/api/admin/ten-hang-rieng', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          pham_vi, ma_hang: editName.ma_hang, ten_hang: editName.ten, don_gia: editName.gia, don_vi_tinh: editName.dvt,
+          pham_vi, ma_hang: editName.ma_hang,
+          ...(trim(editName.ten) !== trim(editName.ten0) ? { ten_hang: editName.ten } : {}),
+          ...(trim(editName.gia) !== trim(editName.gia0) ? { don_gia: editName.gia } : {}),
+          ...(trim(editName.dvt) !== trim(editName.dvt0) ? { don_vi_tinh: editName.dvt } : {}),
           // Lưu mẫu khách: gửi kèm ticket_ids để áp NGAY vào dòng phiếu đang mở (không chỉ nhớ kỳ sau).
           ticket_ids: activeCard.tickets.map(t => t.id),
           ...(pham_vi === 'khach' ? { scope_key: modalScopeKey } : {}),
@@ -1648,7 +1656,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                                 <span>{tenHangKeToan(v.ten_hang, v.ma_hang, v.ghepMa)}</span>
                                 {canEditItems && (
                                   <button
-                                    onClick={() => setEditName({ ma_hang: v.ma_hang, ten: v.ten_hang, gia: v.don_gia ? String(v.don_gia) : '', dvt: v.dvt || '' })}
+                                    onClick={() => { const ten = v.ten_hang, gia = v.don_gia ? String(v.don_gia) : '', dvt = v.dvt || ''; setEditName({ ma_hang: v.ma_hang, ten, gia, dvt, ten0: ten, gia0: gia, dvt0: dvt }) }}
                                     title="Đổi tên / đơn giá / ĐVT hiển thị trên hóa đơn"
                                     className="text-slate-300 hover:text-blue-600 shrink-0"
                                   >
