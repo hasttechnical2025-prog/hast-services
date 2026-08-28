@@ -170,6 +170,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("") // tìm khách / số phiếu / số hóa đơn
   const [col3ChiKyNay, setCol3ChiKyNay] = useState(false) // cột Chờ thanh toán: lọc theo kỳ hay lũy kế
+  const [importingReport, setImportingReport] = useState(false) // đang import báo cáo M-invoice
+  const [importResult, setImportResult] = useState<{ ok: number; total: number; skipped: { soHD: string; ten: string; reason: string }[]; failed: { soHD: string; reason: string }[] } | null>(null)
   const [payModal, setPayModal] = useState<{ soHd: string; ticketIds: string[]; tong: number; daThu: number; tenKh: string; soPhieu: string[] } | null>(null)
   const [payInput, setPayInput] = useState("")
   const [paying, setPaying] = useState(false)
@@ -926,6 +928,97 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const cardsCol3 = groupByHd(col3Tickets, 'Đã lên hóa đơn')
   const cardsCol4 = groupByHd(col4Tickets, 'Đã thanh toán')
 
+  // IMPORT BÁO CÁO M-INVOICE: đọc file "Báo cáo tổng hợp doanh thu hóa đơn", TỰ ĐỘNG điền Số HĐ +
+  // chuyển thẻ từ cột "KT-HC lên hóa đơn" (Đang xử lý HĐ) sang "Chờ thanh toán" (Đã lên hóa đơn).
+  // AN TOÀN: chỉ áp dòng KHỚP CHẮC CHẮN (Số đơn hàng = report thẻ) VÀ khớp tổng tiền (±1.000đ do làm
+  // tròn). Dòng thiếu Số đơn hàng / không thấy thẻ / lệch tiền / HĐ âm (điều chỉnh) -> liệt kê làm tay.
+  const importMinvoiceReport = async (file: File) => {
+    setImportingReport(true)
+    try {
+      const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
+      const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer())
+      const ws = wb.worksheets[0]
+      const cell = (v: any) => { let x = v; if (x && typeof x === 'object' && 'result' in x) x = x.result; if (x && typeof x === 'object' && 'text' in x) x = x.text; return x }
+      const norm2 = (s: any) => String(s ?? '').replace(/\s+/g, ' ').trim()
+      // Tìm dòng tiêu đề (ô = 'Số HĐ') + vị trí các cột cần dùng.
+      let headRow = -1, colHD = -1, colDH = -1, colTong = -1, colNgay = -1, colTen = -1
+      for (let r = 1; r <= Math.min(ws.rowCount, 15); r++) {
+        const row = ws.getRow(r)
+        for (let c = 1; c <= ws.columnCount; c++) {
+          const t = norm2(cell(row.getCell(c).value))
+          if (t === 'Số HĐ') { headRow = r; colHD = c }
+          if (headRow === r) {
+            if (t === 'Số đơn hàng') colDH = c
+            else if (t === 'Tổng tiền sau thuế') colTong = c
+            else if (t === 'Ngày hóa đơn') colNgay = c
+            else if (t === 'Tên đơn vị bên mua') colTen = c
+          }
+        }
+        if (headRow === r) break
+      }
+      if (headRow < 0 || colHD < 0 || colDH < 0 || colTong < 0) {
+        showNotification('error', 'Không nhận diện được file báo cáo M-invoice (thiếu cột Số HĐ / Số đơn hàng / Tổng tiền sau thuế).')
+        return
+      }
+      // Đọc dòng dữ liệu.
+      const dataRows: { soHD: string; soDH: string; tong: number; ngay: string; ten: string }[] = []
+      for (let r = headRow + 1; r <= ws.rowCount; r++) {
+        const row = ws.getRow(r)
+        const soHDraw = cell(row.getCell(colHD).value)
+        const soHD = soHDraw == null ? '' : String(soHDraw).trim()
+        if (!soHD) continue // dòng trống / tổng cộng
+        const soDH = norm2(cell(row.getCell(colDH).value))
+        const tong = Number(cell(row.getCell(colTong).value)) || 0
+        const ten = colTen > 0 ? norm2(cell(row.getCell(colTen).value)) : ''
+        const ngayRaw = colNgay > 0 ? cell(row.getCell(colNgay).value) : null
+        let ngay = ''
+        if (ngayRaw instanceof Date) ngay = new Date(ngayRaw.getTime()).toISOString().slice(0, 10)
+        else if (typeof ngayRaw === 'string' && ngayRaw) ngay = ngayRaw.slice(0, 10)
+        dataRows.push({ soHD, soDH, tong, ngay, ten })
+      }
+      if (dataRows.length === 0) { showNotification('error', 'File không có dòng hóa đơn nào.'); return }
+
+      // Khớp từng dòng với thẻ ở cột 2.
+      const matched: { card: any; soHD: string; ngay: string }[] = []
+      const skipped: { soHD: string; ten: string; reason: string }[] = []
+      const usedCards = new Set<string>()
+      for (const row of dataRows) {
+        if (row.tong <= 0) { skipped.push({ soHD: row.soHD, ten: row.ten, reason: 'HĐ điều chỉnh/hủy (tổng ≤ 0) — bỏ qua' }); continue }
+        if (!row.soDH) { skipped.push({ soHD: row.soHD, ten: row.ten, reason: 'Thiếu "Số đơn hàng" — HĐ nhập tay, không khớp tự động' }); continue }
+        const card = cardsCol2.find((c: any) => !usedCards.has(c.id) && c.tickets.some((t: any) => String(t.report || '').trim() === row.soDH))
+        if (!card) { skipped.push({ soHD: row.soHD, ten: row.ten, reason: `Không thấy thẻ "KT-HC lên hóa đơn" cho đơn hàng ${row.soDH} (có thể đã xử lý)` }); continue }
+        // Tổng KỲ VỌNG tính GIỐNG hệt lúc xuất M-invoice (làm tròn từng dòng qua aggVatTu) -> khớp
+        // đúng số M-invoice tự cộng. Nếu kthc có thêm làm tròn tổng thì lệch ≤ 1.000đ.
+        const cardTong = aggVatTu(card.tickets.flatMap((t: any) => t.soct_chi_tiet_vat_tu || [])).reduce((s: number, it: any) => {
+          const tt = Math.round((Number(it.so_luong) || 0) * (Number(it.don_gia) || 0))
+          const th = Math.round((Number(it.so_luong) || 0) * (Number(it.don_gia) || 0) * (Number(it.vat) || 0) / 100)
+          return s + tt + th
+        }, 0)
+        const diff = Math.abs(cardTong - row.tong)
+        if (diff > 1000) { skipped.push({ soHD: row.soHD, ten: row.ten, reason: `Lệch tổng tiền: thẻ ${fmtVnd(cardTong)}đ ≠ HĐ ${fmtVnd(row.tong)}đ` }); continue }
+        usedCards.add(card.id)
+        matched.push({ card, soHD: row.soHD, ngay: row.ngay })
+      }
+
+      // Áp các thẻ khớp: điền số HĐ + chuyển sang "Chờ thanh toán".
+      let ok = 0
+      const failed: { soHD: string; reason: string }[] = []
+      for (const m of matched) {
+        try {
+          const res = await fetch('/api/admin/kanban-hd', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: m.card.tickets.map((t: any) => t.id), trang_thai_hd: 'Đã lên hóa đơn', so_hoa_don: m.soHD, ...(m.ngay ? { ngay_xuat_hd: m.ngay } : {}) }),
+          })
+          if (res.ok) ok++
+          else { const e = await res.json(); failed.push({ soHD: m.soHD, reason: e.error || 'Lỗi cập nhật' }) }
+        } catch { failed.push({ soHD: m.soHD, reason: 'Lỗi kết nối' }) }
+      }
+      await load()
+      setImportResult({ ok, total: dataRows.length, skipped, failed })
+    } catch (e: any) { showNotification('error', 'Lỗi đọc file báo cáo: ' + (e?.message || '')) }
+    finally { setImportingReport(false) }
+  }
+
   // Tổng nợ đọng cột 3 (Chờ thanh toán) theo TUỔI NỢ (ngay_xuat_hd) — 3 mức khớp màu badge thẻ:
   // <15 ngày (trong hạn) · 15–30 ngày (chớm quá hạn) · >30 ngày (quá hạn). Chỉ tính HĐ còn nợ
   // (đã thu < tổng). 1 thẻ = 1 hóa đơn. Banner đầu cột cho MỌI role cùng theo dõi.
@@ -1337,6 +1430,14 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                   className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed">
                   <Download className="w-3 h-3" /> M-invoice{cardsCol2ChuaXuat.length > 0 ? ` (${cardsCol2ChuaXuat.length} chưa xuất)` : ''}
                 </button>
+              )}
+              {isKeToan && (
+                <label title="Nhập file 'Báo cáo tổng hợp doanh thu hóa đơn' từ M-invoice → tự điền số HĐ + chuyển thẻ khớp sang Chờ thanh toán"
+                  className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-emerald-200 text-emerald-700 bg-white hover:bg-emerald-50 cursor-pointer ${importingReport ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <Upload className="w-3 h-3" /> {importingReport ? 'Đang khớp…' : 'Import báo cáo'}
+                  <input type="file" accept=".xlsx" className="hidden" disabled={importingReport}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) importMinvoiceReport(f); e.target.value = '' }} />
+                </label>
               )}
             </div>
             {/* Banner an toàn: đếm phiếu ĐÃ xuất file nhưng CHƯA nhập số HĐ -> nhắc đối chiếu MISA, chống quên. */}
@@ -1892,6 +1993,62 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
               >
                 Xác nhận
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KẾT QUẢ IMPORT BÁO CÁO M-INVOICE */}
+      {importResult && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => setImportResult(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-slate-100 shrink-0">
+              <h3 className="font-bold text-slate-800">Kết quả import báo cáo M-invoice</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Đã đọc {importResult.total} hóa đơn trong file.</p>
+            </div>
+            <div className="p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
+              <div className="flex flex-wrap gap-3">
+                <div className="flex-1 min-w-[140px] rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+                  <div className="text-2xl font-bold text-emerald-700">{importResult.ok}</div>
+                  <div className="text-xs text-emerald-700">thẻ đã điền số HĐ + chuyển sang <b>Chờ thanh toán</b></div>
+                </div>
+                <div className="flex-1 min-w-[140px] rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                  <div className="text-2xl font-bold text-amber-700">{importResult.skipped.length + importResult.failed.length}</div>
+                  <div className="text-xs text-amber-700">dòng chưa xử lý — cần làm tay</div>
+                </div>
+              </div>
+
+              {importResult.failed.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-red-600 uppercase mb-1.5">Lỗi khi cập nhật ({importResult.failed.length})</p>
+                  <div className="rounded-lg border border-red-100 divide-y divide-red-50">
+                    {importResult.failed.map((f, i) => (
+                      <div key={i} className="px-3 py-2 text-xs flex gap-2"><span className="font-mono font-semibold text-slate-700 shrink-0">HĐ {f.soHD}</span><span className="text-red-600">{f.reason}</span></div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {importResult.skipped.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-amber-600 uppercase mb-1.5">Không khớp — cần xử lý tay ({importResult.skipped.length})</p>
+                  <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-[40vh] overflow-y-auto">
+                    {importResult.skipped.map((s, i) => (
+                      <div key={i} className="px-3 py-2 text-xs">
+                        <div className="flex gap-2 items-baseline"><span className="font-mono font-semibold text-slate-700 shrink-0">HĐ {s.soHD}</span><span className="text-slate-500 truncate">{s.ten}</span></div>
+                        <div className="text-amber-700 mt-0.5">{s.reason}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {importResult.ok === importResult.total && (
+                <div className="rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs px-3 py-2">✓ Tất cả hóa đơn trong file đều đã khớp và xử lý xong.</div>
+              )}
+            </div>
+            <div className="px-5 py-4 border-t border-slate-100 flex justify-end shrink-0">
+              <Button onClick={() => setImportResult(null)} className="h-9 bg-blue-600 hover:bg-blue-700">Đóng</Button>
             </div>
           </div>
         </div>
