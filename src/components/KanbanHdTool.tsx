@@ -1431,10 +1431,10 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                   className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed">
                   <Download className="w-3 h-3" /> M-invoice{cardsCol2ChuaXuat.length > 0 ? ` (${cardsCol2ChuaXuat.length} chưa xuất)` : ''}
                 </button>
-                <label title="Nhập file 'Báo cáo tổng hợp doanh thu hóa đơn' từ M-invoice → tự điền số HĐ + chuyển thẻ khớp sang Chờ thanh toán"
-                  className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-emerald-200 text-emerald-700 bg-white hover:bg-emerald-50 cursor-pointer ${importingReport ? 'opacity-50 pointer-events-none' : ''}`}>
+                <label title={cardsCol2.length === 0 ? 'Cột trống — không có thẻ nào để đối chiếu' : "Nhập file 'Báo cáo tổng hợp doanh thu hóa đơn' từ M-invoice → tự điền số HĐ + chuyển thẻ khớp sang Chờ thanh toán"}
+                  className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-emerald-200 text-emerald-700 bg-white hover:bg-emerald-50 cursor-pointer ${importingReport || cardsCol2.length === 0 ? 'opacity-40 pointer-events-none' : ''}`}>
                   <Upload className="w-3 h-3" /> {importingReport ? 'Đang khớp…' : 'Import báo cáo'}
-                  <input type="file" accept=".xlsx" className="hidden" disabled={importingReport}
+                  <input type="file" accept=".xlsx" className="hidden" disabled={importingReport || cardsCol2.length === 0}
                     onChange={e => { const f = e.target.files?.[0]; if (f) importMinvoiceReport(f); e.target.value = '' }} />
                 </label>
                 </div>
