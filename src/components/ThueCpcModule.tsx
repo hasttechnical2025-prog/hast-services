@@ -116,13 +116,18 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
   }, [counterThang, badgeVer])
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
-      <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit mb-5 overflow-x-auto">
-        {tabs.map(([k, l]) => (
-          <button key={k} onClick={() => setSub(k)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${active === k ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
-            {l}
-            {k === 'counter' && dueCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{dueCount}</span>}
-          </button>
-        ))}
+      {/* Tab cháu STICKY: ghim dưới header (--head-h) + tab con (~2.5rem). Nền trắng phủ hết bề
+          ngang card (-mx bù padding p-4/md:p-6) để nội dung cuộn không lú ra bên cạnh thanh pill.
+          z-10 < tab con (z-20) < header (z-30) -> chồng lớp đúng, không chờm. */}
+      <div className="sticky top-[calc(var(--head-h)+2.5rem)] z-10 -mx-4 md:-mx-6 px-4 md:px-6 pt-1 pb-3 mb-4 bg-white">
+        <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit overflow-x-auto">
+          {tabs.map(([k, l]) => (
+            <button key={k} onClick={() => setSub(k)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${active === k ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
+              {l}
+              {k === 'counter' && dueCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{dueCount}</span>}
+            </button>
+          ))}
+        </div>
       </div>
       {active === 'danh_sach' && (
         <div className="space-y-8">
