@@ -1536,7 +1536,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                         <th className="px-3 py-2 text-right w-24">Đơn giá</th>
                         <th className="px-3 py-2 text-center w-14">VAT</th>
                         <th className="px-3 py-2 text-right w-24">Thành tiền</th>
-                        <th className="px-3 py-2 w-10"></th>
+                        <th className="px-3 py-2 text-center w-16">Thao tác</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white font-medium text-slate-700">

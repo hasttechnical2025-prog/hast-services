@@ -136,10 +136,10 @@ export default function BaoGiaEditor({
               <th className="px-2 py-2 w-16">ĐVT</th>
               <th className="px-2 py-2 w-14 text-center">SL</th>
               <th className="px-3 py-2 w-28 text-right">Đơn giá</th>
-              <th className="px-2 py-2 w-14 text-center">VAT%</th>
+              <th className="px-2 py-2 w-14 text-center">VAT</th>
               <th className="px-3 py-2 w-28 text-right">Thành tiền</th>
               <th className="px-3 py-2 w-36">Ghi chú</th>
-              <th className="px-2 py-2 w-8"></th>
+              <th className="px-2 py-2 w-16 text-center">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">

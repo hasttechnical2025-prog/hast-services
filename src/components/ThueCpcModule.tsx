@@ -1010,7 +1010,7 @@ function BangKeTab({ showNotification, thang: thangProp, refreshVer = 0 }: { sho
                 <th className="px-3 py-2 text-center">VAT</th>
                 <th className="px-3 py-2 text-right">Sau VAT</th>
                 <th className="px-3 py-2 text-left">Số HĐ</th>
-                <th className="px-3 py-2"></th>
+                <th className="px-3 py-2 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">

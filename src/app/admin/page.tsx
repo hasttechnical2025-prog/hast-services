@@ -1358,7 +1358,7 @@ export default function AdminDashboard() {
       detail: (
         <div className="border border-amber-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
-            <thead className="bg-amber-50 text-amber-800"><tr><th className="px-2.5 py-1.5 font-medium">Mã máy</th><th className="px-2 py-1.5 font-medium">Khách</th><th className="px-2 py-1.5 font-medium text-center">Hết hạn</th></tr></thead>
+            <thead className="bg-amber-50 text-amber-800"><tr><th className="px-2.5 py-1.5 font-medium">Mã máy</th><th className="px-2 py-1.5 font-medium">Khách hàng</th><th className="px-2 py-1.5 font-medium text-center">Hết hạn</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {hdbtExpiring.map((c: any) => {
                 const st = hdbtStatus(c.ngay_het_han_hdbt)
@@ -1380,7 +1380,7 @@ export default function AdminDashboard() {
       detail: (
         <div className="border border-amber-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
-            <thead className="bg-amber-50 text-amber-800"><tr><th className="px-2.5 py-1.5 font-medium">Mã máy</th><th className="px-2 py-1.5 font-medium">Khách</th><th className="px-2 py-1.5 font-medium text-center">TT</th></tr></thead>
+            <thead className="bg-amber-50 text-amber-800"><tr><th className="px-2.5 py-1.5 font-medium">Mã máy</th><th className="px-2 py-1.5 font-medium">Khách hàng</th><th className="px-2 py-1.5 font-medium text-center">TT</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {counterDueList.map((m: any) => {
                 const overdue = m._st.status === 'overdue'
@@ -3119,7 +3119,7 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
             <tr>
               {col.show('ma_hang') && <th className="px-4 py-3 font-semibold">Mã hàng</th>}
               {col.show('ten_hang') && <th className="px-4 py-3 font-semibold">Tên vật tư</th>}
-              {col.show('model') && <th className="px-4 py-3 font-semibold">Model máy</th>}
+              {col.show('model') && <th className="px-4 py-3 font-semibold">Model</th>}
               {col.show('hang') && <th className="px-4 py-3 font-semibold">Hãng</th>}
               {col.show('ton_kho') && <th className="px-4 py-3 font-semibold text-center">Tồn kho</th>}
               {col.show('thaotac') && <th className="px-4 py-3 font-semibold text-center w-24">Thao tác</th>}
@@ -7051,7 +7051,7 @@ function AliasTool({ showNotification }: { showNotification: (type: 'success' | 
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[320px] overflow-y-auto">
         <table className="w-full text-left text-sm text-slate-600">
           <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide sticky top-0 border-b border-slate-200">
-            <tr><th className="px-4 py-2">Từ khóa</th><th className="px-4 py-2">Mở rộng thành</th><th className="px-4 py-2 w-16 text-right">Xóa</th></tr>
+            <tr><th className="px-4 py-2">Từ khóa</th><th className="px-4 py-2">Mở rộng thành</th><th className="px-4 py-2 w-20 text-right">Thao tác</th></tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {items.length === 0 ? (
@@ -7717,7 +7717,7 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
                     {col.show('khach') && <th className="px-4 py-3 font-semibold">Khách hàng</th>}
                     {col.show('model') && <th className="px-4 py-3 font-semibold">Model</th>}
                     {col.show('counter') && <th className="px-4 py-3 font-semibold text-right">Counter</th>}
-                    {col.show('xoa') && <th className="px-4 py-3 font-semibold text-center w-16">Xóa</th>}
+                    {col.show('xoa') && <th className="px-4 py-3 font-semibold text-center w-20">Thao tác</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -7984,14 +7984,14 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
             <tr>
               {col.show('ma_may') && <th className="px-4 py-3 font-semibold">Mã máy</th>}
               {col.show('serial') && <th className="px-4 py-3 font-semibold">Serial</th>}
-              {col.show('ten') && <th className="px-4 py-3 font-semibold">Tên khách hàng</th>}
+              {col.show('ten') && <th className="px-4 py-3 font-semibold">Khách hàng</th>}
               {col.show('model') && <th className="px-4 py-3 font-semibold">Model</th>}
               {col.show('hang') && <th className="px-4 py-3 font-semibold">Hãng</th>}
               {col.show('km') && <th className="px-4 py-3 font-semibold text-center">KM</th>}
               {col.show('loai_hd') && <th className="px-4 py-3 font-semibold text-center">Loại HĐ</th>}
               {col.show('het_han') && <th className="px-4 py-3 font-semibold text-center">Hết hạn hợp đồng</th>}
               {col.show('lich_bt') && <th className="px-4 py-3 font-semibold text-center">Lịch bảo trì</th>}
-              {col.show('sua') && <th className="px-4 py-3 font-semibold text-center w-16">Sửa</th>}
+              {col.show('sua') && <th className="px-4 py-3 font-semibold text-center w-20">Thao tác</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">

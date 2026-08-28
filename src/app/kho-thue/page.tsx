@@ -158,9 +158,9 @@ export default function KhoThuePage() {
                 <th className="text-left px-3 py-2.5 font-semibold whitespace-nowrap">Model</th>
                 <th className="text-left px-3 py-2.5 font-semibold whitespace-nowrap">Khách lúc giám định</th>
                 <th className="text-left px-3 py-2.5 font-semibold whitespace-nowrap">Khách đang thuê</th>
-                <th className="text-left px-3 py-2.5 font-semibold">Tình trạng</th>
+                <th className="text-left px-3 py-2.5 font-semibold">Trạng thái</th>
                 <th className="text-left px-3 py-2.5 font-semibold whitespace-nowrap">Counter</th>
-                <th className="text-center px-3 py-2.5 font-semibold whitespace-nowrap">Chi tiết</th>
+                <th className="text-center px-3 py-2.5 font-semibold whitespace-nowrap">Thao tác</th>
               </tr>
             </thead>
             <tbody>
