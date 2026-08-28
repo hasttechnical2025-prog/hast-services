@@ -278,7 +278,7 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl my-8">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl my-8">
         <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
           <div>
             <h3 className="font-bold text-slate-800">Đơn giá HĐ — {row.ten_khach_hang}</h3>
@@ -287,93 +287,99 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none shrink-0" title="Đóng">✕</button>
         </div>
         <div className="p-5 space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <label className="block md:col-span-2">
-              <span className="text-xs font-medium text-slate-500">Serial máy</span>
-              <Input value={f.serial} onChange={e => set('serial', e.target.value)} className="h-9 mt-1" placeholder="Serial thực của máy (nên có với máy thuê)" />
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium text-slate-500">Loại máy</span>
-              <select value={f.may_mau ? 'mau' : 'den'} onChange={e => set('may_mau', e.target.value === 'mau')} className="h-9 mt-1 w-full rounded-md border border-slate-200 text-sm px-2 bg-white">
-                <option value="mau">Máy màu</option>
-                <option value="den">Máy đen trắng</option>
-              </select>
-              <span className="text-[10px] text-slate-400">Đen trắng → khóa ô counter Màu</span>
-            </label>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {numField('Đơn giá Đen (VNĐ/bản)', 'don_gia_bw')}
-            {numField('Đơn giá Màu (VNĐ/bản)', 'don_gia_mau')}
-            {numField('Phí thuê / tháng', 'phi_thue_thang')}
-            {numField('Định mức miễn phí Đen', 'dinh_muc_mien_phi_bw')}
-            {numField('Định mức miễn phí Màu', 'dinh_muc_mien_phi_mau')}
-            {numField('VAT (%)', 'vat_thue_cpc', true)}
-            {numField('Cam kết tối thiểu Đen', 'cam_ket_toi_thieu_bw')}
-            {numField('Cam kết tối thiểu Màu', 'cam_ket_toi_thieu_mau')}
-          </div>
+          {/* NHÓM 1 — Thông tin máy + Đơn giá & định mức (gộp 1 khối, 4 cột cho gọn chiều cao) */}
+          <section>
+            <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Thông tin máy · Đơn giá</p>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <label className="block lg:col-span-2">
+                <span className="text-xs font-medium text-slate-500">Serial máy</span>
+                <Input value={f.serial} onChange={e => set('serial', e.target.value)} className="h-9 mt-1" placeholder="Serial thực của máy (nên có với máy thuê)" />
+              </label>
+              <label className="block lg:col-span-2">
+                <span className="text-xs font-medium text-slate-500">Loại máy</span>
+                <select value={f.may_mau ? 'mau' : 'den'} onChange={e => set('may_mau', e.target.value === 'mau')} className="h-9 mt-1 w-full rounded-md border border-slate-200 text-sm px-2 bg-white">
+                  <option value="mau">Máy màu</option>
+                  <option value="den">Máy đen trắng</option>
+                </select>
+                <span className="text-[10px] text-slate-400">Đen trắng → khóa ô counter Màu</span>
+              </label>
+              {numField('Đơn giá Đen (VNĐ/bản)', 'don_gia_bw')}
+              {numField('Đơn giá Màu (VNĐ/bản)', 'don_gia_mau')}
+              {numField('Phí thuê / tháng', 'phi_thue_thang')}
+              {numField('VAT (%)', 'vat_thue_cpc', true)}
+              {numField('Định mức miễn phí Đen', 'dinh_muc_mien_phi_bw')}
+              {numField('Định mức miễn phí Màu', 'dinh_muc_mien_phi_mau')}
+              {numField('Cam kết tối thiểu Đen', 'cam_ket_toi_thieu_bw')}
+              {numField('Cam kết tối thiểu Màu', 'cam_ket_toi_thieu_mau')}
+            </div>
 
-          {/* Định mức miễn phí và cam kết tối thiểu là 2 kiểu HĐ khác nhau — 1 máy chỉ nên có 1
-              trong 2 (theo cùng loại đen/màu). Nhập cả 2 thường là nhầm; cảnh báo để rà lại
-              (không chặn cứng). Nếu vẫn lưu cả 2, hệ thống ưu tiên CAM KẾT tối thiểu. */}
-          {(() => {
-            const nz = (v: any) => Number(v) > 0
-            const conflictBw = nz(f.dinh_muc_mien_phi_bw) && nz(f.cam_ket_toi_thieu_bw)
-            const conflictMau = nz(f.dinh_muc_mien_phi_mau) && nz(f.cam_ket_toi_thieu_mau)
-            if (!conflictBw && !conflictMau) return null
-            const loai = [conflictBw ? 'Đen' : '', conflictMau ? 'Màu' : ''].filter(Boolean).join(' và ')
-            return (
-              <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                ⚠ Loại <b>{loai}</b> đang có <b>cả</b> Định mức miễn phí <b>và</b> Cam kết tối thiểu — một máy chỉ nên theo <b>một</b> kiểu. Vui lòng kiểm tra lại. (Nếu vẫn lưu, hệ thống ưu tiên <b>Cam kết tối thiểu</b>.)
-              </div>
-            )
-          })()}
+            {/* Định mức miễn phí và cam kết tối thiểu là 2 kiểu HĐ khác nhau — 1 máy chỉ nên có 1
+                trong 2 (theo cùng loại đen/màu). Nhập cả 2 thường là nhầm; cảnh báo để rà lại
+                (không chặn cứng). Nếu vẫn lưu cả 2, hệ thống ưu tiên CAM KẾT tối thiểu. */}
+            {(() => {
+              const nz = (v: any) => Number(v) > 0
+              const conflictBw = nz(f.dinh_muc_mien_phi_bw) && nz(f.cam_ket_toi_thieu_bw)
+              const conflictMau = nz(f.dinh_muc_mien_phi_mau) && nz(f.cam_ket_toi_thieu_mau)
+              if (!conflictBw && !conflictMau) return null
+              const loai = [conflictBw ? 'Đen' : '', conflictMau ? 'Màu' : ''].filter(Boolean).join(' và ')
+              return (
+                <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  ⚠ Loại <b>{loai}</b> đang có <b>cả</b> Định mức miễn phí <b>và</b> Cam kết tối thiểu — một máy chỉ nên theo <b>một</b> kiểu. Vui lòng kiểm tra lại. (Nếu vẫn lưu, hệ thống ưu tiên <b>Cam kết tối thiểu</b>.)
+                </div>
+              )
+            })()}
+          </section>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <label className="block">
-              <span className="text-xs font-medium text-slate-500">Trách nhiệm kỹ thuật</span>
-              <select value={f.trach_nhiem_ky_thuat} onChange={e => set('trach_nhiem_ky_thuat', e.target.value)} className="h-9 mt-1 w-full rounded-md border border-slate-200 text-sm px-2 bg-white">
-                <option value="Nội bộ">Nội bộ</option>
-                <option value="Đối tác ngoài">Đối tác ngoài</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium text-slate-500">Tên đối tác KT</span>
-              <Input value={f.ten_doi_tac_ky_thuat} onChange={e => set('ten_doi_tac_ky_thuat', e.target.value)} className="h-9 mt-1" placeholder="VD: BVN" disabled={f.trach_nhiem_ky_thuat !== 'Đối tác ngoài'} />
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium text-slate-500">Ngày chốt số</span>
-              <select value={f.chot_pick} onChange={e => set('chot_pick', e.target.value)} className="h-9 mt-1 w-full rounded-md border border-slate-200 text-sm px-2 bg-white">
-                <option value="">— Chưa đặt —</option>
-                {Array.from({ length: 31 }, (_, i) => i + 1).map(d => <option key={d} value={String(d)}>Ngày {d}</option>)}
-                <option value="cuoi">Cuối tháng</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium text-slate-500">Cách ghi kỳ (dòng thuê máy)</span>
-              <select value={f.kieu_ky} onChange={e => set('kieu_ky', e.target.value)} className="h-9 mt-1 w-full rounded-md border border-slate-200 text-sm px-2 bg-white">
-                <option value="thang">Tháng M/YYYY</option>
-                <option value="tu_den">Từ ngày … đến ngày (tự tính theo chốt số)</option>
-              </select>
-              <span className="text-[10px] text-slate-400">Chọn &quot;Từ ngày…đến ngày&quot; cho khách chốt số giữa tháng — tự nhảy kỳ mỗi tháng.</span>
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium text-slate-500">NV Kinh doanh</span>
-              <select value={f.nv_kinh_doanh || ''} onChange={e => set('nv_kinh_doanh', e.target.value)} className="h-9 mt-1 w-full rounded-md border border-slate-200 text-sm px-2 bg-white">
-                <option value="">— Chưa gán —</option>
-                {nvkd.map(v => <option key={v} value={v}>{v}</option>)}
-                {f.nv_kinh_doanh && !nvkd.includes(f.nv_kinh_doanh) && <option value={f.nv_kinh_doanh}>{f.nv_kinh_doanh} (đã ẩn khỏi danh mục)</option>}
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium text-slate-500">Hợp đồng khung</span>
-              <select value={f.id_hop_dong_khung || ''} onChange={e => set('id_hop_dong_khung', e.target.value)} className="h-9 mt-1 w-full rounded-md border border-slate-200 text-sm px-2 bg-white">
-                <option value="">— Không —</option>
-                {khung.map(k => <option key={k.id} value={k.id}>{k.ten_hop_dong}</option>)}
-              </select>
-            </label>
-          </div>
+          {/* NHÓM 2 — Cấu hình hợp đồng (kỹ thuật · kinh doanh · kỳ chốt số) */}
+          <section className="border-t border-slate-100 pt-3">
+            <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Cấu hình hợp đồng</p>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <label className="block">
+                <span className="text-xs font-medium text-slate-500">Trách nhiệm kỹ thuật</span>
+                <select value={f.trach_nhiem_ky_thuat} onChange={e => set('trach_nhiem_ky_thuat', e.target.value)} className="h-9 mt-1 w-full rounded-md border border-slate-200 text-sm px-2 bg-white">
+                  <option value="Nội bộ">Nội bộ</option>
+                  <option value="Đối tác ngoài">Đối tác ngoài</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-slate-500">Tên đối tác KT</span>
+                <Input value={f.ten_doi_tac_ky_thuat} onChange={e => set('ten_doi_tac_ky_thuat', e.target.value)} className="h-9 mt-1" placeholder="VD: BVN" disabled={f.trach_nhiem_ky_thuat !== 'Đối tác ngoài'} />
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-slate-500">NV Kinh doanh</span>
+                <select value={f.nv_kinh_doanh || ''} onChange={e => set('nv_kinh_doanh', e.target.value)} className="h-9 mt-1 w-full rounded-md border border-slate-200 text-sm px-2 bg-white">
+                  <option value="">— Chưa gán —</option>
+                  {nvkd.map(v => <option key={v} value={v}>{v}</option>)}
+                  {f.nv_kinh_doanh && !nvkd.includes(f.nv_kinh_doanh) && <option value={f.nv_kinh_doanh}>{f.nv_kinh_doanh} (đã ẩn khỏi danh mục)</option>}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-slate-500">Hợp đồng khung</span>
+                <select value={f.id_hop_dong_khung || ''} onChange={e => set('id_hop_dong_khung', e.target.value)} className="h-9 mt-1 w-full rounded-md border border-slate-200 text-sm px-2 bg-white">
+                  <option value="">— Không —</option>
+                  {khung.map(k => <option key={k.id} value={k.id}>{k.ten_hop_dong}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-slate-500">Ngày chốt số</span>
+                <select value={f.chot_pick} onChange={e => set('chot_pick', e.target.value)} className="h-9 mt-1 w-full rounded-md border border-slate-200 text-sm px-2 bg-white">
+                  <option value="">— Chưa đặt —</option>
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map(d => <option key={d} value={String(d)}>Ngày {d}</option>)}
+                  <option value="cuoi">Cuối tháng</option>
+                </select>
+              </label>
+              <label className="block lg:col-span-3">
+                <span className="text-xs font-medium text-slate-500">Cách ghi kỳ (dòng thuê máy)</span>
+                <select value={f.kieu_ky} onChange={e => set('kieu_ky', e.target.value)} className="h-9 mt-1 w-full rounded-md border border-slate-200 text-sm px-2 bg-white">
+                  <option value="thang">Tháng M/YYYY</option>
+                  <option value="tu_den">Từ ngày … đến ngày (tự tính theo chốt số)</option>
+                </select>
+                <span className="text-[10px] text-slate-400">Chọn &quot;Từ ngày…đến ngày&quot; cho khách chốt số giữa tháng — tự nhảy kỳ mỗi tháng.</span>
+              </label>
+            </div>
+          </section>
 
-          <div className="border-t border-slate-100 pt-3">
+          <section className="border-t border-slate-100 pt-3">
             <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Thông tin in bảng kê</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <label className="block col-span-2 md:col-span-4">
@@ -387,7 +393,7 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
               <label className="block col-span-2 md:col-span-1"><span className="text-xs font-medium text-slate-500">Ngày lắp máy</span><div className="mt-1"><DateField value={f.ngay_lap_may || ''} onChange={v => set('ngay_lap_may', v)} heightClass="h-9" /></div></label>
               <label className="block col-span-2 md:col-span-1"><span className="text-xs font-medium text-slate-500">Ngày hết hạn hợp đồng</span><div className="mt-1"><DateField value={f.ngay_het_han_hdbt || ''} onChange={v => set('ngay_het_han_hdbt', v)} heightClass="h-9" /></div></label>
             </div>
-          </div>
+          </section>
         </div>
         <div className="px-5 py-4 border-t border-slate-100 flex justify-end gap-2">
           <Button variant="outline" onClick={onClose} className="h-9">Hủy</Button>
