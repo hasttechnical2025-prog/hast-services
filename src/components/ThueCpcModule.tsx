@@ -10,7 +10,7 @@ import DateField from "@/components/DateField"
 import MonthField from "@/components/MonthField"
 import { chotSoDate, counterStatus, CounterStatus, kyTruoc, tinhDongMay } from "@/lib/thue-cpc"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
-import { Save, FileText, RefreshCw, ArrowRight, Check, Pencil } from "lucide-react"
+import { Save, FileText, RefreshCw, ArrowRight, Check, PenSquare } from "lucide-react"
 
 const THUECPC_TOPIC = "soct_thuecpc"
 const DATA_EVENT = "changed"
@@ -219,7 +219,7 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
                   <td className="px-3 py-2 text-center">{r.vat_thue_cpc ?? 8}%</td>
                   <td className="px-3 py-2 text-slate-600 text-xs">{r.nv_kinh_doanh || <span className="text-slate-300">—</span>}</td>
                   <td className="px-3 py-2 text-slate-500 text-xs">{khung.find(k => k.id === r.id_hop_dong_khung)?.ten_hop_dong || '—'}</td>
-                  <td className="px-3 py-2 text-right"><button onClick={() => setEditing(r)} className="inline-flex items-center justify-center h-8 w-8 rounded text-blue-600 hover:bg-blue-50" title="Sửa đơn giá HĐ"><Pencil className="w-4 h-4" /></button></td>
+                  <td className="px-3 py-2 text-right"><button onClick={() => setEditing(r)} title="Sửa" className="text-blue-500 hover:text-blue-700 p-1.5 bg-blue-50 hover:bg-blue-100 rounded-md transition"><PenSquare className="w-4 h-4" /></button></td>
                 </tr>
               ))}
             </tbody>
