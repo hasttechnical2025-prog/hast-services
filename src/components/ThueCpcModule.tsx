@@ -277,16 +277,16 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
   )
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl my-8">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3 shrink-0">
           <div>
             <h3 className="font-bold text-slate-800">Đơn giá HĐ — {row.ten_khach_hang}</h3>
             <p className="text-xs text-slate-500 font-mono">{row.ma_may} · {row.loai_hd}</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none shrink-0" title="Đóng">✕</button>
         </div>
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
           {/* NHÓM 1 — Thông tin máy + Đơn giá & định mức (gộp 1 khối, 4 cột cho gọn chiều cao) */}
           <section>
             <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Thông tin máy · Đơn giá</p>
@@ -395,7 +395,7 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
             </div>
           </section>
         </div>
-        <div className="px-5 py-4 border-t border-slate-100 flex justify-end gap-2">
+        <div className="px-5 py-4 border-t border-slate-100 flex justify-end gap-2 shrink-0">
           <Button variant="outline" onClick={onClose} className="h-9">Hủy</Button>
           <Button onClick={save} disabled={saving} className="h-9 bg-blue-600 hover:bg-blue-700">{saving ? 'Đang lưu…' : 'Lưu'}</Button>
         </div>
