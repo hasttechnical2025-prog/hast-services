@@ -103,12 +103,12 @@ const cardMinvoiceExported = (tickets: Ticket[]) => tickets.length > 0 && ticket
 const cardMinvoicePending = (tickets: Ticket[]) => cardMinvoiceExported(tickets) && !tickets.some(t => t.so_hoa_don)
 
 // Gộp vật tư theo (mã hàng + đơn giá), bỏ dòng đã trả về kho, SẮP theo thu_tu. Dùng cho export M-invoice.
-// hasKho = dòng có bản ghi trong kho (vật tư/linh kiện thật) -> phân biệt với dòng DỊCH VỤ Thuê/CPC.
+// ghepMa = dòng có bản ghi kho (vật tư thật) VÀ chưa đặt tên riêng (ten_hang_hd rỗng) -> tự ghép mã.
 function aggVatTu(vtList: VatTu[]) {
-  const map: Record<string, { ma_hang: string; ten_hang: string; so_luong: number; don_gia: number; vat: number; dvt: string; hasKho: boolean; _ord: number }> = {}
+  const map: Record<string, { ma_hang: string; ten_hang: string; so_luong: number; don_gia: number; vat: number; dvt: string; ghepMa: boolean; _ord: number }> = {}
   vtList.filter(v => !v.da_tra).forEach(v => {
     const k = `${v.ma_hang}_${Number(v.don_gia) || 0}`
-    if (!map[k]) map[k] = { ma_hang: v.ma_hang, ten_hang: v.ten_hd || v.soct_kho_hang?.ten_hang || v.ma_hang, so_luong: 0, don_gia: v.don_gia, vat: v.vat, dvt: v.don_vi_tinh || '', hasKho: !!v.soct_kho_hang, _ord: Number.POSITIVE_INFINITY }
+    if (!map[k]) map[k] = { ma_hang: v.ma_hang, ten_hang: v.ten_hd || v.soct_kho_hang?.ten_hang || v.ma_hang, so_luong: 0, don_gia: v.don_gia, vat: v.vat, dvt: v.don_vi_tinh || '', ghepMa: !!v.soct_kho_hang && !(v.ten_hang_hd && String(v.ten_hang_hd).trim()), _ord: Number.POSITIVE_INFINITY }
     map[k].so_luong += v.so_luong
     map[k]._ord = Math.min(map[k]._ord, Number(v.thu_tu ?? 1e9))
   })
@@ -116,14 +116,15 @@ function aggVatTu(vtList: VatTu[]) {
 }
 
 // Tên hàng cho KẾ TOÁN: kế toán yêu cầu mã hàng hiện TRÊN TÊN hóa đơn (cột Tên hàng in ra HĐĐT,
-// cột Mã hàng thường không in) -> ghép "Tên - Mã" cho vật tư kho. Dòng DỊCH VỤ Thuê/CPC (không có
-// kho, mã DVTM/DVCR… nội bộ) giữ nguyên. Chống NHÂN ĐÔI: nếu tên đã chứa mã ở BẤT KỲ dạng nào
-// (ngoặc "Trục lăn (9J07330102)", gạch, hay trần) thì không thêm — so khớp sau khi bỏ hết ký tự
-// không phải chữ/số và viết hoa.
-function tenHangKeToan(ten: string, ma: string, hasKho: boolean): string {
+// cột Mã hàng thường không in) -> ghép "Tên - Mã". CHỈ tự ghép cho dòng dùng TÊN KHO gốc (ghepMa),
+// tức chưa ai sửa tên. Tên TỰ ĐẶT / ÁP MẪU KHÁCH (đã ghi ten_hang_hd) và dòng DỊCH VỤ Thuê/CPC
+// (không có kho) -> GIỮ NGUYÊN, để user tự quyết trường hợp không muốn mã. Chống NHÂN ĐÔI: nếu tên
+// đã chứa mã ở BẤT KỲ dạng nào (ngoặc "Trục lăn (9J07330102)", gạch, hay trần) thì không thêm —
+// so khớp sau khi bỏ hết ký tự không phải chữ/số và viết hoa.
+function tenHangKeToan(ten: string, ma: string, ghepMa: boolean): string {
   const t = String(ten || '').trim()
   const m = String(ma || '').trim()
-  if (!hasKho || !m) return t
+  if (!ghepMa || !m) return t
   const norm = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, '')
   const nm = norm(m)
   if (nm && norm(t).includes(nm)) return t
@@ -156,7 +157,7 @@ function buildMinvoiceRows(tickets: Ticket[], kyHieu: string, ngayHD: Date, soDo
       row[6] = tenDonVi.toUpperCase(); row[7] = mst; row[8] = diaChi; row[10] = email
     }
     row[14] = 1; row[15] = idx + 1                  // Tính chất=hàng hoá; STT
-    row[16] = it.ma_hang; row[17] = tenHangKeToan(it.ten_hang, it.ma_hang, it.hasKho); row[18] = it.dvt || 'Cái'
+    row[16] = it.ma_hang; row[17] = tenHangKeToan(it.ten_hang, it.ma_hang, it.ghepMa); row[18] = it.dvt || 'Cái'
     row[19] = it.so_luong; row[20] = it.don_gia
     row[21] = thanhTien; row[22] = 0; row[23] = 0
     row[24] = Number(it.vat) || 0; row[25] = tienThue; row[26] = thanhTien + tienThue
@@ -1192,7 +1193,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const modalDiaChi = modalCum ? modalCum.dia_chi : modalKh?.dia_chi
 
   // Gộp các dòng vật tư trùng mã hàng để hóa đơn in gọn gàng
-  const aggregatedVatTu: Record<string, { ma_hang: string; ten_hang: string; so_luong: number; don_gia: number; vat: number; dvt: string; hasKho: boolean; _ord: number }> = {}
+  const aggregatedVatTu: Record<string, { ma_hang: string; ten_hang: string; so_luong: number; don_gia: number; vat: number; dvt: string; ghepMa: boolean; _ord: number }> = {}
   modalAllVt.filter(v => !v.da_tra).forEach(v => {
     const k = `${v.ma_hang}_${Number(v.don_gia) || 0}`
     if (!aggregatedVatTu[k]) {
@@ -1203,7 +1204,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
         don_gia: v.don_gia,
         vat: v.vat,
         dvt: (v.don_vi_tinh || '').trim(), // ĐVT (rỗng -> hiển thị "Cái")
-        hasKho: !!v.soct_kho_hang,          // vật tư kho -> ghép mã cho kế toán; dịch vụ -> không
+        // Tự ghép mã CHỈ khi dùng tên kho gốc (chưa đặt tên riêng); tên tự đặt/áp mẫu -> giữ nguyên.
+        ghepMa: !!v.soct_kho_hang && !(v.ten_hang_hd && String(v.ten_hang_hd).trim()),
         _ord: Number.POSITIVE_INFINITY
       }
     }
@@ -1551,11 +1553,12 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                     )}
                   </div>
                 </div>
+                <p className="text-[10px] text-slate-400 -mt-1">Vật tư dùng tên kho sẽ tự ghép <b>mã hàng</b> vào tên khi lên hóa đơn (Tên - Mã). Tên tự đặt / áp mẫu khách và dòng dịch vụ giữ nguyên — muốn bỏ mã thì bấm ✏️ đặt tên riêng.</p>
                 {/* Copy CẢ CỘT (số thô) -> dán xuống 1 cột M-invoice nếu phần mềm cho phép. Chỉ kế toán, không hiện ở cột "Chờ lên hóa đơn". */}
                 {modalDisplayRows.length > 0 && isKeToan && !canEditItems && (
                   <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-slate-500">
                     <span className="font-semibold text-slate-600">Copy cả cột:</span>
-                    {([['ten', 'Tên', modalDisplayRows.map(v => tenHangKeToan(v.ten_hang, v.ma_hang, v.hasKho))], ['sl', 'SL', modalDisplayRows.map(v => String(v.so_luong))], ['gia', 'Đơn giá', modalDisplayRows.map(v => String(v.don_gia))], ['vat', 'VAT', modalDisplayRows.map(v => String(v.vat))]] as [string, string, string[]][]).map(([key, label, vals]) => (
+                    {([['ten', 'Tên', modalDisplayRows.map(v => tenHangKeToan(v.ten_hang, v.ma_hang, v.ghepMa))], ['sl', 'SL', modalDisplayRows.map(v => String(v.so_luong))], ['gia', 'Đơn giá', modalDisplayRows.map(v => String(v.don_gia))], ['vat', 'VAT', modalDisplayRows.map(v => String(v.vat))]] as [string, string, string[]][]).map(([key, label, vals]) => (
                       <button key={key} onClick={() => handleCopy(vals.join('\n'), `col_${key}`)}
                         className={`px-2 py-0.5 rounded border transition ${copiedKey === `col_${key}` ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
                         {copiedKey === `col_${key}` ? '✓ ' : ''}{label}
@@ -1583,7 +1586,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                     <tbody className="divide-y divide-slate-100 bg-white font-medium text-slate-700">
                       {modalDisplayRows.map((v, i) => {
                         const tt = v.so_luong * v.don_gia
-                        const copyText = `${tenHangKeToan(v.ten_hang, v.ma_hang, v.hasKho)}\t${v.so_luong}\t${v.don_gia}\t${v.vat}`
+                        const copyText = `${tenHangKeToan(v.ten_hang, v.ma_hang, v.ghepMa)}\t${v.so_luong}\t${v.don_gia}\t${v.vat}`
                         if (canEditItems && editName?.ma_hang === v.ma_hang) {
                           return (
                             <tr key={i} className="bg-blue-50/40">
@@ -1642,7 +1645,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                             <td className="px-3 py-2.5 font-medium">
                               <div className="flex items-center gap-1.5">
                                 {canEditItems && <GripVertical className="w-3.5 h-3.5 text-slate-300 shrink-0" />}
-                                <span>{tenHangKeToan(v.ten_hang, v.ma_hang, v.hasKho)}</span>
+                                <span>{tenHangKeToan(v.ten_hang, v.ma_hang, v.ghepMa)}</span>
                                 {canEditItems && (
                                   <button
                                     onClick={() => setEditName({ ma_hang: v.ma_hang, ten: v.ten_hang, gia: v.don_gia ? String(v.don_gia) : '', dvt: v.dvt || '' })}
