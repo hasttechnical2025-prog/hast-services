@@ -156,6 +156,30 @@ export async function PUT(request: Request) {
       await applyToLines(ids, byMa)
       await logAudit(session, 'Áp mẫu tên/giá khách', `${scope_key} · ${ids.length} phiếu`)
 
+    } else if (pham_vi === 'reset') {
+      // RESET 1 mã hàng: xóa MẪU (scope, ma_hang) + đưa dòng phiếu về tên kho NẾU mã hàng có bản ghi
+      // kho. Dòng DỊCH VỤ (DVTM/DVCR… không có trong kho) -> KHÔNG đụng tên (tránh hiện mã trơ),
+      // chỉ xóa mẫu để kỳ sau tự sinh lại tên chuẩn.
+      const scope_key = String(body.scope_key || '').trim()
+      const ma_hang = String(body.ma_hang || '').trim()
+      const ids: string[] = Array.isArray(body.ticket_ids) ? body.ticket_ids : []
+      if (!ma_hang) return NextResponse.json({ error: 'Thiếu mã hàng' }, { status: 400 })
+      if (scope_key) await supabaseAdmin.from('soct_ten_hang_rieng').delete().eq('scope_key', scope_key).eq('ma_hang', ma_hang)
+      let reverted = false
+      if (ids.length > 0) {
+        const { data: kho } = await supabaseAdmin.from('soct_kho_hang').select('ten_hang').eq('ma_hang', ma_hang).maybeSingle()
+        if (kho?.ten_hang && String(kho.ten_hang).trim()) {
+          const lockMsg = await lockedTickets(ids)
+          if (lockMsg) return NextResponse.json({ error: lockMsg }, { status: 409 })
+          await applyToLines(ids, new Map([[ma_hang, { ten: '' }]])) // ten '' -> ten_hang_hd = null -> hiện tên kho
+          reverted = true
+        }
+      }
+      await logAudit(session, 'Reset mẫu/tên hàng', `${scope_key || '-'} · ${ma_hang}${reverted ? ' + về tên kho' : ''}`)
+      await broadcastJobsChanged()
+      await broadcastCongNoChanged()
+      return NextResponse.json({ success: true, reverted })
+
     } else {
       return NextResponse.json({ error: 'Phạm vi không hợp lệ' }, { status: 400 })
     }

@@ -571,6 +571,30 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setSavingName(false) }
   }
 
+  // RESET 1 mã hàng: xóa MẪU đã lưu cho khách/cụm + đưa dòng vật tư kho về tên kho.
+  // Dòng DỊCH VỤ (không có bản ghi kho: DVTM/DVCR…) giữ nguyên tên hiện tại để không hiện mã trơ.
+  const resetName = async () => {
+    if (!editName || !activeCard) return
+    setSavingName(true)
+    try {
+      const res = await fetch('/api/admin/ten-hang-rieng', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pham_vi: 'reset', ma_hang: editName.ma_hang, scope_key: modalScopeKey,
+          ticket_ids: activeCard.tickets.map(t => t.id),
+        }),
+      })
+      if (res.ok) {
+        const j = await res.json().catch(() => ({}))
+        showNotification('success', j.reverted
+          ? 'Đã xóa mẫu khách và đưa dòng về tên kho.'
+          : 'Đã xóa mẫu khách. Dòng dịch vụ giữ tên hiện tại — sửa bằng "Chỉ hóa đơn này" nếu cần.')
+        setEditName(null)
+        load()
+      } else { const e = await res.json(); showNotification('error', e.error || 'Lỗi reset') }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setSavingName(false) }
+  }
+
   // Áp MẪU tên/giá đã lưu của khách vào các dòng của phiếu này (bấm nút -> ghi vào dòng).
   const applyTemplate = async () => {
     if (!activeCard) return
@@ -1580,6 +1604,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                                     <Button size="sm" onClick={() => saveName('hoa_don')} disabled={savingName} className="h-8 text-xs bg-blue-600 hover:bg-blue-700">Chỉ hóa đơn này</Button>
                                     <Button size="sm" variant="outline" onClick={() => saveName('khach')} disabled={savingName} className="h-8 text-xs">Lưu mẫu cho khách</Button>
                                     <button onClick={() => setEditName(null)} className="text-xs text-slate-500 hover:text-slate-700 px-1">Hủy</button>
+                                    <button onClick={resetName} disabled={savingName} title="Xóa mẫu đã lưu cho khách/cụm ở mã hàng này. Dòng vật tư kho về tên kho; dòng dịch vụ giữ tên hiện tại." className="text-xs text-rose-500 hover:text-rose-700 px-1 disabled:opacity-50">↺ Reset mẫu</button>
                                     <span className="text-[10px] text-slate-400 ml-auto font-mono">Mã: {v.ma_hang}</span>
                                   </div>
                                 </div>
