@@ -3267,6 +3267,12 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Ép độ dài mật khẩu: bắt buộc khi tạo mới; khi sửa chỉ kiểm nếu có nhập mật khẩu mới.
+    const pw = (formData.password || '').trim()
+    if (!isEditing && pw.length < 6) { showNotification('error', 'Mật khẩu phải từ 6 ký tự trở lên.'); return }
+    if (isEditing && pw !== '' && pw.length < 6) { showNotification('error', 'Mật khẩu phải từ 6 ký tự trở lên.'); return }
+
     setLoading(true)
 
     const method = isEditing ? 'PUT' : 'POST'

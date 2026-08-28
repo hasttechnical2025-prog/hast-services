@@ -51,6 +51,9 @@ export async function POST(request: Request) {
     if (!full_name || !role || !username || !password) {
       return NextResponse.json({ error: 'Thiếu thông tin bắt buộc' }, { status: 400 })
     }
+    if (String(password).length < 6) {
+      return NextResponse.json({ error: 'Mật khẩu phải từ 6 ký tự trở lên.' }, { status: 400 })
+    }
 
     const { data, error } = await supabaseAdmin
       .from('soct_users')
@@ -92,6 +95,29 @@ export async function PUT(request: Request) {
 
     if (!id) {
       return NextResponse.json({ error: 'Thiếu ID nhân viên' }, { status: 400 })
+    }
+    if (password && String(password).trim() !== '' && String(password).length < 6) {
+      return NextResponse.json({ error: 'Mật khẩu phải từ 6 ký tự trở lên.' }, { status: 400 })
+    }
+
+    // Rào chống KHÓA QUYỀN: đọc trạng thái hiện tại của tài khoản đích.
+    const { data: target } = await supabaseAdmin.from('soct_users').select('role, is_active').eq('id', id).single()
+    if (!target) return NextResponse.json({ error: 'Không tìm thấy tài khoản' }, { status: 404 })
+    const willBeRole = role !== undefined ? role : target.role
+    const willBeActive = is_active !== undefined ? !!is_active : (target.is_active !== false)
+
+    // (1) KHÔNG cho tự hạ quyền / tự ngừng tài khoản đang đăng nhập -> tránh tự khóa mình ra ngoài.
+    if (id === session.id) {
+      if (willBeRole !== 'admin') return NextResponse.json({ error: 'Không thể tự bỏ quyền admin của tài khoản đang đăng nhập.' }, { status: 400 })
+      if (!willBeActive) return NextResponse.json({ error: 'Không thể tự ngừng tài khoản đang đăng nhập.' }, { status: 400 })
+    }
+    // (2) Bảo vệ ADMIN CUỐI: nếu đang hạ quyền/ngừng một admin active mà làm còn 0 admin -> chặn.
+    const targetIsAdminActive = target.role === 'admin' && target.is_active !== false
+    const stillAdminActive = willBeRole === 'admin' && willBeActive
+    if (targetIsAdminActive && !stillAdminActive) {
+      const { data: admins } = await supabaseAdmin.from('soct_users').select('id, is_active').eq('role', 'admin')
+      const activeCount = (admins || []).filter((a: any) => a.is_active !== false).length
+      if (activeCount <= 1) return NextResponse.json({ error: 'Phải còn ít nhất 1 admin đang hoạt động — không thể hạ quyền/ngừng admin cuối cùng.' }, { status: 400 })
     }
 
     const updates: any = {}
@@ -145,6 +171,14 @@ export async function DELETE(request: Request) {
 
     if (id === session.id) {
       return NextResponse.json({ error: 'Không thể xóa tài khoản đang đăng nhập' }, { status: 400 })
+    }
+
+    // Bảo vệ ADMIN CUỐI: không cho xóa admin nếu đang là admin active duy nhất còn lại.
+    const { data: target } = await supabaseAdmin.from('soct_users').select('role, is_active').eq('id', id).single()
+    if (target?.role === 'admin' && target.is_active !== false) {
+      const { data: admins } = await supabaseAdmin.from('soct_users').select('id, is_active').eq('role', 'admin')
+      const activeCount = (admins || []).filter((a: any) => a.is_active !== false).length
+      if (activeCount <= 1) return NextResponse.json({ error: 'Phải còn ít nhất 1 admin đang hoạt động — không thể xóa admin cuối cùng.' }, { status: 400 })
     }
 
     const { error } = await supabaseAdmin
