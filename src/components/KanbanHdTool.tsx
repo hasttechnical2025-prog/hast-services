@@ -558,13 +558,13 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pham_vi, ma_hang: editName.ma_hang, ten_hang: editName.ten, don_gia: editName.gia, don_vi_tinh: editName.dvt,
-          ...(pham_vi === 'hoa_don'
-            ? { ticket_ids: activeCard.tickets.map(t => t.id) }
-            : { scope_key: modalScopeKey }),
+          // Lưu mẫu khách: gửi kèm ticket_ids để áp NGAY vào dòng phiếu đang mở (không chỉ nhớ kỳ sau).
+          ticket_ids: activeCard.tickets.map(t => t.id),
+          ...(pham_vi === 'khach' ? { scope_key: modalScopeKey } : {}),
         }),
       })
       if (res.ok) {
-        showNotification('success', pham_vi === 'khach' ? 'Đã lưu mẫu tên/giá cho khách.' : 'Đã cập nhật hóa đơn này.')
+        showNotification('success', pham_vi === 'khach' ? 'Đã đổi trên hóa đơn này và lưu mẫu cho khách (kỳ sau tự dùng).' : 'Đã cập nhật hóa đơn này.')
         setEditName(null)
         load()
       } else { const e = await res.json(); showNotification('error', e.error || 'Lỗi lưu') }

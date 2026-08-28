@@ -120,7 +120,21 @@ export async function PUT(request: Request) {
           .upsert({ scope_key, ma_hang, ten_hang: newTen, don_gia: newGia, don_vi_tinh: newDvt, updated_at: new Date().toISOString() }, { onConflict: 'scope_key,ma_hang' })
         if (error) throw error
       }
-      await logAudit(session, 'Lưu mẫu tên/giá/ĐVT khách', `${scope_key} · ${ma_hang}`)
+      // Áp NGAY vào dòng phiếu đang mở cho ĐÚNG mã hàng vừa sửa (không chỉ nhớ kỳ sau) — dùng chính
+      // giá trị người dùng vừa nhập. Chặn nếu phiếu đã chuyển kế toán. ticket_ids do client gửi kèm.
+      const ids: string[] = Array.isArray(body.ticket_ids) ? body.ticket_ids : []
+      if (ids.length > 0) {
+        const lockMsg = await lockedTickets(ids)
+        if (lockMsg) return NextResponse.json({ error: lockMsg }, { status: 409 })
+        const byMa = new Map<string, { ten?: string; gia?: number; thu_tu?: number; dvt?: string }>()
+        byMa.set(ma_hang, {
+          ten: body.ten_hang !== undefined ? String(body.ten_hang) : undefined,
+          gia: parseGia(body.don_gia),
+          dvt: body.don_vi_tinh !== undefined ? String(body.don_vi_tinh) : undefined,
+        })
+        await applyToLines(ids, byMa)
+      }
+      await logAudit(session, 'Lưu mẫu tên/giá/ĐVT khách', `${scope_key} · ${ma_hang}${ids.length ? ' + áp hóa đơn' : ''}`)
 
     } else if (pham_vi === 'ap_khach') {
       const ids: string[] = Array.isArray(body.ticket_ids) ? body.ticket_ids : []
