@@ -1405,11 +1405,12 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
 
           {/* CỘT 2: ĐANG XỬ LÝ HĐ */}
           <div className="border border-slate-200 rounded-xl bg-white flex flex-col shadow-sm">
-            <div className="p-3 bg-amber-50/50 rounded-t-xl flex justify-between items-center gap-2">
+            <div className="p-3 bg-amber-50/50 rounded-t-xl flex flex-col items-stretch gap-2">
               <h3 className="text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
                 <FileText className="w-4 h-4" /> {role === 'kthc' ? '1.' : '2.'} KT-HC lên hóa đơn ({cardsCol2.length})
               </h3>
               {isKeToan && (
+                <div className="flex gap-2 flex-wrap">
                 <button
                   disabled={cardsCol2ChuaXuat.length === 0}
                   onClick={() => {
@@ -1430,14 +1431,13 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                   className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed">
                   <Download className="w-3 h-3" /> M-invoice{cardsCol2ChuaXuat.length > 0 ? ` (${cardsCol2ChuaXuat.length} chưa xuất)` : ''}
                 </button>
-              )}
-              {isKeToan && (
                 <label title="Nhập file 'Báo cáo tổng hợp doanh thu hóa đơn' từ M-invoice → tự điền số HĐ + chuyển thẻ khớp sang Chờ thanh toán"
                   className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-emerald-200 text-emerald-700 bg-white hover:bg-emerald-50 cursor-pointer ${importingReport ? 'opacity-50 pointer-events-none' : ''}`}>
                   <Upload className="w-3 h-3" /> {importingReport ? 'Đang khớp…' : 'Import báo cáo'}
                   <input type="file" accept=".xlsx" className="hidden" disabled={importingReport}
                     onChange={e => { const f = e.target.files?.[0]; if (f) importMinvoiceReport(f); e.target.value = '' }} />
                 </label>
+                </div>
               )}
             </div>
             {/* Banner an toàn: đếm phiếu ĐÃ xuất file nhưng CHƯA nhập số HĐ -> nhắc đối chiếu MISA, chống quên. */}
