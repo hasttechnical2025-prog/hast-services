@@ -785,7 +785,7 @@ function ConfirmDialog({ open, title, message, confirmLabel, danger, busy, onCon
 function KhungTab({ showNotification }: { showNotification: Notify }) {
   const [list, setList] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState<any>({ ten_hop_dong: '', phi_co_ban: 0, vat_thue_cpc: 8, don_gia_bw: 0, don_gia_mau: 0, mien_phi_bw: 0, mien_phi_mau: 0, card_reader: 0, ghi_chu: '' })
+  const [form, setForm] = useState<any>({ ten_hop_dong: '', phi_co_ban: 0, vat_thue_cpc: 8, don_gia_bw: 0, don_gia_mau: 0, mien_phi_bw: 0, mien_phi_mau: 0, card_reader: 0, ten_dv_thue_may: '', ten_dv_dau_doc: '', ghi_chu: '' })
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [confirmDel, setConfirmDel] = useState<any | null>(null)
@@ -800,7 +800,7 @@ function KhungTab({ showNotification }: { showNotification: Notify }) {
   }, [])
   useEffect(() => { load() }, [load])
 
-  const reset = () => { setForm({ ten_hop_dong: '', phi_co_ban: 0, vat_thue_cpc: 8, don_gia_bw: 0, don_gia_mau: 0, mien_phi_bw: 0, mien_phi_mau: 0, card_reader: 0, ghi_chu: '' }); setEditingId(null) }
+  const reset = () => { setForm({ ten_hop_dong: '', phi_co_ban: 0, vat_thue_cpc: 8, don_gia_bw: 0, don_gia_mau: 0, mien_phi_bw: 0, mien_phi_mau: 0, card_reader: 0, ten_dv_thue_may: '', ten_dv_dau_doc: '', ghi_chu: '' }); setEditingId(null) }
   const save = async () => {
     if (!form.ten_hop_dong.trim()) { showNotification('error', 'Nhập tên hợp đồng'); return }
     setSaving(true)
@@ -845,6 +845,8 @@ function KhungTab({ showNotification }: { showNotification: Notify }) {
           <label className="block"><span className="text-xs font-medium text-slate-500">Miễn phí Đen</span><NumInput value={form.mien_phi_bw} onChange={v => setForm({ ...form, mien_phi_bw: v })} className="h-9 mt-1" /></label>
           <label className="block"><span className="text-xs font-medium text-slate-500">Miễn phí Màu</span><NumInput value={form.mien_phi_mau} onChange={v => setForm({ ...form, mien_phi_mau: v })} className="h-9 mt-1" /></label>
           <label className="block"><span className="text-xs font-medium text-slate-500">Card reader / option</span><NumInput value={form.card_reader} onChange={v => setForm({ ...form, card_reader: v })} className="h-9 mt-1" /></label>
+          <label className="block md:col-span-2"><span className="text-xs font-medium text-slate-500">Tên DV thuê máy (trên HĐ)</span><Input value={form.ten_dv_thue_may} onChange={e => setForm({ ...form, ten_dv_thue_may: e.target.value })} className="h-9 mt-1" placeholder="Trống = Dịch vụ thuê máy" /><span className="text-[10px] text-slate-400">KHÔNG gõ tháng — hệ thống tự ghép kỳ. VD: Dịch vụ thuê máy Photocopy</span></label>
+          <label className="block md:col-span-2"><span className="text-xs font-medium text-slate-500">Tên DV đầu đọc thẻ (trên HĐ)</span><Input value={form.ten_dv_dau_doc} onChange={e => setForm({ ...form, ten_dv_dau_doc: e.target.value })} className="h-9 mt-1" placeholder="Trống = Dịch vụ đầu đọc thẻ" /><span className="text-[10px] text-slate-400">Hệ thống tự ghép kỳ vào cuối. VD: Dịch vụ thuê đầu đọc thẻ</span></label>
           <label className="block md:col-span-4"><span className="text-xs font-medium text-slate-500">Ghi chú</span><Input value={form.ghi_chu} onChange={e => setForm({ ...form, ghi_chu: e.target.value })} className="h-9 mt-1" /></label>
         </div>
         <div className="flex gap-2 mt-3">
@@ -864,7 +866,7 @@ function KhungTab({ showNotification }: { showNotification: Notify }) {
                   <div className="text-xs text-slate-500 mt-0.5">Phí cơ bản: <b>{money(k.phi_co_ban)}</b> · VAT {k.vat_thue_cpc}%{k.ghi_chu ? ` · ${k.ghi_chu}` : ''}</div>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => { setEditingId(k.id); setForm({ ten_hop_dong: k.ten_hop_dong, phi_co_ban: k.phi_co_ban, vat_thue_cpc: k.vat_thue_cpc, don_gia_bw: k.don_gia_bw ?? 0, don_gia_mau: k.don_gia_mau ?? 0, mien_phi_bw: k.mien_phi_bw ?? 0, mien_phi_mau: k.mien_phi_mau ?? 0, card_reader: k.card_reader ?? 0, ghi_chu: k.ghi_chu || '' }) }} className="text-blue-600 hover:underline text-xs font-medium">Sửa</button>
+                  <button onClick={() => { setEditingId(k.id); setForm({ ten_hop_dong: k.ten_hop_dong, phi_co_ban: k.phi_co_ban, vat_thue_cpc: k.vat_thue_cpc, don_gia_bw: k.don_gia_bw ?? 0, don_gia_mau: k.don_gia_mau ?? 0, mien_phi_bw: k.mien_phi_bw ?? 0, mien_phi_mau: k.mien_phi_mau ?? 0, card_reader: k.card_reader ?? 0, ten_dv_thue_may: k.ten_dv_thue_may || '', ten_dv_dau_doc: k.ten_dv_dau_doc || '', ghi_chu: k.ghi_chu || '' }) }} className="text-blue-600 hover:underline text-xs font-medium">Sửa</button>
                   <button onClick={() => setConfirmDel(k)} className="text-red-600 hover:underline text-xs font-medium">Xóa</button>
                 </div>
               </div>

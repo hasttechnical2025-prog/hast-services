@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
     const { data: bk, error } = await supabaseAdmin
       .from('soct_thue_cpc_bk')
-      .select('*, soct_thue_cpc_hop_dong_khung(ten_hop_dong, phi_co_ban, don_gia_bw, don_gia_mau, mien_phi_bw, mien_phi_mau, card_reader)')
+      .select('*, soct_thue_cpc_hop_dong_khung(ten_hop_dong, phi_co_ban, don_gia_bw, don_gia_mau, mien_phi_bw, mien_phi_mau, card_reader, ten_dv_thue_may, ten_dv_dau_doc)')
       .eq('id', id).single()
     if (error) throw error
 
@@ -65,10 +65,14 @@ export async function POST(request: Request) {
       const tpMau = Math.max(sumMau - Number(khung.mien_phi_mau || 0), 0)
       const giaThue = Number(khung.phi_co_ban || 0) + sumRental
       const card = Number(khung.card_reader || 0)
-      if (giaThue > 0) lines.push({ ma_hang: 'DVTM', ten: `Dịch vụ thuê máy ${kyLbl}`, dvt: 'Tháng', sl: 1, dg: giaThue })
+      // Tên 2 dòng dịch vụ = phần CỐ ĐỊNH cấu hình theo hợp đồng khung + kỳ (biến đổi) tự ghép.
+      // THỨ TỰ: thuê máy -> đầu đọc thẻ -> số bản đen -> số bản màu.
+      const tenThue = (khung.ten_dv_thue_may && String(khung.ten_dv_thue_may).trim()) || 'Dịch vụ thuê máy'
+      const tenCard = (khung.ten_dv_dau_doc && String(khung.ten_dv_dau_doc).trim()) || 'Dịch vụ đầu đọc thẻ'
+      if (giaThue > 0) lines.push({ ma_hang: 'DVTM', ten: `${tenThue} ${kyLbl}`.replace(/\s+/g, ' ').trim(), dvt: 'Tháng', sl: 1, dg: giaThue })
+      if (card > 0) lines.push({ ma_hang: 'DVCR', ten: `${tenCard} ${kyLbl}`.replace(/\s+/g, ' ').trim(), dvt: 'Chiếc', sl: 1, dg: card })
       if (tpBw > 0) lines.push({ ma_hang: 'DVBDT', ten: 'Số bản sử dụng đen trắng trong kỳ', dvt: 'Bản', sl: tpBw, dg: Number(khung.don_gia_bw || 0) })
       if (tpMau > 0) lines.push({ ma_hang: 'DVBM', ten: 'Số bản sử dụng màu trong kỳ', dvt: 'Bản', sl: tpMau, dg: Number(khung.don_gia_mau || 0) })
-      if (card > 0) lines.push({ ma_hang: 'DVCR', ten: 'Dịch vụ đầu đọc thẻ', dvt: 'Chiếc', sl: 1, dg: card })
       idKhachHang = rows[0].id_khach_hang // 1 máy đại diện (MST/địa chỉ); tên người mua ghi đè bên dưới
       tenKhachHd = khung.ten_hop_dong || null
     } else {

@@ -11,7 +11,7 @@ export async function GET() {
 
     const { data: khung, error } = await supabaseAdmin
       .from('soct_thue_cpc_hop_dong_khung')
-      .select('id, ten_hop_dong, phi_co_ban, vat_thue_cpc, ghi_chu, don_gia_bw, don_gia_mau, mien_phi_bw, mien_phi_mau, card_reader, created_at')
+      .select('id, ten_hop_dong, phi_co_ban, vat_thue_cpc, ghi_chu, don_gia_bw, don_gia_mau, mien_phi_bw, mien_phi_mau, card_reader, ten_dv_thue_may, ten_dv_dau_doc, created_at')
       .order('created_at', { ascending: false })
     if (error) throw error
 
@@ -56,6 +56,8 @@ export async function POST(request: Request) {
         mien_phi_bw: parseInt(body.mien_phi_bw, 10) || 0,
         mien_phi_mau: parseInt(body.mien_phi_mau, 10) || 0,
         card_reader: parseFloat(body.card_reader) || 0,
+        ten_dv_thue_may: body.ten_dv_thue_may?.trim() || null,
+        ten_dv_dau_doc: body.ten_dv_dau_doc?.trim() || null,
         ghi_chu: body.ghi_chu?.trim() || null,
       })
       .select()
@@ -88,6 +90,8 @@ export async function PUT(request: Request) {
     if (body.mien_phi_bw !== undefined) updates.mien_phi_bw = parseInt(body.mien_phi_bw, 10) || 0
     if (body.mien_phi_mau !== undefined) updates.mien_phi_mau = parseInt(body.mien_phi_mau, 10) || 0
     if (body.card_reader !== undefined) updates.card_reader = parseFloat(body.card_reader) || 0
+    if (body.ten_dv_thue_may !== undefined) updates.ten_dv_thue_may = body.ten_dv_thue_may?.trim() || null
+    if (body.ten_dv_dau_doc !== undefined) updates.ten_dv_dau_doc = body.ten_dv_dau_doc?.trim() || null
     if (body.ghi_chu !== undefined) updates.ghi_chu = body.ghi_chu?.trim() || null
 
     const { data, error } = await supabaseAdmin
