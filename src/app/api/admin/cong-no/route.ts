@@ -24,15 +24,23 @@ export async function GET() {
       .order('ngay', { ascending: true })
       .range(from, to))
 
+    // LỌC ĐỘNG: bỏ phiếu ĐÃ TRẢ KHO TOÀN BỘ (có ≥1 dòng vật tư và MỌI dòng đều da_tra) — không còn
+    // gì để xuất hóa đơn nên ngắt khỏi Công nợ. Phiếu 0 dòng vật tư vẫn giữ (để còn xử lý MF/xóa).
+    // Động: bỏ trả kho 1 dòng -> phiếu tự hiện lại. Phiếu vẫn nguyên ở Sổ công tác để đối soát.
+    const filtered = ((data || []) as any[]).filter((t: any) => {
+      const lines = t.soct_chi_tiet_vat_tu || []
+      return !(lines.length >= 1 && lines.every((v: any) => v.da_tra))
+    })
+
     // Tên hàng hiển thị = ten_hang_hd (đã ghi vào dòng) > kho > mã. Mẫu "riêng theo khách"
     // không tự áp (chỉ áp bằng nút ở Kanban -> ghi vào dòng).
-    for (const t of (data || []) as any[]) {
+    for (const t of filtered) {
       for (const v of (t.soct_chi_tiet_vat_tu || [])) {
         v.ten_hd = v.ten_hang_hd || v.soct_kho_hang?.ten_hang || v.ma_hang
       }
     }
 
-    return NextResponse.json({ data })
+    return NextResponse.json({ data: filtered })
   } catch (error: any) {
     console.error('Error fetching cong no:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
