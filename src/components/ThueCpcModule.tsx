@@ -10,7 +10,7 @@ import DateField from "@/components/DateField"
 import MonthField from "@/components/MonthField"
 import { chotSoDate, counterStatus, CounterStatus, kyTruoc, tinhDongMay } from "@/lib/thue-cpc"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
-import { Save, FileText, RefreshCw, ArrowRight, Check } from "lucide-react"
+import { Save, FileText, RefreshCw, ArrowRight, Check, Pencil } from "lucide-react"
 
 const THUECPC_TOPIC = "soct_thuecpc"
 const DATA_EVENT = "changed"
@@ -196,7 +196,7 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
                 <th className="px-3 py-2 text-center">VAT</th>
                 <th className="px-3 py-2 text-left">NV Kinh doanh</th>
                 <th className="px-3 py-2 text-left">HĐ khung</th>
-                <th className="px-3 py-2"></th>
+                <th className="px-3 py-2 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -219,7 +219,7 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
                   <td className="px-3 py-2 text-center">{r.vat_thue_cpc ?? 8}%</td>
                   <td className="px-3 py-2 text-slate-600 text-xs">{r.nv_kinh_doanh || <span className="text-slate-300">—</span>}</td>
                   <td className="px-3 py-2 text-slate-500 text-xs">{khung.find(k => k.id === r.id_hop_dong_khung)?.ten_hop_dong || '—'}</td>
-                  <td className="px-3 py-2 text-right"><button onClick={() => setEditing(r)} className="text-blue-600 hover:underline text-xs font-medium">Sửa</button></td>
+                  <td className="px-3 py-2 text-right"><button onClick={() => setEditing(r)} className="inline-flex items-center justify-center h-8 w-8 rounded text-blue-600 hover:bg-blue-50" title="Sửa đơn giá HĐ"><Pencil className="w-4 h-4" /></button></td>
                 </tr>
               ))}
             </tbody>
@@ -670,7 +670,7 @@ function CounterTab({ showNotification, thang, setThang, onSaved, refreshVer = 0
                 <th className="px-3 py-2 text-left">Màu kỳ {tThis}</th>
                 {showGhiChu && <th className="px-3 py-2 text-left">Ghi chú</th>}
                 <th className="px-3 py-2 text-right">Ước tính kỳ</th>
-                <th className="px-3 py-2"></th>
+                <th className="px-3 py-2 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -719,7 +719,7 @@ function CounterTab({ showNotification, thang, setThang, onSaved, refreshVer = 0
                       const noCounter = r.so_bw === null && r.so_mau === null
                       return (
                         <div className="flex flex-col items-end gap-1">
-                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border whitespace-nowrap ${stt.cls}`}>{stt.label}</span>
+                          <span className={`text-[9px] font-normal px-1.5 py-0.5 rounded-full border whitespace-nowrap ${stt.cls}`}>{stt.label}</span>
                           <div className="flex justify-end gap-1.5">
                             <Button onClick={() => saveRow(r)} disabled={savingId === r.id} className="h-8 w-8 p-0 bg-blue-600 hover:bg-blue-700 text-white rounded flex items-center justify-center shrink-0" title="Lưu chỉ số counter">
                               {savingId === r.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
