@@ -70,7 +70,7 @@ export async function PUT(request: Request) {
       if (lockMsg) return NextResponse.json({ error: lockMsg }, { status: 409 })
       // Chấp nhận 1 mục (ma_hang + ten_hang?/don_gia?) hoặc mảng items (nhập Excel).
       const items = Array.isArray(body.items) ? body.items
-        : [{ ma_hang: body.ma_hang, ten_hang: body.ten_hang, don_gia: body.don_gia }]
+        : [{ ma_hang: body.ma_hang, ten_hang: body.ten_hang, don_gia: body.don_gia, don_vi_tinh: body.don_vi_tinh }]
       const byMa = new Map<string, { ten?: string; gia?: number; thu_tu?: number; dvt?: string }>()
       for (const it of items) {
         const ma = String(it.ma_hang || '').trim()
