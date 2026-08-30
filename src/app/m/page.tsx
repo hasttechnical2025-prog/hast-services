@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { QrCode, ClipboardList, Boxes, AlertTriangle, FileText, LogOut, Settings, Home, CalendarCheck, Search, Users, MapPin, X, RefreshCw, Palmtree } from "lucide-react"
+import { QrCode, ClipboardList, FileText, LogOut, Settings, Home, CalendarCheck, Search, Users, MapPin, X, RefreshCw, Palmtree } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import AccountSettings from "@/components/AccountSettings"
@@ -22,12 +22,13 @@ const EXCLUDE_LOAI = ['Giao mực', 'Thay vật tư']
 const DEFAULT_LOAI = ['Lắp máy', 'Sửa máy', 'Bảo trì', 'Bảo hành', 'Hỗ trợ thầu', 'Hỗ trợ đại lý', 'Khiếu nại', 'Kiểm tra', 'Khác']
 
 const fmtDate = (s: string) => { if (!s) return ''; const d = new Date(s); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` }
+const fmtVnd = (n: any) => Math.round(Number(n) || 0).toLocaleString('vi-VN')
 
 export default function OfficeMobile() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [denied, setDenied] = useState(false)
-  const [tab, setTab] = useState<'viec' | 'qr' | 'giao' | 'kho_thue' | 'nghi'>('viec')
+  const [tab, setTab] = useState<'viec' | 'giao' | 'nghi' | 'kanban_hd'>('viec')
   const [leaveCount, setLeaveCount] = useState(0)
   const [showSettings, setShowSettings] = useState(false)
   const [notif, setNotif] = useState<{ type: 'success' | 'error', msg: string } | null>(null)
@@ -147,23 +148,12 @@ export default function OfficeMobile() {
           </div>
         )}
 
-        {tab === 'qr' && (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 text-center space-y-4">
-            <QrCode className="w-12 h-12 mx-auto text-blue-600" />
-            <div>
-              <h2 className="font-bold text-slate-800">Quét QR giao bảo trì</h2>
-              <p className="text-sm text-slate-500 mt-1">Quét mã máy hàng loạt để giao bảo trì cho một KTV.</p>
-            </div>
-            <Button onClick={() => { window.location.href = '/admin/scan' }} className="w-full h-11">Mở máy quét QR</Button>
-          </div>
-        )}
-
         {tab === 'giao' && (
           <GiaoViecMobile customers={customers} technicians={technicians} loaiOptions={loaiOptions} notify={notify} />
         )}
 
-        {tab === 'kho_thue' && (
-          <KhoThueMobile notify={notify} />
+        {tab === 'kanban_hd' && (
+          <TheoDoiHdMobile notify={notify} />
         )}
 
         {tab === 'nghi' && (
@@ -171,8 +161,8 @@ export default function OfficeMobile() {
         )}
       </main>
 
-      <nav className="bg-white border-t border-slate-200 grid grid-cols-5 sticky bottom-0 z-30">
-        {([['viec', 'Việc hôm nay', CalendarCheck], ['giao', 'Giao việc', ClipboardList], ['nghi', 'Nghỉ phép', Palmtree], ['qr', 'Quét QR', QrCode], ['kho_thue', 'Kho máy thuê', Boxes]] as const).map(([k, label, Icon]) => (
+      <nav className="bg-white border-t border-slate-200 grid grid-cols-4 sticky bottom-0 z-30">
+        {([['viec', 'Việc hôm nay', CalendarCheck], ['giao', 'Giao việc', ClipboardList], ['nghi', 'Nghỉ phép', Palmtree], ['kanban_hd', 'Kanban HĐ', FileText]] as const).map(([k, label, Icon]) => (
           <button key={k} onClick={() => setTab(k)} className={`relative py-2.5 flex flex-col items-center gap-0.5 text-[10px] font-medium ${tab === k ? 'text-blue-600' : 'text-slate-400'}`}>
             <Icon className="w-5 h-5" />
             {k === 'nghi' && leaveCount > 0 && (
@@ -429,6 +419,11 @@ function GiaoViecMobile({ customers, technicians, loaiOptions, notify }: {
   }
 
   return (
+    <div className="space-y-3">
+    <button onClick={() => { window.location.href = '/admin/scan' }}
+      className="w-full h-12 rounded-xl bg-blue-600 text-white font-semibold flex items-center justify-center gap-2 shadow-sm active:bg-blue-700">
+      <QrCode className="w-5 h-5" /> Quét QR giao bảo trì hàng loạt
+    </button>
     <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="font-bold text-slate-800">Giao việc mới</h2>
@@ -495,134 +490,133 @@ function GiaoViecMobile({ customers, technicians, loaiOptions, notify }: {
 
       <Button onClick={submit} disabled={saving} className="w-full h-11 font-semibold">{saving ? 'Đang giao...' : 'Giao việc'}</Button>
     </div>
-  )
-}
-
-// ── Tab Kho máy thuê: danh sách máy thuê có biên bản giám định (CHỈ XEM) ──────
-type MInsp = {
-  id: string; serial: string; model: string; khach_hang: string; dia_chi: string
-  tinh_trang: string; counter: string; ktv: string; ngay: string
-  khach_hien_tai: string; loai_hd_hien_tai: string; da_thue_lai: boolean
-  chi_tiet: Record<string, any>
-}
-const VT_FIELDS: [string, string][] = [
-  ['toner_k', 'Mực đen (K)'], ['toner_c', 'Mực xanh (C)'], ['toner_m', 'Mực hồng (M)'], ['toner_y', 'Mực vàng (Y)'],
-  ['drum_k', 'Trống đen (K)'], ['drum_c', 'Trống (C)'], ['drum_m', 'Trống (M)'], ['drum_y', 'Trống (Y)'],
-  ['dev_k', 'Mực từ đen (K)'], ['dev_c', 'Mực từ (C)'], ['dev_m', 'Mực từ (M)'], ['dev_y', 'Mực từ (Y)'],
-  ['fuse', 'Bộ sấy'], ['belt', 'Đai (belt)'], ['roller', 'Lô / Trục'],
-  ['feed0', 'Nạp giấy khay tay'], ['feed1', 'Nạp giấy khay 1'], ['feed2', 'Nạp giấy khay 2'],
-  ['feed_df', 'Nạp giấy (DF)'], ['feed_du', 'Nạp giấy (DU)'],
-  ['finisher', 'Finisher'], ['options', 'Tùy chọn'], ['others', 'Khác'],
-]
-
-function KhoThueMobile({ notify }: { notify: (t: 'success' | 'error', m: string) => void }) {
-  const [rows, setRows] = useState<MInsp[]>([])
-  const [loading, setLoading] = useState(true)
-  const [detail, setDetail] = useState<MInsp | null>(null)
-
-  const load = async () => {
-    setLoading(true)
-    try { const r = await fetch('/api/admin/kho-may-thue'); const j = await r.json(); if (r.ok) setRows(j.data || []); else notify('error', j.error || 'Lỗi tải danh sách') }
-    catch { notify('error', 'Lỗi kết nối') } finally { setLoading(false) }
-  }
-  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="font-bold text-slate-800 text-sm flex items-center gap-1.5"><Boxes className="w-5 h-5 text-blue-600" /> Kho máy thuê ({rows.length})</h2>
-        <button onClick={load} className="p-1.5 text-slate-400 hover:text-blue-600"><RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} /></button>
-      </div>
-
-      {loading && rows.length === 0 ? (
-        <p className="text-center text-sm text-slate-400 py-10">Đang tải…</p>
-      ) : rows.length === 0 ? (
-        <p className="text-center text-sm text-slate-400 py-10">Không có máy nào.</p>
-      ) : (
-        <div className="space-y-2.5">
-          {rows.map(r => (
-            <button key={r.id} onClick={() => setDetail(r)}
-              className={`w-full text-left bg-white rounded-xl border p-3.5 active:bg-slate-50 ${r.da_thue_lai ? 'border-rose-200' : 'border-slate-200'}`}>
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-mono text-sm font-semibold text-slate-800">{r.serial || '—'}</span>
-                <span className="text-xs text-slate-400">{r.model || '—'}</span>
-              </div>
-              <div className="text-sm text-slate-700 mt-1.5">{r.khach_hang || '—'}</div>
-              {r.khach_hien_tai && (
-                <div className={`text-xs mt-1 ${r.da_thue_lai ? 'text-rose-700 font-medium' : 'text-slate-500'}`}>
-                  {r.da_thue_lai && <AlertTriangle className="w-3.5 h-3.5 inline -mt-0.5 mr-1" />}Đang thuê: {r.khach_hien_tai}
-                </div>
-              )}
-              {r.tinh_trang && <div className="text-xs text-slate-400 mt-1 line-clamp-2">{r.tinh_trang}</div>}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {detail && (() => {
-        const d = detail.chi_tiet || {}
-        const vt = VT_FIELDS.filter(([k]) => String(d[k] ?? '').trim())
-        return (
-          <div className="fixed inset-0 bg-black/40 flex items-end justify-center z-50" onClick={() => setDetail(null)}>
-            <div className="bg-white rounded-t-2xl w-full max-h-[88vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between p-4 border-b border-slate-100">
-                <h3 className="text-base font-semibold text-slate-800 flex items-center gap-1.5"><FileText className="w-5 h-5 text-blue-600" /> Chi tiết giám định</h3>
-                <button onClick={() => setDetail(null)} className="text-slate-400 p-1"><X className="w-5 h-5" /></button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {detail.da_thue_lai && (
-                  <div className="text-sm bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 text-rose-700 flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                    <span>Đã cho khách khác thuê: hiện đang thuê <b>{detail.khach_hien_tai}</b>{detail.loai_hd_hien_tai ? ` (${detail.loai_hd_hien_tai})` : ''}.</span>
-                  </div>
-                )}
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <MRow label="Serial" value={detail.serial} mono />
-                  <MRow label="Model" value={detail.model} />
-                  <MRow label="Khách lúc giám định" value={detail.khach_hang} />
-                  <MRow label="Khách đang thuê" value={detail.khach_hien_tai} />
-                  <MRow label="Counter" value={detail.counter} />
-                  <MRow label="Ngày lập" value={fmtDate(detail.ngay)} />
-                  <MRow label="KTV giám định" value={detail.ktv} />
-                </div>
-                {String(d.machine_condition ?? '').trim() && (
-                  <div className="space-y-1">
-                    <div className="text-[11px] font-bold text-slate-400 uppercase">Tình trạng chung</div>
-                    <div className="text-sm text-slate-700 bg-slate-50 rounded-md px-3 py-2 whitespace-pre-wrap">{d.machine_condition}</div>
-                  </div>
-                )}
-                <div className="space-y-2">
-                  <div className="text-[11px] font-bold text-slate-400 uppercase">Chi tiết vật tư ({vt.length})</div>
-                  {vt.length === 0 ? (
-                    <p className="text-xs text-slate-400">Biên bản không ghi chi tiết vật tư.</p>
-                  ) : (
-                    <div className="border border-slate-200 rounded-lg divide-y divide-slate-100">
-                      {vt.map(([k, label]) => (
-                        <div key={k} className="flex items-center justify-between gap-2 text-sm px-3 py-1.5">
-                          <span className="text-slate-500">{label}</span>
-                          <span className="font-medium text-slate-800 text-right">{String(d[k])}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="p-4 border-t border-slate-100">
-                <Button onClick={() => setDetail(null)} className="w-full h-11">Đóng</Button>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
     </div>
   )
 }
 
-function MRow({ label, value, mono }: { label: string; value: any; mono?: boolean }) {
+// ── Tab Kanban HĐ: theo dõi phiếu đã chuyển kế toán — lên HĐ chưa / thanh toán chưa (CHỈ XEM) ──
+// tech_admin đi hiện trường xem nhanh trạng thái hóa đơn. Dùng chung API kanban-hd (tech_admin đọc được).
+function TheoDoiHdMobile({ notify }: { notify: (t: 'success' | 'error', m: string) => void }) {
+  const [jobs, setJobs] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<'cho_hd' | 'cho_tt' | 'da_tt'>('cho_tt') // mặc định Chờ thanh toán (quan tâm nhất)
+  const [q, setQ] = useState('')
+
+  const load = async () => {
+    setLoading(true)
+    try { const r = await fetch('/api/admin/kanban-hd'); const j = await r.json(); if (r.ok) setJobs(j.data || []); else notify('error', j.error || 'Lỗi tải') }
+    catch { notify('error', 'Lỗi kết nối') } finally { setLoading(false) }
+  }
+  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => load(), true)
+
+  const thisMonth = new Date().toISOString().slice(0, 7)
+  // Tổng sau thuế (bỏ dòng đã trả kho) + làm tròn — khớp cách tính trên PC.
+  const tongOf = (tk: any[]) => Math.round(tk.flatMap((t: any) => t.soct_chi_tiet_vat_tu || []).filter((v: any) => !v.da_tra)
+    .reduce((s: number, v: any) => s + v.so_luong * v.don_gia * (1 + (Number(v.vat) || 0) / 100), 0))
+    + tk.reduce((s: number, t: any) => s + (Number(t.lam_tron) || 0), 0)
+  const daysSince = (d: string) => d ? Math.floor((Date.now() - new Date(d + 'T00:00:00').getTime()) / 86400000) : null
+  const khachTen = (t: any) => t?.soct_khach_hang?.soct_khach_cum?.ten_khach_hang || t?.soct_khach_hang?.ten_khach_hang || '—'
+
+  // Gom nhóm: Chờ lên HĐ theo cụm/máy (Thuê/CPC 1 phiếu/thẻ); Chờ TT + Đã TT theo số HĐ.
+  const bucketCards = (which: 'cho_hd' | 'cho_tt' | 'da_tt') => {
+    const list = jobs.filter((t: any) => {
+      const s = t.trang_thai_hd
+      if (which === 'cho_hd') return s === 'Chờ xuất HĐ' || s === 'Đang xử lý HĐ'
+      if (which === 'cho_tt') return s === 'Đã lên hóa đơn'
+      return s === 'Đã thanh toán' && String(t.ngay_xuat_hd || '').startsWith(thisMonth)
+    })
+    const m = new Map<string, any>()
+    for (const t of list) {
+      const key = which === 'cho_hd'
+        ? (t.nguon === 'thue_cpc' ? `tc:${t.id}` : (t.soct_khach_hang?.ma_khach_cum ? `cum:${t.soct_khach_hang.ma_khach_cum}` : `may:${t.id_khach_hang}`))
+        : (t.so_hoa_don || `no:${t.id}`)
+      if (!m.has(key)) m.set(key, { key, khach: khachTen(t), tickets: [] })
+      m.get(key).tickets.push(t)
+    }
+    return [...m.values()]
+  }
+  const cChoHd = useMemo(() => bucketCards('cho_hd'), [jobs]) // eslint-disable-line
+  const cChoTt = useMemo(() => bucketCards('cho_tt'), [jobs]) // eslint-disable-line
+  const cDaTt = useMemo(() => bucketCards('da_tt'), [jobs]) // eslint-disable-line
+
+  const noDong = useMemo(() => cChoTt.reduce((a: any, c: any) => {
+    const con = Math.max(0, tongOf(c.tickets) - (Number(c.tickets[0].so_tien_da_thu) || 0))
+    if (con > 0) { a.n++; a.tong += con; const d = daysSince(c.tickets[0].ngay_xuat_hd); if (d != null && d > 30) a.qua++ }
+    return a
+  }, { n: 0, tong: 0, qua: 0 }), [cChoTt]) // eslint-disable-line
+
+  const active = filter === 'cho_hd' ? cChoHd : filter === 'cho_tt' ? cChoTt : cDaTt
+  const qq = q.trim().toLowerCase()
+  const shown = qq ? active.filter((c: any) => `${c.khach} ${c.tickets.map((t: any) => `${t.report || ''} ${t.so_hoa_don || ''}`).join(' ')}`.toLowerCase().includes(qq)) : active
+
+  const chip = (k: 'cho_hd' | 'cho_tt' | 'da_tt', label: string, n: number) => (
+    <button onClick={() => setFilter(k)} className={`flex-1 rounded-lg py-1.5 px-1 text-[10px] font-semibold border leading-tight ${filter === k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'}`}>
+      {label}<div className={`text-base font-bold ${filter === k ? 'text-white' : 'text-slate-800'}`}>{n}</div>
+    </button>
+  )
+
   return (
-    <div className="space-y-0.5">
-      <div className="text-[10px] font-bold text-slate-400 uppercase">{label}</div>
-      <div className={`text-sm text-slate-800 break-words ${mono ? 'font-mono' : ''}`}>{String(value ?? '').trim() || '—'}</div>
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm khách / số phiếu / số HĐ" className="pl-8 h-10 bg-white" />
+        </div>
+        <button onClick={load} className="p-2 text-slate-400 hover:text-blue-600"><RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} /></button>
+      </div>
+
+      {noDong.n > 0 && (
+        <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-2">
+          Còn <b>{noDong.n}</b> hóa đơn chưa thu · <b>{fmtVnd(noDong.tong)}đ</b>{noDong.qua > 0 ? <> · <span className="text-red-600 font-semibold">{noDong.qua} quá hạn (&gt;30 ngày)</span></> : null}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        {chip('cho_hd', 'Chờ lên HĐ', cChoHd.length)}
+        {chip('cho_tt', 'Chờ thanh toán', cChoTt.length)}
+        {chip('da_tt', 'Đã TT tháng này', cDaTt.length)}
+      </div>
+
+      {loading && jobs.length === 0 ? (
+        <p className="text-center text-sm text-slate-400 py-10">Đang tải…</p>
+      ) : shown.length === 0 ? (
+        <p className="text-center text-sm text-slate-400 py-10">Không có phiếu nào.</p>
+      ) : (
+        <div className="space-y-2.5">
+          {shown.map((c: any) => {
+            const t0 = c.tickets[0]
+            const tong = tongOf(c.tickets)
+            const daThu = Number(t0.so_tien_da_thu) || 0
+            const con = Math.max(0, tong - daThu)
+            const d = daysSince(t0.ngay_xuat_hd)
+            const ageCls = d == null ? '' : d > 30 ? 'text-red-600' : d >= 15 ? 'text-amber-600' : 'text-emerald-600'
+            const reports = c.tickets.map((t: any) => t.report).filter(Boolean)
+            return (
+              <div key={c.key} className="bg-white rounded-xl border border-slate-200 p-3 space-y-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="font-semibold text-slate-800 text-sm leading-tight">{c.khach}</div>
+                  {filter === 'cho_hd' && <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${t0.trang_thai_hd === 'Đang xử lý HĐ' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>{t0.trang_thai_hd === 'Đang xử lý HĐ' ? 'Đang lên HĐ' : 'Chờ lên HĐ'}</span>}
+                  {filter === 'cho_tt' && <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200">Chờ thanh toán</span>}
+                  {filter === 'da_tt' && <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">Đã thanh toán</span>}
+                </div>
+                {reports.length > 0 && <div className="text-[11px] text-slate-400 font-mono">Phiếu {reports.join(' · ')}</div>}
+                {filter !== 'cho_hd' && (
+                  <div className="text-[11px] text-slate-500">
+                    HĐ <b className="text-slate-700">{t0.so_hoa_don || '—'}</b>
+                    {t0.ngay_xuat_hd ? ` · ${fmtDate(t0.ngay_xuat_hd)}` : ''}
+                    {filter === 'cho_tt' && d != null ? <> · <span className={`font-semibold ${ageCls}`}>{d} ngày</span></> : null}
+                  </div>
+                )}
+                <div className="flex items-center justify-between pt-0.5">
+                  <span className="text-sm font-bold text-slate-800">{fmtVnd(tong)}đ</span>
+                  {filter === 'cho_tt' && daThu > 0 && con > 0 && <span className="text-[10px] text-emerald-600">đã thu {fmtVnd(daThu)}đ</span>}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
