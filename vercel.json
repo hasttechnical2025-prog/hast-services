@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/nhac-trang-thai",
       "schedule": "0 0-14 * * *"
+    },
+    {
+      "path": "/api/cron/cuon-ngay-phieu",
+      "schedule": "0 22 * * *"
     }
   ]
 }

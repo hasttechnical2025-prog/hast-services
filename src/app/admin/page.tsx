@@ -64,6 +64,7 @@ type Job = {
   ghi_chu: string
   report?: string
   so_phut_xu_ly?: number | null
+  so_lan_cuon?: number | null
   nguon_nhan?: string | null
   mien_phi?: boolean
   bbbg_luc?: string | null
@@ -1643,7 +1644,12 @@ export default function AdminDashboard() {
                   ) : (
                     jobsPaged.pageItems.map((job) => (
                       <tr key={job.id} className="hover:bg-slate-50/80 transition">
-                        {jobsCol.show('ngay') && <td className="px-4 py-3 whitespace-nowrap">{formatDate(job.ngay)}</td>}
+                        {jobsCol.show('ngay') && <td className="px-4 py-3 whitespace-nowrap">
+                          {formatDate(job.ngay)}
+                          {(job.so_lan_cuon || 0) >= 5 && (
+                            <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-200 rounded px-1.5 py-0.5" title={`Phiếu tự cuốn ngày ${job.so_lan_cuon} lần — chưa thực hiện, có thể bị bỏ quên`}>⚠ tồn {job.so_lan_cuon} ngày</div>
+                          )}
+                        </td>}
                         {jobsCol.show('khach') && <td className="px-4 py-3">
                           <div className="font-medium text-slate-800">{job.soct_khach_hang?.ten_khach_hang}</div>
                           <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
