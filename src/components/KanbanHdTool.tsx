@@ -2255,7 +2255,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                       </div>
                     ))}
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-1">Khoản gộp không ghi số HĐ nên không tự đối ứng — kthc tự thu tiền cho HĐ tương ứng.</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Khoản gộp không ghi số HĐ nên không tự đối ứng — kế toán tự thu tiền cho HĐ tương ứng.</p>
                 </div>
               )}
 
