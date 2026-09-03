@@ -4037,7 +4037,7 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
             <input type="checkbox" checked={form.da_bao_gia} onChange={(e) => setForm({ ...form, da_bao_gia: e.target.checked })} className="w-4 h-4 accent-blue-600" />
             Đã báo giá
           </label>
-          <Button onClick={handleSave} disabled={saving} title="Lưu biên bản giám định" className="h-10 w-10 p-0 bg-emerald-600 hover:bg-emerald-700">{saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ClipboardCheck className="w-4 h-4" />}</Button>
+          <Button onClick={handleSave} disabled={saving} className="h-10 gap-2 bg-emerald-600 hover:bg-emerald-700">{saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ClipboardCheck className="w-4 h-4" />} {saving ? 'Đang lưu…' : 'Lưu biên bản'}</Button>
         </div>
       </div>
 
