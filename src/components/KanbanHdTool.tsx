@@ -1060,13 +1060,18 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
           .map((c: any) => ({ hd: c.tickets[0].so_hoa_don, ngayXuat: c.tickets[0].ngay_xuat_hd || '', con: Math.max(0, cardPay(c).con) }))
         if (hds.length === 0) return null
         const moc = hds.map((h: any) => h.ngayXuat).filter(Boolean).sort()[0] || '' // ngày xuất HĐ sớm nhất
-        let tienSau = 0, tienTruoc = 0, tuNgay = '', denNgay = ''
+        if (!moc) return null // không xác định được mốc ngày xuất -> bỏ (tránh tính bừa tiền cũ)
+        // CHỈ tính tiền khách chuyển KỂ TỪ ngày xuất HĐ; tiền chuyển trước = trả HĐ cũ -> bỏ hẳn.
+        let tienSau = 0, tuNgay = '', denNgay = ''
         for (const r of g.rows) {
-          if (!moc || r.ngay >= moc) tienSau += r.h; else tienTruoc += r.h
-          if (r.ngay) { if (!tuNgay || r.ngay < tuNgay) tuNgay = r.ngay; if (r.ngay > denNgay) denNgay = r.ngay }
+          if (!r.ngay || r.ngay < moc) continue
+          tienSau += r.h
+          if (!tuNgay || r.ngay < tuNgay) tuNgay = r.ngay
+          if (r.ngay > denNgay) denNgay = r.ngay
         }
+        if (tienSau <= 0) return null // không có khoản chuyển nào sau ngày xuất HĐ -> ẩn khách này
         const tongCon = hds.reduce((s: number, h: any) => s + h.con, 0)
-        return { khach: g.khach, tienSau, tienTruoc, tong: tienSau + tienTruoc, hds, tongCon, moc, tuNgay, denNgay }
+        return { khach: g.khach, tienSau, hds, tongCon, tuNgay, denNgay }
       }).filter((l): l is NonNullable<typeof l> => !!l).sort((a, b) => b.tienSau - a.tienSau)
 
       await load()
@@ -2275,10 +2280,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                           <span className="font-medium text-slate-800 truncate">{l.khach}</span>
                           <span className="text-[10px] text-slate-400 shrink-0">chuyển {l.tuNgay ? fmtDate(l.tuNgay) : '?'}{l.denNgay && l.denNgay !== l.tuNgay ? `–${fmtDate(l.denNgay)}` : ''}</span>
                         </div>
-                        <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-                          <span className="text-emerald-700 font-semibold">Có thể đối ứng: {fmtVnd(l.tienSau)} đ</span>
-                          {l.tienTruoc > 0 && <span className="text-slate-400">trả trước kỳ HĐ (bỏ qua): {fmtVnd(l.tienTruoc)} đ</span>}
-                        </div>
+                        <div className="text-emerald-700 font-semibold">Đã chuyển (sau ngày xuất HĐ): {fmtVnd(l.tienSau)} đ</div>
                         <div className="text-[11px] text-slate-500">
                           HĐ chờ (tổng còn nợ <b className="text-slate-700">{fmtVnd(l.tongCon)}</b>): {l.hds.map((h: any) => `${h.hd}${h.ngayXuat ? ` · xuất ${fmtDate(h.ngayXuat)}` : ''} · còn ${fmtVnd(h.con)}`).join('  ·  ')}
                         </div>
