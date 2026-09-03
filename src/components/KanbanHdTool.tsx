@@ -908,8 +908,13 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     return [...map.values()]
   }
 
-  const cardsCol1 = getColumnCards(col1Tickets, 'Chờ xuất HĐ')
-  const cardsCol2 = getColumnCards(col2Tickets, 'Đang xử lý HĐ')
+  // SẮP XẾP THẺ: mọi cột "mới nhất lên đầu". Cột 1/2 theo NGÀY PHIẾU (đẩy mới nhất trên đầu);
+  // cột 3/4 theo NGÀY XUẤT HĐ (mới lên HĐ / mới thanh toán trên đầu). Lấy ngày lớn nhất trong thẻ.
+  const cardNgay = (c: any) => (c.tickets || []).reduce((m: string, t: any) => (String(t.ngay || '') > m ? String(t.ngay || '') : m), '')
+  const cardXuat = (c: any) => (c.tickets || []).reduce((m: string, t: any) => { const d = String(t.ngay_xuat_hd || t.ngay || ''); return d > m ? d : m }, '')
+
+  const cardsCol1 = getColumnCards(col1Tickets, 'Chờ xuất HĐ').sort((a, b) => cardNgay(b).localeCompare(cardNgay(a)))
+  const cardsCol2 = getColumnCards(col2Tickets, 'Đang xử lý HĐ').sort((a, b) => cardNgay(b).localeCompare(cardNgay(a)))
   // M-invoice: thẻ CHƯA xuất (nút hàng loạt chỉ đụng các thẻ này) & số thẻ đã xuất nhưng CHƯA có số HĐ.
   const cardsCol2ChuaXuat = cardsCol2.filter((c: any) => !cardMinvoiceExported(c.tickets))
   const col2PendingCount = cardsCol2.filter((c: any) => cardMinvoicePending(c.tickets)).length
@@ -925,8 +930,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     }
     return [...m.values()]
   }
-  const cardsCol3 = groupByHd(col3Tickets, 'Đã lên hóa đơn')
-  const cardsCol4 = groupByHd(col4Tickets, 'Đã thanh toán')
+  const cardsCol3 = groupByHd(col3Tickets, 'Đã lên hóa đơn').sort((a, b) => cardXuat(b).localeCompare(cardXuat(a)))
+  const cardsCol4 = groupByHd(col4Tickets, 'Đã thanh toán').sort((a, b) => cardXuat(b).localeCompare(cardXuat(a)))
 
   // IMPORT BÁO CÁO M-INVOICE: đọc file "Báo cáo tổng hợp doanh thu hóa đơn", TỰ ĐỘNG điền Số HĐ +
   // chuyển thẻ từ cột "KT-HC lên hóa đơn" (Đang xử lý HĐ) sang "Chờ thanh toán" (Đã lên hóa đơn).
