@@ -521,6 +521,9 @@ function TheoDoiHdMobile({ notify }: { notify: (t: 'success' | 'error', m: strin
     + tk.reduce((s: number, t: any) => s + (Number(t.lam_tron) || 0), 0)
   const daysSince = (d: string) => d ? Math.floor((Date.now() - new Date(d + 'T00:00:00').getTime()) / 86400000) : null
   const khachTen = (t: any) => t?.soct_khach_hang?.soct_khach_cum?.ten_khach_hang || t?.soct_khach_hang?.ten_khach_hang || '—'
+  // Sắp xếp giống PC (mới nhất lên đầu): Chờ lên HĐ theo NGÀY PHIẾU; Chờ TT/Đã TT theo NGÀY XUẤT HĐ.
+  const cardNgay = (c: any) => (c.tickets || []).reduce((m: string, t: any) => (String(t.ngay || '') > m ? String(t.ngay || '') : m), '')
+  const cardXuat = (c: any) => (c.tickets || []).reduce((m: string, t: any) => { const d = String(t.ngay_xuat_hd || t.ngay || ''); return d > m ? d : m }, '')
 
   // Gom nhóm: Chờ lên HĐ theo cụm/máy (Thuê/CPC 1 phiếu/thẻ); Chờ TT + Đã TT theo số HĐ.
   const bucketCards = (which: 'cho_hd' | 'cho_tt' | 'da_tt') => {
@@ -538,7 +541,7 @@ function TheoDoiHdMobile({ notify }: { notify: (t: 'success' | 'error', m: strin
       if (!m.has(key)) m.set(key, { key, khach: khachTen(t), tickets: [] })
       m.get(key).tickets.push(t)
     }
-    return [...m.values()]
+    return [...m.values()].sort((a, b) => which === 'cho_hd' ? cardNgay(b).localeCompare(cardNgay(a)) : cardXuat(b).localeCompare(cardXuat(a)))
   }
   const cChoHd = useMemo(() => bucketCards('cho_hd'), [jobs]) // eslint-disable-line
   const cChoTt = useMemo(() => bucketCards('cho_tt'), [jobs]) // eslint-disable-line
