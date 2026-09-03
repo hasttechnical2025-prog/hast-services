@@ -4037,7 +4037,7 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
             <input type="checkbox" checked={form.da_bao_gia} onChange={(e) => setForm({ ...form, da_bao_gia: e.target.checked })} className="w-4 h-4 accent-blue-600" />
             Đã báo giá
           </label>
-          <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">{saving ? "Đang lưu..." : "Lưu biên bản giám định"}</Button>
+          <Button onClick={handleSave} disabled={saving} title="Lưu biên bản giám định" className="h-10 w-10 p-0 bg-emerald-600 hover:bg-emerald-700">{saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ClipboardCheck className="w-4 h-4" />}</Button>
         </div>
       </div>
 
@@ -4115,12 +4115,12 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
             ) : (
               <div className="flex justify-end gap-2 border-t border-slate-100 pt-2">
                 {(r.soct_giam_dinh_vat_tu || []).length > 0 && (
-                  <Button variant="outline" onClick={() => openQuote(r)} className="h-8 text-xs border-blue-200 text-blue-700 hover:bg-blue-50 gap-1">
-                    <Download className="w-3.5 h-3.5" /> Làm báo giá
+                  <Button variant="outline" onClick={() => openQuote(r)} title="Làm báo giá" className="h-8 w-8 p-0 border-blue-200 text-blue-700 hover:bg-blue-50">
+                    <Download className="w-3.5 h-3.5" />
                   </Button>
                 )}
-                <Button variant="outline" onClick={() => toggleBaoGia(r)} className={`h-8 text-xs ${r.da_bao_gia ? 'text-slate-600' : 'border-blue-200 text-blue-700 hover:bg-blue-50'}`}>{r.da_bao_gia ? 'Bỏ đánh dấu báo giá' : 'Đánh dấu đã báo giá'}</Button>
-                {!r.da_thay && <Button variant="outline" onClick={() => setClosing({ id: r.id, so_report: r.so_report || "", ngay_thay: new Date().toISOString().split('T')[0] })} className="h-8 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50">Đóng (đã thay)</Button>}
+                <Button variant="outline" onClick={() => toggleBaoGia(r)} title={r.da_bao_gia ? 'Bỏ đánh dấu đã báo giá' : 'Đánh dấu đã báo giá'} className={`h-8 w-8 p-0 ${r.da_bao_gia ? 'text-slate-600' : 'border-blue-200 text-blue-700 hover:bg-blue-50'}`}><CheckCircle2 className="w-3.5 h-3.5" /></Button>
+                {!r.da_thay && <Button variant="outline" onClick={() => setClosing({ id: r.id, so_report: r.so_report || "", ngay_thay: new Date().toISOString().split('T')[0] })} title="Đóng biên bản (đã thay vật tư)" className="h-8 w-8 p-0 border-emerald-200 text-emerald-700 hover:bg-emerald-50"><Wrench className="w-3.5 h-3.5" /></Button>}
                 <button onClick={() => handleDelete(r.id)} className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 hover:bg-red-100 rounded-md transition"><Trash2 className="w-4 h-4" /></button>
               </div>
             )}
@@ -7420,7 +7420,7 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
             <label className="text-xs font-semibold text-slate-600">Năm</label>
             <Input value={traNam} onChange={e => setTraNam(e.target.value.replace(/[^\d]/g, '').slice(0, 4))} className="bg-white w-24" />
           </div>
-          <Button onClick={tracuu} disabled={traLoading} className="h-10 gap-2"><Search className="w-4 h-4" /> {traLoading ? 'Đang tra...' : 'Tra cứu'}</Button>
+          <Button onClick={tracuu} disabled={traLoading} title="Tra cứu lịch sử bảo trì" className="h-10 w-10 p-0">{traLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}</Button>
         </div>
         {traRes && (() => {
           const cust = customerByMaMay.get(traRes.ma_may.toLowerCase())
@@ -7594,8 +7594,8 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
                 <label className="text-xs font-semibold text-slate-600">Tìm khách hàng / mã máy</label>
                 <Input value={dcQ} onChange={(e) => setDcQ(e.target.value)} placeholder="Gõ tên khách để đối chiếu riêng..." className="bg-white" />
               </div>
-              <Button onClick={exportDoiChieu} disabled={dcLoading || dcFiltered.length === 0} className="h-10 gap-2 bg-emerald-600 hover:bg-emerald-700">
-                <Download className="w-4 h-4" /> Xuất Excel ({dcFiltered.length} máy)
+              <Button onClick={exportDoiChieu} disabled={dcLoading || dcFiltered.length === 0} title={`Xuất Excel (${dcFiltered.length} máy)`} className="h-10 w-10 p-0 bg-emerald-600 hover:bg-emerald-700">
+                <Download className="w-4 h-4" />
               </Button>
             </div>
 
@@ -7709,8 +7709,8 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
             <div className="flex items-center gap-2 px-1">
               <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">{records.length} máy</span>
               <div className="ml-auto flex items-center gap-2">
-                <Button variant="outline" onClick={xuatBaoTriExcel} disabled={records.length === 0} className="gap-2 h-9">
-                  <Download className="w-4 h-4" /> Xuất Excel ({records.length})
+                <Button variant="outline" onClick={xuatBaoTriExcel} disabled={records.length === 0} title={`Xuất Excel (${records.length} máy)`} className="h-9 w-9 p-0">
+                  <Download className="w-4 h-4" />
                 </Button>
                 <ColumnMenu view={col} />
                 <ClearAllButton count={records.length} label={`bảo trì tháng ${thangNam.split('-').reverse().join('/')}`} onConfirm={async () => {
