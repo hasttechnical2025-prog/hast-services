@@ -987,8 +987,15 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       }
       if (headRow < 0) { showNotification('error', 'Không nhận diện được file FAST (thiếu cột "Diễn giải" / "Phát sinh nợ").'); return }
 
-      // Gộp tiền thu theo số HĐ (F là số) + gộp khoản "Thu tiền hàng" (F là chữ) theo khách.
-      const byHD = new Map<string, { sum: number; ngay: string }>()
+      // Chuẩn hóa tên khách: bỏ dấu + bỏ từ pháp lý (Công ty/CP/TNHH/…) để khớp FAST ⇄ app.
+      const custKey = (s: any) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[đĐ]/g, 'd').toLowerCase()
+        .replace(/cong ty|co phan|trach nhiem huu han|tnhh|mot thanh vien|mtv/g, ' ')
+        .replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim()
+      const custMatch = (a: string, b: string) => !!a && !!b && (a === b || a.includes(b) || b.includes(a))
+
+      // Thu theo (số HĐ) KÈM KHÁCH — số HĐ ở FAST là chứng từ nội bộ, TRÙNG giữa các khách, nên PHẢI
+      // khớp đúng khách để không gán nhầm tiền của khách khác. Khoản "Thu tiền hàng" (F chữ) -> gộp theo khách.
+      const pays: { hd: string; kkey: string; h: number }[] = []
       const lumpByKhach = new Map<string, number>()
       for (let r = headRow + 1; r <= ws.rowCount; r++) {
         const row = ws.getRow(r)
@@ -996,16 +1003,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
         if (h <= 0) continue // chỉ lấy tiền THU VÀO (phát sinh nợ TK 112)
         const f = norm2(cell(row.getCell(colF).value))
         const khach = norm2(cell(row.getCell(colKhach).value))
-        const ngayRaw = cell(row.getCell(colNgay).value)
-        let ngay = ''
-        if (ngayRaw instanceof Date) ngay = new Date(ngayRaw.getTime()).toISOString().slice(0, 10)
-        else if (typeof ngayRaw === 'string') ngay = ngayRaw.slice(0, 10)
-        if (/^\d{1,7}$/.test(f)) { // F là số HĐ thuần
-          const cur = byHD.get(f) || { sum: 0, ngay: '' }
-          byHD.set(f, { sum: cur.sum + h, ngay: ngay > cur.ngay ? ngay : cur.ngay })
-        } else if (khach) { // F là chữ (Thu tiền hàng...) -> khoản gộp theo khách
-          lumpByKhach.set(khach, (lumpByKhach.get(khach) || 0) + h)
-        }
+        if (/^\d{1,7}$/.test(f)) pays.push({ hd: f, kkey: custKey(khach), h })
+        else if (khach) lumpByKhach.set(khach, (lumpByKhach.get(khach) || 0) + h)
       }
 
       // Bản đồ số HĐ -> thẻ Cột 3.
@@ -1016,11 +1015,14 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       const partial: { hd: string; daThu: number; tong: number }[] = [] // ghi nhận, ở lại Cột 3
       const over: { hd: string; daThu: number; tong: number }[] = []    // thu dư -> ở lại đối soát
       const failed: { hd: string; reason: string }[] = []
-      // CHỈ duyệt theo HĐ đang ở Cột 3 (bỏ qua HĐ cũ/đã ở cột khác trong file sổ cả năm).
+      const applied = new Set<any>()
+      // CHỈ duyệt theo HĐ đang ở Cột 3; chỉ nhận khoản thu KHỚP CẢ số HĐ + đúng khách.
       for (const [hd, card] of col3ByHd) {
-        const rec = byHD.get(hd)
-        if (!rec) continue // HĐ này chưa có khoản thu trong file -> để nguyên
-        const sum = rec.sum
+        const ck = custKey(card.customer?.soct_khach_cum?.ten_khach_hang || card.customer?.ten_khach_hang || '')
+        const matched = pays.filter(p => p.hd === hd && custMatch(p.kkey, ck))
+        if (matched.length === 0) continue // FAST không có khoản thu cho HĐ này của đúng khách -> chưa thanh toán
+        matched.forEach(p => applied.add(p))
+        const sum = matched.reduce((s, p) => s + p.h, 0)
         const tong = cardTong(card)
         const exact = sum === tong
         try {
@@ -1034,14 +1036,14 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
           else partial.push({ hd, daThu: sum, tong })
         } catch { failed.push({ hd, reason: 'Lỗi kết nối' }) }
       }
-      // Số khoản thu trong file KHÔNG thuộc Cột 3 (HĐ đã xong/kỳ khác) -> chỉ đếm, không liệt kê.
-      const khacCount = [...byHD.keys()].filter(hd => !col3ByHd.has(hd)).length
+      // Số khoản thu (theo số HĐ) trong file KHÔNG đối ứng được vào Cột 3 -> chỉ đếm.
+      const khacCount = pays.filter(p => !applied.has(p)).length
 
-      // Khoản gộp theo khách — CHỈ hiện khách CÓ HĐ đang ở Cột 3 (khớp tên gần đúng) để hỗ trợ tay.
+      // Khoản gộp theo khách — CHỈ hiện khách CÓ HĐ đang ở Cột 3 (khớp tên chuẩn hóa) để hỗ trợ tay.
       const lumps = [...lumpByKhach.entries()].map(([khach, tien]) => {
-        const kn = norm(khach)
+        const kk = custKey(khach)
         const hds = cardsCol3
-          .filter((c: any) => { const ten = norm(c.customer?.soct_khach_cum?.ten_khach_hang || c.customer?.ten_khach_hang || ''); return ten && (ten.includes(kn) || kn.includes(ten)) })
+          .filter((c: any) => custMatch(custKey(c.customer?.soct_khach_cum?.ten_khach_hang || c.customer?.ten_khach_hang || ''), kk))
           .map((c: any) => ({ hd: c.tickets[0].so_hoa_don, con: cardPay(c).con }))
         return { khach, tien, hds }
       }).filter(l => l.hds.length > 0).sort((a, b) => b.tien - a.tien)
