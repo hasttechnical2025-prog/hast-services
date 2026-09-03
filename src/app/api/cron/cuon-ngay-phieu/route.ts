@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { isBaoTri } from '@/lib/config'
+import { requireRole } from '@/lib/session'
 
 export const runtime = 'nodejs'
 const H = 3600 * 1000
@@ -12,24 +13,32 @@ const H = 3600 * 1000
 //   'Đang làm' và 'Hoàn thành'); logic ở hàm SQL soct_cuon_ngay_phieu (migration 66).
 export async function GET(request: Request) {
   try {
+    // Xác thực: HOẶC cron (Bearer CRON_SECRET) HOẶC admin/tech_admin/staff đăng nhập (bấm nút tay).
     const authHeader = request.headers.get('authorization')
     const secret = process.env.CRON_SECRET
-    if (secret && authHeader !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const isCron = !!secret && authHeader === `Bearer ${secret}`
+    if (!isCron) {
+      const session = await requireRole('admin', 'tech_admin', 'staff')
+      if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     if (await isBaoTri()) return NextResponse.json({ message: 'Đang bảo trì — bỏ qua' })
+
+    // ?force=1 (bấm tay) -> cuốn bất kể T7/CN/lễ (admin chủ động). Cron KHÔNG dùng force.
+    const force = new URL(request.url).searchParams.get('force') === '1'
 
     // Ngày + thứ theo giờ VN (Date dựng bằng +7h -> đọc bằng getUTC*).
     const vn = new Date(Date.now() + 7 * H)
     const dow = vn.getUTCDay() // 0 = Chủ Nhật, 6 = Thứ 7
     const today = vn.toISOString().slice(0, 10) // YYYY-MM-DD (giờ VN)
 
-    if (dow === 0 || dow === 6) {
-      return NextResponse.json({ skipped: 'Cuối tuần (T7/CN) — không cuốn', today })
-    }
-    const { data: le } = await supabaseAdmin.from('soct_ngay_nghi').select('ngay').eq('ngay', today).maybeSingle()
-    if (le) {
-      return NextResponse.json({ skipped: 'Ngày nghỉ lễ — không cuốn', today })
+    if (!force) {
+      if (dow === 0 || dow === 6) {
+        return NextResponse.json({ skipped: 'Cuối tuần (T7/CN) — không cuốn', today })
+      }
+      const { data: le } = await supabaseAdmin.from('soct_ngay_nghi').select('ngay').eq('ngay', today).maybeSingle()
+      if (le) {
+        return NextResponse.json({ skipped: 'Ngày nghỉ lễ — không cuốn', today })
+      }
     }
 
     // Cuốn (hàm SQL tự tăng so_lan_cuon, trả danh sách phiếu đã cuốn).

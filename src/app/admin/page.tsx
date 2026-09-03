@@ -1587,6 +1587,9 @@ export default function AdminDashboard() {
                       } catch (e: any) { showNotification('error', e.message || 'Không xóa được') }
                     }} />
                   )}
+                  {['admin', 'tech_admin', 'staff'].includes(currentUserRole) && (
+                    <CuonNgayButton onSuccess={fetchData} showNotification={showNotification} />
+                  )}
                   <Button onClick={() => { setEditingJobId(null); setEditingKetQua(''); setFormData(f => ({ ...f, ngay: todayVN() })); setIsModalOpen(true) }} className="gap-2"><Plus className="w-4 h-4" /> Giao việc mới</Button>
                 </div>
               </div>
@@ -8228,5 +8231,38 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
         </div>
       )}
     </div>
+  )
+}
+
+// Nút CUỐN NGÀY thủ công: chạy ngay logic cron (force=1 -> bất kể T7/CN/lễ) để test / khi cron lỡ.
+function CuonNgayButton({ onSuccess, showNotification }: { onSuccess: () => void, showNotification: (t: 'success' | 'error', m: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const run = async () => {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/cron/cuon-ngay-phieu?force=1')
+      const j = await res.json()
+      if (!res.ok) throw new Error(j.error || 'Lỗi cuốn ngày')
+      showNotification('success', `Đã cuốn ${j.cuon ?? 0} phiếu về hôm nay${j.ton_dong ? ` · ${j.ton_dong} phiếu tồn đọng (≥5 lần)` : ''}.`)
+      setOpen(false); onSuccess()
+    } catch (e: any) { showNotification('error', e.message || 'Lỗi cuốn ngày') } finally { setBusy(false) }
+  }
+  return (
+    <>
+      <Button variant="outline" onClick={() => setOpen(true)} className="gap-2 border-slate-300 text-slate-700 hover:bg-slate-50 h-10" title="Đưa ngày các phiếu chưa thực hiện về hôm nay (chạy ngay logic cron)"><RefreshCw className="w-4 h-4" /> Cuốn ngày</Button>
+      {open && (
+        <div className="fixed inset-0 bg-slate-900/50 z-[80] flex items-center justify-center p-4" onClick={() => !busy && setOpen(false)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5 space-y-3" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-slate-800">Cuốn ngày phiếu chưa thực hiện</h3>
+            <p className="text-sm text-slate-600">Đưa <b>ngày</b> của mọi phiếu chưa làm (Chờ nhận / Đã nhận / Chưa hoàn thành) về <b>hôm nay</b>. Đây chính là việc cron tự chạy mỗi sáng — bấm để chạy ngay.</p>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="outline" onClick={() => setOpen(false)} disabled={busy} className="h-9">Hủy</Button>
+              <Button onClick={run} disabled={busy} className="h-9 bg-blue-600 hover:bg-blue-700">{busy ? 'Đang cuốn…' : 'Cuốn ngay'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
