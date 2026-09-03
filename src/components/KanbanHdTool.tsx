@@ -184,6 +184,12 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   // trường THỰC SỰ đổi — tránh vô tình ghi ten_hang_hd (làm rớt phần ghép "Tên - Mã") khi chỉ sửa ĐVT.
   const [editName, setEditName] = useState<{ ma_hang: string; ten: string; gia: string; dvt: string; ten0: string; gia0: string; dvt0: string } | null>(null)
   const [savingName, setSavingName] = useState(false)
+  // Import thanh toán FAST (đối ứng công nợ Cột 3)
+  const [payImporting, setPayImporting] = useState(false)
+  const [payResult, setPayResult] = useState<any>(null)
+  // Bộ lọc Cột 3 (kthc/admin theo dõi công nợ)
+  const [col3Pay, setCol3Pay] = useState<'all' | 'chua' | 'phan' | 'du'>('all')
+  const [col3Age, setCol3Age] = useState<'all' | 'd30' | 'd15' | 'd0'>('all')
   const [dragVtIdx, setDragVtIdx] = useState<number | null>(null) // kéo-thả sắp xếp dòng vật tư
   // Kế toán TRẢ LẠI phiếu về Cột 1 kèm lý do (cho tech_admin/staff sửa).
   const [returnTarget, setReturnTarget] = useState<{ ids: string[]; reason: string } | null>(null)
@@ -933,6 +939,119 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const cardsCol3 = groupByHd(col3Tickets, 'Đã lên hóa đơn').sort((a, b) => cardXuat(b).localeCompare(cardXuat(a)))
   const cardsCol4 = groupByHd(col4Tickets, 'Đã thanh toán').sort((a, b) => cardXuat(b).localeCompare(cardXuat(a)))
 
+  // Thông tin thu của 1 thẻ Cột 3: tổng HĐ, đã thu, còn nợ, tuổi, trạng thái thu.
+  const cardTong = (c: any) => Math.round(getVatTuStats(c.tickets.flatMap((t: any) => t.soct_chi_tiet_vat_tu || [])).sauVat) + cardLamTron(c.tickets)
+  const cardPay = (c: any) => {
+    const tong = cardTong(c); const daThu = Number(c.tickets[0].so_tien_da_thu) || 0
+    const con = tong - daThu
+    const pay = daThu <= 0 ? 'chua' : daThu > tong ? 'du' : daThu < tong ? 'phan' : 'du_dung'
+    return { tong, daThu, con, pay, days: daysSince(c.tickets[0].ngay_xuat_hd) }
+  }
+  // Cột 3 sau bộ lọc trạng thái thu + tuổi nợ (kthc/admin). Banner giữ nguyên tổng (toàn cột).
+  const cardsCol3Shown = cardsCol3.filter((c: any) => {
+    const info = cardPay(c)
+    if (col3Pay !== 'all' && info.pay !== col3Pay) return false
+    if (col3Age !== 'all') {
+      if (info.con <= 0 || info.days == null) return false
+      if (col3Age === 'd30' && !(info.days > 30)) return false
+      if (col3Age === 'd15' && !(info.days >= 15 && info.days <= 30)) return false
+      if (col3Age === 'd0' && !(info.days < 15)) return false
+    }
+    return true
+  })
+
+  // IMPORT THANH TOÁN (FAST): đọc "Sổ chi tiết TK 112" — cột "Diễn giải" = số HĐ, "Phát sinh nợ" =
+  // tiền khách trả. Gộp tiền theo số HĐ -> ĐẶT số đã thu (ghi đè). THU = TỔNG HĐ (khớp chính xác) ->
+  // tự chuyển Cột 4; các trường hợp khác giữ Cột 3 để đối soát. Khoản gộp "Thu tiền hàng" (F là chữ)
+  // -> gộp theo khách để hỗ trợ đối chiếu tay. Chỉ kthc/admin.
+  const importThanhToanFast = async (file: File) => {
+    setPayImporting(true)
+    try {
+      const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
+      const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer())
+      const ws = wb.worksheets[0]
+      const cell = (v: any) => { let x = v; if (x && typeof x === 'object' && 'result' in x) x = x.result; if (x && typeof x === 'object' && 'text' in x) x = x.text; if (x && typeof x === 'object' && 'richText' in x) x = x.richText.map((r: any) => r.text).join(''); return x }
+      const norm2 = (s: any) => String(s ?? '').replace(/\s+/g, ' ').trim()
+      // Tìm dòng tiêu đề + vị trí cột (theo tên; fallback F=6 diễn giải, H=8 phát sinh nợ).
+      let headRow = -1, colF = 6, colH = 8, colKhach = 5, colNgay = 1
+      for (let r = 1; r <= Math.min(ws.rowCount, 15); r++) {
+        const row = ws.getRow(r); let hit = false
+        for (let c = 1; c <= Math.min(ws.columnCount, 20); c++) {
+          const t = norm2(cell(row.getCell(c).value))
+          if (t === 'Diễn giải') { colF = c; hit = true }
+          else if (t === 'Phát sinh nợ') colH = c
+          else if (t === 'Tên khách hàng') colKhach = c
+          else if (t === 'Ngày ct') colNgay = c
+        }
+        if (hit) { headRow = r; break }
+      }
+      if (headRow < 0) { showNotification('error', 'Không nhận diện được file FAST (thiếu cột "Diễn giải" / "Phát sinh nợ").'); return }
+
+      // Gộp tiền thu theo số HĐ (F là số) + gộp khoản "Thu tiền hàng" (F là chữ) theo khách.
+      const byHD = new Map<string, { sum: number; ngay: string }>()
+      const lumpByKhach = new Map<string, number>()
+      for (let r = headRow + 1; r <= ws.rowCount; r++) {
+        const row = ws.getRow(r)
+        const h = Number(cell(row.getCell(colH).value)) || 0
+        if (h <= 0) continue // chỉ lấy tiền THU VÀO (phát sinh nợ TK 112)
+        const f = norm2(cell(row.getCell(colF).value))
+        const khach = norm2(cell(row.getCell(colKhach).value))
+        const ngayRaw = cell(row.getCell(colNgay).value)
+        let ngay = ''
+        if (ngayRaw instanceof Date) ngay = new Date(ngayRaw.getTime()).toISOString().slice(0, 10)
+        else if (typeof ngayRaw === 'string') ngay = ngayRaw.slice(0, 10)
+        if (/^\d{1,7}$/.test(f)) { // F là số HĐ thuần
+          const cur = byHD.get(f) || { sum: 0, ngay: '' }
+          byHD.set(f, { sum: cur.sum + h, ngay: ngay > cur.ngay ? ngay : cur.ngay })
+        } else if (khach) { // F là chữ (Thu tiền hàng...) -> khoản gộp theo khách
+          lumpByKhach.set(khach, (lumpByKhach.get(khach) || 0) + h)
+        }
+      }
+
+      // Bản đồ số HĐ -> thẻ Cột 3.
+      const col3ByHd = new Map<string, any>()
+      for (const c of cardsCol3) { const hd = String(c.tickets[0].so_hoa_don || '').trim(); if (hd) col3ByHd.set(hd, c) }
+
+      const moved: { hd: string; tien: number }[] = []          // thu = tổng -> chuyển Cột 4
+      const partial: { hd: string; daThu: number; tong: number }[] = [] // ghi nhận, ở lại Cột 3
+      const over: { hd: string; daThu: number; tong: number }[] = []    // thu dư -> ở lại đối soát
+      const failed: { hd: string; reason: string }[] = []
+      // CHỈ duyệt theo HĐ đang ở Cột 3 (bỏ qua HĐ cũ/đã ở cột khác trong file sổ cả năm).
+      for (const [hd, card] of col3ByHd) {
+        const rec = byHD.get(hd)
+        if (!rec) continue // HĐ này chưa có khoản thu trong file -> để nguyên
+        const sum = rec.sum
+        const tong = cardTong(card)
+        const exact = sum === tong
+        try {
+          const res = await fetch('/api/admin/hd-thu', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ so_hoa_don: hd, set_to: sum, chuyen: exact }),
+          })
+          if (!res.ok) { const e = await res.json(); failed.push({ hd, reason: e.error || 'Lỗi ghi nhận' }); continue }
+          if (exact) moved.push({ hd, tien: sum })
+          else if (sum > tong) over.push({ hd, daThu: sum, tong })
+          else partial.push({ hd, daThu: sum, tong })
+        } catch { failed.push({ hd, reason: 'Lỗi kết nối' }) }
+      }
+      // Số khoản thu trong file KHÔNG thuộc Cột 3 (HĐ đã xong/kỳ khác) -> chỉ đếm, không liệt kê.
+      const khacCount = [...byHD.keys()].filter(hd => !col3ByHd.has(hd)).length
+
+      // Khoản gộp theo khách — CHỈ hiện khách CÓ HĐ đang ở Cột 3 (khớp tên gần đúng) để hỗ trợ tay.
+      const lumps = [...lumpByKhach.entries()].map(([khach, tien]) => {
+        const kn = norm(khach)
+        const hds = cardsCol3
+          .filter((c: any) => { const ten = norm(c.customer?.soct_khach_cum?.ten_khach_hang || c.customer?.ten_khach_hang || ''); return ten && (ten.includes(kn) || kn.includes(ten)) })
+          .map((c: any) => ({ hd: c.tickets[0].so_hoa_don, con: cardPay(c).con }))
+        return { khach, tien, hds }
+      }).filter(l => l.hds.length > 0).sort((a, b) => b.tien - a.tien)
+
+      await load()
+      setPayResult({ moved, partial, over, khacCount, failed, lumps })
+    } catch (e: any) { showNotification('error', 'Lỗi đọc file FAST: ' + (e?.message || '')) }
+    finally { setPayImporting(false) }
+  }
+
   // IMPORT BÁO CÁO M-INVOICE: đọc file "Báo cáo tổng hợp doanh thu hóa đơn", TỰ ĐỘNG điền Số HĐ +
   // chuyển thẻ từ cột "KT-HC lên hóa đơn" (Đang xử lý HĐ) sang "Chờ thanh toán" (Đã lên hóa đơn).
   // AN TOÀN: chỉ áp dòng KHỚP CHẮC CHẮN (Số đơn hàng = report thẻ) VÀ khớp tổng tiền (±1.000đ do làm
@@ -1260,7 +1379,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                         return <div className="flex flex-wrap items-center gap-1.5">
                           {daThu > 0 && (
                             <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-blue-50 text-blue-700 border-blue-200">
-                              Đã thu {fmtVnd(daThu)}{con > 0 ? ` · còn ${fmtVnd(con)}` : ' · đủ'}
+                              Đã thu {fmtVnd(daThu)}{con > 0 ? ` · còn ${fmtVnd(con)}` : daThu > tong ? ` · dư ${fmtVnd(daThu - tong)}` : ' · đủ'}
                             </span>
                           )}
                           {(() => {
@@ -1456,12 +1575,20 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
 
           {/* CỘT 3: CHỜ THANH TOÁN (Trạng thái Đã lên hóa đơn) */}
           <div className="border border-slate-200 rounded-xl bg-white flex flex-col shadow-sm">
-            <div className="p-3 bg-emerald-50/50 rounded-t-xl flex justify-between items-center">
+            <div className="p-3 bg-emerald-50/50 rounded-t-xl flex justify-between items-center gap-2">
               <h3 className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
-                <CheckCircle className="w-4 h-4" /> {role === 'kthc' ? '2.' : '3.'} Chờ thanh toán ({cardsCol3.length})
+                <CheckCircle className="w-4 h-4" /> {role === 'kthc' ? '2.' : '3.'} Chờ thanh toán ({col3Pay !== 'all' || col3Age !== 'all' ? `${cardsCol3Shown.length}/${cardsCol3.length}` : cardsCol3.length})
               </h3>
+              {isKeToan && (
+                <label title="Import thanh toán từ FAST (Sổ chi tiết TK 112) → đối ứng công nợ, thu = tổng HĐ tự chuyển Đã thanh toán"
+                  className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-emerald-200 text-emerald-700 bg-white hover:bg-emerald-50 cursor-pointer ${payImporting ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <Upload className="w-3 h-3" /> {payImporting ? 'Đang đối ứng…' : 'Import TT'}
+                  <input type="file" accept=".xlsx" className="hidden" disabled={payImporting}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) importThanhToanFast(f); e.target.value = '' }} />
+                </label>
+              )}
             </div>
-            {/* Banner NỢ ĐỌNG theo tuổi (mọi role theo dõi): tổng còn nợ + 3 mức <15 / 15–30 / >30 ngày. */}
+            {/* Banner NỢ ĐỌNG theo tuổi — bấm 1 mức để LỌC theo tuổi (bấm lại bỏ lọc). */}
             {col3Debt.nAll > 0 && (
               <div className="mx-3 mt-2 -mb-1 space-y-1">
                 <div className="text-[10px] text-slate-600">
@@ -1469,24 +1596,35 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {col3Debt.n2 > 0 && (
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-red-50 text-red-700 border-red-200" title={`Quá hạn: còn nợ ${fmtVnd(col3Debt.t2)} đ`}>
+                    <button onClick={() => setCol3Age(col3Age === 'd30' ? 'all' : 'd30')} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-red-50 text-red-700 border-red-200 ${col3Age === 'd30' ? 'ring-2 ring-red-300' : ''}`} title="Lọc: quá hạn >30 ngày">
                       🔴 &gt;30 ngày: {col3Debt.n2} HĐ · {fmtVnd(col3Debt.t2)}
-                    </span>
+                    </button>
                   )}
                   {col3Debt.n1 > 0 && (
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-amber-50 text-amber-700 border-amber-200" title={`Chớm quá hạn: còn nợ ${fmtVnd(col3Debt.t1)} đ`}>
+                    <button onClick={() => setCol3Age(col3Age === 'd15' ? 'all' : 'd15')} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-amber-50 text-amber-700 border-amber-200 ${col3Age === 'd15' ? 'ring-2 ring-amber-300' : ''}`} title="Lọc: 15–30 ngày">
                       🟠 15–30 ngày: {col3Debt.n1} HĐ · {fmtVnd(col3Debt.t1)}
-                    </span>
+                    </button>
                   )}
                   {col3Debt.n0 > 0 && (
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-slate-50 text-slate-500 border-slate-200" title={`Trong hạn: còn nợ ${fmtVnd(col3Debt.t0)} đ`}>
+                    <button onClick={() => setCol3Age(col3Age === 'd0' ? 'all' : 'd0')} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-slate-50 text-slate-500 border-slate-200 ${col3Age === 'd0' ? 'ring-2 ring-slate-300' : ''}`} title="Lọc: <15 ngày">
                       ⚪ &lt;15 ngày: {col3Debt.n0} HĐ · {fmtVnd(col3Debt.t0)}
-                    </span>
+                    </button>
                   )}
                 </div>
               </div>
             )}
-            {renderCardList(cardsCol3, 'Đã lên hóa đơn')}
+            {/* Lọc trạng thái thu (kthc/admin theo dõi công nợ). */}
+            {isKeToan && (
+              <div className="mx-3 mt-2 -mb-1 flex flex-wrap items-center gap-1">
+                {([['all', 'Tất cả'], ['chua', 'Chưa thu'], ['phan', 'Thu một phần'], ['du', 'Thu dư']] as const).map(([k, l]) => (
+                  <button key={k} onClick={() => setCol3Pay(k)} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${col3Pay === k ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-500 border-slate-200'}`}>{l}</button>
+                ))}
+                {(col3Pay !== 'all' || col3Age !== 'all') && (
+                  <button onClick={() => { setCol3Pay('all'); setCol3Age('all') }} className="text-[10px] text-rose-500 hover:text-rose-700 px-1">Bỏ lọc</button>
+                )}
+              </div>
+            )}
+            {renderCardList(cardsCol3Shown, 'Đã lên hóa đơn')}
           </div>
 
           {/* CỘT 4: ĐÃ THANH TOÁN */}
@@ -2054,6 +2192,75 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
             </div>
             <div className="px-5 py-4 border-t border-slate-100 flex justify-end shrink-0">
               <Button onClick={() => setImportResult(null)} className="h-9 bg-blue-600 hover:bg-blue-700">Đóng</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KẾT QUẢ IMPORT THANH TOÁN (FAST) */}
+      {payResult && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => setPayResult(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-slate-100 shrink-0">
+              <h3 className="font-bold text-slate-800">Kết quả đối ứng thanh toán (FAST)</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Thu = tổng HĐ → tự chuyển "Đã thanh toán". Các trường hợp khác giữ ở "Chờ thanh toán" để đối soát.</p>
+            </div>
+            <div className="p-5 space-y-4 overflow-y-auto flex-1 min-h-0 text-sm">
+              <div className="flex flex-wrap gap-3">
+                <div className="flex-1 min-w-[120px] rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3">
+                  <div className="text-2xl font-bold text-indigo-700">{payResult.moved.length}</div>
+                  <div className="text-xs text-indigo-700">HĐ thu đủ → chuyển <b>Đã thanh toán</b></div>
+                </div>
+                <div className="flex-1 min-w-[120px] rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                  <div className="text-2xl font-bold text-amber-700">{payResult.partial.length + payResult.over.length}</div>
+                  <div className="text-xs text-amber-700">HĐ ghi nhận đã thu (giữ ở Chờ thanh toán)</div>
+                </div>
+                <div className="flex-1 min-w-[120px] rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="text-2xl font-bold text-slate-700">{payResult.lumps.length}</div>
+                  <div className="text-xs text-slate-600">Khoản gộp cần đối chiếu tay</div>
+                </div>
+              </div>
+
+              {payResult.failed.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-red-600 uppercase mb-1.5">Lỗi ghi nhận ({payResult.failed.length})</p>
+                  <div className="rounded-lg border border-red-100 divide-y divide-red-50">
+                    {payResult.failed.map((f: any, i: number) => <div key={i} className="px-3 py-1.5 text-xs flex gap-2"><span className="font-mono font-semibold shrink-0">HĐ {f.hd}</span><span className="text-red-600">{f.reason}</span></div>)}
+                  </div>
+                </div>
+              )}
+
+              {(payResult.partial.length > 0 || payResult.over.length > 0) && (
+                <div>
+                  <p className="text-xs font-semibold text-amber-600 uppercase mb-1.5">Đã ghi nhận — ở lại Chờ thanh toán</p>
+                  <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-[24vh] overflow-y-auto">
+                    {payResult.partial.map((p: any, i: number) => <div key={'p' + i} className="px-3 py-1.5 text-xs flex justify-between gap-2"><span className="font-mono font-semibold">HĐ {p.hd}</span><span className="text-amber-700">đã thu {fmtVnd(p.daThu)} / {fmtVnd(p.tong)} · còn {fmtVnd(p.tong - p.daThu)}</span></div>)}
+                    {payResult.over.map((p: any, i: number) => <div key={'o' + i} className="px-3 py-1.5 text-xs flex justify-between gap-2"><span className="font-mono font-semibold">HĐ {p.hd}</span><span className="text-rose-600">thu DƯ {fmtVnd(p.daThu - p.tong)} (thu {fmtVnd(p.daThu)} / {fmtVnd(p.tong)}) — kiểm tra</span></div>)}
+                  </div>
+                </div>
+              )}
+
+              {payResult.lumps.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-600 uppercase mb-1.5">Khoản gộp "Thu tiền hàng" — đối chiếu tay theo khách</p>
+                  <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-[28vh] overflow-y-auto">
+                    {payResult.lumps.map((l: any, i: number) => (
+                      <div key={i} className="px-3 py-2 text-xs">
+                        <div className="flex justify-between gap-2"><span className="font-medium text-slate-800 truncate">{l.khach}</span><span className="font-semibold text-slate-700 shrink-0">{fmtVnd(l.tien)} đ</span></div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">{l.hds.length ? <>HĐ ở Chờ thanh toán: {l.hds.map((h: any) => `${h.hd} (còn ${fmtVnd(h.con)})`).join(' · ')}</> : 'Không thấy HĐ nào của khách này ở Chờ thanh toán'}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">Khoản gộp không ghi số HĐ nên không tự đối ứng — kthc tự thu tiền cho HĐ tương ứng.</p>
+                </div>
+              )}
+
+              {payResult.khacCount > 0 && (
+                <p className="text-[11px] text-slate-400">Bỏ qua <b>{payResult.khacCount}</b> khoản thu cho HĐ không thuộc "Chờ thanh toán" (đã ở Đã thanh toán / kỳ khác).</p>
+              )}
+            </div>
+            <div className="px-5 py-4 border-t border-slate-100 flex justify-end shrink-0">
+              <Button onClick={() => setPayResult(null)} className="h-9 bg-blue-600 hover:bg-blue-700">Đóng</Button>
             </div>
           </div>
         </div>

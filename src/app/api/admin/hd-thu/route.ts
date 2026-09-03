@@ -27,6 +27,30 @@ export async function POST(request: Request) {
     const session = await requireRole('admin', 'kthc')
     if (!session) return NextResponse.json({ error: 'Không có quyền ghi nhận thanh toán' }, { status: 401 })
 
+    // ĐẶT số đã thu = giá trị (ghi đè, KHÔNG cộng dồn) — dùng cho Import thanh toán FAST (idempotent).
+    // `chuyen` = true -> chuyển phiếu HĐ sang 'Đã thanh toán' (chỉ khi thu = tổng, client tự quyết).
+    if (body.set_to !== undefined) {
+      const val = Number(body.set_to)
+      if (!Number.isFinite(val) || val < 0) return NextResponse.json({ error: 'Số tiền không hợp lệ' }, { status: 400 })
+      if (val === 0) {
+        await supabaseAdmin.from('soct_hd_thu').delete().eq('so_hoa_don', so_hoa_don)
+      } else {
+        const { error } = await supabaseAdmin.from('soct_hd_thu')
+          .upsert({ so_hoa_don, so_tien_da_thu: val, updated_at: new Date().toISOString() }, { onConflict: 'so_hoa_don' })
+        if (error) throw error
+      }
+      if (body.chuyen === true) {
+        const { error: e2 } = await supabaseAdmin.from('soct_cong_viec')
+          .update({ trang_thai_hd: 'Đã thanh toán' })
+          .eq('so_hoa_don', so_hoa_don)
+          .eq('trang_thai_hd', 'Đã lên hóa đơn')
+        if (e2) throw e2
+      }
+      await logAudit(session, 'Đặt số đã thu (import FAST)', `HĐ ${so_hoa_don}: = ${val.toLocaleString('vi-VN')}${body.chuyen ? ' (đủ, chuyển Đã thanh toán)' : ''}`)
+      await broadcastJobsChanged()
+      return NextResponse.json({ success: true, da_thu: val })
+    }
+
     const themRaw = Number(body.so_tien_them)
     if (!Number.isFinite(themRaw) || themRaw <= 0) return NextResponse.json({ error: 'Số tiền không hợp lệ' }, { status: 400 })
 
