@@ -994,17 +994,23 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       const custMatch = (a: string, b: string) => !!a && !!b && (a === b || a.includes(b) || b.includes(a))
 
       // Thu theo (số HĐ) KÈM KHÁCH — số HĐ ở FAST là chứng từ nội bộ, TRÙNG giữa các khách, nên PHẢI
-      // khớp đúng khách để không gán nhầm tiền của khách khác. Khoản "Thu tiền hàng" (F chữ) -> gộp theo khách.
+      // khớp đúng khách để không gán nhầm tiền của khách khác. Khoản "Thu tiền hàng" (F chữ) -> giữ theo
+      // khách KÈM NGÀY (để tách khoản trả TRƯỚC/ SAU ngày xuất HĐ khi đối chiếu tay).
       const pays: { hd: string; kkey: string; h: number }[] = []
-      const lumpByKhach = new Map<string, number>()
+      const lumpRows: { khach: string; kk: string; h: number; ngay: string }[] = []
       for (let r = headRow + 1; r <= ws.rowCount; r++) {
         const row = ws.getRow(r)
         const h = Number(cell(row.getCell(colH).value)) || 0
         if (h <= 0) continue // chỉ lấy tiền THU VÀO (phát sinh nợ TK 112)
         const f = norm2(cell(row.getCell(colF).value))
         const khach = norm2(cell(row.getCell(colKhach).value))
-        if (/^\d{1,7}$/.test(f)) pays.push({ hd: f, kkey: custKey(khach), h })
-        else if (khach) lumpByKhach.set(khach, (lumpByKhach.get(khach) || 0) + h)
+        if (/^\d{1,7}$/.test(f)) { pays.push({ hd: f, kkey: custKey(khach), h }); continue }
+        if (!khach) continue
+        const ngayRaw = cell(row.getCell(colNgay).value)
+        let ngay = ''
+        if (ngayRaw instanceof Date) ngay = new Date(ngayRaw.getTime()).toISOString().slice(0, 10)
+        else if (typeof ngayRaw === 'string') ngay = ngayRaw.slice(0, 10)
+        lumpRows.push({ khach, kk: custKey(khach), h, ngay })
       }
 
       // Bản đồ số HĐ -> thẻ Cột 3.
@@ -1039,14 +1045,29 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       // Số khoản thu (theo số HĐ) trong file KHÔNG đối ứng được vào Cột 3 -> chỉ đếm.
       const khacCount = pays.filter(p => !applied.has(p)).length
 
-      // Khoản gộp theo khách — CHỈ hiện khách CÓ HĐ đang ở Cột 3 (khớp tên chuẩn hóa) để hỗ trợ tay.
-      const lumps = [...lumpByKhach.entries()].map(([khach, tien]) => {
-        const kk = custKey(khach)
+      // Khoản gộp theo khách — CHỈ hiện khách CÓ HĐ đang ở Cột 3. TÁCH theo mốc = ngày xuất HĐ SỚM NHẤT
+      // của khách đó: khoản chuyển TRƯỚC mốc không thể là trả cho HĐ đang chờ -> để riêng, không tính vào
+      // "có thể đối ứng" (tránh kế toán bị chi phối bởi tiền khách chuyển trước khi có HĐ).
+      const lumpMap = new Map<string, { khach: string; rows: { h: number; ngay: string }[] }>()
+      for (const lr of lumpRows) {
+        const g = lumpMap.get(lr.kk) || { khach: lr.khach, rows: [] }
+        g.rows.push({ h: lr.h, ngay: lr.ngay })
+        lumpMap.set(lr.kk, g)
+      }
+      const lumps = [...lumpMap.entries()].map(([kk, g]) => {
         const hds = cardsCol3
           .filter((c: any) => custMatch(custKey(c.customer?.soct_khach_cum?.ten_khach_hang || c.customer?.ten_khach_hang || ''), kk))
-          .map((c: any) => ({ hd: c.tickets[0].so_hoa_don, con: cardPay(c).con }))
-        return { khach, tien, hds }
-      }).filter(l => l.hds.length > 0).sort((a, b) => b.tien - a.tien)
+          .map((c: any) => ({ hd: c.tickets[0].so_hoa_don, ngayXuat: c.tickets[0].ngay_xuat_hd || '', con: Math.max(0, cardPay(c).con) }))
+        if (hds.length === 0) return null
+        const moc = hds.map((h: any) => h.ngayXuat).filter(Boolean).sort()[0] || '' // ngày xuất HĐ sớm nhất
+        let tienSau = 0, tienTruoc = 0, tuNgay = '', denNgay = ''
+        for (const r of g.rows) {
+          if (!moc || r.ngay >= moc) tienSau += r.h; else tienTruoc += r.h
+          if (r.ngay) { if (!tuNgay || r.ngay < tuNgay) tuNgay = r.ngay; if (r.ngay > denNgay) denNgay = r.ngay }
+        }
+        const tongCon = hds.reduce((s: number, h: any) => s + h.con, 0)
+        return { khach: g.khach, tienSau, tienTruoc, tong: tienSau + tienTruoc, hds, tongCon, moc, tuNgay, denNgay }
+      }).filter((l): l is NonNullable<typeof l> => !!l).sort((a, b) => b.tienSau - a.tienSau)
 
       await load()
       setPayResult({ moved, partial, over, khacCount, failed, lumps })
@@ -2249,9 +2270,18 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                   <p className="text-xs font-semibold text-slate-600 uppercase mb-1.5">Khoản gộp "Thu tiền hàng" — đối chiếu tay theo khách</p>
                   <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-[28vh] overflow-y-auto">
                     {payResult.lumps.map((l: any, i: number) => (
-                      <div key={i} className="px-3 py-2 text-xs">
-                        <div className="flex justify-between gap-2"><span className="font-medium text-slate-800 truncate">{l.khach}</span><span className="font-semibold text-slate-700 shrink-0">{fmtVnd(l.tien)} đ</span></div>
-                        <div className="text-[11px] text-slate-500 mt-0.5">{l.hds.length ? <>HĐ ở Chờ thanh toán: {l.hds.map((h: any) => `${h.hd} (còn ${fmtVnd(h.con)})`).join(' · ')}</> : 'Không thấy HĐ nào của khách này ở Chờ thanh toán'}</div>
+                      <div key={i} className="px-3 py-2 text-xs space-y-0.5">
+                        <div className="flex justify-between gap-2">
+                          <span className="font-medium text-slate-800 truncate">{l.khach}</span>
+                          <span className="text-[10px] text-slate-400 shrink-0">chuyển {l.tuNgay ? fmtDate(l.tuNgay) : '?'}{l.denNgay && l.denNgay !== l.tuNgay ? `–${fmtDate(l.denNgay)}` : ''}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                          <span className="text-emerald-700 font-semibold">Có thể đối ứng: {fmtVnd(l.tienSau)} đ</span>
+                          {l.tienTruoc > 0 && <span className="text-slate-400">trả trước kỳ HĐ (bỏ qua): {fmtVnd(l.tienTruoc)} đ</span>}
+                        </div>
+                        <div className="text-[11px] text-slate-500">
+                          HĐ chờ (tổng còn nợ <b className="text-slate-700">{fmtVnd(l.tongCon)}</b>): {l.hds.map((h: any) => `${h.hd}${h.ngayXuat ? ` · xuất ${fmtDate(h.ngayXuat)}` : ''} · còn ${fmtVnd(h.con)}`).join('  ·  ')}
+                        </div>
                       </div>
                     ))}
                   </div>
