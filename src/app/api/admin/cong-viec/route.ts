@@ -404,7 +404,7 @@ export async function PUT(request: Request) {
       if (!['admin', 'tech_admin', 'staff'].includes(session.role)) {
         return NextResponse.json({ error: 'Không có quyền sửa phiếu' }, { status: 403 })
       }
-      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('ket_qua, trang_thai_hd, ktv_id, ktv2_id').eq('id', id).single()
+      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('ket_qua, trang_thai_hd, ktv_id, ktv2_id, so_hoa_don').eq('id', id).single()
       if (!cur) return NextResponse.json({ error: 'Không tìm thấy công việc' }, { status: 404 })
       // Admin sửa được mọi trạng thái; tech_admin/staff chỉ sửa khi phiếu chưa bắt đầu
       // (Chờ nhận / Đã nhận) — sau khi KTV bấm Đang làm thì không cho sửa nữa
@@ -438,8 +438,9 @@ export async function PUT(request: Request) {
 
       // Đồng bộ trạng thái hóa đơn (công nợ) với cờ hoa_don của vật tư:
       //  - có vật tư đã HĐ  -> 'Đã lên hóa đơn' (ra khỏi công nợ)
-      //  - không có         -> nếu trước đó đã lên HĐ thì trả về 'Chưa hóa đơn' (bỏ HĐ),
-      //                        ngược lại giữ nguyên (giữ mốc 'Đã báo giá')
+      //  - không có (BỎ TICK HĐ) -> đưa về 'Chưa hóa đơn' từ MỌI trạng thái đã-hóa-đơn, KỂ CẢ
+      //    'Đã thanh toán' (phiếu pre-1/8/2026 bị "vơ đũa" gán Đã thanh toán nhưng chưa có số HĐ thật
+      //    -> admin sửa phiếu, bỏ tick HĐ để đẩy về Công nợ lên HĐ lại). Ngược lại giữ nguyên (mốc 'Đã báo giá').
       const hasHD = Array.isArray(vat_tu) && vat_tu.some((v: any) => v.hoa_don && v.ma_hang && Number(v.so_luong) > 0)
       // MF -> trạng thái KẾT THÚC 'Miễn phí' (ra khỏi Kanban/Công nợ). Bỏ MF thì tính lại từ đầu
       // (coi mốc cũ 'Miễn phí' như 'Chưa hóa đơn' để không bị kẹt).
@@ -448,7 +449,12 @@ export async function PUT(request: Request) {
         ? 'Miễn phí'
         : hasHD
           ? (['Đang xử lý HĐ', 'Đã lên hóa đơn'].includes(baseHd) ? baseHd : 'Chờ xuất HĐ')
-          : (['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn'].includes(baseHd) ? 'Chưa hóa đơn' : (baseHd || 'Chưa hóa đơn'))
+          : (['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn', 'Đã thanh toán'].includes(baseHd) ? 'Chưa hóa đơn' : (baseHd || 'Chưa hóa đơn'))
+
+      // Về 'Chưa hóa đơn' = KHỞI ĐỘNG LẠI vòng hóa đơn -> reset số HĐ/ngày xuất/người lập cho sạch
+      // (giống nút Thu hồi ở Kanban). Bản ghi thu tiền cũ xóa bên dưới sau khi biết số HĐ cũ.
+      const resetHd = nextTrangThaiHd === 'Chưa hóa đơn'
+      const resetHdFields = resetHd ? { so_hoa_don: null, ngay_xuat_hd: null, nguoi_xuat_hd: null } : {}
 
       const { error: upErr } = await supabaseAdmin
         .from('soct_cong_viec')
@@ -462,6 +468,7 @@ export async function PUT(request: Request) {
           mien_phi: !!mien_phi,
           ket_qua: nextKetQua,
           trang_thai_hd: nextTrangThaiHd,
+          ...resetHdFields,
           ...nguonNhanUpd,
           ...nhanLucUpd,
           // API tự DM người mới được gán (bên dưới) -> chặn webhook DB bắn trùng
@@ -472,6 +479,12 @@ export async function PUT(request: Request) {
         return NextResponse.json({ error: `Số phiếu "${reportNorm}" đã tồn tại — không thể lưu trùng.` }, { status: 409 })
       }
       if (upErr) throw upErr
+
+      // Bỏ HĐ (về 'Chưa hóa đơn') mà phiếu từng có số HĐ thật -> xóa bản ghi thu tiền cũ theo số HĐ đó
+      // (khởi động lại vòng hóa đơn sạch). Phiếu pre-1/8/2026 vốn so_hoa_don = NULL nên câu này bỏ qua.
+      if (resetHd && cur.so_hoa_don) {
+        await supabaseAdmin.from('soct_hd_thu').delete().eq('so_hoa_don', cur.so_hoa_don)
+      }
 
       // Thay toàn bộ vật tư của phiếu
       await supabaseAdmin.from('soct_chi_tiet_vat_tu').delete().eq('id_cong_viec', id)
