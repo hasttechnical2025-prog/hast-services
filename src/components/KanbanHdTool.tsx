@@ -1577,17 +1577,19 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
 
           {/* CỘT 3: CHỜ THANH TOÁN (Trạng thái Đã lên hóa đơn) */}
           <div className="border border-slate-200 rounded-xl bg-white flex flex-col shadow-sm">
-            <div className="p-3 bg-emerald-50/50 rounded-t-xl flex justify-between items-center gap-2">
+            <div className="p-3 bg-emerald-50/50 rounded-t-xl flex flex-col items-stretch gap-2">
               <h3 className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
                 <CheckCircle className="w-4 h-4" /> {role === 'kthc' ? '2.' : '3.'} Chờ thanh toán ({col3Pay !== 'all' || col3Age !== 'all' ? `${cardsCol3Shown.length}/${cardsCol3.length}` : cardsCol3.length})
               </h3>
               {isKeToan && (
-                <label title="Import thanh toán từ FAST (Sổ chi tiết TK 112) → đối ứng công nợ, thu = tổng HĐ tự chuyển Đã thanh toán"
-                  className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-emerald-200 text-emerald-700 bg-white hover:bg-emerald-50 cursor-pointer ${payImporting ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <Upload className="w-3 h-3" /> {payImporting ? 'Đang đối ứng…' : 'Import TT'}
-                  <input type="file" accept=".xlsx" className="hidden" disabled={payImporting}
-                    onChange={e => { const f = e.target.files?.[0]; if (f) importThanhToanFast(f); e.target.value = '' }} />
-                </label>
+                <div className="flex gap-2 flex-wrap">
+                  <label title="Import thanh toán từ FAST (Sổ chi tiết TK 112) → đối ứng công nợ, thu = tổng HĐ tự chuyển Đã thanh toán"
+                    className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-emerald-200 text-emerald-700 bg-white hover:bg-emerald-50 cursor-pointer ${payImporting ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <Upload className="w-3 h-3" /> {payImporting ? 'Đang đối ứng…' : 'Import Thanh toán'}
+                    <input type="file" accept=".xlsx" className="hidden" disabled={payImporting}
+                      onChange={e => { const f = e.target.files?.[0]; if (f) importThanhToanFast(f); e.target.value = '' }} />
+                  </label>
+                </div>
               )}
             </div>
             {/* Banner NỢ ĐỌNG theo tuổi — bấm 1 mức để LỌC theo tuổi (bấm lại bỏ lọc). */}
