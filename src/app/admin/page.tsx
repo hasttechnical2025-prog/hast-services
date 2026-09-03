@@ -5883,9 +5883,9 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
             footerExtra={
               <>
                 {splitTickets.length > 0 && (
-                  <Button variant="outline" onClick={openSplit} disabled={working} className="h-9 border-amber-300 text-amber-700 hover:bg-amber-50" title="Chọn dòng lên hóa đơn; dòng còn lại tách sang phiếu con ở lại Công nợ">✂ Tách dòng lên HĐ</Button>
+                  <Button variant="outline" onClick={openSplit} disabled={working} className="h-9 w-9 p-0 border-amber-300 text-amber-700 hover:bg-amber-50" title="Tách dòng lên HĐ: chọn dòng lên hóa đơn; dòng còn lại tách sang phiếu con ở lại Công nợ">✂</Button>
                 )}
-                <Button variant="outline" onClick={() => setStatus('Đã báo giá')} disabled={working} className="h-9">Đánh dấu đã báo giá</Button>
+                <Button variant="outline" onClick={() => setStatus('Đã báo giá')} disabled={working} title="Đánh dấu đã báo giá" className="h-9 w-9 p-0"><CheckCircle2 className="w-4 h-4" /></Button>
                 <Button onClick={() => setStatus('Chờ xuất HĐ')} disabled={working} className="h-9 bg-blue-600 hover:bg-blue-700">📤 Đẩy sang Kế toán (Kanban)</Button>
               </>
             }

@@ -107,9 +107,9 @@ export default function BaoGiaEditor({
               <Input value={markups.c} onChange={e => setMarkups({ ...markups, c: e.target.value })} className="bg-white w-16 text-center" />
             </div>
           </div>
-          <Button variant="outline" onClick={addRow} className="gap-1 h-9"><Plus className="w-4 h-4" /> Thêm dòng</Button>
+          <Button variant="outline" onClick={addRow} title="Thêm dòng" className="h-9 w-9 p-0"><Plus className="w-4 h-4" /></Button>
           <div className="ml-auto">
-            <Button onClick={exportQuote} disabled={exporting || !canExport} className="gap-2 h-9"><Download className="w-4 h-4" /> {exporting ? 'Đang xuất...' : 'Xuất báo giá (.docx)'}</Button>
+            <Button onClick={exportQuote} disabled={exporting || !canExport} title={exporting ? 'Đang xuất…' : 'Xuất báo giá (.docx)'} className="h-9 w-9 p-0"><Download className={`w-4 h-4 ${exporting ? 'animate-pulse' : ''}`} /></Button>
           </div>
         </div>
       </div>

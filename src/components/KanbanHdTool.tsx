@@ -1354,18 +1354,18 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
               <div className="flex items-center gap-1.5 text-xs text-slate-600" title="Ký hiệu mẫu số hóa đơn (TT78) dùng khi Xuất Excel M-invoice. Kế toán tự khai/đổi.">
                 <span className="font-medium">Ký hiệu HĐ:</span>
                 <Input value={kyHieuEdit} onChange={e => setKyHieuEdit(e.target.value.toUpperCase())} placeholder="1C26TST" className="h-8 w-28 bg-white text-xs font-mono uppercase" />
-                <Button size="sm" variant="outline" onClick={saveKyHieu} disabled={savingKyHieu || kyHieuEdit.trim() === kyHieuMinvoice.trim()} className="h-8 text-xs px-2">Lưu</Button>
+                <Button size="sm" variant="outline" onClick={saveKyHieu} disabled={savingKyHieu || kyHieuEdit.trim() === kyHieuMinvoice.trim()} title="Lưu ký hiệu HĐ" className="h-8 w-8 p-0">{savingKyHieu ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}</Button>
               </div>
             )}
           </div>
 
           {/* Hành động dồn phải, cạnh nhau */}
           <div className="flex items-center gap-2">
-            <Button onClick={load} disabled={loading} size="sm" variant="outline" className="h-9 gap-1 text-xs bg-white">
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Tải lại
+            <Button onClick={load} disabled={loading} size="sm" variant="outline" title="Tải lại" className="h-9 w-9 p-0 bg-white">
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             </Button>
-            <Button onClick={() => setExportOpen(true)} size="sm" variant="outline" className="h-9 gap-1 text-xs bg-white">
-              <Download className="w-3.5 h-3.5" /> Xuất Excel công nợ
+            <Button onClick={() => setExportOpen(true)} size="sm" variant="outline" title="Xuất Excel công nợ" className="h-9 w-9 p-0 bg-white">
+              <Download className="w-3.5 h-3.5" />
             </Button>
           </div>
         </div>
