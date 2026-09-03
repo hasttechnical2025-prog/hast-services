@@ -186,7 +186,7 @@ function ColumnMenu({ view }: { view: ReturnType<typeof useColView> }) {
 
   return (
     <div ref={anchorRef} className="shrink-0 inline-flex">
-      <Button variant="outline" onClick={() => setOpen(o => !o)} className="gap-1.5 h-9 text-sm"><SlidersHorizontal className="w-4 h-4" /> Cột</Button>
+      <Button variant="outline" onClick={() => setOpen(o => !o)} title="Ẩn/hiện cột" className="h-9 w-9 p-0"><SlidersHorizontal className="w-4 h-4" /></Button>
       {menu}
     </div>
   )
@@ -1569,7 +1569,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto flex-wrap">
-                  <Button variant="outline" onClick={exportJobsExcel} className="gap-2"><Download className="w-4 h-4" /> Xuất Excel</Button>
+                  <Button variant="outline" onClick={exportJobsExcel} title="Xuất Excel" className="h-10 w-10 p-0"><Download className="w-4 h-4" /></Button>
                   {currentUserRole === 'admin' && (
                     <ImportJobsTool customers={customers} technicians={technicians} inventory={inventory} onSuccess={fetchData} showNotification={showNotification} />
                   )}
@@ -1577,7 +1577,7 @@ export default function AdminDashboard() {
                     <DedupeReportsTool onSuccess={fetchData} showNotification={showNotification} />
                   )}
                   {currentUserRole === 'admin' && (
-                    <ClearAllButton count={jobs.length} label="phiếu giao việc" heightClass="h-10" onConfirm={async () => {
+                    <ClearAllButton count={jobs.length} label="phiếu giao việc" heightClass="h-10" iconOnly onConfirm={async () => {
                       try {
                         const res = await fetch('/api/admin/cong-viec?all=1', { method: 'DELETE' })
                         const j = await res.json().catch(() => ({}))
@@ -4205,7 +4205,7 @@ function DedupeReportsTool({ onSuccess, showNotification }: { onSuccess: () => v
 
   return (
     <>
-      <Button variant="outline" onClick={openModal} className="gap-2 border-amber-300 text-amber-700 hover:bg-amber-50 hover:border-amber-400"><Copy className="w-4 h-4" /> Dọn trùng</Button>
+      <Button variant="outline" onClick={openModal} title="Dọn phiếu trùng" className="h-10 w-10 p-0 border-amber-300 text-amber-700 hover:bg-amber-50 hover:border-amber-400"><Copy className="w-4 h-4" /></Button>
       {open && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
@@ -4234,7 +4234,7 @@ function DedupeReportsTool({ onSuccess, showNotification }: { onSuccess: () => v
   )
 }
 
-function ClearAllButton({ count, label, onConfirm, heightClass = 'h-9' }: { count: number, label: string, onConfirm: () => Promise<void>, heightClass?: string }) {
+function ClearAllButton({ count, label, onConfirm, heightClass = 'h-9', iconOnly = false }: { count: number, label: string, onConfirm: () => Promise<void>, heightClass?: string, iconOnly?: boolean }) {
   const [open, setOpen] = useState(false)
   const [txt, setTxt] = useState("")
   const [busy, setBusy] = useState(false)
@@ -4242,7 +4242,9 @@ function ClearAllButton({ count, label, onConfirm, heightClass = 'h-9' }: { coun
   const ok = ['XÓA', 'XOA'].includes(txt.trim().toUpperCase())
   return (
     <>
-      <Button variant="outline" onClick={() => { setOpen(true); setTxt("") }} className={`border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 gap-1 ${heightClass} text-sm shrink-0`}><Trash2 className="w-4 h-4" /> Xóa toàn bộ</Button>
+      {iconOnly
+        ? <Button variant="outline" onClick={() => { setOpen(true); setTxt("") }} title={`Xóa toàn bộ ${label}`} className={`border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 p-0 w-10 ${heightClass} shrink-0`}><Trash2 className="w-4 h-4" /></Button>
+        : <Button variant="outline" onClick={() => { setOpen(true); setTxt("") }} className={`border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 gap-1 ${heightClass} text-sm shrink-0`}><Trash2 className="w-4 h-4" /> Xóa toàn bộ</Button>}
       {open && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
@@ -6340,9 +6342,9 @@ function PhieuCungTool({ nguongNgay, currentUserRole, showNotification }: { nguo
           <span className="text-xs text-slate-500 ml-auto whitespace-nowrap">{filtered.length} phiếu</span>
           <ColumnMenu view={col} />
           {currentUserRole === 'admin' && (
-            <Button onClick={submitAll} disabled={submittingAll || chuaNop.length === 0} variant="outline" className="gap-2 h-9 border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-400">{submittingAll ? 'Đang nộp...' : 'Nộp toàn bộ'}</Button>
+            <Button onClick={submitAll} disabled={submittingAll || chuaNop.length === 0} variant="outline" title="Nộp toàn bộ phiếu chưa nộp" className="h-9 w-9 p-0 border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-400">{submittingAll ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ClipboardCheck className="w-4 h-4" />}</Button>
           )}
-          <Button onClick={remind} disabled={reminding || chuaNop.length === 0} variant="outline" className="gap-2 h-9">{reminding ? 'Đang nhắc...' : 'Nhắc KTV qua Telegram'}</Button>
+          <Button onClick={remind} disabled={reminding || chuaNop.length === 0} variant="outline" title="Nhắc KTV nộp phiếu qua Telegram" className="h-9 w-9 p-0">{reminding ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}</Button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600">
@@ -6509,7 +6511,7 @@ function ImportJobsTool({ customers, technicians, inventory, onSuccess, showNoti
 
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)} className="gap-2"><Upload className="w-4 h-4" /> Nhập Excel</Button>
+      <Button variant="outline" onClick={() => setOpen(true)} title="Nhập Excel" className="h-10 w-10 p-0"><Upload className="w-4 h-4" /></Button>
       {open && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
