@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     const secret = process.env.CRON_SECRET
     const isCron = !!secret && authHeader === `Bearer ${secret}`
     if (!isCron) {
-      const session = await requireRole('admin', 'tech_admin', 'staff')
+      const session = await requireRole('admin', 'tech_admin')
       if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     if (await isBaoTri()) return NextResponse.json({ message: 'Đang bảo trì — bỏ qua' })

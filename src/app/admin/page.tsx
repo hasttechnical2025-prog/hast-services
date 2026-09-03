@@ -1587,7 +1587,7 @@ export default function AdminDashboard() {
                       } catch (e: any) { showNotification('error', e.message || 'Không xóa được') }
                     }} />
                   )}
-                  {['admin', 'tech_admin', 'staff'].includes(currentUserRole) && (
+                  {['admin', 'tech_admin'].includes(currentUserRole) && (
                     <CuonNgayButton onSuccess={fetchData} showNotification={showNotification} />
                   )}
                   <Button onClick={() => { setEditingJobId(null); setEditingKetQua(''); setFormData(f => ({ ...f, ngay: todayVN() })); setIsModalOpen(true) }} className="gap-2"><Plus className="w-4 h-4" /> Giao việc mới</Button>
@@ -8250,7 +8250,7 @@ function CuonNgayButton({ onSuccess, showNotification }: { onSuccess: () => void
   }
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)} className="gap-2 border-slate-300 text-slate-700 hover:bg-slate-50 h-10" title="Đưa ngày các phiếu chưa thực hiện về hôm nay (chạy ngay logic cron)"><RefreshCw className="w-4 h-4" /> Cuốn ngày</Button>
+      <Button variant="outline" onClick={() => setOpen(true)} className="h-10 w-10 p-0 border-slate-300 text-slate-700 hover:bg-slate-50" title="Cuốn ngày: đưa ngày các phiếu chưa thực hiện về hôm nay (chạy ngay logic cron)"><RefreshCw className="w-4 h-4" /></Button>
       {open && (
         <div className="fixed inset-0 bg-slate-900/50 z-[80] flex items-center justify-center p-4" onClick={() => !busy && setOpen(false)}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5 space-y-3" onClick={e => e.stopPropagation()}>
