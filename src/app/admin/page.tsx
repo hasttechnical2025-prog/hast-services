@@ -670,11 +670,34 @@ export default function AdminDashboard() {
     }
   }
 
+  // TỰ CUỐN NGÀY KHI MỞ TRANG: không chỉ trông chờ cron (chạy 1 lần/sáng, có thể trượt).
+  // Mỗi lần admin/tech_admin mở/reload trang -> chạy ngay logic cuốn (KHÔNG force -> vẫn bỏ
+  // qua T7/CN/lễ như cron). Chặn lặp bằng mốc localStorage theo NGÀY (giờ VN) để reload nhiều
+  // lần trong ngày không gọi lại. Nếu có phiếu được cuốn -> tự tải lại danh sách để hiện dưới
+  // ngày hôm nay. Chạy NGẦM, không chặn UI, lỗi thì bỏ qua.
+  const autoCuonNgay = async () => {
+    try {
+      const role = currentAdmin?.role
+      if (role !== 'admin' && role !== 'tech_admin') return // endpoint chỉ cho 2 role này
+      const vnToday = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
+      let last: string | null = null
+      try { last = localStorage.getItem('soct_cuon_last') } catch { }
+      if (last === vnToday) return // đã cuốn hôm nay ở trình duyệt này
+      const res = await fetch('/api/cron/cuon-ngay-phieu') // không ?force -> tôn trọng T7/CN/lễ
+      if (!res.ok) return
+      try { localStorage.setItem('soct_cuon_last', vnToday) } catch { }
+      const j = await res.json()
+      if ((j.cuon || 0) > 0) fetchJobsOnly() // có cuốn -> làm mới danh sách
+    } catch { }
+  }
+
   // Tải dữ liệu khi admin đăng nhập thành công hoặc load trang
   useEffect(() => {
     if (isMounted && currentAdmin) {
       fetchData()
+      autoCuonNgay() // ngầm: cuốn phiếu chưa làm về hôm nay ngay khi mở trang
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMounted, currentAdmin])
 
   // Đổi bộ lọc Số phiếu / Ngày -> tải lại danh sách phiếu từ server (debounce).
