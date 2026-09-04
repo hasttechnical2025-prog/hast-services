@@ -19,7 +19,7 @@ const asciiFile = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').repl
 // Dùng chung cho Tài chính > Công nợ và Theo dõi máy > Giám định — chỉ khác nguồn nạp `rows`.
 export default function BaoGiaEditor({
   rows, onRowsChange, khachHang, onKhachHangChange, diaChi, onDiaChiChange,
-  showNotification, onExported, toolbarExtra, footerExtra, emptyText, canExport = true, showSoPhieu = false,
+  showNotification, onExported, toolbarExtra, rightToolbarExtra, footerExtra, emptyText, canExport = true, showSoPhieu = false,
 }: {
   rows: BaoGiaRow[]
   onRowsChange: (rows: BaoGiaRow[]) => void
@@ -30,6 +30,7 @@ export default function BaoGiaEditor({
   showNotification: (type: 'success' | 'error', msg: string) => void
   onExported?: () => void
   toolbarExtra?: ReactNode
+  rightToolbarExtra?: ReactNode
   footerExtra?: ReactNode
   emptyText?: string
   canExport?: boolean
@@ -108,8 +109,9 @@ export default function BaoGiaEditor({
             </div>
           </div>
           <Button variant="outline" onClick={addRow} title="Thêm dòng" className="h-9 w-9 p-0"><Plus className="w-4 h-4" /></Button>
-          <div className="ml-auto">
-            <Button onClick={exportQuote} disabled={exporting || !canExport} title={exporting ? 'Đang xuất…' : 'Xuất báo giá (.docx)'} className="h-9 w-9 p-0"><Download className={`w-4 h-4 ${exporting ? 'animate-pulse' : ''}`} /></Button>
+          <div className="ml-auto flex items-center gap-2">
+            {rightToolbarExtra}
+            <Button onClick={exportQuote} disabled={exporting || !canExport} title={exporting ? 'Đang xuất…' : 'Xuất báo giá (.docx)'} className="h-9 gap-1.5"><Download className={`w-4 h-4 ${exporting ? 'animate-pulse' : ''}`} /> Xuất báo giá (.docx)</Button>
           </div>
         </div>
       </div>

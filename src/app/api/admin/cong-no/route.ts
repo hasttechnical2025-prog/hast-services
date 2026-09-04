@@ -15,7 +15,7 @@ export async function GET() {
     const data = await selectAll((from, to) => supabaseAdmin
       .from('soct_cong_viec')
       .select(`id, ngay, report, loai_cong_viec, trang_thai_hd, id_khach_hang,
-        soct_khach_hang ( ten_khach_hang, dia_chi, ma_khach_cum, soct_khach_cum ( ma_khach_hang, ten_khach_hang, dia_chi ) ),
+        soct_khach_hang ( ten_khach_hang, dia_chi, model, ma_khach_cum, soct_khach_cum ( ma_khach_hang, ten_khach_hang, dia_chi ) ),
         soct_chi_tiet_vat_tu ( id, da_tra, ma_hang, so_luong, don_gia, vat, ten_hang_hd, soct_kho_hang ( ten_hang ) )`)
       .eq('ket_qua', 'Hoàn thành')
       .not('report', 'is', null)

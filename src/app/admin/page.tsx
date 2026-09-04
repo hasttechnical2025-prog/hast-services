@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom"
-import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy, X, Palmtree, Send, Hand, Bell, Droplets, FileText } from "lucide-react"
+import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy, X, Palmtree, Send, Hand, Bell, Droplets, FileText, FileSpreadsheet } from "lucide-react"
 import { BBBG_TEMPLATE_LIST } from "@/lib/bbbg-templates"
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
@@ -5773,6 +5773,61 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
 
   const fmtN = (x: any) => (Number(x) || 0).toLocaleString('vi-VN')
 
+  // XUẤT EXCEL "Bảng kê lẻ" công nợ — itemized từ DB, đúng mẫu Bang ke.xlsx (12 cột + Tổng cộng).
+  // Phạm vi = khách đang chọn, TÔN TRỌNG "Xóa cả phiếu" (chỉ phiếu còn srcId trong bảng),
+  // bỏ dòng đã trả kho. Làm tròn VAT/thành tiền về số nguyên. Sắp theo Ngày rồi Số phiếu.
+  const [exportingXlsx, setExportingXlsx] = useState(false)
+  const exportBangKe = async () => {
+    const src = new Set<string>(rows.flatMap((r: any) => r.srcIds || []))
+    const tickets = selTickets.filter((t: any) => src.has(t.id))
+    const lines = tickets.flatMap((t: any) => (t.soct_chi_tiet_vat_tu || [])
+      .filter((v: any) => !v.da_tra)
+      .map((v: any) => ({
+        ngay: (t.ngay || '') as string,
+        ten: v.ten_hd || v.soct_kho_hang?.ten_hang || v.ma_hang || '',
+        maHang: v.ma_hang || '',
+        soPhieu: t.report || '',
+        model: t.soct_khach_hang?.model || '',
+        sl: Number(v.so_luong) || 0,
+        gia: Number(v.don_gia) || 0,
+        vat: Number(v.vat) || 0,
+      })))
+    if (lines.length === 0) return showNotification('error', 'Không có dòng vật tư để xuất (đã trừ phiếu đã xóa / đã trả kho).')
+    lines.sort((a: any, b: any) => a.ngay < b.ngay ? -1 : a.ngay > b.ngay ? 1 : String(a.soPhieu).localeCompare(String(b.soPhieu), undefined, { numeric: true }))
+    setExportingXlsx(true)
+    try {
+      const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
+      const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Bảng kê lẻ')
+      ws.addRow(['TT', 'Ngày', 'Tên hàng', 'Mã hàng', 'Số phiếu', 'Model', 'Số lượng', 'Đơn giá', 'Thành tiền trước thuế', 'Thuế VAT', 'Thành tiền (đã VAT)', 'Ghi chú'])
+      // UTC-midnight để exceljs lưu ĐÚNG ngày lịch (local-midnight bị lùi 1 ngày khi ghi UTC).
+      const toDate = (s: string) => { const [y, m, d] = String(s).split('-').map(Number); return (y && m && d) ? new Date(Date.UTC(y, m - 1, d)) : null }
+      let tongSau = 0
+      lines.forEach((l: any, i: number) => {
+        const truoc = l.sl * l.gia
+        const vatTien = Math.round(truoc * l.vat / 100)
+        const sau = truoc + vatTien
+        tongSau += sau
+        ws.addRow([i + 1, toDate(l.ngay), l.ten, l.maHang, l.soPhieu, l.model, l.sl, l.gia, truoc, vatTien, sau, ''])
+      })
+      const totalIdx = ws.rowCount + 1
+      ws.addRow(['Tổng cộng:', '', '', '', '', '', '', '', '', '', tongSau, ''])
+      ws.mergeCells(totalIdx, 1, totalIdx, 10)
+      ws.getRow(totalIdx).font = { bold: true }
+      ws.getCell(totalIdx, 1).alignment = { horizontal: 'right' }
+      ws.getRow(1).font = { bold: true }
+      ws.views = [{ state: 'frozen', ySplit: 1 }]
+      ;[8, 9, 10, 11].forEach(c => { ws.getColumn(c).numFmt = '#,##0' })
+      ws.getColumn(2).numFmt = 'dd/mm/yyyy'
+      ;[5, 12, 34, 14, 10, 16, 8, 14, 18, 12, 18, 16].forEach((w, idx) => { ws.getColumn(idx + 1).width = w })
+      const buf = await wb.xlsx.writeBuffer()
+      const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+      const a = document.createElement('a')
+      const ascii = (khTen || 'khach').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'khach'
+      a.href = url; a.download = `Bang-ke-cong-no_${ascii}_${new Date().toISOString().slice(0, 10)}.xlsx`; a.click(); URL.revokeObjectURL(url)
+      showNotification('success', `Đã xuất bảng kê công nợ (${lines.length} dòng).`)
+    } catch { showNotification('error', 'Lỗi xuất Excel') } finally { setExportingXlsx(false) }
+  }
+
   const setStatus = async (trang_thai_hd: string) => {
     // Chỉ tác động lên PHIẾU CÒN TRONG BẢNG (rows) — cho phép thanh toán từng phần:
     // xóa dòng của phiếu chưa thanh toán -> phiếu đó KHÔNG bị đánh dấu/lên hóa đơn.
@@ -5898,6 +5953,13 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
             showNotification={showNotification}
             canExport={selCusts.length > 0}
             emptyText="Khách này chưa có vật tư trong các phiếu. Thêm dòng thủ công nếu cần."
+            rightToolbarExtra={
+              <Button variant="outline" onClick={exportBangKe} disabled={exportingXlsx || selCusts.length === 0}
+                className="h-9 gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                title="Xuất Excel bảng kê công nợ (itemized theo mẫu 'Bảng kê lẻ')">
+                <FileSpreadsheet className={`w-4 h-4 ${exportingXlsx ? 'animate-pulse' : ''}`} /> Xuất Excel công nợ
+              </Button>
+            }
             toolbarExtra={
               <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none h-9">
                 <input type="checkbox" checked={gop} onChange={e => setGop(e.target.checked)} className="w-4 h-4 accent-blue-600" /> Gộp theo mặt hàng
