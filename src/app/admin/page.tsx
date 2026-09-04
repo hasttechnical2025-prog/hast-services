@@ -5939,7 +5939,7 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
       {loading ? (
         <p className="text-sm text-slate-400 text-center py-6">Đang tải công nợ...</p>
       ) : selCusts.length === 0 ? (
-        <p className="text-sm text-slate-400 text-center py-6">Chọn một hoặc nhiều điểm máy để lập báo giá.</p>
+        <p className="text-sm text-slate-400 text-center py-6">Lựa chọn khách hàng để xuất công nợ hoặc lập báo giá</p>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <BaoGiaEditor
