@@ -47,6 +47,13 @@ export function expandNgayCaNgay(tu_ngay: string, den_ngay: string, buoi: Buoi):
   return out
 }
 
+// Bung đơn nghỉ thành danh sách { ngay, buoi } — GỒM CẢ nửa buổi (khác expandNgayCaNgay chỉ ca_ngay).
+// Dùng để đẩy đồng bộ sang app Chấm công: mỗi ngày nghỉ = 1 dòng. Nửa buổi luôn 1 ngày (tu=den).
+export function expandNgayNghi(tu_ngay: string, den_ngay: string, buoi: Buoi): { ngay: string; buoi: Buoi }[] {
+  if (buoi !== 'ca_ngay') return tu_ngay ? [{ ngay: tu_ngay, buoi }] : []
+  return expandNgayCaNgay(tu_ngay, den_ngay, 'ca_ngay').map(ngay => ({ ngay, buoi: 'ca_ngay' as Buoi }))
+}
+
 // Mô tả khoảng nghỉ cho tin nhắn / hiển thị: "16/07 → 17/07 (2 ngày)" hoặc "16/07 (sáng)".
 export function moTaKhoang(tu_ngay: string, den_ngay: string, buoi: Buoi): string {
   const dmy = (s: string) => { const [y, m, d] = s.split('-'); return `${d}/${m}/${y}` }

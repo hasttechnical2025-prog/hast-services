@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Check, X, CalendarClock, RefreshCw } from "lucide-react"
+import { Check, X, CalendarClock, RefreshCw, UploadCloud } from "lucide-react"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
 import { LEAVE_TOPIC, LEAVE_EVENT } from "@/lib/realtime"
 import { LOAI_LABEL, moTaKhoang, type LoaiNghi, type Buoi } from "@/lib/nghi-phep"
@@ -42,6 +42,7 @@ export default function NghiPhepDuyet({ notify, onPending }: {
   const [busy, setBusy] = useState<string | null>(null)
   const [reject, setReject] = useState<Don | null>(null)
   const [rejectReason, setRejectReason] = useState("")
+  const [syncing, setSyncing] = useState(false)
 
   const fetchData = useCallback(async () => {
     try {
@@ -67,9 +68,28 @@ export default function NghiPhepDuyet({ notify, onPending }: {
         body: JSON.stringify({ id, action, ghi_chu }),
       })
       const j = await res.json()
-      if (res.ok) { notify?.('success', action === 'duyet' ? 'Đã duyệt đơn nghỉ.' : 'Đã từ chối đơn nghỉ.'); fetchData() }
+      if (res.ok) {
+        if (action === 'duyet') {
+          const s = j.sync_chamcong
+          if (s && !s.ok) notify?.('error', `Đã duyệt, nhưng CHƯA đồng bộ chấm công: ${s.err || 'lỗi'}. Bấm nút đồng bộ để thử lại.`)
+          else if (s && s.ok) notify?.('success', 'Đã duyệt đơn nghỉ + đồng bộ chấm công.')
+          else notify?.('success', 'Đã duyệt đơn nghỉ.')
+        } else notify?.('success', 'Đã từ chối đơn nghỉ.')
+        fetchData()
+      }
       else notify?.('error', j.error || 'Không xử lý được')
     } catch { notify?.('error', 'Lỗi kết nối!') } finally { setBusy(null) }
+  }
+
+  // ĐỒNG BỘ LẠI toàn bộ nghỉ phép đã duyệt sang app Chấm công (self-heal khi lỡ đẩy lẻ).
+  const doSync = async () => {
+    setSyncing(true)
+    try {
+      const res = await fetch('/api/admin/nghi-phep/dong-bo', { method: 'POST' })
+      const j = await res.json()
+      if (res.ok) notify?.('success', `Đồng bộ chấm công: ${j.upserted} ngày / ${j.don} đơn${j.deleted ? `, xóa ${j.deleted} mồ côi` : ''}${j.loi ? `, ${j.loi} đơn lỗi` : ''}.`)
+      else notify?.('error', j.error || 'Không đồng bộ được')
+    } catch { notify?.('error', 'Lỗi kết nối!') } finally { setSyncing(false) }
   }
 
   const DonCard = ({ d, actionable, status }: { d: Don; actionable: boolean; status?: boolean }) => (
@@ -107,7 +127,10 @@ export default function NghiPhepDuyet({ notify, onPending }: {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-slate-700">Đơn chờ duyệt {pending.length > 0 && <span className="ml-1 text-rose-600">({pending.length})</span>}</h3>
-        <button onClick={fetchData} className="p-1.5 text-slate-400 hover:text-emerald-600" title="Làm mới"><RefreshCw className="w-4 h-4" /></button>
+        <div className="flex items-center gap-1">
+          <button onClick={doSync} disabled={syncing} className="p-1.5 text-slate-400 hover:text-emerald-600 disabled:opacity-40" title="Đồng bộ nghỉ phép đã duyệt sang app Chấm công (tự chấm P)"><UploadCloud className={`w-4 h-4 ${syncing ? 'animate-pulse' : ''}`} /></button>
+          <button onClick={fetchData} className="p-1.5 text-slate-400 hover:text-emerald-600" title="Làm mới"><RefreshCw className="w-4 h-4" /></button>
+        </div>
       </div>
 
       {loading ? (

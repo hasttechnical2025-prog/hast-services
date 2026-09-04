@@ -4,6 +4,7 @@ import { requireRole } from '@/lib/session'
 import { sendTelegramMessage } from '@/lib/telegram'
 import { broadcastLeaveChanged } from '@/lib/realtime'
 import { moTaKhoang, LOAI_LABEL, type Buoi, type LoaiNghi } from '@/lib/nghi-phep'
+import { syncNghiPhepDuyet, chamcongConfigured } from '@/lib/chamcong'
 
 function esc(s: any): string {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -91,6 +92,16 @@ export async function PUT(request: Request) {
     const khoang = moTaKhoang(row.tu_ngay, row.den_ngay, row.buoi as Buoi)
     const loaiLabel = LOAI_LABEL[row.loai as LoaiNghi]
 
+    // ĐẨY sang app Chấm công (best-effort — lỗi KHÔNG chặn việc duyệt). Chỉ khi DUYỆT + đã bật env.
+    let sync_chamcong: { ok: boolean; n?: number; err?: string } | undefined
+    if (action === 'duyet' && chamcongConfigured()) {
+      sync_chamcong = await syncNghiPhepDuyet({
+        id: row.id, loai: row.loai as LoaiNghi, tu_ngay: row.tu_ngay, den_ngay: row.den_ngay,
+        buoi: row.buoi as Buoi, full_name: u?.full_name || '',
+      })
+      if (!sync_chamcong.ok) console.error('Sync nghỉ phép -> chấm công lỗi:', sync_chamcong.err)
+    }
+
     // Báo riêng người đăng ký
     if (u?.telegram_id) {
       const t = action === 'duyet'
@@ -105,7 +116,7 @@ export async function PUT(request: Request) {
     }
     await broadcastLeaveChanged()
 
-    return NextResponse.json({ data: { id: row.id, trang_thai } })
+    return NextResponse.json({ data: { id: row.id, trang_thai }, sync_chamcong })
   } catch (error: any) {
     console.error('Error deciding nghi-phep:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
