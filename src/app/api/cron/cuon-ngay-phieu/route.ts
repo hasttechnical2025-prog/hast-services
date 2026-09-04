@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { isBaoTri } from '@/lib/config'
 import { requireRole } from '@/lib/session'
+import { logCronRun } from '@/lib/cron-log'
 
 export const runtime = 'nodejs'
 const H = 3600 * 1000
@@ -21,7 +22,11 @@ export async function GET(request: Request) {
       const session = await requireRole('admin', 'tech_admin')
       if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    if (await isBaoTri()) return NextResponse.json({ message: 'Đang bảo trì — bỏ qua' })
+    const source: 'cron' | 'manual' = isCron ? 'cron' : 'manual'
+    if (await isBaoTri()) {
+      await logCronRun('cuon-ngay-phieu', 'skipped', source, { reason: 'Bảo trì' })
+      return NextResponse.json({ message: 'Đang bảo trì — bỏ qua' })
+    }
 
     // ?force=1 (bấm tay) -> cuốn bất kể T7/CN/lễ (admin chủ động). Cron KHÔNG dùng force.
     const force = new URL(request.url).searchParams.get('force') === '1'
@@ -33,10 +38,12 @@ export async function GET(request: Request) {
 
     if (!force) {
       if (dow === 0 || dow === 6) {
+        await logCronRun('cuon-ngay-phieu', 'skipped', source, { reason: 'Cuối tuần (T7/CN)', today })
         return NextResponse.json({ skipped: 'Cuối tuần (T7/CN) — không cuốn', today })
       }
       const { data: le } = await supabaseAdmin.from('soct_ngay_nghi').select('ngay').eq('ngay', today).maybeSingle()
       if (le) {
+        await logCronRun('cuon-ngay-phieu', 'skipped', source, { reason: 'Ngày nghỉ lễ', today })
         return NextResponse.json({ skipped: 'Ngày nghỉ lễ — không cuốn', today })
       }
     }
@@ -48,6 +55,7 @@ export async function GET(request: Request) {
     // Phiếu TỒN ĐỌNG: bị cuốn từ 5 lần trở lên -> nhiều khả năng bị bỏ quên.
     const tonDong = rolled.filter(r => (r.so_lan_cuon || 0) >= 5)
 
+    await logCronRun('cuon-ngay-phieu', 'ok', source, { today, cuon: rolled.length, ton_dong: tonDong.length, force })
     return NextResponse.json({
       today,
       cuon: rolled.length,
@@ -56,6 +64,7 @@ export async function GET(request: Request) {
     })
   } catch (e: any) {
     console.error('cuon-ngay-phieu error', e)
+    await logCronRun('cuon-ngay-phieu', 'error', 'cron', { error: e?.message })
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }

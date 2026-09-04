@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { sendTelegramMessage } from '@/lib/telegram'
 import { isBaoTri, getCauHinh } from '@/lib/config'
+import { logCronRun } from '@/lib/cron-log'
 
 export const runtime = 'nodejs'
 
@@ -29,11 +30,15 @@ export async function GET(request: Request) {
     if (secret && authHeader !== `Bearer ${secret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    if (await isBaoTri()) return NextResponse.json({ message: 'Đang bảo trì — bỏ qua' })
+    if (await isBaoTri()) {
+      await logCronRun('nhac-trang-thai', 'skipped', 'cron', { reason: 'Bảo trì' })
+      return NextResponse.json({ message: 'Đang bảo trì — bỏ qua' })
+    }
 
     // Khung giờ nhắc 7:30–21:00 (giờ VN). Cron chạy mỗi giờ nhưng ngoài khung thì bỏ qua.
     const mins = vnNowMinutes()
     if (mins < 7 * 60 + 30 || mins > 21 * 60) {
+      await logCronRun('nhac-trang-thai', 'skipped', 'cron', { reason: 'Ngoài khung giờ (7:30–21:00)', mins })
       return NextResponse.json({ message: 'Ngoài khung giờ nhắc (7:30–21:00)' })
     }
 
@@ -92,9 +97,11 @@ export async function GET(request: Request) {
       await supabaseAdmin.from('soct_cong_viec').update({ nhac_luc: new Date().toISOString() }).in('id', nudgedIds)
     }
 
+    await logCronRun('nhac-trang-thai', 'ok', 'cron', { sent })
     return NextResponse.json({ success: true, sent })
   } catch (error: any) {
     console.error('Error in cron nhac-trang-thai:', error)
+    await logCronRun('nhac-trang-thai', 'error', 'cron', { error: error?.message })
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
