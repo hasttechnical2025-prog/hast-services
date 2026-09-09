@@ -901,7 +901,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       const cumId = t.soct_khach_hang?.ma_khach_cum
       // Phiếu Thuê/CPC = MỖI PHIẾU 1 THẺ RIÊNG (1 bảng kê = 1 hóa đơn) — không gộp chung khách/máy
       // để tránh lẫn với phiếu kỹ thuật cùng máy.
-      const groupKey = t.nguon === 'thue_cpc' ? `tc:${t.id}` : (cumId ? `cum:${cumId}` : `may:${t.id_khach_hang}`)
+      const groupKey = (t.nguon === 'thue_cpc' || t.nguon === 'phi_bao_tri') ? `tc:${t.id}` : (cumId ? `cum:${cumId}` : `may:${t.id_khach_hang}`)
       if (!map.has(groupKey)) {
         map.set(groupKey, {
           id: groupKey,
