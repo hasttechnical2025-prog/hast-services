@@ -16,6 +16,7 @@ import LamTiepBanner from "@/components/LamTiepBanner"
 import MonthField from "@/components/MonthField"
 import NghiPhepDuyet from "@/components/NghiPhepDuyet"
 import BaoGiaEditor, { type BaoGiaRow } from "@/components/BaoGiaEditor"
+import SoTheoDoiPrintButton from "@/components/SoTheoDoiPrint"
 import TroLyAI from "@/components/TroLyAI"
 import { hdbtStatus, loaiHdBadge } from "@/lib/hd-status"
 import { fmtThoiLuong } from "@/lib/thoi-gian"
@@ -7516,6 +7517,9 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
                 {cust ? <> — {cust.ten_khach_hang}{cust.model && <span className="text-slate-500"> · model <b className="text-slate-700">{cust.model}</b></span>}{cust.loai_hd && <span className="text-slate-400"> · {cust.loai_hd}</span>}</> : ' — (không có trong Khách hàng)'}
                 {' · '}năm {traNam} · <b className="text-emerald-700">{traRes.months.size}/12 tháng</b>
               </div>
+              {cust && LOAI_HD_BAO_TRI.includes(String(cust.loai_hd || '').trim()) && (
+                <div><SoTheoDoiPrintButton may={cust} showNotification={showNotification} /></div>
+              )}
               <div className="grid grid-cols-6 sm:grid-cols-12 gap-1.5">
                 {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
                   const ok = traRes.months.has(m)
