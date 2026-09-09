@@ -16,7 +16,7 @@ import LamTiepBanner from "@/components/LamTiepBanner"
 import MonthField from "@/components/MonthField"
 import NghiPhepDuyet from "@/components/NghiPhepDuyet"
 import BaoGiaEditor, { type BaoGiaRow } from "@/components/BaoGiaEditor"
-import SoTheoDoiPrintButton from "@/components/SoTheoDoiPrint"
+import SoTheoDoiPrintButton, { printSoTheoDoiBatch } from "@/components/SoTheoDoiPrint"
 import TroLyAI from "@/components/TroLyAI"
 import { hdbtStatus, loaiHdBadge } from "@/lib/hd-status"
 import { fmtThoiLuong } from "@/lib/thoi-gian"
@@ -7402,6 +7402,20 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
     await exportRowsToExcel(`doi-chieu-bao-tri-${dcNam}`, headers, rows)
   }
 
+  // In HÀNG LOẠT sổ theo dõi máy cho TẤT CẢ máy trong danh sách Đối chiếu đang lọc (HĐBT/MF).
+  // Tự điền từ DB (thời hạn từ ngày hết hạn HĐ, hình thức từ loai_hd, serial...); Người liên hệ/SĐT để trống.
+  const [batchBusy, setBatchBusy] = useState(false)
+  const inHangLoatSo = async () => {
+    const mays = dcFiltered.map(r => r.c)
+    if (!mays.length) return
+    setBatchBusy(true)
+    try {
+      const res = await printSoTheoDoiBatch(mays, window.location.origin)
+      if (!res.ok) showNotification('error', res.err || 'Không in được')
+      else showNotification('success', `Đã dựng ${res.n} sổ để in (mỗi máy 2 trang).`)
+    } finally { setBatchBusy(false) }
+  }
+
   // Xuất danh sách máy đã bảo trì trong tháng (kèm counter) — đúng dữ liệu đang hiển thị
   const xuatBaoTriExcel = async () => {
     const headers = ['Mã máy', 'Khách hàng', 'Model', 'Counter', 'Ngày ghi nhận']
@@ -7685,6 +7699,9 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
               </div>
               <Button onClick={exportDoiChieu} disabled={dcLoading || dcFiltered.length === 0} title={`Xuất Excel (${dcFiltered.length} máy)`} className="h-10 w-10 p-0 bg-emerald-600 hover:bg-emerald-700">
                 <Download className="w-4 h-4" />
+              </Button>
+              <Button onClick={inHangLoatSo} disabled={dcLoading || batchBusy || dcFiltered.length === 0} title={`In hàng loạt sổ theo dõi máy — tất cả ${dcFiltered.length} máy đang lọc (mỗi máy 2 trang A4 ngang)`} className="h-10 gap-1.5">
+                🖨 {batchBusy ? 'Đang dựng…' : `In sổ (${dcFiltered.length})`}
               </Button>
             </div>
 

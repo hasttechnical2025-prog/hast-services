@@ -31,7 +31,10 @@ const dmy = (s: string) => { if (!s) return ''; const [y, m, d] = s.split('-'); 
 const box = (label: string, checked = false) =>
   `<span class="cb"><span class="bx">${checked ? '✔' : ''}</span>${esc(label)}</span>`
 
-function buildHtml(may: MayInfo, man: { nguoiLienHe: string; soDienThoai: string; hdTu: string; hdDen: string; soSerial: string; hinhThuc: string }, qr: string, origin: string): string {
+type ManFields = { nguoiLienHe: string; soDienThoai: string; hdTu: string; hdDen: string; soSerial: string; hinhThuc: string }
+
+// Dựng 2 trang (trang 1 + trang 2) cho MỘT máy — KHÔNG kèm <head>/<style> (để wrapDoc bọc chung).
+function pagesFor(may: MayInfo, man: ManFields, qr: string): string {
   const khName = may.soct_khach_cum?.ten_khach_hang || may.ten_khach_hang || ''
   const diaChi = may.dia_chi || ''
   const viTri = may.vi_tri_dat_may || ''
@@ -65,9 +68,56 @@ function buildHtml(may: MayInfo, man: { nguoiLienHe: string; soDienThoai: string
     '7. Đề nghị Khách hàng kiểm tra lại máy và ký xác nhận',
   ].map(t => `<div>${esc(t)}</div>`).join('')
 
-  return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Sổ theo dõi máy ${esc(maMay)}</title>
-<base href="${esc(origin)}/">
-<style>
+  return `
+<div class="page p1">
+  <div class="p1-left">
+    <img class="logo-big" src="/sotheodoi/logo-slogan.png" alt="logo" onerror="this.style.display='none'">
+    <div class="mays"><img src="/sotheodoi/mays.png" alt="" onerror="this.style.display='none'"></div>
+    <div class="inst">${inst}</div>
+  </div>
+
+  <div class="p1-right">
+    <div class="card">
+    <img class="letterhead" src="/sotheodoi/letterhead.png" alt="" onerror="this.style.display='none'">
+
+    <div class="r-title-row">
+      <div class="r-phong">PHÒNG KỸ THUẬT</div>
+      <img class="qr" src="${qr}" alt="QR mã máy">
+    </div>
+    <div class="r-title">SỔ THEO DÕI MÁY</div>
+
+    <div class="info">
+      <div><span class="lbl">Khách hàng:</span> &nbsp;<b class="kh">${esc(khName)}</b></div>
+      <div><span class="lbl">Địa chỉ:</span> &nbsp;${esc(diaChi)}</div>
+      <div><span class="lbl">Vị trí đặt máy:</span> &nbsp;${esc(viTri)}</div>
+      <div><span class="lbl">Số điện thoại:</span> &nbsp;${esc(man.soDienThoai)}</div>
+      <div><span class="lbl">Người liên hệ:</span> &nbsp;${esc(man.nguoiLienHe)}</div>
+    </div>
+
+    <div class="two">
+      <div class="b"><div class="h">LOẠI MÁY</div><div class="v">${esc(loaiMay)}</div></div>
+      <div class="b"><div class="h">MÃ MÁY</div><div class="v">${esc(maMay)}</div></div>
+    </div>
+
+    <div class="row-b"><span class="lbl">Số serial:</span> &nbsp;${esc(man.soSerial)}</div>
+    <div class="row-b"><span class="lbl">Hình thức hợp đồng:</span> &nbsp;&nbsp; ${box('HĐBT', !isMF)} &nbsp;&nbsp; ${box('MF', isMF)}</div>
+    <div class="row-b"><span class="lbl">Thời hạn hợp đồng:</span> &nbsp;${thoiHan}</div>
+
+    <div class="print-date"><span class="lbl">Ngày in sổ:</span> &nbsp;${todayVN()}</div>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+  <div class="p2-head">
+    <img class="p2-logo" src="/sotheodoi/logo.png" alt="" onerror="this.style.display='none'">
+    <div class="mm">Mã máy: <b>${esc(maMay)}</b></div>
+  </div>
+  <div class="grid">${cells}</div>
+</div>`
+}
+
+const DOC_STYLE = `<style>
   @page { size: A4 landscape; margin: 0; }
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   html, body { margin: 0; padding: 0; font-family: Arial, "Helvetica Neue", Helvetica, sans-serif; color: #111; }
@@ -120,57 +170,48 @@ function buildHtml(may: MayInfo, man: { nguoiLienHe: string; soDienThoai: string
   .cell .ln.f .dot { flex: 1; min-width: 0; }
   .cell .ghi2 { border-bottom: 1px dotted #333; margin-top: 3mm; }
   .cell .sign { margin-top: 2mm; display: flex; justify-content: space-around; font-weight: bold; font-size: 9.5pt; }
-</style></head><body>
+</style>`
 
-<div class="page p1">
-  <div class="p1-left">
-    <img class="logo-big" src="/sotheodoi/logo-slogan.png" alt="logo" onerror="this.style.display='none'">
-    <div class="mays"><img src="/sotheodoi/mays.png" alt="" onerror="this.style.display='none'"></div>
-    <div class="inst">${inst}</div>
-  </div>
-
-  <div class="p1-right">
-    <div class="card">
-    <img class="letterhead" src="/sotheodoi/letterhead.png" alt="" onerror="this.style.display='none'">
-
-    <div class="r-title-row">
-      <div class="r-phong">PHÒNG KỸ THUẬT</div>
-      <img class="qr" src="${qr}" alt="QR mã máy">
-    </div>
-    <div class="r-title">SỔ THEO DÕI MÁY</div>
-
-    <div class="info">
-      <div><span class="lbl">Khách hàng:</span> &nbsp;<b class="kh">${esc(khName)}</b></div>
-      <div><span class="lbl">Địa chỉ:</span> &nbsp;${esc(diaChi)}</div>
-      <div><span class="lbl">Vị trí đặt máy:</span> &nbsp;${esc(viTri)}</div>
-      <div><span class="lbl">Số điện thoại:</span> &nbsp;${esc(man.soDienThoai)}</div>
-      <div><span class="lbl">Người liên hệ:</span> &nbsp;${esc(man.nguoiLienHe)}</div>
-    </div>
-
-    <div class="two">
-      <div class="b"><div class="h">LOẠI MÁY</div><div class="v">${esc(loaiMay)}</div></div>
-      <div class="b"><div class="h">MÃ MÁY</div><div class="v">${esc(maMay)}</div></div>
-    </div>
-
-    <div class="row-b"><span class="lbl">Số serial:</span> &nbsp;${esc(man.soSerial)}</div>
-    <div class="row-b"><span class="lbl">Hình thức hợp đồng:</span> &nbsp;&nbsp; ${box('HĐBT', !isMF)} &nbsp;&nbsp; ${box('MF', isMF)}</div>
-    <div class="row-b"><span class="lbl">Thời hạn hợp đồng:</span> &nbsp;${thoiHan}</div>
-
-    <div class="print-date"><span class="lbl">Ngày in sổ:</span> &nbsp;${todayVN()}</div>
-    </div>
-  </div>
-</div>
-
-<div class="page">
-  <div class="p2-head">
-    <img class="p2-logo" src="/sotheodoi/logo.png" alt="" onerror="this.style.display='none'">
-    <div class="mm">Mã máy: <b>${esc(maMay)}</b></div>
-  </div>
-  <div class="grid">${cells}</div>
-</div>
-
-<script>window.onload = function(){ setTimeout(function(){ window.print(); }, 300); };</script>
+// Bọc N trang (mỗi máy 2 trang) thành 1 tài liệu in hoàn chỉnh A4 ngang, tự gọi print.
+function wrapDoc(pages: string, origin: string): string {
+  return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Sổ theo dõi máy</title>
+<base href="${esc(origin)}/">
+${DOC_STYLE}
+</head><body>
+${pages}
+<script>window.onload = function(){ setTimeout(function(){ window.print(); }, 400); };</script>
 </body></html>`
+}
+
+// Suy các trường tự động (không nhập tay) cho in HÀNG LOẠT — dựa hoàn toàn vào DB.
+function autoMan(may: MayInfo): ManFields {
+  const base = may.ngay_het_han_hdbt ? String(may.ngay_het_han_hdbt).slice(0, 10) : ''
+  let hdTu = '', hdDen = ''
+  if (base) { hdTu = base; const d = new Date(base); if (!isNaN(d.getTime())) { d.setFullYear(d.getFullYear() + 1); hdDen = d.toISOString().slice(0, 10) } }
+  return {
+    nguoiLienHe: '', soDienThoai: '', hdTu, hdDen,
+    soSerial: may.serial ? String(may.serial) : '',
+    hinhThuc: String(may.loai_hd || '').trim().toUpperCase() === 'MF' ? 'MF' : 'HĐBT',
+  }
+}
+
+// IN HÀNG LOẠT: dựng 1 tài liệu chứa sổ của NHIỀU máy (tự điền từ DB) rồi in một lần.
+export async function printSoTheoDoiBatch(mays: MayInfo[], origin: string): Promise<{ ok: boolean; n: number; err?: string }> {
+  const list = mays.filter(m => m.ma_may)
+  if (!list.length) return { ok: false, n: 0, err: 'Không có máy hợp lệ (thiếu mã máy) để in.' }
+  try {
+    const parts: string[] = []
+    for (const m of list) {
+      const qr = await QRCodeLib.toDataURL(String(m.ma_may), { width: 320, margin: 1 })
+      parts.push(pagesFor(m, autoMan(m), qr))
+    }
+    const w = window.open('', '_blank')
+    if (!w) return { ok: false, n: 0, err: 'Trình duyệt chặn cửa sổ in — cho phép popup rồi thử lại.' }
+    w.document.open(); w.document.write(wrapDoc(parts.join('\n'), origin)); w.document.close()
+    return { ok: true, n: list.length }
+  } catch (e: any) {
+    return { ok: false, n: 0, err: e?.message || 'Lỗi tạo sổ in hàng loạt' }
+  }
 }
 
 export default function SoTheoDoiPrintButton({ may, showNotification }: {
@@ -200,7 +241,7 @@ export default function SoTheoDoiPrintButton({ may, showNotification }: {
     setBusy(true)
     try {
       const qr = await QRCodeLib.toDataURL(String(may.ma_may), { width: 320, margin: 1 })
-      const html = buildHtml(may, f, qr, window.location.origin)
+      const html = wrapDoc(pagesFor(may, f, qr), window.location.origin)
       const w = window.open('', '_blank')
       if (!w) { showNotification?.('error', 'Trình duyệt chặn cửa sổ in — cho phép popup rồi thử lại.'); return }
       w.document.open(); w.document.write(html); w.document.close()
