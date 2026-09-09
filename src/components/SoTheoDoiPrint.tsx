@@ -173,11 +173,15 @@ export default function SoTheoDoiPrintButton({ may, showNotification }: {
   const [busy, setBusy] = useState(false)
   const [f, setF] = useState({ nguoiLienHe: '', soDienThoai: '', hdTu: '', hdDen: '', soSerial: '' })
 
-  // Mở modal + tự điền: Số serial (may.serial), Thời hạn đến (ngay_het_han_hdbt), Từ = đến − 1 năm.
+  // Mở modal + tự điền KỲ KẾ TIẾP: in sổ mới khi hết hạn -> Từ = ngày hết hạn HĐ hiện tại
+  // (ngay_het_han_hdbt), đến = Từ + 1 năm. Số serial ← may.serial. User sửa tay được.
   const openModal = () => {
-    const den = may.ngay_het_han_hdbt ? String(may.ngay_het_han_hdbt).slice(0, 10) : ''
-    let tu = ''
-    if (den) { const d = new Date(den); if (!isNaN(d.getTime())) { d.setFullYear(d.getFullYear() - 1); tu = d.toISOString().slice(0, 10) } }
+    const base = may.ngay_het_han_hdbt ? String(may.ngay_het_han_hdbt).slice(0, 10) : ''
+    let tu = '', den = ''
+    if (base) {
+      tu = base
+      const d = new Date(base); if (!isNaN(d.getTime())) { d.setFullYear(d.getFullYear() + 1); den = d.toISOString().slice(0, 10) }
+    }
     setF({ nguoiLienHe: '', soDienThoai: '', hdTu: tu, hdDen: den, soSerial: may.serial ? String(may.serial) : '' })
     setOpen(true)
   }
