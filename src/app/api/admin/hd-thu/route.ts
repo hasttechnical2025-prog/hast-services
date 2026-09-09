@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       }
       if (body.chuyen === true) {
         const { error: e2 } = await supabaseAdmin.from('soct_cong_viec')
-          .update({ trang_thai_hd: 'Đã thanh toán' })
+          .update({ trang_thai_hd: 'Đã thanh toán', thanh_toan_luc: new Date(Date.now() + 7 * 3600 * 1000).toISOString() })
           .eq('so_hoa_don', so_hoa_don)
           .eq('trang_thai_hd', 'Đã lên hóa đơn')
         if (e2) throw e2
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
     // Đủ/dư -> chuyển tất cả phiếu của hóa đơn sang 'Đã thanh toán'.
     if (body.chuyen === true) {
       const { error: e2 } = await supabaseAdmin.from('soct_cong_viec')
-        .update({ trang_thai_hd: 'Đã thanh toán' })
+        .update({ trang_thai_hd: 'Đã thanh toán', thanh_toan_luc: new Date(Date.now() + 7 * 3600 * 1000).toISOString() })
         .eq('so_hoa_don', so_hoa_don)
         .eq('trang_thai_hd', 'Đã lên hóa đơn')
       if (e2) throw e2

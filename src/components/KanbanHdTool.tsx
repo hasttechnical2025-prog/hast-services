@@ -59,6 +59,7 @@ type Ticket = {
   trang_thai_hd: 'Chờ xuất HĐ' | 'Đang xử lý HĐ' | 'Đã lên hóa đơn' | 'Đã thanh toán'
   so_hoa_don: string | null
   ngay_xuat_hd?: string | null
+  thanh_toan_luc?: string | null // mốc NGÀY THU (chuyển sang 'Đã thanh toán') — kỳ Cột 4 dựa vào đây
   so_tien_da_thu?: number // đã thu theo số hóa đơn (công nợ phải thu)
   dntt_luc?: string | null // lần xuất ĐNTT gần nhất (thời điểm)
   so_dntt?: string | null
@@ -918,6 +919,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   // cột 3/4 theo NGÀY XUẤT HĐ (mới lên HĐ / mới thanh toán trên đầu). Lấy ngày lớn nhất trong thẻ.
   const cardNgay = (c: any) => (c.tickets || []).reduce((m: string, t: any) => (String(t.ngay || '') > m ? String(t.ngay || '') : m), '')
   const cardXuat = (c: any) => (c.tickets || []).reduce((m: string, t: any) => { const d = String(t.ngay_xuat_hd || t.ngay || ''); return d > m ? d : m }, '')
+  // Cột 4 sắp theo NGÀY THU (mới thu nhất lên đầu) — khớp tiêu chí lọc kỳ của cột này.
+  const cardThu = (c: any) => (c.tickets || []).reduce((m: string, t: any) => { const d = String(t.thanh_toan_luc || t.ngay_xuat_hd || ''); return d > m ? d : m }, '')
 
   const cardsCol1 = getColumnCards(col1Tickets, 'Chờ xuất HĐ').sort((a, b) => cardNgay(b).localeCompare(cardNgay(a)))
   const cardsCol2 = getColumnCards(col2Tickets, 'Đang xử lý HĐ').sort((a, b) => cardNgay(b).localeCompare(cardNgay(a)))
@@ -937,7 +940,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     return [...m.values()]
   }
   const cardsCol3 = groupByHd(col3Tickets, 'Đã lên hóa đơn').sort((a, b) => cardXuat(b).localeCompare(cardXuat(a)))
-  const cardsCol4 = groupByHd(col4Tickets, 'Đã thanh toán').sort((a, b) => cardXuat(b).localeCompare(cardXuat(a)))
+  const cardsCol4 = groupByHd(col4Tickets, 'Đã thanh toán').sort((a, b) => cardThu(b).localeCompare(cardThu(a)))
 
   // Thông tin thu của 1 thẻ Cột 3: tổng HĐ, đã thu, còn nợ, tuổi, trạng thái thu.
   const cardTong = (c: any) => Math.round(getVatTuStats(c.tickets.flatMap((t: any) => t.soct_chi_tiet_vat_tu || [])).sauVat) + cardLamTron(c.tickets)
@@ -1401,6 +1404,9 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                           {[card.tickets[0].nguoi_xuat?.full_name ? `KT: ${card.tickets[0].nguoi_xuat.full_name}` : '', card.tickets[0].ngay_xuat_hd ? fmtDate(card.tickets[0].ngay_xuat_hd) : ''].filter(Boolean).join(' · ')}
                         </div>
                       )}
+                      {state === 'Đã thanh toán' && card.tickets[0].thanh_toan_luc && (
+                        <div className="text-[9px] font-semibold text-indigo-500">Thu: {fmtDate(String(card.tickets[0].thanh_toan_luc).slice(0, 10))}</div>
+                      )}
                       {state === 'Đã lên hóa đơn' && (() => {
                         const daThu = Number(card.tickets[0].so_tien_da_thu) || 0
                         const con = Math.max(0, tong - daThu)
@@ -1497,7 +1503,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
             <label className="flex items-center gap-1.5 text-xs text-slate-600">
               Kỳ đối chiếu:
               <MonthField value={thang} onChange={setThang} className="h-8 px-2 text-xs w-36" />
-              <span className="inline-flex" title="Kỳ đối chiếu áp cho cột 'Đã thanh toán'. Tick 'chỉ kỳ này' bên dưới để áp thêm cột 'Chờ thanh toán'. Cột 1, 2 luôn hiện toàn bộ.">
+              <span className="inline-flex" title="Kỳ đối chiếu = THÁNG THU. Cột 'Đã thanh toán' hiện HĐ thu trong tháng này (theo ngày thu, KHÔNG theo ngày xuất HĐ) → HĐ xuất cuối tháng trước thu đầu tháng này vẫn hiện đúng. Tick 'chỉ kỳ này' bên dưới để áp thêm cột 'Chờ thanh toán'. Cột 1, 2 luôn hiện toàn bộ.">
                 <Info className="w-3.5 h-3.5 text-slate-400 cursor-help shrink-0" aria-label="Trợ giúp" />
               </span>
             </label>

@@ -33,21 +33,14 @@ export async function GET(request: Request) {
 
     const reqThang = searchParams.get('thang_nam')
 
-    let startOfMonth = ''
-    let endOfMonth = ''
-
+    // Kỳ đối chiếu (YYYY-MM). Cột 4 lọc theo THÁNG THU (thanh_toan_luc, giờ VN) — không phải
+    // ngày xuất HĐ — để HĐ xuất cuối tháng trước, thu đầu tháng này vẫn hiện đúng kỳ thu.
+    let thangStr = ''
     if (reqThang && /^\d{4}-\d{2}$/.test(reqThang)) {
-      const [y, m] = reqThang.split('-')
-      startOfMonth = `${reqThang}-01`
-      const lastDay = new Date(Number(y), Number(m), 0).getDate()
-      endOfMonth = `${reqThang}-${String(lastDay).padStart(2, '0')}`
+      thangStr = reqThang
     } else {
-      const today = new Date()
-      const y = today.getFullYear()
-      const m = today.getMonth() + 1
-      startOfMonth = `${y}-${String(m).padStart(2, '0')}-01`
-      const lastDay = new Date(y, m, 0).getDate()
-      endOfMonth = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+      const vn = new Date(Date.now() + 7 * 3600 * 1000)
+      thangStr = `${vn.getUTCFullYear()}-${String(vn.getUTCMonth() + 1).padStart(2, '0')}`
     }
 
     // Load tất cả các phiếu thuộc 4 trạng thái Kanban
@@ -55,7 +48,7 @@ export async function GET(request: Request) {
       return supabaseAdmin
         .from('soct_cong_viec')
         .select(`
-          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, mien_phi, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, ngay_xuat_hd, nguoi_xuat_hd, dntt_luc, so_dntt, dntt_lan, lam_tron, ten_khach_hd, nguon, ly_do_tra, minvoice_luc, minvoice_lan,
+          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, mien_phi, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, ngay_xuat_hd, thanh_toan_luc, nguoi_xuat_hd, dntt_luc, so_dntt, dntt_lan, lam_tron, ten_khach_hd, nguon, ly_do_tra, minvoice_luc, minvoice_lan,
           nguoi_xuat:soct_users!nguoi_xuat_hd ( full_name ),
           soct_khach_hang (
             id,
@@ -101,13 +94,15 @@ export async function GET(request: Request) {
     // Lọc lại phía server:
     // - Cột 3 (Đã lên hóa đơn / Chờ thanh toán): Lũy kế toàn bộ, nhưng loại bỏ các phiếu
     //   cũ trong lịch sử chưa qua luồng Kanban (chưa có ngày xuất hóa đơn ngay_xuat_hd).
-    // - Cột 4 (Đã thanh toán): Chỉ lấy trong kỳ đối chiếu đang chọn dựa trên ngay_xuat_hd.
+    // - Cột 4 (Đã thanh toán): Chỉ lấy HĐ có THÁNG THU (thanh_toan_luc) = kỳ đang chọn.
+    //   thanh_toan_luc lưu giờ VN nên slice(0,7) = 'YYYY-MM' theo lịch VN. Phiếu paid mà chưa
+    //   có mốc (dữ liệu bất thường) -> không hiện (đã backfill ở migration 69).
     const filtered = (data || []).filter((j: any) => {
       if (j.trang_thai_hd === 'Đã lên hóa đơn') {
         return j.ngay_xuat_hd !== null
       }
       if (j.trang_thai_hd === 'Đã thanh toán') {
-        return j.ngay_xuat_hd && j.ngay_xuat_hd >= startOfMonth && j.ngay_xuat_hd <= endOfMonth
+        return !!j.thanh_toan_luc && String(j.thanh_toan_luc).slice(0, 7) === thangStr
       }
       return true
     })
@@ -244,6 +239,12 @@ export async function PUT(request: Request) {
     } else if (ly_do_tra !== undefined) {
       updates.ly_do_tra = String(ly_do_tra || '').trim() || null
     }
+
+    // Đóng dấu NGÀY THU (kỳ Cột 4 dựa vào đây): vào 'Đã thanh toán' -> mốc giờ VN;
+    // rời khỏi 'Đã thanh toán' (kéo ngược / reset) -> null để thu lại lần sau có mốc mới.
+    updates.thanh_toan_luc = trang_thai_hd === 'Đã thanh toán'
+      ? new Date(Date.now() + 7 * 3600 * 1000).toISOString()
+      : null
 
     // Cập nhật Database
     const { error: upErr } = await supabaseAdmin
