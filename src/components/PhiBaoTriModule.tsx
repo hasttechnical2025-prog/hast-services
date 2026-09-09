@@ -68,12 +68,6 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setSaving(false) }
   }
 
-  // Cảnh báo khi rời trang / reload lúc còn thay đổi CHƯA LƯU (tránh mất dữ liệu).
-  useEffect(() => {
-    const h = (e: BeforeUnloadEvent) => { if (dirty.size > 0) { e.preventDefault(); e.returnValue = '' } }
-    window.addEventListener('beforeunload', h)
-    return () => window.removeEventListener('beforeunload', h)
-  }, [dirty])
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase()
@@ -194,9 +188,9 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
 
       {/* ===== Bảng cấu hình phí BT theo máy (inline edit) ===== */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
+        <h3 className="text-sm font-bold text-slate-700">Cấu hình theo máy (HĐBT/MF) — {filtered.length} máy</h3>
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-bold text-slate-700">Cấu hình theo máy (HĐBT/MF) — {filtered.length} máy</h3>
-          <div className="relative w-56">
+          <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input placeholder="Tìm khách / mã máy / số HĐ..." className="pl-9 bg-white h-9" value={q} onChange={e => setQ(e.target.value)} />
           </div>
