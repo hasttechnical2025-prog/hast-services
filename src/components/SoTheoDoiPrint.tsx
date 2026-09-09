@@ -69,51 +69,53 @@ function buildHtml(may: MayInfo, man: { nguoiLienHe: string; soDienThoai: string
 <style>
   @page { size: A4 landscape; margin: 0; }
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  html, body { margin: 0; padding: 0; font-family: "Times New Roman", Times, serif; color: #111; }
+  html, body { margin: 0; padding: 0; font-family: Arial, "Helvetica Neue", Helvetica, sans-serif; color: #111; }
   .page { width: 297mm; height: 210mm; padding: 8mm 10mm; position: relative; page-break-after: always; overflow: hidden; }
   .page:last-child { page-break-after: auto; }
   .brand-blue { color: #1a3a8f; }
-  .brand-red { color: #c0392b; }
 
-  /* ---- TRANG 1 ---- */
-  .p1 { display: flex; gap: 8mm; }
-  .p1-left { width: 40%; display: flex; flex-direction: column; align-items: center; }
-  .logo-big { width: 90%; max-height: 46mm; object-fit: contain; }
-  .mays { display: flex; align-items: center; justify-content: center; margin: 4mm 0; width: 100%; }
-  .mays img { max-height: 48mm; max-width: 100%; object-fit: contain; }
-  .inst { border: 1.5px solid #111; border-radius: 8px; padding: 4mm 5mm; width: 100%; font-size: 12.5pt; line-height: 1.5; }
+  /* ---- TRANG 1: 2 nửa A5 BẰNG NHAU (gập đôi khít gáy) ---- */
+  .page.p1 { padding: 0; }
+  .p1 { display: flex; height: 210mm; }
+  .p1-left, .p1-right { width: 148.5mm; padding: 9mm 7mm; }
+  .p1-left { display: flex; flex-direction: column; align-items: center; }
+  .logo-big { width: 92%; max-height: 42mm; object-fit: contain; }
+  .mays { display: flex; align-items: center; justify-content: center; margin: 5mm 0; width: 100%; }
+  .mays img { max-height: 46mm; max-width: 100%; object-fit: contain; }
+  .inst { border: 1.5px solid #111; border-radius: 8px; padding: 4mm 5mm; width: 100%; font-size: 11pt; line-height: 1.55; }
   .inst div { margin: 0.4mm 0; }
 
-  .p1-right { flex: 1; border: 1.5px solid #111; border-radius: 4px; padding: 5mm; display: flex; flex-direction: column; }
-  .letterhead { width: 100%; max-height: 16mm; object-fit: contain; display: block; }
-  .r-title-row { display: flex; justify-content: space-between; align-items: center; margin: 2mm 0 3mm; }
-  .r-phong { font-size: 12pt; font-weight: bold; }
-  .qr { width: 28mm; height: 28mm; }
-  .r-title { text-align: center; font-size: 30pt; font-weight: bold; letter-spacing: 1px; margin: 1mm 0 4mm; }
-  .info { border: 1.2px solid #111; border-radius: 10px; padding: 3mm 4mm; font-size: 12.5pt; line-height: 1.9; }
-  .info b.kh { font-size: 14pt; }
+  .p1-right { display: flex; }
+  .card { border: 1.5px solid #111; border-radius: 6px; padding: 4mm; width: 100%; height: 100%; display: flex; flex-direction: column; }
+  .letterhead { width: 100%; max-height: 14mm; object-fit: contain; display: block; }
+  .r-title-row { display: flex; justify-content: space-between; align-items: center; margin: 2mm 0; }
+  .r-phong { font-size: 11pt; font-weight: bold; }
+  .qr { width: 20mm; height: 20mm; }
+  .r-title { text-align: center; font-size: 23pt; font-weight: bold; letter-spacing: 0.5px; margin: 0 0 3mm; }
+  .info { border: 1.2px solid #111; border-radius: 8px; padding: 2.5mm 3.5mm; font-size: 10.5pt; line-height: 1.75; }
+  .info b.kh { font-size: 11.5pt; }
   .info .lbl { font-weight: bold; }
-  .two { display: flex; gap: 4mm; margin-top: 3mm; }
-  .two .b { flex: 1; border: 1.2px solid #111; border-radius: 4px; text-align: center; padding: 2mm; }
-  .two .b .h { font-weight: bold; font-size: 12pt; }
-  .two .b .v { font-size: 15pt; font-weight: bold; margin-top: 1mm; }
-  .row-b { border: 1.2px solid #111; border-radius: 4px; padding: 2mm 3mm; margin-top: 3mm; font-size: 12.5pt; }
+  .two { display: flex; gap: 3mm; margin-top: 2.5mm; }
+  .two .b { flex: 1; border: 1.2px solid #111; border-radius: 4px; text-align: center; padding: 1.5mm; }
+  .two .b .h { font-weight: bold; font-size: 10.5pt; }
+  .two .b .v { font-size: 13pt; font-weight: bold; margin-top: 0.5mm; }
+  .row-b { border: 1.2px solid #111; border-radius: 4px; padding: 1.5mm 3mm; margin-top: 2.5mm; font-size: 10.5pt; }
   .row-b .lbl { font-weight: bold; }
-  .cb { display: inline-flex; align-items: center; gap: 1.5mm; margin-right: 5mm; }
-  .cb .bx { display: inline-block; width: 4mm; height: 4mm; border: 1.2px solid #111; text-align: center; line-height: 3.6mm; font-size: 10pt; }
-  .print-date { margin-top: auto; padding-top: 3mm; font-size: 11pt; }
+  .cb { display: inline-flex; align-items: center; gap: 1.2mm; margin-right: 4mm; white-space: nowrap; }
+  .cb .bx { display: inline-block; width: 3.4mm; height: 3.4mm; border: 1.2px solid #111; text-align: center; line-height: 3mm; font-size: 9pt; }
+  .print-date { margin-top: auto; padding-top: 2.5mm; font-size: 10pt; }
   .print-date .lbl { font-weight: bold; }
 
   /* ---- TRANG 2 ---- */
   .p2-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3mm; }
-  .p2-logo { height: 13mm; object-fit: contain; }
-  .p2-head .mm { font-size: 13pt; } .p2-head .mm b { font-size: 15pt; }
-  .grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(3, 1fr); gap: 0; border: 1.5px solid #111; height: 182mm; }
-  .cell { border: 0.8px solid #111; padding: 2.5mm 3mm; font-size: 11pt; display: flex; flex-direction: column; }
+  .p2-logo { height: 14mm; object-fit: contain; }
+  .p2-head .mm { font-size: 12pt; } .p2-head .mm b { font-size: 15pt; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(3, 1fr); gap: 0; border: 1.5px solid #111; height: 178mm; }
+  .cell { border: 0.8px solid #111; padding: 2.5mm 3mm; font-size: 10pt; display: flex; flex-direction: column; overflow: hidden; }
   .cell-date { text-align: center; margin-bottom: 1mm; }
-  .cell .ln { margin: 0.6mm 0; }
-  .cell .dot { display: inline-block; border-bottom: 1px dotted #333; min-width: 60%; }
-  .cell .sign { margin-top: auto; display: flex; justify-content: space-around; font-weight: bold; font-size: 10.5pt; }
+  .cell .ln { margin: 0.5mm 0; white-space: nowrap; }
+  .cell .dot { display: inline-block; border-bottom: 1px dotted #333; min-width: 52%; }
+  .cell .sign { margin-top: auto; padding-top: 8mm; display: flex; justify-content: space-around; font-weight: bold; font-size: 9.5pt; }
 </style></head><body>
 
 <div class="page p1">
@@ -124,6 +126,7 @@ function buildHtml(may: MayInfo, man: { nguoiLienHe: string; soDienThoai: string
   </div>
 
   <div class="p1-right">
+    <div class="card">
     <img class="letterhead" src="/sotheodoi/letterhead.png" alt="" onerror="this.style.display='none'">
 
     <div class="r-title-row">
@@ -150,12 +153,13 @@ function buildHtml(may: MayInfo, man: { nguoiLienHe: string; soDienThoai: string
     <div class="row-b"><span class="lbl">Thời hạn hợp đồng:</span> &nbsp;${thoiHan}</div>
 
     <div class="print-date"><span class="lbl">Ngày in sổ:</span> &nbsp;${todayVN()}</div>
+    </div>
   </div>
 </div>
 
 <div class="page">
   <div class="p2-head">
-    <img class="p2-logo" src="/sotheodoi/logo-slogan.png" alt="" onerror="this.style.display='none'">
+    <img class="p2-logo" src="/sotheodoi/logo.png" alt="" onerror="this.style.display='none'">
     <div class="mm">Mã máy: <b>${esc(maMay)}</b></div>
   </div>
   <div class="grid">${cells}</div>
