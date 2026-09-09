@@ -59,8 +59,10 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase()
-    if (!s) return rows
-    return rows.filter(m => `${khName(m)} ${m.ma_may || ''} ${m.model || ''} ${m.so_hddv || ''}`.toLowerCase().includes(s))
+    const base = s ? rows.filter(m => `${khName(m)} ${m.ma_may || ''} ${m.model || ''} ${m.so_hddv || ''}`.toLowerCase().includes(s)) : rows
+    // Gom theo KHÁCH/CỤM: cùng cụm (hoặc cùng tên khách) đứng cạnh nhau, rồi theo mã máy.
+    return [...base].sort((a, b) =>
+      khName(a).localeCompare(khName(b), 'vi') || String(a.ma_may || '').localeCompare(String(b.ma_may || ''), 'vi'))
   }, [rows, q]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Gom theo Số HĐDV (chỉ HĐ có đơn giá > 0) cho phần hóa đơn.
