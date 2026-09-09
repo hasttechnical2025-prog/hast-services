@@ -31,13 +31,13 @@ const dmy = (s: string) => { if (!s) return ''; const [y, m, d] = s.split('-'); 
 const box = (label: string, checked = false) =>
   `<span class="cb"><span class="bx">${checked ? '✔' : ''}</span>${esc(label)}</span>`
 
-function buildHtml(may: MayInfo, man: { nguoiLienHe: string; soDienThoai: string; hdTu: string; hdDen: string; soSerial: string }, qr: string, origin: string): string {
+function buildHtml(may: MayInfo, man: { nguoiLienHe: string; soDienThoai: string; hdTu: string; hdDen: string; soSerial: string; hinhThuc: string }, qr: string, origin: string): string {
   const khName = may.soct_khach_cum?.ten_khach_hang || may.ten_khach_hang || ''
   const diaChi = may.dia_chi || ''
   const viTri = may.vi_tri_dat_may || ''
   const maMay = may.ma_may || ''
   const loaiMay = may.model || ''
-  const isMF = String(may.loai_hd || '').trim().toUpperCase() === 'MF'
+  const isMF = String(man.hinhThuc || '').trim().toUpperCase() === 'MF'
   const thoiHan = (man.hdTu || man.hdDen) ? `Từ&nbsp; <b>${esc(dmy(man.hdTu))}</b> &nbsp;đến&nbsp; <b>${esc(dmy(man.hdDen))}</b>` : ''
 
   // 12 ô trang 2 (4 cột × 3 hàng)
@@ -179,7 +179,7 @@ export default function SoTheoDoiPrintButton({ may, showNotification }: {
 }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [f, setF] = useState({ nguoiLienHe: '', soDienThoai: '', hdTu: '', hdDen: '', soSerial: '' })
+  const [f, setF] = useState({ nguoiLienHe: '', soDienThoai: '', hdTu: '', hdDen: '', soSerial: '', hinhThuc: 'HĐBT' })
 
   // Mở modal + tự điền KỲ KẾ TIẾP: in sổ mới khi hết hạn -> Từ = ngày hết hạn HĐ hiện tại
   // (ngay_het_han_hdbt), đến = Từ + 1 năm. Số serial ← may.serial. User sửa tay được.
@@ -190,7 +190,8 @@ export default function SoTheoDoiPrintButton({ may, showNotification }: {
       tu = base
       const d = new Date(base); if (!isNaN(d.getTime())) { d.setFullYear(d.getFullYear() + 1); den = d.toISOString().slice(0, 10) }
     }
-    setF({ nguoiLienHe: '', soDienThoai: '', hdTu: tu, hdDen: den, soSerial: may.serial ? String(may.serial) : '' })
+    const hinhThuc = String(may.loai_hd || '').trim().toUpperCase() === 'MF' ? 'MF' : 'HĐBT'
+    setF({ nguoiLienHe: '', soDienThoai: '', hdTu: tu, hdDen: den, soSerial: may.serial ? String(may.serial) : '', hinhThuc })
     setOpen(true)
   }
 
@@ -223,6 +224,16 @@ export default function SoTheoDoiPrintButton({ may, showNotification }: {
             </div>
             <p className="text-xs text-slate-500">Các trường nhập tay (để trống nếu để KTV viết tay). Còn lại tự lấy theo máy.</p>
             <div className="space-y-2.5">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Hình thức hợp đồng</label>
+                <div className="flex gap-2">
+                  {(['HĐBT', 'MF'] as const).map(v => (
+                    <button key={v} type="button" onClick={() => setF({ ...f, hinhThuc: v })}
+                      className={`flex-1 h-9 rounded-md border text-sm font-semibold transition ${f.hinhThuc === v ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>{v}</button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-slate-400">Mặc định theo máy ({may.loai_hd || '—'}); đổi tại đây nếu danh sách khách chưa cập nhật.</p>
+              </div>
               <div className="space-y-1"><label className="text-xs font-semibold text-slate-600">Người liên hệ</label>
                 <Input value={f.nguoiLienHe} onChange={e => setF({ ...f, nguoiLienHe: e.target.value })} placeholder="VD: Mr Huy" className="bg-white h-9" /></div>
               <div className="space-y-1"><label className="text-xs font-semibold text-slate-600">Số điện thoại</label>
