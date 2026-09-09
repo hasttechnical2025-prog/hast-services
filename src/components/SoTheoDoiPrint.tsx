@@ -97,9 +97,9 @@ function buildHtml(may: MayInfo, man: { nguoiLienHe: string; soDienThoai: string
   .info b.kh { font-size: 11.5pt; }
   .info .lbl { font-weight: bold; }
   .two { display: flex; gap: 3mm; margin-top: 2.5mm; }
-  .two .b { flex: 1; border: 1.2px solid #111; border-radius: 4px; text-align: center; padding: 1.5mm; }
+  .two .b { flex: 1; border: 1.2px solid #111; border-radius: 4px; text-align: center; padding: 3.5mm 1.5mm; }
   .two .b .h { font-weight: bold; font-size: 10.5pt; }
-  .two .b .v { font-size: 15pt; font-weight: bold; margin-top: 0.5mm; }
+  .two .b .v { font-size: 15pt; font-weight: bold; margin-top: 3mm; }
   .row-b { border: 1.2px solid #111; border-radius: 4px; padding: 1.5mm 3mm; margin-top: 2.5mm; font-size: 10.5pt; }
   .row-b .lbl { font-weight: bold; }
   .cb { display: inline-flex; align-items: center; gap: 0.8mm; margin-right: 2.5mm; white-space: nowrap; }
@@ -113,13 +113,13 @@ function buildHtml(may: MayInfo, man: { nguoiLienHe: string; soDienThoai: string
   .p2-head .mm { font-size: 12pt; } .p2-head .mm b { font-size: 15pt; }
   .grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(3, 1fr); gap: 0; border: 1.5px solid #111; height: 178mm; }
   .cell { border: 0.8px solid #111; padding: 2.5mm 2mm; font-size: 10pt; display: flex; flex-direction: column; overflow: hidden; }
-  .cell-date { text-align: center; margin-bottom: 1mm; }
-  .cell .ln { margin: 1mm 0; white-space: nowrap; }
+  .cell-date { text-align: center; margin-bottom: 0.5mm; }
+  .cell .ln { margin: 0.4mm 0; white-space: nowrap; }
   .cell .ln.f { display: flex; align-items: baseline; gap: 1.5mm; }
   .cell .dot { border-bottom: 1px dotted #333; }
   .cell .ln.f .dot { flex: 1; min-width: 0; }
-  .cell .ghi2 { border-bottom: 1px dotted #333; margin-top: 4.5mm; }
-  .cell .sign { margin-top: 3mm; display: flex; justify-content: space-around; font-weight: bold; font-size: 9.5pt; }
+  .cell .ghi2 { border-bottom: 1px dotted #333; margin-top: 3mm; }
+  .cell .sign { margin-top: 2mm; display: flex; justify-content: space-around; font-weight: bold; font-size: 9.5pt; }
 </style></head><body>
 
 <div class="page p1">
