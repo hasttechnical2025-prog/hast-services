@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import DateField from "@/components/DateField"
-import { Landmark, Search, Send, X, RefreshCw } from "lucide-react"
+import { Landmark, Search, Send, X, RefreshCw, Save } from "lucide-react"
 
 type May = {
   id: string
@@ -35,6 +35,8 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
   const [nam, setNam] = useState(String(new Date().getFullYear()))
   const [bill, setBill] = useState<{ so_hddv: string; ten_dong: string; soMay: number; donGia: number } | null>(null)
   const [pushing, setPushing] = useState(false)
+  const [dirty, setDirty] = useState<Set<string>>(new Set())
+  const [saving, setSaving] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -47,15 +49,31 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
   useEffect(() => { load() }, [load])
 
   const khName = (m: May) => m.soct_khach_cum?.ten_khach_hang || m.ten_khach_hang || '—'
-  const setLocal = (id: string, field: keyof May, value: any) => setRows(rs => rs.map(r => r.id === id ? { ...r, [field]: value } : r))
-
-  // PATCH 1 field cấu hình (staff) — chỉ đụng 3 cột phí BT của máy.
-  const patch = async (id: string, field: 'so_hddv' | 'ngay_ky_hddv' | 'don_gia_bt', value: any) => {
-    try {
-      const res = await fetch('/api/admin/phi-bao-tri', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, [field]: value }) })
-      if (!res.ok) { const j = await res.json(); showNotification('error', j.error || 'Lỗi lưu') }
-    } catch { showNotification('error', 'Lỗi kết nối!') }
+  const setLocal = (id: string, field: keyof May, value: any) => {
+    setRows(rs => rs.map(r => r.id === id ? { ...r, [field]: value } : r))
+    setDirty(d => { const n = new Set(d); n.add(id); return n })
   }
+
+  // LƯU HÀNG LOẠT các dòng đang sửa (nút "Lưu" tường minh).
+  const doSave = async () => {
+    if (dirty.size === 0) return
+    setSaving(true)
+    try {
+      const items = ([...dirty].map(id => rows.find(r => r.id === id)).filter(Boolean) as May[])
+        .map(r => ({ id: r.id, so_hddv: r.so_hddv, ngay_ky_hddv: r.ngay_ky_hddv, don_gia_bt: r.don_gia_bt }))
+      const res = await fetch('/api/admin/phi-bao-tri', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }) })
+      const j = await res.json()
+      if (res.ok) { setDirty(new Set()); showNotification('success', `Đã lưu ${j.saved} dòng cấu hình.`) }
+      else showNotification('error', j.error || 'Lỗi lưu')
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setSaving(false) }
+  }
+
+  // Cảnh báo khi rời trang / reload lúc còn thay đổi CHƯA LƯU (tránh mất dữ liệu).
+  useEffect(() => {
+    const h = (e: BeforeUnloadEvent) => { if (dirty.size > 0) { e.preventDefault(); e.returnValue = '' } }
+    window.addEventListener('beforeunload', h)
+    return () => window.removeEventListener('beforeunload', h)
+  }, [dirty])
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase()
@@ -160,7 +178,8 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
                       {daLap ? (
                         <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">✓ Đã lập {nam}</span>
                       ) : (
-                        <Button onClick={() => openBill(g)} disabled={lech} className="h-8 gap-1.5" title={lech ? 'Sửa đơn giá cho đồng nhất trước' : 'Tạo hóa đơn phí BT → đẩy Kanban'}>
+                        <Button onClick={() => openBill(g)} disabled={lech || dirty.size > 0} className="h-8 gap-1.5"
+                          title={lech ? 'Sửa đơn giá cho đồng nhất trước' : dirty.size > 0 ? 'Lưu cấu hình trước khi tạo hóa đơn' : 'Tạo hóa đơn phí BT → đẩy Kanban'}>
                           <Send className="w-3.5 h-3.5" /> Tạo → Kanban
                         </Button>
                       )}
@@ -177,11 +196,21 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-bold text-slate-700">Cấu hình theo máy (HĐBT/MF) — {filtered.length} máy</h3>
-          <div className="relative w-full sm:w-72 ml-auto">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Tìm khách / mã máy / số HĐ..." className="pl-9 bg-white h-9" value={q} onChange={e => setQ(e.target.value)} />
+          <div className="ml-auto flex items-center gap-2">
+            <Button onClick={doSave} disabled={saving || dirty.size === 0} className="h-9 gap-1.5">
+              <Save className="w-4 h-4" /> {saving ? 'Đang lưu…' : dirty.size > 0 ? `Lưu (${dirty.size})` : 'Đã lưu'}
+            </Button>
+            <div className="relative w-56">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input placeholder="Tìm khách / mã máy / số HĐ..." className="pl-9 bg-white h-9" value={q} onChange={e => setQ(e.target.value)} />
+            </div>
           </div>
         </div>
+        {dirty.size > 0 && (
+          <div className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">
+            ⚠ Còn <b>{dirty.size}</b> dòng chưa lưu (nền xanh) — bấm <b>Lưu</b>. Reload/rời trang khi chưa lưu sẽ mất thay đổi.
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-slate-600">
             <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase border-b border-slate-200">
@@ -205,7 +234,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
                 // Máy MF (miễn phí) — kỳ này khách KHÔNG phải thanh toán: khóa 3 ô cấu hình + tô màu.
                 const isMF = String(m.loai_hd || '').trim().toUpperCase() === 'MF'
                 return (
-                <tr key={m.id} className={isMF ? 'bg-amber-50' : 'hover:bg-slate-50'}>
+                <tr key={m.id} className={isMF ? 'bg-amber-50' : (dirty.has(m.id) ? 'bg-blue-50/70' : 'hover:bg-slate-50')}>
                   <td className="px-3 py-1.5">{khName(m)}{m.soct_khach_cum ? <span className="ml-1 text-[10px] text-violet-600">(cụm)</span> : ''}</td>
                   <td className="px-2 py-1.5 font-mono text-xs">{m.ma_may}</td>
                   <td className="px-2 py-1.5 text-xs">{m.model}</td>
@@ -218,15 +247,15 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
                   ) : (<>
                     <td className="px-3 py-1.5">
                       <Input value={m.so_hddv || ''} onChange={e => setLocal(m.id, 'so_hddv', e.target.value)}
-                        onBlur={e => patch(m.id, 'so_hddv', e.target.value)} className="h-8 bg-white" placeholder="VD: 310325/HĐDV-ST" />
+                        className="h-8 bg-white" placeholder="VD: 310325/HĐDV-ST" />
                     </td>
                     <td className="px-3 py-1.5">
                       <DateField value={m.ngay_ky_hddv ? String(m.ngay_ky_hddv).slice(0, 10) : ''} heightClass="h-8"
-                        onChange={v => { setLocal(m.id, 'ngay_ky_hddv', v); patch(m.id, 'ngay_ky_hddv', v || null) }} />
+                        onChange={v => setLocal(m.id, 'ngay_ky_hddv', v)} />
                     </td>
                     <td className="px-3 py-1.5">
                       <Input value={m.don_gia_bt != null ? fmtVnd(m.don_gia_bt) : ''} onChange={e => setLocal(m.id, 'don_gia_bt', digits(e.target.value) ? Number(digits(e.target.value)) : null)}
-                        onBlur={e => patch(m.id, 'don_gia_bt', digits(e.target.value) ? Number(digits(e.target.value)) : null)} className="h-8 bg-white text-right" placeholder="0" />
+                        className="h-8 bg-white text-right" placeholder="0" />
                     </td>
                   </>)}
                 </tr>

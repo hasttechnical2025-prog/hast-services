@@ -76,3 +76,41 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
+
+// PUT: LƯU HÀNG LOẠT cấu hình phí BT (nút "Lưu" tường minh). Body { items: [{id, so_hddv,
+// ngay_ky_hddv, don_gia_bt}] }. Chỉ ghi máy HĐBT/MF; bỏ qua máy ngoài diện.
+export async function PUT(request: Request) {
+  try {
+    const session = await requireRole('admin', 'tech_admin', 'staff')
+    if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
+
+    const { items } = await request.json()
+    if (!Array.isArray(items) || items.length === 0) return NextResponse.json({ error: 'Không có dòng nào để lưu' }, { status: 400 })
+
+    // Lấy loai_hd của tất cả id 1 lần -> chỉ cho ghi máy HĐBT/MF.
+    const ids = items.map((it: any) => it.id).filter(Boolean)
+    const { data: mays } = await supabaseAdmin.from('soct_khach_hang').select('id, loai_hd').in('id', ids)
+    const allowed = new Set((mays || []).filter((m: any) => LOAI_HD_BAO_TRI.includes(String(m.loai_hd || '').trim())).map((m: any) => m.id))
+
+    let saved = 0
+    for (const it of items) {
+      if (!it.id || !allowed.has(it.id)) continue
+      const v = it.don_gia_bt === '' || it.don_gia_bt == null ? null : Number(it.don_gia_bt)
+      if (v != null && (!Number.isFinite(v) || v < 0)) return NextResponse.json({ error: `Đơn giá không hợp lệ (máy ${it.id})` }, { status: 400 })
+      const updates = {
+        so_hddv: String(it.so_hddv || '').trim() || null,
+        ngay_ky_hddv: it.ngay_ky_hddv || null,
+        don_gia_bt: v,
+      }
+      const { error } = await supabaseAdmin.from('soct_khach_hang').update(updates).eq('id', it.id)
+      if (error) throw error
+      saved++
+    }
+
+    await logAudit(session, 'Lưu cấu hình phí bảo trì (hàng loạt)', `${saved} máy`)
+    return NextResponse.json({ success: true, saved })
+  } catch (error: any) {
+    console.error('Error batch-saving phi-bao-tri config:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
