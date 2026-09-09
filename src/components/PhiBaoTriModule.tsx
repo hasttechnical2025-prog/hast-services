@@ -196,15 +196,13 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-bold text-slate-700">Cấu hình theo máy (HĐBT/MF) — {filtered.length} máy</h3>
-          <div className="ml-auto flex items-center gap-2">
-            <Button onClick={doSave} disabled={saving || dirty.size === 0} className="h-9 gap-1.5">
-              <Save className="w-4 h-4" /> {saving ? 'Đang lưu…' : dirty.size > 0 ? `Lưu (${dirty.size})` : 'Đã lưu'}
-            </Button>
-            <div className="relative w-56">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input placeholder="Tìm khách / mã máy / số HĐ..." className="pl-9 bg-white h-9" value={q} onChange={e => setQ(e.target.value)} />
-            </div>
+          <div className="relative w-56">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input placeholder="Tìm khách / mã máy / số HĐ..." className="pl-9 bg-white h-9" value={q} onChange={e => setQ(e.target.value)} />
           </div>
+          <Button onClick={doSave} disabled={saving || dirty.size === 0} className="h-9 gap-1.5 ml-auto">
+            <Save className="w-4 h-4" /> {saving ? 'Đang lưu…' : dirty.size > 0 ? `Lưu (${dirty.size})` : 'Đã lưu'}
+          </Button>
         </div>
         {dirty.size > 0 && (
           <div className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">
