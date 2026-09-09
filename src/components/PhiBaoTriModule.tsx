@@ -72,9 +72,14 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase()
     const base = s ? rows.filter(m => `${khName(m)} ${m.ma_may || ''} ${m.model || ''} ${m.so_hddv || ''}`.toLowerCase().includes(s)) : rows
-    // Gom theo KHÁCH/CỤM: cùng cụm (hoặc cùng tên khách) đứng cạnh nhau, rồi theo mã máy.
-    return [...base].sort((a, b) =>
-      khName(a).localeCompare(khName(b), 'vi') || String(a.ma_may || '').localeCompare(String(b.ma_may || ''), 'vi'))
+    // Xếp: (1) SẮP HẾT HẠN HĐBT gần nhất lên đầu (ngay_het_han_hdbt tăng dần, trống xuống cuối)
+    //      → (2) cụm/khách → (3) mã máy. Ưu tiên nhập liệu cho máy sắp hết hạn.
+    const exp = (m: May) => String(m.ngay_het_han_hdbt || '').slice(0, 10)
+    return [...base].sort((a, b) => {
+      const ea = exp(a), eb = exp(b)
+      if (ea !== eb) { if (!ea) return 1; if (!eb) return -1; return ea.localeCompare(eb) }
+      return khName(a).localeCompare(khName(b), 'vi') || String(a.ma_may || '').localeCompare(String(b.ma_may || ''), 'vi')
+    })
   }, [rows, q]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Gom theo Số HĐDV (chỉ HĐ có đơn giá > 0) cho phần hóa đơn.
