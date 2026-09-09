@@ -35,7 +35,7 @@ type ManFields = { nguoiLienHe: string; soDienThoai: string; hdTu: string; hdDen
 
 // Dựng 2 trang (trang 1 + trang 2) cho MỘT máy — KHÔNG kèm <head>/<style> (để wrapDoc bọc chung).
 function pagesFor(may: MayInfo, man: ManFields, qr: string): string {
-  const khName = may.soct_khach_cum?.ten_khach_hang || may.ten_khach_hang || ''
+  const khName = (may.soct_khach_cum?.ten_khach_hang || may.ten_khach_hang || '').toUpperCase()
   const diaChi = may.dia_chi || ''
   const viTri = may.vi_tri_dat_may || ''
   const maMay = may.ma_may || ''
@@ -77,8 +77,8 @@ function pagesFor(may: MayInfo, man: ManFields, qr: string): string {
   </div>
 
   <div class="p1-right">
-    <div class="card">
     <img class="letterhead" src="/sotheodoi/letterhead.png" alt="" onerror="this.style.display='none'">
+    <div class="card">
 
     <div class="r-title-row">
       <div class="r-phong">PHÒNG KỸ THUẬT</div>
@@ -136,9 +136,9 @@ const DOC_STYLE = `<style>
   .inst { margin-top: auto; border: 1.5px solid #111; border-radius: 8px; padding: 4mm 5mm; width: 100%; font-size: 11pt; line-height: 1.55; }
   .inst div { margin: 0.4mm 0; }
 
-  .p1-right { display: flex; }
-  .card { border: 1.5px solid #111; border-radius: 6px; padding: 4mm; width: 100%; height: 100%; display: flex; flex-direction: column; }
-  .letterhead { width: 100%; max-height: 11mm; object-fit: contain; display: block; }
+  .p1-right { display: flex; flex-direction: column; }
+  .letterhead { width: 100%; max-height: 12mm; object-fit: contain; display: block; margin-bottom: 2.5mm; }
+  .card { border: 1.5px solid #111; border-radius: 6px; padding: 4mm; width: 100%; flex: 1; display: flex; flex-direction: column; }
   .r-title-row { display: flex; justify-content: space-between; align-items: center; margin: 1mm 0; }
   .r-phong { font-size: 11pt; font-weight: bold; }
   .qr { width: 20mm; height: 20mm; }
