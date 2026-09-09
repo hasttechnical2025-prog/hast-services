@@ -87,7 +87,7 @@ function pagesFor(may: MayInfo, man: ManFields, qr: string): string {
     <div class="r-title">SỔ THEO DÕI MÁY</div>
 
     <div class="info">
-      <div><span class="lbl">Khách hàng:</span> &nbsp;<b class="kh">${esc(khName)}</b></div>
+      <div class="kh-row"><span class="lbl">Khách hàng:</span><b class="kh">${esc(khName)}</b></div>
       <div><span class="lbl">Địa chỉ:</span> &nbsp;${esc(diaChi)}</div>
       <div><span class="lbl">Vị trí đặt máy:</span> &nbsp;${esc(viTri)}</div>
       <div><span class="lbl">Số điện thoại:</span> &nbsp;${esc(man.soDienThoai)}</div>
@@ -139,13 +139,16 @@ const DOC_STYLE = `<style>
   .p1-right { display: flex; flex-direction: column; }
   .letterhead { width: 100%; max-height: 12mm; object-fit: contain; display: block; margin-bottom: 2.5mm; }
   .card { border: 1.5px solid #111; border-radius: 6px; padding: 4mm; width: 100%; flex: 1; display: flex; flex-direction: column; }
-  .r-title-row { display: flex; justify-content: space-between; align-items: center; margin: 1mm 0; }
+  .r-title-row { display: flex; justify-content: space-between; align-items: flex-start; margin: 1mm 0; }
   .r-phong { font-size: 11pt; font-weight: bold; }
   .qr { width: 20mm; height: 20mm; }
   .r-title { text-align: center; font-size: 23pt; font-weight: bold; letter-spacing: 0.5px; margin: 16mm 0 16mm; }
   .info { border: 1.2px solid #111; border-radius: 8px; padding: 2.5mm 3.5mm; font-size: 10.5pt; line-height: 1.6; }
   .info b.kh { font-size: 11.5pt; }
   .info .lbl { font-weight: bold; }
+  .info .kh-row { display: flex; gap: 1.5mm; align-items: baseline; }
+  .info .kh-row .lbl { flex-shrink: 0; }
+  .info .kh-row .kh { flex: 1; }
   .two { display: flex; gap: 3mm; margin-top: 2.5mm; }
   .two .b { flex: 1; border: 1.2px solid #111; border-radius: 4px; text-align: center; padding: 3.5mm 1.5mm; }
   .two .b .h { font-weight: bold; font-size: 10.5pt; }
