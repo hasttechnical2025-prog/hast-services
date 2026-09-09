@@ -44,11 +44,12 @@ function buildHtml(may: MayInfo, man: { nguoiLienHe: string; soDienThoai: string
   const cell = () => `
     <div class="cell">
       <div class="cell-date"><i>Ngày ..... tháng ..... năm 20.....</i></div>
-      <div class="ln">KTV: <span class="dot"></span></div>
-      <div class="ln">Số đếm: <span class="dot"></span></div>
-      <div class="ln">Công việc: ${box('Bảo trì')} &nbsp; ${box('Lắp máy')}</div>
-      <div class="ln"><u>T.trạng</u> máy: ${box('Tốt')} ${box('TBình')} ${box('Kém')}</div>
-      <div class="ln">Ghi chú: <span class="dot"></span></div>
+      <div class="ln f">KTV: <span class="dot"></span></div>
+      <div class="ln f">Số đếm: <span class="dot"></span></div>
+      <div class="ln">Công việc: ${box('Bảo trì')} ${box('Lắp máy')}</div>
+      <div class="ln">T.trạng máy: ${box('Tốt')} ${box('TBình')} ${box('Kém')}</div>
+      <div class="ln f">Ghi chú: <span class="dot"></span></div>
+      <div class="ghi2"></div>
       <div class="sign"><span>KHÁCH HÀNG</span><span>KS NỘI BỘ</span></div>
     </div>`
   const cells = Array.from({ length: 12 }).map(cell).join('')
@@ -91,7 +92,7 @@ function buildHtml(may: MayInfo, man: { nguoiLienHe: string; soDienThoai: string
   .r-title-row { display: flex; justify-content: space-between; align-items: center; margin: 1mm 0; }
   .r-phong { font-size: 11pt; font-weight: bold; }
   .qr { width: 20mm; height: 20mm; }
-  .r-title { text-align: center; font-size: 23pt; font-weight: bold; letter-spacing: 0.5px; margin: 30mm 0 20mm; }
+  .r-title { text-align: center; font-size: 23pt; font-weight: bold; letter-spacing: 0.5px; margin: 16mm 0 16mm; }
   .info { border: 1.2px solid #111; border-radius: 8px; padding: 2.5mm 3.5mm; font-size: 10.5pt; line-height: 1.6; }
   .info b.kh { font-size: 11.5pt; }
   .info .lbl { font-weight: bold; }
@@ -103,7 +104,7 @@ function buildHtml(may: MayInfo, man: { nguoiLienHe: string; soDienThoai: string
   .row-b .lbl { font-weight: bold; }
   .cb { display: inline-flex; align-items: center; gap: 0.8mm; margin-right: 2.5mm; white-space: nowrap; }
   .cb .bx { display: inline-block; width: 3mm; height: 3mm; border: 1.2px solid #111; text-align: center; line-height: 2.6mm; font-size: 9pt; }
-  .print-date { margin-top: 20mm; font-size: 10pt; }
+  .print-date { margin-top: auto; font-size: 10pt; }
   .print-date .lbl { font-weight: bold; }
 
   /* ---- TRANG 2 ---- */
@@ -113,9 +114,12 @@ function buildHtml(may: MayInfo, man: { nguoiLienHe: string; soDienThoai: string
   .grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(3, 1fr); gap: 0; border: 1.5px solid #111; height: 178mm; }
   .cell { border: 0.8px solid #111; padding: 2.5mm 2mm; font-size: 10pt; display: flex; flex-direction: column; overflow: hidden; }
   .cell-date { text-align: center; margin-bottom: 1mm; }
-  .cell .ln { margin: 0.5mm 0; white-space: nowrap; }
-  .cell .dot { display: inline-block; border-bottom: 1px dotted #333; min-width: 52%; }
-  .cell .sign { margin-top: 2.5mm; display: flex; justify-content: space-around; font-weight: bold; font-size: 9.5pt; }
+  .cell .ln { margin: 1mm 0; white-space: nowrap; }
+  .cell .ln.f { display: flex; align-items: baseline; gap: 1.5mm; }
+  .cell .dot { border-bottom: 1px dotted #333; }
+  .cell .ln.f .dot { flex: 1; min-width: 0; }
+  .cell .ghi2 { border-bottom: 1px dotted #333; margin-top: 4.5mm; }
+  .cell .sign { margin-top: 3mm; display: flex; justify-content: space-around; font-weight: bold; font-size: 9.5pt; }
 </style></head><body>
 
 <div class="page p1">
