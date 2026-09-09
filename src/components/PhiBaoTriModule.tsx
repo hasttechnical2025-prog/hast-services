@@ -201,27 +201,37 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
                 <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Đang tải…</td></tr>
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Không có máy HĐBT/MF.</td></tr>
-              ) : filtered.map(m => (
-                <tr key={m.id} className="hover:bg-slate-50">
+              ) : filtered.map(m => {
+                // Máy MF (miễn phí) — kỳ này khách KHÔNG phải thanh toán: khóa 3 ô cấu hình + tô màu.
+                const isMF = String(m.loai_hd || '').trim().toUpperCase() === 'MF'
+                return (
+                <tr key={m.id} className={isMF ? 'bg-amber-50' : 'hover:bg-slate-50'}>
                   <td className="px-3 py-1.5">{khName(m)}{m.soct_khach_cum ? <span className="ml-1 text-[10px] text-violet-600">(cụm)</span> : ''}</td>
                   <td className="px-2 py-1.5 font-mono text-xs">{m.ma_may}</td>
                   <td className="px-2 py-1.5 text-xs">{m.model}</td>
-                  <td className="px-2 py-1.5 text-center text-xs">{m.loai_hd}</td>
+                  <td className="px-2 py-1.5 text-center text-xs">
+                    <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold border ${isMF ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>{m.loai_hd}</span>
+                  </td>
                   <td className="px-2 py-1.5 text-center text-xs whitespace-nowrap">{fmtDate(m.ngay_het_han_hdbt) || '—'}</td>
-                  <td className="px-3 py-1.5">
-                    <Input value={m.so_hddv || ''} onChange={e => setLocal(m.id, 'so_hddv', e.target.value)}
-                      onBlur={e => patch(m.id, 'so_hddv', e.target.value)} className="h-8 bg-white" placeholder="VD: 310325/HĐDV-ST" />
-                  </td>
-                  <td className="px-3 py-1.5">
-                    <DateField value={m.ngay_ky_hddv ? String(m.ngay_ky_hddv).slice(0, 10) : ''} heightClass="h-8"
-                      onChange={v => { setLocal(m.id, 'ngay_ky_hddv', v); patch(m.id, 'ngay_ky_hddv', v || null) }} />
-                  </td>
-                  <td className="px-3 py-1.5">
-                    <Input value={m.don_gia_bt != null ? fmtVnd(m.don_gia_bt) : ''} onChange={e => setLocal(m.id, 'don_gia_bt', digits(e.target.value) ? Number(digits(e.target.value)) : null)}
-                      onBlur={e => patch(m.id, 'don_gia_bt', digits(e.target.value) ? Number(digits(e.target.value)) : null)} className="h-8 bg-white text-right" placeholder="0" />
-                  </td>
+                  {isMF ? (
+                    <td colSpan={3} className="px-3 py-1.5 text-center text-xs font-medium text-amber-700 italic">Miễn phí — không thu phí bảo trì kỳ này</td>
+                  ) : (<>
+                    <td className="px-3 py-1.5">
+                      <Input value={m.so_hddv || ''} onChange={e => setLocal(m.id, 'so_hddv', e.target.value)}
+                        onBlur={e => patch(m.id, 'so_hddv', e.target.value)} className="h-8 bg-white" placeholder="VD: 310325/HĐDV-ST" />
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <DateField value={m.ngay_ky_hddv ? String(m.ngay_ky_hddv).slice(0, 10) : ''} heightClass="h-8"
+                        onChange={v => { setLocal(m.id, 'ngay_ky_hddv', v); patch(m.id, 'ngay_ky_hddv', v || null) }} />
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <Input value={m.don_gia_bt != null ? fmtVnd(m.don_gia_bt) : ''} onChange={e => setLocal(m.id, 'don_gia_bt', digits(e.target.value) ? Number(digits(e.target.value)) : null)}
+                        onBlur={e => patch(m.id, 'don_gia_bt', digits(e.target.value) ? Number(digits(e.target.value)) : null)} className="h-8 bg-white text-right" placeholder="0" />
+                    </td>
+                  </>)}
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>
