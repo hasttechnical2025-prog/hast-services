@@ -20,7 +20,7 @@ type May = {
   don_gia_bt: number | null
   soct_khach_cum?: { ma_khach_hang?: string; ten_khach_hang?: string } | null
 }
-type Group = { so_hddv: string; mays: May[]; donGias: Set<number>; ngayKy: string | null }
+type Group = { so_hddv: string; mays: May[]; donGias: Set<number>; ngayKy: string | null; hetHan: string | null }
 
 const fmtVnd = (x: any) => (Math.round(Number(x) || 0)).toLocaleString('vi-VN')
 const fmtDate = (s?: string | null) => { if (!s) return ''; const p = String(s).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : '' }
@@ -88,24 +88,20 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
     for (const r of rows) {
       const hd = (r.so_hddv || '').trim()
       if (!hd || !(Number(r.don_gia_bt) > 0)) continue
-      if (!m.has(hd)) m.set(hd, { so_hddv: hd, mays: [], donGias: new Set(), ngayKy: r.ngay_ky_hddv })
+      if (!m.has(hd)) m.set(hd, { so_hddv: hd, mays: [], donGias: new Set(), ngayKy: r.ngay_ky_hddv, hetHan: r.ngay_het_han_hdbt })
       const g = m.get(hd)!
-      g.mays.push(r); g.donGias.add(Number(r.don_gia_bt)); if (r.ngay_ky_hddv && !g.ngayKy) g.ngayKy = r.ngay_ky_hddv
+      g.mays.push(r); g.donGias.add(Number(r.don_gia_bt))
+      if (r.ngay_ky_hddv && !g.ngayKy) g.ngayKy = r.ngay_ky_hddv
+      if (r.ngay_het_han_hdbt && !g.hetHan) g.hetHan = r.ngay_het_han_hdbt
     }
     return [...m.values()].sort((a, b) => a.so_hddv.localeCompare(b.so_hddv))
   }, [rows])
 
-  // Gợi ý kỳ (từ ngày ký → +1 năm −1 ngày) trong năm đang chọn.
-  const suggestKy = (ngayKy: string | null) => {
-    if (!ngayKy) return { tu: '', den: '' }
-    const p = String(ngayKy).slice(0, 10).split('-'); const mm = p[1], dd = p[2]
-    const tu = `${dd}/${mm}/${nam}`
-    const d = new Date(Number(nam), Number(mm) - 1, Number(dd)); d.setFullYear(d.getFullYear() + 1); d.setDate(d.getDate() - 1)
-    const den = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
-    return { tu, den }
-  }
+  // Kỳ thanh toán = TỪ ngày ký HĐ ĐẾN ngày hết hạn HĐ (dịch vụ đã thực hiện xong mới thu — không phải
+  // thu trước cho kỳ mới). Lấy trực tiếp từ dữ liệu máy, không tự cuốn năm.
+  const kyOf = (g: Group) => ({ tu: fmtDate(g.ngayKy), den: fmtDate(g.hetHan) })
   const defaultTenDong = (g: Group) => {
-    const { tu, den } = suggestKy(g.ngayKy)
+    const { tu, den } = kyOf(g)
     const kyTxt = (tu && den) ? ` từ ${tu} đến ${den}` : ''
     const kyKy = g.ngayKy ? ` ký ngày ${fmtDate(g.ngayKy)}` : ''
     return `Phí dịch vụ kỹ thuật tổng hợp máy photocopy${kyTxt} theo hợp đồng số ${g.so_hddv}${kyKy}`
@@ -157,7 +153,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
                 <th className="px-2 py-2 text-center">Số máy</th>
                 <th className="px-3 py-2 text-right">Đơn giá</th>
                 <th className="px-3 py-2 text-right">Thành tiền (chưa VAT)</th>
-                <th className="px-3 py-2 text-center">Kỳ (gợi ý)</th>
+                <th className="px-3 py-2 text-center">Kỳ HĐ (ký → hết hạn)</th>
                 <th className="px-2 py-2 text-center">Thao tác</th>
               </tr>
             </thead>
@@ -168,7 +164,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
                 const donGia = [...g.donGias][0]
                 const lech = g.donGias.size > 1
                 const daLap = billed.has(reportOf(g.so_hddv))
-                const { tu, den } = suggestKy(g.ngayKy)
+                const { tu, den } = kyOf(g)
                 return (
                   <tr key={g.so_hddv} className="hover:bg-slate-50">
                     <td className="px-3 py-2 font-mono font-semibold text-slate-700 whitespace-nowrap">{g.so_hddv}</td>
