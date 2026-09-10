@@ -188,6 +188,11 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   // Import thanh toán FAST (đối ứng công nợ Cột 3)
   const [payImporting, setPayImporting] = useState(false)
   const [payResult, setPayResult] = useState<any>(null)
+  // Đối chiếu sao kê ngân hàng (MB/VCB) -> bù trừ công nợ Cột 3
+  const [dcImporting, setDcImporting] = useState(false)
+  const [dcResult, setDcResult] = useState<any>(null) // { bank, matches:[{kind,tx,...,pick}], none, skipped, daDoiChieu }
+  const [dcApplying, setDcApplying] = useState(false)
+  const [dcNeedBank, setDcNeedBank] = useState<File | null>(null) // tự nhận diện trượt -> chọn tay
   // Bộ lọc Cột 3 (kthc/admin theo dõi công nợ)
   const [col3Pay, setCol3Pay] = useState<'all' | 'chua' | 'phan' | 'du'>('all')
   const [col3Age, setCol3Age] = useState<'all' | 'd30' | 'd15' | 'd0'>('all')
@@ -1083,6 +1088,168 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     finally { setPayImporting(false) }
   }
 
+  // ===== ĐỐI CHIẾU SAO KÊ NGÂN HÀNG (MB / VCB) =====
+  // Upload sao kê -> tự nhận diện ngân hàng theo CHỮ KÝ CỘT tiêu đề (không theo tên file) -> chuẩn hóa
+  // {ngày, số tiền, người chuyển, nội dung, ref} -> khớp số HĐ + số tiền với thẻ Cột 3. KHÔNG ghi gì
+  // cho tới khi kế toán bấm "Ghi nhận" trong modal duyệt. Bản 1: chỉ 1-1, khớp đủ.
+  const doiChieuNH = async (file: File, forced?: 'MB' | 'VCB') => {
+    setDcImporting(true)
+    try {
+      const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
+      const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer())
+      const ws = wb.worksheets[0]
+      const cell = (v: any) => { let x = v; if (x && typeof x === 'object' && 'result' in x) x = x.result; if (x && typeof x === 'object' && 'text' in x) x = x.text; if (x && typeof x === 'object' && 'richText' in x) x = x.richText.map((r: any) => r.text).join(''); return x }
+      const norm2 = (s: any) => String(s ?? '').replace(/\s+/g, ' ').trim()
+      const up = (s: any) => norm2(s).toUpperCase()
+
+      // --- Nhận diện ngân hàng + vị trí cột (dò header trong 15 dòng đầu) ---
+      let bank: 'MB' | 'VCB' | '' = forced || ''
+      let headRow = -1, colNgay = -1, colTien = -1, colNguoi = -1, colND = -1, colRef = -1
+      for (let r = 1; r <= Math.min(ws.rowCount, 15); r++) {
+        const row = ws.getRow(r)
+        let ngay = -1, tien = -1, nguoi = -1, nd = -1, ref = -1, isVCB = false, isMB = false
+        for (let c = 1; c <= Math.min(ws.columnCount, 20); c++) {
+          const t = up(row.getCell(c).value)
+          if (!t) continue
+          // VCB: "Số tiền ghi có" / "Mô tả" / "Số tham chiếu" / "Ngày giao dịch"
+          if (t === 'SỐ TIỀN GHI CÓ') { isVCB = true; tien = c }
+          else if (t === 'MÔ TẢ') nd = c
+          else if (t === 'SỐ THAM CHIẾU') ref = c
+          // MB: "PHÁT SINH CÓ" / "ĐƠN VỊ THỤ HƯỞNG/ĐƠN VỊ CHUYỂN" / "NỘI DUNG"
+          else if (t === 'PHÁT SINH CÓ') { isMB = true; if (tien < 0) tien = c }
+          else if (t.startsWith('ĐƠN VỊ THỤ HƯỞNG')) nguoi = c
+          else if (t === 'NỘI DUNG' && nd < 0) nd = c
+          else if (t === 'NGÀY GIAO DỊCH' && ngay < 0) ngay = c
+        }
+        const detected = forced || (isVCB ? 'VCB' : isMB ? 'MB' : '')
+        if (detected && (tien > 0)) {
+          bank = detected; headRow = r; colNgay = ngay; colTien = tien; colNguoi = nguoi; colND = nd; colRef = ref
+          break
+        }
+      }
+      if (!bank || headRow < 0 || colTien < 0 || colND < 0) {
+        // Không tự nhận diện được -> mời chọn tay MB/VCB.
+        setDcNeedBank(file)
+        return
+      }
+      setDcNeedBank(null)
+
+      // --- Đọc + chuẩn hóa từng dòng ---
+      const parseAmt = (v: any) => Number(String(v ?? '').replace(/[^\d]/g, '')) || 0
+      const parseNgay = (v: any) => {
+        if (v instanceof Date) { const d = v; return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+        const s = norm2(v)
+        const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/) // dd/mm/yyyy (MB)
+        if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
+        const iso = s.match(/(\d{4})-(\d{2})-(\d{2})/); if (iso) return iso[0]
+        return ''
+      }
+      // Số HĐ: thử cả bản gộp-space và bỏ-space (MB chèn khoảng trắng giữa từ).
+      const extractHd = (nd: string) => {
+        for (const s of [norm2(nd), norm2(nd).replace(/\s+/g, '')]) {
+          const m = s.match(/(H[ĐD]|HOA\s*DON|SO\s*HD|HOADON|SOHD)[^0-9]{0,4}(\d{2,7})/i)
+          if (m) return m[2].replace(/^0+/, '')
+        }
+        return ''
+      }
+      // Tên đơn vị chuyển: cột riêng (MB) hoặc bóc từ "BO:" / đầu mô tả (VCB).
+      const extractNguoi = (row: any, nd: string) => {
+        if (colNguoi > 0) { const v = norm2(cell(row.getCell(colNguoi).value)); if (v) return v }
+        const bo = norm2(nd).match(/BO:\s*([^.]+?)(?:\.|Remark|DD:|$)/i)
+        if (bo) return bo[1].trim()
+        return ''
+      }
+      const custKey = (s: any) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[đĐ]/g, 'd').toLowerCase()
+        .replace(/cong ty|co phan|trach nhiem huu han|tnhh|mot thanh vien|mtv|cty|ctcp|\bcp\b|chi nhanh/g, ' ')
+        .replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim()
+      const custMatch = (a: string, b: string) => !!a && !!b && a.length >= 4 && b.length >= 4 && (a === b || a.includes(b) || b.includes(a))
+
+      type Tx = { ngay: string; so_tien: number; nguoi: string; nkey: string; nd: string; ref: string; soHD: string; tx_key: string }
+      const rows: Tx[] = []
+      for (let r = headRow + 1; r <= ws.rowCount; r++) {
+        const row = ws.getRow(r)
+        const so_tien = parseAmt(cell(row.getCell(colTien).value))
+        if (so_tien <= 0) continue
+        const nd = norm2(cell(row.getCell(colND).value))
+        if (!nd && colNguoi < 0) continue
+        const ngay = colNgay > 0 ? parseNgay(cell(row.getCell(colNgay).value)) : ''
+        const ref = colRef > 0 ? norm2(cell(row.getCell(colRef).value)) : ''
+        const nguoi = extractNguoi(row, nd)
+        const soHD = extractHd(nd)
+        const tx_key = `${bank}|${ngay}|${so_tien}|${ref}|${nd.slice(0, 50)}`
+        rows.push({ ngay, so_tien, nguoi, nkey: custKey(nguoi), nd, ref, soHD, tx_key })
+      }
+      if (rows.length === 0) { showNotification('error', `Sao kê ${bank}: không đọc được giao dịch Có nào.`); return }
+
+      // Bỏ giao dịch đã đối chiếu trước đó (chống thu đúp).
+      let doneKeys = new Set<string>()
+      try { const res = await fetch('/api/admin/doi-chieu-nh'); const j = await res.json(); if (res.ok) doneKeys = new Set(j.keys || []) } catch { /* vẫn chạy được, chỉ mất chống-trùng phía client */ }
+      const fresh = rows.filter(t => !doneKeys.has(t.tx_key))
+      const daDoiChieu = rows.length - fresh.length
+
+      // --- Khớp với Cột 3 (1-1) ---
+      const normHd = (s: any) => String(s ?? '').replace(/\D/g, '').replace(/^0+/, '')
+      const col3 = cardsCol3.map((c: any) => ({
+        c, hd: normHd(c.tickets[0].so_hoa_don || ''), tong: cardTong(c),
+        name: custKey(c.customer?.soct_khach_cum?.ten_khach_hang || c.customer?.ten_khach_hang || ''),
+        khach: c.customer?.soct_khach_cum?.ten_khach_hang || c.customer?.ten_khach_hang || '—',
+        soHdRaw: c.tickets[0].so_hoa_don || '', id: c.tickets[0].id,
+      }))
+      const TOL = 1000
+      const usedCard = new Set<string>(); const usedTx = new Set<number>()
+      const matches: any[] = []
+      const pack = (x: any, tx: Tx, kind: string, reason: string, pick: boolean) => ({
+        kind, reason, pick, tx, khach: x.khach, so_hoa_don: x.soHdRaw, id_cong_viec: x.id, tong: x.tong, con: Math.max(0, x.tong - (Number(x.c.tickets[0].so_tien_da_thu) || 0)),
+      })
+      // Pass 1: KHỚP CHẮC = số HĐ + số tiền (auto-tick).
+      fresh.forEach((tx, i) => {
+        if (!tx.soHD) return
+        const cand = col3.find((x: any) => !usedCard.has(x.c.id) && x.hd && x.hd === tx.soHD && Math.abs(x.tong - tx.so_tien) <= TOL)
+        if (cand) { usedTx.add(i); usedCard.add(cand.c.id); matches.push(pack(cand, tx, 'exact', 'Số HĐ + số tiền khớp', true)) }
+      })
+      // Pass 2: GỢI Ý = số HĐ khớp nhưng tiền lệch (chờ duyệt).
+      fresh.forEach((tx, i) => {
+        if (usedTx.has(i) || !tx.soHD) return
+        const cand = col3.find((x: any) => !usedCard.has(x.c.id) && x.hd && x.hd === tx.soHD)
+        if (cand) { usedTx.add(i); usedCard.add(cand.c.id); matches.push(pack(cand, tx, 'suggest', 'Số HĐ khớp, số tiền lệch', false)) }
+      })
+      // Pass 3: GỢI Ý = tên khách + số tiền khớp (không bắt được số HĐ).
+      fresh.forEach((tx, i) => {
+        if (usedTx.has(i) || !tx.nkey) return
+        const cand = col3.find((x: any) => !usedCard.has(x.c.id) && x.name && custMatch(x.name, tx.nkey) && Math.abs(x.tong - tx.so_tien) <= TOL)
+        if (cand) { usedTx.add(i); usedCard.add(cand.c.id); matches.push(pack(cand, tx, 'suggest', 'Tên khách + số tiền khớp (không có số HĐ)', false)) }
+      })
+      // Giao dịch có số HĐ nhưng không thấy ở Cột 3 -> liệt kê để kế toán biết (có thể đã thanh toán / kỳ khác).
+      const none = fresh.filter((tx, i) => !usedTx.has(i) && tx.soHD).map(tx => ({ tx }))
+      const skipped = fresh.length - usedTx.size - none.length
+
+      setDcResult({ bank, matches, none, skipped, daDoiChieu, total: rows.length })
+    } catch (e: any) {
+      showNotification('error', 'Lỗi đọc sao kê: ' + (e?.message || ''))
+    } finally { setDcImporting(false) }
+  }
+
+  // Ghi nhận các cặp đã tick trong modal duyệt -> gọi API đối chiếu.
+  const applyDoiChieu = async () => {
+    if (!dcResult) return
+    const picked = dcResult.matches.filter((m: any) => m.pick)
+    if (picked.length === 0) return showNotification('error', 'Chưa chọn cặp nào để ghi nhận.')
+    setDcApplying(true)
+    try {
+      const items = picked.map((m: any) => ({
+        tx_key: m.tx.tx_key, ngan_hang: dcResult.bank, ref: m.tx.ref, ngay: m.tx.ngay,
+        so_tien: m.tx.so_tien, nguoi_chuyen: m.tx.nguoi, noi_dung: m.tx.nd,
+        so_hoa_don: m.so_hoa_don, id_cong_viec: m.id_cong_viec, tong: m.tong,
+      }))
+      const res = await fetch('/api/admin/doi-chieu-nh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }) })
+      const j = await res.json()
+      if (res.ok) {
+        showNotification('success', `Đã ghi thu ${j.thu} HĐ, chuyển "Đã thanh toán" ${j.chuyen}.${(j.failed || []).length ? ` ${j.failed.length} lỗi.` : ''}`)
+        setDcResult(null); await load()
+      } else showNotification('error', j.error || 'Lỗi ghi nhận')
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setDcApplying(false) }
+  }
+
   // IMPORT BÁO CÁO M-INVOICE: đọc file "Báo cáo tổng hợp doanh thu hóa đơn", TỰ ĐỘNG điền Số HĐ +
   // chuyển thẻ từ cột "KT-HC lên hóa đơn" (Đang xử lý HĐ) sang "Chờ thanh toán" (Đã lên hóa đơn).
   // AN TOÀN: chỉ áp dòng KHỚP CHẮC CHẮN (Số đơn hàng = report thẻ) VÀ khớp tổng tiền (±1.000đ do làm
@@ -1625,6 +1792,20 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                     <input type="file" accept=".xlsx" className="hidden" disabled={payImporting}
                       onChange={e => { const f = e.target.files?.[0]; if (f) importThanhToanFast(f); e.target.value = '' }} />
                   </label>
+                  <label title="Đối chiếu sao kê ngân hàng (MB/VCB) → khớp số HĐ + số tiền với HĐ đang chờ thu; duyệt trước khi ghi"
+                    className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 cursor-pointer ${dcImporting ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <Landmark className="w-3 h-3" /> {dcImporting ? 'Đang đọc…' : 'Đối chiếu ngân hàng'}
+                    <input type="file" accept=".xlsx" className="hidden" disabled={dcImporting}
+                      onChange={e => { const f = e.target.files?.[0]; if (f) doiChieuNH(f); e.target.value = '' }} />
+                  </label>
+                </div>
+              )}
+              {isKeToan && dcNeedBank && (
+                <div className="text-[10px] bg-amber-50 border border-amber-200 text-amber-800 rounded px-2 py-1.5 flex items-center gap-2 flex-wrap">
+                  <span>Không tự nhận diện được ngân hàng. Đây là:</span>
+                  <button onClick={() => { const f = dcNeedBank; setDcNeedBank(null); if (f) doiChieuNH(f, 'MB') }} className="px-2 py-0.5 rounded border border-blue-300 text-blue-700 bg-white font-semibold">MB</button>
+                  <button onClick={() => { const f = dcNeedBank; setDcNeedBank(null); if (f) doiChieuNH(f, 'VCB') }} className="px-2 py-0.5 rounded border border-blue-300 text-blue-700 bg-white font-semibold">VCB</button>
+                  <button onClick={() => setDcNeedBank(null)} className="px-2 py-0.5 rounded border border-slate-300 text-slate-500 bg-white">Bỏ</button>
                 </div>
               )}
             </div>
@@ -2311,6 +2492,104 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
           </div>
         </div>
       )}
+
+      {/* MODAL DUYỆT ĐỐI CHIẾU SAO KÊ NGÂN HÀNG */}
+      {dcResult && (() => {
+        const exact = dcResult.matches.filter((m: any) => m.kind === 'exact')
+        const suggest = dcResult.matches.filter((m: any) => m.kind === 'suggest')
+        const nPicked = dcResult.matches.filter((m: any) => m.pick).length
+        const toggle = (target: any) => setDcResult((prev: any) => ({ ...prev, matches: prev.matches.map((m: any) => m === target ? { ...m, pick: !m.pick } : m) }))
+        const row = (m: any, idx: number) => (
+          <label key={idx} className={`flex items-start gap-2 px-3 py-2 text-xs cursor-pointer ${m.pick ? 'bg-emerald-50/60' : ''}`}>
+            <input type="checkbox" checked={m.pick} onChange={() => toggle(m)} className="mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between gap-2">
+                <span className="font-semibold text-slate-800 truncate">{m.khach}</span>
+                <span className="font-mono font-semibold text-slate-700 shrink-0">HĐ {m.so_hoa_don}</span>
+              </div>
+              <div className="text-slate-500 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                <span>GD: <b className="text-slate-700">{fmtVnd(m.tx.so_tien)}đ</b>{m.tx.ngay ? ` · ${fmtDate(m.tx.ngay)}` : ''}</span>
+                <span>Tổng HĐ: {fmtVnd(m.tong)}đ</span>
+                {Math.abs(m.tong - m.tx.so_tien) > 1000 && <span className="text-rose-600">lệch {fmtVnd(Math.abs(m.tong - m.tx.so_tien))}đ</span>}
+              </div>
+              {m.tx.nguoi && <div className="text-[10px] text-slate-400 truncate">Người chuyển: {m.tx.nguoi}</div>}
+              {m.kind === 'suggest' && <div className="text-[10px] text-amber-600">⚠ {m.reason}</div>}
+            </div>
+          </label>
+        )
+        return (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => !dcApplying && setDcResult(null)}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="px-5 py-4 border-b border-slate-100 shrink-0">
+                <h3 className="font-bold text-slate-800">Đối chiếu sao kê — <span className="text-blue-700">{dcResult.bank}</span> · {dcResult.total} giao dịch</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Khớp chắc (HĐ + tiền) đã tick sẵn. Gợi ý cần bạn kiểm rồi tick. Chỉ ghi khi bấm <b>Ghi nhận</b>.</p>
+              </div>
+              <div className="p-5 space-y-4 overflow-y-auto flex-1 min-h-0 text-sm">
+                <div className="flex flex-wrap gap-3">
+                  <div className="flex-1 min-w-[110px] rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+                    <div className="text-2xl font-bold text-emerald-700">{exact.length}</div>
+                    <div className="text-xs text-emerald-700">Khớp chắc (HĐ + tiền)</div>
+                  </div>
+                  <div className="flex-1 min-w-[110px] rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                    <div className="text-2xl font-bold text-amber-700">{suggest.length}</div>
+                    <div className="text-xs text-amber-700">Gợi ý (chờ duyệt)</div>
+                  </div>
+                  <div className="flex-1 min-w-[110px] rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                    <div className="text-2xl font-bold text-slate-600">{dcResult.none.length}</div>
+                    <div className="text-xs text-slate-600">Có HĐ, không ở chờ thu</div>
+                  </div>
+                </div>
+
+                {exact.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-emerald-600 uppercase mb-1.5">Khớp chắc — tick sẵn</p>
+                    <div className="rounded-lg border border-emerald-100 divide-y divide-emerald-50 max-h-[30vh] overflow-y-auto">
+                      {exact.map((m: any, i: number) => row(m, i))}
+                    </div>
+                  </div>
+                )}
+
+                {suggest.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-amber-600 uppercase mb-1.5">Gợi ý — kiểm rồi tick</p>
+                    <div className="rounded-lg border border-amber-100 divide-y divide-amber-50 max-h-[26vh] overflow-y-auto">
+                      {suggest.map((m: any, i: number) => row(m, i))}
+                    </div>
+                  </div>
+                )}
+
+                {dcResult.none.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase mb-1.5">Giao dịch có số HĐ nhưng không ở "Chờ thanh toán"</p>
+                    <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-[20vh] overflow-y-auto">
+                      {dcResult.none.map((n: any, i: number) => (
+                        <div key={i} className="px-3 py-1.5 text-xs flex justify-between gap-2">
+                          <span className="font-mono font-semibold shrink-0">HĐ {n.tx.soHD}</span>
+                          <span className="text-slate-500 truncate flex-1">{n.tx.nguoi || n.tx.nd.slice(0, 40)}</span>
+                          <span className="shrink-0">{fmtVnd(n.tx.so_tien)}đ</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">Có thể HĐ đã thanh toán / thuộc kỳ khác / chưa lên HĐ. Bỏ qua.</p>
+                  </div>
+                )}
+
+                <p className="text-[11px] text-slate-400">
+                  Bỏ qua <b>{dcResult.skipped}</b> giao dịch không liên quan (không khớp HĐ/khách nào ở chờ thu).
+                  {dcResult.daDoiChieu > 0 && <> Đã loại <b>{dcResult.daDoiChieu}</b> giao dịch đối chiếu từ lần trước.</>}
+                </p>
+              </div>
+              <div className="px-5 py-4 border-t border-slate-100 flex justify-between items-center shrink-0">
+                <span className="text-xs text-slate-500">Đã chọn <b className="text-slate-800">{nPicked}</b> cặp</span>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setDcResult(null)} disabled={dcApplying} className="h-9">Đóng</Button>
+                  <Button onClick={applyDoiChieu} disabled={dcApplying || nPicked === 0} className="h-9 bg-blue-600 hover:bg-blue-700">{dcApplying ? 'Đang ghi…' : `Ghi nhận (${nPicked})`}</Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
     </div>
   )
