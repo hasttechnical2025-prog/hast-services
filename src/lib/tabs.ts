@@ -18,9 +18,9 @@ export const TAB_TREE: { key: string, label: string, subs: TabSub[], alwaysOn?: 
   {
     key: 'tai_chinh', label: 'Tài chính', subs: [
       { key: 'cong_no', label: 'Công nợ' },
-      { key: 'kanban', label: 'Kanban Hóa đơn' },
       { key: 'thue_cpc', label: 'Thuê / CPC', subs: [['don_gia', 'Đơn giá HĐ'], ['counter', 'Nhập counter'], ['khung', 'Hợp đồng khung'], ['bang_ke', 'Bảng kê']] },
       { key: 'phi_bao_tri', label: 'Phí bảo trì' },
+      { key: 'kanban', label: 'Kanban Hóa đơn' },
     ]
   },
   { key: 'quan_ly', label: 'Quản lý', subs: [{ key: 'nhat_ky', label: 'Báo cáo KTV' }, { key: 'khach_hang', label: 'Danh sách khách hàng' }, { key: 'khach_cum', label: 'Khách hàng cụm' }, { key: 'bao_cao', label: 'Báo cáo tháng' }, { key: 'nghi_phep', label: 'Nghỉ phép' }] },

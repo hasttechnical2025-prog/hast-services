@@ -311,7 +311,7 @@ export default function AdminDashboard() {
   const effectiveMonitorTab = firstVisibleSub('theo_doi_may', ['bao_tri', 'giam_dinh'], monitorTab) as "bao_tri" | "giam_dinh"
   const effectiveQuanLyTab = firstVisibleSub('quan_ly', ['nhat_ky', 'khach_hang', 'khach_cum', 'bao_cao', 'nghi_phep'], quanLyTab) as "nhat_ky" | "khach_hang" | "khach_cum" | "bao_cao" | "nghi_phep"
   const effectiveCongTacTab = firstVisibleSub('cong_viec', ['giao_viec', 'hoan_phieu'], congTacTab) as "giao_viec" | "hoan_phieu"
-  const effectiveTaiChinhTab = firstVisibleSub('tai_chinh', ['cong_no', 'kanban', 'thue_cpc', 'phi_bao_tri'], taiChinhTab) as "cong_no" | "thue_cpc" | "kanban" | "phi_bao_tri"
+  const effectiveTaiChinhTab = firstVisibleSub('tai_chinh', ['cong_no', 'thue_cpc', 'phi_bao_tri', 'kanban'], taiChinhTab) as "cong_no" | "thue_cpc" | "kanban" | "phi_bao_tri"
   const repeatNgay = parseInt(cauHinh.repeat_ngay || '30') || 30
   const nguongTonThap = parseInt(cauHinh.nguong_ton_thap || '0') || 0
 
@@ -1873,14 +1873,14 @@ export default function AdminDashboard() {
               {subVisible('tai_chinh', 'cong_no') && (
                 <button onClick={() => setTaiChinhTab("cong_no")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'cong_no' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Công nợ</button>
               )}
-              {subVisible('tai_chinh', 'kanban') && (
-                <button onClick={() => setTaiChinhTab("kanban")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'kanban' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Kanban Hóa đơn</button>
-              )}
               {subVisible('tai_chinh', 'thue_cpc') && (
                 <button onClick={() => setTaiChinhTab("thue_cpc")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'thue_cpc' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Thuê / CPC</button>
               )}
               {subVisible('tai_chinh', 'phi_bao_tri') && (
                 <button onClick={() => setTaiChinhTab("phi_bao_tri")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'phi_bao_tri' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Phí bảo trì</button>
+              )}
+              {subVisible('tai_chinh', 'kanban') && (
+                <button onClick={() => setTaiChinhTab("kanban")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'kanban' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Kanban Hóa đơn</button>
               )}
             </div>
             {effectiveTaiChinhTab === "cong_no" && subVisible('tai_chinh', 'cong_no') && (
