@@ -32,6 +32,7 @@ export default function DateField({ value, onChange, className, heightClass = "h
           type="date"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onClick={(e) => { try { (e.currentTarget as any).showPicker?.() } catch { /* không hỗ trợ showPicker */ } }}
           aria-label="Chọn ngày"
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none bg-transparent border-0 p-0"
         />

@@ -33,7 +33,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
   const [nam, setNam] = useState(String(new Date().getFullYear()))
-  const [bill, setBill] = useState<{ so_hddv: string; ten_dong: string; soMay: number; donGia: number } | null>(null)
+  const [bill, setBill] = useState<{ so_hddv: string; ten_dong: string; soMay: number; donGia: number; khach: string; diaChi: string } | null>(null)
   const [pushing, setPushing] = useState(false)
   const [dirty, setDirty] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
@@ -112,7 +112,11 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
   }
   const reportOf = (hd: string) => `PBT-${nam}-${sanitize(hd)}`
 
-  const openBill = (g: Group) => setBill({ so_hddv: g.so_hddv, ten_dong: defaultTenDong(g), soMay: g.mays.length, donGia: [...g.donGias][0] })
+  const openBill = (g: Group) => {
+    const addrs = [...new Set(g.mays.map(m => (m.vi_tri_dat_may || '').trim()).filter(Boolean))]
+    const diaChi = addrs.length === 0 ? '' : addrs.length === 1 ? addrs[0] : `${addrs.length} vị trí máy`
+    setBill({ so_hddv: g.so_hddv, ten_dong: defaultTenDong(g), soMay: g.mays.length, donGia: [...g.donGias][0], khach: khName(g.mays[0]), diaChi })
+  }
   const doPush = async () => {
     if (!bill) return
     setPushing(true)
@@ -218,7 +222,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
                 <th className="px-2 py-2 text-center">Loại HĐ</th>
                 <th className="px-2 py-2 text-center">Hết hạn HĐBT</th>
                 <th className="px-3 py-2 text-left w-40">Số HĐDV</th>
-                <th className="px-3 py-2 text-left w-36">Ngày ký HĐ</th>
+                <th className="px-3 py-2 text-left w-32">Ngày ký HĐ</th>
                 <th className="px-3 py-2 text-right w-32">Đơn giá phí BT</th>
               </tr>
             </thead>
@@ -240,14 +244,14 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
                   </td>
                   <td className="px-2 py-1.5 text-center text-xs whitespace-nowrap">{fmtDate(m.ngay_het_han_hdbt) || '—'}</td>
                   {isMF ? (
-                    <td colSpan={3} className="px-3 py-1.5 text-center text-xs font-medium text-amber-700 italic">Miễn phí — không thu phí bảo trì kỳ này</td>
+                    <td colSpan={3} className="px-3 py-1.5 text-center text-xs font-medium text-amber-700 italic">MF - không thu phí bảo trì</td>
                   ) : (<>
                     <td className="px-3 py-1.5">
                       <Input value={m.so_hddv || ''} onChange={e => setLocal(m.id, 'so_hddv', e.target.value)}
                         className="h-8 bg-white" placeholder="VD: 310325/HĐDV-ST" />
                     </td>
                     <td className="px-3 py-1.5">
-                      <DateField value={m.ngay_ky_hddv ? String(m.ngay_ky_hddv).slice(0, 10) : ''} heightClass="h-8"
+                      <DateField value={m.ngay_ky_hddv ? String(m.ngay_ky_hddv).slice(0, 10) : ''} heightClass="h-8" className="w-[130px]"
                         onChange={v => setLocal(m.id, 'ngay_ky_hddv', v)} />
                     </td>
                     <td className="px-3 py-1.5">
@@ -270,6 +274,10 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-800">Tạo phí bảo trì — HĐ {bill.so_hddv}</h3>
               <button onClick={() => setBill(null)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="text-sm bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+              <div className="font-semibold text-slate-800">{bill.khach}</div>
+              {bill.diaChi && <div className="text-xs text-slate-500 mt-0.5">📍 {bill.diaChi}</div>}
             </div>
             <div className="text-sm text-slate-600 bg-slate-50 rounded-lg p-3">
               <span className="font-semibold">{bill.soMay}</span> máy × <span className="font-semibold">{fmtVnd(bill.donGia)}</span> đ
