@@ -1194,30 +1194,46 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
         name: custKey(c.customer?.soct_khach_cum?.ten_khach_hang || c.customer?.ten_khach_hang || ''),
         khach: c.customer?.soct_khach_cum?.ten_khach_hang || c.customer?.ten_khach_hang || '—',
         soHdRaw: c.tickets[0].so_hoa_don || '', id: c.tickets[0].id,
+        xuat: String(c.tickets[0].ngay_xuat_hd || '').slice(0, 10), // ngày xuất HĐ (để chặn theo ngày)
       }))
       const TOL = 1000
+      // ĐIỀU KIỆN NGÀY: khách trả KHI/SAU khi có HĐ -> ngày GD >= ngày xuất HĐ − 5 ngày (trừ hao kế toán
+      // gửi HĐ nhưng quên kéo sang Cột 3 đúng hôm đó). GD trước mốc đó gần như chắc KHÔNG phải trả cho HĐ
+      // này (thường là HĐ TRÙNG SỐ của năm trước) -> không auto-tick, hạ xuống "gợi ý" kèm cảnh báo.
+      const DAY_SLACK = 5
+      const dGap = (txNgay: string, xuat: string) => (txNgay && xuat) ? Math.round((Date.parse(txNgay) - Date.parse(xuat)) / 86400000) : null
+      const dateOk = (txNgay: string, xuat: string) => { const g = dGap(txNgay, xuat); return g == null || g >= -DAY_SLACK }
       const usedCard = new Set<string>(); const usedTx = new Set<number>()
       const matches: any[] = []
       const pack = (x: any, tx: Tx, kind: string, reason: string, pick: boolean) => ({
-        kind, reason, pick, tx, khach: x.khach, so_hoa_don: x.soHdRaw, id_cong_viec: x.id, tong: x.tong, con: Math.max(0, x.tong - (Number(x.c.tickets[0].so_tien_da_thu) || 0)),
+        kind, reason, pick, tx, khach: x.khach, so_hoa_don: x.soHdRaw, id_cong_viec: x.id, tong: x.tong,
+        con: Math.max(0, x.tong - (Number(x.c.tickets[0].so_tien_da_thu) || 0)), xuat: x.xuat, gap: dGap(tx.ngay, x.xuat),
       })
-      // Pass 1: KHỚP CHẮC = số HĐ + số tiền (auto-tick).
+      // Pass 1: KHỚP CHẮC = số HĐ + số tiền + NGÀY hợp lệ (auto-tick).
       fresh.forEach((tx, i) => {
         if (!tx.soHD) return
-        const cand = col3.find((x: any) => !usedCard.has(x.c.id) && x.hd && x.hd === tx.soHD && Math.abs(x.tong - tx.so_tien) <= TOL)
-        if (cand) { usedTx.add(i); usedCard.add(cand.c.id); matches.push(pack(cand, tx, 'exact', 'Số HĐ + số tiền khớp', true)) }
+        const cand = col3.find((x: any) => !usedCard.has(x.c.id) && x.hd && x.hd === tx.soHD && Math.abs(x.tong - tx.so_tien) <= TOL && dateOk(tx.ngay, x.xuat))
+        if (cand) { usedTx.add(i); usedCard.add(cand.c.id); matches.push(pack(cand, tx, 'exact', 'Số HĐ + số tiền + ngày khớp', true)) }
       })
-      // Pass 2: GỢI Ý = số HĐ khớp nhưng tiền lệch (chờ duyệt).
+      // Pass 2: GỢI Ý = số HĐ khớp nhưng LỆCH tiền hoặc SAI ngày (chờ duyệt, nêu rõ lý do).
       fresh.forEach((tx, i) => {
         if (usedTx.has(i) || !tx.soHD) return
         const cand = col3.find((x: any) => !usedCard.has(x.c.id) && x.hd && x.hd === tx.soHD)
-        if (cand) { usedTx.add(i); usedCard.add(cand.c.id); matches.push(pack(cand, tx, 'suggest', 'Số HĐ khớp, số tiền lệch', false)) }
+        if (cand) {
+          const tienLech = Math.abs(cand.tong - tx.so_tien) > TOL
+          const gap = dGap(tx.ngay, cand.xuat)
+          const reason = tienLech && !dateOk(tx.ngay, cand.xuat)
+            ? 'Số HĐ khớp nhưng tiền LỆCH và ngày GD trước ngày HĐ'
+            : tienLech ? 'Số HĐ khớp, số tiền lệch'
+              : `Số HĐ + tiền khớp nhưng NGÀY GD trước ngày HĐ ${gap != null ? Math.abs(gap) : '?'} ngày (kiểm HĐ trùng số năm trước)`
+          usedTx.add(i); usedCard.add(cand.c.id); matches.push(pack(cand, tx, 'suggest', reason, false))
+        }
       })
-      // Pass 3: GỢI Ý = tên khách + số tiền khớp (không bắt được số HĐ).
+      // Pass 3: GỢI Ý = tên khách + số tiền + NGÀY hợp lệ (không bắt được số HĐ).
       fresh.forEach((tx, i) => {
         if (usedTx.has(i) || !tx.nkey) return
-        const cand = col3.find((x: any) => !usedCard.has(x.c.id) && x.name && custMatch(x.name, tx.nkey) && Math.abs(x.tong - tx.so_tien) <= TOL)
-        if (cand) { usedTx.add(i); usedCard.add(cand.c.id); matches.push(pack(cand, tx, 'suggest', 'Tên khách + số tiền khớp (không có số HĐ)', false)) }
+        const cand = col3.find((x: any) => !usedCard.has(x.c.id) && x.name && custMatch(x.name, tx.nkey) && Math.abs(x.tong - tx.so_tien) <= TOL && dateOk(tx.ngay, x.xuat))
+        if (cand) { usedTx.add(i); usedCard.add(cand.c.id); matches.push(pack(cand, tx, 'suggest', 'Tên khách + số tiền + ngày khớp (không có số HĐ)', false)) }
       })
       // Giao dịch có số HĐ nhưng không thấy ở Cột 3 -> liệt kê để kế toán biết (có thể đã thanh toán / kỳ khác).
       const none = fresh.filter((tx, i) => !usedTx.has(i) && tx.soHD).map(tx => ({ tx }))
@@ -2509,8 +2525,9 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
               </div>
               <div className="text-slate-500 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
                 <span>GD: <b className="text-slate-700">{fmtVnd(m.tx.so_tien)}đ</b>{m.tx.ngay ? ` · ${fmtDate(m.tx.ngay)}` : ''}</span>
-                <span>Tổng HĐ: {fmtVnd(m.tong)}đ</span>
+                <span>Tổng HĐ: {fmtVnd(m.tong)}đ{m.xuat ? ` · xuất ${fmtDate(m.xuat)}` : ''}</span>
                 {Math.abs(m.tong - m.tx.so_tien) > 1000 && <span className="text-rose-600">lệch {fmtVnd(Math.abs(m.tong - m.tx.so_tien))}đ</span>}
+                {m.gap != null && m.gap < -5 && <span className="text-rose-600">GD trước HĐ {Math.abs(m.gap)} ngày</span>}
               </div>
               {m.tx.nguoi && <div className="text-[10px] text-slate-400 truncate">Người chuyển: {m.tx.nguoi}</div>}
               {m.kind === 'suggest' && <div className="text-[10px] text-amber-600">⚠ {m.reason}</div>}
