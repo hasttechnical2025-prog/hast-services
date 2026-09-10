@@ -1274,11 +1274,15 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                             onClick={(e) => {
                               e.stopPropagation()
                               const laThueCpc = card.tickets.every((t: any) => t.nguon === 'thue_cpc')
+                              const laPhiBT = card.tickets.every((t: any) => t.nguon === 'phi_bao_tri')
+                              const laBilling = laThueCpc || laPhiBT
                               setConfirmDialog({
-                                title: laThueCpc ? "Gỡ phiếu Thuê/CPC" : "Thu hồi phiếu",
+                                title: laThueCpc ? "Gỡ phiếu Thuê/CPC" : laPhiBT ? "Gỡ phiếu Phí bảo trì" : "Thu hồi phiếu",
                                 message: laThueCpc
                                   ? "Phiếu Thuê/CPC không có Công nợ. Thu hồi = GỠ phiếu này khỏi Kanban (bảng kê sẽ đẩy lại được). Tiếp tục?"
-                                  : "Bạn có chắc chắn muốn thu hồi (các) phiếu này quay lại Công nợ không?",
+                                  : laPhiBT
+                                    ? "Phiếu Phí bảo trì không có Công nợ. Thu hồi = GỠ phiếu này khỏi Kanban, xử lý lại ở tab Phí bảo trì (dòng dịch vụ đã sửa tay sẽ nhập lại). Tiếp tục?"
+                                    : "Bạn có chắc chắn muốn thu hồi (các) phiếu này quay lại Công nợ không?",
                                 onConfirm: async () => {
                                   try {
                                     const targetIds = card.tickets.map((t: any) => t.id)
@@ -1288,7 +1292,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                                       body: JSON.stringify({ ids: targetIds, trang_thai_hd: 'Chưa hóa đơn' })
                                     })
                                     if (res.ok) {
-                                      showNotification('success', laThueCpc ? 'Đã gỡ phiếu Thuê/CPC khỏi Kanban.' : 'Đã thu hồi phiếu quay lại Công nợ.')
+                                      showNotification('success', laBilling ? 'Đã gỡ phiếu khỏi Kanban (xử lý lại ở tab nguồn).' : 'Đã thu hồi phiếu quay lại Công nợ.')
                                       load()
                                     } else {
                                       const err = await res.json()

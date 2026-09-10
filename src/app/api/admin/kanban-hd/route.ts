@@ -157,21 +157,23 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Trạng thái không hợp lệ' }, { status: 400 })
     }
 
-    // THU HỒI phiếu Thuê/CPC (nguon='thue_cpc'): KHÔNG có Công nợ -> GỠ KHỎI KANBAN (xóa phiếu).
-    // Bảng kê tự bỏ liên kết (bk.id_cong_viec ON DELETE SET NULL) -> "Đẩy Kanban" lại được.
+    // THU HỒI phiếu billing (nguon='thue_cpc' hoặc 'phi_bao_tri'): KHÔNG có Công nợ thật ->
+    // GỠ KHỎI KANBAN (xóa phiếu), KHÔNG đổi trạng thái. Nguồn chân lý là bảng kê Thuê/CPC / cấu
+    // hình tab Phí bảo trì -> xóa xong "Đẩy/Tạo Kanban" lại được. (Bảng kê tự bỏ liên kết qua
+    // bk.id_cong_viec ON DELETE SET NULL; phí BT dedup theo report nên report biến mất là đủ.)
     if (trang_thai_hd === 'Chưa hóa đơn') {
       const { data: srcs } = await supabaseAdmin.from('soct_cong_viec').select('id, nguon, so_hoa_don').in('id', targetIds)
-      const rental = (srcs || []).filter((s: any) => s.nguon === 'thue_cpc')
-      if (rental.length > 0) {
-        const rIds = rental.map((s: any) => s.id)
-        const rHds = [...new Set(rental.map((s: any) => s.so_hoa_don).filter(Boolean))]
+      const billing = (srcs || []).filter((s: any) => s.nguon === 'thue_cpc' || s.nguon === 'phi_bao_tri')
+      if (billing.length > 0) {
+        const rIds = billing.map((s: any) => s.id)
+        const rHds = [...new Set(billing.map((s: any) => s.so_hoa_don).filter(Boolean))]
         if (rHds.length) await supabaseAdmin.from('soct_hd_thu').delete().in('so_hoa_don', rHds)
         await supabaseAdmin.from('soct_chi_tiet_vat_tu').delete().in('id_cong_viec', rIds)
         await supabaseAdmin.from('soct_cong_viec').delete().in('id', rIds)
         targetIds = targetIds.filter((x: string) => !rIds.includes(x))
         if (targetIds.length === 0) {
           await broadcastJobsChanged()
-          return NextResponse.json({ success: true, count: rIds.length, removed_thue_cpc: rIds.length })
+          return NextResponse.json({ success: true, count: rIds.length, removed_billing: rIds.length })
         }
       }
     }
