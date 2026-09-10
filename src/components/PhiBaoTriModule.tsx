@@ -152,7 +152,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
           <table className="w-full text-sm text-slate-600">
             <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase border-b border-slate-200">
               <tr>
-                <th className="px-3 py-2 text-left">Số HĐDV</th>
+                <th className="px-3 py-2 text-left whitespace-nowrap">Số HĐDV</th>
                 <th className="px-3 py-2 text-left">Khách hàng</th>
                 <th className="px-2 py-2 text-center">Số máy</th>
                 <th className="px-3 py-2 text-right">Đơn giá</th>
@@ -171,7 +171,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
                 const { tu, den } = suggestKy(g.ngayKy)
                 return (
                   <tr key={g.so_hddv} className="hover:bg-slate-50">
-                    <td className="px-3 py-2 font-mono font-semibold text-slate-700">{g.so_hddv}</td>
+                    <td className="px-3 py-2 font-mono font-semibold text-slate-700 whitespace-nowrap">{g.so_hddv}</td>
                     <td className="px-3 py-2">{khName(g.mays[0])}</td>
                     <td className="px-2 py-2 text-center font-semibold">{g.mays.length}</td>
                     <td className="px-3 py-2 text-right">{lech ? <span className="text-rose-600 text-xs font-semibold" title="Đơn giá không đồng nhất giữa các máy cùng HĐ">lệch giá</span> : fmtVnd(donGia)}</td>
