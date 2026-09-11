@@ -3002,8 +3002,10 @@ function DateField({ value, onChange, className, heightClass = "h-10", placehold
     if (typeof el.showPicker === 'function') { try { el.showPicker() } catch { el.focus() } }
     else { el.focus(); el.click() }
   }
+  const hasWidth = className && /\bw-/.test(className)
+  const widthCls = hasWidth ? '' : 'w-36'
   return (
-    <div className={`relative flex items-center ${heightClass} rounded-md border border-slate-200 bg-white ${className || ''}`}>
+    <div className={`relative flex items-center ${heightClass} ${widthCls} rounded-md border border-slate-200 bg-white ${className || ''}`}>
       <input type="text" inputMode="numeric" placeholder={placeholder} value={text} onChange={(e) => onText(e.target.value)} className="flex-1 min-w-0 h-full pl-2.5 pr-1 bg-transparent text-[13px] text-slate-700 outline-none rounded-md" />
       <button type="button" onClick={openPicker} aria-label="Chọn ngày" className="px-1.5 h-full text-slate-400 hover:text-slate-600 shrink-0">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
@@ -5100,7 +5102,7 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
             <div className="space-y-3">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Ngày đặt</label>
-                <DateField value={form.ngay_dat} onChange={(v) => setForm({ ...form, ngay_dat: v })} heightClass="h-9" />
+                <DateField value={form.ngay_dat} onChange={(v) => setForm({ ...form, ngay_dat: v })} heightClass="h-9" className="w-36" />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -5639,7 +5641,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
         <div className="flex gap-2 items-end">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">Ngày nghỉ</label>
-            <DateField value={newNgayNghi} onChange={setNewNgayNghi} />
+            <DateField value={newNgayNghi} onChange={setNewNgayNghi} heightClass="h-10" className="w-36" />
           </div>
           <div className="space-y-1 flex-1 max-w-sm">
             <label className="text-xs font-semibold text-slate-600">Lý do nghỉ (Tùy chọn)</label>
@@ -6487,12 +6489,12 @@ function BaoCaoKtvTool({ technicians, showNotification }: { technicians: any[], 
         <div className="space-y-1">
           <label className="text-xs font-semibold text-slate-600">Từ ngày</label>
           {/* Tự chỉnh biên để khoảng không lộn ngược (giống bộ lọc Giao việc) */}
-          <DateField value={tuNgay} onChange={(v) => { setTuNgay(v); if (v && denNgay && denNgay < v) setDenNgay(v) }} />
+          <DateField value={tuNgay} onChange={(v) => { setTuNgay(v); if (v && denNgay && denNgay < v) setDenNgay(v) }} heightClass="h-10" className="w-36" />
         </div>
 
         <div className="space-y-1">
           <label className="text-xs font-semibold text-slate-600">Đến ngày</label>
-          <DateField value={denNgay} onChange={(v) => { setDenNgay(v); if (v && tuNgay && v < tuNgay) setTuNgay(v) }} />
+          <DateField value={denNgay} onChange={(v) => { setDenNgay(v); if (v && tuNgay && v < tuNgay) setTuNgay(v) }} heightClass="h-10" className="w-36" />
         </div>
 
         <div className="flex items-center gap-2">

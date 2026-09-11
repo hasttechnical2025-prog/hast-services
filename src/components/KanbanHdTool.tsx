@@ -1910,7 +1910,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">① Công nợ chưa thu — Nợ tính đến ngày</label>
-                <DateField value={expCutoff} onChange={setExpCutoff} heightClass="h-9" className="w-44" />
+                <DateField value={expCutoff} onChange={setExpCutoff} heightClass="h-9" className="w-36" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">② Đã thanh toán — theo ngày xuất HĐ</label>
