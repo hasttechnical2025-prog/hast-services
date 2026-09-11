@@ -283,11 +283,13 @@ export default function SoTheoDoiPrintButton({ may, showNotification }: {
                 <Input value={f.nguoiLienHe} onChange={e => setF({ ...f, nguoiLienHe: e.target.value })} placeholder="VD: Mr Huy" className="bg-white h-9" /></div>
               <div className="space-y-1"><label className="text-xs font-semibold text-slate-600">Số điện thoại</label>
                 <Input value={f.soDienThoai} onChange={e => setF({ ...f, soDienThoai: e.target.value })} placeholder="VD: 0977.452.239" className="bg-white h-9" /></div>
-              <div className="flex gap-2">
-                <div className="space-y-1 flex-1"><label className="text-xs font-semibold text-slate-600">Thời hạn HĐ — Từ</label>
-                  <DateField value={f.hdTu} onChange={v => setF({ ...f, hdTu: v })} heightClass="h-9" /></div>
-                <div className="space-y-1 flex-1"><label className="text-xs font-semibold text-slate-600">đến</label>
-                  <DateField value={f.hdDen} onChange={v => setF({ ...f, hdDen: v })} heightClass="h-9" /></div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Thời hạn hợp đồng</label>
+                <div className="flex items-center gap-2">
+                  <DateField value={f.hdTu} onChange={v => setF({ ...f, hdTu: v })} heightClass="h-9" className="flex-1 w-full" placeholder="Từ ngày" />
+                  <span className="text-xs text-slate-400 font-medium shrink-0">đến</span>
+                  <DateField value={f.hdDen} onChange={v => setF({ ...f, hdDen: v })} heightClass="h-9" className="flex-1 w-full" placeholder="Đến ngày" />
+                </div>
               </div>
               <div className="space-y-1"><label className="text-xs font-semibold text-slate-600">Số serial</label>
                 <Input value={f.soSerial} onChange={e => setF({ ...f, soSerial: e.target.value })} placeholder="Để trống nếu viết tay" className="bg-white h-9" /></div>
