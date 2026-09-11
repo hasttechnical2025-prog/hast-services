@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import DateField from "@/components/DateField"
+import CollapsibleTools from "@/components/CollapsibleTools"
 import { Landmark, Search, Send, X, RefreshCw, Save } from "lucide-react"
 
 type May = {
@@ -135,11 +136,11 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
         <Button variant="outline" onClick={load} disabled={loading} title="Tải lại" className="h-9 w-9 p-0"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /></Button>
       </div>
 
-      {/* ===== Danh sách hóa đơn theo HĐDV ===== */}
+      {/* ===== Danh sách hóa đơn theo HĐDV — thu gọn được, mặc định GẬP cho mọi role ===== */}
+      <CollapsibleTools title={`Hóa đơn phí bảo trì theo hợp đồng (${groups.length})`} storageKey="phibaotri_hoadon_open" defaultOpen={false} icon={<Landmark className="w-4 h-4 text-blue-600 shrink-0" />}>
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
-        <div className="flex flex-wrap items-end gap-3">
-          <h3 className="text-sm font-bold text-slate-700">Hóa đơn phí bảo trì theo hợp đồng ({groups.length})</h3>
-          <div className="space-y-1 ml-auto">
+        <div className="flex flex-wrap items-end gap-3 justify-end">
+          <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">Năm lập HĐ</label>
             <Input value={nam} onChange={e => setNam(digits(e.target.value).slice(0, 4))} className="bg-white w-24 h-9" />
           </div>
@@ -190,6 +191,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
           </table>
         </div>
       </div>
+      </CollapsibleTools>
 
       {/* ===== Bảng cấu hình phí BT theo máy (inline edit) ===== */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">

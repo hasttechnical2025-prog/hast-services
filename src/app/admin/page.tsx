@@ -18,6 +18,7 @@ import MonthField from "@/components/MonthField"
 import NghiPhepDuyet from "@/components/NghiPhepDuyet"
 import BaoGiaEditor, { type BaoGiaRow } from "@/components/BaoGiaEditor"
 import SoTheoDoiPrintButton, { printSoTheoDoiBatch } from "@/components/SoTheoDoiPrint"
+import CollapsibleTools from "@/components/CollapsibleTools"
 import TroLyAI from "@/components/TroLyAI"
 import { hdbtStatus, loaiHdBadge } from "@/lib/hd-status"
 import { fmtThoiLuong } from "@/lib/thoi-gian"
@@ -3986,9 +3987,9 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
 
   return (
     <div className="space-y-6">
-      {/* FORM NHẬP BIÊN BẢN */}
+      {/* FORM NHẬP BIÊN BẢN — thu gọn được, mặc định GẬP cho mọi role (chủ yếu xem danh sách bên dưới). */}
+      <CollapsibleTools title="Nhập biên bản giám định" storageKey="giamdinh_nhap_open" defaultOpen={false} icon={<ClipboardCheck className="w-4 h-4 text-blue-600 shrink-0" />}>
       <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
-        <h3 className="text-lg font-semibold text-slate-700">Nhập biên bản giám định</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1">
@@ -4071,6 +4072,7 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
           <Button onClick={handleSave} disabled={saving} className="h-10 gap-2 bg-emerald-600 hover:bg-emerald-700">{saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ClipboardCheck className="w-4 h-4" />} {saving ? 'Đang lưu…' : 'Lưu biên bản'}</Button>
         </div>
       </div>
+      </CollapsibleTools>
 
       {/* DANH SÁCH BIÊN BẢN + BỘ LỌC */}
       <div className="space-y-3">
@@ -7285,13 +7287,6 @@ const BAOTRI_COLS: ColDef[] = [
 
 function BaoTriTool({ customers, showNotification, canSub, role }: { customers: any[], showNotification: (type: 'success' | 'error', msg: string) => void, canSub?: (g: string) => boolean, role?: string }) {
   const canS = canSub || (() => true)
-  // Panel "Tra cứu + Nhập liệu" thu gọn được: staff nhập liệu là chính -> mặc định BUNG; tech_admin/admin
-  // chủ yếu xem danh sách -> mặc định GẬP. Nhớ lựa chọn của user qua localStorage (không popup).
-  const [toolsOpen, setToolsOpen] = useState<boolean>(() => {
-    try { const v = localStorage.getItem('baotri_tools_open'); if (v === '0') return false; if (v === '1') return true } catch { /* SSR / chặn storage */ }
-    return role === 'staff'
-  })
-  const toggleTools = () => setToolsOpen(o => { const n = !o; try { localStorage.setItem('baotri_tools_open', n ? '1' : '0') } catch { /* bỏ qua */ } return n })
   const col = useColView('bao_tri', BAOTRI_COLS)
   const [thangNam, setThangNam] = useState(new Date().toISOString().slice(0, 7))
   const [text, setText] = useState("")
@@ -7523,14 +7518,7 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
   return (
     <div className="space-y-6">
       {/* Panel công cụ Tra cứu + Nhập liệu — thu gọn được (mặc định gập cho tech_admin/admin, bung cho staff). */}
-      <div className="space-y-4">
-      <button onClick={toggleTools} className="w-full flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-slate-50 transition">
-        <Search className="w-4 h-4 text-blue-600 shrink-0" />
-        <span>Tra cứu &amp; Nhập liệu bảo trì</span>
-        <span className="ml-auto text-xs font-normal text-slate-400">{toolsOpen ? 'Thu gọn' : 'Mở rộng'}</span>
-        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${toolsOpen ? 'rotate-180' : ''}`} />
-      </button>
-      {toolsOpen && (<>
+      <CollapsibleTools title="Tra cứu & Nhập liệu bảo trì" storageKey="baotri_tools_open" defaultOpen={role === 'staff'} icon={<Search className="w-4 h-4 text-blue-600 shrink-0" />}>
       {/* Tra cứu lịch sử bảo trì theo mã máy (12 tháng của 1 năm) */}
       <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
         <h3 className="text-sm font-bold text-slate-700">Tra cứu lịch sử bảo trì theo mã máy</h3>
@@ -7680,8 +7668,7 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
           </div>
         )}
       </div>
-      </>)}
-      </div>
+      </CollapsibleTools>
 
       <div>
         <div className="flex gap-1 border-b border-slate-200 mb-4 overflow-x-auto w-full max-w-full">
