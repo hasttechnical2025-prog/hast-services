@@ -1685,9 +1685,9 @@ export default function AdminDashboard() {
                   <span>Ngày</span>
                   {/* Tự chỉnh biên: chọn "từ" trễ hơn "đến" -> kéo "đến" theo (và ngược lại)
                       -> khoảng không bao giờ lộn ngược, khỏi phải Bỏ lọc rồi chọn lại. */}
-                  <DateField value={jobFilters.tuNgay} onChange={(v) => setJobFilters(f => ({ ...f, tuNgay: v, denNgay: v && f.denNgay && f.denNgay < v ? v : f.denNgay }))} heightClass="h-9" className="w-32" />
+                  <DateField value={jobFilters.tuNgay} onChange={(v) => setJobFilters(f => ({ ...f, tuNgay: v, denNgay: v && f.denNgay && f.denNgay < v ? v : f.denNgay }))} heightClass="h-9" className="w-36" />
                   <span>–</span>
-                  <DateField value={jobFilters.denNgay} onChange={(v) => setJobFilters(f => ({ ...f, denNgay: v, tuNgay: v && f.tuNgay && v < f.tuNgay ? v : f.tuNgay }))} heightClass="h-9" className="w-32" />
+                  <DateField value={jobFilters.denNgay} onChange={(v) => setJobFilters(f => ({ ...f, denNgay: v, tuNgay: v && f.tuNgay && v < f.tuNgay ? v : f.tuNgay }))} heightClass="h-9" className="w-36" />
                 </div>
                 <MultiCheckDropdown label="Loại việc" options={loaiCvOptions} selected={jobFilters.loaiViec} onChange={(v) => setJobFilters({ ...jobFilters, loaiViec: v })} />
                 <select value={jobFilters.ktvId} onChange={(e) => setJobFilters({ ...jobFilters, ktvId: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
@@ -3004,8 +3004,8 @@ function DateField({ value, onChange, className, heightClass = "h-10", placehold
   }
   return (
     <div className={`relative flex items-center ${heightClass} rounded-md border border-slate-200 bg-white ${className || ''}`}>
-      <input type="text" inputMode="numeric" placeholder={placeholder} value={text} onChange={(e) => onText(e.target.value)} className="flex-1 min-w-0 h-full px-3 bg-transparent text-sm text-slate-700 outline-none rounded-md" />
-      <button type="button" onClick={openPicker} aria-label="Chọn ngày" className="px-2 h-full text-slate-400 hover:text-slate-600 shrink-0">
+      <input type="text" inputMode="numeric" placeholder={placeholder} value={text} onChange={(e) => onText(e.target.value)} className="flex-1 min-w-0 h-full pl-2.5 pr-1 bg-transparent text-[13px] text-slate-700 outline-none rounded-md" />
+      <button type="button" onClick={openPicker} aria-label="Chọn ngày" className="px-1.5 h-full text-slate-400 hover:text-slate-600 shrink-0">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
       </button>
       <input ref={dateRef} type="date" value={value} onChange={(e) => onChange(e.target.value)} tabIndex={-1} aria-hidden="true" className="absolute right-1 bottom-0 w-4 h-4 opacity-0 pointer-events-none" />
@@ -5260,9 +5260,9 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
           </label>
           <div className="flex items-center gap-1.5 text-xs text-slate-500">
             <span>Hàng về</span>
-            <DateField value={orderFilters.hvTu} onChange={(v) => setOrderFilters({ ...orderFilters, hvTu: v })} heightClass="h-9" className="w-32" />
+            <DateField value={orderFilters.hvTu} onChange={(v) => setOrderFilters({ ...orderFilters, hvTu: v })} heightClass="h-9" className="w-36" />
             <span>–</span>
-            <DateField value={orderFilters.hvDen} onChange={(v) => setOrderFilters({ ...orderFilters, hvDen: v })} heightClass="h-9" className="w-32" />
+            <DateField value={orderFilters.hvDen} onChange={(v) => setOrderFilters({ ...orderFilters, hvDen: v })} heightClass="h-9" className="w-36" />
           </div>
           {(orderFilters.maHang || orderFilters.ncc || !orderFilters.conThieu || orderFilters.hvTu || orderFilters.hvDen) && (
             <button onClick={() => setOrderFilters({ maHang: "", ncc: "", conThieu: true, hvTu: "", hvDen: "" })} className="text-xs text-red-600 hover:underline font-medium">Bỏ lọc</button>

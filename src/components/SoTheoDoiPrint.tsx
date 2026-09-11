@@ -10,6 +10,7 @@ import QRCodeLib from "qrcode"
 import { Printer, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import DateField from "@/components/DateField"
 
 export type MayInfo = {
   ma_may?: string | null
@@ -284,9 +285,9 @@ export default function SoTheoDoiPrintButton({ may, showNotification }: {
                 <Input value={f.soDienThoai} onChange={e => setF({ ...f, soDienThoai: e.target.value })} placeholder="VD: 0977.452.239" className="bg-white h-9" /></div>
               <div className="flex gap-2">
                 <div className="space-y-1 flex-1"><label className="text-xs font-semibold text-slate-600">Thời hạn HĐ — Từ</label>
-                  <input type="date" value={f.hdTu} onChange={e => setF({ ...f, hdTu: e.target.value })} className="w-full h-9 px-2 rounded-md border border-slate-200 text-sm bg-white" /></div>
+                  <DateField value={f.hdTu} onChange={v => setF({ ...f, hdTu: v })} heightClass="h-9" /></div>
                 <div className="space-y-1 flex-1"><label className="text-xs font-semibold text-slate-600">đến</label>
-                  <input type="date" value={f.hdDen} onChange={e => setF({ ...f, hdDen: e.target.value })} className="w-full h-9 px-2 rounded-md border border-slate-200 text-sm bg-white" /></div>
+                  <DateField value={f.hdDen} onChange={v => setF({ ...f, hdDen: v })} heightClass="h-9" /></div>
               </div>
               <div className="space-y-1"><label className="text-xs font-semibold text-slate-600">Số serial</label>
                 <Input value={f.soSerial} onChange={e => setF({ ...f, soSerial: e.target.value })} placeholder="Để trống nếu viết tay" className="bg-white h-9" /></div>

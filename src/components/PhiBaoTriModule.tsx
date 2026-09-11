@@ -230,7 +230,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
                 <th className="px-2 py-2 text-center">Loại HĐ</th>
                 <th className="px-2 py-2 text-center">Hết hạn HĐBT</th>
                 <th className="px-3 py-2 text-left w-40">Số HĐDV</th>
-                <th className="px-3 py-2 text-left w-32">Ngày ký HĐ</th>
+                <th className="px-3 py-2 text-left w-36">Ngày ký HĐ</th>
                 <th className="px-3 py-2 text-right w-32">Đơn giá phí BT</th>
               </tr>
             </thead>
@@ -259,7 +259,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
                         className="h-8 bg-white" placeholder="VD: 310325/HĐDV-ST" />
                     </td>
                     <td className="px-3 py-1.5">
-                      <DateField value={m.ngay_ky_hddv ? String(m.ngay_ky_hddv).slice(0, 10) : ''} heightClass="h-8" className="w-[130px]"
+                      <DateField value={m.ngay_ky_hddv ? String(m.ngay_ky_hddv).slice(0, 10) : ''} heightClass="h-8" className="w-36"
                         onChange={v => setLocal(m.id, 'ngay_ky_hddv', v)} />
                     </td>
                     <td className="px-3 py-1.5">
