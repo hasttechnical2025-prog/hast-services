@@ -10,7 +10,7 @@ import DateField from "@/components/DateField"
 import MonthField from "@/components/MonthField"
 import { chotSoDate, counterStatus, CounterStatus, kyTruoc, tinhDongMay } from "@/lib/thue-cpc"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
-import { Save, FileText, RefreshCw, ArrowRight, Check, PenSquare } from "lucide-react"
+import { Save, FileText, RefreshCw, ArrowRight, Check, PenSquare, Search } from "lucide-react"
 
 const THUECPC_TOPIC = "soct_thuecpc"
 const DATA_EVENT = "changed"
@@ -184,7 +184,20 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
           <h3 className="font-bold text-slate-800">Đơn giá & định mức hợp đồng thuê / CPC</h3>
           <p className="text-xs text-slate-500">Chỉ các máy có loại HĐ là <b>Máy thuê</b> hoặc <b>Máy CPC</b>.</p>
         </div>
-        <Input placeholder="Tìm tên khách / mã máy / serial…" value={search} onChange={e => setSearch(e.target.value)} className="w-64 h-9" />
+        <div className="relative w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input placeholder="Tìm tên khách / mã máy / serial…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 pr-7 w-full h-9 bg-white" />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+              title="Xóa tìm kiếm"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       {loading ? <div className="text-sm text-slate-400 py-8 text-center">Đang tải…</div> : (
@@ -620,7 +633,20 @@ function CounterTab({ showNotification, thang, setThang, onSaved, refreshVer = 0
           <p className="text-xs text-slate-500">Nhập chỉ số cuối kỳ; số nhỏ dưới ô là <b>đầu kỳ</b> (kỳ trước) tham khảo.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Input placeholder="Tìm khách / mã máy / serial / vị trí…" value={search} onChange={e => setSearch(e.target.value)} className="w-56 h-9" />
+          <div className="relative w-56">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input placeholder="Tìm khách / mã máy / serial / vị trí…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 pr-7 w-full h-9 bg-white" />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+                title="Xóa tìm kiếm"
+              >
+                ✕
+              </button>
+            )}
+          </div>
           <button onClick={() => setShowGhiChu(v => !v)} className={`h-9 px-3 rounded-md text-xs font-medium border whitespace-nowrap ${showGhiChu ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white text-slate-500 border-slate-200'}`} title="Bật/tắt cột Ghi chú">Ghi chú</button>
           <label className="flex items-center gap-2 text-sm text-slate-600">Kỳ
             <MonthField value={thang} onChange={setThang} className="h-9 w-40" />

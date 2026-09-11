@@ -113,7 +113,17 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm serial / khách / model..." className="pl-9 bg-white w-72" />
+          <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm serial / khách / model..." className="pl-9 pr-7 bg-white w-72" />
+          {q && (
+            <button
+              type="button"
+              onClick={() => setQ('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+              title="Xóa tìm kiếm"
+            >
+              ✕
+            </button>
+          )}
         </div>
         <label className="flex items-center gap-1.5 text-sm text-slate-700 cursor-pointer select-none">
           <input type="checkbox" checked={onlyReRented} onChange={e => setOnlyReRented(e.target.checked)} className="w-4 h-4 accent-rose-600" />

@@ -1627,11 +1627,31 @@ export default function AdminDashboard() {
                 <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                   <div className="relative w-full sm:w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <Input placeholder="Tìm mã máy, tên khách hàng..." className="pl-9 bg-white" value={jobFilters.search} onChange={(e) => setJobFilters({ ...jobFilters, search: e.target.value })} />
+                    <Input placeholder="Tìm mã máy, tên khách hàng..." className="pl-9 pr-7 bg-white" value={jobFilters.search} onChange={(e) => setJobFilters({ ...jobFilters, search: e.target.value })} />
+                    {jobFilters.search && (
+                      <button
+                        type="button"
+                        onClick={() => setJobFilters({ ...jobFilters, search: '' })}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+                        title="Xóa tìm kiếm"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                   <div className="relative w-full sm:w-40">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <Input placeholder="Số phiếu..." className="pl-9 bg-white" value={jobFilters.report} onChange={(e) => setJobFilters({ ...jobFilters, report: e.target.value })} />
+                    <Input placeholder="Số phiếu..." className="pl-9 pr-7 bg-white" value={jobFilters.report} onChange={(e) => setJobFilters({ ...jobFilters, report: e.target.value })} />
+                    {jobFilters.report && (
+                      <button
+                        type="button"
+                        onClick={() => setJobFilters({ ...jobFilters, report: '' })}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+                        title="Xóa tìm kiếm"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto flex-wrap">
@@ -3567,7 +3587,17 @@ function MucMayThueTool({ customers, inventory, committed, mucMap, onUpdate, sho
         </div>
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input placeholder="Tìm model máy..." className="pl-9 bg-white h-9" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input placeholder="Tìm model máy..." className="pl-9 pr-7 bg-white h-9" value={q} onChange={(e) => setQ(e.target.value)} />
+          {q && (
+            <button
+              type="button"
+              onClick={() => setQ('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+              title="Xóa tìm kiếm"
+            >
+              ✕
+            </button>
+          )}
         </div>
       </div>
       <div className="p-3 space-y-2 max-h-[520px] overflow-y-auto">
@@ -4129,7 +4159,17 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
         <div className="flex flex-wrap items-center gap-2 px-1">
           <div className="relative w-full sm:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Lọc theo mã máy..." className="pl-9 bg-white h-9" value={gdFilters.maMay} onChange={(e) => setGdFilters({ ...gdFilters, maMay: e.target.value })} />
+            <Input placeholder="Lọc theo mã máy..." className="pl-9 pr-7 bg-white h-9" value={gdFilters.maMay} onChange={(e) => setGdFilters({ ...gdFilters, maMay: e.target.value })} />
+            {gdFilters.maMay && (
+              <button
+                type="button"
+                onClick={() => setGdFilters({ ...gdFilters, maMay: '' })}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+                title="Xóa tìm kiếm"
+              >
+                ✕
+              </button>
+            )}
           </div>
           <select value={gdFilters.trangThai} onChange={(e) => setGdFilters({ ...gdFilters, trangThai: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none">
             <option value="">Trạng thái: Tất cả</option>
@@ -4488,7 +4528,7 @@ function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao, hangOpti
               onClick={() => { setFilterSearch(""); setFilterModel(""); setFilterHang("") }}
               className="text-xs text-rose-600 hover:underline font-medium ml-1"
             >
-              Xóa lọc
+              Bỏ lọc
             </button>
           )}
 
@@ -4888,10 +4928,19 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                 <Input
                   placeholder="Gõ mã / tên vật tư..."
-                  className="pl-8 h-8 text-xs bg-white"
+                  className="pl-8 pr-6 h-8 text-xs bg-white"
                   value={leftSearch}
                   onChange={(e) => setLeftSearch(e.target.value)}
                 />
+                {leftSearch && (
+                  <button
+                    onClick={() => setLeftSearch("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                    title="Xóa tìm kiếm"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
 
               <div className="relative w-40">
@@ -4930,6 +4979,15 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
                 />
                 Hết hàng (Tồn = 0)
               </label>
+
+              {(leftSearch || leftModel || leftHang || leftLowStock) && (
+                <button
+                  onClick={() => { setLeftSearch(""); setLeftModel(""); setLeftHang(""); setLeftLowStock(false) }}
+                  className="text-xs text-rose-600 hover:underline font-medium ml-1"
+                >
+                  Bỏ lọc
+                </button>
+              )}
             </div>
           </div>
 
@@ -5180,7 +5238,17 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
         <div className="flex flex-wrap items-center gap-2 px-1">
           <div className="relative w-full sm:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Lọc theo mã hàng / tên..." className="pl-9 bg-white h-9" value={orderFilters.maHang} onChange={(e) => setOrderFilters({ ...orderFilters, maHang: e.target.value })} />
+            <Input placeholder="Lọc theo mã hàng / tên..." className="pl-9 pr-7 bg-white h-9" value={orderFilters.maHang} onChange={(e) => setOrderFilters({ ...orderFilters, maHang: e.target.value })} />
+            {orderFilters.maHang && (
+              <button
+                type="button"
+                onClick={() => setOrderFilters({ ...orderFilters, maHang: '' })}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+                title="Xóa tìm kiếm"
+              >
+                ✕
+              </button>
+            )}
           </div>
           <select value={orderFilters.ncc} onChange={(e) => setOrderFilters({ ...orderFilters, ncc: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none">
             <option value="">NCC: Tất cả</option>
@@ -6136,7 +6204,17 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
           <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">{selIds.length} chọn · {selTickets.length} phiếu</span>
           <div className="relative w-full sm:w-64 ml-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Tìm tên khách..." className="pl-9 bg-white h-9" value={khSearch} onChange={e => setKhSearch(e.target.value)} />
+            <Input placeholder="Tìm tên khách..." className="pl-9 pr-7 bg-white h-9" value={khSearch} onChange={e => setKhSearch(e.target.value)} />
+            {khSearch && (
+              <button
+                type="button"
+                onClick={() => setKhSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+                title="Xóa tìm kiếm"
+              >
+                ✕
+              </button>
+            )}
           </div>
         </div>
         <div className="border border-slate-200 rounded-lg max-h-[500px] overflow-y-auto divide-y divide-slate-100">
@@ -6653,7 +6731,17 @@ function PhieuCungTool({ nguongNgay, currentUserRole, showNotification }: { nguo
         <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Tìm số phiếu..." className="pl-9 bg-white" value={search} onChange={e => setSearch(e.target.value)} />
+            <Input placeholder="Tìm số phiếu..." className="pl-9 pr-7 bg-white" value={search} onChange={e => setSearch(e.target.value)} />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+                title="Xóa tìm kiếm"
+              >
+                ✕
+              </button>
+            )}
           </div>
           <select value={fKtv} onChange={e => setFKtv(e.target.value)} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">KTV: Tất cả</option>
@@ -7131,7 +7219,17 @@ function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { custom
 
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Tìm mã / tên cụm..." className="pl-9 bg-white h-9" value={cumSearch} onChange={e => setCumSearch(e.target.value)} />
+            <Input placeholder="Tìm mã / tên cụm..." className="pl-9 pr-7 bg-white h-9" value={cumSearch} onChange={e => setCumSearch(e.target.value)} />
+            {cumSearch && (
+              <button
+                type="button"
+                onClick={() => setCumSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+                title="Xóa tìm kiếm"
+              >
+                ✕
+              </button>
+            )}
           </div>
 
           <div className="bg-white rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-[420px] overflow-y-auto">
@@ -7212,7 +7310,17 @@ function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { custom
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Thêm máy vào cụm (chỉ hiện máy chưa thuộc cụm nào)</p>
                 <div className="relative mb-2">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <Input placeholder="Tìm theo tên / mã máy / model..." className="pl-9 bg-white h-9" value={maySearch} onChange={e => setMaySearch(e.target.value)} />
+                  <Input placeholder="Tìm theo tên / mã máy / model..." className="pl-9 pr-7 bg-white h-9" value={maySearch} onChange={e => setMaySearch(e.target.value)} />
+                  {maySearch && (
+                    <button
+                      type="button"
+                      onClick={() => setMaySearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+                      title="Xóa tìm kiếm"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
                 {q && (
                   <div className="bg-white rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-52 overflow-y-auto">
@@ -7754,7 +7862,19 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">Mã máy</label>
-            <Input value={traMa} onChange={e => setTraMa(e.target.value)} placeholder="VD: 35816" className="bg-white w-40" />
+            <div className="relative w-40">
+              <Input value={traMa} onChange={e => setTraMa(e.target.value)} placeholder="VD: 35816" className="bg-white pr-7" />
+              {traMa && (
+                <button
+                  type="button"
+                  onClick={() => setTraMa('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+                  title="Xóa mã máy"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">Năm</label>
@@ -7936,7 +8056,20 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
               </div>
               <div className="space-y-1 flex-1 min-w-[200px]">
                 <label className="text-xs font-semibold text-slate-600">Tìm khách hàng / mã máy</label>
-                <Input value={dcQ} onChange={(e) => setDcQ(e.target.value)} placeholder="Gõ tên khách để đối chiếu riêng..." className="bg-white" />
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input value={dcQ} onChange={(e) => setDcQ(e.target.value)} placeholder="Gõ tên khách để đối chiếu riêng..." className="pl-9 pr-7 bg-white" />
+                  {dcQ && (
+                    <button
+                      type="button"
+                      onClick={() => setDcQ('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+                      title="Xóa tìm kiếm"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
               <Button onClick={exportDoiChieu} disabled={dcLoading || dcFiltered.length === 0} title={`Xuất Excel (${dcFiltered.length} máy)`} className="h-10 w-10 p-0 bg-emerald-600 hover:bg-emerald-700">
                 <Download className="w-4 h-4" />
@@ -8290,7 +8423,17 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
         <div className="flex gap-2 w-full sm:w-auto">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Tìm mã máy, serial, tên KH, địa chỉ, model, HĐ..." className="pl-9 bg-white" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input placeholder="Tìm mã máy, serial, tên KH, địa chỉ, model, HĐ..." className="pl-9 pr-7 bg-white" value={search} onChange={(e) => setSearch(e.target.value)} />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+                title="Xóa tìm kiếm"
+              >
+                ✕
+              </button>
+            )}
           </div>
           <div className="relative shrink-0">
             <button type="button" onClick={() => setFilterOpen(o => !o)} className="h-10 px-3 rounded-md border border-slate-200 text-sm bg-white flex items-center gap-2 min-w-[13rem] justify-between hover:border-slate-300">

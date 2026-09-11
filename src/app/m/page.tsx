@@ -260,7 +260,17 @@ function ViecHomNay() {
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-          <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã máy / khách hàng" className="pl-8 h-9 text-sm" />
+          <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã máy / khách hàng" className="pl-8 pr-7 h-9 text-sm" />
+          {q && (
+            <button
+              type="button"
+              onClick={() => setQ('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+              title="Xóa tìm kiếm"
+            >
+              ✕
+            </button>
+          )}
         </div>
         <button
           onClick={() => setGroupBy(g => g === 'status' ? 'ktv' : 'status')}
@@ -568,7 +578,17 @@ function TheoDoiHdMobile({ notify }: { notify: (t: 'success' | 'error', m: strin
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm khách / số phiếu / số HĐ" className="pl-8 h-10 bg-white" />
+          <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm khách / số phiếu / số HĐ" className="pl-8 pr-7 h-10 bg-white" />
+          {q && (
+            <button
+              type="button"
+              onClick={() => setQ('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+              title="Xóa tìm kiếm"
+            >
+              ✕
+            </button>
+          )}
         </div>
         <button onClick={load} className="p-2 text-slate-400 hover:text-blue-600"><RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} /></button>
       </div>

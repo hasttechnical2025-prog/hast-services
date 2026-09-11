@@ -199,7 +199,17 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Tìm khách / mã máy / số HĐ..." className="pl-9 bg-white h-9" value={q} onChange={e => setQ(e.target.value)} />
+            <Input placeholder="Tìm khách / mã máy / số HĐ..." className="pl-9 pr-7 bg-white h-9" value={q} onChange={e => setQ(e.target.value)} />
+            {q && (
+              <button
+                type="button"
+                onClick={() => setQ('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+                title="Xóa tìm kiếm"
+              >
+                ✕
+              </button>
+            )}
           </div>
           <Button onClick={doSave} disabled={saving || dirty.size === 0} className="h-9 gap-1.5 ml-auto">
             <Save className="w-4 h-4" /> {saving ? 'Đang lưu…' : dirty.size > 0 ? `Lưu (${dirty.size})` : 'Đã lưu'}
