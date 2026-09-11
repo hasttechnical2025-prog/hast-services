@@ -1867,7 +1867,7 @@ export default function AdminDashboard() {
                 <DatHangTool inventory={inventory} committed={committed} nhaCungCapOptions={dmOptions('nha_cung_cap')} hangOptions={dmOptions('hang', ['Konica', 'Fuji', 'Khác'])} onUpdateSuccess={fetchData} showNotification={showNotification} currentUserRole={currentUserRole} confirmDelete={confirmDelete} />
               )}
               {effectiveKhoTab === "thong_ke" && (
-                <NhapHangThangTool showNotification={showNotification} canhBao={canhBaoTon} refetchCanhBao={fetchCanhBaoTon} />
+                <NhapHangThangTool showNotification={showNotification} canhBao={canhBaoTon} refetchCanhBao={fetchCanhBaoTon} hangOptions={dmOptions('hang', ['Konica', 'Fuji', 'Khác'])} />
               )}
               {effectiveKhoTab === "may_thue" && (
                 <>
@@ -4337,7 +4337,7 @@ function ClearAllButton({ count, label, onConfirm, heightClass = 'h-9', iconOnly
   )
 }
 
-function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao }: { showNotification: (type: 'success' | 'error', msg: string) => void, canhBao: any[], refetchCanhBao: () => void }) {
+function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao, hangOptions }: { showNotification: (type: 'success' | 'error', msg: string) => void, canhBao: any[], refetchCanhBao: () => void, hangOptions?: string[] }) {
   const [thang, setThang] = useState("")
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -4361,6 +4361,16 @@ function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao }: { show
   const [showAll, setShowAll] = useState(false) // false = chỉ hiện cần cảnh báo; true = tất cả ứng viên để đặt ngưỡng
   const [filterSearch, setFilterSearch] = useState("")
   const [filterModel, setFilterModel] = useState("")
+  const [filterHang, setFilterHang] = useState("")
+
+  const allHangOptions = useMemo(() => {
+    const set = new Set<string>(hangOptions || [])
+    for (const x of (canhBao || [])) {
+      const h = String(x.hang || '').trim()
+      if (h) set.add(h)
+    }
+    return Array.from(set).filter(Boolean).sort((a, b) => a.localeCompare(b))
+  }, [hangOptions, canhBao])
 
   // Seed lại giá trị ngưỡng mỗi khi dữ liệu cha đổi (sau khi Lưu/refetch).
   useEffect(() => {
@@ -4388,6 +4398,7 @@ function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao }: { show
         const itemModel = String(x.model || '').toLowerCase()
         if (!itemModel.includes(qModel)) return false
       }
+      if (filterHang && String(x.hang || '').trim().toLowerCase() !== filterHang.trim().toLowerCase()) return false
       return true
     })
     .sort((a: any, b: any) => (isWarn(b) ? 1 : 0) - (isWarn(a) ? 1 : 0) || (Number(a.ton_kho) - Number(b.ton_kho)))
@@ -4463,9 +4474,18 @@ function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao }: { show
             )}
           </div>
 
-          {(filterSearch || filterModel) && (
+          <select
+            value={filterHang}
+            onChange={(e) => setFilterHang(e.target.value)}
+            className="h-8 px-2 w-36 rounded-md border border-slate-200 text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="">Hãng: Tất cả</option>
+            {allHangOptions.map(h => <option key={h} value={h}>{h}</option>)}
+          </select>
+
+          {(filterSearch || filterModel || filterHang) && (
             <button
-              onClick={() => { setFilterSearch(""); setFilterModel("") }}
+              onClick={() => { setFilterSearch(""); setFilterModel(""); setFilterHang("") }}
               className="text-xs text-rose-600 hover:underline font-medium ml-1"
             >
               Xóa lọc
@@ -4499,7 +4519,7 @@ function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao }: { show
             <tbody className="divide-y divide-slate-100">
               {cbRows.length === 0 ? (
                 <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">
-                  {showAll ? 'Không có mặt hàng nào khớp bộ lọc (trong các mặt hàng đã nhập 12 tháng).' : 'Không có mặt hàng nào dưới ngưỡng khớp bộ lọc. Bấm "Thiết lập ngưỡng" để xem và đặt ngưỡng.'}
+                  {(filterSearch || filterModel || filterHang) ? 'Không tìm thấy mặt hàng khớp bộ lọc.' : showAll ? 'Không có mặt hàng nào đã nhập trong 12 tháng.' : 'Không có mặt hàng nào dưới ngưỡng khớp bộ lọc. Bấm "Thiết lập ngưỡng" để xem và đặt ngưỡng.'}
                 </td></tr>
               ) : cbRows.map((x: any) => {
                 const warn = isWarn(x); const n = Number(ngOf(x.ma_hang) || 0)
