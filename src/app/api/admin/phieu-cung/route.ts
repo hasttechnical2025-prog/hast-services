@@ -9,7 +9,7 @@ import { broadcastJobsChanged } from '@/lib/realtime'
 // ?count=1 -> chỉ trả về số phiếu CHƯA nộp (badge nhắc nhở, không tải cả danh sách)
 export async function GET(request: Request) {
   try {
-    const session = await requireTab('hoan_phieu')
+    const session = await requireTab('cong_viec', 'cong_viec.hoan_phieu')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
@@ -48,7 +48,7 @@ export async function GET(request: Request) {
 // Đánh dấu đã nộp / chưa nộp (chỉ người phụ trách: admin/tech_admin/staff)
 export async function PUT(request: Request) {
   try {
-    const session = await requireTab('hoan_phieu')
+    const session = await requireTab('cong_viec', 'cong_viec.hoan_phieu')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const { id, da_nop_phieu, all } = await request.json()
@@ -95,7 +95,7 @@ export async function PUT(request: Request) {
 // Nhắc KTV còn nợ phiếu qua Telegram (DM tới từng KTV đã liên kết)
 export async function POST(request: Request) {
   try {
-    const session = await requireTab('hoan_phieu')
+    const session = await requireTab('cong_viec', 'cong_viec.hoan_phieu')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const body = await request.json().catch(() => ({}))
