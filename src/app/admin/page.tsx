@@ -4427,8 +4427,11 @@ function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao, hangOpti
     setDirtyNg(d => { const n = new Set(d); n.add(ma); return n })
   }
   const isWarn = (x: any) => { const n = Number(ngOf(x.ma_hang) || 0); return n > 0 && Number(x.ton_kho) <= n }
+  // Trạng thái cảnh báo ban đầu (đã lưu trong DB) dùng riêng cho việc sắp xếp và lọc hiển thị,
+  // tránh việc vừa gõ dở ngưỡng trong ô input làm dòng bị nhảy lên đầu bảng gây mất focus.
+  const isSavedWarn = (x: any) => { const n = Number(x.nguong_dat || 0); return n > 0 && Number(x.ton_kho) <= n }
   const cbRows = (canhBao || [])
-    .filter((x: any) => showAll || isWarn(x))
+    .filter((x: any) => showAll || isSavedWarn(x) || dirtyNg.has(x.ma_hang))
     .filter((x: any) => {
       if (filterSearch) {
         const q = filterSearch.trim().toLowerCase()
@@ -4443,7 +4446,7 @@ function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao, hangOpti
       if (filterHang && String(x.hang || '').trim().toLowerCase() !== filterHang.trim().toLowerCase()) return false
       return true
     })
-    .sort((a: any, b: any) => (isWarn(b) ? 1 : 0) - (isWarn(a) ? 1 : 0) || (Number(a.ton_kho) - Number(b.ton_kho)))
+    .sort((a: any, b: any) => (isSavedWarn(b) ? 1 : 0) - (isSavedWarn(a) ? 1 : 0) || (Number(a.ton_kho) - Number(b.ton_kho)))
   const warnCount = (canhBao || []).filter(isWarn).length
   const saveNg = async () => {
     if (dirtyNg.size === 0) return
