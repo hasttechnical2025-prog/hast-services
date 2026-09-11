@@ -36,9 +36,8 @@ type ManFields = { nguoiLienHe: string; soDienThoai: string; hdTu: string; hdDen
 
 // Dựng 2 trang (trang 1 + trang 2) cho MỘT máy — KHÔNG kèm <head>/<style> (để wrapDoc bọc chung).
 function pagesFor(may: MayInfo, man: ManFields, qr: string): string {
-  const khName = (may.soct_khach_cum?.ten_khach_hang || may.ten_khach_hang || '').toUpperCase()
+  const khName = (may.ten_khach_hang || may.soct_khach_cum?.ten_khach_hang || '').toUpperCase()
   const diaChi = may.dia_chi || ''
-  const viTri = may.vi_tri_dat_may || ''
   const maMay = may.ma_may || ''
   const loaiMay = may.model || ''
   const isMF = String(man.hinhThuc || '').trim().toUpperCase() === 'MF'
@@ -90,7 +89,7 @@ function pagesFor(may: MayInfo, man: ManFields, qr: string): string {
     <div class="info">
       <div class="kh-row"><span class="lbl">Khách hàng:</span><b class="kh">${esc(khName)}</b></div>
       <div><span class="lbl">Địa chỉ:</span> &nbsp;${esc(diaChi)}</div>
-      <div><span class="lbl">Vị trí đặt máy:</span> &nbsp;${esc(viTri)}</div>
+      <div><span class="lbl">Vị trí đặt máy:</span></div>
       <div><span class="lbl">Số điện thoại:</span> &nbsp;${esc(man.soDienThoai)}</div>
       <div><span class="lbl">Người liên hệ:</span> &nbsp;${esc(man.nguoiLienHe)}</div>
     </div>
