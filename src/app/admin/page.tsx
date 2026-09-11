@@ -1852,7 +1852,7 @@ export default function AdminDashboard() {
 
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6">
               {effectiveMonitorTab === "bao_tri" && (
-                <BaoTriTool customers={customers} showNotification={showNotification} canSub={(g) => subSubVisible('theo_doi_may', 'bao_tri', g)} />
+                <BaoTriTool customers={customers} showNotification={showNotification} canSub={(g) => subSubVisible('theo_doi_may', 'bao_tri', g)} role={currentUserRole} />
               )}
               {effectiveMonitorTab === "giam_dinh" && (
                 <GiamDinhTool customers={customers} inventory={inventory} ktvOptions={dmOptions('ktv_giam_dinh')} tinhTrangOptions={dmOptions('tinh_trang_may')} showNotification={showNotification} />
@@ -7283,8 +7283,15 @@ const BAOTRI_COLS: ColDef[] = [
   { key: 'xoa', label: 'Xóa', locked: true },
 ]
 
-function BaoTriTool({ customers, showNotification, canSub }: { customers: any[], showNotification: (type: 'success' | 'error', msg: string) => void, canSub?: (g: string) => boolean }) {
+function BaoTriTool({ customers, showNotification, canSub, role }: { customers: any[], showNotification: (type: 'success' | 'error', msg: string) => void, canSub?: (g: string) => boolean, role?: string }) {
   const canS = canSub || (() => true)
+  // Panel "Tra cứu + Nhập liệu" thu gọn được: staff nhập liệu là chính -> mặc định BUNG; tech_admin/admin
+  // chủ yếu xem danh sách -> mặc định GẬP. Nhớ lựa chọn của user qua localStorage (không popup).
+  const [toolsOpen, setToolsOpen] = useState<boolean>(() => {
+    try { const v = localStorage.getItem('baotri_tools_open'); if (v === '0') return false; if (v === '1') return true } catch { /* SSR / chặn storage */ }
+    return role === 'staff'
+  })
+  const toggleTools = () => setToolsOpen(o => { const n = !o; try { localStorage.setItem('baotri_tools_open', n ? '1' : '0') } catch { /* bỏ qua */ } return n })
   const col = useColView('bao_tri', BAOTRI_COLS)
   const [thangNam, setThangNam] = useState(new Date().toISOString().slice(0, 7))
   const [text, setText] = useState("")
@@ -7515,6 +7522,15 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
 
   return (
     <div className="space-y-6">
+      {/* Panel công cụ Tra cứu + Nhập liệu — thu gọn được (mặc định gập cho tech_admin/admin, bung cho staff). */}
+      <div className="space-y-4">
+      <button onClick={toggleTools} className="w-full flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-slate-50 transition">
+        <Search className="w-4 h-4 text-blue-600 shrink-0" />
+        <span>Tra cứu &amp; Nhập liệu bảo trì</span>
+        <span className="ml-auto text-xs font-normal text-slate-400">{toolsOpen ? 'Thu gọn' : 'Mở rộng'}</span>
+        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${toolsOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {toolsOpen && (<>
       {/* Tra cứu lịch sử bảo trì theo mã máy (12 tháng của 1 năm) */}
       <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
         <h3 className="text-sm font-bold text-slate-700">Tra cứu lịch sử bảo trì theo mã máy</h3>
@@ -7663,6 +7679,8 @@ function BaoTriTool({ customers, showNotification, canSub }: { customers: any[],
             </div>
           </div>
         )}
+      </div>
+      </>)}
       </div>
 
       <div>
