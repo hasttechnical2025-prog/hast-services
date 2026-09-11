@@ -346,6 +346,7 @@ export default function AdminDashboard() {
   const [counterDueList, setCounterDueList] = useState<any[]>([])
   const [leaveToday, setLeaveToday] = useState<any[]>([]) // ai nghỉ hôm nay (banner Sổ công tác)
   const [mucMap, setMucMap] = useState<any[]>([])         // map model máy thuê -> mã mực (theo dõi tồn mực)
+  const [canhBaoTon, setCanhBaoTon] = useState<any[]>([]) // ứng viên cảnh báo tồn Konica (đã nhập 12 tháng)
   const [confirmGiamDinhOpen, setConfirmGiamDinhOpen] = useState<{
     message: string,
     onConfirm: () => void,
@@ -466,6 +467,20 @@ export default function AdminDashboard() {
     fetchMucMap()
   }, [currentAdmin])
 
+  // Cảnh báo tồn kho Konica (đã nhập 12 tháng gần nhất) -> chuông + panel Thống kê nhập.
+  // CHỈ admin/tech_admin (endpoint gate theo tab thong_ke; staff không thấy).
+  const fetchCanhBaoTon = () => {
+    fetch('/api/admin/canh-bao-ton')
+      .then(r => r.ok ? r.json() : { items: [] })
+      .then(j => setCanhBaoTon(j.items || []))
+      .catch(() => { })
+  }
+  useEffect(() => {
+    if (!currentAdmin) return
+    if (!['admin', 'tech_admin'].includes(currentUserRole)) { setCanhBaoTon([]); return }
+    fetchCanhBaoTon()
+  }, [currentAdmin, currentUserRole])
+
   // Đếm phiếu Kanban Cột 1 (Chờ lên HĐ) & Cột 2 (KT-HC lên HĐ) cho chuông — nhắc office bàn giao/lên HĐ.
   // Chỉ office thấy chuông (admin/tech_admin/staff); refresh định kỳ.
   useEffect(() => {
@@ -519,6 +534,11 @@ export default function AdminDashboard() {
     }
     return out.sort((a, b) => a.kha_dung - b.kha_dung)
   })()
+
+  // Cảnh báo tồn Konica: chỉ mặt hàng ĐÃ đặt ngưỡng (>0) và tồn <= ngưỡng. Thiếu nhiều lên đầu.
+  const canhBaoTonList = canhBaoTon
+    .filter((x: any) => Number(x.nguong_dat) > 0 && Number(x.ton_kho) <= Number(x.nguong_dat))
+    .sort((a: any, b: any) => (Number(b.nguong_dat) - Number(b.ton_kho)) - (Number(a.nguong_dat) - Number(a.ton_kho)))
 
   const [formData, setFormData] = useState({
     ngay: todayVN(), // Mặc định ngày hôm nay (giờ VN)
@@ -1346,6 +1366,26 @@ export default function AdminDashboard() {
       ),
     },
     {
+      key: 'ton_konica', icon: Package, tone: 'amber', label: 'Hàng Konica dưới ngưỡng tồn', count: canhBaoTonList.length,
+      detail: (
+        <div className="border border-amber-100 rounded-lg overflow-hidden">
+          <table className="w-full text-left text-xs text-slate-600">
+            <thead className="bg-amber-50 text-amber-800"><tr><th className="px-2.5 py-1.5 font-medium">Mã / tên</th><th className="px-2 py-1.5 font-medium text-center">Tồn</th><th className="px-2 py-1.5 font-medium text-center">Ngưỡng</th><th className="px-2 py-1.5 font-medium text-center">Chờ về</th></tr></thead>
+            <tbody className="divide-y divide-slate-100">
+              {canhBaoTonList.map((m: any) => (
+                <tr key={m.ma_hang}>
+                  <td className="px-2.5 py-1.5"><span className="font-mono font-semibold text-slate-700">{m.ma_hang}</span><div className="text-slate-500" title={m.ten_hang}>{m.ten_hang}{m.model ? ` · ${m.model}` : ''}</div></td>
+                  <td className="px-2 py-1.5 text-center font-semibold text-amber-700">{m.ton_kho}</td>
+                  <td className="px-2 py-1.5 text-center">{m.nguong_dat}</td>
+                  <td className="px-2 py-1.5 text-center">{m.cho_ve > 0 ? m.cho_ve : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ),
+    },
+    {
       key: 'unfinished', icon: AlertTriangle, tone: 'red', label: 'Phiếu ngày trước chưa Hoàn thành', count: unfinishedPastJobs.length,
       detail: (
         <div className="border border-rose-100 rounded-lg overflow-hidden">
@@ -1827,7 +1867,7 @@ export default function AdminDashboard() {
                 <DatHangTool inventory={inventory} committed={committed} nhaCungCapOptions={dmOptions('nha_cung_cap')} hangOptions={dmOptions('hang', ['Konica', 'Fuji', 'Khác'])} onUpdateSuccess={fetchData} showNotification={showNotification} currentUserRole={currentUserRole} confirmDelete={confirmDelete} />
               )}
               {effectiveKhoTab === "thong_ke" && (
-                <NhapHangThangTool showNotification={showNotification} />
+                <NhapHangThangTool showNotification={showNotification} canhBao={canhBaoTon} refetchCanhBao={fetchCanhBaoTon} />
               )}
               {effectiveKhoTab === "may_thue" && (
                 <>
@@ -4297,7 +4337,7 @@ function ClearAllButton({ count, label, onConfirm, heightClass = 'h-9', iconOnly
   )
 }
 
-function NhapHangThangTool({ showNotification }: { showNotification: (type: 'success' | 'error', msg: string) => void }) {
+function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao }: { showNotification: (type: 'success' | 'error', msg: string) => void, canhBao: any[], refetchCanhBao: () => void }) {
   const [thang, setThang] = useState("")
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -4313,8 +4353,105 @@ function NhapHangThangTool({ showNotification }: { showNotification: (type: 'suc
   }
   useEffect(() => { fetchRows() }, [thang])
 
+  // ===== Panel cảnh báo tồn kho Konica =====
+  // Nguồn = prop canhBao (ứng viên: Konica + đã nhập 12 tháng). Sửa ngưỡng cục bộ + nút Lưu tường minh.
+  const [ngMap, setNgMap] = useState<Record<string, string>>({}) // ma_hang -> ngưỡng đang sửa (chuỗi)
+  const [dirtyNg, setDirtyNg] = useState<Set<string>>(new Set())
+  const [savingNg, setSavingNg] = useState(false)
+  const [showAll, setShowAll] = useState(false) // false = chỉ hiện cần cảnh báo; true = tất cả ứng viên để đặt ngưỡng
+  // Seed lại giá trị ngưỡng mỗi khi dữ liệu cha đổi (sau khi Lưu/refetch).
+  useEffect(() => {
+    const m: Record<string, string> = {}
+    for (const x of (canhBao || [])) m[x.ma_hang] = x.nguong_dat == null ? '' : String(x.nguong_dat)
+    setNgMap(m); setDirtyNg(new Set())
+  }, [canhBao])
+  const ngOf = (ma: string) => (ngMap[ma] ?? '')
+  const setNg = (ma: string, v: string) => {
+    const digits = v.replace(/[^\d]/g, '')
+    setNgMap(p => ({ ...p, [ma]: digits }))
+    setDirtyNg(d => { const n = new Set(d); n.add(ma); return n })
+  }
+  const isWarn = (x: any) => { const n = Number(ngOf(x.ma_hang) || 0); return n > 0 && Number(x.ton_kho) <= n }
+  const cbRows = (canhBao || [])
+    .filter((x: any) => showAll || isWarn(x))
+    .sort((a: any, b: any) => (isWarn(b) ? 1 : 0) - (isWarn(a) ? 1 : 0) || (Number(a.ton_kho) - Number(b.ton_kho)))
+  const warnCount = (canhBao || []).filter(isWarn).length
+  const saveNg = async () => {
+    if (dirtyNg.size === 0) return
+    setSavingNg(true)
+    try {
+      const items = [...dirtyNg].map(ma => ({ ma_hang: ma, nguong_dat: ngOf(ma) === '' ? null : Number(ngOf(ma)) }))
+      const res = await fetch('/api/admin/canh-bao-ton', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }) })
+      const j = await res.json()
+      if (res.ok) { showNotification('success', `Đã lưu ngưỡng ${j.saved} mặt hàng.`); refetchCanhBao() }
+      else showNotification('error', j.error || 'Lỗi lưu ngưỡng')
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setSavingNg(false) }
+  }
+
   return (
     <div className="space-y-4">
+      {/* ===== Cảnh báo tồn kho Konica (trên phần thống kê) ===== */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Package className="w-5 h-5 text-amber-600 shrink-0" />
+          <div>
+            <h3 className="text-sm font-bold text-slate-800">Cảnh báo tồn kho Konica {warnCount > 0 && <span className="text-amber-700">({warnCount})</span>}</h3>
+            <p className="text-[11px] text-slate-500">Hàng Konica đã nhập trong 12 tháng gần nhất. Cảnh báo khi <b>tồn ≤ ngưỡng</b>. Bỏ trống ngưỡng = không cảnh báo.</p>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <button onClick={() => setShowAll(s => !s)} className="text-xs font-semibold px-2.5 py-1.5 rounded border border-slate-200 text-slate-600 bg-white hover:bg-slate-50">
+              {showAll ? 'Chỉ hiện cảnh báo' : '⚙ Thiết lập ngưỡng (tất cả)'}
+            </button>
+            <Button onClick={saveNg} disabled={savingNg || dirtyNg.size === 0} className="h-9 gap-1.5">
+              {savingNg ? 'Đang lưu…' : dirtyNg.size > 0 ? `Lưu (${dirtyNg.size})` : 'Đã lưu'}
+            </Button>
+          </div>
+        </div>
+        {dirtyNg.size > 0 && (
+          <div className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">
+            ⚠ Còn <b>{dirtyNg.size}</b> ngưỡng chưa lưu — bấm <b>Lưu</b>. Reload khi chưa lưu sẽ mất thay đổi.
+          </div>
+        )}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-slate-600">
+            <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase border-b border-slate-200">
+              <tr>
+                <th className="px-3 py-2">Mã hàng</th>
+                <th className="px-3 py-2">Tên hàng</th>
+                <th className="px-3 py-2">Model</th>
+                <th className="px-2 py-2 text-center">Tồn</th>
+                <th className="px-2 py-2 text-center">Chờ về</th>
+                <th className="px-3 py-2 text-center w-28">Ngưỡng</th>
+                <th className="px-2 py-2 text-center">Thiếu</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {cbRows.length === 0 ? (
+                <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">
+                  {showAll ? 'Không có mặt hàng Konica nào đã nhập trong 12 tháng.' : 'Không có mặt hàng nào dưới ngưỡng. Bấm "Thiết lập ngưỡng" để đặt ngưỡng cảnh báo.'}
+                </td></tr>
+              ) : cbRows.map((x: any) => {
+                const warn = isWarn(x); const n = Number(ngOf(x.ma_hang) || 0)
+                const thieu = warn ? n - Number(x.ton_kho) : 0
+                return (
+                  <tr key={x.ma_hang} className={warn ? 'bg-amber-50/60' : 'hover:bg-slate-50'}>
+                    <td className="px-3 py-1.5 font-mono font-medium text-slate-700">{x.ma_hang}</td>
+                    <td className="px-3 py-1.5">{x.ten_hang}</td>
+                    <td className="px-3 py-1.5 text-xs text-slate-500">{x.model || '—'}</td>
+                    <td className={`px-2 py-1.5 text-center font-semibold ${warn ? 'text-amber-700' : 'text-slate-700'}`}>{x.ton_kho}</td>
+                    <td className="px-2 py-1.5 text-center">{x.cho_ve > 0 ? x.cho_ve : <span className="text-slate-300">—</span>}</td>
+                    <td className="px-3 py-1.5 text-center">
+                      <Input value={ngOf(x.ma_hang)} onChange={e => setNg(x.ma_hang, e.target.value)} placeholder="—" className="h-8 bg-white text-center w-24 mx-auto" />
+                    </td>
+                    <td className="px-2 py-1.5 text-center font-semibold text-rose-600">{thieu > 0 ? thieu : ''}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div className="flex items-end gap-3 flex-wrap">
         <div className="space-y-1">
           <label className="text-xs font-semibold text-slate-600">Lọc theo tháng (để trống = tất cả)</label>
