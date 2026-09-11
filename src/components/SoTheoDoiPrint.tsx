@@ -285,10 +285,10 @@ export default function SoTheoDoiPrintButton({ may, showNotification }: {
                 <Input value={f.soDienThoai} onChange={e => setF({ ...f, soDienThoai: e.target.value })} placeholder="VD: 0977.452.239" className="bg-white h-9" /></div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Thời hạn hợp đồng</label>
-                <div className="flex items-center gap-2">
-                  <DateField value={f.hdTu} onChange={v => setF({ ...f, hdTu: v })} heightClass="h-9" className="flex-1 w-full" placeholder="Từ ngày" />
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+                  <DateField value={f.hdTu} onChange={v => setF({ ...f, hdTu: v })} heightClass="h-9" className="w-full min-w-0" placeholder="Từ ngày" />
                   <span className="text-xs text-slate-400 font-medium shrink-0">đến</span>
-                  <DateField value={f.hdDen} onChange={v => setF({ ...f, hdDen: v })} heightClass="h-9" className="flex-1 w-full" placeholder="Đến ngày" />
+                  <DateField value={f.hdDen} onChange={v => setF({ ...f, hdDen: v })} heightClass="h-9" className="w-full min-w-0" placeholder="Đến ngày" />
                 </div>
               </div>
               <div className="space-y-1"><label className="text-xs font-semibold text-slate-600">Số serial</label>

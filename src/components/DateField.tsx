@@ -24,7 +24,7 @@ export default function DateField({ value, onChange, className, heightClass = "h
   const widthCls = hasWidth ? '' : 'w-36'
 
   return (
-    <div className={`relative flex items-center ${heightClass} ${widthCls} rounded-md border border-slate-200 bg-white ${className || ''}`}>
+    <div className={`relative flex items-center min-w-0 ${heightClass} ${widthCls} rounded-md border border-slate-200 bg-white ${className || ''}`}>
       <input type="text" inputMode="numeric" placeholder={placeholder} value={text} onChange={(e) => onText(e.target.value)} className="flex-1 min-w-0 h-full pl-2.5 pr-1 bg-transparent text-[13px] text-slate-700 outline-none rounded-md" />
       {/* Vùng icon lịch — native date input trong suốt đè lên để chạm là mở lịch (iOS + Android) */}
       <div className="relative h-full w-8 shrink-0">
