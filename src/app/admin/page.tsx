@@ -4634,6 +4634,17 @@ function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao, hangOpti
   const [filterSearch, setFilterSearch] = useState("")
   const [filterModel, setFilterModel] = useState("")
   const [filterHang, setFilterHang] = useState("")
+  const [sortField, setSortField] = useState<string>("model")
+  const [sortAsc, setSortAsc] = useState<boolean>(true)
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortAsc(prev => !prev)
+    } else {
+      setSortField(field)
+      setSortAsc(true)
+    }
+  }
 
   const allHangOptions = useMemo(() => {
     const set = new Set<string>(hangOptions || [])
@@ -4676,7 +4687,40 @@ function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao, hangOpti
       if (filterHang && String(x.hang || '').trim().toLowerCase() !== filterHang.trim().toLowerCase()) return false
       return true
     })
-    .sort((a: any, b: any) => (isSavedWarn(b) ? 1 : 0) - (isSavedWarn(a) ? 1 : 0) || (Number(a.ton_kho) - Number(b.ton_kho)))
+    .sort((a: any, b: any) => {
+      let cmp = 0
+      if (sortField === 'model') {
+        const mA = String(a.model || '').trim()
+        const mB = String(b.model || '').trim()
+        if (!mA && mB) return 1
+        if (mA && !mB) return -1
+        cmp = mA.localeCompare(mB, 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'ma_hang') {
+        cmp = String(a.ma_hang || '').localeCompare(String(b.ma_hang || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'ten_hang') {
+        cmp = String(a.ten_hang || '').localeCompare(String(b.ten_hang || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'hang') {
+        const hA = String(a.hang || '').trim()
+        const hB = String(b.hang || '').trim()
+        if (!hA && hB) return 1
+        if (hA && !hB) return -1
+        cmp = hA.localeCompare(hB, 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'ton_kho') {
+        cmp = (Number(a.ton_kho) || 0) - (Number(b.ton_kho) || 0)
+      } else if (sortField === 'cho_ve') {
+        cmp = (Number(a.cho_ve) || 0) - (Number(b.cho_ve) || 0)
+      } else if (sortField === 'nguong_dat') {
+        cmp = (Number(a.nguong_dat) || 0) - (Number(b.nguong_dat) || 0)
+      } else if (sortField === 'thieu') {
+        const thieuA = isSavedWarn(a) ? (Number(a.nguong_dat) || 0) - (Number(a.ton_kho) || 0) : 0
+        const thieuB = isSavedWarn(b) ? (Number(b.nguong_dat) || 0) - (Number(b.ton_kho) || 0) : 0
+        cmp = thieuA - thieuB
+      }
+      if (cmp === 0) {
+        cmp = String(a.ma_hang || '').localeCompare(String(b.ma_hang || ''))
+      }
+      return sortAsc ? cmp : -cmp
+    })
   const warnCount = (canhBao || []).filter(isWarn).length
   const saveNg = async () => {
     if (dirtyNg.size === 0) return
@@ -4779,16 +4823,88 @@ function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao, hangOpti
         )}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase border-b border-slate-200">
+            <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase border-b border-slate-200 select-none">
               <tr>
-                <th className="px-3 py-2">Mã hàng</th>
-                <th className="px-3 py-2">Tên hàng</th>
-                <th className="px-2 py-2">Hãng</th>
-                <th className="px-3 py-2">Model</th>
-                <th className="px-2 py-2 text-center">Tồn</th>
-                <th className="px-2 py-2 text-center">Chờ về</th>
-                <th className="px-3 py-2 text-center w-28">Ngưỡng</th>
-                <th className="px-2 py-2 text-center">Thiếu</th>
+                <th
+                  onClick={() => handleSort('ma_hang')}
+                  className={`px-3 py-2 cursor-pointer transition-colors ${sortField === 'ma_hang' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'}`}
+                  title="Bấm để sắp xếp theo Mã hàng"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>Mã hàng</span>
+                    {sortField === 'ma_hang' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />)}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('ten_hang')}
+                  className={`px-3 py-2 cursor-pointer transition-colors ${sortField === 'ten_hang' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'}`}
+                  title="Bấm để sắp xếp theo Tên hàng"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>Tên hàng</span>
+                    {sortField === 'ten_hang' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />)}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('hang')}
+                  className={`px-2 py-2 cursor-pointer transition-colors ${sortField === 'hang' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'}`}
+                  title="Bấm để sắp xếp theo Hãng"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>Hãng</span>
+                    {sortField === 'hang' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />)}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('model')}
+                  className={`px-3 py-2 cursor-pointer transition-colors ${sortField === 'model' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'}`}
+                  title="Bấm để sắp xếp theo Model máy"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>Model</span>
+                    {sortField === 'model' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />)}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('ton_kho')}
+                  className={`px-2 py-2 text-center cursor-pointer transition-colors ${sortField === 'ton_kho' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'}`}
+                  title="Bấm để sắp xếp theo SL Tồn"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>Tồn</span>
+                    {sortField === 'ton_kho' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />)}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('cho_ve')}
+                  className={`px-2 py-2 text-center cursor-pointer transition-colors ${sortField === 'cho_ve' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'}`}
+                  title="Bấm để sắp xếp theo SL Chờ về"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>Chờ về</span>
+                    {sortField === 'cho_ve' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />)}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('nguong_dat')}
+                  className={`px-3 py-2 text-center w-28 cursor-pointer transition-colors ${sortField === 'nguong_dat' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'}`}
+                  title="Bấm để sắp xếp theo Ngưỡng"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>Ngưỡng</span>
+                    {sortField === 'nguong_dat' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />)}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('thieu')}
+                  className={`px-2 py-2 text-center cursor-pointer transition-colors ${sortField === 'thieu' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'}`}
+                  title="Bấm để sắp xếp theo Số lượng Thiếu"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>Thiếu</span>
+                    {sortField === 'thieu' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />)}
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
