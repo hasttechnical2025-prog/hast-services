@@ -3226,7 +3226,8 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
           <Input type="number" required value={formData.ton_kho} onChange={(e) => setFormData({...formData, ton_kho: parseInt(e.target.value) || 0})} className="bg-white h-9 text-center px-1" />
         </div>
 
-        <div className="lg:col-span-2 flex items-end">
+        <div className="space-y-1 lg:col-span-2">
+          <label className="text-xs font-semibold text-transparent select-none hidden lg:block">&nbsp;</label>
           <div className="flex items-center gap-1.5 w-full">
             {isEditing && (
               <Button type="button" variant="outline" onClick={resetForm} className="h-9 px-2.5 text-xs">
