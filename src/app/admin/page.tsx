@@ -371,6 +371,38 @@ export default function AdminDashboard() {
   const [technicians, setTechnicians] = useState<any[]>([])
   const [inventory, setInventory] = useState<any[]>([]) // Thêm state inventory
   const [committed, setCommitted] = useState<Record<string, number>>({}) // "Đang giữ": SL vật tư của phiếu chưa Hoàn thành
+
+  // State Giỏ đặt hàng nâng lên AdminPage và đồng bộ localStorage (tránh mất khi chuyển tab Kho hàng hoặc F5)
+  const [datHangLines, setDatHangLines] = useState<{ ma_hang: string, sl_dat: string }[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const s = localStorage.getItem('soct_dathang_lines')
+      return s ? JSON.parse(s) : []
+    } catch { return [] }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem('soct_dathang_lines', JSON.stringify(datHangLines))
+    } catch { }
+  }, [datHangLines])
+
+  const handleAddToCartFromWarning = (items: { ma_hang: string, sl_dat: string }[], redirectToDatHang = true) => {
+    setDatHangLines(prev => {
+      const copy = [...prev]
+      for (const it of items) {
+        const sl = parseInt(it.sl_dat, 10) || 0
+        if (sl <= 0) continue
+        const idx = copy.findIndex(l => l.ma_hang === it.ma_hang)
+        if (idx >= 0) {
+          copy[idx] = { ...copy[idx], sl_dat: String((Number(copy[idx].sl_dat) || 0) + sl) }
+        } else {
+          copy.push({ ma_hang: it.ma_hang, sl_dat: String(sl) })
+        }
+      }
+      return copy
+    })
+    if (redirectToDatHang) setKhoTab('dat_hang')
+  }
   const [danhMuc, setDanhMuc] = useState<{ id: string, nhom: string, gia_tri: string, thu_tu: number, active: boolean }[]>([])
   // Trạng thái máy cho phù hiệu trong form giao việc
   const [mayStatus, setMayStatus] = useState<{ bao_tri_thang: boolean, thang_nam: string, giam_dinh: any[] } | null>(null)
@@ -1850,7 +1882,7 @@ export default function AdminDashboard() {
           <div className="space-y-4">
             {/* Thanh tab con của Kho hàng — để NGOÀI thẻ overflow-hidden để sticky chạy */}
             <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto">
-              {([['ton_kho','Tồn kho'],['dat_hang','Đặt hàng'],['thong_ke','Thống kê nhập'],['may_thue','Kho máy thuê']] as const)
+              {([['ton_kho','Tồn kho'],['dat_hang',`Đặt hàng${datHangLines.length > 0 ? ` (${datHangLines.length})` : ''}`],['thong_ke','Thống kê nhập'],['may_thue','Kho máy thuê']] as const)
                 .filter(([k]) => subVisible('kho_hang', k))
                 .map(([k,l]) => (
                 <button key={k} onClick={() => setKhoTab(k as any)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveKhoTab === k ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>{l}</button>
@@ -1889,10 +1921,10 @@ export default function AdminDashboard() {
                 </>
               )}
               {effectiveKhoTab === "dat_hang" && (
-                <DatHangTool inventory={inventory} committed={committed} nhaCungCapOptions={dmOptions('nha_cung_cap')} hangOptions={dmOptions('hang', ['Konica', 'Fuji', 'Khác'])} onUpdateSuccess={fetchData} showNotification={showNotification} currentUserRole={currentUserRole} confirmDelete={confirmDelete} />
+                <DatHangTool inventory={inventory} committed={committed} nhaCungCapOptions={dmOptions('nha_cung_cap')} hangOptions={dmOptions('hang', ['Konica', 'Fuji', 'Khác'])} onUpdateSuccess={fetchData} showNotification={showNotification} currentUserRole={currentUserRole} confirmDelete={confirmDelete} lines={datHangLines} setLines={setDatHangLines} canhBao={canhBaoTon} />
               )}
               {effectiveKhoTab === "thong_ke" && (
-                <NhapHangThangTool showNotification={showNotification} canhBao={canhBaoTon} refetchCanhBao={fetchCanhBaoTon} hangOptions={dmOptions('hang', ['Konica', 'Fuji', 'Khác'])} />
+                <NhapHangThangTool showNotification={showNotification} canhBao={canhBaoTon} refetchCanhBao={fetchCanhBaoTon} hangOptions={dmOptions('hang', ['Konica', 'Fuji', 'Khác'])} cartCount={datHangLines.length} onAddToCart={handleAddToCartFromWarning} onGoToCart={() => setKhoTab('dat_hang')} />
               )}
               {effectiveKhoTab === "may_thue" && (
                 <>
@@ -4744,7 +4776,23 @@ function ClearAllButton({ count, label, onConfirm, heightClass = 'h-9', iconOnly
   )
 }
 
-function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao, hangOptions }: { showNotification: (type: 'success' | 'error', msg: string) => void, canhBao: any[], refetchCanhBao: () => void, hangOptions?: string[] }) {
+function NhapHangThangTool({
+  showNotification,
+  canhBao,
+  refetchCanhBao,
+  hangOptions,
+  cartCount,
+  onAddToCart,
+  onGoToCart,
+}: {
+  showNotification: (type: 'success' | 'error', msg: string) => void
+  canhBao: any[]
+  refetchCanhBao: () => void
+  hangOptions?: string[]
+  cartCount?: number
+  onAddToCart?: (items: { ma_hang: string, sl_dat: string }[], redirectToDatHang?: boolean) => void
+  onGoToCart?: () => void
+}) {
   const [thang, setThang] = useState("")
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -4892,6 +4940,25 @@ function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao, hangOpti
       return sortAsc ? cmp : -cmp
     })
   const warnCount = (canhBao || []).filter(isWarn).length
+
+  // Danh sách các mặt hàng đang thiếu (tồn <= ngưỡng, thiếu = ngưỡng - tồn)
+  const thieuList = useMemo(() => {
+    return cbRows
+      .map((x: any) => {
+        const warn = isWarn(x)
+        const n = Number(ngOf(x.ma_hang) || 0)
+        const thieu = warn ? n - Number(x.ton_kho) : 0
+        return { ma_hang: x.ma_hang, sl_dat: String(thieu), thieu }
+      })
+      .filter(it => it.thieu > 0)
+  }, [cbRows, ngMap]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleAddAllToCart = () => {
+    if (thieuList.length === 0) return
+    onAddToCart?.(thieuList.map(t => ({ ma_hang: t.ma_hang, sl_dat: t.sl_dat })), true)
+    showNotification('success', `Đã nhặt ${thieuList.length} mặt hàng thiếu vào Giỏ đặt hàng và chuyển sang tab Đặt hàng.`)
+  }
+
   const saveNg = async () => {
     if (dirtyNg.size === 0) return
     setSavingNg(true)
@@ -4914,7 +4981,27 @@ function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao, hangOpti
             <h3 className="text-sm font-bold text-slate-800">Cảnh báo tồn kho {warnCount > 0 && <span className="text-amber-700">({warnCount})</span>}</h3>
             <p className="text-[11px] text-slate-500">Mặt hàng đã nhập trong 12 tháng gần nhất (mọi hãng). Cảnh báo khi <b>tồn ≤ ngưỡng</b>. Bỏ trống ngưỡng = không cảnh báo.</p>
           </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2 flex-wrap">
+            {cartCount != null && cartCount > 0 && onGoToCart && (
+              <button
+                type="button"
+                onClick={onGoToCart}
+                className="text-xs font-semibold px-2.5 py-1.5 rounded border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 flex items-center gap-1.5 transition"
+                title="Chuyển sang tab Đặt hàng để xem giỏ hàng"
+              >
+                <ShoppingCart className="w-3.5 h-3.5" /> Xem giỏ ({cartCount})
+              </button>
+            )}
+            {thieuList.length > 0 && onAddToCart && (
+              <button
+                type="button"
+                onClick={handleAddAllToCart}
+                className="text-xs font-semibold px-2.5 py-1.5 rounded border border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 flex items-center gap-1.5 transition"
+                title="Nhặt toàn bộ các mặt hàng đang thiếu vào Giỏ đặt hàng và chuyển sang tab Đặt hàng"
+              >
+                <ShoppingCart className="w-3.5 h-3.5 text-amber-600" /> Nhặt vào Giỏ đặt hàng ({thieuList.length} món)
+              </button>
+            )}
             <button onClick={() => setShowAll(s => !s)} className="text-xs font-semibold px-2.5 py-1.5 rounded border border-slate-200 text-slate-600 bg-white hover:bg-slate-50">
               {showAll ? 'Chỉ hiện cảnh báo' : '⚙ Thiết lập ngưỡng (tất cả)'}
             </button>
@@ -5075,11 +5162,14 @@ function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao, hangOpti
                     {sortField === 'thieu' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />)}
                   </div>
                 </th>
+                <th className="px-2 py-2 text-center w-24">
+                  Đặt hàng
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {cbRows.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">
+                <tr><td colSpan={9} className="px-4 py-6 text-center text-slate-400">
                   {(filterSearch || filterModel || filterHang) ? 'Không tìm thấy mặt hàng khớp bộ lọc.' : showAll ? 'Không có mặt hàng nào đã nhập trong 12 tháng.' : 'Không có mặt hàng nào dưới ngưỡng khớp bộ lọc. Bấm "Thiết lập ngưỡng" để xem và đặt ngưỡng.'}
                 </td></tr>
               ) : cbRows.map((x: any) => {
@@ -5097,6 +5187,23 @@ function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao, hangOpti
                       <Input value={ngOf(x.ma_hang)} onChange={e => setNg(x.ma_hang, e.target.value)} placeholder="—" className="h-8 bg-white text-center w-24 mx-auto" />
                     </td>
                     <td className="px-2 py-1.5 text-center font-semibold text-rose-600">{thieu > 0 ? thieu : ''}</td>
+                    <td className="px-2 py-1.5 text-center">
+                      {thieu > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onAddToCart?.([{ ma_hang: x.ma_hang, sl_dat: String(thieu) }], false)
+                            showNotification('success', `Đã thêm ${x.ma_hang} (${thieu}) vào giỏ đặt hàng`)
+                          }}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition"
+                          title={`Nhặt ${thieu} ${x.ma_hang} vào giỏ hàng`}
+                        >
+                          + Đặt ({thieu})
+                        </button>
+                      ) : (
+                        <span className="text-slate-300 text-xs">—</span>
+                      )}
+                    </td>
                   </tr>
                 )
               })}
@@ -5194,9 +5301,32 @@ function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao, hangOpti
   )
 }
 
-function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onUpdateSuccess, showNotification, currentUserRole, confirmDelete }: { inventory: any[], committed: Record<string, number>, nhaCungCapOptions: string[], hangOptions: string[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, currentUserRole: string, confirmDelete: (id: string, type: 'job' | 'user' | 'inventory' | 'dat_hang_ct') => void }) {
+function DatHangTool({
+  inventory,
+  committed,
+  nhaCungCapOptions,
+  hangOptions,
+  onUpdateSuccess,
+  showNotification,
+  currentUserRole,
+  confirmDelete,
+  lines,
+  setLines,
+  canhBao,
+}: {
+  inventory: any[]
+  committed: Record<string, number>
+  nhaCungCapOptions: string[]
+  hangOptions: string[]
+  onUpdateSuccess: () => void
+  showNotification: (type: 'success' | 'error', msg: string) => void
+  currentUserRole: string
+  confirmDelete: (id: string, type: 'job' | 'user' | 'inventory' | 'dat_hang_ct') => void
+  lines: { ma_hang: string, sl_dat: string }[]
+  setLines: React.Dispatch<React.SetStateAction<{ ma_hang: string, sl_dat: string }[]>>
+  canhBao?: any[]
+}) {
   const [form, setForm] = useState({ ngay_dat: new Date().toISOString().split('T')[0], nha_cung_cap: "", so_don_hang: "", da_dat: false })
-  const [lines, setLines] = useState<{ ma_hang: string, sl_dat: string }[]>([])
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -5209,9 +5339,35 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
   const [leftModel, setLeftModel] = useState("")
   const [leftHang, setLeftHang] = useState("")
   const [leftLowStock, setLeftLowStock] = useState(false)
+  const [leftUnderWarn, setLeftUnderWarn] = useState(false)
   const [leftQuantities, setLeftQuantities] = useState<Record<string, string>>({})
   const [leftSortField, setLeftSortField] = useState<string>("model")
   const [leftSortAsc, setLeftSortAsc] = useState<boolean>(true)
+
+  const canhBaoMap = useMemo(() => {
+    const m = new Map<string, any>()
+    for (const c of (canhBao || [])) {
+      if (c?.ma_hang) m.set(c.ma_hang, c)
+    }
+    return m
+  }, [canhBao])
+
+  const getUnderWarnInfo = useCallback((item: any) => {
+    const cb = canhBaoMap.get(item.ma_hang)
+    const nguong = cb?.nguong_dat != null ? Number(cb.nguong_dat) : (item.nguong_dat != null ? Number(item.nguong_dat) : null)
+    if (nguong != null && nguong > 0) {
+      const ton = Number(item.ton_kho) || 0
+      if (ton <= nguong) {
+        const thieu = Math.max(1, nguong - ton)
+        return { isUnder: true, nguong, thieu }
+      }
+    }
+    return { isUnder: false, nguong: null, thieu: 0 }
+  }, [canhBaoMap])
+
+  const underWarnItems = useMemo(() => {
+    return inventory.filter(item => !item.ngung_su_dung && getUnderWarnInfo(item).isUnder)
+  }, [inventory, getUnderWarnInfo])
 
   const handleLeftSort = (field: string) => {
     if (leftSortField === field) {
@@ -5510,6 +5666,7 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
       }
       if (leftHang && String(item.hang || '').trim().toLowerCase() !== leftHang.trim().toLowerCase()) return false
       if (leftLowStock && item.ton_kho > 0) return false
+      if (leftUnderWarn && !getUnderWarnInfo(item).isUnder) return false
       return true
     })
 
@@ -5540,7 +5697,27 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
       return leftSortAsc ? cmp : -cmp
     })
     return filtered
-  }, [inventory, leftSearch, leftModel, leftHang, leftLowStock, leftSortField, leftSortAsc, committed, orders])
+  }, [inventory, leftSearch, leftModel, leftHang, leftLowStock, leftUnderWarn, leftSortField, leftSortAsc, committed, orders, getUnderWarnInfo])
+
+  const handleAddAllUnderWarnToCart = () => {
+    const targets = sortedLeftInventory.filter(item => getUnderWarnInfo(item).isUnder)
+    if (targets.length === 0) return
+    setLines(prev => {
+      const copy = [...prev]
+      for (const it of targets) {
+        const info = getUnderWarnInfo(it)
+        const qty = info.thieu || 1
+        const idx = copy.findIndex(l => l.ma_hang === it.ma_hang)
+        if (idx >= 0) {
+          copy[idx] = { ...copy[idx], sl_dat: String((Number(copy[idx].sl_dat) || 0) + qty) }
+        } else {
+          copy.push({ ma_hang: it.ma_hang, sl_dat: String(qty) })
+        }
+      }
+      return copy
+    })
+    showNotification('success', `Đã nhặt ${targets.length} món dưới ngưỡng vào giỏ hàng.`)
+  }
 
   return (
     <div className="space-y-6">
@@ -5617,15 +5794,46 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
                 Hết hàng (Tồn = 0)
               </label>
 
-              {(leftSearch || leftModel || leftHang || leftLowStock) && (
+              <label className={`flex items-center gap-1.5 text-xs font-semibold cursor-pointer select-none h-8 px-2 py-0.5 rounded border transition-colors ${
+                leftUnderWarn ? 'bg-rose-100 text-rose-800 border-rose-300' : 'bg-rose-50/70 text-rose-700 border-rose-200 hover:bg-rose-100/70'
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={leftUnderWarn}
+                  onChange={(e) => setLeftUnderWarn(e.target.checked)}
+                  className="w-3.5 h-3.5 accent-rose-600"
+                />
+                <span>🔔 Dưới ngưỡng ({underWarnItems.length})</span>
+              </label>
+
+              {(leftSearch || leftModel || leftHang || leftLowStock || leftUnderWarn) && (
                 <button
-                  onClick={() => { setLeftSearch(""); setLeftModel(""); setLeftHang(""); setLeftLowStock(false) }}
+                  onClick={() => { setLeftSearch(""); setLeftModel(""); setLeftHang(""); setLeftLowStock(false); setLeftUnderWarn(false) }}
                   className="text-xs text-rose-600 hover:underline font-medium ml-1"
                 >
                   Bỏ lọc
                 </button>
               )}
             </div>
+
+            {leftUnderWarn && (
+              <div className="bg-rose-50 border border-rose-200 rounded-lg p-2.5 flex items-center justify-between gap-2 text-xs">
+                <div className="text-rose-800 font-medium">
+                  Đang hiển thị <b>{sortedLeftInventory.length}</b> mặt hàng dưới ngưỡng cảnh báo tồn.
+                </div>
+                {sortedLeftInventory.length > 0 && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleAddAllUnderWarnToCart}
+                    className="h-7 text-xs bg-rose-600 hover:bg-rose-700 text-white gap-1 shrink-0 font-semibold"
+                  >
+                    <ShoppingCart className="w-3.5 h-3.5" />
+                    Nhặt tất cả vào giỏ ({sortedLeftInventory.length})
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="overflow-x-auto h-[850px] overflow-y-auto">
@@ -5699,11 +5907,23 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
                     const tempQty = leftQuantities[item.ma_hang] || ""
                     const isOut = item.ton_kho <= 0
                     const { pendingQty, tooltip } = getPendingInfo(item.ma_hang)
+                    const underInfo = getUnderWarnInfo(item)
+                    const effectiveQty = tempQty ? parseInt(tempQty, 10) : (underInfo.isUnder ? underInfo.thieu : 0)
 
                     return (
-                      <tr key={item.ma_hang} className="hover:bg-slate-50/80 transition-colors">
+                      <tr key={item.ma_hang} className={`hover:bg-slate-50/80 transition-colors ${underInfo.isUnder ? 'bg-rose-50/30' : ''}`}>
                         <td className="px-3 py-2.5">
-                          <div className="font-mono font-bold text-slate-700">{item.ma_hang}</div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono font-bold text-slate-700">{item.ma_hang}</span>
+                            {underInfo.isUnder && (
+                              <span
+                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-300 whitespace-nowrap"
+                                title={`Tồn: ${item.ton_kho} / Ngưỡng: ${underInfo.nguong} → Cần đặt bù tối thiểu ${underInfo.thieu}`}
+                              >
+                                🔔 Thiếu {underInfo.thieu}
+                              </span>
+                            )}
+                          </div>
                           <div className="text-slate-500 font-normal leading-relaxed">{item.ten_hang}</div>
                         </td>
                         <td className="px-3 py-2.5 text-center text-[11px] text-slate-500 leading-tight w-32 max-w-[150px] break-words whitespace-normal">{item.model || '—'}</td>
@@ -5733,8 +5953,8 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
                           <Input
                             type="text"
                             inputMode="numeric"
-                            placeholder="Đặt SL"
-                            className="h-7 text-xs bg-white text-center w-full min-w-[64px]"
+                            placeholder={underInfo.isUnder && underInfo.thieu > 0 ? `Thiếu ${underInfo.thieu}` : "Đặt SL"}
+                            className={`h-7 text-xs bg-white text-center w-full min-w-[64px] ${underInfo.isUnder && !tempQty ? 'placeholder:text-rose-500 placeholder:font-semibold border-rose-300' : ''}`}
                             value={tempQty}
                             onChange={(e) => {
                               const val = e.target.value.replace(/\D/g, '') // Chỉ cho phép nhập số
@@ -5745,10 +5965,12 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
                         <td className="px-2 py-2.5 text-center">
                           <Button
                             type="button"
-                            onClick={() => addToCart(item.ma_hang, tempQty)}
-                            disabled={!tempQty || parseInt(tempQty, 10) <= 0}
-                            className="h-7 w-7 p-0 bg-blue-600 hover:bg-blue-700 text-white rounded disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center justify-center mx-auto"
-                            title="Nhặt vào giỏ hàng"
+                            onClick={() => addToCart(item.ma_hang, String(effectiveQty))}
+                            disabled={effectiveQty <= 0}
+                            className={`h-7 w-7 p-0 text-white rounded disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center justify-center mx-auto ${
+                              underInfo.isUnder ? 'bg-rose-600 hover:bg-rose-700' : 'bg-blue-600 hover:bg-blue-700'
+                            }`}
+                            title={effectiveQty > 0 ? (tempQty ? `Nhặt ${effectiveQty} vào giỏ hàng` : `Nhặt số lượng thiếu (${effectiveQty}) vào giỏ hàng`) : "Nhập SL để nhặt"}
                           >
                             <Plus className="w-4 h-4" />
                           </Button>
