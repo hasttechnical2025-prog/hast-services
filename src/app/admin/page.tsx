@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom"
-import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy, X, Palmtree, Send, Hand, Bell, Droplets, FileText, FileSpreadsheet } from "lucide-react"
+import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy, X, Palmtree, Send, Hand, Bell, Droplets, FileText, FileSpreadsheet, ToggleRight, ToggleLeft } from "lucide-react"
 import { BBBG_TEMPLATE_LIST } from "@/lib/bbbg-templates"
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
@@ -3363,7 +3363,7 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
               {col.show('model') && <th className="px-4 py-3 font-semibold">Model</th>}
               {col.show('hang') && <th className="px-4 py-3 font-semibold">Hãng</th>}
               {col.show('ton_kho') && <th className="px-4 py-3 font-semibold text-center">Tồn kho</th>}
-              {col.show('trang_thai') && <th className="px-4 py-3 font-semibold">Trạng thái</th>}
+              {col.show('trang_thai') && <th className="px-4 py-3 font-semibold text-center whitespace-nowrap">Trạng thái</th>}
               {col.show('thaotac') && <th className="px-4 py-3 font-semibold text-center w-24">Thao tác</th>}
             </tr>
           </thead>
@@ -3381,21 +3381,30 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
                     {item.ton_kho}
                   </span>
                 </td>}
-                {col.show('trang_thai') && <td className="px-4 py-3">
+                {col.show('trang_thai') && <td className="px-4 py-3 text-center whitespace-nowrap">
                   {item.ngung_su_dung ? (
-                    <div className="flex flex-col gap-0.5">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200 w-fit">
-                        Ngưng dùng
+                    <div className="inline-flex flex-col items-center justify-center">
+                      <span
+                        title={item.ma_thay_the ? `Không sử dụng (Mã thay thế: ${item.ma_thay_the})` : "Không sử dụng"}
+                        className="inline-flex items-center justify-center cursor-help text-slate-400 hover:text-slate-600 transition"
+                      >
+                        <ToggleLeft className="w-6 h-6" />
                       </span>
                       {item.ma_thay_the && (
-                        <span className="text-[11px] text-slate-500 font-mono">
-                          ↳ Đổi: <span className="font-bold text-blue-600">{item.ma_thay_the}</span>
+                        <span
+                          className="text-[10px] text-slate-500 font-mono text-center mt-0.5"
+                          title={`Mã thay thế: ${item.ma_thay_the}`}
+                        >
+                          ↳ <span className="font-bold text-blue-600">{item.ma_thay_the}</span>
                         </span>
                       )}
                     </div>
                   ) : (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-600 border border-slate-100 w-fit">
-                      Đang dùng
+                    <span
+                      title="Đang dùng"
+                      className="inline-flex items-center justify-center cursor-help text-emerald-600 hover:text-emerald-700 transition"
+                    >
+                      <ToggleRight className="w-6 h-6" />
                     </span>
                   )}
                 </td>}
