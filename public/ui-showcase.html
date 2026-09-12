@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bản thiết kế mẫu: Các phong cách Giao diện Thanh mảnh & Gọn nhẹ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased p-4 md:p-6 min-h-screen">
+  <div class="max-w-6xl mx-auto space-y-5">
+
+    <!-- HEADER ĐIỀU KHIỂN CHÍNH: CHỌN MÀN HÌNH & CHỌN STYLE -->
+    <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm space-y-4">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div>
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Thiết kế UI Demo tương tác (Chưa áp dụng vào Code)
+          </div>
+          <h1 class="text-lg font-bold text-slate-900 tracking-tight mt-1">Bản thử nghiệm giao diện: Thanh mảnh & Gọn nhẹ</h1>
+          <p class="text-xs text-slate-500">Xem trước diện mạo của các màn hình nghiệp vụ chính khi áp dụng các phong cách UI mới.</p>
+        </div>
+
+        <!-- BỘ CHỌN MÀN HÌNH (SCREEN TABS) -->
+        <div class="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 shrink-0">
+          <button onclick="setScreen('dispatch')" id="scr-dispatch" class="px-3 py-1.5 rounded-md text-xs font-semibold transition-all bg-white text-blue-700 shadow-xs flex items-center gap-1.5">
+            <i data-lucide="clipboard-list" class="w-3.5 h-3.5"></i> Sổ công tác
+          </button>
+          <button onclick="setScreen('kanban')" id="scr-kanban" class="px-3 py-1.5 rounded-md text-xs font-semibold text-slate-600 transition-all hover:text-slate-900 flex items-center gap-1.5">
+            <i data-lucide="columns-3" class="w-3.5 h-3.5"></i> Kanban Hóa đơn
+          </button>
+          <button onclick="setScreen('inventory')" id="scr-inventory" class="px-3 py-1.5 rounded-md text-xs font-semibold text-slate-600 transition-all hover:text-slate-900 flex items-center gap-1.5">
+            <i data-lucide="boxes" class="w-3.5 h-3.5"></i> Kho & Cảnh báo tồn
+          </button>
+        </div>
+      </div>
+
+      <!-- BỘ CHỌN PHONG CÁCH (STYLE TABS) -->
+      <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+        <span class="text-xs font-semibold text-slate-500 flex items-center gap-1">
+          <i data-lucide="palette" class="w-3.5 h-3.5 text-blue-600"></i> Chọn Phong cách giao diện:
+        </span>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button onclick="setStyle('linear')" id="btn-linear" class="px-3 py-1 rounded-md text-xs font-medium bg-slate-900 text-white shadow-xs transition">
+            1. Linear Pro (Hairline Indigo)
+          </button>
+          <button onclick="setStyle('stripe')" id="btn-stripe" class="px-3 py-1 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-100 transition">
+            2. Stripe FinTech (Pastel Clean)
+          </button>
+          <button onclick="setStyle('apple')" id="btn-apple" class="px-3 py-1 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-100 transition">
+            3. Apple macOS (SF Precision)
+          </button>
+          <button onclick="setStyle('nordic')" id="btn-nordic" class="px-3 py-1 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-100 transition">
+            4. Nordic Minimal (Êm mắt Warm)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BANNER MÔ TẢ ĐẶC ĐIỂM CỦA PHONG CÁCH HIỆN TẠI -->
+    <div id="style-desc" class="bg-blue-50/70 border border-blue-200/70 rounded-xl px-4 py-3 flex items-start gap-3 text-xs text-blue-900">
+      <i data-lucide="info" class="w-4 h-4 text-blue-600 shrink-0 mt-0.5"></i>
+      <div id="desc-text">
+        <b>1. Linear Pro Style:</b> Viền hairline siêu mỏng <code>border-slate-200/70</code>, controls chuẩn 32px (h-8), bo góc nhẹ 6px, typography sắc nét, màu nhấn Indigo dịu mắt. Mật độ thông tin cao, sang trọng kiểu SaaS hiện đại.
+      </div>
+    </div>
+
+    <!-- KHU VỰC LIVE PREVIEW (CONTAINER CHÍNH) -->
+    <div id="preview-area" class="transition-all duration-150">
+
+      <!-- ====================================================================== -->
+      <!-- MÀN HÌNH 1: SỔ CÔNG TÁC (ĐIỀU PHỐI PHIẾU GIAO VIỆC KTV) -->
+      <!-- ====================================================================== -->
+      <div id="screen-dispatch" class="space-y-4">
+        <!-- 1.1 Stat cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div class="card-item bg-white p-3 rounded-lg border border-slate-200/80 flex items-center justify-between shadow-xs">
+            <div>
+              <div class="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Chờ nhận</div>
+              <div class="text-xl font-bold text-amber-600 tracking-tight mt-0.5">3</div>
+              <div class="text-[10px] text-slate-400">phiếu chưa ai nhận</div>
+            </div>
+            <div class="w-8 h-8 rounded-md bg-amber-50 text-amber-600 flex items-center justify-center">
+              <i data-lucide="clock" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div class="card-item bg-white p-3 rounded-lg border border-slate-200/80 flex items-center justify-between shadow-xs">
+            <div>
+              <div class="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Đã giao</div>
+              <div class="text-xl font-bold text-blue-600 tracking-tight mt-0.5">5</div>
+              <div class="text-[10px] text-slate-400">chờ KTV tới nơi</div>
+            </div>
+            <div class="w-8 h-8 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center">
+              <i data-lucide="send" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div class="card-item bg-white p-3 rounded-lg border border-slate-200/80 flex items-center justify-between shadow-xs">
+            <div>
+              <div class="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Đang làm</div>
+              <div class="text-xl font-bold text-indigo-600 tracking-tight mt-0.5">4</div>
+              <div class="text-[10px] text-slate-400">KTV đang xử lý máy</div>
+            </div>
+            <div class="w-8 h-8 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <i data-lucide="wrench" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div class="card-item bg-white p-3 rounded-lg border border-slate-200/80 flex items-center justify-between shadow-xs">
+            <div>
+              <div class="text-[11px] font-medium text-emerald-700 uppercase tracking-wider">Hoàn thành</div>
+              <div class="text-xl font-bold text-emerald-700 tracking-tight mt-0.5">18</div>
+              <div class="text-[10px] text-emerald-600/80">trong ngày hôm nay</div>
+            </div>
+            <div class="w-8 h-8 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- 1.2 Bảng danh sách Sổ công tác -->
+        <div class="card-item bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
+          <!-- Toolbar lọc thanh mảnh -->
+          <div class="p-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="relative w-56">
+                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2"></i>
+                <input type="text" placeholder="Tìm số phiếu, khách hàng, máy..." class="form-ctrl w-full h-8 pl-8 pr-2.5 text-xs rounded-md border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-indigo-500 outline-none" />
+              </div>
+              <select class="form-ctrl h-8 px-2.5 text-xs rounded-md border border-slate-200 bg-slate-50/50 focus:bg-white outline-none">
+                <option>Tất cả KTV</option>
+                <option>Tuấn KTV</option>
+                <option>Dũng KTV</option>
+                <option>Nam KTV</option>
+              </select>
+              <select class="form-ctrl h-8 px-2.5 text-xs rounded-md border border-slate-200 bg-slate-50/50 focus:bg-white outline-none">
+                <option>Trạng thái: Tất cả</option>
+                <option>Chờ nhận</option>
+                <option>Đang làm</option>
+                <option>Hoàn thành</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-slate-400 font-mono">12/09/2026</span>
+              <button class="btn-action h-8 px-3 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium flex items-center gap-1.5 shadow-xs transition">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Tạo phiếu mới
+              </button>
+            </div>
+          </div>
+
+          <!-- Table -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-600">
+              <thead class="bg-slate-50/80 text-slate-500 text-[11px] font-semibold uppercase tracking-wider border-b border-slate-200/70">
+                <tr>
+                  <th class="px-3.5 py-2">Số phiếu</th>
+                  <th class="px-3.5 py-2">Khách hàng / Điểm máy</th>
+                  <th class="px-3.5 py-2">Loại việc</th>
+                  <th class="px-3.5 py-2">Model máy</th>
+                  <th class="px-3.5 py-2">KTV phụ trách</th>
+                  <th class="px-3.5 py-2 text-center">Trạng thái</th>
+                  <th class="px-3.5 py-2 text-right">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <tr class="hover:bg-slate-50/70 transition-colors">
+                  <td class="px-3.5 py-2.5 font-mono font-bold text-slate-900">#958102</td>
+                  <td class="px-3.5 py-2.5">
+                    <div class="font-medium text-slate-900">Bệnh viện TW Quân đội 108</div>
+                    <div class="text-[11px] text-slate-400">Điểm máy: Khoa Dược (Mã 36051)</div>
+                  </td>
+                  <td class="px-3.5 py-2.5">
+                    <span class="badge-tag inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200">
+                      Sửa chữa máy
+                    </span>
+                  </td>
+                  <td class="px-3.5 py-2.5 text-slate-600 font-medium">Bizhub 367</td>
+                  <td class="px-3.5 py-2.5 text-slate-800 font-medium">Dũng KTV</td>
+                  <td class="px-3.5 py-2.5 text-center">
+                    <span class="badge-tag inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span> Đang làm
+                    </span>
+                  </td>
+                  <td class="px-3.5 py-2.5 text-right">
+                    <button class="px-2 py-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium">Chi tiết</button>
+                  </td>
+                </tr>
+
+                <tr class="hover:bg-slate-50/70 transition-colors">
+                  <td class="px-3.5 py-2.5 font-mono font-bold text-slate-900">#958103</td>
+                  <td class="px-3.5 py-2.5">
+                    <div class="font-medium text-slate-900">Vietcombank - Chi nhánh Hoàn Kiếm</div>
+                    <div class="text-[11px] text-slate-400">Điểm máy: Phòng Kế toán (Mã 36148)</div>
+                  </td>
+                  <td class="px-3.5 py-2.5">
+                    <span class="badge-tag inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                      Bảo trì định kỳ
+                    </span>
+                  </td>
+                  <td class="px-3.5 py-2.5 text-slate-600 font-medium">AccurioPrint C3070L</td>
+                  <td class="px-3.5 py-2.5 text-slate-800 font-medium">Tuấn KTV</td>
+                  <td class="px-3.5 py-2.5 text-center">
+                    <span class="badge-tag inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <i data-lucide="check" class="w-3 h-3"></i> Hoàn thành
+                    </span>
+                  </td>
+                  <td class="px-3.5 py-2.5 text-right">
+                    <button class="px-2 py-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium">Chi tiết</button>
+                  </td>
+                </tr>
+
+                <tr class="hover:bg-slate-50/70 transition-colors">
+                  <td class="px-3.5 py-2.5 font-mono font-bold text-slate-900">#958104</td>
+                  <td class="px-3.5 py-2.5">
+                    <div class="font-medium text-slate-900">Viện Kiểm sát Nhân dân Tối cao</div>
+                    <div class="text-[11px] text-slate-400">Điểm máy: Văn phòng Viện (Mã 35256)</div>
+                  </td>
+                  <td class="px-3.5 py-2.5">
+                    <span class="badge-tag inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                      Thay vật tư / Mực
+                    </span>
+                  </td>
+                  <td class="px-3.5 py-2.5 text-slate-600 font-medium">Bizhub C250i</td>
+                  <td class="px-3.5 py-2.5 text-slate-500 italic">Chưa nhận</td>
+                  <td class="px-3.5 py-2.5 text-center">
+                    <span class="badge-tag inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                      Chờ nhận
+                    </span>
+                  </td>
+                  <td class="px-3.5 py-2.5 text-right">
+                    <button class="px-2 py-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium">Gán KTV</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====================================================================== -->
+      <!-- MÀN HÌNH 2: TÀI CHÍNH / KANBAN HÓA ĐƠN & CÔNG NỢ -->
+      <!-- ====================================================================== -->
+      <div id="screen-kanban" class="space-y-4 hidden">
+        <!-- 2.1 Banner cảnh báo nợ đọng -->
+        <div class="card-item bg-amber-50/70 border border-amber-200/80 rounded-lg p-3 flex items-center justify-between text-xs text-amber-900">
+          <div class="flex items-center gap-2">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 shrink-0"></i>
+            <div>
+              <b>Cảnh báo thu hồi nợ:</b> Có <b>3 khách hàng</b> nợ quá hạn trên 30 ngày (Tổng tiền: <b>24.850.000 đ</b>). Cần liên hệ đối chiếu.
+            </div>
+          </div>
+          <button class="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-medium shrink-0">
+            Xem danh sách nợ
+          </button>
+        </div>
+
+        <!-- 2.2 4 Cột Kanban -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <!-- Cột 1: Cần lên hóa đơn -->
+          <div class="card-item bg-slate-50/80 rounded-lg p-2.5 border border-slate-200/80 space-y-2.5">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-200/60">
+              <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-blue-500"></span> 1. Cần lên HĐ (3)
+              </span>
+              <span class="text-[11px] font-mono font-semibold text-slate-500">18.500.000 đ</span>
+            </div>
+            <!-- Card 1 -->
+            <div class="kanban-card bg-white p-2.5 rounded-md border border-slate-200/70 shadow-xs space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="font-mono text-[11px] font-bold text-slate-900">#958040</span>
+                <span class="text-[10px] text-slate-400">08/09/2026</span>
+              </div>
+              <div class="text-xs font-semibold text-slate-800">Bệnh viện TW Quân đội 108</div>
+              <div class="text-[11px] text-slate-500">Sửa máy & Thay sấy Bizhub 367</div>
+              <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+                <span class="text-xs font-bold text-indigo-700 font-mono">6.500.000 đ</span>
+                <span class="text-[10px] text-slate-400">Dũng KTV</span>
+              </div>
+            </div>
+            <!-- Card 2 -->
+            <div class="kanban-card bg-white p-2.5 rounded-md border border-slate-200/70 shadow-xs space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="font-mono text-[11px] font-bold text-slate-900">#958045</span>
+                <span class="text-[10px] text-slate-400">09/09/2026</span>
+              </div>
+              <div class="text-xs font-semibold text-slate-800">Vietcombank Hoàn Kiếm</div>
+              <div class="text-[11px] text-slate-500">Bảo trì quý III & Mực TN-328</div>
+              <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+                <span class="text-xs font-bold text-indigo-700 font-mono">12.000.000 đ</span>
+                <span class="text-[10px] text-slate-400">Tuấn KTV</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cột 2: KT-HC lên hóa đơn -->
+          <div class="card-item bg-slate-50/80 rounded-lg p-2.5 border border-slate-200/80 space-y-2.5">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-200/60">
+              <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-amber-500"></span> 2. KT-HC lên HĐ (1)
+              </span>
+              <span class="text-[11px] font-mono font-semibold text-slate-500">8.200.000 đ</span>
+            </div>
+            <!-- Card -->
+            <div class="kanban-card bg-white p-2.5 rounded-md border border-amber-200/80 shadow-xs space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="font-mono text-[11px] font-bold text-slate-900">#958012</span>
+                <span class="text-[10px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-medium">Đang nhập</span>
+              </div>
+              <div class="text-xs font-semibold text-slate-800">Viện Kiểm sát Nhân dân Tối cao</div>
+              <div class="text-[11px] text-slate-500">MST: 0101234567</div>
+              <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+                <span class="text-xs font-bold text-amber-700 font-mono">8.200.000 đ</span>
+                <button class="px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-600 text-white">Hoàn tất</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cột 3: Chờ thanh toán -->
+          <div class="card-item bg-slate-50/80 rounded-lg p-2.5 border border-slate-200/80 space-y-2.5">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-200/60">
+              <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-purple-500"></span> 3. Chờ thanh toán (2)
+              </span>
+              <span class="text-[11px] font-mono font-semibold text-slate-500">35.400.000 đ</span>
+            </div>
+            <!-- Card 1 -->
+            <div class="kanban-card bg-white p-2.5 rounded-md border border-slate-200/70 shadow-xs space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="font-mono text-[11px] font-bold text-purple-700">HĐ 004921</span>
+                <span class="text-[10px] text-rose-600 font-medium bg-rose-50 px-1.5 py-0.2 rounded border border-rose-100">Quá 32 ngày</span>
+              </div>
+              <div class="text-xs font-semibold text-slate-800">Công ty In Tiến Phát</div>
+              <div class="text-[11px] text-slate-500">Xuất HĐ ngày 10/08/2026</div>
+              <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+                <span class="text-xs font-bold text-slate-900 font-mono">15.400.000 đ</span>
+                <button class="px-2 py-0.5 rounded text-[10px] font-medium border border-slate-200 text-slate-600 hover:bg-slate-50">Đã trả</button>
+              </div>
+            </div>
+            <!-- Card 2 -->
+            <div class="kanban-card bg-white p-2.5 rounded-md border border-slate-200/70 shadow-xs space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="font-mono text-[11px] font-bold text-purple-700">HĐ 005011</span>
+                <span class="text-[10px] text-slate-400">Còn 12 ngày</span>
+              </div>
+              <div class="text-xs font-semibold text-slate-800">Trường Đại học Bách Khoa</div>
+              <div class="text-[11px] text-slate-500">Xuất HĐ ngày 01/09/2026</div>
+              <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+                <span class="text-xs font-bold text-slate-900 font-mono">20.000.000 đ</span>
+                <button class="px-2 py-0.5 rounded text-[10px] font-medium border border-slate-200 text-slate-600 hover:bg-slate-50">Đã trả</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cột 4: Đã thanh toán -->
+          <div class="card-item bg-slate-50/80 rounded-lg p-2.5 border border-slate-200/80 space-y-2.5">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-200/60">
+              <span class="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span> 4. Đã thanh toán
+              </span>
+              <span class="text-[11px] font-mono font-semibold text-emerald-700">98.200.000 đ</span>
+            </div>
+            <!-- Card -->
+            <div class="kanban-card bg-white/70 p-2.5 rounded-md border border-slate-200/50 shadow-2xs space-y-1.5 opacity-90">
+              <div class="flex items-center justify-between">
+                <span class="font-mono text-[11px] font-medium text-slate-600">HĐ 004810</span>
+                <span class="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded">Đã khớp VCB</span>
+              </div>
+              <div class="text-xs font-medium text-slate-700">Ngân hàng Quân đội MB</div>
+              <div class="text-[11px] text-slate-400">Thanh toán ngày 04/09/2026</div>
+              <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+                <span class="text-xs font-semibold text-slate-700 font-mono">32.000.000 đ</span>
+                <i data-lucide="check-check" class="w-3.5 h-3.5 text-emerald-600"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====================================================================== -->
+      <!-- MÀN HÌNH 3: KHO HÀNG & CẢNH BÁO TỒN -->
+      <!-- ====================================================================== -->
+      <div id="screen-inventory" class="space-y-4 hidden">
+        <!-- 3.1 Stat Cards -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="card-item bg-white p-3 rounded-lg border border-slate-200/80 shadow-xs flex items-center justify-between">
+            <div>
+              <div class="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Mã hàng</div>
+              <div class="text-lg font-bold text-slate-900 tracking-tight mt-0.5">1.284</div>
+              <div class="text-[10px] text-slate-400">đầu mục vật tư</div>
+            </div>
+            <div class="w-8 h-8 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center">
+              <i data-lucide="package" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div class="card-item bg-white p-3 rounded-lg border border-slate-200/80 shadow-xs flex items-center justify-between">
+            <div>
+              <div class="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Tổng tồn</div>
+              <div class="text-lg font-bold text-slate-900 tracking-tight mt-0.5">8.450</div>
+              <div class="text-[10px] text-slate-400">đơn vị trong kho</div>
+            </div>
+            <div class="w-8 h-8 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <i data-lucide="boxes" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div class="card-item bg-white p-3 rounded-lg border border-slate-200/80 shadow-xs flex items-center justify-between">
+            <div>
+              <div class="text-[11px] font-medium text-amber-700 uppercase tracking-wider">Sắp hết</div>
+              <div class="text-lg font-bold text-amber-700 tracking-tight mt-0.5">14</div>
+              <div class="text-[10px] text-amber-600/80">tồn ≤ ngưỡng</div>
+            </div>
+            <div class="w-8 h-8 rounded-md bg-amber-50 text-amber-600 flex items-center justify-center">
+              <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div class="card-item bg-white p-3 rounded-lg border border-slate-200/80 shadow-xs flex items-center justify-between">
+            <div>
+              <div class="text-[11px] font-medium text-rose-700 uppercase tracking-wider">Hết hàng</div>
+              <div class="text-lg font-bold text-rose-700 tracking-tight mt-0.5">6</div>
+              <div class="text-[10px] text-rose-500">tồn = 0</div>
+            </div>
+            <div class="w-8 h-8 rounded-md bg-rose-50 text-rose-600 flex items-center justify-center">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3.2 Form nhập 1 dòng -->
+        <div class="card-item bg-white p-3.5 rounded-lg border border-slate-200/80 shadow-xs">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+              <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-blue-600"></i> Thêm vật tư mới (Form 1 dòng gọn nhẹ)
+            </div>
+            <span class="text-[10px] text-slate-400">Chiều cao ô nhập: 32px (h-8)</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-2.5 items-end">
+            <div class="lg:col-span-2 space-y-1">
+              <label class="text-[11px] font-medium text-slate-600">Mã hàng *</label>
+              <input type="text" placeholder="VD: DR017" class="form-ctrl w-full h-8 px-2.5 text-xs font-mono rounded-md border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-indigo-500 outline-none" />
+            </div>
+            <div class="lg:col-span-3 space-y-1">
+              <label class="text-[11px] font-medium text-slate-600">Tên hàng / Vật tư *</label>
+              <input type="text" placeholder="VD: Trống lấy ảnh DR017" class="form-ctrl w-full h-8 px-2.5 text-xs rounded-md border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-indigo-500 outline-none" />
+            </div>
+            <div class="lg:col-span-2 space-y-1">
+              <label class="text-[11px] font-medium text-slate-600">Model</label>
+              <input type="text" placeholder="VD: PP 7136" class="form-ctrl w-full h-8 px-2.5 text-xs rounded-md border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-indigo-500 outline-none" />
+            </div>
+            <div class="lg:col-span-2 space-y-1">
+              <label class="text-[11px] font-medium text-slate-600">Hãng</label>
+              <select class="form-ctrl w-full h-8 px-2 text-xs rounded-md border border-slate-200 bg-slate-50/50 focus:bg-white outline-none">
+                <option>Konica Minolta</option>
+                <option>Fuji Xerox</option>
+                <option>Ricoh</option>
+              </select>
+            </div>
+            <div class="lg:col-span-1 space-y-1">
+              <label class="text-[11px] font-medium text-slate-600 text-center block">SL Tồn</label>
+              <input type="number" value="0" class="form-ctrl w-full h-8 px-1 text-xs font-mono text-center rounded-md border border-slate-200 bg-slate-50/50 focus:bg-white outline-none" />
+            </div>
+            <div class="lg:col-span-2">
+              <button class="btn-action w-full h-8 px-3 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium flex items-center justify-center gap-1.5 shadow-xs transition">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Thêm mới
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3.3 Bảng vật tư -->
+        <div class="card-item bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
+          <div class="p-3 border-b border-slate-100 flex items-center justify-between gap-2.5">
+            <div class="flex items-center gap-2">
+              <div class="relative w-64">
+                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2"></i>
+                <input type="text" placeholder="Tìm theo mã hàng, tên vật tư..." class="form-ctrl w-full h-8 pl-8 pr-3 text-xs rounded-md border border-slate-200 bg-slate-50/50 focus:bg-white outline-none" />
+              </div>
+            </div>
+            <button class="h-8 px-3 rounded border border-slate-200 text-slate-600 text-xs hover:bg-slate-50 flex items-center gap-1.5">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i> Xuất CSV
+            </button>
+          </div>
+          <table class="w-full text-left text-xs text-slate-600">
+            <thead class="bg-slate-50/80 text-slate-500 text-[11px] font-semibold uppercase tracking-wider border-b border-slate-200/70">
+              <tr>
+                <th class="px-3.5 py-2">Mã hàng</th>
+                <th class="px-3.5 py-2">Tên hàng / Vật tư</th>
+                <th class="px-3.5 py-2">Model</th>
+                <th class="px-3.5 py-2 text-center">Tồn kho</th>
+                <th class="px-3.5 py-2 text-center">Trạng thái</th>
+                <th class="px-3.5 py-2 text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr class="hover:bg-slate-50/70 transition-colors">
+                <td class="px-3.5 py-2 font-mono font-medium text-slate-900">A0G6731400</td>
+                <td class="px-3.5 py-2 text-slate-800 font-medium">Bánh xe kéo giấy khay 1</td>
+                <td class="px-3.5 py-2 text-slate-500">C1060 / C1070</td>
+                <td class="px-3.5 py-2 text-center font-mono font-semibold text-slate-800">12</td>
+                <td class="px-3.5 py-2 text-center">
+                  <span class="badge-tag inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+                    <i data-lucide="toggle-right" class="w-4 h-4 text-emerald-500"></i> Đang dùng
+                  </span>
+                </td>
+                <td class="px-3.5 py-2 text-right">
+                  <button class="px-2 py-0.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium">Sửa</button>
+                </td>
+              </tr>
+              <tr class="bg-amber-50/30 hover:bg-amber-50/50 transition-colors">
+                <td class="px-3.5 py-2 font-mono font-medium text-slate-900">TN328K</td>
+                <td class="px-3.5 py-2 text-slate-800 font-medium">Hộp mực đen TN-328K</td>
+                <td class="px-3.5 py-2 text-slate-500">C250i / C300i</td>
+                <td class="px-3.5 py-2 text-center font-mono font-bold text-amber-700">1 <span class="text-[10px] text-amber-600 font-normal">(≤ 3)</span></td>
+                <td class="px-3.5 py-2 text-center">
+                  <span class="badge-tag inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+                    <i data-lucide="toggle-right" class="w-4 h-4 text-emerald-500"></i> Đang dùng
+                  </span>
+                </td>
+                <td class="px-3.5 py-2 text-right">
+                  <button class="px-2 py-0.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium">Sửa</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TỔNG KẾT & SO SÁNH 4 PHONG CÁCH -->
+    <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm space-y-3">
+      <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+        <i data-lucide="sparkle" class="w-4 h-4 text-indigo-600"></i> Chi tiết 4 trường phái giao diện thanh mảnh
+      </h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+        <div class="p-3 rounded-lg border border-slate-200 bg-slate-50/50 space-y-1.5">
+          <div class="font-bold text-indigo-950 flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span> 1. Linear Pro
+          </div>
+          <p class="text-slate-600 text-[11px] leading-relaxed">
+            Viền hairline siêu mảnh 0.5-1px, controls 32px chuẩn chỉnh, góc bo nhẹ 6px. Đẳng cấp công cụ SaaS phương Tây, thoáng mắt và dứt khoát.
+          </p>
+        </div>
+        <div class="p-3 rounded-lg border border-slate-200 bg-slate-50/50 space-y-1.5">
+          <div class="font-bold text-sky-950 flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-sky-600"></span> 2. Stripe FinTech
+          </div>
+          <p class="text-slate-600 text-[11px] leading-relaxed">
+            Badges bo tròn dạng Pill (viên thuốc) màu Pastel dịu nhẹ. Đường nét mượt mà, số tiền nổi bật, cực kỳ phù hợp cho phần Tài chính & Kanban.
+          </p>
+        </div>
+        <div class="p-3 rounded-lg border border-slate-200 bg-slate-50/50 space-y-1.5">
+          <div class="font-bold text-blue-950 flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span> 3. Apple macOS Native
+          </div>
+          <p class="text-slate-600 text-[11px] leading-relaxed">
+            Bo góc 10px mượt mà, viền mờ tinh tế, nút bấm có chiều sâu nhẹ nhàng như phần mềm máy Mac. Thanh lịch, cao cấp và chuẩn mực.
+          </p>
+        </div>
+        <div class="p-3 rounded-lg border border-slate-200 bg-slate-50/50 space-y-1.5">
+          <div class="font-bold text-amber-950 flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-600"></span> 4. Nordic Minimal
+          </div>
+          <p class="text-slate-600 text-[11px] leading-relaxed">
+            Tông màu giấy ấm (Warm Alabaster), tương phản dịu mắt, hoàn toàn không có bóng đổ gắt. Phù hợp ngồi làm việc 8 tiếng không bị nhức mắt.
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    let currentScreen = 'dispatch';
+    let currentStyle = 'linear';
+
+    function setScreen(screen) {
+      currentScreen = screen;
+      const s1 = document.getElementById('screen-dispatch');
+      const s2 = document.getElementById('screen-kanban');
+      const s3 = document.getElementById('screen-inventory');
+
+      const b1 = document.getElementById('scr-dispatch');
+      const b2 = document.getElementById('scr-kanban');
+      const b3 = document.getElementById('scr-inventory');
+
+      [s1, s2, s3].forEach(s => s.classList.add('hidden'));
+      [b1, b2, b3].forEach(b => {
+        b.className = "px-3 py-1.5 rounded-md text-xs font-semibold text-slate-600 transition-all hover:text-slate-900 flex items-center gap-1.5";
+      });
+
+      if (screen === 'dispatch') {
+        s1.classList.remove('hidden');
+        b1.className = "px-3 py-1.5 rounded-md text-xs font-semibold transition-all bg-white text-blue-700 shadow-xs flex items-center gap-1.5";
+      } else if (screen === 'kanban') {
+        s2.classList.remove('hidden');
+        b2.className = "px-3 py-1.5 rounded-md text-xs font-semibold transition-all bg-white text-blue-700 shadow-xs flex items-center gap-1.5";
+      } else if (screen === 'inventory') {
+        s3.classList.remove('hidden');
+        b3.className = "px-3 py-1.5 rounded-md text-xs font-semibold transition-all bg-white text-blue-700 shadow-xs flex items-center gap-1.5";
+      }
+      lucide.createIcons();
+    }
+
+    function setStyle(style) {
+      currentStyle = style;
+      const btnLinear = document.getElementById('btn-linear');
+      const btnStripe = document.getElementById('btn-stripe');
+      const btnApple = document.getElementById('btn-apple');
+      const btnNordic = document.getElementById('btn-nordic');
+      const descText = document.getElementById('desc-text');
+
+      const cards = document.querySelectorAll('.card-item');
+      const kanbanCards = document.querySelectorAll('.kanban-card');
+      const formCtrls = document.querySelectorAll('.form-ctrl');
+      const actionBtns = document.querySelectorAll('.btn-action');
+      const badgeTags = document.querySelectorAll('.badge-tag');
+
+      // Reset style buttons
+      [btnLinear, btnStripe, btnApple, btnNordic].forEach(b => {
+        b.className = "px-3 py-1 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-100 transition";
+      });
+
+      if (style === 'linear') {
+        btnLinear.className = "px-3 py-1 rounded-md text-xs font-medium bg-slate-900 text-white shadow-xs transition";
+        descText.innerHTML = "<b>1. Linear Pro Style:</b> Viền hairline siêu mỏng <code>border-slate-200/70</code>, controls chuẩn 32px (h-8), bo góc nhẹ 6px, typography sắc nét, màu nhấn Indigo dịu mắt. Mật độ thông tin cao, sang trọng kiểu SaaS hiện đại.";
+
+        cards.forEach(c => c.className = "card-item bg-white p-3 rounded-lg border border-slate-200/80 shadow-xs");
+        kanbanCards.forEach(k => k.className = "kanban-card bg-white p-2.5 rounded-md border border-slate-200/70 shadow-xs space-y-1.5");
+        formCtrls.forEach(f => f.className = "form-ctrl w-full h-8 px-2.5 text-xs rounded-md border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-indigo-500 outline-none");
+        actionBtns.forEach(a => a.className = "btn-action h-8 px-3 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium flex items-center justify-center gap-1.5 shadow-xs transition");
+      } else if (style === 'stripe') {
+        btnStripe.className = "px-3 py-1 rounded-md text-xs font-medium bg-indigo-900 text-white shadow-xs transition";
+        descText.innerHTML = "<b>2. Stripe FinTech Style:</b> Badges dạng viên thuốc bo tròn (Pill) màu pastel tinh tế, viền mảnh mềm mại, màu nhấn Deep Sapphire Blue <code>#0A2540</code>. Cực kỳ thích hợp cho giao diện Tài chính & Sổ công tác.";
+
+        cards.forEach(c => c.className = "card-item bg-white p-3.5 rounded-xl border border-slate-200/60 shadow-[0_2px_4px_rgba(0,0,0,0.02)]");
+        kanbanCards.forEach(k => k.className = "kanban-card bg-white p-3 rounded-lg border border-slate-200/60 shadow-[0_1px_3px_rgba(0,0,0,0.03)] space-y-2");
+        formCtrls.forEach(f => f.className = "form-ctrl w-full h-8 px-3 text-xs rounded-lg border border-slate-200 bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none");
+        actionBtns.forEach(a => a.className = "btn-action h-8 px-3.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium flex items-center justify-center gap-1.5 shadow-xs transition");
+      } else if (style === 'apple') {
+        btnApple.className = "px-3 py-1 rounded-md text-xs font-medium bg-blue-600 text-white shadow-xs transition";
+        descText.innerHTML = "<b>3. Apple macOS Style:</b> Bo góc chuẩn 10px (rounded-xl), đường viền mờ êm ái, màu nhấn Royal Blue <code>#0071E3</code>, phân cấp thông tin rõ ràng và mang đậm cảm giác ứng dụng chuyên nghiệp của máy Mac.";
+
+        cards.forEach(c => c.className = "card-item bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-sm");
+        kanbanCards.forEach(k => k.className = "kanban-card bg-white p-3 rounded-xl border border-slate-200/90 shadow-xs space-y-2");
+        formCtrls.forEach(f => f.className = "form-ctrl w-full h-8 px-3 text-xs rounded-lg border border-slate-200 bg-slate-100/60 focus:bg-white focus:border-blue-500 outline-none");
+        actionBtns.forEach(a => a.className = "btn-action h-8 px-3.5 rounded-lg bg-[#0071E3] hover:bg-blue-700 text-white text-xs font-medium flex items-center justify-center gap-1.5 shadow-xs transition");
+      } else if (style === 'nordic') {
+        btnNordic.className = "px-3 py-1 rounded-md text-xs font-medium bg-amber-800 text-white shadow-xs transition";
+        descText.innerHTML = "<b>4. Nordic Minimal Style:</b> Nền giấy ấm dịu mắt (Warm Neutral), viền mờ không bóng đổ, tương phản chữ êm dịu, không mỏi mắt khi nhìn 8 tiếng/ngày. Tối giản tối đa các chi tiết màu mè.";
+
+        cards.forEach(c => c.className = "card-item bg-white p-3 rounded-md border border-stone-200/80 shadow-none");
+        kanbanCards.forEach(k => k.className = "kanban-card bg-[#FDFDFC] p-2.5 rounded border border-stone-200 shadow-none space-y-1.5");
+        formCtrls.forEach(f => f.className = "form-ctrl w-full h-8 px-2.5 text-xs rounded border border-stone-300 bg-stone-50/50 focus:bg-white focus:border-stone-600 outline-none");
+        actionBtns.forEach(a => a.className = "btn-action h-8 px-3 rounded bg-stone-800 hover:bg-stone-900 text-white text-xs font-medium flex items-center justify-center gap-1.5 transition");
+      }
+      lucide.createIcons();
+    }
+  </script>
+</body>
+</html>

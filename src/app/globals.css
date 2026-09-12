@@ -1,38 +1,28 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* Quy tắc bắt buộc: Chỉ Light Mode (KHÔNG Dark Mode) */
 
-/* Cỡ chữ GỐC của toàn app (mặc định trình duyệt là 16px -> thấy hơi to với giao diện
-   văn phòng nhiều dữ liệu). Tailwind dùng rem cho cả chữ (text-sm/xs...) LẪN kích thước
-   nút, ô nhập, padding -> đổi 1 dòng này là cả app co lại cân đối.
-   Muốn gọn hơn nữa: đổi 15px -> 14px. Về như cũ: xóa dòng này.
-   Lưu ý: chữ trong ô nhập < 16px thường khiến iOS Safari tự phóng to khi bấm vào ô,
-   nhưng app đã khóa zoom (xem NoPinchZoom + viewport) nên không dính. */
+/* Cỡ chữ GỐC của toàn app (14px cho giao diện thanh mảnh, gọn nhẹ) */
 html {
-  font-size: 15px;
+  font-size: 14px;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   /* Bỏ double-tap zoom + độ trễ 300ms, giữ cuộn dọc/ngang bình thường */
   touch-action: pan-x pan-y;
   -webkit-text-size-adjust: 100%;

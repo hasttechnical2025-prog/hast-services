@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 // Ô chọn ngày DD/MM/YYYY: ô gõ tay bên trái + native date input TRONG SUỐT phủ lên vùng
 // icon lịch (opacity-0 nhưng vẫn nhận chạm) — chạm icon = chạm thẳng native input nên iOS
 // Safari mở được lịch (không phụ thuộc showPicker). value/onChange dùng chuỗi ISO 'YYYY-MM-DD'.
-export default function DateField({ value, onChange, className, heightClass = "h-10", placeholder = "dd/mm/yyyy" }: { value: string, onChange: (v: string) => void, className?: string, heightClass?: string, placeholder?: string }) {
+export default function DateField({ value, onChange, className, heightClass = "h-8", placeholder = "dd/mm/yyyy" }: { value: string, onChange: (v: string) => void, className?: string, heightClass?: string, placeholder?: string }) {
   const fmt = (s: string) => { if (!s) return ''; const d = new Date(s); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` }
   const [text, setText] = useState(fmt(value))
   useEffect(() => { setText(fmt(value)) }, [value])
@@ -24,12 +24,12 @@ export default function DateField({ value, onChange, className, heightClass = "h
   const widthCls = hasWidth ? '' : 'w-36'
 
   return (
-    <div className={`relative flex items-center min-w-0 ${heightClass} ${widthCls} rounded-md border border-slate-200 bg-white ${className || ''}`}>
-      <input type="text" inputMode="numeric" placeholder={placeholder} value={text} onChange={(e) => onText(e.target.value)} className="flex-1 min-w-0 h-full pl-2.5 pr-1 bg-transparent text-[13px] text-slate-700 outline-none rounded-md" />
+    <div className={`relative flex items-center min-w-0 ${heightClass} ${widthCls} rounded-md border border-slate-200 bg-white shadow-2xs ${className || ''}`}>
+      <input type="text" inputMode="numeric" placeholder={placeholder} value={text} onChange={(e) => onText(e.target.value)} className="flex-1 min-w-0 h-full pl-2.5 pr-1 bg-transparent text-xs text-slate-700 outline-none rounded-md" />
       {/* Vùng icon lịch — native date input trong suốt đè lên để chạm là mở lịch (iOS + Android) */}
-      <div className="relative h-full w-8 shrink-0">
+      <div className="relative h-full w-7.5 shrink-0">
         <span className="absolute inset-0 flex items-center justify-center text-slate-400 pointer-events-none">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
         </span>
         <input
           type="date"

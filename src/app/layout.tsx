@@ -1,15 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { Be_Vietnam_Pro, Geist_Mono } from "next/font/google";
+import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import UpdateChecker from "@/components/UpdateChecker";
 import NoPinchZoom from "@/components/NoPinchZoom";
 import NoKeyShortcuts from "@/components/NoKeyShortcuts";
 import MaintenanceGate from "@/components/MaintenanceGate";
 
-const beVietnam = Be_Vietnam_Pro({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin", "vietnamese"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["300", "400", "500", "600", "700"],
   display: "swap",
 });
 
@@ -42,7 +42,7 @@ export default function RootLayout({
   return (
     <html
       lang="vi"
-      className={`${beVietnam.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {children}

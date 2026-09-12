@@ -33,7 +33,7 @@ export default function MonthField({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={`h-9 px-3 rounded-md border border-slate-200 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer text-slate-700 ${className}`}
+      className={`h-8 px-2.5 rounded-md border border-slate-200 text-xs bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none cursor-pointer text-slate-700 shadow-2xs ${className}`}
     >
       <option value="">-- Chọn tháng --</option>
       {options.map((opt) => (
