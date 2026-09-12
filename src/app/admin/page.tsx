@@ -5732,11 +5732,12 @@ function DatHangTool({
 
         {/* BÊN TRÁI: RÀ SOÁT TỒN KHO & CHỌN VẬT TƯ (3/5) */}
         <div className="lg:col-span-3 border border-slate-200 rounded-xl bg-white overflow-hidden flex flex-col shadow-sm">
-          <div className="bg-slate-50 p-4 border-b border-slate-200 space-y-3">
+          <div className="bg-slate-50 p-4 border-b border-slate-200 space-y-2.5">
             <h3 className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
               <Search className="w-4 h-4 text-slate-500" /> Rà soát kho & Chọn vật tư đặt hàng
             </h3>
 
+            {/* Dòng 1: Tìm mã/tên vật tư, tìm model, chọn hãng */}
             <div className="flex flex-wrap gap-2 items-center">
               <div className="relative w-44">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
@@ -5783,16 +5784,21 @@ function DatHangTool({
                 <option value="">Hãng: Tất cả</option>
                 {hangOptions.map(h => <option key={h} value={h}>{h}</option>)}
               </select>
+            </div>
 
-              <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none h-8">
-                <input
-                  type="checkbox"
-                  checked={leftLowStock}
-                  onChange={(e) => setLeftLowStock(e.target.checked)}
-                  className="w-3.5 h-3.5 accent-blue-600"
-                />
-                Hết hàng (Tồn = 0)
-              </label>
+            {/* Dòng 2: Hết hàng align left với mã hàng (w-44), Dưới ngưỡng align left với tìm model */}
+            <div className="flex flex-wrap gap-2 items-center">
+              <div className="w-44 flex items-center">
+                <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none h-8">
+                  <input
+                    type="checkbox"
+                    checked={leftLowStock}
+                    onChange={(e) => setLeftLowStock(e.target.checked)}
+                    className="w-3.5 h-3.5 accent-blue-600"
+                  />
+                  Hết hàng (Tồn = 0)
+                </label>
+              </div>
 
               <label className={`flex items-center gap-1.5 text-xs font-semibold cursor-pointer select-none h-8 px-2 py-0.5 rounded border transition-colors ${
                 leftUnderWarn ? 'bg-rose-100 text-rose-800 border-rose-300' : 'bg-rose-50/70 text-rose-700 border-rose-200 hover:bg-rose-100/70'
