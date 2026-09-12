@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { ma_hang, ten_hang, model, hang, ton_kho } = body
+    const { ma_hang, ten_hang, model, hang, ton_kho, ngung_su_dung, ma_thay_the } = body
 
     if (!ma_hang || !ten_hang) {
       return NextResponse.json({ error: 'Thiếu mã hàng hoặc tên hàng' }, { status: 400 })
@@ -47,7 +47,9 @@ export async function POST(request: Request) {
         ten_hang,
         model: model || null,
         hang: hang || null,
-        ton_kho: ton_kho || 0
+        ton_kho: ton_kho || 0,
+        ngung_su_dung: !!ngung_su_dung,
+        ma_thay_the: ma_thay_the ? String(ma_thay_the).trim().toUpperCase() : null
       })
       .select()
       .single()

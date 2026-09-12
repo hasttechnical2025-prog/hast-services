@@ -1314,3 +1314,11 @@ END $$;
 ALTER TABLE public.soct_cong_viec
   ADD CONSTRAINT soct_cong_viec_id_khach_hang_fkey
   FOREIGN KEY (id_khach_hang) REFERENCES public.soct_khach_hang(id) ON DELETE RESTRICT;
+
+-- ============================================================================
+-- MIGRATION 73: ngung_su_dung_kho (Mã vật tư ngưng sử dụng & mã thay thế)
+-- ============================================================================
+ALTER TABLE public.soct_kho_hang
+ADD COLUMN IF NOT EXISTS ngung_su_dung BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS ma_thay_the TEXT;
+

@@ -3061,18 +3061,40 @@ const INVENTORY_COLS: ColDef[] = [
   { key: 'model', label: 'Model máy' },
   { key: 'hang', label: 'Hãng' },
   { key: 'ton_kho', label: 'Tồn kho' },
+  { key: 'trang_thai', label: 'Trạng thái' },
   { key: 'thaotac', label: 'Thao tác', locked: true },
 ]
 
 function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, showNotification, confirmDelete, danhMuc }: { inventory: any[], lowStock?: number, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, confirmDelete: (id: string, type: 'job' | 'user' | 'inventory') => void, danhMuc: any[] }) {
   const col = useColView('inventory', INVENTORY_COLS)
-  const paged = usePaged(inventory)
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'discontinued'>('all')
+  const [searchTerm, setSearchTerm] = useState("")
+
+  const filteredInventory = useMemo(() => {
+    return inventory.filter(item => {
+      if (statusFilter === 'active' && item.ngung_su_dung) return false
+      if (statusFilter === 'discontinued' && !item.ngung_su_dung) return false
+      if (searchTerm.trim()) {
+        const q = searchTerm.trim().toLowerCase()
+        const matchMH = (item.ma_hang || '').toLowerCase().includes(q)
+        const matchTH = (item.ten_hang || '').toLowerCase().includes(q)
+        const matchModel = (item.model || '').toLowerCase().includes(q)
+        const matchThayThe = (item.ma_thay_the || '').toLowerCase().includes(q)
+        if (!matchMH && !matchTH && !matchModel && !matchThayThe) return false
+      }
+      return true
+    })
+  }, [inventory, statusFilter, searchTerm])
+
+  const paged = usePaged(filteredInventory)
   const [formData, setFormData] = useState({
     ma_hang: "",
     ten_hang: "",
     model: "",
     hang: "",
-    ton_kho: 0
+    ton_kho: 0,
+    ngung_su_dung: false,
+    ma_thay_the: ""
   })
 
   const dmOptions = (nhom: string, fallback: string[]) => {
@@ -3088,7 +3110,7 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
 
   // Nhảy tới dòng cần xem: chuyển sang đúng trang chứa dòng rồi cuộn tới (sau khi render)
   const viewRow = (ma_hang: string) => {
-    const idx = inventory.findIndex(i => i.ma_hang === ma_hang)
+    const idx = filteredInventory.findIndex(i => i.ma_hang === ma_hang)
     if (idx >= 0) paged.setPage(Math.floor(idx / paged.perPage) + 1)
     setHighlightMH(ma_hang)
     setPendingScroll(ma_hang)
@@ -3097,7 +3119,7 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
     if (!pendingScroll) return
     const el = document.getElementById('inv-' + pendingScroll)
     if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); setPendingScroll("") }
-  }, [pendingScroll, paged.page, inventory])
+  }, [pendingScroll, paged.page, filteredInventory])
 
   // Cảnh báo trùng: đang thêm mới mà mã hàng đã có trong kho
   const dupItem = !isEditing && formData.ma_hang.trim()
@@ -3105,7 +3127,7 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
     : undefined
 
   const resetForm = () => {
-    setFormData({ ma_hang: "", ten_hang: "", model: "", hang: "", ton_kho: 0 })
+    setFormData({ ma_hang: "", ten_hang: "", model: "", hang: "", ton_kho: 0, ngung_su_dung: false, ma_thay_the: "" })
     setIsEditing(false)
   }
 
@@ -3115,7 +3137,9 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
       ten_hang: item.ten_hang,
       model: item.model || "",
       hang: item.hang || "",
-      ton_kho: item.ton_kho || 0
+      ton_kho: item.ton_kho || 0,
+      ngung_su_dung: !!item.ngung_su_dung,
+      ma_thay_the: item.ma_thay_the || ""
     })
     setIsEditing(true)
     setHighlightMH(item.ma_hang)
@@ -3152,6 +3176,8 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
   const invTon = inventory.reduce((s, i) => s + (Number(i.ton_kho) || 0), 0)
   const invLow = lowStock > 0 ? inventory.filter(i => (Number(i.ton_kho) || 0) > 0 && (Number(i.ton_kho) || 0) <= lowStock).length : 0
   const invOut = inventory.filter(i => (Number(i.ton_kho) || 0) <= 0).length
+  const invDiscontinued = inventory.filter(i => i.ngung_su_dung).length
+  const invActive = inventory.length - invDiscontinued
 
   return (
     <div className="space-y-6">
@@ -3172,7 +3198,7 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
             </div>
           )}
         </div>
-        <div className="space-y-1 lg:col-span-3">
+        <div className="space-y-1 lg:col-span-4">
           <label className="text-xs font-semibold text-slate-600">Tên hàng / Vật tư *</label>
           <Input required value={formData.ten_hang} onChange={(e) => setFormData({...formData, ten_hang: e.target.value})} placeholder="VD: Trống lấy ảnh DR017" className="bg-white h-9" />
         </div>
@@ -3194,20 +3220,116 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
           </select>
         </div>
 
-        <div className="space-y-1 lg:col-span-1">
+        <div className="space-y-1 lg:col-span-2">
           <label className="text-xs font-semibold text-slate-600">SL Tồn *</label>
           <Input type="number" required value={formData.ton_kho} onChange={(e) => setFormData({...formData, ton_kho: parseInt(e.target.value) || 0})} className="bg-white h-9 text-center" />
         </div>
 
-        <div className="lg:col-span-2 flex justify-end items-end gap-2 pb-0.5">
+        {/* Hàng 2: Trạng thái ngưng sử dụng & Mã thay thế */}
+        <div className="space-y-1 lg:col-span-4 flex items-center pt-2">
+          <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={formData.ngung_su_dung}
+              onChange={(e) => setFormData({...formData, ngung_su_dung: e.target.checked})}
+              className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500"
+            />
+            <span className={formData.ngung_su_dung ? 'text-amber-700 font-bold' : ''}>
+              Ngưng sử dụng (Mã cũ)
+            </span>
+          </label>
+        </div>
+
+        <div className="space-y-1 lg:col-span-4">
+          <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
+            Mã thay thế <span className="text-[10px] text-slate-400 font-normal">(nếu có, tự động viết HOA)</span>
+          </label>
+          <Input
+            value={formData.ma_thay_the}
+            onChange={(e) => setFormData({...formData, ma_thay_the: e.target.value.toUpperCase()})}
+            placeholder="VD: TN328K"
+            className="bg-white h-9 font-mono"
+          />
+        </div>
+
+        <div className="lg:col-span-4 flex justify-end items-end gap-2 pb-0.5">
           {isEditing && <Button type="button" variant="outline" onClick={resetForm} className="h-9 px-3 text-xs">Hủy</Button>}
           <Button type="submit" disabled={loading} className="h-9 w-full sm:w-auto text-xs px-3">{loading ? "Lưu..." : isEditing ? "Cập nhật" : "Thêm mới"}</Button>
         </div>
       </form>
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <span className="text-sm text-slate-500">{inventory.length} vật tư trong kho</span>
-        <div className="flex items-center gap-2">
+        {/* Bộ lọc trạng thái tab */}
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+          <button
+            type="button"
+            onClick={() => setStatusFilter('all')}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+              statusFilter === 'all'
+                ? 'bg-white text-slate-800 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Tất cả ({inventory.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('active')}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+              statusFilter === 'active'
+                ? 'bg-white text-emerald-700 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Đang dùng ({invActive})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('discontinued')}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+              statusFilter === 'discontinued'
+                ? 'bg-white text-amber-700 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Ngưng dùng ({invDiscontinued})
+          </button>
+        </div>
+
+        {/* Thanh tìm kiếm & Các nút chức năng */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Tìm mã, tên, model, mã thay..."
+              className="h-8 pl-8 pr-7 text-xs rounded-md border border-slate-200 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 w-52 sm:w-60"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                title="Xóa tìm kiếm"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {(statusFilter !== 'all' || searchTerm) && (
+            <button
+              type="button"
+              onClick={() => { setStatusFilter('all'); setSearchTerm('') }}
+              className="h-8 px-2.5 text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition"
+              title="Bỏ lọc"
+            >
+              Bỏ lọc
+            </button>
+          )}
+
           <ColumnMenu view={col} />
           <ClearAllButton count={inventory.length} label="vật tư trong kho" onConfirm={async () => {
             const res = await fetch('/api/admin/kho-hang?all=1', { method: 'DELETE' })
@@ -3225,14 +3347,15 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
               {col.show('model') && <th className="px-4 py-3 font-semibold">Model</th>}
               {col.show('hang') && <th className="px-4 py-3 font-semibold">Hãng</th>}
               {col.show('ton_kho') && <th className="px-4 py-3 font-semibold text-center">Tồn kho</th>}
+              {col.show('trang_thai') && <th className="px-4 py-3 font-semibold">Trạng thái</th>}
               {col.show('thaotac') && <th className="px-4 py-3 font-semibold text-center w-24">Thao tác</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {inventory.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Kho hàng đang trống.</td></tr>
+            {filteredInventory.length === 0 ? (
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">{inventory.length === 0 ? 'Kho hàng đang trống.' : 'Không tìm thấy vật tư khớp bộ lọc.'}</td></tr>
             ) : paged.pageItems.map((item) => (
-              <tr key={item.ma_hang} id={'inv-' + item.ma_hang} className={`transition-colors ${highlightMH === item.ma_hang ? 'bg-amber-100' : 'hover:bg-slate-50'}`}>
+              <tr key={item.ma_hang} id={'inv-' + item.ma_hang} className={`transition-colors ${highlightMH === item.ma_hang ? 'bg-amber-100' : 'hover:bg-slate-50'} ${item.ngung_su_dung ? 'bg-amber-50/20' : ''}`}>
                 {col.show('ma_hang') && <td className="px-4 py-3 font-mono font-medium text-slate-700">{item.ma_hang}</td>}
                 {col.show('ten_hang') && <td className="px-4 py-3 font-medium text-slate-800">{item.ten_hang}</td>}
                 {col.show('model') && <td className="px-4 py-3">{item.model || <span className="text-slate-400 italic">Dùng chung</span>}</td>}
@@ -3241,6 +3364,24 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
                   <span className={`px-2 py-1 rounded-full text-xs font-bold ${item.ton_kho <= lowStock ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'}`}>
                     {item.ton_kho}
                   </span>
+                </td>}
+                {col.show('trang_thai') && <td className="px-4 py-3">
+                  {item.ngung_su_dung ? (
+                    <div className="flex flex-col gap-0.5">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200 w-fit">
+                        Ngưng dùng
+                      </span>
+                      {item.ma_thay_the && (
+                        <span className="text-[11px] text-slate-500 font-mono">
+                          ↳ Đổi: <span className="font-bold text-blue-600">{item.ma_thay_the}</span>
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-600 border border-slate-100 w-fit">
+                      Đang dùng
+                    </span>
+                  )}
                 </td>}
                 {col.show('thaotac') && <td className="px-4 py-3">
                   <div className="flex items-center justify-center gap-2 whitespace-nowrap">
@@ -3768,12 +3909,25 @@ function MaterialCombobox({ inventory, value, onChange, committed }: { inventory
 
   const selected = inventory.find(i => i.ma_hang === value)
   const q = query.trim().toLowerCase()
+
+  // Tìm mã ngưng dùng đã hết tồn kho khớp với từ khóa tìm kiếm (để gợi ý chuyển đổi sang mã thay thế)
+  const obsoleteMatch = q ? inventory.find(i =>
+    i.ngung_su_dung &&
+    (Number(i.ton_kho) || 0) <= 0 &&
+    ((i.ma_hang || '').toLowerCase() === q || (i.ma_hang || '').toLowerCase().startsWith(q))
+  ) : null
+
   const results = (q
-    ? inventory.filter(i =>
-        (i.ma_hang || "").toLowerCase().includes(q) ||
-        (i.ten_hang || "").toLowerCase().includes(q) ||
-        (i.model || "").toLowerCase().includes(q))
-    : inventory
+    ? inventory.filter(i => {
+        const match = (i.ma_hang || "").toLowerCase().includes(q) ||
+          (i.ten_hang || "").toLowerCase().includes(q) ||
+          (i.model || "").toLowerCase().includes(q)
+        if (!match) return false
+        // Nếu ngưng dùng và đã hết tồn kho -> ẩn khỏi danh sách gợi ý bình thường (đã có banner gợi ý chuyển đổi phía trên)
+        if (i.ngung_su_dung && (Number(i.ton_kho) || 0) <= 0) return false
+        return true
+      })
+    : inventory.filter(i => !i.ngung_su_dung || (Number(i.ton_kho) || 0) > 0)
   ).slice(0, 30)
 
   return (
@@ -3782,29 +3936,73 @@ function MaterialCombobox({ inventory, value, onChange, committed }: { inventory
         ref={inputRef}
         className="w-full h-9 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
         placeholder="Gõ mã / tên / model để tìm vật tư..."
-        value={open ? query : (selected ? `${selected.ma_hang} - ${selected.ten_hang}` : (value || ""))}
+        value={open ? query : (selected ? `${selected.ma_hang} - ${selected.ten_hang}${selected.ngung_su_dung ? ' [Mã cũ]' : ''}` : (value || ""))}
         onFocus={() => { setOpen(true); setQuery("") }}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onBlur={() => setTimeout(() => setOpen(false), 200)}
         onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
       />
       {open && rect && createPortal(
         <div
           style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, width: rect.width, zIndex: 100 }}
-          className="max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg"
+          className="max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg"
         >
-          {results.length === 0 ? (
+          {obsoleteMatch && (
+            <div className="p-2.5 bg-amber-50 border-b border-amber-200 text-xs text-amber-900">
+              <div className="font-semibold flex items-center gap-1 text-amber-800">
+                ⚠ Mã <span className="font-mono font-bold">{obsoleteMatch.ma_hang}</span> đã ngưng sử dụng (hết tồn kho).
+              </div>
+              {obsoleteMatch.ma_thay_the ? (
+                <div className="mt-1 flex items-center justify-between gap-2 flex-wrap">
+                  <span>Mã thay thế: <strong className="font-mono text-blue-700">{obsoleteMatch.ma_thay_the}</strong></span>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      onChange(obsoleteMatch.ma_thay_the)
+                      setQuery("")
+                      setOpen(false)
+                    }}
+                    className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-semibold transition shrink-0"
+                  >
+                    ↳ Đổi sang {obsoleteMatch.ma_thay_the}
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-0.5 text-slate-500 italic text-[11px]">Chưa cài đặt mã thay thế cho vật tư này.</div>
+              )}
+            </div>
+          )}
+
+          {results.length === 0 && !obsoleteMatch ? (
             <div className="px-3 py-2 text-sm text-slate-400">Không tìm thấy vật tư khớp.</div>
           ) : results.map(item => {
             const giu = committed?.[item.ma_hang] || 0
             const kd = (Number(item.ton_kho) || 0) - giu // khả dụng = tồn - đang giữ
+            const isDiscontinued = !!item.ngung_su_dung
+
             return (
             <button
               type="button"
               key={item.ma_hang}
               onMouseDown={(e) => { e.preventDefault(); onChange(item.ma_hang); setQuery(""); setOpen(false) }}
-              className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex justify-between items-center gap-2 ${item.ma_hang === value ? 'bg-blue-50' : ''}`}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex justify-between items-center gap-2 border-b border-slate-50 last:border-0 ${item.ma_hang === value ? 'bg-blue-50' : ''} ${isDiscontinued ? 'bg-amber-50/40' : ''}`}
             >
-              <span className="truncate"><span className="font-mono font-medium text-slate-700">{item.ma_hang}</span> <span className="text-slate-500">- {item.ten_hang}</span></span>
+              <div className="truncate flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-mono font-medium text-slate-700">{item.ma_hang}</span>
+                  {isDiscontinued && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded border border-amber-200">
+                      Mã cũ — còn tồn
+                    </span>
+                  )}
+                  {isDiscontinued && item.ma_thay_the && (
+                    <span className="text-[10px] text-slate-500">
+                      (thay: <span className="font-mono text-blue-600 font-semibold">{item.ma_thay_the}</span>)
+                    </span>
+                  )}
+                </div>
+                <div className="text-slate-500 text-xs truncate">{item.ten_hang}</div>
+              </div>
               {committed
                 ? <span className={`text-xs shrink-0 text-right leading-tight ${kd <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>KD: {kd}{giu > 0 && <span className="block text-[10px] text-amber-600">Tồn {item.ton_kho} · giữ {giu}</span>}</span>
                 : <span className={`text-xs shrink-0 ${item.ton_kho <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>Tồn: {item.ton_kho}</span>}
@@ -5011,6 +5209,7 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
               <tbody className="divide-y divide-slate-100">
                 {(() => {
                   const filtered = inventory.filter(item => {
+                    if (item.ngung_su_dung) return false
                     if (leftSearch) {
                       const q = leftSearch.trim().toLowerCase()
                       const match = (item.ma_hang || '').toLowerCase().includes(q) || (item.ten_hang || '').toLowerCase().includes(q)

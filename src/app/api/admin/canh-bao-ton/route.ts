@@ -45,10 +45,10 @@ export async function GET() {
     for (const batch of chunkArray(maNhap, 150)) {
       const batchKho = await selectAll<any>((from, to) => supabaseAdmin
         .from('soct_kho_hang')
-        .select('ma_hang, ten_hang, model, hang, ton_kho, nguong_dat')
+        .select('ma_hang, ten_hang, model, hang, ton_kho, nguong_dat, ngung_su_dung')
         .in('ma_hang', batch)
         .range(from, to))
-      if (batchKho) kho.push(...batchKho)
+      if (batchKho) kho.push(...batchKho.filter((k: any) => !k.ngung_su_dung))
     }
 
     const maAll = kho.map((k: any) => k.ma_hang)

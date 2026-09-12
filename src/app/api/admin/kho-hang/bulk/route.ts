@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     }
 
     // Chỉ nhận cột hợp lệ (chống mass-assignment)
-    const ALLOWED = ['ma_hang', 'ten_hang', 'model', 'hang', 'ton_kho']
+    const ALLOWED = ['ma_hang', 'ten_hang', 'model', 'hang', 'ton_kho', 'ngung_su_dung', 'ma_thay_the']
     const rows = items.map((it: any) => {
       const r: any = {}
       for (const k of ALLOWED) if (it[k] !== undefined) r[k] = it[k]
