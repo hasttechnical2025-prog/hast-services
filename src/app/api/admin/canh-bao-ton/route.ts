@@ -5,6 +5,8 @@ import { broadcastKhoChanged } from '@/lib/realtime'
 import { logAudit } from '@/lib/audit'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 // Mốc 12 tháng gần nhất (gồm tháng hiện tại): 'YYYY-MM'.
 function cutoff12(): string {
@@ -48,7 +50,7 @@ export async function GET() {
         .select('ma_hang, ten_hang, model, hang, ton_kho, nguong_dat, ngung_su_dung')
         .in('ma_hang', batch)
         .range(from, to))
-      if (batchKho) kho.push(...batchKho.filter((k: any) => !k.ngung_su_dung))
+      if (batchKho) kho.push(...batchKho.filter((k: any) => !k.ngung_su_dung && String(k.ngung_su_dung).toLowerCase() !== 'true'))
     }
 
     const maAll = kho.map((k: any) => k.ma_hang)

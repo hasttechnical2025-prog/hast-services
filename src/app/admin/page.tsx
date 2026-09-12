@@ -469,17 +469,17 @@ export default function AdminDashboard() {
 
   // Cảnh báo tồn kho (đã nhập 12 tháng gần nhất) -> chuông + panel Thống kê nhập.
   // CHỈ admin/tech_admin (endpoint gate theo tab thong_ke; staff không thấy).
-  const fetchCanhBaoTon = () => {
+  const fetchCanhBaoTon = useCallback(() => {
     fetch('/api/admin/canh-bao-ton')
       .then(r => r.ok ? r.json() : { items: [] })
       .then(j => setCanhBaoTon(j.items || []))
       .catch(() => { })
-  }
+  }, [])
   useEffect(() => {
     if (!currentAdmin) return
     if (!['admin', 'tech_admin'].includes(currentUserRole)) { setCanhBaoTon([]); return }
     fetchCanhBaoTon()
-  }, [currentAdmin, currentUserRole])
+  }, [currentAdmin, currentUserRole, fetchCanhBaoTon])
 
   // Đếm phiếu Kanban Cột 1 (Chờ lên HĐ) & Cột 2 (KT-HC lên HĐ) cho chuông — nhắc office bàn giao/lên HĐ.
   // Chỉ office thấy chuông (admin/tech_admin/staff); refresh định kỳ.
@@ -686,6 +686,7 @@ export default function AdminDashboard() {
       if (cauHinhData.data) setCauHinh(cauHinhData.data)
       if (dangGiuData.data) setCommitted(dangGiuData.data)
       if (unfinishedData.data) setUnfinishedPastJobs(unfinishedData.data)
+      if (['admin', 'tech_admin'].includes(currentUserRole)) fetchCanhBaoTon()
     } catch (error) {
       console.error("Error fetching data:", error)
     } finally {
@@ -744,7 +745,11 @@ export default function AdminDashboard() {
   useRealtimeRefetch(
     [JOBS_TOPIC, KHO_TOPIC, KHACH_TOPIC],
     DATA_EVENT,
-    () => { fetchData(true); fetchPhieuCount() },        // broadcast/focus/mạng: refetch NGẦM đầy đủ (kho/khách có thể đổi)
+    () => {
+      fetchData(true)
+      fetchPhieuCount()
+      if (['admin', 'tech_admin'].includes(currentUserRole)) fetchCanhBaoTon()
+    },        // broadcast/focus/mạng: refetch NGẦM đầy đủ (kho/khách có thể đổi)
     !!currentAdmin,
     30000,                                                // poll dự phòng 30s (chỉ khi tab hiển thị)
     () => { fetchJobsOnly(); fetchPhieuCount() },         // poll: NHẸ + ngầm — chỉ tải lại danh sách việc
@@ -4618,6 +4623,7 @@ function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao, hangOpti
     finally { setLoading(false) }
   }
   useEffect(() => { fetchRows() }, [thang])
+  useEffect(() => { refetchCanhBao() }, [])
 
   // ===== Panel cảnh báo tồn kho =====
   // Nguồn = prop canhBao (ứng viên: đã nhập 12 tháng của mọi hãng). Sửa ngưỡng cục bộ + nút Lưu tường minh.
