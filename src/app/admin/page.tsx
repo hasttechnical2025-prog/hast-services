@@ -3187,7 +3187,8 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
         { label: 'Sắp hết', value: invLow.toLocaleString('vi-VN'), sub: lowStock > 0 ? `tồn ≤ ${lowStock.toLocaleString('vi-VN')}` : 'chưa đặt ngưỡng', icon: AlertTriangle, tint: 'text-amber-600 bg-amber-50 ring-amber-100' },
         { label: 'Hết hàng', value: invOut.toLocaleString('vi-VN'), sub: 'tồn = 0', icon: Trash2, tint: 'text-red-600 bg-red-50 ring-red-100' },
       ]} />
-      <form ref={formRef} onSubmit={handleSave} className="bg-slate-50 p-4 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4">
+      <form ref={formRef} onSubmit={handleSave} className="bg-slate-50 p-4 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
+        {/* Dòng 1: Mã hàng - Tên hàng / Vật tư - Model - Hãng - SL tồn - Nút Thêm mới */}
         <div className="space-y-1 lg:col-span-2">
           <label className="text-xs font-semibold text-slate-600">Mã hàng *</label>
           <Input required value={formData.ma_hang} onChange={(e) => setFormData({...formData, ma_hang: e.target.value.toUpperCase()})} disabled={isEditing} placeholder="VD: DR017" className={`bg-white h-9 ${dupItem ? 'border-amber-400 focus:ring-amber-400' : ''}`} />
@@ -3198,7 +3199,7 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
             </div>
           )}
         </div>
-        <div className="space-y-1 lg:col-span-4">
+        <div className="space-y-1 lg:col-span-3">
           <label className="text-xs font-semibold text-slate-600">Tên hàng / Vật tư *</label>
           <Input required value={formData.ten_hang} onChange={(e) => setFormData({...formData, ten_hang: e.target.value})} placeholder="VD: Trống lấy ảnh DR017" className="bg-white h-9" />
         </div>
@@ -3220,18 +3221,38 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
           </select>
         </div>
 
-        <div className="space-y-1 lg:col-span-2">
+        <div className="space-y-1 lg:col-span-1">
           <label className="text-xs font-semibold text-slate-600">SL Tồn *</label>
-          <Input type="number" required value={formData.ton_kho} onChange={(e) => setFormData({...formData, ton_kho: parseInt(e.target.value) || 0})} className="bg-white h-9 text-center" />
+          <Input type="number" required value={formData.ton_kho} onChange={(e) => setFormData({...formData, ton_kho: parseInt(e.target.value) || 0})} className="bg-white h-9 text-center px-1" />
         </div>
 
-        {/* Hàng 2: Trạng thái ngưng sử dụng & Mã thay thế */}
-        <div className="space-y-1 lg:col-span-4 flex items-center pt-2">
+        <div className="lg:col-span-2 flex items-end">
+          <div className="flex items-center gap-1.5 w-full">
+            {isEditing && (
+              <Button type="button" variant="outline" onClick={resetForm} className="h-9 px-2.5 text-xs">
+                Hủy
+              </Button>
+            )}
+            <Button type="submit" disabled={loading} className="h-9 flex-1 text-xs px-3 font-medium">
+              {loading ? "Lưu..." : isEditing ? "Cập nhật" : "Thêm mới"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Dòng 2: Checkbox Ngưng sử dụng (cột 1) & Mã thay thế (cột 2, align left với Tên hàng) */}
+        <div className={`space-y-1 lg:col-span-2 flex items-center ${formData.ngung_su_dung ? 'lg:pt-5' : 'py-1'}`}>
           <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={formData.ngung_su_dung}
-              onChange={(e) => setFormData({...formData, ngung_su_dung: e.target.checked})}
+              onChange={(e) => {
+                const checked = e.target.checked
+                setFormData({
+                  ...formData,
+                  ngung_su_dung: checked,
+                  ma_thay_the: checked ? formData.ma_thay_the : ""
+                })
+              }}
               className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500"
             />
             <span className={formData.ngung_su_dung ? 'text-amber-700 font-bold' : ''}>
@@ -3240,22 +3261,17 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
           </label>
         </div>
 
-        <div className="space-y-1 lg:col-span-4">
-          <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
-            Mã thay thế <span className="text-[10px] text-slate-400 font-normal">(nếu có, tự động viết HOA)</span>
-          </label>
-          <Input
-            value={formData.ma_thay_the}
-            onChange={(e) => setFormData({...formData, ma_thay_the: e.target.value.toUpperCase()})}
-            placeholder="VD: TN328K"
-            className="bg-white h-9 font-mono"
-          />
-        </div>
-
-        <div className="lg:col-span-4 flex justify-end items-end gap-2 pb-0.5">
-          {isEditing && <Button type="button" variant="outline" onClick={resetForm} className="h-9 px-3 text-xs">Hủy</Button>}
-          <Button type="submit" disabled={loading} className="h-9 w-full sm:w-auto text-xs px-3">{loading ? "Lưu..." : isEditing ? "Cập nhật" : "Thêm mới"}</Button>
-        </div>
+        {formData.ngung_su_dung && (
+          <div className="space-y-1 lg:col-span-3">
+            <label className="text-xs font-semibold text-slate-600">Mã thay thế</label>
+            <Input
+              value={formData.ma_thay_the}
+              onChange={(e) => setFormData({...formData, ma_thay_the: e.target.value.toUpperCase()})}
+              placeholder="VD: TN328K"
+              className="bg-white h-9 font-mono"
+            />
+          </div>
+        )}
       </form>
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
