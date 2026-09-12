@@ -3323,38 +3323,42 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
           </div>
         </div>
 
-        {/* Dòng 2: Checkbox Ngưng sử dụng (cột 1) & Mã thay thế (cột 2, align left với Tên hàng) */}
-        <div className={`space-y-1 lg:col-span-2 flex items-center ${formData.ngung_su_dung ? 'lg:pt-5' : 'py-1'}`}>
-          <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={formData.ngung_su_dung}
-              onChange={(e) => {
-                const checked = e.target.checked
-                setFormData({
-                  ...formData,
-                  ngung_su_dung: checked,
-                  ma_thay_the: checked ? formData.ma_thay_the : ""
-                })
-              }}
-              className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500"
-            />
-            <span className={formData.ngung_su_dung ? 'text-amber-700 font-bold' : ''}>
-              Ngưng sử dụng (Mã cũ)
-            </span>
-          </label>
-        </div>
+        {/* Dòng 2: Checkbox Ngưng sử dụng (cột 1) & Mã thay thế (cột 2, align left với Tên hàng) - Chỉ hiển thị khi Sửa (isEditing) */}
+        {isEditing && (
+          <>
+            <div className={`space-y-1 lg:col-span-2 flex items-center ${formData.ngung_su_dung ? 'lg:pt-5' : 'py-1'}`}>
+              <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={formData.ngung_su_dung}
+                  onChange={(e) => {
+                    const checked = e.target.checked
+                    setFormData({
+                      ...formData,
+                      ngung_su_dung: checked,
+                      ma_thay_the: checked ? formData.ma_thay_the : ""
+                    })
+                  }}
+                  className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500"
+                />
+                <span className={formData.ngung_su_dung ? 'text-amber-700 font-bold' : ''}>
+                  Ngưng sử dụng (Mã cũ)
+                </span>
+              </label>
+            </div>
 
-        {formData.ngung_su_dung && (
-          <div className="space-y-1 lg:col-span-3">
-            <label className="text-xs font-semibold text-slate-600">Mã thay thế</label>
-            <Input
-              value={formData.ma_thay_the}
-              onChange={(e) => setFormData({...formData, ma_thay_the: e.target.value.toUpperCase()})}
-              placeholder="VD: TN328K"
-              className="bg-white h-9 font-mono"
-            />
-          </div>
+            {formData.ngung_su_dung && (
+              <div className="space-y-1 lg:col-span-3">
+                <label className="text-xs font-semibold text-slate-600">Mã thay thế</label>
+                <Input
+                  value={formData.ma_thay_the}
+                  onChange={(e) => setFormData({...formData, ma_thay_the: e.target.value.toUpperCase()})}
+                  placeholder="VD: TN328K"
+                  className="bg-white h-9 font-mono"
+                />
+              </div>
+            )}
+          </>
         )}
       </form>
 
