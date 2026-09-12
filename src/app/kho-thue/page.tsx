@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { RefreshCw, Search, X, LogOut, AlertTriangle, Boxes, FileText } from "lucide-react"
+import { RefreshCw, Search, X, LogOut, AlertTriangle, Boxes, FileText, ChevronUp, ChevronDown } from "lucide-react"
 
 // Trang CHỈ ĐỌC cho bộ phận Kinh doanh: tra cứu Kho máy thuê (biên bản giám định từ
 // Techbot). Tối ưu cho PC (bảng rộng). Không sửa. GET /api/admin/kho-may-thue mở cho role kinh_doanh.
@@ -39,6 +39,8 @@ export default function KhoThuePage() {
   const [loading, setLoading] = useState(false)
   const [q, setQ] = useState("")
   const [onlyReRented, setOnlyReRented] = useState(false)
+  const [sortField, setSortField] = useState<string>("model")
+  const [sortAsc, setSortAsc] = useState<boolean>(true)
   const [detail, setDetail] = useState<Insp | null>(null)
 
   const fetchList = useCallback(async () => {
@@ -85,6 +87,41 @@ export default function KhoThuePage() {
       return toks.every(t => hay.includes(t))
     })
   }, [rows, q, onlyReRented])
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortAsc(prev => !prev)
+    } else {
+      setSortField(field)
+      setSortAsc(true)
+    }
+  }
+
+  const sortedRows = useMemo(() => {
+    const list = [...filtered]
+    list.sort((a, b) => {
+      let cmp = 0
+      if (sortField === 'serial') {
+        cmp = (a.serial || '').localeCompare(b.serial || '', 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'model') {
+        cmp = (a.model || '').localeCompare(b.model || '', 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'khach_hang') {
+        cmp = (a.khach_hang || '').localeCompare(b.khach_hang || '', 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'khach_hien_tai') {
+        cmp = (a.khach_hien_tai || '').localeCompare(b.khach_hien_tai || '', 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'tinh_trang') {
+        cmp = (a.tinh_trang || '').localeCompare(b.tinh_trang || '', 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'counter') {
+        const cA = Number(String(a.counter || '').replace(/\D/g, '')) || 0
+        const cB = Number(String(b.counter || '').replace(/\D/g, '')) || 0
+        cmp = cA - cB
+      }
+      if (cmp === 0) cmp = (a.serial || '').localeCompare(b.serial || '', 'vi', { numeric: true, sensitivity: 'base' })
+      if (cmp === 0) cmp = (a.id || '').localeCompare(b.id || '')
+      return sortAsc ? cmp : -cmp
+    })
+    return list
+  }, [filtered, sortField, sortAsc])
 
   // ── Màn đăng nhập ─────────────────────────────────────────────
   if (booting) return <div className="min-h-screen flex items-center justify-center text-slate-400 text-sm">Đang tải…</div>
@@ -164,21 +201,51 @@ export default function KhoThuePage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-600">
               <tr>
-                <th className="text-left px-3 py-2.5 font-semibold whitespace-nowrap">Serial</th>
-                <th className="text-left px-3 py-2.5 font-semibold whitespace-nowrap">Model</th>
-                <th className="text-left px-3 py-2.5 font-semibold whitespace-nowrap">Khách lúc giám định</th>
-                <th className="text-left px-3 py-2.5 font-semibold whitespace-nowrap">Khách đang thuê</th>
-                <th className="text-left px-3 py-2.5 font-semibold">Trạng thái</th>
-                <th className="text-left px-3 py-2.5 font-semibold whitespace-nowrap">Counter</th>
+                <th onClick={() => handleSort('serial')} className={`text-left px-3 py-2.5 font-semibold whitespace-nowrap cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'serial' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Serial
+                    {sortField === 'serial' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSort('model')} className={`text-left px-3 py-2.5 font-semibold whitespace-nowrap cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'model' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Model
+                    {sortField === 'model' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSort('khach_hang')} className={`text-left px-3 py-2.5 font-semibold whitespace-nowrap cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'khach_hang' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Khách lúc giám định
+                    {sortField === 'khach_hang' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSort('khach_hien_tai')} className={`text-left px-3 py-2.5 font-semibold whitespace-nowrap cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'khach_hien_tai' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Khách đang thuê
+                    {sortField === 'khach_hien_tai' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSort('tinh_trang')} className={`text-left px-3 py-2.5 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'tinh_trang' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Trạng thái
+                    {sortField === 'tinh_trang' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSort('counter')} className={`text-left px-3 py-2.5 font-semibold whitespace-nowrap cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'counter' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Counter
+                    {sortField === 'counter' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
                 <th className="text-center px-3 py-2.5 font-semibold whitespace-nowrap">Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {loading && rows.length === 0 ? (
                 <tr><td colSpan={7} className="text-center text-slate-400 py-10">Đang tải…</td></tr>
-              ) : filtered.length === 0 ? (
+              ) : sortedRows.length === 0 ? (
                 <tr><td colSpan={7} className="text-center text-slate-400 py-10">Không có máy nào.</td></tr>
-              ) : filtered.map(r => (
+              ) : sortedRows.map(r => (
                 <tr key={r.id} className={`border-t border-slate-100 align-top hover:bg-slate-50/60 ${r.da_thue_lai ? 'bg-rose-50/40' : ''}`}>
                   <td className="px-3 py-2.5 font-mono whitespace-nowrap">{r.serial || '—'}</td>
                   <td className="px-3 py-2.5 whitespace-nowrap">{r.model || '—'}</td>

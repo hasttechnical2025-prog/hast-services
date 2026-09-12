@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import DateField from "@/components/DateField"
 import CollapsibleTools from "@/components/CollapsibleTools"
-import { Landmark, Search, Send, X, RefreshCw, Save } from "lucide-react"
+import { Landmark, Search, Send, X, RefreshCw, Save, ChevronUp, ChevronDown } from "lucide-react"
 
 type May = {
   id: string
@@ -38,6 +38,10 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
   const [pushing, setPushing] = useState(false)
   const [dirty, setDirty] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
+  const [sortFieldGroup, setSortFieldGroup] = useState<string>("so_hddv")
+  const [sortAscGroup, setSortAscGroup] = useState<boolean>(true)
+  const [sortFieldMay, setSortFieldMay] = useState<string>("ngay_het_han")
+  const [sortAscMay, setSortAscMay] = useState<boolean>(true)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -95,8 +99,96 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
       if (r.ngay_ky_hddv && !g.ngayKy) g.ngayKy = r.ngay_ky_hddv
       if (r.ngay_het_han_hdbt && !g.hetHan) g.hetHan = r.ngay_het_han_hdbt
     }
-    return [...m.values()].sort((a, b) => a.so_hddv.localeCompare(b.so_hddv))
+    return [...m.values()]
   }, [rows])
+
+  const handleSortGroup = (field: string) => {
+    if (sortFieldGroup === field) {
+      setSortAscGroup(prev => !prev)
+    } else {
+      setSortFieldGroup(field)
+      setSortAscGroup(field === 'so_may' || field === 'don_gia' || field === 'thanh_tien' ? false : true)
+    }
+  }
+
+  const sortedGroups = useMemo(() => {
+    const list = [...groups]
+    list.sort((a, b) => {
+      let cmp = 0
+      const donGiaA = [...a.donGias][0] || 0
+      const donGiaB = [...b.donGias][0] || 0
+      const thanhTienA = a.mays.length * donGiaA
+      const thanhTienB = b.mays.length * donGiaB
+      const khachA = khName(a.mays[0])
+      const khachB = khName(b.mays[0])
+
+      if (sortFieldGroup === 'so_hddv') {
+        cmp = a.so_hddv.localeCompare(b.so_hddv, 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortFieldGroup === 'khach') {
+        cmp = khachA.localeCompare(khachB, 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortFieldGroup === 'so_may') {
+        cmp = a.mays.length - b.mays.length
+      } else if (sortFieldGroup === 'don_gia') {
+        cmp = donGiaA - donGiaB
+      } else if (sortFieldGroup === 'thanh_tien') {
+        cmp = thanhTienA - thanhTienB
+      } else if (sortFieldGroup === 'ky_hd') {
+        const kyA = a.hetHan || a.ngayKy || ''
+        const kyB = b.hetHan || b.ngayKy || ''
+        cmp = kyA.localeCompare(kyB)
+      }
+      if (cmp === 0) cmp = a.so_hddv.localeCompare(b.so_hddv, 'vi', { numeric: true, sensitivity: 'base' })
+      return sortAscGroup ? cmp : -cmp
+    })
+    return list
+  }, [groups, sortFieldGroup, sortAscGroup])
+
+  const handleSortMay = (field: string) => {
+    if (sortFieldMay === field) {
+      setSortAscMay(prev => !prev)
+    } else {
+      setSortFieldMay(field)
+      setSortAscMay(field === 'don_gia_bt' || field === 'ngay_het_han' || field === 'ngay_ky' ? false : true)
+    }
+  }
+
+  const sortedMays = useMemo(() => {
+    const s = q.trim().toLowerCase()
+    const base = s ? rows.filter(m => `${khName(m)} ${m.ma_may || ''} ${m.model || ''} ${m.so_hddv || ''}`.toLowerCase().includes(s)) : rows
+    const list = [...base]
+    list.sort((a, b) => {
+      let cmp = 0
+      if (sortFieldMay === 'khach') {
+        cmp = khName(a).localeCompare(khName(b), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortFieldMay === 'ma_may') {
+        cmp = String(a.ma_may || '').localeCompare(String(b.ma_may || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortFieldMay === 'model') {
+        cmp = String(a.model || '').localeCompare(String(b.model || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortFieldMay === 'loai_hd') {
+        cmp = String(a.loai_hd || '').localeCompare(String(b.loai_hd || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortFieldMay === 'ngay_het_han') {
+        const ea = String(a.ngay_het_han_hdbt || '').slice(0, 10)
+        const eb = String(b.ngay_het_han_hdbt || '').slice(0, 10)
+        if (ea !== eb) {
+          if (!ea) return 1
+          if (!eb) return -1
+          cmp = ea.localeCompare(eb)
+        }
+      } else if (sortFieldMay === 'so_hddv') {
+        cmp = String(a.so_hddv || '').localeCompare(String(b.so_hddv || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortFieldMay === 'ngay_ky') {
+        const ka = String(a.ngay_ky_hddv || '').slice(0, 10)
+        const kb = String(b.ngay_ky_hddv || '').slice(0, 10)
+        cmp = ka.localeCompare(kb)
+      } else if (sortFieldMay === 'don_gia_bt') {
+        cmp = (Number(a.don_gia_bt) || 0) - (Number(b.don_gia_bt) || 0)
+      }
+      if (cmp === 0) cmp = khName(a).localeCompare(khName(b), 'vi') || String(a.ma_may || '').localeCompare(String(b.ma_may || ''), 'vi')
+      if (cmp === 0) cmp = String(a.id).localeCompare(String(b.id))
+      return sortAscMay ? cmp : -cmp
+    })
+    return list
+  }, [rows, q, sortFieldMay, sortAscMay])
 
   // Kỳ thanh toán = TỪ ngày ký HĐ ĐẾN ngày hết hạn HĐ (dịch vụ đã thực hiện xong mới thu — không phải
   // thu trước cho kỳ mới). Lấy trực tiếp từ dữ liệu máy, không tự cuốn năm.
@@ -149,19 +241,49 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
           <table className="w-full text-sm text-slate-600">
             <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase border-b border-slate-200">
               <tr>
-                <th className="px-3 py-2 text-left whitespace-nowrap">Số HĐDV</th>
-                <th className="px-3 py-2 text-left">Khách hàng</th>
-                <th className="px-2 py-2 text-center">Số máy</th>
-                <th className="px-3 py-2 text-right">Đơn giá</th>
-                <th className="px-3 py-2 text-right">Thành tiền (chưa VAT)</th>
-                <th className="px-3 py-2 text-center">Kỳ HĐ (ký → hết hạn)</th>
+                <th onClick={() => handleSortGroup('so_hddv')} className={`px-3 py-2 text-left whitespace-nowrap cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldGroup === 'so_hddv' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Số HĐDV
+                    {sortFieldGroup === 'so_hddv' && (sortAscGroup ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortGroup('khach')} className={`px-3 py-2 text-left cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldGroup === 'khach' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Khách hàng
+                    {sortFieldGroup === 'khach' && (sortAscGroup ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortGroup('so_may')} className={`px-2 py-2 text-center cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldGroup === 'so_may' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center justify-center gap-1">
+                    Số máy
+                    {sortFieldGroup === 'so_may' && (sortAscGroup ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortGroup('don_gia')} className={`px-3 py-2 text-right cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldGroup === 'don_gia' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center justify-end gap-1">
+                    Đơn giá
+                    {sortFieldGroup === 'don_gia' && (sortAscGroup ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortGroup('thanh_tien')} className={`px-3 py-2 text-right cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldGroup === 'thanh_tien' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center justify-end gap-1">
+                    Thành tiền (chưa VAT)
+                    {sortFieldGroup === 'thanh_tien' && (sortAscGroup ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortGroup('ky_hd')} className={`px-3 py-2 text-center cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldGroup === 'ky_hd' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center justify-center gap-1">
+                    Kỳ HĐ (ký → hết hạn)
+                    {sortFieldGroup === 'ky_hd' && (sortAscGroup ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
                 <th className="px-2 py-2 text-center">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {groups.length === 0 ? (
+              {sortedGroups.length === 0 ? (
                 <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">Chưa có hợp đồng nào đủ điều kiện (cần Số HĐDV + đơn giá &gt; 0). Nhập ở bảng cấu hình bên dưới.</td></tr>
-              ) : groups.map(g => {
+              ) : sortedGroups.map(g => {
                 const donGia = [...g.donGias][0]
                 const lech = g.donGias.size > 1
                 const daLap = billed.has(reportOf(g.so_hddv))
@@ -195,7 +317,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
 
       {/* ===== Bảng cấu hình phí BT theo máy (inline edit) ===== */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
-        <h3 className="text-sm font-bold text-slate-700">Cấu hình theo máy (HĐBT/MF) — {filtered.length} máy</h3>
+        <h3 className="text-sm font-bold text-slate-700">Cấu hình theo máy (HĐBT/MF) — {sortedMays.length} máy</h3>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -224,22 +346,62 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
           <table className="w-full text-sm text-slate-600">
             <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase border-b border-slate-200">
               <tr>
-                <th className="px-3 py-2 text-left">Khách hàng</th>
-                <th className="px-2 py-2 text-left">Mã máy</th>
-                <th className="px-2 py-2 text-left">Model</th>
-                <th className="px-2 py-2 text-center">Loại HĐ</th>
-                <th className="px-2 py-2 text-center">Hết hạn HĐBT</th>
-                <th className="px-3 py-2 text-left w-40">Số HĐDV</th>
-                <th className="px-3 py-2 text-left w-36">Ngày ký HĐ</th>
-                <th className="px-3 py-2 text-right w-32">Đơn giá phí BT</th>
+                <th onClick={() => handleSortMay('khach')} className={`px-3 py-2 text-left cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldMay === 'khach' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Khách hàng
+                    {sortFieldMay === 'khach' && (sortAscMay ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortMay('ma_may')} className={`px-2 py-2 text-left cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldMay === 'ma_may' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Mã máy
+                    {sortFieldMay === 'ma_may' && (sortAscMay ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortMay('model')} className={`px-2 py-2 text-left cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldMay === 'model' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Model
+                    {sortFieldMay === 'model' && (sortAscMay ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortMay('loai_hd')} className={`px-2 py-2 text-center cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldMay === 'loai_hd' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center justify-center gap-1">
+                    Loại HĐ
+                    {sortFieldMay === 'loai_hd' && (sortAscMay ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortMay('ngay_het_han')} className={`px-2 py-2 text-center cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldMay === 'ngay_het_han' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center justify-center gap-1">
+                    Hết hạn HĐBT
+                    {sortFieldMay === 'ngay_het_han' && (sortAscMay ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortMay('so_hddv')} className={`px-3 py-2 text-left w-40 cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldMay === 'so_hddv' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Số HĐDV
+                    {sortFieldMay === 'so_hddv' && (sortAscMay ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortMay('ngay_ky')} className={`px-3 py-2 text-left w-36 cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldMay === 'ngay_ky' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Ngày ký HĐ
+                    {sortFieldMay === 'ngay_ky' && (sortAscMay ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortMay('don_gia_bt')} className={`px-3 py-2 text-right w-32 cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldMay === 'don_gia_bt' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center justify-end gap-1">
+                    Đơn giá phí BT
+                    {sortFieldMay === 'don_gia_bt' && (sortAscMay ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Đang tải…</td></tr>
-              ) : filtered.length === 0 ? (
+              ) : sortedMays.length === 0 ? (
                 <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Không có máy HĐBT/MF.</td></tr>
-              ) : filtered.map(m => {
+              ) : sortedMays.map(m => {
                 // Máy MF (miễn phí) — kỳ này khách KHÔNG phải thanh toán: khóa 3 ô cấu hình + tô màu.
                 const isMF = String(m.loai_hd || '').trim().toUpperCase() === 'MF'
                 return (

@@ -3074,6 +3074,17 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
   const col = useColView('inventory', INVENTORY_COLS)
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'discontinued'>('all')
   const [searchTerm, setSearchTerm] = useState("")
+  const [sortField, setSortField] = useState<string>("ma_hang")
+  const [sortAsc, setSortAsc] = useState<boolean>(true)
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortAsc(prev => !prev)
+    } else {
+      setSortField(field)
+      setSortAsc(true)
+    }
+  }
 
   const filteredInventory = useMemo(() => {
     return inventory.filter(item => {
@@ -3091,7 +3102,42 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
     })
   }, [inventory, statusFilter, searchTerm])
 
-  const paged = usePaged(filteredInventory)
+  const sortedInventory = useMemo(() => {
+    const list = [...filteredInventory]
+    list.sort((a, b) => {
+      let cmp = 0
+      if (sortField === 'ma_hang') {
+        cmp = String(a.ma_hang || '').localeCompare(String(b.ma_hang || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'ten_hang') {
+        cmp = String(a.ten_hang || '').localeCompare(String(b.ten_hang || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'model') {
+        const mA = String(a.model || '').trim()
+        const mB = String(b.model || '').trim()
+        if (!mA && mB) return 1
+        if (mA && !mB) return -1
+        cmp = mA.localeCompare(mB, 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'hang') {
+        const hA = String(a.hang || '').trim()
+        const hB = String(b.hang || '').trim()
+        if (!hA && hB) return 1
+        if (hA && !hB) return -1
+        cmp = hA.localeCompare(hB, 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'ton_kho') {
+        cmp = (Number(a.ton_kho) || 0) - (Number(b.ton_kho) || 0)
+      } else if (sortField === 'trang_thai') {
+        const sA = a.ngung_su_dung ? 1 : 0
+        const sB = b.ngung_su_dung ? 1 : 0
+        cmp = sA - sB
+      }
+      if (cmp === 0) {
+        cmp = String(a.ma_hang || '').localeCompare(String(b.ma_hang || ''))
+      }
+      return sortAsc ? cmp : -cmp
+    })
+    return list
+  }, [filteredInventory, sortField, sortAsc])
+
+  const paged = usePaged(sortedInventory)
   const [formData, setFormData] = useState({
     ma_hang: "",
     ten_hang: "",
@@ -3115,7 +3161,7 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
 
   // Nhảy tới dòng cần xem: chuyển sang đúng trang chứa dòng rồi cuộn tới (sau khi render)
   const viewRow = (ma_hang: string) => {
-    const idx = filteredInventory.findIndex(i => i.ma_hang === ma_hang)
+    const idx = sortedInventory.findIndex(i => i.ma_hang === ma_hang)
     if (idx >= 0) paged.setPage(Math.floor(idx / paged.perPage) + 1)
     setHighlightMH(ma_hang)
     setPendingScroll(ma_hang)
@@ -3124,7 +3170,7 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
     if (!pendingScroll) return
     const el = document.getElementById('inv-' + pendingScroll)
     if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); setPendingScroll("") }
-  }, [pendingScroll, paged.page, filteredInventory])
+  }, [pendingScroll, paged.page, sortedInventory])
 
   // Cảnh báo trùng: đang thêm mới mà mã hàng đã có trong kho
   const dupItem = !isEditing && formData.ma_hang.trim()
@@ -3364,17 +3410,107 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
         <table className="w-full text-left text-sm text-slate-600">
           <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200 shadow-sm">
             <tr>
-              {col.show('ma_hang') && <th className="px-4 py-3 font-semibold">Mã hàng</th>}
-              {col.show('ten_hang') && <th className="px-4 py-3 font-semibold">Tên vật tư</th>}
-              {col.show('model') && <th className="px-4 py-3 font-semibold">Model</th>}
-              {col.show('hang') && <th className="px-4 py-3 font-semibold">Hãng</th>}
-              {col.show('ton_kho') && <th className="px-4 py-3 font-semibold text-center">Tồn kho</th>}
-              {col.show('trang_thai') && <th className="px-4 py-3 font-semibold text-center whitespace-nowrap">Trạng thái</th>}
+              {col.show('ma_hang') && (
+                <th
+                  onClick={() => handleSort('ma_hang')}
+                  className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors ${
+                    sortField === 'ma_hang' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'
+                  }`}
+                  title="Bấm để sắp xếp theo Mã hàng"
+                >
+                  <div className="inline-flex items-center gap-1">
+                    <span>Mã hàng</span>
+                    {sortField === 'ma_hang' && (
+                      sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                    )}
+                  </div>
+                </th>
+              )}
+              {col.show('ten_hang') && (
+                <th
+                  onClick={() => handleSort('ten_hang')}
+                  className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors ${
+                    sortField === 'ten_hang' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'
+                  }`}
+                  title="Bấm để sắp xếp theo Tên vật tư"
+                >
+                  <div className="inline-flex items-center gap-1">
+                    <span>Tên vật tư</span>
+                    {sortField === 'ten_hang' && (
+                      sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                    )}
+                  </div>
+                </th>
+              )}
+              {col.show('model') && (
+                <th
+                  onClick={() => handleSort('model')}
+                  className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors ${
+                    sortField === 'model' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'
+                  }`}
+                  title="Bấm để sắp xếp theo Model"
+                >
+                  <div className="inline-flex items-center gap-1">
+                    <span>Model</span>
+                    {sortField === 'model' && (
+                      sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                    )}
+                  </div>
+                </th>
+              )}
+              {col.show('hang') && (
+                <th
+                  onClick={() => handleSort('hang')}
+                  className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors ${
+                    sortField === 'hang' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'
+                  }`}
+                  title="Bấm để sắp xếp theo Hãng"
+                >
+                  <div className="inline-flex items-center gap-1">
+                    <span>Hãng</span>
+                    {sortField === 'hang' && (
+                      sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                    )}
+                  </div>
+                </th>
+              )}
+              {col.show('ton_kho') && (
+                <th
+                  onClick={() => handleSort('ton_kho')}
+                  className={`px-4 py-3 font-semibold text-center cursor-pointer select-none transition-colors ${
+                    sortField === 'ton_kho' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'
+                  }`}
+                  title="Bấm để sắp xếp theo Tồn kho"
+                >
+                  <div className="inline-flex items-center justify-center gap-1">
+                    <span>Tồn kho</span>
+                    {sortField === 'ton_kho' && (
+                      sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                    )}
+                  </div>
+                </th>
+              )}
+              {col.show('trang_thai') && (
+                <th
+                  onClick={() => handleSort('trang_thai')}
+                  className={`px-4 py-3 font-semibold text-center whitespace-nowrap cursor-pointer select-none transition-colors ${
+                    sortField === 'trang_thai' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'
+                  }`}
+                  title="Bấm để sắp xếp theo Trạng thái"
+                >
+                  <div className="inline-flex items-center justify-center gap-1">
+                    <span>Trạng thái</span>
+                    {sortField === 'trang_thai' && (
+                      sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                    )}
+                  </div>
+                </th>
+              )}
               {col.show('thaotac') && <th className="px-4 py-3 font-semibold text-center w-24">Thao tác</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filteredInventory.length === 0 ? (
+            {sortedInventory.length === 0 ? (
               <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">{inventory.length === 0 ? 'Kho hàng đang trống.' : 'Không tìm thấy vật tư khớp bộ lọc.'}</td></tr>
             ) : paged.pageItems.map((item) => (
               <tr key={item.ma_hang} id={'inv-' + item.ma_hang} className={`transition-colors ${highlightMH === item.ma_hang ? 'bg-amber-100' : 'hover:bg-slate-50'} ${item.ngung_su_dung ? 'bg-amber-50/20' : ''}`}>
@@ -4612,6 +4748,40 @@ function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao, hangOpti
   const [thang, setThang] = useState("")
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [nhapSortField, setNhapSortField] = useState<string>("thang_nam")
+  const [nhapSortAsc, setNhapSortAsc] = useState<boolean>(false) // mặc định tháng mới nhất trước
+
+  const handleNhapSort = (field: string) => {
+    if (nhapSortField === field) {
+      setNhapSortAsc(prev => !prev)
+    } else {
+      setNhapSortField(field)
+      setNhapSortAsc(field === 'thang_nam' ? false : true)
+    }
+  }
+
+  const sortedRows = useMemo(() => {
+    const list = [...rows]
+    list.sort((a, b) => {
+      let cmp = 0
+      if (nhapSortField === 'thang_nam') {
+        cmp = String(a.thang_nam || '').localeCompare(String(b.thang_nam || ''))
+      } else if (nhapSortField === 'ma_hang') {
+        cmp = String(a.ma_hang || '').localeCompare(String(b.ma_hang || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (nhapSortField === 'ten_hang') {
+        const tA = a.soct_kho_hang?.ten_hang || ''
+        const tB = b.soct_kho_hang?.ten_hang || ''
+        cmp = tA.localeCompare(tB, 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (nhapSortField === 'so_luong_nhap') {
+        cmp = (Number(a.so_luong_nhap) || 0) - (Number(b.so_luong_nhap) || 0)
+      }
+      if (cmp === 0) {
+        cmp = String(a.id || '').localeCompare(String(b.id || ''))
+      }
+      return nhapSortAsc ? cmp : -cmp
+    })
+    return list
+  }, [rows, nhapSortField, nhapSortAsc])
 
   const fetchRows = async () => {
     setLoading(true)
@@ -4945,14 +5115,71 @@ function NhapHangThangTool({ showNotification, canhBao, refetchCanhBao, hangOpti
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[480px] overflow-y-auto">
         <table className="w-full text-left text-sm text-slate-600">
           <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide sticky top-0 border-b border-slate-200 shadow-sm z-10">
-            <tr><th className="px-4 py-3 font-semibold">Tháng</th><th className="px-4 py-3 font-semibold">Mã hàng</th><th className="px-4 py-3 font-semibold">Tên vật tư</th><th className="px-4 py-3 font-semibold text-center">SL nhập</th></tr>
+            <tr>
+              <th
+                onClick={() => handleNhapSort('thang_nam')}
+                className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors ${
+                  nhapSortField === 'thang_nam' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'
+                }`}
+                title="Bấm để sắp xếp theo Tháng"
+              >
+                <div className="inline-flex items-center gap-1">
+                  <span>Tháng</span>
+                  {nhapSortField === 'thang_nam' && (
+                    nhapSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                  )}
+                </div>
+              </th>
+              <th
+                onClick={() => handleNhapSort('ma_hang')}
+                className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors ${
+                  nhapSortField === 'ma_hang' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'
+                }`}
+                title="Bấm để sắp xếp theo Mã hàng"
+              >
+                <div className="inline-flex items-center gap-1">
+                  <span>Mã hàng</span>
+                  {nhapSortField === 'ma_hang' && (
+                    nhapSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                  )}
+                </div>
+              </th>
+              <th
+                onClick={() => handleNhapSort('ten_hang')}
+                className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors ${
+                  nhapSortField === 'ten_hang' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'
+                }`}
+                title="Bấm để sắp xếp theo Tên vật tư"
+              >
+                <div className="inline-flex items-center gap-1">
+                  <span>Tên vật tư</span>
+                  {nhapSortField === 'ten_hang' && (
+                    nhapSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                  )}
+                </div>
+              </th>
+              <th
+                onClick={() => handleNhapSort('so_luong_nhap')}
+                className={`px-4 py-3 font-semibold text-center cursor-pointer select-none transition-colors ${
+                  nhapSortField === 'so_luong_nhap' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'
+                }`}
+                title="Bấm để sắp xếp theo SL nhập"
+              >
+                <div className="inline-flex items-center justify-center gap-1">
+                  <span>SL nhập</span>
+                  {nhapSortField === 'so_luong_nhap' && (
+                    nhapSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                  )}
+                </div>
+              </th>
+            </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Đang tải...</td></tr>
-            ) : rows.length === 0 ? (
+            ) : sortedRows.length === 0 ? (
               <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Chưa có dữ liệu nhập.</td></tr>
-            ) : rows.map(r => (
+            ) : sortedRows.map(r => (
               <tr key={r.id} className="hover:bg-slate-50">
                 <td className="px-4 py-2.5 font-mono text-xs">{r.thang_nam.split('-').reverse().join('/')}</td>
                 <td className="px-4 py-2.5 font-mono font-medium text-slate-700">{r.ma_hang}</td>
@@ -4983,6 +5210,17 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
   const [leftHang, setLeftHang] = useState("")
   const [leftLowStock, setLeftLowStock] = useState(false)
   const [leftQuantities, setLeftQuantities] = useState<Record<string, string>>({})
+  const [leftSortField, setLeftSortField] = useState<string>("model")
+  const [leftSortAsc, setLeftSortAsc] = useState<boolean>(true)
+
+  const handleLeftSort = (field: string) => {
+    if (leftSortField === field) {
+      setLeftSortAsc(prev => !prev)
+    } else {
+      setLeftSortField(field)
+      setLeftSortAsc(true)
+    }
+  }
 
   // State phục vụ lưu nháp & sửa đơn nháp
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null)
@@ -5256,6 +5494,54 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
     return { total: filteredOrders.length, daDat, done, thieu }
   })()
 
+  // Danh sách vật tư rà soát bên trái: Lọc và sắp xếp
+  const sortedLeftInventory = useMemo(() => {
+    const filtered = inventory.filter(item => {
+      if (item.ngung_su_dung) return false
+      if (leftSearch) {
+        const q = leftSearch.trim().toLowerCase()
+        const match = (item.ma_hang || '').toLowerCase().includes(q) || (item.ten_hang || '').toLowerCase().includes(q)
+        if (!match) return false
+      }
+      if (leftModel) {
+        const qModel = leftModel.trim().toLowerCase()
+        const itemModel = String(item.model || '').toLowerCase()
+        if (!itemModel.includes(qModel)) return false
+      }
+      if (leftHang && String(item.hang || '').trim().toLowerCase() !== leftHang.trim().toLowerCase()) return false
+      if (leftLowStock && item.ton_kho > 0) return false
+      return true
+    })
+
+    filtered.sort((a, b) => {
+      let cmp = 0
+      if (leftSortField === 'vattu') {
+        cmp = String(a.ma_hang || '').localeCompare(String(b.ma_hang || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (leftSortField === 'model') {
+        const mA = String(a.model || '').trim()
+        const mB = String(b.model || '').trim()
+        if (!mA && mB) return 1
+        if (mA && !mB) return -1
+        cmp = mA.localeCompare(mB, 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (leftSortField === 'ton_kho') {
+        const giuA = committed[a.ma_hang] || 0
+        const kdA = (Number(a.ton_kho) || 0) - giuA
+        const giuB = committed[b.ma_hang] || 0
+        const kdB = (Number(b.ton_kho) || 0) - giuB
+        cmp = kdA - kdB
+      } else if (leftSortField === 'cho_ve') {
+        const cvA = getPendingInfo(a.ma_hang).pendingQty
+        const cvB = getPendingInfo(b.ma_hang).pendingQty
+        cmp = cvA - cvB
+      }
+      if (cmp === 0) {
+        cmp = String(a.ma_hang || '').localeCompare(String(b.ma_hang || ''))
+      }
+      return leftSortAsc ? cmp : -cmp
+    })
+    return filtered
+  }, [inventory, leftSearch, leftModel, leftHang, leftLowStock, leftSortField, leftSortAsc, committed, orders])
+
   return (
     <div className="space-y-6">
       <StatCards items={[
@@ -5346,38 +5632,70 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
             <table className="w-full text-left text-xs text-slate-600 min-w-[550px]">
               <thead className="bg-slate-50 text-slate-500 font-semibold uppercase sticky top-0 border-b border-slate-200 z-10">
                 <tr>
-                  <th className="px-3 py-2 min-w-[180px]">Vật tư</th>
-                  <th className="px-3 py-2 text-center w-32 max-w-[150px]">Model</th>
-                  <th className="px-3 py-2 text-center w-16">Tồn / KD</th>
-                  <th className="px-3 py-2 text-center w-14">Chờ về</th>
+                  <th
+                    onClick={() => handleLeftSort('vattu')}
+                    className={`px-3 py-2 min-w-[180px] cursor-pointer select-none transition-colors ${
+                      leftSortField === 'vattu' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'
+                    }`}
+                    title="Bấm để sắp xếp theo Vật tư"
+                  >
+                    <div className="inline-flex items-center gap-1">
+                      <span>Vật tư</span>
+                      {leftSortField === 'vattu' && (
+                        leftSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleLeftSort('model')}
+                    className={`px-3 py-2 text-center w-32 max-w-[150px] cursor-pointer select-none transition-colors ${
+                      leftSortField === 'model' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'
+                    }`}
+                    title="Bấm để sắp xếp theo Model"
+                  >
+                    <div className="inline-flex items-center justify-center gap-1">
+                      <span>Model</span>
+                      {leftSortField === 'model' && (
+                        leftSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleLeftSort('ton_kho')}
+                    className={`px-3 py-2 text-center w-16 cursor-pointer select-none transition-colors ${
+                      leftSortField === 'ton_kho' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'
+                    }`}
+                    title="Bấm để sắp xếp theo Tồn kho / Khả dụng"
+                  >
+                    <div className="inline-flex items-center justify-center gap-1">
+                      <span>Tồn / KD</span>
+                      {leftSortField === 'ton_kho' && (
+                        leftSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleLeftSort('cho_ve')}
+                    className={`px-3 py-2 text-center w-14 cursor-pointer select-none transition-colors ${
+                      leftSortField === 'cho_ve' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'
+                    }`}
+                    title="Bấm để sắp xếp theo Hàng chờ về"
+                  >
+                    <div className="inline-flex items-center justify-center gap-1">
+                      <span>Chờ về</span>
+                      {leftSortField === 'cho_ve' && (
+                        leftSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                      )}
+                    </div>
+                  </th>
                   <th className="px-3 py-2 text-center w-20 min-w-[70px]">SL đặt</th>
                   <th className="px-3 py-2 text-center w-10"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {(() => {
-                  const filtered = inventory.filter(item => {
-                    if (item.ngung_su_dung) return false
-                    if (leftSearch) {
-                      const q = leftSearch.trim().toLowerCase()
-                      const match = (item.ma_hang || '').toLowerCase().includes(q) || (item.ten_hang || '').toLowerCase().includes(q)
-                      if (!match) return false
-                    }
-                    if (leftModel) {
-                      const qModel = leftModel.trim().toLowerCase()
-                      const itemModel = String(item.model || '').toLowerCase()
-                      if (!itemModel.includes(qModel)) return false
-                    }
-                    if (leftHang && String(item.hang || '').trim().toLowerCase() !== leftHang.trim().toLowerCase()) return false
-                    if (leftLowStock && item.ton_kho > 0) return false
-                    return true
-                  })
-
-                  if (filtered.length === 0) {
-                    return <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400 italic">Không tìm thấy vật tư khớp bộ lọc.</td></tr>
-                  }
-
-                  return filtered.map(item => {
+                {sortedLeftInventory.length === 0 ? (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400 italic">Không tìm thấy vật tư khớp bộ lọc.</td></tr>
+                ) : sortedLeftInventory.map(item => {
                     const tempQty = leftQuantities[item.ma_hang] || ""
                     const isOut = item.ton_kho <= 0
                     const { pendingQty, tooltip } = getPendingInfo(item.ma_hang)
@@ -5437,8 +5755,7 @@ function DatHangTool({ inventory, committed, nhaCungCapOptions, hangOptions, onU
                         </td>
                       </tr>
                     )
-                  })
-                })()}
+                  })}
               </tbody>
             </table>
           </div>
@@ -7069,7 +7386,50 @@ function PhieuCungTool({ nguongNgay, currentUserRole, showNotification }: { nguo
   const chuaNop = list.filter(r => !r.da_nop_phieu)
   const quaHan = chuaNop.filter(r => daysOf(r.ngay) >= nguongNgay)
   const ktvNo = new Set(chuaNop.filter(r => r.ktv_id).map(r => r.ktv_id)).size
-  const paged = usePaged(filtered)
+
+  const [sortField, setSortField] = useState<string>('ngay')
+  const [sortAsc, setSortAsc] = useState<boolean>(false)
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortAsc(prev => !prev)
+    } else {
+      setSortField(field)
+      setSortAsc(field === 'ngay' || field === 'ton' ? false : true)
+    }
+  }
+
+  const sortedList = useMemo(() => {
+    const arr = [...filtered]
+    arr.sort((a, b) => {
+      let cmp = 0
+      if (sortField === 'ngay') {
+        cmp = String(a.ngay || '').localeCompare(String(b.ngay || ''))
+      } else if (sortField === 'report') {
+        cmp = String(a.report || '').localeCompare(String(b.report || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'khach') {
+        const kA = a.soct_khach_hang?.ten_khach_hang || ''
+        const kB = b.soct_khach_hang?.ten_khach_hang || ''
+        cmp = kA.localeCompare(kB, 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'loai') {
+        cmp = String(a.loai_cong_viec || '').localeCompare(String(b.loai_cong_viec || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'ktv') {
+        const nA = a.soct_users?.full_name || ''
+        const nB = b.soct_users?.full_name || ''
+        cmp = nA.localeCompare(nB, 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'ton') {
+        cmp = daysOf(a.ngay) - daysOf(b.ngay)
+      } else if (sortField === 'nop') {
+        cmp = (a.da_nop_phieu ? 1 : 0) - (b.da_nop_phieu ? 1 : 0)
+      }
+      if (cmp === 0) cmp = String(a.report || '').localeCompare(String(b.report || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      if (cmp === 0) cmp = String(a.id || '').localeCompare(String(b.id || ''))
+      return sortAsc ? cmp : -cmp
+    })
+    return arr
+  }, [filtered, sortField, sortAsc])
+
+  const paged = usePaged(sortedList)
 
   return (
     <div className="space-y-6">
@@ -7114,13 +7474,62 @@ function PhieuCungTool({ nguongNgay, currentUserRole, showNotification }: { nguo
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
               <tr>
-                {col.show('ngay') && <th className="px-4 py-3">Ngày</th>}
-                {col.show('report') && <th className="px-4 py-3">Số phiếu</th>}
-                {col.show('khach') && <th className="px-4 py-3">Khách hàng</th>}
-                {col.show('loai') && <th className="px-4 py-3">Loại việc</th>}
-                {col.show('ktv') && <th className="px-4 py-3">KTV</th>}
-                {col.show('ton') && <th className="px-4 py-3 text-center whitespace-nowrap">Tồn (ngày)</th>}
-                {col.show('nop') && <th className="px-4 py-3 text-center">Đã nộp</th>}
+                {col.show('ngay') && (
+                  <th onClick={() => handleSort('ngay')} className={`px-4 py-3 cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'ngay' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                    <div className="flex items-center gap-1">
+                      Ngày
+                      {sortField === 'ngay' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                    </div>
+                  </th>
+                )}
+                {col.show('report') && (
+                  <th onClick={() => handleSort('report')} className={`px-4 py-3 cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'report' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                    <div className="flex items-center gap-1">
+                      Số phiếu
+                      {sortField === 'report' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                    </div>
+                  </th>
+                )}
+                {col.show('khach') && (
+                  <th onClick={() => handleSort('khach')} className={`px-4 py-3 cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'khach' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                    <div className="flex items-center gap-1">
+                      Khách hàng
+                      {sortField === 'khach' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                    </div>
+                  </th>
+                )}
+                {col.show('loai') && (
+                  <th onClick={() => handleSort('loai')} className={`px-4 py-3 cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'loai' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                    <div className="flex items-center gap-1">
+                      Loại việc
+                      {sortField === 'loai' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                    </div>
+                  </th>
+                )}
+                {col.show('ktv') && (
+                  <th onClick={() => handleSort('ktv')} className={`px-4 py-3 cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'ktv' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                    <div className="flex items-center gap-1">
+                      KTV
+                      {sortField === 'ktv' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                    </div>
+                  </th>
+                )}
+                {col.show('ton') && (
+                  <th onClick={() => handleSort('ton')} className={`px-4 py-3 text-center whitespace-nowrap cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'ton' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                    <div className="flex items-center justify-center gap-1">
+                      Tồn (ngày)
+                      {sortField === 'ton' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                    </div>
+                  </th>
+                )}
+                {col.show('nop') && (
+                  <th onClick={() => handleSort('nop')} className={`px-4 py-3 text-center cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'nop' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                    <div className="flex items-center justify-center gap-1">
+                      Đã nộp
+                      {sortField === 'nop' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                    </div>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -8043,12 +8452,118 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
     }
   }
 
+  // State sắp xếp cho tab Đã bảo trì
+  const [daSortField, setDaSortField] = useState<string>("ma_may")
+  const [daSortAsc, setDaSortAsc] = useState<boolean>(true)
+  const handleDaSort = (field: string) => {
+    if (daSortField === field) setDaSortAsc(prev => !prev)
+    else { setDaSortField(field); setDaSortAsc(true) }
+  }
+  const sortedRecords = useMemo(() => {
+    const list = [...records]
+    list.sort((a: any, b: any) => {
+      let cmp = 0
+      const khA = customerByMaMay.get(String(a.ma_may).toLowerCase())
+      const khB = customerByMaMay.get(String(b.ma_may).toLowerCase())
+      if (daSortField === 'ma_may') {
+        cmp = String(a.ma_may || '').localeCompare(String(b.ma_may || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (daSortField === 'khach') {
+        const tA = khA?.ten_khach_hang || ''
+        const tB = khB?.ten_khach_hang || ''
+        cmp = tA.localeCompare(tB, 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (daSortField === 'model') {
+        const mA = String(khA?.model || '').trim()
+        const mB = String(khB?.model || '').trim()
+        if (!mA && mB) return 1
+        if (mA && !mB) return -1
+        cmp = mA.localeCompare(mB, 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (daSortField === 'counter') {
+        cmp = (Number(a.counter) || 0) - (Number(b.counter) || 0)
+      }
+      if (cmp === 0) {
+        cmp = String(a.ma_may || '').localeCompare(String(b.ma_may || ''))
+      }
+      return daSortAsc ? cmp : -cmp
+    })
+    return list
+  }, [records, daSortField, daSortAsc, customers])
+
+  // State sắp xếp cho tab Chưa bảo trì
+  const [chuaSortField, setChuaSortField] = useState<string>("ma_may")
+  const [chuaSortAsc, setChuaSortAsc] = useState<boolean>(true)
+  const handleChuaSort = (field: string) => {
+    if (chuaSortField === field) setChuaSortAsc(prev => !prev)
+    else { setChuaSortField(field); setChuaSortAsc(true) }
+  }
+  const sortedChuaBaoTri = useMemo(() => {
+    const list = [...chuaBaoTri]
+    list.sort((a, b) => {
+      let cmp = 0
+      if (chuaSortField === 'ma_may') {
+        cmp = String(a.ma_may || '').localeCompare(String(b.ma_may || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (chuaSortField === 'khach') {
+        cmp = String(a.ten_khach_hang || '').localeCompare(String(b.ten_khach_hang || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (chuaSortField === 'model') {
+        const mA = String(a.model || '').trim()
+        const mB = String(b.model || '').trim()
+        if (!mA && mB) return 1
+        if (mA && !mB) return -1
+        cmp = mA.localeCompare(mB, 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (chuaSortField === 'lich') {
+        const lA = moTaLichBaoTri(a.thang_bao_tri)
+        const lB = moTaLichBaoTri(b.thang_bao_tri)
+        cmp = lA.localeCompare(lB, 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (chuaSortField === 'loai_hd') {
+        cmp = String(a.loai_hd || '').localeCompare(String(b.loai_hd || ''), 'vi')
+      }
+      if (cmp === 0) {
+        cmp = String(a.ma_may || '').localeCompare(String(b.ma_may || ''))
+      }
+      return chuaSortAsc ? cmp : -cmp
+    })
+    return list
+  }, [chuaBaoTri, chuaSortField, chuaSortAsc])
+
+  // State sắp xếp cho tab Tạm dừng
+  const [tdSortField, setTdSortField] = useState<string>("ma_may")
+  const [tdSortAsc, setTdSortAsc] = useState<boolean>(true)
+  const handleTdSort = (field: string) => {
+    if (tdSortField === field) setTdSortAsc(prev => !prev)
+    else { setTdSortField(field); setTdSortAsc(true) }
+  }
+  const sortedTamDung = useMemo(() => {
+    const list = [...tamDung]
+    list.sort((a, b) => {
+      let cmp = 0
+      if (tdSortField === 'ma_may') {
+        cmp = String(a.ma_may || '').localeCompare(String(b.ma_may || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (tdSortField === 'khach') {
+        cmp = String(a.ten_khach_hang || '').localeCompare(String(b.ten_khach_hang || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (tdSortField === 'model') {
+        const mA = String(a.model || '').trim()
+        const mB = String(b.model || '').trim()
+        if (!mA && mB) return 1
+        if (mA && !mB) return -1
+        cmp = mA.localeCompare(mB, 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (tdSortField === 'tam_dung') {
+        cmp = String(a.tam_dung_tu_thang || '').localeCompare(String(b.tam_dung_tu_thang || ''))
+      } else if (tdSortField === 'ghi_chu') {
+        cmp = String(a.ghi_chu_bao_tri || '').localeCompare(String(b.ghi_chu_bao_tri || ''), 'vi')
+      }
+      if (cmp === 0) {
+        cmp = String(a.ma_may || '').localeCompare(String(b.ma_may || ''))
+      }
+      return tdSortAsc ? cmp : -cmp
+    })
+    return list
+  }, [tamDung, tdSortField, tdSortAsc])
+
   useEffect(() => { fetchRecords(thangNam) }, [thangNam])
   // Realtime "tự lành": ghi nhận bảo trì từ máy khác -> danh sách tháng đang xem tự cập nhật
   useRealtimeRefetch(BAOTRI_TOPIC, DATA_EVENT, () => fetchRecords(thangNam))
-  const paged = usePaged(records)
-  const chuaBaoTriPaged = usePaged(chuaBaoTri)
-  const tamDungPaged = usePaged(tamDung)
+  const paged = usePaged(sortedRecords)
+  const chuaBaoTriPaged = usePaged(sortedChuaBaoTri)
+  const tamDungPaged = usePaged(sortedTamDung)
 
   // ===== Đối chiếu cuối năm =====
   const fetchDoiChieu = async (nam: string) => {
@@ -8081,10 +8596,46 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
     .map(c => ({ c, ...doiChieuNam(c, parseInt(dcNam, 10), doneByMay.get(String(c.ma_may).toLowerCase()) || new Set<number>(), dcDenThang) }))
     .sort((a, b) => String(a.c.ten_khach_hang || '').localeCompare(String(b.c.ten_khach_hang || ''), 'vi'))
 
+  // State sắp xếp cho tab Đối chiếu năm
+  const [dcSortField, setDcSortField] = useState<string>("khach")
+  const [dcSortAsc, setDcSortAsc] = useState<boolean>(true)
+  const handleDcSort = (field: string) => {
+    if (dcSortField === field) setDcSortAsc(prev => !prev)
+    else { setDcSortField(field); setDcSortAsc(true) }
+  }
+
   const dcQq = dcQ.trim().toLowerCase()
-  const dcFiltered = dcQq
-    ? dcRows.filter(r => `${r.c.ten_khach_hang || ''} ${r.c.ma_may || ''} ${r.c.model || ''}`.toLowerCase().includes(dcQq))
-    : dcRows
+  const dcFiltered = useMemo(() => {
+    const base = dcQq
+      ? dcRows.filter(r => `${r.c.ten_khach_hang || ''} ${r.c.ma_may || ''} ${r.c.model || ''}`.toLowerCase().includes(dcQq))
+      : dcRows
+    const list = [...base]
+    list.sort((a, b) => {
+      let cmp = 0
+      if (dcSortField === 'ma_may') {
+        cmp = String(a.c.ma_may || '').localeCompare(String(b.c.ma_may || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (dcSortField === 'khach') {
+        cmp = String(a.c.ten_khach_hang || '').localeCompare(String(b.c.ten_khach_hang || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (dcSortField === 'lich') {
+        const lA = moTaLichBaoTri(a.c.thang_bao_tri)
+        const lB = moTaLichBaoTri(b.c.thang_bao_tri)
+        cmp = lA.localeCompare(lB, 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (dcSortField === 'theo_hd') {
+        cmp = (Number(a.theo_hd) || 0) - (Number(b.theo_hd) || 0)
+      } else if (dcSortField === 'da_lam') {
+        cmp = (Number(a.da_lam) || 0) - (Number(b.da_lam) || 0)
+      } else if (dcSortField === 'thieu') {
+        cmp = (Number(a.thieu) || 0) - (Number(b.thieu) || 0)
+      } else if (dcSortField === 'con_lai') {
+        cmp = (Number(a.con_lai) || 0) - (Number(b.con_lai) || 0)
+      }
+      if (cmp === 0) {
+        cmp = String(a.c.ma_may || '').localeCompare(String(b.c.ma_may || ''))
+      }
+      return dcSortAsc ? cmp : -cmp
+    })
+    return list
+  }, [dcRows, dcQq, dcSortField, dcSortAsc])
   const dcPaged = usePaged(dcFiltered)
   const dcTong = dcFiltered.reduce((s, r) => ({ theo_hd: s.theo_hd + r.theo_hd, da_lam: s.da_lam + r.da_lam, thieu: s.thieu + r.thieu, con_lai: s.con_lai + r.con_lai }), { theo_hd: 0, da_lam: 0, thieu: 0, con_lai: 0 })
 
@@ -8454,16 +9005,65 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
                 <table className="w-full text-left text-sm text-slate-600">
                   <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
                     <tr>
-                      <th className="px-3 py-3 font-semibold">Mã máy</th>
-                      <th className="px-3 py-3 font-semibold">Khách hàng</th>
-                      <th className="px-3 py-3 font-semibold">Lịch</th>
+                      <th onClick={() => handleDcSort('ma_may')} className={`px-3 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${dcSortField === 'ma_may' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                        <div className="flex items-center gap-1">
+                          <span>Mã máy</span>
+                          {dcSortField === 'ma_may' && (
+                            dcSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                          )}
+                        </div>
+                      </th>
+                      <th onClick={() => handleDcSort('khach')} className={`px-3 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${dcSortField === 'khach' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                        <div className="flex items-center gap-1">
+                          <span>Khách hàng</span>
+                          {dcSortField === 'khach' && (
+                            dcSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                          )}
+                        </div>
+                      </th>
+                      <th onClick={() => handleDcSort('lich')} className={`px-3 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${dcSortField === 'lich' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                        <div className="flex items-center gap-1">
+                          <span>Lịch</span>
+                          {dcSortField === 'lich' && (
+                            dcSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                          )}
+                        </div>
+                      </th>
                       {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
                         <th key={m} className="px-1 py-3 font-semibold text-center w-8">T{m}</th>
                       ))}
-                      <th className="px-2 py-3 font-semibold text-center">Theo HĐ</th>
-                      <th className="px-2 py-3 font-semibold text-center">Đã làm</th>
-                      <th className="px-2 py-3 font-semibold text-center">Thiếu</th>
-                      <th className="px-2 py-3 font-semibold text-center">Còn lại</th>
+                      <th onClick={() => handleDcSort('theo_hd')} className={`px-2 py-3 font-semibold text-center cursor-pointer select-none transition-colors hover:bg-slate-100 ${dcSortField === 'theo_hd' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Theo HĐ</span>
+                          {dcSortField === 'theo_hd' && (
+                            dcSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                          )}
+                        </div>
+                      </th>
+                      <th onClick={() => handleDcSort('da_lam')} className={`px-2 py-3 font-semibold text-center cursor-pointer select-none transition-colors hover:bg-slate-100 ${dcSortField === 'da_lam' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Đã làm</span>
+                          {dcSortField === 'da_lam' && (
+                            dcSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                          )}
+                        </div>
+                      </th>
+                      <th onClick={() => handleDcSort('thieu')} className={`px-2 py-3 font-semibold text-center cursor-pointer select-none transition-colors hover:bg-slate-100 ${dcSortField === 'thieu' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Thiếu</span>
+                          {dcSortField === 'thieu' && (
+                            dcSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                          )}
+                        </div>
+                      </th>
+                      <th onClick={() => handleDcSort('con_lai')} className={`px-2 py-3 font-semibold text-center cursor-pointer select-none transition-colors hover:bg-slate-100 ${dcSortField === 'con_lai' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Còn lại</span>
+                          {dcSortField === 'con_lai' && (
+                            dcSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                          )}
+                        </div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -8507,11 +9107,46 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
                 <table className="w-full text-left text-sm text-slate-600">
                   <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
                     <tr>
-                      <th className="px-4 py-3 font-semibold">Mã máy</th>
-                      <th className="px-4 py-3 font-semibold">Khách hàng</th>
-                      <th className="px-4 py-3 font-semibold">Model</th>
-                      <th className="px-4 py-3 font-semibold">Tạm dừng từ</th>
-                      <th className="px-4 py-3 font-semibold">Ghi chú</th>
+                      <th onClick={() => handleTdSort('ma_may')} className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${tdSortField === 'ma_may' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                        <div className="flex items-center gap-1">
+                          <span>Mã máy</span>
+                          {tdSortField === 'ma_may' && (
+                            tdSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                          )}
+                        </div>
+                      </th>
+                      <th onClick={() => handleTdSort('khach')} className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${tdSortField === 'khach' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                        <div className="flex items-center gap-1">
+                          <span>Khách hàng</span>
+                          {tdSortField === 'khach' && (
+                            tdSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                          )}
+                        </div>
+                      </th>
+                      <th onClick={() => handleTdSort('model')} className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${tdSortField === 'model' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                        <div className="flex items-center gap-1">
+                          <span>Model</span>
+                          {tdSortField === 'model' && (
+                            tdSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                          )}
+                        </div>
+                      </th>
+                      <th onClick={() => handleTdSort('tam_dung')} className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${tdSortField === 'tam_dung' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                        <div className="flex items-center gap-1">
+                          <span>Tạm dừng từ</span>
+                          {tdSortField === 'tam_dung' && (
+                            tdSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                          )}
+                        </div>
+                      </th>
+                      <th onClick={() => handleTdSort('ghi_chu')} className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${tdSortField === 'ghi_chu' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                        <div className="flex items-center gap-1">
+                          <span>Ghi chú</span>
+                          {tdSortField === 'ghi_chu' && (
+                            tdSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                          )}
+                        </div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -8556,10 +9191,46 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
               <table className="w-full text-left text-sm text-slate-600">
                 <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200 shadow-sm">
                   <tr>
-                    {col.show('ma_may') && <th className="px-4 py-3 font-semibold">Mã máy</th>}
-                    {col.show('khach') && <th className="px-4 py-3 font-semibold">Khách hàng</th>}
-                    {col.show('model') && <th className="px-4 py-3 font-semibold">Model</th>}
-                    {col.show('counter') && <th className="px-4 py-3 font-semibold text-right">Counter</th>}
+                    {col.show('ma_may') && (
+                      <th onClick={() => handleDaSort('ma_may')} className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${daSortField === 'ma_may' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                        <div className="flex items-center gap-1">
+                          <span>Mã máy</span>
+                          {daSortField === 'ma_may' && (
+                            daSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                          )}
+                        </div>
+                      </th>
+                    )}
+                    {col.show('khach') && (
+                      <th onClick={() => handleDaSort('khach')} className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${daSortField === 'khach' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                        <div className="flex items-center gap-1">
+                          <span>Khách hàng</span>
+                          {daSortField === 'khach' && (
+                            daSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                          )}
+                        </div>
+                      </th>
+                    )}
+                    {col.show('model') && (
+                      <th onClick={() => handleDaSort('model')} className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${daSortField === 'model' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                        <div className="flex items-center gap-1">
+                          <span>Model</span>
+                          {daSortField === 'model' && (
+                            daSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                          )}
+                        </div>
+                      </th>
+                    )}
+                    {col.show('counter') && (
+                      <th onClick={() => handleDaSort('counter')} className={`px-4 py-3 font-semibold text-right cursor-pointer select-none transition-colors hover:bg-slate-100 ${daSortField === 'counter' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                        <div className="flex items-center justify-end gap-1">
+                          <span>Counter</span>
+                          {daSortField === 'counter' && (
+                            daSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                          )}
+                        </div>
+                      </th>
+                    )}
                     {col.show('xoa') && <th className="px-4 py-3 font-semibold text-center w-20">Thao tác</th>}
                   </tr>
                 </thead>
@@ -8600,11 +9271,46 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
               <table className="w-full text-left text-sm text-slate-600">
                 <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200 shadow-sm">
                   <tr>
-                    <th className="px-4 py-3 font-semibold">Mã máy</th>
-                    <th className="px-4 py-3 font-semibold">Khách hàng</th>
-                    <th className="px-4 py-3 font-semibold">Model</th>
-                    <th className="px-4 py-3 font-semibold">Lịch bảo trì</th>
-                    <th className="px-4 py-3 font-semibold">Loại HĐ</th>
+                    <th onClick={() => handleChuaSort('ma_may')} className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${chuaSortField === 'ma_may' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                      <div className="flex items-center gap-1">
+                        <span>Mã máy</span>
+                        {chuaSortField === 'ma_may' && (
+                          chuaSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                        )}
+                      </div>
+                    </th>
+                    <th onClick={() => handleChuaSort('khach')} className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${chuaSortField === 'khach' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                      <div className="flex items-center gap-1">
+                        <span>Khách hàng</span>
+                        {chuaSortField === 'khach' && (
+                          chuaSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                        )}
+                      </div>
+                    </th>
+                    <th onClick={() => handleChuaSort('model')} className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${chuaSortField === 'model' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                      <div className="flex items-center gap-1">
+                        <span>Model</span>
+                        {chuaSortField === 'model' && (
+                          chuaSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                        )}
+                      </div>
+                    </th>
+                    <th onClick={() => handleChuaSort('lich')} className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${chuaSortField === 'lich' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                      <div className="flex items-center gap-1">
+                        <span>Lịch bảo trì</span>
+                        {chuaSortField === 'lich' && (
+                          chuaSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                        )}
+                      </div>
+                    </th>
+                    <th onClick={() => handleChuaSort('loai_hd')} className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${chuaSortField === 'loai_hd' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                      <div className="flex items-center gap-1">
+                        <span>Loại HĐ</span>
+                        {chuaSortField === 'loai_hd' && (
+                          chuaSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                        )}
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -8742,7 +9448,51 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
     return { total: filtered.length, hasHd, expiring, expired }
   })()
 
-  const paged = usePaged(filtered)
+  const [sortField, setSortField] = useState<string>("ten")
+  const [sortAsc, setSortAsc] = useState<boolean>(true)
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortAsc(prev => !prev)
+    } else {
+      setSortField(field)
+      setSortAsc(field === 'het_han' ? false : true)
+    }
+  }
+
+  const sortedList = useMemo(() => {
+    const list = [...filtered]
+    list.sort((a, b) => {
+      let cmp = 0
+      if (sortField === 'ma_may') {
+        cmp = String(a.ma_may || '').localeCompare(String(b.ma_may || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'serial') {
+        cmp = String(a.serial || '').localeCompare(String(b.serial || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'ten') {
+        cmp = String(a.ten_khach_hang || '').localeCompare(String(b.ten_khach_hang || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'model') {
+        cmp = String(a.model || '').localeCompare(String(b.model || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'hang') {
+        cmp = String(a.hang || '').localeCompare(String(b.hang || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'km') {
+        cmp = (Number(a.km_mac_dinh) || 0) - (Number(b.km_mac_dinh) || 0)
+      } else if (sortField === 'loai_hd') {
+        cmp = String(a.loai_hd || '').localeCompare(String(b.loai_hd || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortField === 'het_han') {
+        cmp = String(a.ngay_het_han_hdbt || '').localeCompare(String(b.ngay_het_han_hdbt || ''))
+      } else if (sortField === 'lich_bt') {
+        const lA = moTaLichBaoTri(a.thang_bao_tri)
+        const lB = moTaLichBaoTri(b.thang_bao_tri)
+        cmp = lA.localeCompare(lB, 'vi', { numeric: true, sensitivity: 'base' })
+      }
+      if (cmp === 0) cmp = String(a.ma_may || '').localeCompare(String(b.ma_may || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      if (cmp === 0) cmp = String(a.id || '').localeCompare(String(b.id || ''))
+      return sortAsc ? cmp : -cmp
+    })
+    return list
+  }, [filtered, sortField, sortAsc])
+
+  const paged = usePaged(sortedList)
   const [pendingScroll, setPendingScroll] = useState("")
 
   // Nhảy tới dòng khách cần xem: bỏ lọc để dòng không bị ẩn, sang đúng trang rồi cuộn tới
@@ -8756,12 +9506,12 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
     if (!pendingScroll) return
     const el = document.getElementById('kh-' + pendingScroll)
     if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); setPendingScroll(""); return }
-    const idx = filtered.findIndex(c => c.id === pendingScroll)
+    const idx = sortedList.findIndex(c => c.id === pendingScroll)
     if (idx >= 0) {
       const target = Math.floor(idx / paged.perPage) + 1
       if (paged.page !== target) paged.setPage(target)
     }
-  }, [pendingScroll, paged.page, filtered])
+  }, [pendingScroll, paged.page, sortedList])
 
   return (
     <div className="space-y-3">
@@ -8835,15 +9585,78 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
         <table className="w-full text-left text-sm text-slate-600">
           <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200 shadow-sm">
             <tr>
-              {col.show('ma_may') && <th className="px-4 py-3 font-semibold">Mã máy</th>}
-              {col.show('serial') && <th className="px-4 py-3 font-semibold">Serial</th>}
-              {col.show('ten') && <th className="px-4 py-3 font-semibold">Khách hàng</th>}
-              {col.show('model') && <th className="px-4 py-3 font-semibold">Model</th>}
-              {col.show('hang') && <th className="px-4 py-3 font-semibold">Hãng</th>}
-              {col.show('km') && <th className="px-4 py-3 font-semibold text-center">KM</th>}
-              {col.show('loai_hd') && <th className="px-4 py-3 font-semibold text-center">Loại HĐ</th>}
-              {col.show('het_han') && <th className="px-4 py-3 font-semibold text-center">Hết hạn hợp đồng</th>}
-              {col.show('lich_bt') && <th className="px-4 py-3 font-semibold text-center">Lịch bảo trì</th>}
+              {col.show('ma_may') && (
+                <th onClick={() => handleSort('ma_may')} className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'ma_may' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Mã máy
+                    {sortField === 'ma_may' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+              )}
+              {col.show('serial') && (
+                <th onClick={() => handleSort('serial')} className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'serial' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Serial
+                    {sortField === 'serial' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+              )}
+              {col.show('ten') && (
+                <th onClick={() => handleSort('ten')} className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'ten' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Khách hàng
+                    {sortField === 'ten' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+              )}
+              {col.show('model') && (
+                <th onClick={() => handleSort('model')} className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'model' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Model
+                    {sortField === 'model' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+              )}
+              {col.show('hang') && (
+                <th onClick={() => handleSort('hang')} className={`px-4 py-3 font-semibold cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'hang' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Hãng
+                    {sortField === 'hang' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+              )}
+              {col.show('km') && (
+                <th onClick={() => handleSort('km')} className={`px-4 py-3 font-semibold text-center cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'km' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center justify-center gap-1">
+                    KM
+                    {sortField === 'km' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+              )}
+              {col.show('loai_hd') && (
+                <th onClick={() => handleSort('loai_hd')} className={`px-4 py-3 font-semibold text-center cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'loai_hd' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center justify-center gap-1">
+                    Loại HĐ
+                    {sortField === 'loai_hd' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+              )}
+              {col.show('het_han') && (
+                <th onClick={() => handleSort('het_han')} className={`px-4 py-3 font-semibold text-center cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'het_han' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center justify-center gap-1">
+                    Hết hạn hợp đồng
+                    {sortField === 'het_han' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+              )}
+              {col.show('lich_bt') && (
+                <th onClick={() => handleSort('lich_bt')} className={`px-4 py-3 font-semibold text-center cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortField === 'lich_bt' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center justify-center gap-1">
+                    Lịch bảo trì
+                    {sortField === 'lich_bt' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+              )}
               {col.show('sua') && <th className="px-4 py-3 font-semibold text-center w-20">Thao tác</th>}
             </tr>
           </thead>
