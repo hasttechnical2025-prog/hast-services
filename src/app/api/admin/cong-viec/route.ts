@@ -58,6 +58,8 @@ function buildJobMsg(job: any, kh: any, heading: string, extraLine: string | nul
     `🏢 <b>Khách hàng:</b> ${esc(kh?.ten_khach_hang || 'Không rõ')}`,
     `📍 <b>Địa chỉ:</b> ${esc(khDiaChi(kh))}`,
     `🖨 <b>Model máy:</b> ${esc(kh?.model || 'N/A')}`,
+    job.ma_may ? `🔢 <b>Mã máy:</b> ${esc(job.ma_may)}` : null,
+    job.report ? `📄 <b>Số phiếu:</b> ${esc(job.report)}` : null,
     `📝 <b>Ghi chú:</b> ${esc(job.ghi_chu || 'Không')}`,
     creatorName ? `👤 <b>Người tạo phiếu:</b> ${esc(creatorName)}` : null,
     '', `👉 <a href="${appUrl}/ktv">Mở App KTV</a>`, '',
@@ -89,29 +91,117 @@ async function notifyNewJob(job: any, creatorName: string): Promise<number | nul
   return null
 }
 
-// Giao LẠI (admin sửa phiếu): chỉ DM người MỚI được gán (khác người cũ).
+// Giao LẠI (admin sửa phiếu): DM người MỚI được gán và KTV CŨ bị thu hồi / điều chuyển.
 async function notifyReassign(job: any, prevKtv1: string | null, prevKtv2: string | null, creatorName: string) {
   try {
     const { data: kh } = await supabaseAdmin.from('soct_khach_hang').select('ten_khach_hang, dia_chi, model, vi_tri_dat_may').eq('id', job.id_khach_hang).single()
     const u1 = await fetchTgUser(job.ktv_id), u2 = await fetchTgUser(job.ktv2_id)
     const assignee = assigneeLine(u1.name, u2.name)
-    if (job.ktv_id && job.ktv_id !== prevKtv1 && u1.tg) await sendTelegramMessage(u1.tg, buildJobMsg(job, kh, '🔔 <b>CÔNG VIỆC ĐƯỢC GIAO</b>', `Xin chào ${esc(u1.name)}, bạn có một công việc!`, assignee, creatorName))
-    if (job.ktv2_id && job.ktv2_id !== prevKtv2 && u2.tg) await sendTelegramMessage(u2.tg, buildJobMsg(job, kh, '🔔 <b>CÔNG VIỆC ĐI KÈM ĐƯỢC GIAO</b>', `Xin chào ${esc(u2.name)}, bạn được gán làm KTV kèm cho một công việc!`, assignee, creatorName))
+    const tenKh = kh?.ten_khach_hang || 'Không rõ'
+
+    // 1. KTV CHÍNH MỚI được gán (KTV B)
+    if (job.ktv_id && job.ktv_id !== prevKtv1 && u1.tg) {
+      await sendTelegramMessage(u1.tg, buildJobMsg(job, kh, '🔔 <b>CÔNG VIỆC ĐƯỢC GIAO</b>', `Xin chào ${esc(u1.name)}, bạn có một công việc!`, assignee, creatorName))
+    }
+
+    // 2. KTV KÈM MỚI được gán
+    if (job.ktv2_id && job.ktv2_id !== prevKtv2 && u2.tg) {
+      await sendTelegramMessage(u2.tg, buildJobMsg(job, kh, '🔔 <b>CÔNG VIỆC ĐI KÈM ĐƯỢC GIAO</b>', `Xin chào ${esc(u2.name)}, bạn được gán làm KTV kèm cho một công việc!`, assignee, creatorName))
+    }
+
+    // 3. KTV CHÍNH CŨ (prevKtv1): bị BỎ GÁN hoặc ĐIỀU CHUYỂN sang người khác
+    if (prevKtv1 && prevKtv1 !== job.ktv_id && prevKtv1 !== job.ktv2_id) {
+      const oldU1 = await fetchTgUser(prevKtv1)
+      if (oldU1.tg) {
+        if (!job.ktv_id) {
+          // Bỏ gán KTV chính -> việc chuyển về Chờ nhận
+          const msgThuHoi = [
+            '⚠️ <b>CÔNG VIỆC ĐÃ ĐƯỢC THU HỒI / HỦY PHÂN CÔNG</b>',
+            `Công việc tại <b>${esc(tenKh)}</b> đã được văn phòng chuyển lại trạng thái <b>Chờ nhận</b>.`,
+            `🗓 <b>Ngày thực hiện:</b> ${fmtDate(job.ngay)}`,
+            `📌 <b>Loại công việc:</b> ${esc(job.loai_cong_viec)}`,
+            `🏢 <b>Khách hàng:</b> ${esc(tenKh)}`,
+            `📍 <b>Địa chỉ:</b> ${esc(khDiaChi(kh))}`,
+            job.ma_may ? `🔢 <b>Mã máy:</b> ${esc(job.ma_may)}` : null,
+            job.report ? `📄 <b>Số phiếu:</b> ${esc(job.report)}` : null,
+            creatorName ? `👤 <b>Người thực hiện:</b> ${esc(creatorName)}` : null,
+            '',
+            '<b>HAST — Sổ công tác</b>',
+          ].filter(l => l !== null && l !== undefined).join('\n')
+          await sendTelegramMessage(oldU1.tg, msgThuHoi)
+        } else {
+          // Đổi KTV chính từ A sang B
+          const msgDieuChuyen = [
+            'ℹ️ <b>CÔNG VIỆC ĐÃ ĐƯỢC ĐIỀU CHUYỂN</b>',
+            `Công việc tại <b>${esc(tenKh)}</b> đã được văn phòng phân công cho <b>${esc(u1.name || 'KTV khác')}</b>.`,
+            `🗓 <b>Ngày thực hiện:</b> ${fmtDate(job.ngay)}`,
+            `📌 <b>Loại công việc:</b> ${esc(job.loai_cong_viec)}`,
+            `🏢 <b>Khách hàng:</b> ${esc(tenKh)}`,
+            `📍 <b>Địa chỉ:</b> ${esc(khDiaChi(kh))}`,
+            job.ma_may ? `🔢 <b>Mã máy:</b> ${esc(job.ma_may)}` : null,
+            job.report ? `📄 <b>Số phiếu:</b> ${esc(job.report)}` : null,
+            creatorName ? `👤 <b>Người điều chuyển:</b> ${esc(creatorName)}` : null,
+            '',
+            '<b>HAST — Sổ công tác</b>',
+          ].filter(l => l !== null && l !== undefined).join('\n')
+          await sendTelegramMessage(oldU1.tg, msgDieuChuyen)
+        }
+      }
+    }
+
+    // 4. KTV KÈM CŨ (prevKtv2): bị BỎ GÁN hoặc ĐIỀU CHUYỂN
+    if (prevKtv2 && prevKtv2 !== job.ktv2_id && prevKtv2 !== job.ktv_id) {
+      const oldU2 = await fetchTgUser(prevKtv2)
+      if (oldU2.tg) {
+        if (!job.ktv2_id) {
+          const msgThuHoi2 = [
+            '⚠️ <b>CÔNG VIỆC ĐÃ ĐƯỢC THU HỒI / HỦY PHÂN CÔNG (KÈM)</b>',
+            `Phân công đi kèm công việc tại <b>${esc(tenKh)}</b> đã được văn phòng hủy.`,
+            `🗓 <b>Ngày thực hiện:</b> ${fmtDate(job.ngay)}`,
+            `📌 <b>Loại công việc:</b> ${esc(job.loai_cong_viec)}`,
+            `🏢 <b>Khách hàng:</b> ${esc(tenKh)}`,
+            `📍 <b>Địa chỉ:</b> ${esc(khDiaChi(kh))}`,
+            job.ma_may ? `🔢 <b>Mã máy:</b> ${esc(job.ma_may)}` : null,
+            job.report ? `📄 <b>Số phiếu:</b> ${esc(job.report)}` : null,
+            creatorName ? `👤 <b>Người thực hiện:</b> ${esc(creatorName)}` : null,
+            '',
+            '<b>HAST — Sổ công tác</b>',
+          ].filter(l => l !== null && l !== undefined).join('\n')
+          await sendTelegramMessage(oldU2.tg, msgThuHoi2)
+        } else {
+          const msgDieuChuyen2 = [
+            'ℹ️ <b>CÔNG VIỆC ĐÃ ĐƯỢC ĐIỀU CHUYỂN (KÈM)</b>',
+            `Vị trí KTV đi kèm tại <b>${esc(tenKh)}</b> đã được văn phòng phân công cho <b>${esc(u2.name || 'KTV khác')}</b>.`,
+            `🗓 <b>Ngày thực hiện:</b> ${fmtDate(job.ngay)}`,
+            `📌 <b>Loại công việc:</b> ${esc(job.loai_cong_viec)}`,
+            `🏢 <b>Khách hàng:</b> ${esc(tenKh)}`,
+            `📍 <b>Địa chỉ:</b> ${esc(khDiaChi(kh))}`,
+            job.ma_may ? `🔢 <b>Mã máy:</b> ${esc(job.ma_may)}` : null,
+            job.report ? `📄 <b>Số phiếu:</b> ${esc(job.report)}` : null,
+            creatorName ? `👤 <b>Người điều chuyển:</b> ${esc(creatorName)}` : null,
+            '',
+            '<b>HAST — Sổ công tác</b>',
+          ].filter(l => l !== null && l !== undefined).join('\n')
+          await sendTelegramMessage(oldU2.tg, msgDieuChuyen2)
+        }
+      }
+    }
   } catch (e) { console.error('notifyReassign failed:', e) }
 }
 
 // SỬA TẠI CHỖ tin nhắn CHỜ NHẬN/ĐÃ CÓ NGƯỜI NHẬN trên group cho khớp trạng thái phân
 // công HIỆN TẠI của phiếu. Dùng CHUNG cho: KTV nhận từ pool, admin gán/bỏ gán KTV -> mọi
-// đường đều cập nhật đồng nhất, không đẻ tin mới (nếu phiếu có telegram_message_id).
+// đường đều cập nhật đồng nhất. Nếu phiếu chưa từng có tin trên group (tạo trực tiếp cho KTV)
+// mà nay bỏ gán về Chờ nhận -> gửi MỚI lên group và lưu telegram_message_id vào phiếu.
 async function syncGroupJobMessage(jobId: string): Promise<void> {
   try {
     const groupChatId = process.env.TELEGRAM_GROUP_CHAT_ID
     if (!groupChatId) return
     const { data } = await supabaseAdmin
       .from('soct_cong_viec')
-      .select('ngay, ma_may, ghi_chu, loai_cong_viec, created_by, ktv_id, ktv2_id, telegram_message_id, soct_khach_hang ( ten_khach_hang, dia_chi, model, vi_tri_dat_may )')
+      .select('ngay, ma_may, report, ghi_chu, loai_cong_viec, created_by, ktv_id, ktv2_id, telegram_message_id, soct_khach_hang ( ten_khach_hang, dia_chi, model, vi_tri_dat_may )')
       .eq('id', jobId).single()
-    if (!data || !data.telegram_message_id) return
+    if (!data) return
 
     const kh = (data as any).soct_khach_hang
     let creatorName = ''
@@ -133,6 +223,8 @@ async function syncGroupJobMessage(jobId: string): Promise<void> {
       `🏢 <b>Khách hàng:</b> ${esc(kh?.ten_khach_hang || 'Không rõ')}`,
       `📍 <b>Địa chỉ:</b> ${esc(khDiaChi(kh))}`,
       `🖨 <b>Model máy:</b> ${esc(kh?.model || 'N/A')}`,
+      data.ma_may ? `🔢 <b>Mã máy:</b> ${esc(data.ma_may)}` : null,
+      data.report ? `📄 <b>Số phiếu:</b> ${esc(data.report)}` : null,
       `📝 <b>Ghi chú:</b> ${esc(data.ghi_chu || 'Không')}`,
       creatorName ? `👤 <b>Người tạo phiếu:</b> ${esc(creatorName)}` : null,
       hasOwner ? null : `\n👉 <a href="${appUrl}/ktv">Mở App KTV</a>`,
@@ -141,7 +233,25 @@ async function syncGroupJobMessage(jobId: string): Promise<void> {
       'Hệ thống quản lý giao việc tự động',
     ].filter(l => l !== null && l !== undefined).join('\n')
 
-    await editTelegramMessageText(groupChatId, Number(data.telegram_message_id), msg)
+    if (data.telegram_message_id) {
+      const ok = await editTelegramMessageText(groupChatId, Number(data.telegram_message_id), msg)
+      // Nếu sửa tin thất bại (tin cũ bị xóa) và việc đang Chờ nhận -> gửi tin mới lên group
+      if (!ok && !hasOwner) {
+        const res = await sendTelegramMessage(groupChatId, msg)
+        if (res.success && res.messageId) {
+          await supabaseAdmin.from('soct_cong_viec').update({ telegram_message_id: res.messageId }).eq('id', jobId)
+        }
+      }
+    } else if (!hasOwner) {
+      // Phiếu chưa từng có tin trên group (ban đầu giao trực tiếp KTV) -> nay bỏ gán đưa về Chờ nhận:
+      // Gửi MỚI một tin lên group và lưu message_id vào phiếu để KTV nhận sau này có thể cập nhật.
+      const res = await sendTelegramMessage(groupChatId, msg)
+      if (res.success && res.messageId) {
+        await supabaseAdmin.from('soct_cong_viec').update({ telegram_message_id: res.messageId }).eq('id', jobId)
+      } else {
+        console.error(`[syncGroupJobMessage] gửi tin mới CHỜ NHẬN thất bại (job ${jobId}):`, res)
+      }
+    }
   } catch (e) { console.error('syncGroupJobMessage failed:', e) }
 }
 
@@ -506,7 +616,7 @@ export async function PUT(request: Request) {
 
       // DM người MỚI được gán khi admin sửa phiếu (thay webhook DB nhánh UPDATE)
       await notifyReassign(
-        { id_khach_hang, ngay: ngay || new Date().toISOString().split('T')[0], ma_may, loai_cong_viec, ghi_chu, ktv_id: ktv_id || null, ktv2_id: ktv2_id || null },
+        { id_khach_hang, ngay: ngay || new Date().toISOString().split('T')[0], ma_may, loai_cong_viec, ghi_chu, report: reportNorm || null, ktv_id: ktv_id || null, ktv2_id: ktv2_id || null },
         cur.ktv_id || null, cur.ktv2_id || null, session.full_name
       )
       // Đồng bộ tin group: gán KTV -> "ĐÃ CÓ NGƯỜI NHẬN"; bỏ gán -> quay lại "CHỜ NHẬN".
