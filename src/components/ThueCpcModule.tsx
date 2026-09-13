@@ -807,7 +807,7 @@ function CounterTab({ showNotification, thang, setThang, onSaved, refreshVer = 0
             {(counts.due_soon || 0) > 0 && <span className="ml-1 text-amber-700">· {counts.due_soon} sắp đến ngày</span>}
             <span className="text-amber-600"> · đã lấy {counts.done || 0}/{rows.length}</span>
           </div>
-          <button onClick={() => setOnlyDue(o => !o)} className={`h-8 px-3 rounded-lg text-xs font-semibold border ${onlyDue ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-amber-700 border-amber-300'}`}>
+          <button onClick={() => setOnlyDue(o => !o)} className={`h-9 px-3 rounded-lg text-xs font-semibold border ${onlyDue ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-amber-700 border-amber-300'}`}>
             {onlyDue ? 'Đang lọc: chỉ máy cần lấy' : 'Chỉ hiện máy cần lấy'}
           </button>
         </div>

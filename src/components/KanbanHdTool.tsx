@@ -1699,7 +1699,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
             </div>
             <label className="flex items-center gap-1.5 text-xs text-slate-600">
               Kỳ đối chiếu:
-              <MonthField value={thang} onChange={setThang} className="h-8 px-2 text-xs w-36" />
+              <MonthField value={thang} onChange={setThang} className="h-9 px-2 text-xs w-36" />
               <span className="inline-flex" title="Kỳ đối chiếu = THÁNG THU. Cột 'Đã thanh toán' hiện HĐ thu trong tháng này (theo ngày thu, KHÔNG theo ngày xuất HĐ) → HĐ xuất cuối tháng trước thu đầu tháng này vẫn hiện đúng. Tick 'chỉ kỳ này' bên dưới để áp thêm cột 'Chờ thanh toán'. Cột 1, 2 luôn hiện toàn bộ.">
                 <Info className="w-3.5 h-3.5 text-slate-400 cursor-help shrink-0" aria-label="Trợ giúp" />
               </span>
@@ -1708,8 +1708,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
             {isKeToan && (
               <div className="flex items-center gap-1.5 text-xs text-slate-600" title="Ký hiệu mẫu số hóa đơn (TT78) dùng khi Xuất Excel M-invoice. Kế toán tự khai/đổi.">
                 <span className="font-medium">Ký hiệu HĐ:</span>
-                <Input value={kyHieuEdit} onChange={e => setKyHieuEdit(e.target.value.toUpperCase())} placeholder="1C26TST" className="h-8 w-28 bg-white text-xs font-mono uppercase" />
-                <Button size="sm" variant="outline" onClick={saveKyHieu} disabled={savingKyHieu || kyHieuEdit.trim() === kyHieuMinvoice.trim()} title="Lưu ký hiệu HĐ" className="h-8 w-8 p-0">{savingKyHieu ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}</Button>
+                <Input value={kyHieuEdit} onChange={e => setKyHieuEdit(e.target.value.toUpperCase())} placeholder="1C26TST" className="h-9 w-28 bg-white text-xs font-mono uppercase" />
+                <Button size="sm" variant="outline" onClick={saveKyHieu} disabled={savingKyHieu || kyHieuEdit.trim() === kyHieuMinvoice.trim()} title="Lưu ký hiệu HĐ" className="h-9 w-9 p-0">{savingKyHieu ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}</Button>
               </div>
             )}
           </div>

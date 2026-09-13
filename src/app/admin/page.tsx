@@ -1664,7 +1664,7 @@ export default function AdminDashboard() {
                 <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                   <div className="relative w-full sm:w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <Input placeholder="Tìm mã máy, tên khách hàng..." className="pl-9 pr-7 bg-white" value={jobFilters.search} onChange={(e) => setJobFilters({ ...jobFilters, search: e.target.value })} />
+                    <Input placeholder="Tìm mã máy, tên khách hàng..." className="pl-9 pr-7 bg-white h-9 text-xs" value={jobFilters.search} onChange={(e) => setJobFilters({ ...jobFilters, search: e.target.value })} />
                     {jobFilters.search && (
                       <button
                         type="button"
@@ -1678,7 +1678,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="relative w-full sm:w-40">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <Input placeholder="Số phiếu..." className="pl-9 pr-7 bg-white" value={jobFilters.report} onChange={(e) => setJobFilters({ ...jobFilters, report: e.target.value })} />
+                    <Input placeholder="Số phiếu..." className="pl-9 pr-7 bg-white h-9 text-xs" value={jobFilters.report} onChange={(e) => setJobFilters({ ...jobFilters, report: e.target.value })} />
                     {jobFilters.report && (
                       <button
                         type="button"
@@ -1692,7 +1692,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto flex-wrap">
-                  <Button variant="outline" onClick={exportJobsExcel} title="Xuất Excel" className="h-10 w-10 p-0"><Download className="w-4 h-4" /></Button>
+                  <Button variant="outline" onClick={exportJobsExcel} title="Xuất Excel" className="h-9 w-9 p-0"><Download className="w-4 h-4" /></Button>
                   {currentUserRole === 'admin' && (
                     <ImportJobsTool customers={customers} technicians={technicians} inventory={inventory} onSuccess={fetchData} showNotification={showNotification} />
                   )}
@@ -1700,7 +1700,7 @@ export default function AdminDashboard() {
                     <DedupeReportsTool onSuccess={fetchData} showNotification={showNotification} />
                   )}
                   {currentUserRole === 'admin' && (
-                    <ClearAllButton count={jobs.length} label="phiếu giao việc" heightClass="h-10" iconOnly onConfirm={async () => {
+                    <ClearAllButton count={jobs.length} label="phiếu giao việc" heightClass="h-9" iconOnly onConfirm={async () => {
                       try {
                         const res = await fetch('/api/admin/cong-viec?all=1', { method: 'DELETE' })
                         const j = await res.json().catch(() => ({}))
@@ -1713,7 +1713,7 @@ export default function AdminDashboard() {
                   {['admin', 'tech_admin'].includes(currentUserRole) && (
                     <CuonNgayButton onSuccess={fetchData} showNotification={showNotification} />
                   )}
-                  <Button onClick={() => { setEditingJobId(null); setEditingKetQua(''); setFormData(f => ({ ...f, ngay: todayVN() })); setIsModalOpen(true) }} className="gap-2"><Plus className="w-4 h-4" /> Giao việc mới</Button>
+                  <Button onClick={() => { setEditingJobId(null); setEditingKetQua(''); setFormData(f => ({ ...f, ngay: todayVN() })); setIsModalOpen(true) }} className="h-9 px-4 text-sm font-semibold gap-2"><Plus className="w-4 h-4" /> Giao việc mới</Button>
                 </div>
               </div>
 
@@ -3018,7 +3018,7 @@ function ExcelTool({ columns, rows, filename, endpoint, payloadKey, requiredKeys
 }
 
 // Ô chọn ngày: gõ tay DD/MM/YYYY (ô text) + nút lịch mở native picker (showPicker).
-function DateField({ value, onChange, className, heightClass = "h-10", placeholder = "dd/mm/yyyy" }: { value: string, onChange: (v: string) => void, className?: string, heightClass?: string, placeholder?: string }) {
+function DateField({ value, onChange, className, heightClass = "h-9", placeholder = "dd/mm/yyyy" }: { value: string, onChange: (v: string) => void, className?: string, heightClass?: string, placeholder?: string }) {
   const fmt = (s: string) => { if (!s) return ''; const d = new Date(s); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` }
   const dateRef = useRef<HTMLInputElement>(null)
   const [text, setText] = useState(fmt(value))
@@ -4721,7 +4721,7 @@ function DedupeReportsTool({ onSuccess, showNotification }: { onSuccess: () => v
 
   return (
     <>
-      <Button variant="outline" onClick={openModal} title="Dọn phiếu trùng" className="h-10 w-10 p-0 border-amber-300 text-amber-700 hover:bg-amber-50 hover:border-amber-400"><Copy className="w-4 h-4" /></Button>
+      <Button variant="outline" onClick={openModal} title="Dọn phiếu trùng" className="h-9 w-9 p-0 border-amber-300 text-amber-700 hover:bg-amber-50 hover:border-amber-400"><Copy className="w-4 h-4" /></Button>
       {open && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
@@ -4759,7 +4759,7 @@ function ClearAllButton({ count, label, onConfirm, heightClass = 'h-9', iconOnly
   return (
     <>
       {iconOnly
-        ? <Button variant="outline" onClick={() => { setOpen(true); setTxt("") }} title={`Xóa toàn bộ ${label}`} className={`border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 p-0 w-10 ${heightClass} shrink-0`}><Trash2 className="w-4 h-4" /></Button>
+        ? <Button variant="outline" onClick={() => { setOpen(true); setTxt("") }} title={`Xóa toàn bộ ${label}`} className={`border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 p-0 ${heightClass === 'h-8' ? 'w-8 h-8' : 'w-9 h-9'} shrink-0`}><Trash2 className="w-4 h-4" /></Button>
         : <Button variant="outline" onClick={() => { setOpen(true); setTxt("") }} className={`border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 gap-1 ${heightClass} text-sm shrink-0`}><Trash2 className="w-4 h-4" /> Xóa toàn bộ</Button>}
       {open && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
@@ -6738,13 +6738,13 @@ function BaoCaoThangTool({ showNotification }: { showNotification: (type: 'succe
   return (
     <div className="space-y-6">
       {/* Chọn tháng + xuất */}
-      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="border border-slate-200 rounded-lg p-4 bg-slate-50/50 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div className="space-y-1">
           <label className="text-xs font-semibold text-slate-600">Tháng báo cáo</label>
-          <MonthField value={thang} onChange={setThang} className="h-10 px-3 text-sm w-44" />
+          <MonthField value={thang} onChange={setThang} className="h-9 px-3 text-xs w-44" />
           <p className="text-xs text-slate-400 max-w-md">Số liệu Mục 1–5 tự tính theo tháng. Mục 3 (máy thuê/CPC, tỉ lệ, lũy kế) và Mục 6–8 nhập tay bên dưới. Báo cáo chỉ để in & nộp, không lưu.</p>
         </div>
-        <Button onClick={exportDocx} disabled={exporting || loading || !preview} className="gap-2 h-10 shrink-0">
+        <Button onClick={exportDocx} disabled={exporting || loading || !preview} className="gap-2 h-9 text-sm font-semibold shrink-0">
           <Download className="w-4 h-4" /> {exporting ? 'Đang xuất...' : 'Xuất báo cáo (.docx)'}
         </Button>
       </div>
@@ -7391,7 +7391,7 @@ function BaoCaoKtvTool({ technicians, showNotification }: { technicians: any[], 
           <select
             value={ktvId}
             onChange={(e) => setKtvId(e.target.value)}
-            className="h-10 px-3 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500 w-44"
+            className="h-9 px-3 rounded-md border border-slate-200 text-xs bg-white outline-none focus:ring-2 focus:ring-blue-500 w-44"
           >
             <option value="">Tất cả KTV</option>
             {technicians.filter(t => t.role === 'ktv').map(t => (
@@ -7403,16 +7403,16 @@ function BaoCaoKtvTool({ technicians, showNotification }: { technicians: any[], 
         <div className="space-y-1">
           <label className="text-xs font-semibold text-slate-600">Từ ngày</label>
           {/* Tự chỉnh biên để khoảng không lộn ngược (giống bộ lọc Giao việc) */}
-          <DateField value={tuNgay} onChange={(v) => { setTuNgay(v); if (v && denNgay && denNgay < v) setDenNgay(v) }} heightClass="h-10" className="w-36" />
+          <DateField value={tuNgay} onChange={(v) => { setTuNgay(v); if (v && denNgay && denNgay < v) setDenNgay(v) }} heightClass="h-9" className="w-36" />
         </div>
 
         <div className="space-y-1">
           <label className="text-xs font-semibold text-slate-600">Đến ngày</label>
-          <DateField value={denNgay} onChange={(v) => { setDenNgay(v); if (v && tuNgay && v < tuNgay) setTuNgay(v) }} heightClass="h-10" className="w-36" />
+          <DateField value={denNgay} onChange={(v) => { setDenNgay(v); if (v && tuNgay && v < tuNgay) setTuNgay(v) }} heightClass="h-9" className="w-36" />
         </div>
 
         <div className="flex items-center gap-2">
-          <Button onClick={fetchData} disabled={loading} className="h-10 gap-1">
+          <Button onClick={fetchData} disabled={loading} className="h-9 gap-1 text-xs">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Tải lại
           </Button>
@@ -7420,7 +7420,7 @@ function BaoCaoKtvTool({ technicians, showNotification }: { technicians: any[], 
           <Button
             onClick={exportReportDocx}
             disabled={exporting || !ktvId || tuNgay !== denNgay}
-            className={`h-10 gap-1 ${!ktvId || tuNgay !== denNgay ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'}`}
+            className={`h-9 gap-1 text-xs ${!ktvId || tuNgay !== denNgay ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'}`}
             title={!ktvId ? 'Vui lòng chọn 1 KTV' : tuNgay !== denNgay ? 'Ngày từ và đến phải trùng nhau' : 'Xuất bản in Word cho KTV này'}
           >
             <Download className="w-4 h-4" />
@@ -7931,7 +7931,7 @@ function ImportJobsTool({ customers, technicians, inventory, onSuccess, showNoti
 
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)} title="Nhập Excel" className="h-10 w-10 p-0"><Upload className="w-4 h-4" /></Button>
+      <Button variant="outline" onClick={() => setOpen(true)} title="Nhập Excel" className="h-9 w-9 p-0"><Upload className="w-4 h-4" /></Button>
       {open && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -9013,7 +9013,7 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">Mã máy</label>
             <div className="relative w-40">
-              <Input value={traMa} onChange={e => setTraMa(e.target.value)} placeholder="VD: 35816" className="bg-white pr-7" />
+              <Input value={traMa} onChange={e => setTraMa(e.target.value)} placeholder="VD: 35816" className="bg-white pr-7 h-9 text-xs" />
               {traMa && (
                 <button
                   type="button"
@@ -9028,9 +9028,9 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
           </div>
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">Năm</label>
-            <Input value={traNam} onChange={e => setTraNam(e.target.value.replace(/[^\d]/g, '').slice(0, 4))} className="bg-white w-24" />
+            <Input value={traNam} onChange={e => setTraNam(e.target.value.replace(/[^\d]/g, '').slice(0, 4))} className="bg-white w-24 h-9 text-xs" />
           </div>
-          <Button onClick={tracuu} disabled={traLoading} title="Tra cứu lịch sử bảo trì" className="h-10 w-10 p-0">{traLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}</Button>
+          <Button onClick={tracuu} disabled={traLoading} title="Tra cứu lịch sử bảo trì" className="h-9 w-9 p-0">{traLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}</Button>
         </div>
         {traRes && (() => {
           const cust = customerByMaMay.get(traRes.ma_may.toLowerCase())
@@ -9093,7 +9093,7 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
         <div className="flex flex-col sm:flex-row sm:items-end gap-4">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">Tháng bảo trì</label>
-            <MonthField value={thangNam} onChange={setThangNam} className="h-10 px-3 text-sm w-44" />
+            <MonthField value={thangNam} onChange={setThangNam} className="h-9 px-3 text-xs w-44" />
           </div>
           <p className="text-sm text-slate-500 flex-1">
             Dán danh sách <b>mã máy</b> đã bảo trì trong tháng (cách nhau bởi xuống dòng, dấu phẩy hoặc khoảng trắng).<br />
@@ -9109,7 +9109,7 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
         />
 
         {!preview ? (
-          <Button onClick={handleAnalyze} variant="outline">
+          <Button onClick={handleAnalyze} variant="outline" className="h-9 text-xs">
             Phân tích ({parseBaoTriInput(text).length} mã)
           </Button>
         ) : (
@@ -9202,13 +9202,13 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Năm</label>
-                <Input value={dcNam} onChange={(e) => setDcNam(e.target.value.replace(/[^\d]/g, '').slice(0, 4))} className="bg-white w-24" />
+                <Input value={dcNam} onChange={(e) => setDcNam(e.target.value.replace(/[^\d]/g, '').slice(0, 4))} className="bg-white w-24 h-9 text-xs" />
               </div>
               <div className="space-y-1 flex-1 min-w-[200px]">
                 <label className="text-xs font-semibold text-slate-600">Tìm khách hàng / mã máy</label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <Input value={dcQ} onChange={(e) => setDcQ(e.target.value)} placeholder="Gõ tên khách để đối chiếu riêng..." className="pl-9 pr-7 bg-white" />
+                  <Input value={dcQ} onChange={(e) => setDcQ(e.target.value)} placeholder="Gõ tên khách để đối chiếu riêng..." className="pl-9 pr-7 bg-white h-9 text-xs" />
                   {dcQ && (
                     <button
                       type="button"
@@ -9221,10 +9221,10 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
                   )}
                 </div>
               </div>
-              <Button onClick={exportDoiChieu} disabled={dcLoading || dcFiltered.length === 0} title={`Xuất Excel (${dcFiltered.length} máy)`} className="h-10 w-10 p-0 bg-emerald-600 hover:bg-emerald-700">
+              <Button onClick={exportDoiChieu} disabled={dcLoading || dcFiltered.length === 0} title={`Xuất Excel (${dcFiltered.length} máy)`} className="h-9 w-9 p-0 bg-emerald-600 hover:bg-emerald-700">
                 <Download className="w-4 h-4" />
               </Button>
-              <Button onClick={inHangLoatSo} disabled={dcLoading || batchBusy || dcFiltered.length === 0} title={`In hàng loạt sổ theo dõi máy — tất cả ${dcFiltered.length} máy đang lọc (mỗi máy 2 trang A4 ngang)`} className="h-10 gap-1.5">
+              <Button onClick={inHangLoatSo} disabled={dcLoading || batchBusy || dcFiltered.length === 0} title={`In hàng loạt sổ theo dõi máy — tất cả ${dcFiltered.length} máy đang lọc (mỗi máy 2 trang A4 ngang)`} className="h-9 px-3 gap-1.5 text-xs font-semibold">
                 🖨 {batchBusy ? 'Đang dựng…' : `In sổ (${dcFiltered.length})`}
               </Button>
             </div>
@@ -9772,7 +9772,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
         <div className="flex gap-2 w-full sm:w-auto">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Tìm mã máy, serial, tên KH, địa chỉ, model, HĐ..." className="pl-9 pr-7 bg-white" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input placeholder="Tìm mã máy, serial, tên KH, địa chỉ, model, HĐ..." className="pl-9 pr-7 bg-white h-9 text-xs" value={search} onChange={(e) => setSearch(e.target.value)} />
             {search && (
               <button
                 type="button"
@@ -9785,7 +9785,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
             )}
           </div>
           <div className="relative shrink-0">
-            <button type="button" onClick={() => setFilterOpen(o => !o)} className="h-10 px-3 rounded-md border border-slate-200 text-sm bg-white flex items-center gap-2 min-w-[13rem] justify-between hover:border-slate-300">
+            <button type="button" onClick={() => setFilterOpen(o => !o)} className="h-9 px-3 rounded-md border border-slate-200 text-xs bg-white flex items-center gap-2 min-w-[13rem] justify-between hover:border-slate-300">
               <span className="truncate">{filterLabel}</span>
               <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
             </button>
@@ -9819,7 +9819,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
           <span className="text-sm text-slate-500 whitespace-nowrap">
             {(q || hdFilter !== 'all') ? `${filtered.length} / ${customers.length}` : `Tổng: ${customers.length}`} khách hàng
           </span>
-          <Button onClick={() => setEditing({ ten_khach_hang: "", ma_may: "", serial: "", model: "", hang: "", dia_chi: "", km_mac_dinh: "", loai_hd: "", ngay_het_han_hdbt: "", thang_bao_tri: "", bat_dau_tu_thang: "", tam_dung_tu_thang: "", ghi_chu_bao_tri: "", ma_so_thue: "", email_ke_toan: "" })} className="gap-1 bg-blue-600 hover:bg-blue-700 h-10 whitespace-nowrap">
+          <Button onClick={() => setEditing({ ten_khach_hang: "", ma_may: "", serial: "", model: "", hang: "", dia_chi: "", km_mac_dinh: "", loai_hd: "", ngay_het_han_hdbt: "", thang_bao_tri: "", bat_dau_tu_thang: "", tam_dung_tu_thang: "", ghi_chu_bao_tri: "", ma_so_thue: "", email_ke_toan: "" })} className="gap-1 bg-blue-600 hover:bg-blue-700 h-9 px-3 text-xs font-semibold whitespace-nowrap">
             <Plus className="w-4 h-4" /> Mới
           </Button>
           <ColumnMenu view={col} />
@@ -10154,7 +10154,7 @@ function CuonNgayButton({ onSuccess, showNotification }: { onSuccess: () => void
   }
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)} className="h-10 w-10 p-0 border-slate-300 text-slate-700 hover:bg-slate-50" title="Cuốn ngày: đưa ngày các phiếu chưa thực hiện về hôm nay (chạy ngay logic cron)"><RefreshCw className="w-4 h-4" /></Button>
+      <Button variant="outline" onClick={() => setOpen(true)} className="h-9 w-9 p-0 border-slate-300 text-slate-700 hover:bg-slate-50" title="Cuốn ngày: đưa ngày các phiếu chưa thực hiện về hôm nay (chạy ngay logic cron)"><RefreshCw className="w-4 h-4" /></Button>
       {open && (
         <div className="fixed inset-0 bg-slate-900/50 z-[80] flex items-center justify-center p-4" onClick={() => !busy && setOpen(false)}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5 space-y-3" onClick={e => e.stopPropagation()}>
