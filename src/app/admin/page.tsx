@@ -9030,7 +9030,7 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
             <label className="text-xs font-semibold text-slate-600">Năm</label>
             <Input value={traNam} onChange={e => setTraNam(e.target.value.replace(/[^\d]/g, '').slice(0, 4))} className="bg-white w-24 h-9 text-xs" />
           </div>
-          <Button onClick={tracuu} disabled={traLoading} title="Tra cứu lịch sử bảo trì" className="h-9 w-9 p-0">{traLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}</Button>
+          <Button onClick={tracuu} disabled={traLoading} title="Tra cứu lịch sử bảo trì" className="h-9 px-3 text-xs font-semibold gap-1.5">{traLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />} Tìm</Button>
         </div>
         {traRes && (() => {
           const cust = customerByMaMay.get(traRes.ma_may.toLowerCase())
