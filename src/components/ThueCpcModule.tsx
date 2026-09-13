@@ -333,7 +333,7 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
                   <td className="px-3 py-2 text-center">{r.vat_thue_cpc ?? 8}%</td>
                   <td className="px-3 py-2 text-slate-600 text-xs">{r.nv_kinh_doanh || <span className="text-slate-300">—</span>}</td>
                   <td className="px-3 py-2 text-slate-500 text-xs">{khung.find(k => k.id === r.id_hop_dong_khung)?.ten_hop_dong || '—'}</td>
-                  <td className="px-3 py-2 text-right"><button onClick={() => setEditing(r)} title="Sửa" className="text-blue-500 hover:text-blue-700 p-1.5 bg-blue-50 hover:bg-blue-100 rounded-md transition"><PenSquare className="w-4 h-4" /></button></td>
+                  <td className="px-3 py-2 text-right"><button onClick={() => setEditing(r)} title="Sửa" className="text-blue-600 hover:text-blue-800 transition"><PenSquare className="w-4 h-4 inline" /></button></td>
                 </tr>
               ))}
             </tbody>
@@ -936,25 +936,41 @@ function CounterTab({ showNotification, thang, setThang, onSaved, refreshVer = 0
                       return (
                         <div className="flex flex-col items-end gap-1">
                           <span className={`text-[9px] font-normal px-1.5 py-0.5 rounded-full border whitespace-nowrap ${stt.cls}`}>{stt.label}</span>
-                          <div className="flex justify-end gap-1.5">
-                            <Button onClick={() => saveRow(r)} disabled={savingId === r.id} className="h-8 w-8 p-0 bg-blue-600 hover:bg-blue-700 text-white rounded flex items-center justify-center shrink-0" title="Lưu chỉ số counter">
-                              {savingId === r.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                            </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => saveRow(r)}
+                              disabled={savingId === r.id}
+                              className="text-slate-500 hover:text-blue-700 disabled:text-slate-300 disabled:cursor-not-allowed transition p-1"
+                              title="Lưu chỉ số counter"
+                            >
+                              {savingId === r.id ? <RefreshCw className="w-4 h-4 animate-spin text-blue-600" /> : <Save className="w-4 h-4" />}
+                            </button>
                             {!r.id_hop_dong_khung && (
                               <>
-                                <Button onClick={() => exportQuick(r)} disabled={exportingId === r.id || noCounter}
-                                  className="h-8 w-8 p-0 bg-emerald-600 hover:bg-emerald-700 text-white rounded flex items-center justify-center shrink-0 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
-                                  title={noCounter ? 'Cần lưu counter trước' : (daDay ? 'Tải bảng kê (bản đã đẩy)' : 'Lập & tải bảng kê (.docx)')}>
-                                  {exportingId === r.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-                                </Button>
+                                <button
+                                  type="button"
+                                  onClick={() => exportQuick(r)}
+                                  disabled={exportingId === r.id || noCounter}
+                                  className="text-slate-500 hover:text-emerald-700 disabled:text-slate-300 disabled:cursor-not-allowed transition p-1"
+                                  title={noCounter ? 'Cần lưu counter trước' : (daDay ? 'Tải bảng kê (bản đã đẩy)' : 'Lập & tải bảng kê (.docx)')}
+                                >
+                                  {exportingId === r.id ? <RefreshCw className="w-4 h-4 animate-spin text-emerald-600" /> : <FileText className="w-4 h-4" />}
+                                </button>
                                 {daDay ? (
-                                  <div className="h-8 w-8 flex items-center justify-center text-emerald-600 shrink-0" title="Đã đẩy sang Kanban — sửa phải Thu hồi phiếu ở Kanban"><Check className="w-4 h-4" /></div>
+                                  <span className="text-emerald-600 p-1 flex items-center justify-center" title="Đã đẩy sang Kanban — sửa phải Thu hồi phiếu ở Kanban">
+                                    <Check className="w-4 h-4" />
+                                  </span>
                                 ) : (
-                                  <Button onClick={() => pushKanban(r)} disabled={pushingId === r.id || noCounter}
-                                    className="h-8 w-8 p-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded flex items-center justify-center shrink-0 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
-                                    title={noCounter ? 'Cần lưu counter trước khi đẩy' : 'Đẩy sang Kanban cho kế toán lên hóa đơn'}>
-                                    {pushingId === r.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-                                  </Button>
+                                  <button
+                                    type="button"
+                                    onClick={() => pushKanban(r)}
+                                    disabled={pushingId === r.id || noCounter}
+                                    className="text-slate-500 hover:text-indigo-700 disabled:text-slate-300 disabled:cursor-not-allowed transition p-1"
+                                    title={noCounter ? 'Cần lưu counter trước khi đẩy' : 'Đẩy sang Kanban cho kế toán lên hóa đơn'}
+                                  >
+                                    {pushingId === r.id ? <RefreshCw className="w-4 h-4 animate-spin text-indigo-600" /> : <ArrowRight className="w-4 h-4" />}
+                                  </button>
                                 )}
                               </>
                             )}
