@@ -3409,7 +3409,7 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Tìm mã, tên, model, mã thay..."
-              className="h-8 pl-8 pr-7 text-xs rounded-md border border-slate-200 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 w-52 sm:w-60"
+              className="h-9 pl-8 pr-7 text-xs rounded-md border border-slate-200 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 w-52 sm:w-60"
             />
             {searchTerm && (
               <button
@@ -3427,7 +3427,7 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
             <button
               type="button"
               onClick={() => { setStatusFilter('all'); setSearchTerm('') }}
-              className="h-8 px-2.5 text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition"
+              className="h-9 px-2.5 text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition"
               title="Bỏ lọc"
             >
               Bỏ lọc
@@ -4562,7 +4562,7 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
         <div className="flex flex-wrap items-center gap-2 px-1">
           <div className="relative w-full sm:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Lọc theo mã máy..." className="pl-9 pr-7 bg-white h-9" value={gdFilters.maMay} onChange={(e) => setGdFilters({ ...gdFilters, maMay: e.target.value })} />
+            <Input placeholder="Lọc theo mã máy..." className="pl-9 pr-7 bg-white h-9 text-xs" value={gdFilters.maMay} onChange={(e) => setGdFilters({ ...gdFilters, maMay: e.target.value })} />
             {gdFilters.maMay && (
               <button
                 type="button"
@@ -4574,12 +4574,12 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
               </button>
             )}
           </div>
-          <select value={gdFilters.trangThai} onChange={(e) => setGdFilters({ ...gdFilters, trangThai: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none">
+          <select value={gdFilters.trangThai} onChange={(e) => setGdFilters({ ...gdFilters, trangThai: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-xs bg-white outline-none">
             <option value="">Trạng thái: Tất cả</option>
             <option value="cho_thay">Chờ thay</option>
             <option value="da_thay">Đã thay</option>
           </select>
-          <select value={gdFilters.baoGia} onChange={(e) => setGdFilters({ ...gdFilters, baoGia: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none">
+          <select value={gdFilters.baoGia} onChange={(e) => setGdFilters({ ...gdFilters, baoGia: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-xs bg-white outline-none">
             <option value="">Báo giá: Tất cả</option>
             <option value="chua">Chưa báo giá</option>
             <option value="co">Đã báo giá</option>
@@ -5021,7 +5021,7 @@ function NhapHangThangTool({
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
             <Input
               placeholder="Gõ mã / tên vật tư..."
-              className="pl-8 pr-6 h-8 text-xs bg-white"
+              className="pl-8 pr-6 h-9 text-xs bg-white"
               value={filterSearch}
               onChange={(e) => setFilterSearch(e.target.value)}
             />
@@ -5039,7 +5039,7 @@ function NhapHangThangTool({
           <div className="relative w-44">
             <Input
               placeholder="Tìm / gõ model..."
-              className="h-8 text-xs bg-white pr-6"
+              className="h-9 text-xs bg-white pr-6"
               value={filterModel}
               onChange={(e) => setFilterModel(e.target.value)}
             />
@@ -5057,7 +5057,7 @@ function NhapHangThangTool({
           <select
             value={filterHang}
             onChange={(e) => setFilterHang(e.target.value)}
-            className="h-8 px-2 w-36 rounded-md border border-slate-200 text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500"
+            className="h-9 px-2 w-36 rounded-md border border-slate-200 text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500"
           >
             <option value="">Hãng: Tất cả</option>
             {allHangOptions.map(h => <option key={h} value={h}>{h}</option>)}
@@ -5762,7 +5762,7 @@ function DatHangTool({
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                 <Input
                   placeholder="Gõ mã / tên vật tư..."
-                  className="pl-8 pr-6 h-8 text-xs bg-white"
+                  className="pl-8 pr-6 h-9 text-xs bg-white"
                   value={leftSearch}
                   onChange={(e) => setLeftSearch(e.target.value)}
                 />
@@ -5780,7 +5780,7 @@ function DatHangTool({
               <div className="relative w-40">
                 <Input
                   placeholder="Tìm / gõ model..."
-                  className="h-8 text-xs bg-white pr-6"
+                  className="h-9 text-xs bg-white pr-6"
                   value={leftModel}
                   onChange={(e) => setLeftModel(e.target.value)}
                 />
@@ -5798,7 +5798,7 @@ function DatHangTool({
               <select
                 value={leftHang}
                 onChange={(e) => setLeftHang(e.target.value)}
-                className="h-8 px-2 w-36 rounded-md border border-slate-200 text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500"
+                className="h-9 px-2 w-36 rounded-md border border-slate-200 text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500"
               >
                 <option value="">Hãng: Tất cả</option>
                 {hangOptions.map(h => <option key={h} value={h}>{h}</option>)}
@@ -5808,7 +5808,7 @@ function DatHangTool({
             {/* Dòng 2: Hết hàng align left với mã hàng (w-44), Dưới ngưỡng align left với tìm model */}
             <div className="flex flex-wrap gap-2 items-center">
               <div className="w-44 flex items-center">
-                <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none h-8">
+                <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none h-9">
                   <input
                     type="checkbox"
                     checked={leftLowStock}
@@ -5819,7 +5819,7 @@ function DatHangTool({
                 </label>
               </div>
 
-              <label className={`flex items-center gap-1.5 text-xs font-semibold cursor-pointer select-none h-8 px-2 py-0.5 rounded border transition-colors ${
+              <label className={`flex items-center gap-1.5 text-xs font-semibold cursor-pointer select-none h-9 px-2 py-0.5 rounded border transition-colors ${
                 leftUnderWarn ? 'bg-rose-100 text-rose-800 border-rose-300' : 'bg-rose-50/70 text-rose-700 border-rose-200 hover:bg-rose-100/70'
               }`}>
                 <input
@@ -6154,7 +6154,7 @@ function DatHangTool({
         <div className="flex flex-wrap items-center gap-2 px-1">
           <div className="relative w-full sm:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Lọc theo mã hàng / tên..." className="pl-9 pr-7 bg-white h-9" value={orderFilters.maHang} onChange={(e) => setOrderFilters({ ...orderFilters, maHang: e.target.value })} />
+            <Input placeholder="Lọc theo mã hàng / tên..." className="pl-9 pr-7 bg-white h-9 text-xs" value={orderFilters.maHang} onChange={(e) => setOrderFilters({ ...orderFilters, maHang: e.target.value })} />
             {orderFilters.maHang && (
               <button
                 type="button"
@@ -6166,7 +6166,7 @@ function DatHangTool({
               </button>
             )}
           </div>
-          <select value={orderFilters.ncc} onChange={(e) => setOrderFilters({ ...orderFilters, ncc: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none">
+          <select value={orderFilters.ncc} onChange={(e) => setOrderFilters({ ...orderFilters, ncc: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-xs bg-white outline-none">
             <option value="">NCC: Tất cả</option>
             {nhaCungCapOptions.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
@@ -7690,7 +7690,7 @@ function PhieuCungTool({ nguongNgay, currentUserRole, showNotification }: { nguo
         <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Tìm số phiếu..." className="pl-9 pr-7 bg-white" value={search} onChange={e => setSearch(e.target.value)} />
+            <Input placeholder="Tìm số phiếu..." className="pl-9 pr-7 bg-white h-9 text-xs" value={search} onChange={e => setSearch(e.target.value)} />
             {search && (
               <button
                 type="button"
@@ -7702,12 +7702,12 @@ function PhieuCungTool({ nguongNgay, currentUserRole, showNotification }: { nguo
               </button>
             )}
           </div>
-          <select value={fKtv} onChange={e => setFKtv(e.target.value)} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
+          <select value={fKtv} onChange={e => setFKtv(e.target.value)} className="h-9 px-2 rounded-md border border-slate-200 text-xs bg-white outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">KTV: Tất cả</option>
             <option value="none">Chưa giao</option>
             {ktvs.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
           </select>
-          <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
+          <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
             <input type="checkbox" checked={fChuaNop} onChange={e => setFChuaNop(e.target.checked)} className="w-4 h-4 accent-blue-600" /> Chỉ chưa nộp
           </label>
           <span className="text-xs text-slate-500 ml-auto whitespace-nowrap">{filtered.length} phiếu</span>
@@ -8227,7 +8227,7 @@ function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { custom
 
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Tìm mã / tên cụm..." className="pl-9 pr-7 bg-white h-9" value={cumSearch} onChange={e => setCumSearch(e.target.value)} />
+            <Input placeholder="Tìm mã / tên cụm..." className="pl-9 pr-7 bg-white h-9 text-xs" value={cumSearch} onChange={e => setCumSearch(e.target.value)} />
             {cumSearch && (
               <button
                 type="button"
@@ -8318,7 +8318,7 @@ function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { custom
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Thêm máy vào cụm (chỉ hiện máy chưa thuộc cụm nào)</p>
                 <div className="relative mb-2">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <Input placeholder="Tìm theo tên / mã máy / model..." className="pl-9 pr-7 bg-white h-9" value={maySearch} onChange={e => setMaySearch(e.target.value)} />
+                  <Input placeholder="Tìm theo tên / mã máy / model..." className="pl-9 pr-7 bg-white h-9 text-xs" value={maySearch} onChange={e => setMaySearch(e.target.value)} />
                   {maySearch && (
                     <button
                       type="button"

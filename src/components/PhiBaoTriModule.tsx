@@ -234,7 +234,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
         <div className="flex flex-wrap items-end gap-3 justify-end">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">Năm lập HĐ</label>
-            <Input value={nam} onChange={e => setNam(digits(e.target.value).slice(0, 4))} className="bg-white w-24 h-9" />
+            <Input value={nam} onChange={e => setNam(digits(e.target.value).slice(0, 4))} className="bg-white w-24 h-9 text-xs" />
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -321,7 +321,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Tìm khách / mã máy / số HĐ..." className="pl-9 pr-7 bg-white h-9" value={q} onChange={e => setQ(e.target.value)} />
+            <Input placeholder="Tìm khách / mã máy / số HĐ..." className="pl-9 pr-7 bg-white h-9 text-xs" value={q} onChange={e => setQ(e.target.value)} />
             {q && (
               <button
                 type="button"
@@ -333,7 +333,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
               </button>
             )}
           </div>
-          <Button onClick={doSave} disabled={saving || dirty.size === 0} className="h-9 gap-1.5 ml-auto">
+          <Button onClick={doSave} disabled={saving || dirty.size === 0} className="h-9 text-xs font-semibold px-4 gap-1.5 ml-auto">
             <Save className="w-4 h-4" /> {saving ? 'Đang lưu…' : dirty.size > 0 ? `Lưu (${dirty.size})` : 'Đã lưu'}
           </Button>
         </div>

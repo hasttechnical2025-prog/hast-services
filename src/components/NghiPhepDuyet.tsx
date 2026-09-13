@@ -127,9 +127,9 @@ export default function NghiPhepDuyet({ notify, onPending }: {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-slate-700">Đơn chờ duyệt {pending.length > 0 && <span className="ml-1 text-rose-600">({pending.length})</span>}</h3>
-        <div className="flex items-center gap-1">
-          <button onClick={doSync} disabled={syncing} className="p-1.5 text-slate-400 hover:text-emerald-600 disabled:opacity-40" title="Đồng bộ nghỉ phép đã duyệt sang app Chấm công (tự chấm P)"><UploadCloud className={`w-4 h-4 ${syncing ? 'animate-pulse' : ''}`} /></button>
-          <button onClick={fetchData} className="p-1.5 text-slate-400 hover:text-emerald-600" title="Làm mới"><RefreshCw className="w-4 h-4" /></button>
+        <div className="flex items-center gap-1.5">
+          <button onClick={doSync} disabled={syncing} className="h-9 w-9 p-0 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-40" title="Đồng bộ nghỉ phép đã duyệt sang app Chấm công (tự chấm P)"><UploadCloud className={`w-4 h-4 ${syncing ? 'animate-pulse' : ''}`} /></button>
+          <button onClick={fetchData} className="h-9 w-9 p-0 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600" title="Làm mới"><RefreshCw className="w-4 h-4" /></button>
         </div>
       </div>
 

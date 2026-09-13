@@ -237,7 +237,7 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
         </div>
         <div className="relative w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input placeholder="Tìm tên khách / mã máy / serial…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 pr-7 w-full h-9 bg-white" />
+          <Input placeholder="Tìm tên khách / mã máy / serial…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 pr-7 w-full h-9 bg-white text-xs" />
           {search && (
             <button
               type="button"
@@ -778,7 +778,7 @@ function CounterTab({ showNotification, thang, setThang, onSaved, refreshVer = 0
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Tìm khách / mã máy / serial / vị trí…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 pr-7 w-full h-9 bg-white" />
+            <Input placeholder="Tìm khách / mã máy / serial / vị trí…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 pr-7 w-full h-9 bg-white text-xs" />
             {search && (
               <button
                 type="button"
@@ -791,8 +791,8 @@ function CounterTab({ showNotification, thang, setThang, onSaved, refreshVer = 0
             )}
           </div>
           <button onClick={() => setShowGhiChu(v => !v)} className={`h-9 px-3 rounded-md text-xs font-medium border whitespace-nowrap ${showGhiChu ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white text-slate-500 border-slate-200'}`} title="Bật/tắt cột Ghi chú">Ghi chú</button>
-          <label className="flex items-center gap-2 text-sm text-slate-600">Kỳ
-            <MonthField value={thang} onChange={setThang} className="h-9 w-40" />
+          <label className="flex items-center gap-2 text-xs text-slate-600">Kỳ
+            <MonthField value={thang} onChange={setThang} className="h-9 w-40 text-xs" />
           </label>
         </div>
       </div>
@@ -816,8 +816,8 @@ function CounterTab({ showNotification, thang, setThang, onSaved, refreshVer = 0
       {/* Tổng ước tính theo Nhân viên phụ trách (mặc định Kỹ thuật) — chỉ máy lẻ; HĐ khung tính ở Bảng kê */}
       {!loading && (
         <div className="flex items-center gap-3 flex-wrap bg-slate-50 border border-slate-100 rounded-lg px-4 py-3">
-          <label className="text-sm text-slate-600 flex items-center gap-2">Doanh số nhóm
-            <select value={nvFilter} onChange={e => setNvFilter(e.target.value)} className="h-9 rounded-md border border-slate-200 text-sm px-2 bg-white">
+          <label className="text-xs text-slate-600 flex items-center gap-2">Doanh số nhóm
+            <select value={nvFilter} onChange={e => setNvFilter(e.target.value)} className="h-9 rounded-md border border-slate-200 text-xs px-2 bg-white">
               <option value="all">Tất cả</option>
               <option value="ky_thuat">Kỹ thuật</option>
               {nvList.map((nv: string) => <option key={nv} value={nv}>{nv}</option>)}
@@ -1216,7 +1216,7 @@ function BangKeTab({ showNotification, thang: thangProp, refreshVer = 0 }: { sho
         <h3 className="font-bold text-slate-800">Bảng kê thanh toán</h3>
         {thangProp
           ? <span className="text-xs text-slate-400">Kỳ theo màn Nhập counter: <b className="text-slate-600">{thang}</b></span>
-          : <label className="flex items-center gap-2 text-sm text-slate-600">Kỳ<MonthField value={thang} onChange={setThang} className="h-9 w-40" /></label>}
+          : <label className="flex items-center gap-2 text-xs text-slate-600">Kỳ<MonthField value={thang} onChange={setThang} className="h-9 w-40 text-xs" /></label>}
       </div>
 
       {/* Tạo bảng kê */}
@@ -1225,7 +1225,7 @@ function BangKeTab({ showNotification, thang: thangProp, refreshVer = 0 }: { sho
         <div className="flex flex-wrap items-end gap-3">
           <label className="block">
             <span className="text-xs font-medium text-slate-500">Loại</span>
-            <select value={loai} onChange={e => { setLoai(e.target.value as any); setTarget('') }} className="h-9 mt-1 w-40 rounded-md border border-slate-200 text-sm px-2 bg-white block">
+            <select value={loai} onChange={e => { setLoai(e.target.value as any); setTarget('') }} className="h-9 mt-1 w-40 rounded-md border border-slate-200 text-xs px-2 bg-white block">
               <option value="rieng">Riêng (1 máy)</option>
               <option value="gop">Gộp (HĐ khung)</option>
             </select>

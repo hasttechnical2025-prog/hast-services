@@ -152,7 +152,7 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm serial / khách / model..." className="pl-9 pr-7 bg-white w-72" />
+          <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm serial / khách / model..." className="pl-9 pr-7 bg-white w-72 h-9 text-xs" />
           {q && (
             <button
               type="button"
@@ -164,14 +164,14 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
             </button>
           )}
         </div>
-        <label className="flex items-center gap-1.5 text-sm text-slate-700 cursor-pointer select-none">
+        <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
           <input type="checkbox" checked={onlyReRented} onChange={e => setOnlyReRented(e.target.checked)} className="w-4 h-4 accent-rose-600" />
           Chỉ máy đã cho khách khác thuê {reRentedCount > 0 && <span className="text-rose-600 font-semibold">({reRentedCount})</span>}
         </label>
-        <Button variant="outline" onClick={fetchList} disabled={loading} className="gap-1 h-9">
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Làm mới
+        <Button variant="outline" onClick={fetchList} disabled={loading} className="gap-1 h-9 text-xs px-3">
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Làm mới
         </Button>
-        <span className="text-sm text-slate-500 ml-auto">{filtered.length} máy</span>
+        <span className="text-xs text-slate-500 ml-auto">{filtered.length} máy</span>
       </div>
 
       <p className="text-xs text-slate-400">Nguồn: biên bản giám định do app Techbot lập (dùng chung dữ liệu). &quot;Khách đang thuê&quot; đối chiếu serial với máy thuê/CPC trong HAST.</p>
