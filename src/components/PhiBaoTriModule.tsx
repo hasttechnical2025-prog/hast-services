@@ -302,7 +302,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
                       ) : (
                         <Button onClick={() => openBill(g)} disabled={lech || dirty.size > 0} className="h-8 gap-1.5"
                           title={lech ? 'Sửa đơn giá cho đồng nhất trước' : dirty.size > 0 ? 'Lưu cấu hình trước khi tạo hóa đơn' : 'Tạo hóa đơn phí BT → đẩy Kanban'}>
-                          <Send className="w-3.5 h-3.5" /> Tạo → Kanban
+                          <Send className="w-3.5 h-3.5" /> Đẩy Kanban
                         </Button>
                       )}
                     </td>
@@ -460,7 +460,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
             </div>
             <div className="flex justify-end gap-2 pt-1">
               <Button variant="outline" onClick={() => setBill(null)} disabled={pushing} className="h-9">Hủy</Button>
-              <Button onClick={doPush} disabled={pushing || !bill.ten_dong.trim()} className="h-9 gap-1.5"><Send className="w-4 h-4" /> {pushing ? 'Đang tạo…' : 'Tạo → Kanban'}</Button>
+              <Button onClick={doPush} disabled={pushing || !bill.ten_dong.trim()} className="h-9 gap-1.5"><Send className="w-4 h-4" /> {pushing ? 'Đang đẩy…' : 'Đẩy Kanban'}</Button>
             </div>
           </div>
         </div>
