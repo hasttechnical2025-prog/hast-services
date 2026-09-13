@@ -147,7 +147,7 @@ export default function NghiPhepDuyet({ notify, onPending }: {
           <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
             {FILTERS.map(([k, label]) => (
               <button key={k} onClick={() => setFilter(k)}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${filter === k ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>{label}</button>
+                className={`px-2.5 py-1 rounded-md text-xs transition ${filter === k ? 'bg-white text-emerald-700 font-bold shadow-sm ring-1 ring-emerald-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>{label}</button>
             ))}
           </div>
         </div>

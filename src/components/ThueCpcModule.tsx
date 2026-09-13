@@ -122,7 +122,7 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
       <div className="sticky top-[calc(var(--head-h)+2.5rem)] z-10 -mx-4 md:-mx-6 px-4 md:px-6 pt-1 pb-3 mb-4 bg-white">
         <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit overflow-x-auto">
           {tabs.map(([k, l]) => (
-            <button key={k} onClick={() => setSub(k)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${active === k ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
+            <button key={k} onClick={() => setSub(k)} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${active === k ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>
               {l}
               {k === 'counter' && dueCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{dueCount}</span>}
             </button>

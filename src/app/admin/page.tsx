@@ -1571,7 +1571,7 @@ export default function AdminDashboard() {
               {tabVisible('cong_viec') && (
                 <button
                   onClick={() => setActiveTab("cong_viec")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'cong_viec' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  className={`px-4 py-2 rounded-md text-sm transition ${activeTab === 'cong_viec' ? 'bg-blue-600 text-white font-semibold shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}
                 >
                   Sổ công tác
                 </button>
@@ -1580,7 +1580,7 @@ export default function AdminDashboard() {
               {tabVisible('theo_doi_may') && (
                 <button
                   onClick={() => setActiveTab("theo_doi_may")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'theo_doi_may' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  className={`px-4 py-2 rounded-md text-sm transition ${activeTab === 'theo_doi_may' ? 'bg-blue-600 text-white font-semibold shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}
                 >
                   Theo dõi máy
                 </button>
@@ -1589,7 +1589,7 @@ export default function AdminDashboard() {
               {tabVisible('kho_hang') && (
                 <button
                   onClick={() => setActiveTab("kho_hang")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'kho_hang' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  className={`px-4 py-2 rounded-md text-sm transition ${activeTab === 'kho_hang' ? 'bg-blue-600 text-white font-semibold shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}
                 >
                   Kho hàng
                 </button>
@@ -1598,7 +1598,7 @@ export default function AdminDashboard() {
               {tabVisible('tai_chinh') && (
                 <button
                   onClick={() => setActiveTab("tai_chinh")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'tai_chinh' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  className={`px-4 py-2 rounded-md text-sm transition ${activeTab === 'tai_chinh' ? 'bg-blue-600 text-white font-semibold shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}
                 >
                   Tài chính
                 </button>
@@ -1607,7 +1607,7 @@ export default function AdminDashboard() {
               {tabVisible('quan_ly') && (
                 <button
                   onClick={() => setActiveTab("quan_ly")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'quan_ly' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  className={`px-4 py-2 rounded-md text-sm transition ${activeTab === 'quan_ly' ? 'bg-blue-600 text-white font-semibold shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}
                 >
                   Quản lý
                 </button>
@@ -1615,7 +1615,7 @@ export default function AdminDashboard() {
 
               <button
                 onClick={() => setActiveTab("he_thong")}
-                className={`px-4 py-2 rounded-md font-medium text-sm transition ${activeTab === 'he_thong' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                className={`px-4 py-2 rounded-md text-sm transition ${activeTab === 'he_thong' ? 'bg-blue-600 text-white font-semibold shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}
               >
                 Hệ thống
               </button>
@@ -1634,8 +1634,8 @@ export default function AdminDashboard() {
         {/* Thanh tab con của Sổ công tác (chỉ hiện khi Hoàn phiếu được bật cho role) */}
         {activeTab === "cong_viec" && subVisible('cong_viec', 'hoan_phieu') && (
           <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto mb-4">
-            <button onClick={() => setCongTacTab("giao_viec")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveCongTacTab === 'giao_viec' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Giao việc</button>
-            <button onClick={() => setCongTacTab("hoan_phieu")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${effectiveCongTacTab === 'hoan_phieu' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
+            <button onClick={() => setCongTacTab("giao_viec")} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${effectiveCongTacTab === 'giao_viec' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>Giao việc</button>
+            <button onClick={() => setCongTacTab("hoan_phieu")} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${effectiveCongTacTab === 'hoan_phieu' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>
               Hoàn phiếu
               {phieuChuaHoan > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{phieuChuaHoan}</span>}
             </button>
@@ -1885,7 +1885,7 @@ export default function AdminDashboard() {
               {([['ton_kho','Tồn kho'],['dat_hang',`Đặt hàng${datHangLines.length > 0 ? ` (${datHangLines.length})` : ''}`],['thong_ke','Thống kê nhập'],['may_thue','Kho máy thuê']] as const)
                 .filter(([k]) => subVisible('kho_hang', k))
                 .map(([k,l]) => (
-                <button key={k} onClick={() => setKhoTab(k as any)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveKhoTab === k ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>{l}</button>
+                <button key={k} onClick={() => setKhoTab(k as any)} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${effectiveKhoTab === k ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>{l}</button>
               ))}
             </div>
 
@@ -1944,7 +1944,7 @@ export default function AdminDashboard() {
               {([['bao_tri','Bảo trì'],['giam_dinh','Giám định']] as const)
                 .filter(([k]) => subVisible('theo_doi_may', k))
                 .map(([k,l]) => (
-                <button key={k} onClick={() => setMonitorTab(k as any)} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveMonitorTab === k ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>{l}</button>
+                <button key={k} onClick={() => setMonitorTab(k as any)} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${effectiveMonitorTab === k ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>{l}</button>
               ))}
             </div>
 
@@ -1969,16 +1969,16 @@ export default function AdminDashboard() {
           <div className="space-y-4">
             <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto">
               {subVisible('tai_chinh', 'cong_no') && (
-                <button onClick={() => setTaiChinhTab("cong_no")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'cong_no' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Công nợ</button>
+                <button onClick={() => setTaiChinhTab("cong_no")} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'cong_no' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>Công nợ</button>
               )}
               {subVisible('tai_chinh', 'thue_cpc') && (
-                <button onClick={() => setTaiChinhTab("thue_cpc")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'thue_cpc' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Thuê / CPC</button>
+                <button onClick={() => setTaiChinhTab("thue_cpc")} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'thue_cpc' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>Thuê / CPC</button>
               )}
               {subVisible('tai_chinh', 'phi_bao_tri') && (
-                <button onClick={() => setTaiChinhTab("phi_bao_tri")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'phi_bao_tri' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Phí bảo trì</button>
+                <button onClick={() => setTaiChinhTab("phi_bao_tri")} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'phi_bao_tri' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>Phí bảo trì</button>
               )}
               {subVisible('tai_chinh', 'kanban') && (
-                <button onClick={() => setTaiChinhTab("kanban")} className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'kanban' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Kanban Hóa đơn</button>
+                <button onClick={() => setTaiChinhTab("kanban")} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'kanban' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>Kanban Hóa đơn</button>
               )}
             </div>
             {effectiveTaiChinhTab === "cong_no" && subVisible('tai_chinh', 'cong_no') && (
@@ -2003,7 +2003,7 @@ export default function AdminDashboard() {
               {subVisible('quan_ly', 'nhat_ky') && (
                   <button
                     onClick={() => setQuanLyTab("nhat_ky" as any)}
-                    className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveQuanLyTab === 'nhat_ky' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${effectiveQuanLyTab === 'nhat_ky' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}
                   >
                     Báo cáo KTV
                   </button>
@@ -2011,7 +2011,7 @@ export default function AdminDashboard() {
                 {subVisible('quan_ly', 'khach_hang') && (
                   <button
                     onClick={() => setQuanLyTab("khach_hang" as any)}
-                    className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveQuanLyTab === 'khach_hang' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${effectiveQuanLyTab === 'khach_hang' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}
                   >
                     Danh sách khách hàng
                   </button>
@@ -2019,7 +2019,7 @@ export default function AdminDashboard() {
                 {subVisible('quan_ly', 'khach_cum') && (
                   <button
                     onClick={() => setQuanLyTab("khach_cum" as any)}
-                    className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveQuanLyTab === 'khach_cum' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${effectiveQuanLyTab === 'khach_cum' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}
                   >
                     Khách hàng cụm
                   </button>
@@ -2027,7 +2027,7 @@ export default function AdminDashboard() {
                 {subVisible('quan_ly', 'bao_cao') && (
                   <button
                     onClick={() => setQuanLyTab("bao_cao" as any)}
-                    className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveQuanLyTab === 'bao_cao' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${effectiveQuanLyTab === 'bao_cao' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}
                   >
                     Báo cáo tháng (KH)
                   </button>
@@ -2035,7 +2035,7 @@ export default function AdminDashboard() {
                 {subVisible('quan_ly', 'nghi_phep') && (
                   <button
                     onClick={() => setQuanLyTab("nghi_phep" as any)}
-                    className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${effectiveQuanLyTab === 'nghi_phep' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${effectiveQuanLyTab === 'nghi_phep' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}
                   >
                     Nghỉ phép
                   </button>
@@ -2119,38 +2119,38 @@ export default function AdminDashboard() {
                 {currentUserRole === 'admin' && (<>
                 <button
                   onClick={() => setSystemTab("cai_dat")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'cai_dat' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${systemTab === 'cai_dat' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}
                 >
                   Cài đặt hệ thống
                 </button>
                 <button
                   onClick={() => setSystemTab("tai_khoan")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'tai_khoan' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${systemTab === 'tai_khoan' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}
                 >
                   Tài khoản
                 </button>
                 <button
                   onClick={() => setSystemTab("danh_muc")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'danh_muc' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${systemTab === 'danh_muc' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}
                 >
                   Danh mục
                 </button>
                 <button
                   onClick={() => setSystemTab("audit")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'audit' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${systemTab === 'audit' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}
                 >
                   Audit Logs
                 </button>
                 <button
                   onClick={() => setSystemTab("tro_ly_log")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${systemTab === 'tro_ly_log' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${systemTab === 'tro_ly_log' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}
                 >
                   Nhật ký AI
                 </button>
                 </>)}
                 <button
                   onClick={() => setSystemTab("doi_mat_khau")}
-                  className={`px-4 py-2 rounded-md font-medium text-sm transition whitespace-nowrap ${(systemTab === 'doi_mat_khau' || currentUserRole !== 'admin') ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${(systemTab === 'doi_mat_khau' || currentUserRole !== 'admin') ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}
                 >
                   Đổi mật khẩu
                 </button>
@@ -3368,10 +3368,10 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
           <button
             type="button"
             onClick={() => setStatusFilter('all')}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+            className={`px-3 py-1.5 rounded-md text-xs transition ${
               statusFilter === 'all'
-                ? 'bg-white text-slate-800 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-slate-800 font-bold shadow-sm ring-1 ring-slate-300'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'
             }`}
           >
             Tất cả ({inventory.length})
@@ -3379,10 +3379,10 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
           <button
             type="button"
             onClick={() => setStatusFilter('active')}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+            className={`px-3 py-1.5 rounded-md text-xs transition ${
               statusFilter === 'active'
-                ? 'bg-white text-emerald-700 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-emerald-700 font-bold shadow-sm ring-1 ring-emerald-300'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'
             }`}
           >
             Đang dùng ({invActive})
@@ -3390,10 +3390,10 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
           <button
             type="button"
             onClick={() => setStatusFilter('discontinued')}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+            className={`px-3 py-1.5 rounded-md text-xs transition ${
               statusFilter === 'discontinued'
-                ? 'bg-white text-amber-700 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-amber-700 font-bold shadow-sm ring-1 ring-amber-300'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'
             }`}
           >
             Ngưng dùng ({invDiscontinued})
@@ -8409,7 +8409,7 @@ function DanhMucTool({ danhMuc, setDanhMuc, onUpdateSuccess, showNotification }:
         <h3 className="text-lg font-semibold text-slate-700">Danh mục dropdown</h3>
         <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
           {DANH_MUC_NHOMS.map(n => (
-            <button key={n.key} onClick={() => { setNhom(n.key); setEditId(null) }} className={`px-3 py-1.5 rounded-md font-medium text-xs transition whitespace-nowrap ${nhom === n.key ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>{n.label}</button>
+            <button key={n.key} onClick={() => { setNhom(n.key); setEditId(null) }} className={`px-3 py-1.5 rounded-md text-xs transition whitespace-nowrap ${nhom === n.key ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>{n.label}</button>
           ))}
         </div>
 
