@@ -1556,6 +1556,14 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                       <div className="text-[9px] text-slate-400 font-mono">Trước VAT: {fmtVnd(truocVat)}</div>
                     </div>
                   </div>
+                  {/* Cột 2: dấu hiệu phiếu có làm tròn -> kế toán tự nhập giá sau thuế tay trên MInvoice */}
+                  {state === 'Đang xử lý HĐ' && cardLamTron(card.tickets) !== 0 && (
+                    <div className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-red-600"
+                      title={`Tổng đã làm tròn. Vào MInvoice nhập ĐƠN GIÁ SAU THUẾ tay để tổng khớp ${fmtVnd(tong)}đ (MInvoice tự chia ngược trước thuế + 8%).`}>
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>Làm tròn {cardLamTron(card.tickets) > 0 ? '+' : ''}{fmtVnd(cardLamTron(card.tickets))}đ. Cần kiểm tra.</span>
+                    </div>
+                  )}
 
                   {(state === 'Đã lên hóa đơn' || state === 'Đã thanh toán') && card.tickets[0].so_hoa_don && (
                     <div className="mt-2 space-y-1">
