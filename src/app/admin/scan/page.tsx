@@ -318,7 +318,7 @@ export default function AdminBatchScanQR() {
           </div>
 
           {isScanning && (
-            <div className="rounded-lg overflow-hidden border border-slate-200 bg-black aspect-square flex items-center justify-center">
+            <div className="rounded-lg overflow-hidden border border-slate-200 bg-black aspect-[4/3] flex items-center justify-center">
               <div id="qr-reader" className="w-full h-full" style={{ width: "100%", border: "none" }}></div>
             </div>
           )}
