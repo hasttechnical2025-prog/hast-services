@@ -620,8 +620,10 @@ export async function PUT(request: Request) {
         cur.ktv_id || null, cur.ktv2_id || null, session.full_name
       )
       // Đồng bộ tin group: gán KTV -> "ĐÃ CÓ NGƯỜI NHẬN"; bỏ gán -> quay lại "CHỜ NHẬN".
-      // Chỉ khi phiếu còn ở giai đoạn tiền-xử lý (tin group CHỜ NHẬN/ĐÃ CÓ NGƯỜI NHẬN mới có nghĩa).
-      if (preWork) await syncGroupJobMessage(id)
+      // CHỈ khi PHÂN CÔNG KTV thực sự đổi — nếu không, sửa phiếu (đổi ghi chú/vật tư...) mà tin group
+      // không có telegram_message_id sẽ bị bắn TIN MỚI trùng lặp. Sửa thường (KTV không đổi) -> bỏ qua.
+      const ktvChanged = (ktv_id || null) !== (cur.ktv_id || null) || (ktv2_id || null) !== (cur.ktv2_id || null)
+      if (preWork && ktvChanged) await syncGroupJobMessage(id)
 
       await broadcastJobsChanged()
       await logAudit(session, 'Sửa công việc', `id ${id}${ma_may ? ` — máy ${ma_may}` : ''}`)
