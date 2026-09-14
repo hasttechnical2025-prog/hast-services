@@ -16,11 +16,18 @@ export const PHIEU_TAO_TONE: Record<PhieuTaoTone, string> = {
 }
 
 // `created_at`: ISO (UTC). `ngay`: 'YYYY-MM-DD' (ngày THỰC HIỆN). `so_lan_cuon`: số lần cron cuốn.
+// `ket_qua`: trạng thái phiếu — để phân biệt "giao trước/chưa làm" với "tồn đọng thật".
 // Trả null nếu không đủ dữ liệu. Thứ tự ưu tiên (mỗi phiếu 1 chip): Cuốn > khác ngày (soạn/nhập) > buổi.
-export function phieuTaoChip(created_at?: string | null, ngay?: string | null, so_lan_cuon?: number | null): PhieuTaoChip | null {
+export function phieuTaoChip(created_at?: string | null, ngay?: string | null, so_lan_cuon?: number | null, ket_qua?: string | null): PhieuTaoChip | null {
   const cuon = Number(so_lan_cuon) || 0
-  // 1) Phiếu bị cuốn (chưa hoàn thành, cron đẩy sang ngày kế) — quan trọng nhất, ẩn buổi.
+  // 1) Phiếu bị cuốn sang ngày kế — quan trọng nhất, ẩn buổi.
   if (cuon > 0) {
+    // b1: việc CHƯA bắt đầu (Chờ nhận / Đã nhận) = giao trước / backlog -> KHÔNG coi là tồn đọng (không tô đỏ).
+    // Chỉ việc đã động mà treo lâu (Chưa hoàn thành...) mới là "tồn đọng" cần cảnh báo.
+    const chuaLam = ket_qua === 'Chờ nhận' || ket_qua === 'Đã nhận'
+    if (chuaLam) {
+      return { label: `Chưa làm ${cuon} ngày`, tone: 'slate', title: `Đã chuyển ngày ${cuon} lần, chưa bắt đầu — tự cuốn tiếp tới khi làm` }
+    }
     return { label: `Cuốn ${cuon} ngày`, tone: cuon >= 5 ? 'red' : 'orange', title: `Phiếu tự cuốn ${cuon} lần do chưa hoàn thành — có thể bị bỏ quên` }
   }
   if (!created_at) return null

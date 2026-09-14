@@ -1776,7 +1776,7 @@ export default function AdminDashboard() {
                         {jobsCol.show('ngay') && <td className="px-4 py-3 whitespace-nowrap">
                           {formatDate(job.ngay)}
                           {(() => {
-                            const chip = phieuTaoChip(job.created_at, job.ngay, job.so_lan_cuon)
+                            const chip = phieuTaoChip(job.created_at, job.ngay, job.so_lan_cuon, job.ket_qua)
                             return chip ? <div className={`mt-0.5 block w-fit text-[8px] leading-tight font-medium border rounded px-1 py-px ${PHIEU_TAO_TONE[chip.tone]}`} title={chip.title}>{chip.label}</div> : null
                           })()}
                         </td>}

@@ -1064,11 +1064,16 @@ export default function KtvMobileWeb() {
 
                         {/* NÚT CHỐT NỘP BÁO CÁO NGÀY */}
                         {!reportData.da_nop && reportEditable && (() => {
-                          // KTV bắt buộc phải chọn tình trạng máy (có dữ liệu ghi_chu_ktv trong draftReports) cho MỌI ca máy
-                          const thieuTinhTrang = !reportData.jobs.every(j => {
+                          // Báo cáo NGÀY = việc ĐÃ ĐỘNG trong ngày. Chỉ ca Hoàn thành / Chưa hoàn thành mới cần tình trạng máy.
+                          const jobsCanBaoCao = reportData.jobs.filter(j => j.ket_qua === 'Hoàn thành' || j.ket_qua === 'Chưa hoàn thành')
+                          const thieuTinhTrang = !jobsCanBaoCao.every(j => {
                             const val = draftReports[j.id]
                             return !!(val && val.ghi_chu_ktv && val.ghi_chu_ktv.trim())
                           })
+                          // Không được để ca "Đang làm" treo: cuốn ngày KHÔNG cuốn 'Đang làm' -> phải đóng (Hoàn thành / Chưa hoàn thành).
+                          const conDangLam = reportData.jobs.some(j => j.ket_qua === 'Đang làm')
+                          // Việc chưa bắt đầu (Chờ nhận / Đã nhận) KHÔNG chặn — tự cuốn sang ngày làm kế.
+                          const chuaLam = reportData.jobs.filter(j => j.ket_qua === 'Chờ nhận' || j.ket_qua === 'Đã nhận').length
                           // ...và phải khai thời gian cho các ca bấm bù / chưa khai
                           const thieuThoiGian = reportData.jobs.some(j => {
                             if (j.ket_qua !== 'Hoàn thành') return false
@@ -1077,7 +1082,7 @@ export default function KtvMobileWeb() {
                             if (!(chuaKhai || (cach != null && cach < 2))) return false
                             return !((parseInt(draftReports[j.id]?.so_phut || '0', 10) || 0) > 0)
                           })
-                          const canSubmit = !thieuTinhTrang && !thieuThoiGian
+                          const canSubmit = !thieuTinhTrang && !thieuThoiGian && !conDangLam
                           return (
                             <div className="pt-2">
                               <Button
@@ -1087,11 +1092,17 @@ export default function KtvMobileWeb() {
                               >
                                 🚀 Chốt và Gửi báo cáo ngày
                               </Button>
-                              {thieuTinhTrang && (
-                                <p className="text-[10px] text-center text-red-500 mt-1 font-medium">Bạn chưa chọn tình trạng máy cho một số ca phía trên.</p>
+                              {conDangLam && (
+                                <p className="text-[10px] text-center text-red-500 mt-1 font-medium">Còn ca đang <b>Đang làm</b> — hãy chuyển sang Hoàn thành hoặc Chưa hoàn thành trước khi nộp.</p>
                               )}
-                              {!thieuTinhTrang && thieuThoiGian && (
+                              {!conDangLam && thieuTinhTrang && (
+                                <p className="text-[10px] text-center text-red-500 mt-1 font-medium">Bạn chưa chọn tình trạng máy cho một số ca đã làm phía trên.</p>
+                              )}
+                              {!conDangLam && !thieuTinhTrang && thieuThoiGian && (
                                 <p className="text-[10px] text-center text-red-500 mt-1 font-medium">Bạn chưa xác nhận thời gian cho các ca ở khung vàng phía trên.</p>
+                              )}
+                              {canSubmit && chuaLam > 0 && (
+                                <p className="text-[10px] text-center text-slate-400 mt-1">{chuaLam} ca chưa làm sẽ tự chuyển sang ngày làm kế — không cần báo cáo hôm nay.</p>
                               )}
                             </div>
                           )

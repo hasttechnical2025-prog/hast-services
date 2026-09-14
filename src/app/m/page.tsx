@@ -321,7 +321,7 @@ function ViecHomNay() {
                       : <span className="text-amber-600 font-medium">Chưa ai nhận</span>}
                   </div>
                   {(() => {
-                    const chip = phieuTaoChip(j.created_at, j.ngay, j.so_lan_cuon)
+                    const chip = phieuTaoChip(j.created_at, j.ngay, j.so_lan_cuon, j.ket_qua)
                     return chip ? <div className={`mt-1 inline-block text-[10px] font-medium border rounded px-1.5 py-0.5 ${PHIEU_TAO_TONE[chip.tone]}`} title={chip.title}>{chip.label}</div> : null
                   })()}
                 </button>
@@ -348,7 +348,7 @@ function JobDetailSheet({ job, onClose }: { job: any, onClose: () => void }) {
             <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5">
               {fmtDate(job.ngay)}
               {(() => {
-                const chip = phieuTaoChip(job.created_at, job.ngay, job.so_lan_cuon)
+                const chip = phieuTaoChip(job.created_at, job.ngay, job.so_lan_cuon, job.ket_qua)
                 return chip ? <span className={`text-[10px] font-medium border rounded px-1.5 py-0.5 ${PHIEU_TAO_TONE[chip.tone]}`} title={chip.title}>{chip.label}</span> : null
               })()}
             </div>
