@@ -45,3 +45,16 @@ export function phieuTaoChip(created_at?: string | null, ngay?: string | null, s
   // >= 17h: nhiều khả năng là việc của NGÀY HÔM SAU (office có thể quên chuyển ngày phiếu).
   return { label: 'Sáng hôm sau', tone: 'violet', title: `${titleTao} — tạo sau 17h, nhiều khả năng là việc ngày hôm sau (kiểm tra ngày phiếu)` }
 }
+
+// Chip buổi + giờ của 1 mốc thời gian (VD giờ HOÀN THÀNH phiếu). Sáng<12h / Chiều<17h / Tối>=17h.
+export function buoiGio(iso?: string | null): PhieuTaoChip | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return null
+  const vn = new Date(d.getTime() + 7 * 3600 * 1000)
+  const hh = vn.getUTCHours()
+  const gio = `${String(hh).padStart(2, '0')}:${String(vn.getUTCMinutes()).padStart(2, '0')}`
+  const tone: PhieuTaoTone = hh < 12 ? 'amber' : hh < 17 ? 'blue' : 'violet'
+  const buoi = hh < 12 ? 'Sáng' : hh < 17 ? 'Chiều' : 'Tối'
+  return { label: `${buoi} · ${gio}`, tone, title: `Lúc ${gio}` }
+}

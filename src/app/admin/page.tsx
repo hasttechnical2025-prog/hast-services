@@ -19,7 +19,7 @@ import NghiPhepDuyet from "@/components/NghiPhepDuyet"
 import BaoGiaEditor, { type BaoGiaRow } from "@/components/BaoGiaEditor"
 import SoTheoDoiPrintButton, { printSoTheoDoiBatch } from "@/components/SoTheoDoiPrint"
 import CollapsibleTools from "@/components/CollapsibleTools"
-import { phieuTaoChip, PHIEU_TAO_TONE } from "@/lib/phieu-tao"
+import { phieuTaoChip, buoiGio, PHIEU_TAO_TONE } from "@/lib/phieu-tao"
 import TroLyAI from "@/components/TroLyAI"
 import { hdbtStatus, loaiHdBadge } from "@/lib/hd-status"
 import { fmtThoiLuong } from "@/lib/thoi-gian"
@@ -68,6 +68,7 @@ type Job = {
   ghi_chu: string
   report?: string
   so_phut_xu_ly?: number | null
+  hoan_thanh_luc?: string | null
   so_lan_cuon?: number | null
   created_at?: string | null
   nguon_nhan?: string | null
@@ -1776,7 +1777,7 @@ export default function AdminDashboard() {
                           {formatDate(job.ngay)}
                           {(() => {
                             const chip = phieuTaoChip(job.created_at, job.ngay, job.so_lan_cuon)
-                            return chip ? <div className={`mt-0.5 block w-fit text-[10px] font-medium border rounded px-1.5 py-0.5 ${PHIEU_TAO_TONE[chip.tone]}`} title={chip.title}>{chip.label}</div> : null
+                            return chip ? <div className={`mt-0.5 block w-fit text-[9px] leading-tight font-medium border rounded px-1 py-px ${PHIEU_TAO_TONE[chip.tone]}`} title={chip.title}>{chip.label}</div> : null
                           })()}
                         </td>}
                         {jobsCol.show('khach') && <td className="px-4 py-3">
@@ -1846,6 +1847,10 @@ export default function AdminDashboard() {
                             {job.nguon_nhan === 'giao' && <span title="Giao trực tiếp cho KTV" className="inline-flex text-indigo-500"><Send className="w-3.5 h-3.5" /></span>}
                             {job.nguon_nhan === 'tu_nhan' && <span title="KTV tự nhận trên app" className="inline-flex text-emerald-500"><Hand className="w-3.5 h-3.5" /></span>}
                           </div>
+                          {job.ket_qua === 'Hoàn thành' && (() => {
+                            const chip = buoiGio(job.hoan_thanh_luc)
+                            return chip ? <div className={`mt-0.5 block w-fit text-[9px] leading-tight font-medium border rounded px-1 py-px ${PHIEU_TAO_TONE[chip.tone]}`} title={`Hoàn thành ${chip.title}`}>{chip.label}</div> : null
+                          })()}
                         </td>}
                         {jobsCol.show('thaotac') && <td className="px-4 py-3 text-right whitespace-nowrap">
                           {(job.soct_chi_tiet_vat_tu || []).length > 0 && (
