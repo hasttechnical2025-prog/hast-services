@@ -1777,7 +1777,7 @@ export default function AdminDashboard() {
                           {formatDate(job.ngay)}
                           {(() => {
                             const chip = phieuTaoChip(job.created_at, job.ngay, job.so_lan_cuon)
-                            return chip ? <div className={`mt-0.5 block w-fit text-[9px] leading-tight font-medium border rounded px-1 py-px ${PHIEU_TAO_TONE[chip.tone]}`} title={chip.title}>{chip.label}</div> : null
+                            return chip ? <div className={`mt-0.5 block w-fit text-[8px] leading-tight font-medium border rounded px-1 py-px ${PHIEU_TAO_TONE[chip.tone]}`} title={chip.title}>{chip.label}</div> : null
                           })()}
                         </td>}
                         {jobsCol.show('khach') && <td className="px-4 py-3">
@@ -1833,24 +1833,26 @@ export default function AdminDashboard() {
                           })()}
                         </td>}
                         {jobsCol.show('trang_thai') && <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="flex items-center gap-1.5">
-                            <span className={`inline-block whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-medium border
-                              ${job.ket_qua === 'Hoàn thành' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                job.ket_qua === 'Đang làm' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                job.ket_qua === 'Chưa hoàn thành' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                job.ket_qua === 'Đã nhận' ? 'bg-violet-50 text-violet-700 border-violet-200' :
-                                'bg-slate-100 text-slate-700 border-slate-200'}`}
-                            >
-                              {job.ket_qua}
-                            </span>
+                          <div className="flex items-start gap-1.5">
+                            <div className="inline-flex flex-col items-center gap-0.5">
+                              <span className={`inline-block whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-medium border
+                                ${job.ket_qua === 'Hoàn thành' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                  job.ket_qua === 'Đang làm' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                  job.ket_qua === 'Chưa hoàn thành' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                  job.ket_qua === 'Đã nhận' ? 'bg-violet-50 text-violet-700 border-violet-200' :
+                                  'bg-slate-100 text-slate-700 border-slate-200'}`}
+                              >
+                                {job.ket_qua}
+                              </span>
+                              {job.ket_qua === 'Hoàn thành' && (() => {
+                                const chip = buoiGio(job.hoan_thanh_luc)
+                                return chip ? <span className={`text-[8px] leading-tight font-medium border rounded px-1 py-px ${PHIEU_TAO_TONE[chip.tone]}`} title={`Hoàn thành ${chip.title}`}>{chip.label}</span> : null
+                              })()}
+                            </div>
                             {/* Nguồn nhận: máy bay giấy xanh = giao trực tiếp; bàn tay xanh lá = KTV tự nhận */}
-                            {job.nguon_nhan === 'giao' && <span title="Giao trực tiếp cho KTV" className="inline-flex text-indigo-500"><Send className="w-3.5 h-3.5" /></span>}
-                            {job.nguon_nhan === 'tu_nhan' && <span title="KTV tự nhận trên app" className="inline-flex text-emerald-500"><Hand className="w-3.5 h-3.5" /></span>}
+                            {job.nguon_nhan === 'giao' && <span title="Giao trực tiếp cho KTV" className="inline-flex text-indigo-500 mt-1"><Send className="w-3.5 h-3.5" /></span>}
+                            {job.nguon_nhan === 'tu_nhan' && <span title="KTV tự nhận trên app" className="inline-flex text-emerald-500 mt-1"><Hand className="w-3.5 h-3.5" /></span>}
                           </div>
-                          {job.ket_qua === 'Hoàn thành' && (() => {
-                            const chip = buoiGio(job.hoan_thanh_luc)
-                            return chip ? <div className={`mt-0.5 block w-fit text-[9px] leading-tight font-medium border rounded px-1 py-px ${PHIEU_TAO_TONE[chip.tone]}`} title={`Hoàn thành ${chip.title}`}>{chip.label}</div> : null
-                          })()}
                         </td>}
                         {jobsCol.show('thaotac') && <td className="px-4 py-3 text-right whitespace-nowrap">
                           {(job.soct_chi_tiet_vat_tu || []).length > 0 && (
