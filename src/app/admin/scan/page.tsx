@@ -340,7 +340,10 @@ export default function AdminBatchScanQR() {
                 Chưa có mã máy nào được quét.
               </div>
             ) : (
-              scannedItems.map((item, index) => {
+              scannedItems.map((_it, revIndex) => {
+                // Hiển thị NGƯỢC: mã vừa quét lên đầu (đỡ trôi khỏi khung camera, dễ soi khách vừa hiện).
+                const index = scannedItems.length - 1 - revIndex
+                const item = scannedItems[index]
                 const st = item.status
                 const barColor = st === 'ok' ? 'bg-emerald-500' : st === 'khac_hd' ? 'bg-amber-500' : st === 'checking' ? 'bg-slate-300' : 'bg-red-500'
                 return (
