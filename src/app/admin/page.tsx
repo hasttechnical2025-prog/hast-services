@@ -19,6 +19,7 @@ import NghiPhepDuyet from "@/components/NghiPhepDuyet"
 import BaoGiaEditor, { type BaoGiaRow } from "@/components/BaoGiaEditor"
 import SoTheoDoiPrintButton, { printSoTheoDoiBatch } from "@/components/SoTheoDoiPrint"
 import CollapsibleTools from "@/components/CollapsibleTools"
+import { phieuTaoChip, PHIEU_TAO_TONE } from "@/lib/phieu-tao"
 import TroLyAI from "@/components/TroLyAI"
 import { hdbtStatus, loaiHdBadge } from "@/lib/hd-status"
 import { fmtThoiLuong } from "@/lib/thoi-gian"
@@ -68,6 +69,7 @@ type Job = {
   report?: string
   so_phut_xu_ly?: number | null
   so_lan_cuon?: number | null
+  created_at?: string | null
   nguon_nhan?: string | null
   mien_phi?: boolean
   bbbg_luc?: string | null
@@ -1772,9 +1774,10 @@ export default function AdminDashboard() {
                       <tr key={job.id} className="hover:bg-slate-50/80 transition">
                         {jobsCol.show('ngay') && <td className="px-4 py-3 whitespace-nowrap">
                           {formatDate(job.ngay)}
-                          {(job.so_lan_cuon || 0) >= 5 && (
-                            <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-200 rounded px-1.5 py-0.5" title={`Phiếu tự cuốn ngày ${job.so_lan_cuon} lần — chưa thực hiện, có thể bị bỏ quên`}>⚠ tồn {job.so_lan_cuon} ngày</div>
-                          )}
+                          {(() => {
+                            const chip = phieuTaoChip(job.created_at, job.ngay, job.so_lan_cuon)
+                            return chip ? <div className={`mt-0.5 block w-fit text-[10px] font-medium border rounded px-1.5 py-0.5 ${PHIEU_TAO_TONE[chip.tone]}`} title={chip.title}>{chip.label}</div> : null
+                          })()}
                         </td>}
                         {jobsCol.show('khach') && <td className="px-4 py-3">
                           <div className="font-medium text-slate-800">{job.soct_khach_hang?.ten_khach_hang}</div>

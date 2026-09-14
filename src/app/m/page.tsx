@@ -10,6 +10,7 @@ import LamTiepBanner from "@/components/LamTiepBanner"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
 import { LEAVE_TOPIC, LEAVE_EVENT } from "@/lib/realtime"
 import { fmtThoiLuong } from "@/lib/thoi-gian"
+import { phieuTaoChip, PHIEU_TAO_TONE } from "@/lib/phieu-tao"
 
 const JOBS_TOPIC = "soct_jobs"
 const JOBS_EVENT = "changed"
@@ -319,6 +320,10 @@ function ViecHomNay() {
                       ? <span className="text-slate-500">KTV: <span className="font-medium text-slate-700">{j.soct_users?.full_name || '—'}</span>{j.ktv2?.full_name ? ` + ${j.ktv2.full_name}` : ''}</span>
                       : <span className="text-amber-600 font-medium">Chưa ai nhận</span>}
                   </div>
+                  {(() => {
+                    const chip = phieuTaoChip(j.created_at, j.ngay, j.so_lan_cuon)
+                    return chip ? <div className={`mt-1 inline-block text-[10px] font-medium border rounded px-1.5 py-0.5 ${PHIEU_TAO_TONE[chip.tone]}`} title={chip.title}>{chip.label}</div> : null
+                  })()}
                 </button>
               )
             })}
@@ -340,7 +345,13 @@ function JobDetailSheet({ job, onClose }: { job: any, onClose: () => void }) {
         <div className="flex items-start justify-between gap-2">
           <div>
             <div className="font-bold text-slate-800">{job.soct_khach_hang?.ten_khach_hang || '(Không rõ khách)'}</div>
-            <div className="text-xs text-slate-400 mt-0.5">{fmtDate(job.ngay)}</div>
+            <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5">
+              {fmtDate(job.ngay)}
+              {(() => {
+                const chip = phieuTaoChip(job.created_at, job.ngay, job.so_lan_cuon)
+                return chip ? <span className={`text-[10px] font-medium border rounded px-1.5 py-0.5 ${PHIEU_TAO_TONE[chip.tone]}`} title={chip.title}>{chip.label}</span> : null
+              })()}
+            </div>
           </div>
           <button onClick={onClose} className="text-slate-400 p-1"><X className="w-5 h-5" /></button>
         </div>
