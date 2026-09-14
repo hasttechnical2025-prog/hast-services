@@ -12,7 +12,10 @@ type Customer = {
   ten_khach_hang: string
   dia_chi: string
   model: string | null
+  loai_hd?: string | null
 }
+// Trạng thái tra 1 mã quét: đang kiểm tra / có & còn HĐ bảo trì / có nhưng hết HĐ / không có / lỗi.
+type ScanStatus = 'checking' | 'ok' | 'khac_hd' | 'khong_co' | 'loi'
 
 export default function AdminBatchScanQR() {
   const [currentAdmin, setCurrentAdmin] = useState<any>(null)
@@ -22,11 +25,10 @@ export default function AdminBatchScanQR() {
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null)
 
   const [technicians, setTechnicians] = useState<any[]>([])
-  const [customers, setCustomers] = useState<Customer[]>([])
   const [selectedKtvId, setSelectedKtvId] = useState<string>("")
 
-  // Danh sách các mã máy đã quét thành công (Giỏ hàng)
-  const [scannedItems, setScannedItems] = useState<{ ma_may: string, customer: Customer | null }[]>([])
+  // Danh sách các mã máy đã quét (mỗi mã tra SỐNG trên server, không so với snapshot cũ).
+  const [scannedItems, setScannedItems] = useState<{ ma_may: string, customer: Customer | null, status: ScanStatus }[]>([])
   const [isScanning, setIsScanning] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -64,17 +66,11 @@ export default function AdminBatchScanQR() {
 
   const fetchInitialData = async () => {
     try {
-      const [usersRes, custRes] = await Promise.all([
-        fetch('/api/admin/users?ktv=true'),
-        fetch('/api/admin/khach-hang')
-      ])
+      // Chỉ cần danh sách KTV; mã máy được tra SỐNG khi quét (không tải trước danh sách khách -> không lệch).
+      const usersRes = await fetch('/api/admin/users?ktv=true')
       if (usersRes.ok) {
         const u = await usersRes.json()
         setTechnicians(u.data || [])
-      }
-      if (custRes.ok) {
-        const c = await custRes.json()
-        setCustomers(c.data || [])
       }
     } catch {
       showNotification('error', "Không tải được dữ liệu hệ thống")
@@ -159,11 +155,19 @@ export default function AdminBatchScanQR() {
             const normStr = (s: string) => (s || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
             const maMayQuetNorm = normStr(maMayQuetClean)
 
+            // Thêm ngay ở trạng thái "đang kiểm tra" rồi tra SỐNG trên server (lọc HĐBT/MF).
             setScannedItems(prev => {
               if (prev.some(item => normStr(item.ma_may) === maMayQuetNorm)) return prev
-              const cust = customers.find(c => c.ma_may && normStr(c.ma_may) === maMayQuetNorm) || null
-              return [...prev, { ma_may: maMayQuetClean, customer: cust }]
+              return [...prev, { ma_may: maMayQuetClean, customer: null, status: 'checking' }]
             })
+            fetch(`/api/admin/scan-lookup?ma_may=${encodeURIComponent(maMayQuetClean)}`)
+              .then(r => r.json())
+              .then(j => setScannedItems(prev => prev.map(item =>
+                normStr(item.ma_may) === maMayQuetNorm
+                  ? { ...item, customer: j.customer || null, status: (j.status as ScanStatus) || 'khong_co' }
+                  : item)))
+              .catch(() => setScannedItems(prev => prev.map(item =>
+                normStr(item.ma_may) === maMayQuetNorm ? { ...item, status: 'loi' as ScanStatus } : item)))
           },
           (errorMessage: string) => {
             // silent errors
@@ -187,7 +191,7 @@ export default function AdminBatchScanQR() {
         } catch (e) {}
       }
     }
-  }, [currentAdmin, isScanning, customers])
+  }, [currentAdmin, isScanning])
 
   const handleDeleteItem = (ma_may: string) => {
     setScannedItems(prev => prev.filter(i => i.ma_may !== ma_may))
@@ -197,6 +201,11 @@ export default function AdminBatchScanQR() {
     if (!selectedKtvId) return showNotification('error', 'Vui lòng chọn Kỹ thuật viên đi bảo trì!')
     if (scannedItems.length === 0) return showNotification('error', 'Danh sách sổ rỗng!')
 
+    // Chỉ giao mã HỢP LỆ (còn HĐ bảo trì). Bỏ qua mã lạ / hết HĐ / đang kiểm tra.
+    const okItems = scannedItems.filter(i => i.status === 'ok')
+    if (okItems.length === 0) return showNotification('error', 'Không có mã máy hợp lệ (còn HĐ bảo trì) để giao.')
+    const boQua = scannedItems.length - okItems.length
+
     setSubmitting(true)
     try {
       const res = await fetch('/api/admin/cong-viec/bulk-scan', {
@@ -204,12 +213,12 @@ export default function AdminBatchScanQR() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ktv_id: selectedKtvId,
-          ma_mays: scannedItems.map(i => i.ma_may)
+          ma_mays: okItems.map(i => i.ma_may)
         })
       })
 
       if (res.ok) {
-        showNotification('success', `Đã tạo và giao thành công ${scannedItems.length} phiếu bảo trì!`)
+        showNotification('success', `Đã tạo và giao ${okItems.length} phiếu bảo trì!${boQua > 0 ? ` (bỏ qua ${boQua} mã không hợp lệ)` : ''}`)
         setScannedItems([]) // Xóa trắng giỏ hàng
         setIsScanning(false) // Tắt camera
       } else {
@@ -331,27 +340,38 @@ export default function AdminBatchScanQR() {
                 Chưa có mã máy nào được quét.
               </div>
             ) : (
-              scannedItems.map((item, index) => (
+              scannedItems.map((item, index) => {
+                const st = item.status
+                const barColor = st === 'ok' ? 'bg-emerald-500' : st === 'khac_hd' ? 'bg-amber-500' : st === 'checking' ? 'bg-slate-300' : 'bg-red-500'
+                return (
                 <div key={item.ma_may} className="flex gap-2 items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-100 shadow-sm relative overflow-hidden">
-                  {!item.customer && (
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
-                  )}
+                  <div className={`absolute left-0 top-0 bottom-0 w-1 ${barColor}`}></div>
                   <div className="flex-1 min-w-0 pl-1">
                     <div className="font-mono font-bold text-sm text-slate-800 flex items-center gap-1.5">
                       {index + 1}. {item.ma_may}
-                      {!item.customer && <span className="text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded uppercase border border-red-200">Mã Lạ</span>}
+                      {st === 'checking' && <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase border border-slate-200">Đang kiểm tra…</span>}
+                      {st === 'khong_co' && <span className="text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded uppercase border border-red-200">Mã lạ</span>}
+                      {st === 'khac_hd' && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase border border-amber-200">Hết HĐ bảo trì</span>}
+                      {st === 'loi' && <span className="text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded uppercase border border-red-200">Lỗi</span>}
                     </div>
-                    {item.customer ? (
+                    {st === 'ok' && item.customer && (
                       <div className="text-[11px] text-slate-500 leading-snug truncate">
                         {item.customer.ten_khach_hang} ({item.customer.model || '—'})
                       </div>
-                    ) : (
-                      <div className="text-[10px] text-red-500 leading-snug space-y-0.5">
-                        <div>Chưa có thông tin khách hàng trong hệ thống!</div>
-                        <div className="text-[9px] text-slate-400 font-mono">
-                          Mã: &quot;{item.ma_may}&quot; ({item.ma_may.length} ký tự) · DB: {customers.length} khách
-                        </div>
+                    )}
+                    {st === 'khac_hd' && (
+                      <div className="text-[10px] text-amber-600 leading-snug">
+                        {item.customer?.ten_khach_hang ? `${item.customer.ten_khach_hang} — ` : ''}Máy không còn hợp đồng bảo trì → sẽ KHÔNG tạo phiếu.
                       </div>
+                    )}
+                    {st === 'khong_co' && (
+                      <div className="text-[10px] text-red-500 leading-snug">Không tìm thấy mã máy trong hệ thống → sẽ không tạo phiếu.</div>
+                    )}
+                    {st === 'checking' && (
+                      <div className="text-[10px] text-slate-400 leading-snug">Đang tra thông tin máy…</div>
+                    )}
+                    {st === 'loi' && (
+                      <div className="text-[10px] text-red-500 leading-snug">Lỗi kiểm tra — xóa và quét lại.</div>
                     )}
                   </div>
                   <button
@@ -361,7 +381,8 @@ export default function AdminBatchScanQR() {
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
-              ))
+                )
+              })
             )}
           </div>
         </div>
@@ -372,14 +393,22 @@ export default function AdminBatchScanQR() {
       {scannedItems.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-200 shadow-[0_-4px_15px_-3px_rgba(0,0,0,0.1)] z-40">
           <div className="max-w-md mx-auto">
-            <Button
-              onClick={handleSubmitBatch}
-              disabled={submitting || !selectedKtvId}
-              className={`w-full h-12 font-bold text-base shadow-sm transition rounded-xl text-white ${!selectedKtvId ? 'bg-slate-300' : 'bg-emerald-600 hover:bg-emerald-700'}`}
-            >
-              {submitting ? 'Đang tạo phiếu...' : `🚀 Tạo & Giao ${scannedItems.length} phiếu bảo trì`}
-            </Button>
-            {!selectedKtvId && <p className="text-[10px] text-center text-red-500 mt-1.5 font-medium">Vui lòng chọn KTV ở Bước 1 trước khi giao việc.</p>}
+            {(() => {
+              const okCount = scannedItems.filter(i => i.status === 'ok').length
+              const boQua = scannedItems.length - okCount
+              return (<>
+                <Button
+                  onClick={handleSubmitBatch}
+                  disabled={submitting || !selectedKtvId || okCount === 0}
+                  className={`w-full h-12 font-bold text-base shadow-sm transition rounded-xl text-white ${(!selectedKtvId || okCount === 0) ? 'bg-slate-300' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                >
+                  {submitting ? 'Đang tạo phiếu...' : `🚀 Tạo & Giao ${okCount} phiếu bảo trì`}
+                </Button>
+                {!selectedKtvId && <p className="text-[10px] text-center text-red-500 mt-1.5 font-medium">Vui lòng chọn KTV ở Bước 1 trước khi giao việc.</p>}
+                {selectedKtvId && okCount === 0 && <p className="text-[10px] text-center text-red-500 mt-1.5 font-medium">Chưa có mã máy hợp lệ (còn HĐ bảo trì) để giao.</p>}
+                {selectedKtvId && okCount > 0 && boQua > 0 && <p className="text-[10px] text-center text-amber-600 mt-1.5 font-medium">{boQua} mã không hợp lệ sẽ bị bỏ qua.</p>}
+              </>)
+            })()}
           </div>
         </div>
       )}

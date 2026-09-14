@@ -4,6 +4,7 @@ import { requireRole } from '@/lib/session'
 import { broadcastJobsChanged } from '@/lib/realtime'
 import { sendTelegramMessage } from '@/lib/telegram'
 import { logAudit } from '@/lib/audit'
+import { LOAI_HD_BAO_TRI } from '@/lib/bao-tri'
 
 // Escape HTML để dữ liệu người dùng không phá parse_mode='HTML' của Telegram
 function esc(s: any): string {
@@ -34,16 +35,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Không tìm thấy KTV phụ trách' }, { status: 404 })
     }
 
-    // 2. Tải toàn bộ danh sách khách hàng để VLookup mã máy
+    // 2. Tra ĐÚNG các mã máy quét được (dùng .in -> không dính cap 1000 dòng của PostgREST),
+    //    và CHỈ nhận máy còn HĐ bảo trì (HĐBT/MF) — quét Sổ bảo trì chỉ tạo phiếu cho máy có HĐ.
+    const cleanMas = [...new Set((ma_mays as any[]).map((m) => String(m).trim()).filter(Boolean))]
     const { data: customers, error: custErr } = await supabaseAdmin
       .from('soct_khach_hang')
-      .select('id, ma_may, ten_khach_hang, dia_chi, km_mac_dinh')
+      .select('id, ma_may, ten_khach_hang, dia_chi, km_mac_dinh, loai_hd')
+      .in('ma_may', cleanMas)
 
     if (custErr) throw custErr
 
     const custByMaMay = new Map(
       (customers || [])
-        .filter(c => c.ma_may)
+        .filter(c => c.ma_may && LOAI_HD_BAO_TRI.includes(String(c.loai_hd || '').trim()))
         .map(c => [String(c.ma_may).trim().toLowerCase(), c])
     )
 
