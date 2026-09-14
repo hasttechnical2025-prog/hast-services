@@ -126,8 +126,7 @@ export default function AdminBatchScanQR() {
           {
             fps: 10,
             qrbox: (width: number, height: number) => {
-              // Ô quét chiếm gần hết khung camera -> thu hẹp vùng mờ xung quanh.
-              const size = Math.min(width, height) * 0.9
+              const size = Math.min(width, height) * 0.7
               return { width: size, height: size }
             }
           },
