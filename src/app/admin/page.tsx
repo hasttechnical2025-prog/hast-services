@@ -4805,6 +4805,7 @@ function NhapHangThangTool({
   const [loading, setLoading] = useState(false)
   const [nhapSortField, setNhapSortField] = useState<string>("thang_nam")
   const [nhapSortAsc, setNhapSortAsc] = useState<boolean>(false) // mặc định tháng mới nhất trước
+  const [q, setQ] = useState("") // tìm theo mã hàng / tên vật tư
 
   const handleNhapSort = (field: string) => {
     if (nhapSortField === field) {
@@ -4837,6 +4838,16 @@ function NhapHangThangTool({
     })
     return list
   }, [rows, nhapSortField, nhapSortAsc])
+
+  // Lọc theo mã hàng / tên vật tư (không phân biệt dấu & hoa thường) — office tra để cân đối đặt hàng.
+  const filteredRows = useMemo(() => {
+    const kw = q.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd')
+    if (!kw) return sortedRows
+    return sortedRows.filter(r => {
+      const hay = `${r.ma_hang || ''} ${r.soct_kho_hang?.ten_hang || ''}`.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd')
+      return hay.includes(kw)
+    })
+  }, [sortedRows, q])
 
   const fetchRows = async () => {
     setLoading(true)
@@ -5226,12 +5237,19 @@ function NhapHangThangTool({
             <Boxes className="w-5 h-5 text-blue-600 shrink-0" />
             <div>
               <h3 className="text-sm font-bold text-slate-800">
-                Thống kê nhập hàng theo tháng {sortedRows.length > 0 && <span className="text-slate-500 font-normal">({sortedRows.length} lượt nhập{thang ? ` · Tháng ${thang.split('-').reverse().join('/')}` : ''})</span>}
+                Thống kê nhập hàng theo tháng {rows.length > 0 && <span className="text-slate-500 font-normal">({q.trim() ? `${filteredRows.length}/${rows.length}` : rows.length} lượt nhập{thang ? ` · Tháng ${thang.split('-').reverse().join('/')}` : ''})</span>}
               </h3>
               <p className="text-[11px] text-slate-500">Tổng hợp chi tiết số lượng vật tư, linh kiện đã nhập kho theo từng tháng.</p>
             </div>
           </div>
           <div className="flex items-end gap-2 flex-wrap">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">Tìm mã hàng / tên vật tư</label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input value={q} onChange={e => setQ(e.target.value)} placeholder="VD: TN326, trống lấy ảnh..." className="pl-8 h-9 text-xs w-56 bg-white" />
+              </div>
+            </div>
             <div className="space-y-1">
               <label className="text-xs font-semibold text-slate-600">Lọc theo tháng (để trống = tất cả)</label>
               <MonthField value={thang} onChange={setThang} className="h-9 px-3 text-xs w-44" />
@@ -5305,9 +5323,9 @@ function NhapHangThangTool({
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Đang tải...</td></tr>
-              ) : sortedRows.length === 0 ? (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Chưa có dữ liệu nhập.</td></tr>
-              ) : sortedRows.map(r => (
+              ) : filteredRows.length === 0 ? (
+                <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">{q.trim() ? `Không có mặt hàng khớp "${q.trim()}".` : 'Chưa có dữ liệu nhập.'}</td></tr>
+              ) : filteredRows.map(r => (
                 <tr key={r.id} className="hover:bg-slate-50">
                   <td className="px-4 py-2.5 font-mono text-xs">{r.thang_nam.split('-').reverse().join('/')}</td>
                   <td className="px-4 py-2.5 font-mono font-medium text-slate-700">{r.ma_hang}</td>
