@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Deck/pptx build artifacts (local only, không thuộc app)
+*.pptx
+/scripts/pptx-assets/
+/scripts/build-deck.js
+/scripts/build-leaflet-deck.js
+/scripts/make-deck-assets.js
+/scripts/make-deck-assets-2.js
+/scripts/make-leaflet-assets.js
