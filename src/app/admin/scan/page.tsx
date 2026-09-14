@@ -126,7 +126,8 @@ export default function AdminBatchScanQR() {
           {
             fps: 10,
             qrbox: (width: number, height: number) => {
-              const size = Math.min(width, height) * 0.7
+              // Ô quét chiếm gần hết khung camera -> thu hẹp vùng mờ xung quanh.
+              const size = Math.min(width, height) * 0.9
               return { width: size, height: size }
             }
           },
@@ -318,7 +319,7 @@ export default function AdminBatchScanQR() {
           </div>
 
           {isScanning && (
-            <div className="rounded-lg overflow-hidden border border-slate-200 bg-black aspect-[4/3] flex items-center justify-center">
+            <div className="rounded-lg overflow-hidden border border-slate-200 bg-black aspect-square flex items-center justify-center">
               <div id="qr-reader" className="w-full h-full" style={{ width: "100%", border: "none" }}></div>
             </div>
           )}
