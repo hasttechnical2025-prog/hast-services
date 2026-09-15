@@ -1692,10 +1692,10 @@ export default function AdminDashboard() {
           return (
             <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs">
               <Clock className="w-4 h-4 text-blue-600 shrink-0" />
-              <span className="text-blue-800"><b>{futureJobs.length}</b> phiếu đặt trước cho ngày tới (gần nhất <b>{formatDate(ganNhat)}</b>) — cả phòng cùng nắm để sắp xếp.</span>
+              <span className="text-blue-800"><b>{futureJobs.length}</b> phiếu đặt trước cho ngày tới (gần nhất <b>{formatDate(ganNhat)}</b>)</span>
               {daXem
                 ? <button onClick={() => setJobFilters(f => ({ ...f, tuNgay: todayStr, denNgay: todayStr }))} className="ml-auto shrink-0 font-semibold text-slate-500 hover:underline">← Về hôm nay</button>
-                : <button onClick={() => setJobFilters(f => ({ ...f, tuNgay: tomorrowStr, denNgay: '' }))} className="ml-auto shrink-0 font-semibold text-blue-700 hover:underline">Xem &amp; sắp xếp →</button>}
+                : <button onClick={() => setJobFilters(f => ({ ...f, tuNgay: tomorrowStr, denNgay: '' }))} className="ml-auto shrink-0 font-semibold text-blue-700 hover:underline">Xem →</button>}
             </div>
           )
         })()}
