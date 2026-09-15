@@ -619,11 +619,11 @@ export async function PUT(request: Request) {
         { id_khach_hang, ngay: ngay || new Date().toISOString().split('T')[0], ma_may, loai_cong_viec, ghi_chu, report: reportNorm || null, ktv_id: ktv_id || null, ktv2_id: ktv2_id || null },
         cur.ktv_id || null, cur.ktv2_id || null, session.full_name
       )
-      // Đồng bộ tin group: gán KTV -> "ĐÃ CÓ NGƯỜI NHẬN"; bỏ gán -> quay lại "CHỜ NHẬN".
-      // CHỈ khi PHÂN CÔNG KTV thực sự đổi — nếu không, sửa phiếu (đổi ghi chú/vật tư...) mà tin group
-      // không có telegram_message_id sẽ bị bắn TIN MỚI trùng lặp. Sửa thường (KTV không đổi) -> bỏ qua.
-      const ktvChanged = (ktv_id || null) !== (cur.ktv_id || null) || (ktv2_id || null) !== (cur.ktv2_id || null)
-      if (preWork && ktvChanged) await syncGroupJobMessage(id)
+      // Đồng bộ tin group (phiếu tiền-xử lý): cập nhật NỘI DUNG (loại việc/khách/ghi chú/model...)
+      // + trạng thái phân công lên tin "CHỜ NHẬN"/"ĐÃ CÓ NGƯỜI NHẬN". syncGroupJobMessage SỬA TIN
+      // TẠI CHỖ khi phiếu có telegram_message_id -> KHÔNG đẻ tin mới. Phiếu Đã-nhận không có tin
+      // group riêng (giao thẳng KTV / tạo hàng loạt) tự bỏ qua (hàm chỉ đăng mới cho phiếu Chờ nhận).
+      if (preWork) await syncGroupJobMessage(id)
 
       await broadcastJobsChanged()
       await logAudit(session, 'Sửa công việc', `id ${id}${ma_may ? ` — máy ${ma_may}` : ''}`)

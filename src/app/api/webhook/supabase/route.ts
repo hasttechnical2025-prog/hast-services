@@ -156,14 +156,18 @@ export async function POST(request: Request) {
       await sendTelegramMessage(ktv2Tg, msg)
     }
 
-    // Gửi Group chung
+    // Gửi Group chung — LƯU message_id vào phiếu để về sau sửa nội dung/đổi trạng thái
+    // được cập nhật TẠI CHỖ (editMessageText), không đẻ tin mới trùng.
     if (sendToGroup && groupChatId) {
       const msg = buildJobMessage(
         '🆕 <b>CÔNG VIỆC MỚI — CHỜ NHẬN</b>',
         record, khachHang, appUrl,
         undefined, creatorName, assigneeText
       )
-      await sendTelegramMessage(groupChatId, msg)
+      const res = await sendTelegramMessage(groupChatId, msg)
+      if (res.success && res.messageId) {
+        await supabaseAdmin.from('soct_cong_viec').update({ telegram_message_id: res.messageId }).eq('id', record.id)
+      }
     }
 
     return NextResponse.json({ success: true })
