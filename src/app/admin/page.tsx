@@ -281,6 +281,7 @@ export default function AdminDashboard() {
   // Số phiếu cứng chưa hoàn (badge nhắc ở tab con Hoàn phiếu)
   const [phieuChuaHoan, setPhieuChuaHoan] = useState(0)
   const [unfinishedPastJobs, setUnfinishedPastJobs] = useState<Job[]>([])
+  const [futureJobs, setFutureJobs] = useState<Job[]>([]) // phiếu đặt trước cho ngày tương lai (ngay > hôm nay)
   const [cauHinh, setCauHinh] = useState<Record<string, string>>({})
   const [kanbanCounts, setKanbanCounts] = useState<{ col1: number, col2: number, col1_phieu: number, col2_phieu: number }>({ col1: 0, col2: 0, col1_phieu: 0, col2_phieu: 0 })
   // Đo chiều cao header (tab cha sticky) -> đặt CSS var --head-h để thanh tab con sticky ngay dưới.
@@ -686,7 +687,10 @@ export default function AdminDashboard() {
     if (!silent) setLoading(true)
     try {
       const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0]
-      const [jobsRes, customersRes, usersRes, inventoryRes, danhMucRes, cauHinhRes, dangGiuRes, unfinishedRes] = await Promise.all([
+      // "Ngày mai" theo giờ VN -> lọc phiếu đặt trước cho tương lai (ngay >= ngày mai).
+      const todayVNStr = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
+      const tomorrowVNStr = new Date(Date.parse(todayVNStr + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10)
+      const [jobsRes, customersRes, usersRes, inventoryRes, danhMucRes, cauHinhRes, dangGiuRes, unfinishedRes, futureRes] = await Promise.all([
         fetch(buildJobsUrl()),
         fetch('/api/admin/khach-hang'),
         fetch('/api/admin/users'),
@@ -694,7 +698,8 @@ export default function AdminDashboard() {
         fetch('/api/admin/danh-muc'),
         fetch('/api/admin/cau-hinh'),
         fetch('/api/admin/kho-hang/dang-giu'),
-        fetch(`/api/admin/cong-viec?denNgay=${yesterdayStr}&ket_qua=Chờ nhận,Đã nhận,Đang làm,Chưa hoàn thành`)
+        fetch(`/api/admin/cong-viec?denNgay=${yesterdayStr}&ket_qua=Chờ nhận,Đã nhận,Đang làm,Chưa hoàn thành`),
+        fetch(`/api/admin/cong-viec?tuNgay=${tomorrowVNStr}&ket_qua=Chờ nhận,Đã nhận,Đang làm,Chưa hoàn thành`)
       ])
 
       // Phiên hết hạn hoặc bị thu hồi -> quay về màn hình đăng nhập
@@ -712,6 +717,7 @@ export default function AdminDashboard() {
       const cauHinhData = await cauHinhRes.json()
       const dangGiuData = await dangGiuRes.json()
       const unfinishedData = await unfinishedRes.json()
+      const futureData = await futureRes.json()
 
       if (jobsData.data) setJobs(jobsData.data)
       if (customersData.data) setCustomers(customersData.data)
@@ -721,6 +727,7 @@ export default function AdminDashboard() {
       if (cauHinhData.data) setCauHinh(cauHinhData.data)
       if (dangGiuData.data) setCommitted(dangGiuData.data)
       if (unfinishedData.data) setUnfinishedPastJobs(unfinishedData.data)
+      if (futureData.data) setFutureJobs(futureData.data)
       if (['admin', 'tech_admin'].includes(currentUserRole)) fetchCanhBaoTon()
     } catch (error) {
       console.error("Error fetching data:", error)
@@ -1445,6 +1452,32 @@ export default function AdminDashboard() {
       ),
     },
     {
+      key: 'future', icon: Clock, tone: 'blue', label: 'Phiếu đặt trước cho ngày tới', count: futureJobs.length,
+      detail: (
+        <div className="space-y-1.5">
+          <div className="border border-blue-100 rounded-lg overflow-hidden">
+            <table className="w-full text-left text-xs text-slate-600">
+              <thead className="bg-blue-50 text-blue-800"><tr><th className="px-2.5 py-1.5 font-medium">Ngày</th><th className="px-2 py-1.5 font-medium">Khách / mã máy</th><th className="px-2 py-1.5 font-medium">Loại · KTV</th></tr></thead>
+              <tbody className="divide-y divide-slate-100">
+                {futureJobs.map((j: any) => (
+                  <tr key={j.id}>
+                    <td className="px-2.5 py-1.5 whitespace-nowrap font-semibold text-blue-700">{formatDate(j.ngay)}</td>
+                    <td className="px-2 py-1.5"><div className="font-medium text-slate-800">{j.soct_khach_hang?.ten_khach_hang || '—'}</div><div className="text-[10px] text-slate-400 font-mono">{j.ma_may || '—'}</div></td>
+                    <td className="px-2 py-1.5 text-[10px]">{j.loai_cong_viec || '—'} · {j.soct_users?.full_name || <span className="text-amber-600">Chưa giao</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <button
+            onClick={() => { const t = new Date(Date.parse(new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10) + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10); setActiveTab('cong_viec'); setJobFilters(f => ({ ...f, tuNgay: t, denNgay: '' })) }}
+            className="w-full text-center text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-lg py-1.5">
+            → Xem &amp; sắp xếp trong Sổ công tác
+          </button>
+        </div>
+      ),
+    },
+    {
       key: 'kanban_c1', icon: ClipboardList, tone: 'amber', label: 'Thẻ chờ lên hóa đơn (Kanban Cột 1)', count: kanbanCounts.col1,
       detail: (
         <div className="text-xs text-slate-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 leading-relaxed">
@@ -1649,6 +1682,23 @@ export default function AdminDashboard() {
         {activeTab === "cong_viec" && effectiveCongTacTab === "giao_viec" && (
           <LamTiepBanner showNotification={showNotification} onCreated={fetchData} />
         )}
+
+        {/* Banner phiếu đặt trước cho ngày tới — cả phòng cùng nắm, tránh quên; bấm Xem để lọc + sắp xếp */}
+        {activeTab === "cong_viec" && effectiveCongTacTab === "giao_viec" && futureJobs.length > 0 && (() => {
+          const ganNhat = futureJobs.reduce((m: string, j: any) => (m && m <= j.ngay ? m : j.ngay), futureJobs[0].ngay)
+          const todayStr = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
+          const tomorrowStr = new Date(Date.parse(todayStr + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10)
+          const daXem = jobFilters.tuNgay === tomorrowStr && jobFilters.denNgay === ''
+          return (
+            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs">
+              <Clock className="w-4 h-4 text-blue-600 shrink-0" />
+              <span className="text-blue-800"><b>{futureJobs.length}</b> phiếu đặt trước cho ngày tới (gần nhất <b>{formatDate(ganNhat)}</b>) — cả phòng cùng nắm để sắp xếp.</span>
+              {daXem
+                ? <button onClick={() => setJobFilters(f => ({ ...f, tuNgay: todayStr, denNgay: todayStr }))} className="ml-auto shrink-0 font-semibold text-slate-500 hover:underline">← Về hôm nay</button>
+                : <button onClick={() => setJobFilters(f => ({ ...f, tuNgay: tomorrowStr, denNgay: '' }))} className="ml-auto shrink-0 font-semibold text-blue-700 hover:underline">Xem &amp; sắp xếp →</button>}
+            </div>
+          )
+        })()}
 
         {activeTab === "cong_viec" && effectiveCongTacTab === "giao_viec" && (
           <StatCards items={[
