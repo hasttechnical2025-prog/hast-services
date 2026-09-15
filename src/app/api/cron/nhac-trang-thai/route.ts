@@ -56,7 +56,7 @@ export async function GET(request: Request) {
       .not('ktv_id', 'is', null)
       .range(from, to))
 
-    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://hast-services.vercel.app') + '/ktv'
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://services.hasttech.app') + '/ktv'
     const nudgedIds: string[] = []
     let sent = 0
 

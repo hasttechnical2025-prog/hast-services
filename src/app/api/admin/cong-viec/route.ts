@@ -50,7 +50,7 @@ function khDiaChi(kh: any): string {
   return kh?.vi_tri_dat_may || kh?.dia_chi || 'Không rõ'
 }
 function buildJobMsg(job: any, kh: any, heading: string, extraLine: string | null, assignee: string | null, creatorName?: string): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://hast-services.vercel.app'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://services.hasttech.app'
   return [
     heading, extraLine, assignee,
     `🗓 <b>Ngày thực hiện:</b> ${fmtDate(job.ngay)}`,
@@ -213,7 +213,7 @@ async function syncGroupJobMessage(jobId: string): Promise<void> {
     const hasOwner = !!data.ktv_id
     const phuTrach = u1.name && u2.name ? `👥 <b>Phụ trách:</b> ${esc(u1.name)} (chính), ${esc(u2.name)} (kèm)`
       : u1.name ? `👤 <b>Phụ trách:</b> ${esc(u1.name)}` : null
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://hast-services.vercel.app'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://services.hasttech.app'
 
     const msg = [
       hasOwner ? '✅ <b>CÔNG VIỆC ĐÃ CÓ NGƯỜI NHẬN</b>' : '🆕 <b>CÔNG VIỆC MỚI — CHỜ NHẬN</b>',
@@ -747,7 +747,7 @@ export async function PUT(request: Request) {
             `🖨 <b>Mã máy:</b> ${esc(data.ma_may || 'N/A')}`,
             `📝 <b>Ghi chú:</b> ${esc(data.ghi_chu || 'Không')}`,
             creatorName ? `👤 <b>Người tạo phiếu:</b> ${esc(creatorName)}` : null,
-            next_ktv_id === null ? `\n👉 <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://hast-services.vercel.app'}/ktv">Mở App KTV để nhận việc</a>` : null,
+            next_ktv_id === null ? `\n👉 <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://services.hasttech.app'}/ktv">Mở App KTV để nhận việc</a>` : null,
           ].filter(l => l !== null && l !== undefined).join('\n')
 
           await editTelegramMessageText(groupChatId, Number(data.telegram_message_id), updatedMsg)
@@ -757,7 +757,7 @@ export async function PUT(request: Request) {
       // Bắn group: có việc bị hủy (kèm lý do) — để team/văn phòng biết
       const groupChatId = process.env.TELEGRAM_GROUP_CHAT_ID
       if (groupChatId) {
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://techservice.app'
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://services.hasttech.app'
         const kh = (data as any).soct_khach_hang
         const reasonText = reason ? String(reason).trim() : ''
         // Người tạo phiếu (để hiển thị trong tin nhắn)
@@ -803,7 +803,7 @@ export async function PUT(request: Request) {
     // ===== CHUYỂN VIỆC KTV→KTV DẠNG "LỜI MỜI" =====
     // A (đang giữ việc, 'Đã nhận') mời B nhận thay: đặt moi_ktv_id=B; việc VẪN của A tới khi B bấm Nhận.
     const invJobSel = 'id, ktv_id, ktv2_id, ket_qua, ma_may, report, ngay, loai_cong_viec, ghi_chu, moi_ktv_id, moi_boi, soct_khach_hang ( ten_khach_hang, dia_chi, vi_tri_dat_may )'
-    const appUrlKtv = () => (process.env.NEXT_PUBLIC_APP_URL || 'https://hast-services.vercel.app') + '/ktv'
+    const appUrlKtv = () => (process.env.NEXT_PUBLIC_APP_URL || 'https://services.hasttech.app') + '/ktv'
     const buildInviteMsg = (cur: any, fromName: string) => {
       const kh = cur.soct_khach_hang
       return [

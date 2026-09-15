@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     }
 
     // 2. Xây dựng tin nhắn và bắn Telegram
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://techservice.app'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://services.hasttech.app'
     let msg = `🔔 <b>NHẮC NHỞ NỘP BÁO CÁO NHẬT KÝ</b>\n`
     msg += `Các kỹ thuật viên vui lòng hoàn thành báo cáo ngày cho các ngày làm việc còn thiếu:\n\n`
 

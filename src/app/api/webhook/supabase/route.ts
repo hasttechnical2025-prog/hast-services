@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
     }
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://techservice.app'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://services.hasttech.app'
     const groupChatId = process.env.TELEGRAM_GROUP_CHAT_ID
 
     const ktvId = record.ktv_id

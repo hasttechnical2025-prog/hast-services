@@ -244,7 +244,7 @@ export async function POST(request: Request) {
         grouped[date].push(job)
       })
 
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://techservice.app'
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://services.hasttech.app'
       let replyText = `📅 <b>KẾ HOẠCH CÔNG VIỆC TƯƠNG LAI (7 ngày tới)</b>\n\n`
 
       const sortedDates = Object.keys(grouped).sort()

@@ -95,7 +95,7 @@ export async function POST(request: Request) {
 
     // 5. Bắn 1 tin nhắn Telegram duy nhất thông báo giao việc hàng loạt cho KTV
     const groupChatId = process.env.TELEGRAM_GROUP_CHAT_ID
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://techservice.app'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://services.hasttech.app'
 
     if (groupChatId) {
       let msg = `🔔 <b>CÔNG VIỆC BẢO TRÌ ĐƯỢC GIAO HÀNG LOẠT</b>\n`
