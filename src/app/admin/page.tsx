@@ -13,6 +13,7 @@ import ThueCpcModule from "@/components/ThueCpcModule"
 import PhiBaoTriModule from "@/components/PhiBaoTriModule"
 import KanbanHdTool from "@/components/KanbanHdTool"
 import KhoMayThueTool from "@/components/KhoMayThueTool"
+import PhieuDeNghiModule from "@/components/PhieuDeNghiModule"
 import LamTiepBanner from "@/components/LamTiepBanner"
 import MonthField from "@/components/MonthField"
 import NghiPhepDuyet from "@/components/NghiPhepDuyet"
@@ -271,7 +272,7 @@ export default function AdminDashboard() {
   // Tab con bên trong "Theo dõi máy"
   const [monitorTab, setMonitorTab] = useState<"bao_tri" | "giam_dinh">("bao_tri")
   // Tab con bên trong "Kho hàng" (tech_admin không thấy Tồn kho -> mặc định Đặt hàng)
-  const [khoTab, setKhoTab] = useState<"ton_kho" | "dat_hang" | "thong_ke" | "may_thue">("ton_kho")
+  const [khoTab, setKhoTab] = useState<"ton_kho" | "dat_hang" | "thong_ke" | "may_thue" | "phieu_de_nghi">("ton_kho")
   // Tab con bên trong "Quản lý"
   const [quanLyTab, setQuanLyTab] = useState<"nhat_ky" | "khach_hang" | "khach_cum" | "bao_cao" | "nghi_phep">("nhat_ky")
   // Tab con bên trong "Sổ công tác" (Giao việc / Hoàn phiếu)
@@ -312,7 +313,7 @@ export default function AdminDashboard() {
   // Nếu tab con đang chọn bị ẩn -> nhảy về tab con hiện đầu tiên
   const firstVisibleSub = (parent: string, subs: string[], current: string) =>
     subVisible(parent, current) ? current : (subs.find(s => subVisible(parent, s)) || current)
-  const effectiveKhoTab = firstVisibleSub('kho_hang', ['ton_kho', 'dat_hang', 'thong_ke', 'may_thue'], khoTab)
+  const effectiveKhoTab = firstVisibleSub('kho_hang', ['ton_kho', 'dat_hang', 'thong_ke', 'may_thue', 'phieu_de_nghi'], khoTab) as "ton_kho" | "dat_hang" | "thong_ke" | "may_thue" | "phieu_de_nghi"
   const effectiveMonitorTab = firstVisibleSub('theo_doi_may', ['bao_tri', 'giam_dinh'], monitorTab) as "bao_tri" | "giam_dinh"
   const effectiveQuanLyTab = firstVisibleSub('quan_ly', ['nhat_ky', 'khach_hang', 'khach_cum', 'bao_cao', 'nghi_phep'], quanLyTab) as "nhat_ky" | "khach_hang" | "khach_cum" | "bao_cao" | "nghi_phep"
   const effectiveCongTacTab = firstVisibleSub('cong_viec', ['giao_viec', 'hoan_phieu'], congTacTab) as "giao_viec" | "hoan_phieu"
@@ -1942,59 +1943,67 @@ export default function AdminDashboard() {
           <div className="space-y-4">
             {/* Thanh tab con của Kho hàng — để NGOÀI thẻ overflow-hidden để sticky chạy */}
             <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto">
-              {([['ton_kho','Tồn kho'],['dat_hang',`Đặt hàng${datHangLines.length > 0 ? ` (${datHangLines.length})` : ''}`],['thong_ke','Thống kê nhập'],['may_thue','Kho máy thuê']] as const)
+              {([['ton_kho','Tồn kho'],['dat_hang',`Đặt hàng${datHangLines.length > 0 ? ` (${datHangLines.length})` : ''}`],['thong_ke','Thống kê nhập'],['may_thue','Kho máy thuê'],['phieu_de_nghi','Phiếu đề nghị']] as const)
                 .filter(([k]) => subVisible('kho_hang', k))
                 .map(([k,l]) => (
                 <button key={k} onClick={() => setKhoTab(k as any)} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${effectiveKhoTab === k ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>{l}</button>
               ))}
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6 space-y-6">
-              {effectiveKhoTab === "ton_kho" && (
-                <>
-                  <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Quản lý Kho Hàng (Vật tư)</h2>
-                  <InventoryManagementTool inventory={inventory} lowStock={nguongTonThap} onUpdateSuccess={fetchData} showNotification={showNotification} confirmDelete={confirmDelete} danhMuc={danhMuc} />
-                  <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 mt-8">
-                    <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập / Xuất kho hàng (Excel)</h3>
-                    <p className="text-sm text-slate-500 mb-4">
-                      Quy trình: <b>Xóa toàn bộ</b> (nút phía trên) → <b>Xuất Excel</b> để lấy đúng cấu trúc cột → nhập dữ liệu vào file .xlsx → <b>Nhập từ Excel</b>.<br />
-                      <b>Cột:</b> Mã hàng | Tên vật tư | Model | Hãng | Tồn kho. Trùng Mã hàng sẽ được cập nhật.
-                    </p>
-                    <ExcelTool
-                      rows={inventory}
-                      filename="kho-hang"
-                      endpoint="/api/admin/kho-hang/bulk"
-                      payloadKey="items"
-                      unit="vật tư"
-                      requiredKeys={['ma_hang', 'ten_hang']}
-                      columns={[
-                        { header: 'Mã hàng', key: 'ma_hang', parse: (s) => s ? s.toUpperCase() : null },
-                        { header: 'Tên vật tư', key: 'ten_hang' },
-                        { header: 'Model', key: 'model' },
-                        { header: 'Hãng', key: 'hang' },
-                        { header: 'Tồn kho', key: 'ton_kho', parse: (s) => parseInt(s) || 0 },
-                      ]}
-                      onSuccess={fetchData}
-                      showNotification={showNotification}
-                    />
-                  </div>
-                </>
-              )}
-              {effectiveKhoTab === "dat_hang" && (
-                <DatHangTool inventory={inventory} committed={committed} nhaCungCapOptions={dmOptions('nha_cung_cap')} hangOptions={dmOptions('hang', ['Konica', 'Fuji', 'Khác'])} onUpdateSuccess={fetchData} showNotification={showNotification} currentUserRole={currentUserRole} confirmDelete={confirmDelete} lines={datHangLines} setLines={setDatHangLines} canhBao={canhBaoTon} />
-              )}
-              {effectiveKhoTab === "thong_ke" && (
-                <NhapHangThangTool showNotification={showNotification} canhBao={canhBaoTon} refetchCanhBao={fetchCanhBaoTon} hangOptions={dmOptions('hang', ['Konica', 'Fuji', 'Khác'])} cartCount={datHangLines.length} onAddToCart={handleAddToCartFromWarning} onGoToCart={() => setKhoTab('dat_hang')} />
-              )}
-              {effectiveKhoTab === "may_thue" && (
-                <>
-                  {currentUserRole === 'admin' && (
-                    <MucMayThueTool customers={customers} inventory={inventory} committed={committed} mucMap={mucMap} onUpdate={fetchMucMap} showNotification={showNotification} />
-                  )}
-                  <KhoMayThueTool showNotification={showNotification} />
-                </>
-              )}
-            </div>
+            {effectiveKhoTab === "phieu_de_nghi" ? (
+              <PhieuDeNghiModule
+                showNotification={showNotification}
+                currentUserRole={currentUserRole}
+                currentUserName={currentAdmin?.full_name || ''}
+              />
+            ) : (
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6 space-y-6">
+                {effectiveKhoTab === "ton_kho" && (
+                  <>
+                    <h2 className="text-xl font-bold text-slate-800 border-b border-slate-100 pb-4">Quản lý Kho Hàng (Vật tư)</h2>
+                    <InventoryManagementTool inventory={inventory} lowStock={nguongTonThap} onUpdateSuccess={fetchData} showNotification={showNotification} confirmDelete={confirmDelete} danhMuc={danhMuc} />
+                    <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 mt-8">
+                      <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập / Xuất kho hàng (Excel)</h3>
+                      <p className="text-sm text-slate-500 mb-4">
+                        Quy trình: <b>Xóa toàn bộ</b> (nút phía trên) → <b>Xuất Excel</b> để lấy đúng cấu trúc cột → nhập dữ liệu vào file .xlsx → <b>Nhập từ Excel</b>.<br />
+                        <b>Cột:</b> Mã hàng | Tên vật tư | Model | Hãng | Tồn kho. Trùng Mã hàng sẽ được cập nhật.
+                      </p>
+                      <ExcelTool
+                        rows={inventory}
+                        filename="kho-hang"
+                        endpoint="/api/admin/kho-hang/bulk"
+                        payloadKey="items"
+                        unit="vật tư"
+                        requiredKeys={['ma_hang', 'ten_hang']}
+                        columns={[
+                          { header: 'Mã hàng', key: 'ma_hang', parse: (s) => s ? s.toUpperCase() : null },
+                          { header: 'Tên vật tư', key: 'ten_hang' },
+                          { header: 'Model', key: 'model' },
+                          { header: 'Hãng', key: 'hang' },
+                          { header: 'Tồn kho', key: 'ton_kho', parse: (s) => parseInt(s) || 0 },
+                        ]}
+                        onSuccess={fetchData}
+                        showNotification={showNotification}
+                      />
+                    </div>
+                  </>
+                )}
+                {effectiveKhoTab === "dat_hang" && (
+                  <DatHangTool inventory={inventory} committed={committed} nhaCungCapOptions={dmOptions('nha_cung_cap')} hangOptions={dmOptions('hang', ['Konica', 'Fuji', 'Khác'])} onUpdateSuccess={fetchData} showNotification={showNotification} currentUserRole={currentUserRole} confirmDelete={confirmDelete} lines={datHangLines} setLines={setDatHangLines} canhBao={canhBaoTon} />
+                )}
+                {effectiveKhoTab === "thong_ke" && (
+                  <NhapHangThangTool showNotification={showNotification} canhBao={canhBaoTon} refetchCanhBao={fetchCanhBaoTon} hangOptions={dmOptions('hang', ['Konica', 'Fuji', 'Khác'])} cartCount={datHangLines.length} onAddToCart={handleAddToCartFromWarning} onGoToCart={() => setKhoTab('dat_hang')} />
+                )}
+                {effectiveKhoTab === "may_thue" && (
+                  <>
+                    {currentUserRole === 'admin' && (
+                      <MucMayThueTool customers={customers} inventory={inventory} committed={committed} mucMap={mucMap} onUpdate={fetchMucMap} showNotification={showNotification} />
+                    )}
+                    <KhoMayThueTool showNotification={showNotification} />
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
         {activeTab === "theo_doi_may" && tabVisible('theo_doi_may') && (

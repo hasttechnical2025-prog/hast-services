@@ -1322,3 +1322,51 @@ ALTER TABLE public.soct_kho_hang
 ADD COLUMN IF NOT EXISTS ngung_su_dung BOOLEAN DEFAULT false,
 ADD COLUMN IF NOT EXISTS ma_thay_the TEXT;
 
+-- ============================================================================
+-- MIGRATION 74: phieu_de_nghi (Phiếu đề nghị chuyển đổi - tháo vật tư - hoàn thiện máy BM38)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.soct_phieu_de_nghi (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    so_phieu TEXT NOT NULL UNIQUE,
+    so_phieu_num INT NOT NULL,
+    so_phieu_sub TEXT DEFAULT '',
+    ngay_lap DATE NOT NULL DEFAULT CURRENT_DATE,
+    ten_may TEXT,
+    ma_may TEXT,
+    serial TEXT,
+    kho_may TEXT,
+    so_px TEXT,
+    ma_kho TEXT,
+    so_report TEXT,
+    the_kho TEXT,
+    ly_do TEXT,
+    ky_bgd TEXT DEFAULT 'Nguyễn Nhân',
+    ky_ktt TEXT DEFAULT 'Phạm Thị Phương',
+    ky_pkt TEXT DEFAULT 'Trần Kiên',
+    nguoi_lap TEXT,
+    created_by UUID REFERENCES public.soct_users(id),
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_phieu_de_nghi_ngay ON public.soct_phieu_de_nghi(ngay_lap DESC);
+CREATE INDEX IF NOT EXISTS idx_phieu_de_nghi_so_num ON public.soct_phieu_de_nghi(so_phieu_num DESC, so_phieu_sub DESC);
+
+CREATE TABLE IF NOT EXISTS public.soct_phieu_de_nghi_ct (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    phieu_id UUID NOT NULL REFERENCES public.soct_phieu_de_nghi(id) ON DELETE CASCADE,
+    loai_hang TEXT NOT NULL CHECK (loai_hang IN ('xuat_ra', 'nhap_lai')),
+    stt INT NOT NULL,
+    ten_hang TEXT,
+    ma_hang TEXT,
+    dvt TEXT DEFAULT 'Cái',
+    so_luong INT,
+    ghi_chu TEXT,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_phieu_de_nghi_ct_phieu ON public.soct_phieu_de_nghi_ct(phieu_id, loai_hang, stt);
+
+ALTER TABLE public.soct_phieu_de_nghi    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.soct_phieu_de_nghi_ct ENABLE ROW LEVEL SECURITY;
+
