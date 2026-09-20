@@ -3392,22 +3392,15 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
           </div>
         </div>
 
-        {/* Dòng 2: Checkbox Ngưng sử dụng (cột 1) & Mã thay thế (cột 2, align left với Tên hàng) - Chỉ hiển thị khi Sửa (isEditing) */}
+        {/* Dòng 2: Checkbox Ngưng sử dụng + ô Mã tương đương (LUÔN hiện khi Sửa; nhiều mã cách nhau dấu phẩy) */}
         {isEditing && (
           <>
-            <div className={`space-y-1 lg:col-span-2 flex items-center ${formData.ngung_su_dung ? 'lg:pt-5' : 'py-1'}`}>
+            <div className="space-y-1 lg:col-span-2 flex items-center py-1">
               <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={formData.ngung_su_dung}
-                  onChange={(e) => {
-                    const checked = e.target.checked
-                    setFormData({
-                      ...formData,
-                      ngung_su_dung: checked,
-                      ma_thay_the: checked ? formData.ma_thay_the : ""
-                    })
-                  }}
+                  onChange={(e) => setFormData({ ...formData, ngung_su_dung: e.target.checked })}
                   className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500"
                 />
                 <span className={formData.ngung_su_dung ? 'text-amber-700 font-bold' : ''}>
@@ -3416,17 +3409,15 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
               </label>
             </div>
 
-            {formData.ngung_su_dung && (
-              <div className="space-y-1 lg:col-span-3">
-                <label className="text-xs font-semibold text-slate-600">Mã thay thế</label>
-                <Input
-                  value={formData.ma_thay_the}
-                  onChange={(e) => setFormData({...formData, ma_thay_the: e.target.value.toUpperCase()})}
-                  placeholder="VD: TN328K"
-                  className="bg-white h-9 font-mono"
-                />
-              </div>
-            )}
+            <div className="space-y-1 lg:col-span-3">
+              <label className="text-xs font-semibold text-slate-600">Mã tương đương <span className="font-normal text-slate-400">(nhiều mã cách nhau dấu phẩy)</span></label>
+              <Input
+                value={formData.ma_thay_the}
+                onChange={(e) => setFormData({ ...formData, ma_thay_the: e.target.value.toUpperCase() })}
+                placeholder="VD: AC79090, TN628"
+                className="bg-white h-9 font-mono"
+              />
+            </div>
           </>
         )}
       </form>
@@ -3477,7 +3468,7 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tìm mã, tên, model, mã thay..."
+              placeholder="Tìm mã, tên, model, mã tương đương..."
               className="h-9 pl-8 pr-7 text-xs rounded-md border border-slate-200 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 w-52 sm:w-60"
             />
             {searchTerm && (
@@ -3619,7 +3610,10 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
               <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">{inventory.length === 0 ? 'Kho hàng đang trống.' : 'Không tìm thấy vật tư khớp bộ lọc.'}</td></tr>
             ) : paged.pageItems.map((item) => (
               <tr key={item.ma_hang} id={'inv-' + item.ma_hang} className={`transition-colors ${highlightMH === item.ma_hang ? 'bg-amber-100' : 'hover:bg-slate-50'} ${item.ngung_su_dung ? 'bg-amber-50/20' : ''}`}>
-                {col.show('ma_hang') && <td className="px-4 py-3 font-mono font-medium text-slate-700">{item.ma_hang}</td>}
+                {col.show('ma_hang') && <td className="px-4 py-3 font-mono font-medium text-slate-700">
+                  {item.ma_hang}
+                  {item.ma_thay_the && <div className="text-[10px] font-normal text-blue-600 mt-0.5" title={`Mã tương đương: ${item.ma_thay_the}`}>≡ {item.ma_thay_the}</div>}
+                </td>}
                 {col.show('ten_hang') && <td className="px-4 py-3 font-medium text-slate-800">{item.ten_hang}</td>}
                 {col.show('model') && <td className="px-4 py-3">{item.model || <span className="text-slate-400 italic">Dùng chung</span>}</td>}
                 {col.show('hang') && <td className="px-4 py-3">{item.hang || <span className="text-slate-400 italic">—</span>}</td>}
@@ -3630,22 +3624,12 @@ function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, sho
                 </td>}
                 {col.show('trang_thai') && <td className="px-4 py-3 text-center whitespace-nowrap">
                   {item.ngung_su_dung ? (
-                    <div className="inline-flex flex-col items-center justify-center">
-                      <span
-                        title={item.ma_thay_the ? `Không sử dụng (Mã thay thế: ${item.ma_thay_the})` : "Không sử dụng"}
-                        className="inline-flex items-center justify-center cursor-help text-slate-400 hover:text-slate-600 transition"
-                      >
-                        <ToggleLeft className="w-6 h-6" />
-                      </span>
-                      {item.ma_thay_the && (
-                        <span
-                          className="text-[10px] text-slate-500 font-mono text-center mt-0.5"
-                          title={`Mã thay thế: ${item.ma_thay_the}`}
-                        >
-                          ↳ <span className="font-bold text-blue-600">{item.ma_thay_the}</span>
-                        </span>
-                      )}
-                    </div>
+                    <span
+                      title={item.ma_thay_the ? `Không sử dụng · Mã tương đương: ${item.ma_thay_the}` : "Không sử dụng"}
+                      className="inline-flex items-center justify-center cursor-help text-slate-400 hover:text-slate-600 transition"
+                    >
+                      <ToggleLeft className="w-6 h-6" />
+                    </span>
                   ) : (
                     <span
                       title="Đang dùng"
@@ -4224,23 +4208,21 @@ function MaterialCombobox({ inventory, value, onChange, committed }: { inventory
                 ⚠ Mã <span className="font-mono font-bold">{obsoleteMatch.ma_hang}</span> đã ngưng sử dụng (hết tồn kho).
               </div>
               {obsoleteMatch.ma_thay_the ? (
-                <div className="mt-1 flex items-center justify-between gap-2 flex-wrap">
-                  <span>Mã thay thế: <strong className="font-mono text-blue-700">{obsoleteMatch.ma_thay_the}</strong></span>
-                  <button
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      onChange(obsoleteMatch.ma_thay_the)
-                      setQuery("")
-                      setOpen(false)
-                    }}
-                    className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-semibold transition shrink-0"
-                  >
-                    ↳ Đổi sang {obsoleteMatch.ma_thay_the}
-                  </button>
+                <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                  <span>Mã tương đương:</span>
+                  {String(obsoleteMatch.ma_thay_the).split(',').map((s: string) => s.trim()).filter(Boolean).map((mtd: string) => (
+                    <button
+                      key={mtd}
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); onChange(mtd); setQuery(""); setOpen(false) }}
+                      className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-semibold font-mono transition shrink-0"
+                    >
+                      ↳ {mtd}
+                    </button>
+                  ))}
                 </div>
               ) : (
-                <div className="mt-0.5 text-slate-500 italic text-[11px]">Chưa cài đặt mã thay thế cho vật tư này.</div>
+                <div className="mt-0.5 text-slate-500 italic text-[11px]">Chưa cài đặt mã tương đương cho vật tư này.</div>
               )}
             </div>
           )}
@@ -4267,9 +4249,9 @@ function MaterialCombobox({ inventory, value, onChange, committed }: { inventory
                       Mã cũ — còn tồn
                     </span>
                   )}
-                  {isDiscontinued && item.ma_thay_the && (
+                  {item.ma_thay_the && (
                     <span className="text-[10px] text-slate-500">
-                      (thay: <span className="font-mono text-blue-600 font-semibold">{item.ma_thay_the}</span>)
+                      (≡ <span className="font-mono text-blue-600 font-semibold">{item.ma_thay_the}</span>)
                     </span>
                   )}
                 </div>
@@ -6037,6 +6019,7 @@ function DatHangTool({
                             )}
                           </div>
                           <div className="text-slate-500 font-normal leading-relaxed">{item.ten_hang}</div>
+                          {item.ma_thay_the && <div className="text-[10px] text-blue-600 font-mono leading-tight mt-0.5" title={`Mã tương đương: ${item.ma_thay_the}`}>≡ {item.ma_thay_the}</div>}
                         </td>
                         <td className="px-3 py-2.5 text-center text-[11px] text-slate-500 leading-tight w-32 max-w-[150px] break-words whitespace-normal">{item.model || '—'}</td>
                         {(() => {
