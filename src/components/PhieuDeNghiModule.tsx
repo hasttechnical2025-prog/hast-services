@@ -1117,7 +1117,7 @@ export default function PhieuDeNghiModule({
             <div className="p-5 overflow-y-auto space-y-4 flex-1 text-xs">
               {/* Khối Thông tin chung & Số phiếu */}
               <div className="bg-slate-50/80 p-3.5 rounded-lg border border-slate-200 space-y-3">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">
                       Số phiếu <span className="text-rose-500">*</span>
@@ -1127,9 +1127,9 @@ export default function PhieuDeNghiModule({
                       onChange={e => setForm({ ...form, so_phieu: e.target.value.toUpperCase().slice(0, 6) })}
                       placeholder="VD: 5758A"
                       maxLength={6}
-                      className="h-8 w-28 font-mono font-bold text-blue-700 bg-white uppercase"
+                      className="h-8 w-full font-mono font-bold text-blue-700 bg-white uppercase"
                     />
-                    <span className="text-[10px] text-slate-400 mt-0.5 block">Tối đa 6 ký tự, hậu tố tự IN HOA</span>
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">Tối đa 6 ký tự, tự IN HOA</span>
                   </div>
 
                   <div>
@@ -1140,7 +1140,7 @@ export default function PhieuDeNghiModule({
                       value={form.ngay_lap}
                       onChange={v => setForm({ ...form, ngay_lap: v })}
                       heightClass="h-8"
-                      className="w-36"
+                      className="w-full"
                     />
                   </div>
 
@@ -1154,13 +1154,13 @@ export default function PhieuDeNghiModule({
                     />
                   </div>
 
-                  <div>
+                  <div className="col-span-3">
                     <label className="block text-slate-600 font-semibold mb-1">Tên hàng (máy)</label>
                     <Input
                       value={form.ten_may}
                       onChange={e => setMachineTen(e.target.value)}
                       placeholder="VD: bizhub 308e..."
-                      className="h-7 text-xs bg-white"
+                      className="h-8 bg-white"
                     />
                   </div>
                 </div>
