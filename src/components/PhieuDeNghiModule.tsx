@@ -430,10 +430,10 @@ function MaHangCombo({
     <div ref={boxRef} className="relative">
       <Input
         value={value}
-        onChange={e => { onChangeMa(e.target.value); setKw(e.target.value); setOpen(true) }}
+        onChange={e => { const v = e.target.value.toUpperCase(); onChangeMa(v); setKw(v); setOpen(true) }}
         onFocus={() => setOpen(true)}
         placeholder="Mã hàng..."
-        className="h-7 text-xs font-mono"
+        className="h-7 text-xs font-mono uppercase"
       />
       {open && matches.length > 0 && (
         <div className="absolute z-30 mt-0.5 w-[320px] max-w-[80vw] max-h-56 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg text-xs">
@@ -748,6 +748,49 @@ export default function PhieuDeNghiModule({
         return next
       })
     }
+  }
+
+  // Dòng đầu (TT 1) của Hàng xuất ra & Hàng nhập lại thường trùng Mã hàng (máy).
+  // Tự điền theo mã máy, chỉ khi dòng đầu còn trống hoặc đang "bám" theo mã máy cũ
+  // (người dùng sửa tay dòng đầu khác đi thì dừng bám).
+  const mirrorRow0 = (rows: PhieuDeNghiCt[], oldMa: string, ma: string, ten?: string) => {
+    if (!rows.length) return rows
+    const r0 = rows[0]
+    const following = !r0.ma_hang || r0.ma_hang === oldMa
+    if (!following) return rows
+    const next = [...rows]
+    next[0] = {
+      ...r0,
+      ma_hang: ma,
+      ten_hang: ten != null ? ten : r0.ten_hang,
+      so_luong: (r0.so_luong === '' || r0.so_luong == null) ? (ma ? 1 : r0.so_luong) : r0.so_luong,
+    }
+    return next
+  }
+
+  // Đổi Mã hàng (máy) — uppercase + mirror xuống dòng đầu 2 bảng
+  const setMachineMa = (raw: string, ten?: string) => {
+    const ma = (raw || '').toUpperCase()
+    const oldMa = form.ma_may || ''
+    setForm({ ...form, ma_may: ma, ...(ten != null ? { ten_may: ten } : {}) })
+    setLinesXuat(prev => mirrorRow0(prev, oldMa, ma, ten))
+    setLinesNhap(prev => mirrorRow0(prev, oldMa, ma, ten))
+  }
+
+  // Đổi Tên hàng (máy) — mirror tên xuống dòng đầu nếu đang bám theo mã máy
+  const setMachineTen = (ten: string) => {
+    const curMa = form.ma_may || ''
+    const mirrorTen = (rows: PhieuDeNghiCt[]) => {
+      if (!rows.length) return rows
+      const r0 = rows[0]
+      if (r0.ma_hang && r0.ma_hang !== curMa) return rows
+      const next = [...rows]
+      next[0] = { ...r0, ten_hang: ten }
+      return next
+    }
+    setForm({ ...form, ten_may: ten })
+    setLinesXuat(prev => mirrorTen(prev))
+    setLinesNhap(prev => mirrorTen(prev))
   }
 
   // Lưu phiếu (Tạo mới hoặc Sửa)
@@ -1088,11 +1131,12 @@ export default function PhieuDeNghiModule({
                     </label>
                     <Input
                       value={form.so_phieu}
-                      onChange={e => setForm({ ...form, so_phieu: e.target.value })}
-                      placeholder="VD: 5757, 5757A..."
-                      className="h-8 font-mono font-bold text-blue-700 bg-white"
+                      onChange={e => setForm({ ...form, so_phieu: e.target.value.toUpperCase().slice(0, 6) })}
+                      placeholder="VD: 5758A"
+                      maxLength={6}
+                      className="h-8 w-28 font-mono font-bold text-blue-700 bg-white uppercase"
                     />
-                    <span className="text-[10px] text-slate-400 mt-0.5 block">Hỗ trợ hậu tố A, B, C...</span>
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">Tối đa 6 ký tự, hậu tố tự IN HOA</span>
                   </div>
 
                   <div>
@@ -1103,17 +1147,17 @@ export default function PhieuDeNghiModule({
                       value={form.ngay_lap}
                       onChange={v => setForm({ ...form, ngay_lap: v })}
                       heightClass="h-8"
-                      className="w-full"
+                      className="w-36"
                     />
                   </div>
 
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">Mã hàng (máy)</label>
-                    <Input
+                    <MaHangCombo
                       value={form.ma_may}
-                      onChange={e => setForm({ ...form, ma_may: e.target.value })}
-                      placeholder="VD: AA6W04.1CTD..."
-                      className="h-8 font-mono bg-white"
+                      inventory={inventory}
+                      onChangeMa={(v) => setMachineMa(v)}
+                      onPick={(ma, ten) => setMachineMa(ma, ten)}
                     />
                   </div>
 
@@ -1121,20 +1165,20 @@ export default function PhieuDeNghiModule({
                     <label className="block text-slate-600 font-semibold mb-1">Tên hàng (máy)</label>
                     <Input
                       value={form.ten_may}
-                      onChange={e => setForm({ ...form, ten_may: e.target.value })}
+                      onChange={e => setMachineTen(e.target.value)}
                       placeholder="VD: bizhub 308e..."
-                      className="h-8 bg-white"
+                      className="h-7 text-xs bg-white"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">Serial</label>
                     <Input
                       value={form.serial}
                       onChange={e => setForm({ ...form, serial: e.target.value })}
-                      placeholder="Serial máy..."
+                      placeholder="Serial..."
                       className="h-8 font-mono bg-white"
                     />
                   </div>
@@ -1144,13 +1188,13 @@ export default function PhieuDeNghiModule({
                     <Input
                       value={form.kho_may}
                       onChange={e => setForm({ ...form, kho_may: e.target.value })}
-                      placeholder="VD: Lai Xá..."
+                      placeholder="Kho máy..."
                       className="h-8 bg-white"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-slate-600 font-semibold mb-1">Số PX (Phiếu xuất)</label>
+                    <label className="block text-slate-600 font-semibold mb-1">Số PX</label>
                     <Input
                       value={form.so_px}
                       onChange={e => setForm({ ...form, so_px: e.target.value })}
@@ -1168,9 +1212,7 @@ export default function PhieuDeNghiModule({
                       className="h-8 bg-white"
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">Số report</label>
                     <Input
@@ -1180,6 +1222,7 @@ export default function PhieuDeNghiModule({
                       className="h-8 font-mono bg-white"
                     />
                   </div>
+
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">Thẻ kho</label>
                     <Input
@@ -1235,8 +1278,8 @@ export default function PhieuDeNghiModule({
                           <MaHangCombo
                             value={ln.ma_hang}
                             inventory={inventory}
-                            onChangeMa={(v) => updateLine('xuat_ra', idx, 'ma_hang', v)}
-                            onPick={(ma, ten) => { updateLine('xuat_ra', idx, 'ma_hang', ma); updateLine('xuat_ra', idx, 'ten_hang', ten) }}
+                            onChangeMa={(v) => { updateLine('xuat_ra', idx, 'ma_hang', v); if (v && (ln.so_luong === '' || ln.so_luong == null)) updateLine('xuat_ra', idx, 'so_luong', 1) }}
+                            onPick={(ma, ten) => { updateLine('xuat_ra', idx, 'ma_hang', ma); updateLine('xuat_ra', idx, 'ten_hang', ten); if (ln.so_luong === '' || ln.so_luong == null) updateLine('xuat_ra', idx, 'so_luong', 1) }}
                           />
                         </div>
                         <div className="col-span-5 flex items-center gap-1">
@@ -1300,8 +1343,8 @@ export default function PhieuDeNghiModule({
                           <MaHangCombo
                             value={ln.ma_hang}
                             inventory={inventory}
-                            onChangeMa={(v) => updateLine('nhap_lai', idx, 'ma_hang', v)}
-                            onPick={(ma, ten) => { updateLine('nhap_lai', idx, 'ma_hang', ma); updateLine('nhap_lai', idx, 'ten_hang', ten) }}
+                            onChangeMa={(v) => { updateLine('nhap_lai', idx, 'ma_hang', v); if (v && (ln.so_luong === '' || ln.so_luong == null)) updateLine('nhap_lai', idx, 'so_luong', 1) }}
+                            onPick={(ma, ten) => { updateLine('nhap_lai', idx, 'ma_hang', ma); updateLine('nhap_lai', idx, 'ten_hang', ten); if (ln.so_luong === '' || ln.so_luong == null) updateLine('nhap_lai', idx, 'so_luong', 1) }}
                           />
                         </div>
                         <div className="col-span-5 flex items-center gap-1">
