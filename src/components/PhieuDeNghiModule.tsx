@@ -1204,7 +1204,7 @@ export default function PhieuDeNghiModule({
       {/* Modal Thêm / Sửa Phiếu Đề Nghị */}
       {modalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 z-[90] flex items-center justify-center p-3 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl my-6 flex flex-col max-h-[90vh] overflow-hidden border border-slate-200">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl my-6 flex flex-col max-h-[90vh] overflow-hidden border border-slate-200">
             {/* Modal Header */}
             <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
@@ -1385,8 +1385,8 @@ export default function PhieuDeNghiModule({
                     <div className="grid grid-cols-12 gap-1.5 px-0.5 text-[10px] font-semibold uppercase text-indigo-700/70">
                       <div className="col-span-1 text-center">TT</div>
                       <div className="col-span-3">Mã hàng</div>
-                      <div className="col-span-5">Tên hàng</div>
-                      <div className="col-span-1 text-center">SL</div>
+                      <div className="col-span-4">Tên hàng</div>
+                      <div className="col-span-2 text-center">SL</div>
                       <div className="col-span-1 text-center" title="Tính vào tồn kho">Tồn</div>
                       <div className="col-span-1"></div>
                     </div>
@@ -1401,7 +1401,7 @@ export default function PhieuDeNghiModule({
                             onPick={(ma, ten) => { updateLine('xuat_ra', idx, 'ma_hang', ma); updateLine('xuat_ra', idx, 'ten_hang', ten); updateLine('xuat_ra', idx, 'tinh_ton', inKho(ma)); if (ln.so_luong === '' || ln.so_luong == null) updateLine('xuat_ra', idx, 'so_luong', 1) }}
                           />
                         </div>
-                        <div className="col-span-5">
+                        <div className="col-span-4">
                           <Input
                             value={ln.ten_hang}
                             onChange={e => updateLine('xuat_ra', idx, 'ten_hang', e.target.value)}
@@ -1409,7 +1409,7 @@ export default function PhieuDeNghiModule({
                             className="h-7 text-xs"
                           />
                         </div>
-                        <div className="col-span-1">
+                        <div className="col-span-2">
                           <Input
                             type="number"
                             value={ln.so_luong ?? ''}
@@ -1464,8 +1464,8 @@ export default function PhieuDeNghiModule({
                     <div className="grid grid-cols-12 gap-1.5 px-0.5 text-[10px] font-semibold uppercase text-emerald-700/70">
                       <div className="col-span-1 text-center">TT</div>
                       <div className="col-span-3">Mã hàng</div>
-                      <div className="col-span-5">Tên hàng</div>
-                      <div className="col-span-1 text-center">SL</div>
+                      <div className="col-span-4">Tên hàng</div>
+                      <div className="col-span-2 text-center">SL</div>
                       <div className="col-span-1 text-center" title="Tính vào tồn kho">Tồn</div>
                       <div className="col-span-1"></div>
                     </div>
@@ -1480,7 +1480,7 @@ export default function PhieuDeNghiModule({
                             onPick={(ma, ten) => { updateLine('nhap_lai', idx, 'ma_hang', ma); updateLine('nhap_lai', idx, 'ten_hang', ten); updateLine('nhap_lai', idx, 'tinh_ton', inKho(ma)); if (ln.so_luong === '' || ln.so_luong == null) updateLine('nhap_lai', idx, 'so_luong', 1) }}
                           />
                         </div>
-                        <div className="col-span-5">
+                        <div className="col-span-4">
                           <Input
                             value={ln.ten_hang}
                             onChange={e => updateLine('nhap_lai', idx, 'ten_hang', e.target.value)}
@@ -1488,7 +1488,7 @@ export default function PhieuDeNghiModule({
                             className="h-7 text-xs"
                           />
                         </div>
-                        <div className="col-span-1">
+                        <div className="col-span-2">
                           <Input
                             type="number"
                             value={ln.so_luong ?? ''}
