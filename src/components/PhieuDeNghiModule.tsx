@@ -63,8 +63,8 @@ export function printPhieuDeNghiA4(phieu: PhieuDeNghi, origin: string) {
 
   const pNgay = phieu.ngay_lap ? phieu.ngay_lap.slice(0, 10).split('-') : []
   const ngayStr = pNgay.length === 3
-    ? `Hà Nội, ngày ${pNgay[2]} tháng ${pNgay[1]} năm ${pNgay[0]}`
-    : `Hà Nội, ngày ..... tháng ..... năm 20....`
+    ? `Siêu Thanh, ngày ${pNgay[2]} tháng ${pNgay[1]} năm ${pNgay[0]}`
+    : `Siêu Thanh, ngày ..... tháng ..... năm 20....`
 
   const allCt = phieu.soct_phieu_de_nghi_ct || []
   const xuat = allCt.filter(c => c.loai_hang === 'xuat_ra')
@@ -129,14 +129,13 @@ export function printPhieuDeNghiA4(phieu: PhieuDeNghi, origin: string) {
       margin-bottom: 2mm;
     }
     .header-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
+      position: relative;
+      text-align: center;
       margin-top: 1mm;
       margin-bottom: 2mm;
     }
     .header-left {
-      width: 70%;
+      width: 100%;
       text-align: center;
     }
     .title-main {
@@ -152,7 +151,9 @@ export function printPhieuDeNghiA4(phieu: PhieuDeNghi, origin: string) {
       margin: 1.5mm 0 0 0;
     }
     .header-right {
-      width: 30%;
+      position: absolute;
+      top: 0;
+      right: 0;
       text-align: right;
       font-size: 9.5pt;
     }
@@ -172,23 +173,23 @@ export function printPhieuDeNghiA4(phieu: PhieuDeNghi, origin: string) {
       font-size: 9.5pt;
       margin-bottom: 3mm;
     }
-    .dear-row {
-      margin-bottom: 2mm;
-      font-size: 10.5pt;
-    }
-    .dear-row b {
-      font-weight: bold;
-    }
     .meta-box {
       border: 1px solid #333;
       padding: 2.5mm 3mm;
       margin-bottom: 3mm;
       font-size: 10pt;
     }
-    .meta-grid {
+    .meta-line3 {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 1.5mm 3mm;
+      margin-bottom: 1.5mm;
+    }
+    .meta-line5 {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1.5mm 3mm;
+      margin-bottom: 1.5mm;
     }
     .meta-item {
       display: flex;
@@ -235,7 +236,7 @@ export function printPhieuDeNghiA4(phieu: PhieuDeNghi, origin: string) {
       background-color: #ecfdf5 !important;
     }
     .c-stt { width: 5%; text-align: center; }
-    .c-ma  { width: 16%; text-align: center; font-family: monospace; }
+    .c-ma  { width: 16%; text-align: center; }
     .c-ten { width: 21.5%; }
     .c-sl  { width: 6%; text-align: center; font-weight: bold; }
     td.c-ten {
@@ -268,7 +269,6 @@ export function printPhieuDeNghiA4(phieu: PhieuDeNghi, origin: string) {
     .sign-name {
       font-weight: bold;
       font-size: 10pt;
-      text-transform: uppercase;
     }
     .foot-note {
       margin-top: 5mm;
@@ -297,24 +297,20 @@ export function printPhieuDeNghiA4(phieu: PhieuDeNghi, origin: string) {
 
     <div class="date-row">${ngayStr}</div>
 
-    <div class="dear-row">
-      <b>Kính gửi:</b> Ban Tổng Giám đốc Công ty Cổ phần Siêu Thanh Hà Nội
-    </div>
-
     <div class="meta-box">
-      <div class="meta-grid">
+      <div class="meta-line3">
         <div class="meta-item"><span class="meta-label">Mã hàng:</span><span class="meta-val">${esc(phieu.ma_may || '')}</span></div>
         <div class="meta-item"><span class="meta-label">Tên hàng:</span><span class="meta-val">${esc(phieu.ten_may || '')}</span></div>
         <div class="meta-item"><span class="meta-label">Serial:</span><span class="meta-val">${esc(phieu.serial || '')}</span></div>
-        <div class="meta-item"><span class="meta-label">Mã kho:</span><span class="meta-val">${esc(phieu.ma_kho || '')}</span></div>
-
+      </div>
+      <div class="meta-line5">
         <div class="meta-item"><span class="meta-label">Kho máy:</span><span class="meta-val">${esc(phieu.kho_may || '')}</span></div>
+        <div class="meta-item"><span class="meta-label">Mã kho:</span><span class="meta-val">${esc(phieu.ma_kho || '')}</span></div>
         <div class="meta-item"><span class="meta-label">Số PX:</span><span class="meta-val">${esc(phieu.so_px || '')}</span></div>
         <div class="meta-item"><span class="meta-label">Số report:</span><span class="meta-val">${esc(phieu.so_report || '')}</span></div>
         <div class="meta-item"><span class="meta-label">Thẻ kho:</span><span class="meta-val">${esc(phieu.the_kho || '')}</span></div>
-
-        <div class="meta-full"><span class="meta-label">Lý do &amp; Diễn giải:</span><span class="meta-val">${esc(phieu.ly_do || '')}</span></div>
       </div>
+      <div class="meta-full"><span class="meta-label">Lý do &amp; Diễn giải:</span><span class="meta-val">${esc(phieu.ly_do || '')}</span></div>
     </div>
 
     <div class="table-container">
