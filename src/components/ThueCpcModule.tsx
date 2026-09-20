@@ -396,7 +396,8 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
         <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3 shrink-0">
           <div>
             <h3 className="font-bold text-slate-800">Đơn giá HĐ — {row.ten_khach_hang}</h3>
-            <p className="text-xs text-slate-500 font-mono">{row.ma_may} · {row.loai_hd}</p>
+            {row.dia_chi && <p className="text-xs text-slate-500 mt-0.5">📍 Địa chỉ xuất HĐ: {row.dia_chi}</p>}
+            <p className="text-xs text-slate-500 font-mono mt-0.5">{row.ma_may} · {row.loai_hd}</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none shrink-0" title="Đóng">✕</button>
         </div>
