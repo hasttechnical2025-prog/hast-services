@@ -514,6 +514,9 @@ export default function PhieuDeNghiModule({
   // Thực hiện / hoàn tác
   const [actingId, setActingId] = useState<string | null>(null)
 
+  // Popover xem nhanh vật tư khi rê chuột (fixed để không bị cắt bởi overflow của bảng)
+  const [vtHover, setVtHover] = useState<{ x: number; y: number; xuat: PhieuDeNghiCt[]; nhap: PhieuDeNghiCt[] } | null>(null)
+
   // Tập mã hàng có trong kho (để auto bật cờ "tính tồn" cho dòng vật tư)
   const khoSet = useMemo(
     () => new Set((Array.isArray(inventory) ? inventory : []).map((i: any) => String(i?.ma_hang || '').toUpperCase())),
@@ -1102,8 +1105,10 @@ export default function PhieuDeNghiModule({
               ) : (
                 sortedRows.map(row => {
                   const ct = row.soct_phieu_de_nghi_ct || []
-                  const countXuat = ct.filter(c => c.loai_hang === 'xuat_ra').length
-                  const countNhap = ct.filter(c => c.loai_hang === 'nhap_lai').length
+                  const xuatList = ct.filter(c => c.loai_hang === 'xuat_ra').sort((a, b) => (a.stt || 0) - (b.stt || 0))
+                  const nhapList = ct.filter(c => c.loai_hang === 'nhap_lai').sort((a, b) => (a.stt || 0) - (b.stt || 0))
+                  const countXuat = xuatList.length
+                  const countNhap = nhapList.length
 
                   return (
                     <tr key={row.id} className="hover:bg-slate-50 transition-colors">
@@ -1131,11 +1136,18 @@ export default function PhieuDeNghiModule({
                         {row.so_px || <span className="text-slate-300">—</span>}
                       </td>
                       <td className="px-2.5 py-2.5 text-center whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1.5 text-[11px]">
-                          <span className="px-1.5 py-0.5 rounded font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200" title="Số mặt hàng xuất ra">
+                        <span
+                          className="inline-flex items-center gap-1.5 text-[11px] cursor-default"
+                          onMouseEnter={(countXuat > 0 || countNhap > 0) ? (e) => {
+                            const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                            setVtHover({ x: r.left + r.width / 2, y: r.bottom + 6, xuat: xuatList, nhap: nhapList })
+                          } : undefined}
+                          onMouseLeave={() => setVtHover(null)}
+                        >
+                          <span className="px-1.5 py-0.5 rounded font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
                             Xuất: {countXuat}
                           </span>
-                          <span className="px-1.5 py-0.5 rounded font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200" title="Số mặt hàng nhập lại">
+                          <span className="px-1.5 py-0.5 rounded font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                             Nhập: {countNhap}
                           </span>
                         </span>
@@ -1224,6 +1236,47 @@ export default function PhieuDeNghiModule({
           </table>
         </div>
       </div>
+
+      {/* Popover xem nhanh vật tư (fixed, không bị overflow của bảng cắt) */}
+      {vtHover && (
+        <div
+          className="fixed z-[80] w-72 -translate-x-1/2 bg-white border border-slate-200 rounded-lg shadow-xl p-2.5 pointer-events-none"
+          style={{ left: vtHover.x, top: vtHover.y }}
+        >
+          <div>
+            <div className="font-semibold text-indigo-700 mb-1 text-[11px] uppercase">Hàng xuất ra ({vtHover.xuat.length})</div>
+            {vtHover.xuat.length === 0 ? (
+              <div className="text-slate-400 text-xs">— không có —</div>
+            ) : (
+              <ul className="space-y-0.5">
+                {vtHover.xuat.map((c, i) => (
+                  <li key={i} className="flex items-center gap-1.5 text-xs">
+                    <span className="font-mono text-slate-500 shrink-0">{c.ma_hang || '—'}</span>
+                    <span className="text-slate-700 truncate">{c.ten_hang}</span>
+                    <span className="ml-auto font-semibold text-slate-800 shrink-0">×{c.so_luong ?? ''}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="border-t border-slate-100 mt-2 pt-2">
+            <div className="font-semibold text-emerald-700 mb-1 text-[11px] uppercase">Hàng nhập lại ({vtHover.nhap.length})</div>
+            {vtHover.nhap.length === 0 ? (
+              <div className="text-slate-400 text-xs">— không có —</div>
+            ) : (
+              <ul className="space-y-0.5">
+                {vtHover.nhap.map((c, i) => (
+                  <li key={i} className="flex items-center gap-1.5 text-xs">
+                    <span className="font-mono text-slate-500 shrink-0">{c.ma_hang || '—'}</span>
+                    <span className="text-slate-700 truncate">{c.ten_hang}</span>
+                    <span className="ml-auto font-semibold text-slate-800 shrink-0">×{c.so_luong ?? ''}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Modal Thêm / Sửa Phiếu Đề Nghị */}
       {modalOpen && (
