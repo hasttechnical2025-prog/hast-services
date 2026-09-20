@@ -65,6 +65,7 @@ type Ticket = {
   so_dntt?: string | null
   dntt_lan?: number // số lần đã xuất ĐNTT
   lam_tron?: number // khoản làm tròn tổng sau thuế (đồng, cho phép âm)
+  tach_rieng?: boolean // đẩy LẺ sang kế toán (không gom cụm ở cột 2) — set lúc bàn giao cột 1->2
   ten_khach_hd?: string | null // tên người mua ghi đè trên hóa đơn (bảng kê gộp Thuê/CPC = tên hợp đồng)
   nguon?: string | null // 'thue_cpc' = phiếu sinh từ bảng kê Thuê/CPC (mỗi phiếu = 1 thẻ riêng)
   ly_do_tra?: string | null // lý do kế toán trả phiếu về Cột 1 (thiếu/sai thông tin lên HĐ)
@@ -396,10 +397,13 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       } else {
         // Cập nhật trạng thái trực tiếp (Ví dụ: 1 -> 2, 4 -> 3)
         const doMove = async () => {
+          const moveBody: any = { ids: targetIds, trang_thai_hd: targetState }
+          // Bàn giao kế toán (cột 1 -> 2): ghi ý định gom/lẻ theo cờ hiển thị hiện tại -> đi theo phiếu.
+          if (sourceState === 'Chờ xuất HĐ' && targetState === 'Đang xử lý HĐ') moveBody.tach_rieng = !grouped
           const res = await fetch('/api/admin/kanban-hd', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids: targetIds, trang_thai_hd: targetState })
+            body: JSON.stringify(moveBody)
           })
           if (res.ok) {
             showNotification('success', 'Đã chuyển trạng thái thẻ thành công.')
@@ -498,6 +502,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       const targetIds = activeCard.tickets.map(t => t.id)
       const body: any = { ids: targetIds, trang_thai_hd: targetState }
       if (keepInvoice) { body.so_hoa_don = activeCard.tickets[0]?.so_hoa_don; body.ngay_xuat_hd = activeCard.tickets[0]?.ngay_xuat_hd }
+      // Bàn giao kế toán từ nút modal (cột 1 -> 2): ghi ý định gom/lẻ theo cờ hiển thị -> đi theo phiếu.
+      if (targetState === 'Đang xử lý HĐ' && activeCard.tickets[0]?.trang_thai_hd === 'Chờ xuất HĐ') body.tach_rieng = !grouped
       const res = await fetch('/api/admin/kanban-hd', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       if (res.ok) { showNotification('success', 'Đã chuyển trạng thái.'); setActiveCard(null); load() }
       else { const err = await res.json(); showNotification('error', err.error || 'Lỗi chuyển trạng thái') }
@@ -891,33 +897,29 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     && (!col3ChiKyNay || String(t.ngay_xuat_hd || '').startsWith(thang)))
   const col4Tickets = shown.filter(t => t.trang_thai_hd === 'Đã thanh toán')
 
-  // Gom nhóm Cột 1 & Cột 2 theo khách hàng nếu bật chế độ grouped
-  const getColumnCards = (colTickets: Ticket[], state: string) => {
-    if (!grouped) {
-      return colTickets.map(t => ({
-        id: t.id,
-        customer: t.soct_khach_hang,
-        tickets: [t],
-        trang_thai_hd: state
-      }))
-    }
+  // Khóa gom nhóm 1 phiếu. `respectTachRieng`: cột 2 tôn trọng ý định ĐẨY LẺ đã lưu (tach_rieng)
+  // -> phiếu đẩy lẻ thành thẻ riêng; còn lại gom theo cụm. Phiếu Thuê/CPC & Phí BT luôn 1 thẻ/phiếu.
+  const groupKeyOf = (t: Ticket, respectTachRieng: boolean) => {
+    if (t.nguon === 'thue_cpc' || t.nguon === 'phi_bao_tri') return `tc:${t.id}`
+    if (respectTachRieng && t.tach_rieng) return `le:${t.id}`
+    const cumId = t.soct_khach_hang?.ma_khach_cum
+    return cumId ? `cum:${cumId}` : `may:${t.id_khach_hang}`
+  }
+  const buildCards = (colTickets: Ticket[], state: string, respectTachRieng: boolean) => {
     const map = new Map<string, GroupedCard>()
     colTickets.forEach(t => {
-      const cumId = t.soct_khach_hang?.ma_khach_cum
-      // Phiếu Thuê/CPC = MỖI PHIẾU 1 THẺ RIÊNG (1 bảng kê = 1 hóa đơn) — không gộp chung khách/máy
-      // để tránh lẫn với phiếu kỹ thuật cùng máy.
-      const groupKey = (t.nguon === 'thue_cpc' || t.nguon === 'phi_bao_tri') ? `tc:${t.id}` : (cumId ? `cum:${cumId}` : `may:${t.id_khach_hang}`)
-      if (!map.has(groupKey)) {
-        map.set(groupKey, {
-          id: groupKey,
-          customer: t.soct_khach_hang,
-          tickets: [],
-          trang_thai_hd: state
-        })
-      }
+      const groupKey = groupKeyOf(t, respectTachRieng)
+      if (!map.has(groupKey)) map.set(groupKey, { id: groupKey, customer: t.soct_khach_hang, tickets: [], trang_thai_hd: state })
       map.get(groupKey)!.tickets.push(t)
     })
     return [...map.values()]
+  }
+  // Cột 1: theo CỜ HIỂN THỊ `grouped` của office (phiếu chưa đẩy nên chưa có tách lẻ).
+  const getColumnCards = (colTickets: Ticket[], state: string) => {
+    if (!grouped) {
+      return colTickets.map(t => ({ id: t.id, customer: t.soct_khach_hang, tickets: [t], trang_thai_hd: state }))
+    }
+    return buildCards(colTickets, state, false)
   }
 
   // SẮP XẾP THẺ: mọi cột "mới nhất lên đầu". Cột 1/2 theo NGÀY PHIẾU (đẩy mới nhất trên đầu);
@@ -928,7 +930,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const cardThu = (c: any) => (c.tickets || []).reduce((m: string, t: any) => { const d = String(t.thanh_toan_luc || t.ngay_xuat_hd || ''); return d > m ? d : m }, '')
 
   const cardsCol1 = getColumnCards(col1Tickets, 'Chờ xuất HĐ').sort((a, b) => cardNgay(b).localeCompare(cardNgay(a)))
-  const cardsCol2 = getColumnCards(col2Tickets, 'Đang xử lý HĐ').sort((a, b) => cardNgay(b).localeCompare(cardNgay(a)))
+  // Cột 2: LUÔN theo ý định đã lưu (tach_rieng) — không phụ thuộc cờ `grouped` per-viewer (kthc thấy đúng).
+  const cardsCol2 = buildCards(col2Tickets, 'Đang xử lý HĐ', true).sort((a, b) => cardNgay(b).localeCompare(cardNgay(a)))
   // M-invoice: thẻ CHƯA xuất (nút hàng loạt chỉ đụng các thẻ này) & số thẻ đã xuất nhưng CHƯA có số HĐ.
   const cardsCol2ChuaXuat = cardsCol2.filter((c: any) => !cardMinvoiceExported(c.tickets))
   const col2PendingCount = cardsCol2.filter((c: any) => cardMinvoicePending(c.tickets)).length
@@ -1424,8 +1427,15 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                   return (
                     <div className="pl-1.5 space-y-2">
                       <div className="flex justify-between items-start gap-2">
-                        <div className="font-bold text-slate-800 text-xs leading-snug line-clamp-2">
-                          {tenKh}
+                        <div className="min-w-0 flex-1">
+                          <div className="font-bold text-slate-800 text-xs leading-snug line-clamp-2">
+                            {tenKh}
+                          </div>
+                          {state === 'Đang xử lý HĐ' && (card.tickets.length > 1
+                            ? <span className="inline-block mt-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200" title="Đẩy GOM theo cụm — kế toán xuất 1 hóa đơn cho cả nhóm">Gom cụm · {card.tickets.length} phiếu</span>
+                            : card.tickets[0]?.tach_rieng
+                              ? <span className="inline-block mt-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200" title="Đẩy LẺ — xuất hóa đơn riêng cho phiếu này">Đẩy lẻ</span>
+                              : null)}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                         {/* Xuất riêng THẺ NÀY ra M-invoice (1 chạm) — chỉ kế toán, chỉ cột KT-HC lên hóa đơn.

@@ -48,7 +48,7 @@ export async function GET(request: Request) {
       return supabaseAdmin
         .from('soct_cong_viec')
         .select(`
-          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, mien_phi, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, ngay_xuat_hd, thanh_toan_luc, nguoi_xuat_hd, dntt_luc, so_dntt, dntt_lan, lam_tron, ten_khach_hd, nguon, ly_do_tra, minvoice_luc, minvoice_lan,
+          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, mien_phi, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, ngay_xuat_hd, thanh_toan_luc, nguoi_xuat_hd, dntt_luc, so_dntt, dntt_lan, lam_tron, ten_khach_hd, nguon, ly_do_tra, minvoice_luc, minvoice_lan, tach_rieng,
           nguoi_xuat:soct_users!nguoi_xuat_hd ( full_name ),
           soct_khach_hang (
             id,
@@ -143,7 +143,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { id, ids, trang_thai_hd, so_hoa_don, ngay_xuat_hd, ly_do_tra } = body
+    const { id, ids, trang_thai_hd, so_hoa_don, ngay_xuat_hd, ly_do_tra, tach_rieng } = body
 
     if (!id && (!Array.isArray(ids) || ids.length === 0)) {
       return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
@@ -206,6 +206,10 @@ export async function PUT(request: Request) {
     const updates: any = {
       trang_thai_hd
     }
+
+    // Ý định gom/tách lúc bàn giao kế toán (cột 1 -> 2): lưu để cột 2 hiển thị đúng cho MỌI người
+    // (kể cả kthc), không phụ thuộc cờ hiển thị per-viewer.
+    if (tach_rieng !== undefined) updates.tach_rieng = !!tach_rieng
 
     if (trang_thai_hd === 'Đã lên hóa đơn' || trang_thai_hd === 'Đã thanh toán') {
       if (so_hoa_don !== undefined) {
