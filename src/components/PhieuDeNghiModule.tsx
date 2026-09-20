@@ -868,6 +868,21 @@ export default function PhieuDeNghiModule({
 
   // Xác nhận thực hiện (áp tồn). Nếu gặp mã chưa có trong kho -> hỏi tạo nhanh rồi thử lại.
   const doExecute = async (row: PhieuDeNghi, autoCreate = false) => {
+    // Hộp xác nhận (chỉ ở lần bấm đầu, không lặp lại khi tạo-nhanh-rồi-thử-lại)
+    if (!autoCreate) {
+      const ct = row.soct_phieu_de_nghi_ct || []
+      if (row.tac_dong_ton !== false) {
+        const aff = ct.filter(c => c.tinh_ton && c.ma_hang)
+        if (aff.length === 0) {
+          if (!window.confirm(`Xác nhận THỰC HIỆN phiếu ${row.so_phieu}?\n\nKhông có dòng nào tick cột "Tồn" → tồn kho KHÔNG đổi, chỉ chuyển trạng thái "Đã thực hiện".`)) return
+        } else {
+          const dsTxt = aff.map(c => `  ${c.loai_hang === 'xuat_ra' ? '−' : '+'}${c.so_luong} ${c.ma_hang}`).join('\n')
+          if (!window.confirm(`Xác nhận THỰC HIỆN phiếu ${row.so_phieu}?\n\nTỒN KHO sẽ thay đổi:\n${dsTxt}\n\n(− giảm khi xuất · + tăng khi nhập). Có thể Hoàn tác lại sau.`)) return
+        }
+      } else {
+        if (!window.confirm(`Xác nhận THỰC HIỆN phiếu ${row.so_phieu}?\n\nPhiếu KHÔNG tác động tồn kho — chỉ chuyển trạng thái "Đã thực hiện".`)) return
+      }
+    }
     setActingId(row.id)
     try {
       const res = await fetch('/api/admin/phieu-de-nghi', {
@@ -1152,26 +1167,32 @@ export default function PhieuDeNghiModule({
                             <Printer className="w-4 h-4" />
                           </Button>
                           {row.trang_thai === 'da_thuc_hien' ? (
-                            <Button
-                              variant="ghost"
-                              onClick={() => doUndo(row)}
-                              disabled={actingId === row.id}
-                              title="Hoàn tác thực hiện (trả tồn kho)"
-                              className="h-8 w-8 p-0 text-orange-600 hover:text-orange-800 hover:bg-orange-50"
-                            >
-                              <RefreshCw className={`w-4 h-4 ${actingId === row.id ? 'animate-spin' : ''}`} />
-                            </Button>
-                          ) : (
-                            <>
+                            // Hoàn tác = đụng tồn -> chỉ admin
+                            currentUserRole === 'admin' && (
                               <Button
                                 variant="ghost"
-                                onClick={() => doExecute(row)}
+                                onClick={() => doUndo(row)}
                                 disabled={actingId === row.id}
-                                title="Xác nhận thực hiện (áp tồn kho)"
-                                className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50"
+                                title="Hoàn tác thực hiện (trả tồn kho)"
+                                className="h-8 w-8 p-0 text-orange-600 hover:text-orange-800 hover:bg-orange-50"
                               >
-                                <Save className={`w-4 h-4 ${actingId === row.id ? 'animate-pulse' : ''}`} />
+                                <RefreshCw className={`w-4 h-4 ${actingId === row.id ? 'animate-spin' : ''}`} />
                               </Button>
+                            )
+                          ) : (
+                            <>
+                              {/* Xác nhận thực hiện = áp tồn -> chỉ admin */}
+                              {currentUserRole === 'admin' && (
+                                <Button
+                                  variant="ghost"
+                                  onClick={() => doExecute(row)}
+                                  disabled={actingId === row.id}
+                                  title="Xác nhận thực hiện (áp tồn kho)"
+                                  className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50"
+                                >
+                                  <Save className={`w-4 h-4 ${actingId === row.id ? 'animate-pulse' : ''}`} />
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 onClick={() => openEditModal(row)}
@@ -1362,8 +1383,9 @@ export default function PhieuDeNghiModule({
                 <input
                   type="checkbox"
                   checked={form.tac_dong_ton}
+                  disabled={currentUserRole !== 'admin'}
                   onChange={e => setForm({ ...form, tac_dong_ton: e.target.checked })}
-                  className="w-4 h-4 accent-amber-600"
+                  className="w-4 h-4 accent-amber-600 disabled:opacity-50"
                 />
                 <span className="text-xs text-amber-900 font-semibold">Phiếu này tác động tồn kho</span>
                 <span className="text-[11px] text-amber-700/80">
@@ -1431,7 +1453,7 @@ export default function PhieuDeNghiModule({
                           <input
                             type="checkbox"
                             checked={!!ln.tinh_ton}
-                            disabled={!form.tac_dong_ton}
+                            disabled={!form.tac_dong_ton || currentUserRole !== 'admin'}
                             onChange={e => updateLine('xuat_ra', idx, 'tinh_ton', e.target.checked)}
                             title={form.tac_dong_ton ? 'Trừ tồn kho khi thực hiện' : 'Phiếu không tác động tồn kho'}
                             className="w-3.5 h-3.5 accent-indigo-600 disabled:opacity-40"
@@ -1510,7 +1532,7 @@ export default function PhieuDeNghiModule({
                           <input
                             type="checkbox"
                             checked={!!ln.tinh_ton}
-                            disabled={!form.tac_dong_ton}
+                            disabled={!form.tac_dong_ton || currentUserRole !== 'admin'}
                             onChange={e => updateLine('nhap_lai', idx, 'tinh_ton', e.target.checked)}
                             title={form.tac_dong_ton ? 'Cộng tồn kho khi thực hiện' : 'Phiếu không tác động tồn kho'}
                             className="w-3.5 h-3.5 accent-emerald-600 disabled:opacity-40"

@@ -420,6 +420,11 @@ export async function DELETE(request: Request) {
       .eq('id', id)
       .single()
 
+    // Xóa phiếu ĐÃ thực hiện = đảo tồn kho -> chỉ admin được làm (hạn chế ảnh hưởng tồn)
+    if (p?.trang_thai === 'da_thuc_hien' && session.role !== 'admin') {
+      return NextResponse.json({ error: 'Chỉ admin được xóa phiếu đã thực hiện (vì phải hoàn tồn kho)' }, { status: 403 })
+    }
+
     // Nếu phiếu đã thực hiện (đã áp tồn) -> đảo dấu hoàn tồn trước khi xóa
     if (p?.trang_thai === 'da_thuc_hien') {
       const { error: errRev } = await supabaseAdmin.rpc('soct_pdn_apply_ton', { p_id: id, p_sign: -1 })
@@ -450,6 +455,10 @@ export async function PATCH(request: Request) {
     const session = await requireTab('kho_hang', 'kho_hang.phieu_de_nghi')
     if (!session) {
       return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
+    }
+    // Áp tồn / hoàn tồn = thao tác đụng tồn kho -> CHỈ admin (tech_admin/staff không được)
+    if (session.role !== 'admin') {
+      return NextResponse.json({ error: 'Chỉ admin được áp/hoàn tồn kho của phiếu đề nghị' }, { status: 403 })
     }
 
     const body = await request.json()
