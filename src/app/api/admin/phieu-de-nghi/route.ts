@@ -68,6 +68,7 @@ export async function GET(request: Request) {
         id, so_phieu, so_phieu_num, so_phieu_sub, ngay_lap,
         ten_may, ma_may, serial, kho_may, so_px, ma_kho, so_report, the_kho, ly_do,
         ky_bgd, ky_ktt, ky_pkt, nguoi_lap, created_at,
+        tac_dong_ton, trang_thai, thuc_hien_luc, thuc_hien_by,
         soct_phieu_de_nghi_ct (*)
       `)
 
@@ -139,6 +140,7 @@ export async function POST(request: Request) {
       ky_ktt,
       ky_pkt,
       nguoi_lap,
+      tac_dong_ton = true,
       xuat_ra = [],
       nhap_lai = [],
     } = body
@@ -181,6 +183,8 @@ export async function POST(request: Request) {
         ky_ktt: ky_ktt?.trim() || 'Phạm Thị Phương',
         ky_pkt: ky_pkt?.trim() || 'Trần Kiên',
         nguoi_lap: nguoi_lap?.trim() || session.full_name || null,
+        tac_dong_ton: tac_dong_ton !== false,
+        trang_thai: 'nhap',
         created_by: session.id,
       })
       .select()
@@ -205,6 +209,7 @@ export async function POST(request: Request) {
             dvt: r.dvt?.trim() || 'Cái',
             so_luong: r.so_luong != null && r.so_luong !== '' ? Number(r.so_luong) : null,
             ghi_chu: r.ghi_chu?.trim() || null,
+            tinh_ton: !!r.tinh_ton,
           })
         }
       })
@@ -222,6 +227,7 @@ export async function POST(request: Request) {
             dvt: r.dvt?.trim() || 'Cái',
             so_luong: r.so_luong != null && r.so_luong !== '' ? Number(r.so_luong) : null,
             ghi_chu: r.ghi_chu?.trim() || null,
+            tinh_ton: !!r.tinh_ton,
           })
         }
       })
@@ -269,6 +275,7 @@ export async function PUT(request: Request) {
       ky_ktt,
       ky_pkt,
       nguoi_lap,
+      tac_dong_ton = true,
       xuat_ra = [],
       nhap_lai = [],
     } = body
@@ -279,6 +286,16 @@ export async function PUT(request: Request) {
 
     if (!so_phieu || !String(so_phieu).trim()) {
       return NextResponse.json({ error: 'Vui lòng nhập số phiếu' }, { status: 400 })
+    }
+
+    // Không cho sửa phiếu đã thực hiện (đã áp tồn) -> phải Hoàn tác trước.
+    const { data: cur } = await supabaseAdmin
+      .from('soct_phieu_de_nghi')
+      .select('trang_thai')
+      .eq('id', id)
+      .maybeSingle()
+    if (cur?.trang_thai === 'da_thuc_hien') {
+      return NextResponse.json({ error: 'Phiếu đã thực hiện (đã áp tồn kho). Hãy bấm "Hoàn tác thực hiện" trước khi sửa.' }, { status: 409 })
     }
 
     const parsed = parseSoPhieu(so_phieu)
@@ -316,6 +333,7 @@ export async function PUT(request: Request) {
         ky_ktt: ky_ktt?.trim() || 'Phạm Thị Phương',
         ky_pkt: ky_pkt?.trim() || 'Trần Kiên',
         nguoi_lap: nguoi_lap?.trim() || null,
+        tac_dong_ton: tac_dong_ton !== false,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
@@ -343,6 +361,7 @@ export async function PUT(request: Request) {
             dvt: r.dvt?.trim() || 'Cái',
             so_luong: r.so_luong != null && r.so_luong !== '' ? Number(r.so_luong) : null,
             ghi_chu: r.ghi_chu?.trim() || null,
+            tinh_ton: !!r.tinh_ton,
           })
         }
       })
@@ -360,6 +379,7 @@ export async function PUT(request: Request) {
             dvt: r.dvt?.trim() || 'Cái',
             so_luong: r.so_luong != null && r.so_luong !== '' ? Number(r.so_luong) : null,
             ghi_chu: r.ghi_chu?.trim() || null,
+            tinh_ton: !!r.tinh_ton,
           })
         }
       })
@@ -393,8 +413,20 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Thiếu id phiếu cần xóa' }, { status: 400 })
     }
 
-    // Lấy số phiếu để lưu audit log
-    const { data: p } = await supabaseAdmin.from('soct_phieu_de_nghi').select('so_phieu').eq('id', id).single()
+    // Lấy số phiếu + trạng thái để hoàn tồn (nếu đã thực hiện) và lưu audit log
+    const { data: p } = await supabaseAdmin
+      .from('soct_phieu_de_nghi')
+      .select('so_phieu, trang_thai')
+      .eq('id', id)
+      .single()
+
+    // Nếu phiếu đã thực hiện (đã áp tồn) -> đảo dấu hoàn tồn trước khi xóa
+    if (p?.trang_thai === 'da_thuc_hien') {
+      const { error: errRev } = await supabaseAdmin.rpc('soct_pdn_apply_ton', { p_id: id, p_sign: -1 })
+      if (errRev) {
+        return NextResponse.json({ error: 'Lỗi hoàn tồn kho khi xóa phiếu: ' + errRev.message }, { status: 500 })
+      }
+    }
 
     const { error } = await supabaseAdmin.from('soct_phieu_de_nghi').delete().eq('id', id)
 
@@ -407,6 +439,102 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error in DELETE phieu_de_nghi:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+// PATCH: Xác nhận thực hiện (áp tồn) / Hoàn tác thực hiện (đảo tồn)
+// body: { id, action: 'execute' | 'undo', auto_create?: boolean }
+export async function PATCH(request: Request) {
+  try {
+    const session = await requireTab('kho_hang', 'kho_hang.phieu_de_nghi')
+    if (!session) {
+      return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { id, action, auto_create } = body || {}
+    if (!id) return NextResponse.json({ error: 'Thiếu id phiếu' }, { status: 400 })
+    if (action !== 'execute' && action !== 'undo') {
+      return NextResponse.json({ error: 'Hành động không hợp lệ' }, { status: 400 })
+    }
+
+    const { data: phieu, error: errP } = await supabaseAdmin
+      .from('soct_phieu_de_nghi')
+      .select('id, so_phieu, tac_dong_ton, trang_thai, soct_phieu_de_nghi_ct (loai_hang, ma_hang, ten_hang, so_luong, tinh_ton)')
+      .eq('id', id)
+      .single()
+    if (errP || !phieu) return NextResponse.json({ error: 'Không tìm thấy phiếu' }, { status: 404 })
+
+    // ===== HOÀN TÁC =====
+    if (action === 'undo') {
+      if (phieu.trang_thai !== 'da_thuc_hien') {
+        return NextResponse.json({ error: 'Phiếu chưa ở trạng thái đã thực hiện' }, { status: 409 })
+      }
+      const { error: errRev } = await supabaseAdmin.rpc('soct_pdn_apply_ton', { p_id: id, p_sign: -1 })
+      if (errRev) return NextResponse.json({ error: 'Lỗi hoàn tồn kho: ' + errRev.message }, { status: 500 })
+      await supabaseAdmin
+        .from('soct_phieu_de_nghi')
+        .update({ trang_thai: 'nhap', thuc_hien_luc: null, thuc_hien_by: null })
+        .eq('id', id)
+      logAudit(session, 'hoan_tac_phieu_de_nghi', `Hoàn tác thực hiện phiếu đề nghị số ${phieu.so_phieu}`)
+      return NextResponse.json({ success: true, trang_thai: 'nhap' })
+    }
+
+    // ===== XÁC NHẬN THỰC HIỆN =====
+    if (phieu.trang_thai === 'da_thuc_hien') {
+      return NextResponse.json({ error: 'Phiếu đã được thực hiện trước đó' }, { status: 409 })
+    }
+
+    // Nếu phiếu có tác động tồn: kiểm tra các mã (tinh_ton) đã có trong kho chưa
+    if (phieu.tac_dong_ton) {
+      const ct: any[] = phieu.soct_phieu_de_nghi_ct || []
+      const need = ct.filter(r => r.tinh_ton && r.ma_hang && String(r.ma_hang).trim())
+      const codes = Array.from(new Set(need.map(r => String(r.ma_hang).trim())))
+
+      if (codes.length > 0) {
+        const { data: existRows } = await supabaseAdmin
+          .from('soct_kho_hang')
+          .select('ma_hang')
+          .in('ma_hang', codes)
+        const existSet = new Set((existRows || []).map((r: any) => r.ma_hang))
+        const missing = codes.filter(c => !existSet.has(c))
+
+        if (missing.length > 0) {
+          if (!auto_create) {
+            // Trả danh sách mã thiếu kèm tên gợi ý -> frontend chào "Tạo nhanh"
+            const missingInfo = missing.map(ma => {
+              const line = need.find(r => String(r.ma_hang).trim() === ma)
+              return { ma_hang: ma, ten_hang: (line?.ten_hang || '').trim() }
+            })
+            return NextResponse.json(
+              { error: 'missing_kho', missing: missingInfo },
+              { status: 409 }
+            )
+          }
+          // Tạo nhanh mã còn thiếu (tồn = 0)
+          const inserts = missing.map(ma => {
+            const line = need.find(r => String(r.ma_hang).trim() === ma)
+            return { ma_hang: ma, ten_hang: (line?.ten_hang || '').trim() || ma, ton_kho: 0 }
+          })
+          const { error: errIns } = await supabaseAdmin.from('soct_kho_hang').insert(inserts)
+          if (errIns) return NextResponse.json({ error: 'Lỗi tạo nhanh mã kho: ' + errIns.message }, { status: 500 })
+        }
+      }
+    }
+
+    const { error: errApply } = await supabaseAdmin.rpc('soct_pdn_apply_ton', { p_id: id, p_sign: 1 })
+    if (errApply) return NextResponse.json({ error: 'Lỗi áp tồn kho: ' + errApply.message }, { status: 500 })
+
+    await supabaseAdmin
+      .from('soct_phieu_de_nghi')
+      .update({ trang_thai: 'da_thuc_hien', thuc_hien_luc: new Date().toISOString(), thuc_hien_by: session.id })
+      .eq('id', id)
+
+    logAudit(session, 'thuc_hien_phieu_de_nghi', `Xác nhận thực hiện phiếu đề nghị số ${phieu.so_phieu}`)
+    return NextResponse.json({ success: true, trang_thai: 'da_thuc_hien' })
+  } catch (error: any) {
+    console.error('Error in PATCH phieu_de_nghi:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

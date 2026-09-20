@@ -19,6 +19,7 @@ export type PhieuDeNghiCt = {
   dvt: string
   so_luong: number | string | null
   ghi_chu: string
+  tinh_ton?: boolean
 }
 
 export type PhieuDeNghi = {
@@ -40,6 +41,9 @@ export type PhieuDeNghi = {
   ky_ktt: string | null
   ky_pkt: string | null
   nguoi_lap: string | null
+  tac_dong_ton?: boolean
+  trang_thai?: string
+  thuc_hien_luc?: string | null
   created_at?: string
   created_by?: string
   soct_phieu_de_nghi_ct?: PhieuDeNghiCt[]
@@ -493,6 +497,7 @@ export default function PhieuDeNghiModule({
     ky_ktt: 'Phạm Thị Phương',
     ky_pkt: 'Trần Kiên',
     nguoi_lap: currentUserName || 'Admin',
+    tac_dong_ton: true,
   })
 
   // Detail lines
@@ -502,6 +507,16 @@ export default function PhieuDeNghiModule({
   // Modal xóa
   const [deleteTarget, setDeleteTarget] = useState<PhieuDeNghi | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  // Thực hiện / hoàn tác
+  const [actingId, setActingId] = useState<string | null>(null)
+
+  // Tập mã hàng có trong kho (để auto bật cờ "tính tồn" cho dòng vật tư)
+  const khoSet = useMemo(
+    () => new Set((Array.isArray(inventory) ? inventory : []).map((i: any) => String(i?.ma_hang || '').toUpperCase())),
+    [inventory]
+  )
+  const inKho = useCallback((ma?: string | null) => khoSet.has(String(ma || '').toUpperCase()), [khoSet])
 
   // Tải danh sách
   const load = useCallback(async () => {
@@ -586,6 +601,7 @@ export default function PhieuDeNghiModule({
       ky_ktt: 'Phạm Thị Phương',
       ky_pkt: 'Trần Kiên',
       nguoi_lap: currentUserName || 'Admin',
+      tac_dong_ton: true,
     })
 
     // Khởi tạo sẵn 2 dòng trống cho mỗi vế (thêm khi cần); bản in vẫn đệm tối thiểu 6
@@ -633,6 +649,7 @@ export default function PhieuDeNghiModule({
       ky_ktt: phieu.ky_ktt || 'Phạm Thị Phương',
       ky_pkt: phieu.ky_pkt || 'Trần Kiên',
       nguoi_lap: phieu.nguoi_lap || currentUserName || 'Admin',
+      tac_dong_ton: phieu.tac_dong_ton !== false,
     })
 
     // Fetch chi tiết phiếu đầy đủ
@@ -757,6 +774,7 @@ export default function PhieuDeNghiModule({
       ma_hang: ma,
       ten_hang: ten != null ? ten : r0.ten_hang,
       so_luong: (r0.so_luong === '' || r0.so_luong == null) ? (ma ? 1 : r0.so_luong) : r0.so_luong,
+      tinh_ton: inKho(ma),
     }
     return next
   }
@@ -843,6 +861,60 @@ export default function PhieuDeNghiModule({
       showNotification('error', 'Lỗi kết nối khi xóa phiếu')
     } finally {
       setDeleting(false)
+    }
+  }
+
+  // Xác nhận thực hiện (áp tồn). Nếu gặp mã chưa có trong kho -> hỏi tạo nhanh rồi thử lại.
+  const doExecute = async (row: PhieuDeNghi, autoCreate = false) => {
+    setActingId(row.id)
+    try {
+      const res = await fetch('/api/admin/phieu-de-nghi', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: row.id, action: 'execute', auto_create: autoCreate }),
+      })
+      const j = await res.json()
+      if (res.ok) {
+        showNotification('success', `Đã thực hiện phiếu số ${row.so_phieu}${row.tac_dong_ton ? ' — đã cập nhật tồn kho' : ''}`)
+        load()
+        return
+      }
+      if (res.status === 409 && j.error === 'missing_kho' && Array.isArray(j.missing)) {
+        const list = j.missing.map((m: any) => `• ${m.ma_hang}${m.ten_hang ? ' — ' + m.ten_hang : ''}`).join('\n')
+        if (window.confirm(`Các mã sau CHƯA có trong kho:\n\n${list}\n\nTạo nhanh (tồn = 0) rồi thực hiện phiếu?`)) {
+          await doExecute(row, true)
+        }
+        return
+      }
+      showNotification('error', j.error || 'Lỗi thực hiện phiếu')
+    } catch {
+      showNotification('error', 'Lỗi kết nối khi thực hiện phiếu')
+    } finally {
+      setActingId(null)
+    }
+  }
+
+  // Hoàn tác thực hiện (đảo tồn)
+  const doUndo = async (row: PhieuDeNghi) => {
+    if (!window.confirm(`Hoàn tác thực hiện phiếu số ${row.so_phieu}? Tồn kho sẽ được trả về như trước.`)) return
+    setActingId(row.id)
+    try {
+      const res = await fetch('/api/admin/phieu-de-nghi', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: row.id, action: 'undo' }),
+      })
+      const j = await res.json()
+      if (res.ok) {
+        showNotification('success', `Đã hoàn tác phiếu số ${row.so_phieu}`)
+        load()
+      } else {
+        showNotification('error', j.error || 'Lỗi hoàn tác')
+      }
+    } catch {
+      showNotification('error', 'Lỗi kết nối khi hoàn tác')
+    } finally {
+      setActingId(null)
     }
   }
 
@@ -991,20 +1063,21 @@ export default function PhieuDeNghiModule({
                 <th className="px-2.5 py-2.5 text-left">Số PX</th>
                 <th className="px-2.5 py-2.5 text-center">Vật tư (Xuất / Nhập)</th>
                 <th className="px-2.5 py-2.5 text-left">Người lập</th>
-                <th className="px-3 py-2.5 text-center w-28">Thao tác</th>
+                <th className="px-2.5 py-2.5 text-center">Trạng thái</th>
+                <th className="px-3 py-2.5 text-center w-36">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={11} className="px-4 py-8 text-center text-slate-400">
                     <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />
                     Đang tải danh sách phiếu đề nghị...
                   </td>
                 </tr>
               ) : sortedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={11} className="px-4 py-8 text-center text-slate-400">
                     Không tìm thấy phiếu đề nghị nào phù hợp.
                   </td>
                 </tr>
@@ -1052,6 +1125,20 @@ export default function PhieuDeNghiModule({
                       <td className="px-2.5 py-2.5 text-slate-600">
                         {row.nguoi_lap || <span className="text-slate-300">—</span>}
                       </td>
+                      <td className="px-2.5 py-2.5 text-center whitespace-nowrap">
+                        {row.trang_thai === 'da_thuc_hien' ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-semibold" title={row.thuc_hien_luc ? `Thực hiện: ${fmtDate(row.thuc_hien_luc)}` : ''}>
+                            Đã thực hiện
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 text-[11px] font-semibold">
+                            Nháp
+                          </span>
+                        )}
+                        {row.tac_dong_ton === false && (
+                          <span className="block text-[10px] text-slate-400 mt-0.5">không tác động tồn</span>
+                        )}
+                      </td>
                       <td className="px-3 py-2.5 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1">
                           <Button
@@ -1062,14 +1149,37 @@ export default function PhieuDeNghiModule({
                           >
                             <Printer className="w-4 h-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            onClick={() => openEditModal(row)}
-                            title="Chỉnh sửa phiếu"
-                            className="h-8 w-8 p-0 text-amber-600 hover:text-amber-800 hover:bg-amber-50"
-                          >
-                            <PenSquare className="w-4 h-4" />
-                          </Button>
+                          {row.trang_thai === 'da_thuc_hien' ? (
+                            <Button
+                              variant="ghost"
+                              onClick={() => doUndo(row)}
+                              disabled={actingId === row.id}
+                              title="Hoàn tác thực hiện (trả tồn kho)"
+                              className="h-8 w-8 p-0 text-orange-600 hover:text-orange-800 hover:bg-orange-50"
+                            >
+                              <RefreshCw className={`w-4 h-4 ${actingId === row.id ? 'animate-spin' : ''}`} />
+                            </Button>
+                          ) : (
+                            <>
+                              <Button
+                                variant="ghost"
+                                onClick={() => doExecute(row)}
+                                disabled={actingId === row.id}
+                                title="Xác nhận thực hiện (áp tồn kho)"
+                                className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50"
+                              >
+                                <Save className={`w-4 h-4 ${actingId === row.id ? 'animate-pulse' : ''}`} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                onClick={() => openEditModal(row)}
+                                title="Chỉnh sửa phiếu"
+                                className="h-8 w-8 p-0 text-amber-600 hover:text-amber-800 hover:bg-amber-50"
+                              >
+                                <PenSquare className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
                           {currentUserRole === 'admin' && (
                             <Button
                               variant="ghost"
@@ -1238,6 +1348,20 @@ export default function PhieuDeNghiModule({
                 </div>
               </div>
 
+              {/* Công tắc tác động tồn kho (cấp phiếu) */}
+              <label className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={form.tac_dong_ton}
+                  onChange={e => setForm({ ...form, tac_dong_ton: e.target.checked })}
+                  className="w-4 h-4 accent-amber-600"
+                />
+                <span className="text-xs text-amber-900 font-semibold">Phiếu này tác động tồn kho</span>
+                <span className="text-[11px] text-amber-700/80">
+                  — bật cột <b>Tồn</b> ở 2 bảng (mã có trong kho tự bật). Tắt nếu chỉ là giấy tờ (vd gộp mã theo khách). Tồn chỉ trừ/cộng khi bấm <b>Xác nhận thực hiện</b>.
+                </span>
+              </label>
+
               {/* Bảng đối ứng 2 vế (Side-by-side tables) */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* VẾ TRÁI: HÀNG XUẤT RA */}
@@ -1260,22 +1384,24 @@ export default function PhieuDeNghiModule({
                   <div className="space-y-1.5">
                     <div className="grid grid-cols-12 gap-1.5 px-0.5 text-[10px] font-semibold uppercase text-indigo-700/70">
                       <div className="col-span-1 text-center">TT</div>
-                      <div className="col-span-4">Mã hàng</div>
+                      <div className="col-span-3">Mã hàng</div>
                       <div className="col-span-5">Tên hàng</div>
-                      <div className="col-span-2 text-center">SL</div>
+                      <div className="col-span-1 text-center">SL</div>
+                      <div className="col-span-1 text-center" title="Tính vào tồn kho">Tồn</div>
+                      <div className="col-span-1"></div>
                     </div>
                     {linesXuat.map((ln, idx) => (
                       <div key={idx} className="grid grid-cols-12 gap-1.5 items-center">
                         <div className="col-span-1 text-center text-[11px] font-semibold text-indigo-700">{idx + 1}</div>
-                        <div className="col-span-4">
+                        <div className="col-span-3">
                           <MaHangCombo
                             value={ln.ma_hang}
                             inventory={inventory}
-                            onChangeMa={(v) => { updateLine('xuat_ra', idx, 'ma_hang', v); if (v && (ln.so_luong === '' || ln.so_luong == null)) updateLine('xuat_ra', idx, 'so_luong', 1) }}
-                            onPick={(ma, ten) => { updateLine('xuat_ra', idx, 'ma_hang', ma); updateLine('xuat_ra', idx, 'ten_hang', ten); if (ln.so_luong === '' || ln.so_luong == null) updateLine('xuat_ra', idx, 'so_luong', 1) }}
+                            onChangeMa={(v) => { updateLine('xuat_ra', idx, 'ma_hang', v); updateLine('xuat_ra', idx, 'tinh_ton', inKho(v)); if (v && (ln.so_luong === '' || ln.so_luong == null)) updateLine('xuat_ra', idx, 'so_luong', 1) }}
+                            onPick={(ma, ten) => { updateLine('xuat_ra', idx, 'ma_hang', ma); updateLine('xuat_ra', idx, 'ten_hang', ten); updateLine('xuat_ra', idx, 'tinh_ton', inKho(ma)); if (ln.so_luong === '' || ln.so_luong == null) updateLine('xuat_ra', idx, 'so_luong', 1) }}
                           />
                         </div>
-                        <div className="col-span-5 flex items-center gap-1">
+                        <div className="col-span-5">
                           <Input
                             value={ln.ten_hang}
                             onChange={e => updateLine('xuat_ra', idx, 'ten_hang', e.target.value)}
@@ -1283,14 +1409,26 @@ export default function PhieuDeNghiModule({
                             className="h-7 text-xs"
                           />
                         </div>
-                        <div className="col-span-2 flex items-center gap-1">
+                        <div className="col-span-1">
                           <Input
                             type="number"
                             value={ln.so_luong ?? ''}
                             onChange={e => updateLine('xuat_ra', idx, 'so_luong', e.target.value)}
                             placeholder="SL"
-                            className="h-7 text-xs text-center font-bold text-indigo-700"
+                            className="h-7 text-xs text-center font-bold text-indigo-700 px-1"
                           />
+                        </div>
+                        <div className="col-span-1 flex justify-center">
+                          <input
+                            type="checkbox"
+                            checked={!!ln.tinh_ton}
+                            disabled={!form.tac_dong_ton}
+                            onChange={e => updateLine('xuat_ra', idx, 'tinh_ton', e.target.checked)}
+                            title={form.tac_dong_ton ? 'Trừ tồn kho khi thực hiện' : 'Phiếu không tác động tồn kho'}
+                            className="w-3.5 h-3.5 accent-indigo-600 disabled:opacity-40"
+                          />
+                        </div>
+                        <div className="col-span-1 flex justify-center">
                           <button
                             type="button"
                             onClick={() => removeLine('xuat_ra', idx)}
@@ -1325,22 +1463,24 @@ export default function PhieuDeNghiModule({
                   <div className="space-y-1.5">
                     <div className="grid grid-cols-12 gap-1.5 px-0.5 text-[10px] font-semibold uppercase text-emerald-700/70">
                       <div className="col-span-1 text-center">TT</div>
-                      <div className="col-span-4">Mã hàng</div>
+                      <div className="col-span-3">Mã hàng</div>
                       <div className="col-span-5">Tên hàng</div>
-                      <div className="col-span-2 text-center">SL</div>
+                      <div className="col-span-1 text-center">SL</div>
+                      <div className="col-span-1 text-center" title="Tính vào tồn kho">Tồn</div>
+                      <div className="col-span-1"></div>
                     </div>
                     {linesNhap.map((ln, idx) => (
                       <div key={idx} className="grid grid-cols-12 gap-1.5 items-center">
                         <div className="col-span-1 text-center text-[11px] font-semibold text-emerald-700">{idx + 1}</div>
-                        <div className="col-span-4">
+                        <div className="col-span-3">
                           <MaHangCombo
                             value={ln.ma_hang}
                             inventory={inventory}
-                            onChangeMa={(v) => { updateLine('nhap_lai', idx, 'ma_hang', v); if (v && (ln.so_luong === '' || ln.so_luong == null)) updateLine('nhap_lai', idx, 'so_luong', 1) }}
-                            onPick={(ma, ten) => { updateLine('nhap_lai', idx, 'ma_hang', ma); updateLine('nhap_lai', idx, 'ten_hang', ten); if (ln.so_luong === '' || ln.so_luong == null) updateLine('nhap_lai', idx, 'so_luong', 1) }}
+                            onChangeMa={(v) => { updateLine('nhap_lai', idx, 'ma_hang', v); updateLine('nhap_lai', idx, 'tinh_ton', inKho(v)); if (v && (ln.so_luong === '' || ln.so_luong == null)) updateLine('nhap_lai', idx, 'so_luong', 1) }}
+                            onPick={(ma, ten) => { updateLine('nhap_lai', idx, 'ma_hang', ma); updateLine('nhap_lai', idx, 'ten_hang', ten); updateLine('nhap_lai', idx, 'tinh_ton', inKho(ma)); if (ln.so_luong === '' || ln.so_luong == null) updateLine('nhap_lai', idx, 'so_luong', 1) }}
                           />
                         </div>
-                        <div className="col-span-5 flex items-center gap-1">
+                        <div className="col-span-5">
                           <Input
                             value={ln.ten_hang}
                             onChange={e => updateLine('nhap_lai', idx, 'ten_hang', e.target.value)}
@@ -1348,14 +1488,26 @@ export default function PhieuDeNghiModule({
                             className="h-7 text-xs"
                           />
                         </div>
-                        <div className="col-span-2 flex items-center gap-1">
+                        <div className="col-span-1">
                           <Input
                             type="number"
                             value={ln.so_luong ?? ''}
                             onChange={e => updateLine('nhap_lai', idx, 'so_luong', e.target.value)}
                             placeholder="SL"
-                            className="h-7 text-xs text-center font-bold text-emerald-700"
+                            className="h-7 text-xs text-center font-bold text-emerald-700 px-1"
                           />
+                        </div>
+                        <div className="col-span-1 flex justify-center">
+                          <input
+                            type="checkbox"
+                            checked={!!ln.tinh_ton}
+                            disabled={!form.tac_dong_ton}
+                            onChange={e => updateLine('nhap_lai', idx, 'tinh_ton', e.target.checked)}
+                            title={form.tac_dong_ton ? 'Cộng tồn kho khi thực hiện' : 'Phiếu không tác động tồn kho'}
+                            className="w-3.5 h-3.5 accent-emerald-600 disabled:opacity-40"
+                          />
+                        </div>
+                        <div className="col-span-1 flex justify-center">
                           <button
                             type="button"
                             onClick={() => removeLine('nhap_lai', idx)}
