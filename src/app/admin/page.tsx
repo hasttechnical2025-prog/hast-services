@@ -2047,7 +2047,7 @@ export default function AdminDashboard() {
                 <button onClick={() => setTaiChinhTab("phi_bao_tri")} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'phi_bao_tri' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>Phí bảo trì</button>
               )}
               {subVisible('tai_chinh', 'kanban') && (
-                <button onClick={() => setTaiChinhTab("kanban")} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'kanban' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>Kanban Hóa đơn</button>
+                <button onClick={() => setTaiChinhTab("kanban")} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${effectiveTaiChinhTab === 'kanban' ? 'bg-white text-red-700 font-bold shadow-sm ring-1 ring-red-300' : 'text-red-600 hover:text-red-700 hover:bg-red-50 font-semibold'}`}>Kanban Hóa đơn</button>
               )}
             </div>
             {effectiveTaiChinhTab === "cong_no" && subVisible('tai_chinh', 'cong_no') && (
