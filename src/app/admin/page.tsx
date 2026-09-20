@@ -4325,7 +4325,7 @@ function CustomerCombobox({ customers, value, onPick, onCreateNew }: {
     ? customers.slice(0, 50)
     : customers
         .filter(c => {
-          const hay = normKh(`${c.ten_khach_hang || ''} ${c.ma_may || ''} ${c.model || ''} ${c.dia_chi || ''}`)
+          const hay = normKh(`${c.ten_khach_hang || ''} ${c.ma_may || ''} ${c.model || ''} ${c.vi_tri_dat_may || ''} ${c.dia_chi || ''}`)
           return matchers.every(m => m(hay))
         })
         // Xếp hạng: gõ đúng mã máy lên đầu → mọi từ khớp trong TÊN khách → còn lại.
@@ -4369,7 +4369,7 @@ function CustomerCombobox({ customers, value, onPick, onCreateNew }: {
               <div className="text-xs text-slate-400 flex gap-2 flex-wrap">
                 {c.ma_may && <span className="font-mono">Mã: {c.ma_may}</span>}
                 {c.model && <span>· {c.model}</span>}
-                {c.dia_chi && <span className="truncate max-w-[16rem]">· {c.dia_chi}</span>}
+                {(c.vi_tri_dat_may || c.dia_chi) && <span className="truncate max-w-[16rem]">· {c.vi_tri_dat_may || c.dia_chi}</span>}
               </div>
             </button>
           ))}
