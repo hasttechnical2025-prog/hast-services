@@ -518,6 +518,20 @@ export default function AdminDashboard() {
     fetchCanhBaoTon()
   }, [currentAdmin, currentUserRole, fetchCanhBaoTon])
 
+  // Điểm máy có công nợ nhưng CHƯA gán khách cụm -> chuông admin-only (nhắc gán cụm gom công nợ).
+  const [congNoChuaCum, setCongNoChuaCum] = useState<any[]>([])
+  const fetchCongNoChuaCum = useCallback(() => {
+    fetch('/api/admin/cong-no/chua-cum')
+      .then(r => r.ok ? r.json() : { items: [] })
+      .then(j => setCongNoChuaCum(j.items || []))
+      .catch(() => { })
+  }, [])
+  useEffect(() => {
+    if (!currentAdmin) return
+    if (currentUserRole !== 'admin') { setCongNoChuaCum([]); return }
+    fetchCongNoChuaCum()
+  }, [currentAdmin, currentUserRole, fetchCongNoChuaCum])
+
   // Đếm phiếu Kanban Cột 1 (Chờ lên HĐ) & Cột 2 (KT-HC lên HĐ) cho chuông — nhắc office bàn giao/lên HĐ.
   // Chỉ office thấy chuông (admin/tech_admin/staff); refresh định kỳ.
   useEffect(() => {
@@ -1584,6 +1598,29 @@ export default function AdminDashboard() {
             </table>
           </div>
           {mayChuaViTri.length > 30 && <p className="text-[10px] text-slate-400 px-1">…và {mayChuaViTri.length - 30} máy nữa.</p>}
+        </div>
+      ),
+    },
+    // Điểm máy có công nợ nhưng CHƯA gán khách cụm — CHỈ admin (count=0 với role khác nên tự ẩn).
+    {
+      key: 'cong_no_chua_cum', icon: Users, tone: 'amber', label: 'Công nợ chưa gán khách cụm', count: currentUserRole === 'admin' ? congNoChuaCum.length : 0,
+      detail: (
+        <div className="px-1 py-1 space-y-1">
+          <p className="text-[11px] text-slate-500 px-1">Điểm máy đang có công nợ nhưng chưa thuộc khách cụm → công nợ bị tính lẻ. Vào <b>Quản lý › Khách hàng cụm</b> để gán cho gom đúng.</p>
+          <div className="border border-amber-100 rounded-lg overflow-hidden">
+            <table className="w-full text-left text-xs text-slate-600">
+              <thead className="bg-amber-50 text-amber-800"><tr><th className="px-2.5 py-1.5 font-medium">Khách / mã máy</th><th className="px-2 py-1.5 font-medium text-center">Số phiếu</th></tr></thead>
+              <tbody className="divide-y divide-slate-100">
+                {congNoChuaCum.slice(0, 40).map((c: any) => (
+                  <tr key={c.id_khach_hang}>
+                    <td className="px-2.5 py-1.5"><div className="font-medium text-slate-800">{c.ten_khach_hang}</div><div className="text-[10px] text-slate-400 font-mono">{c.ma_may || '—'}{c.dia_chi ? ` · ${c.dia_chi}` : ''}</div></td>
+                    <td className="px-2 py-1.5 text-center font-semibold text-amber-700">{c.so_phieu}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {congNoChuaCum.length > 40 && <p className="text-[10px] text-slate-400 px-1">…và {congNoChuaCum.length - 40} điểm máy nữa.</p>}
         </div>
       ),
     },
