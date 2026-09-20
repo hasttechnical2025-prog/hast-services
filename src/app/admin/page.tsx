@@ -1955,6 +1955,8 @@ export default function AdminDashboard() {
                 showNotification={showNotification}
                 currentUserRole={currentUserRole}
                 currentUserName={currentAdmin?.full_name || ''}
+                customers={customers}
+                inventory={inventory}
               />
             ) : (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6 space-y-6">

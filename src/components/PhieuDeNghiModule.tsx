@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import DateField from "@/components/DateField"
@@ -81,17 +81,12 @@ export function printPhieuDeNghiA4(phieu: PhieuDeNghi, origin: string) {
     rowsHtml += `
       <tr>
         <td class="c-stt">${i + 1}</td>
-        <td class="c-ten">${x?.ten_hang ? esc(x.ten_hang) : ''}</td>
         <td class="c-ma">${x?.ma_hang ? esc(x.ma_hang) : ''}</td>
-        <td class="c-dvt">${x?.dvt ? esc(x.dvt) : ''}</td>
+        <td class="c-ten">${x?.ten_hang ? esc(x.ten_hang) : ''}</td>
         <td class="c-sl">${x?.so_luong != null ? esc(x.so_luong) : ''}</td>
-        <td class="c-gc">${x?.ghi_chu ? esc(x.ghi_chu) : ''}</td>
-        <td class="c-stt">${i + 1}</td>
-        <td class="c-ten">${n?.ten_hang ? esc(n.ten_hang) : ''}</td>
         <td class="c-ma">${n?.ma_hang ? esc(n.ma_hang) : ''}</td>
-        <td class="c-dvt">${n?.dvt ? esc(n.dvt) : ''}</td>
+        <td class="c-ten">${n?.ten_hang ? esc(n.ten_hang) : ''}</td>
         <td class="c-sl">${n?.so_luong != null ? esc(n.so_luong) : ''}</td>
-        <td class="c-gc">${n?.ghi_chu ? esc(n.ghi_chu) : ''}</td>
       </tr>
     `
   }
@@ -192,7 +187,7 @@ export function printPhieuDeNghiA4(phieu: PhieuDeNghi, origin: string) {
     }
     .meta-grid {
       display: grid;
-      grid-template-columns: 2.2fr 1.8fr 2fr;
+      grid-template-columns: repeat(4, 1fr);
       gap: 1.5mm 3mm;
     }
     .meta-item {
@@ -239,13 +234,11 @@ export function printPhieuDeNghiA4(phieu: PhieuDeNghi, origin: string) {
     .th-group-nhap {
       background-color: #ecfdf5 !important;
     }
-    .c-stt { width: 4.5%; text-align: center; }
-    .c-ten { width: 17%; }
-    .c-ma  { width: 11%; text-align: center; font-family: monospace; }
-    .c-dvt { width: 5.5%; text-align: center; }
-    .c-sl  { width: 5%; text-align: center; font-weight: bold; }
-    .c-gc  { width: 7%; }
-    td.c-ten, td.c-gc {
+    .c-stt { width: 5%; text-align: center; }
+    .c-ma  { width: 16%; text-align: center; font-family: monospace; }
+    .c-ten { width: 21.5%; }
+    .c-sl  { width: 6%; text-align: center; font-weight: bold; }
+    td.c-ten {
       line-height: 1.15;
       word-break: break-word;
     }
@@ -277,6 +270,14 @@ export function printPhieuDeNghiA4(phieu: PhieuDeNghi, origin: string) {
       font-size: 10pt;
       text-transform: uppercase;
     }
+    .foot-note {
+      margin-top: 5mm;
+      border-top: 1px dotted #999;
+      padding-top: 1.5mm;
+      font-size: 8.5pt;
+      font-style: italic;
+      color: #333;
+    }
   </style>
 </head>
 <body>
@@ -302,17 +303,15 @@ export function printPhieuDeNghiA4(phieu: PhieuDeNghi, origin: string) {
 
     <div class="meta-box">
       <div class="meta-grid">
-        <div class="meta-item"><span class="meta-label">Tên hàng / Model máy:</span><span class="meta-val">${esc(phieu.ten_may || '')}</span></div>
-        <div class="meta-item"><span class="meta-label">Mã máy:</span><span class="meta-val">${esc(phieu.ma_may || '')}</span></div>
-        <div class="meta-item"><span class="meta-label">Số máy / Serial:</span><span class="meta-val">${esc(phieu.serial || '')}</span></div>
+        <div class="meta-item"><span class="meta-label">Mã hàng:</span><span class="meta-val">${esc(phieu.ma_may || '')}</span></div>
+        <div class="meta-item"><span class="meta-label">Tên hàng:</span><span class="meta-val">${esc(phieu.ten_may || '')}</span></div>
+        <div class="meta-item"><span class="meta-label">Serial:</span><span class="meta-val">${esc(phieu.serial || '')}</span></div>
+        <div class="meta-item"><span class="meta-label">Mã kho:</span><span class="meta-val">${esc(phieu.ma_kho || '')}</span></div>
 
         <div class="meta-item"><span class="meta-label">Kho máy:</span><span class="meta-val">${esc(phieu.kho_may || '')}</span></div>
         <div class="meta-item"><span class="meta-label">Số PX:</span><span class="meta-val">${esc(phieu.so_px || '')}</span></div>
-        <div class="meta-item"><span class="meta-label">Mã kho:</span><span class="meta-val">${esc(phieu.ma_kho || '')}</span></div>
-
         <div class="meta-item"><span class="meta-label">Số report:</span><span class="meta-val">${esc(phieu.so_report || '')}</span></div>
         <div class="meta-item"><span class="meta-label">Thẻ kho:</span><span class="meta-val">${esc(phieu.the_kho || '')}</span></div>
-        <div class="meta-item"></div>
 
         <div class="meta-full"><span class="meta-label">Lý do &amp; Diễn giải:</span><span class="meta-val">${esc(phieu.ly_do || '')}</span></div>
       </div>
@@ -322,22 +321,17 @@ export function printPhieuDeNghiA4(phieu: PhieuDeNghi, origin: string) {
       <table class="data-tbl">
         <thead>
           <tr>
-            <th colspan="6" class="th-group-xuat">HÀNG XUẤT RA</th>
-            <th colspan="6" class="th-group-nhap">HÀNG NHẬP LẠI</th>
+            <th class="c-stt" rowspan="2">TT</th>
+            <th colspan="3" class="th-group-xuat">HÀNG XUẤT RA</th>
+            <th colspan="3" class="th-group-nhap">HÀNG NHẬP LẠI</th>
           </tr>
           <tr>
-            <th class="c-stt">STT</th>
-            <th class="c-ten">Tên hàng</th>
             <th class="c-ma">Mã hàng</th>
-            <th class="c-dvt">ĐVT</th>
-            <th class="c-sl">SL</th>
-            <th class="c-gc">Ghi chú</th>
-            <th class="c-stt">STT</th>
             <th class="c-ten">Tên hàng</th>
-            <th class="c-ma">Mã hàng</th>
-            <th class="c-dvt">ĐVT</th>
             <th class="c-sl">SL</th>
-            <th class="c-gc">Ghi chú</th>
+            <th class="c-ma">Mã hàng</th>
+            <th class="c-ten">Tên hàng</th>
+            <th class="c-sl">SL</th>
           </tr>
         </thead>
         <tbody>
@@ -376,6 +370,8 @@ export function printPhieuDeNghiA4(phieu: PhieuDeNghi, origin: string) {
         <div class="sign-name">${esc(phieu.nguoi_lap || '')}</div>
       </div>
     </div>
+
+    <div class="foot-note"><b>Ghi chú:</b> Phiếu sửa chữa, viết tay không có giá trị.</div>
   </div>
 
   <script>
@@ -393,14 +389,83 @@ export function printPhieuDeNghiA4(phieu: PhieuDeNghi, origin: string) {
   w.document.close()
 }
 
+// Combobox chọn mã hàng từ kho: gõ để lọc theo mã/tên, chọn xong tự điền Tên hàng.
+// Vẫn cho gõ tự do mã ngoài danh mục (kho không có) — Tên hàng khi đó nhập tay.
+function MaHangCombo({
+  value,
+  inventory,
+  onChangeMa,
+  onPick,
+}: {
+  value: string
+  inventory: any[]
+  onChangeMa: (ma: string) => void
+  onPick: (ma: string, ten: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [kw, setKw] = useState('')
+  const boxRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  const matches = useMemo(() => {
+    const s = (kw || value).trim().toLowerCase()
+    const list = Array.isArray(inventory) ? inventory : []
+    if (!s) return list.slice(0, 30)
+    return list
+      .filter((it: any) =>
+        String(it?.ma_hang || '').toLowerCase().includes(s) ||
+        String(it?.ten_hang || '').toLowerCase().includes(s)
+      )
+      .slice(0, 30)
+  }, [kw, value, inventory])
+
+  return (
+    <div ref={boxRef} className="relative">
+      <Input
+        value={value}
+        onChange={e => { onChangeMa(e.target.value); setKw(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        placeholder="Mã hàng..."
+        className="h-7 text-xs font-mono"
+      />
+      {open && matches.length > 0 && (
+        <div className="absolute z-30 mt-0.5 w-[320px] max-w-[80vw] max-h-56 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg text-xs">
+          {matches.map((it: any, i: number) => (
+            <button
+              key={i}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); onPick(String(it?.ma_hang || ''), String(it?.ten_hang || '')); setOpen(false); setKw('') }}
+              className="w-full text-left px-2 py-1.5 hover:bg-slate-100 flex items-center gap-2"
+            >
+              <span className="font-mono font-semibold text-slate-800 shrink-0">{it?.ma_hang}</span>
+              <span className="text-slate-500 truncate">{it?.ten_hang}</span>
+              <span className="ml-auto text-[10px] text-slate-400 shrink-0">Tồn: {Number(it?.ton_kho) || 0}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function PhieuDeNghiModule({
   showNotification,
   currentUserRole = 'admin',
-  currentUserName = ''
+  currentUserName = '',
+  inventory = [],
 }: {
   showNotification: (t: 'success' | 'error', m: string) => void
   currentUserRole?: string
   currentUserName?: string
+  customers?: any[]
+  inventory?: any[]
 }) {
   const [rows, setRows] = useState<PhieuDeNghi[]>([])
   const [loading, setLoading] = useState(true)
@@ -530,9 +595,9 @@ export default function PhieuDeNghiModule({
       nguoi_lap: currentUserName || 'Admin',
     })
 
-    // Khởi tạo sẵn 6 dòng trống cho mỗi vế
+    // Khởi tạo sẵn 2 dòng trống cho mỗi vế (thêm khi cần); bản in vẫn đệm tối thiểu 6
     setLinesXuat(
-      Array.from({ length: 6 }, (_, i) => ({
+      Array.from({ length: 2 }, (_, i) => ({
         loai_hang: 'xuat_ra',
         stt: i + 1,
         ten_hang: '',
@@ -543,7 +608,7 @@ export default function PhieuDeNghiModule({
       }))
     )
     setLinesNhap(
-      Array.from({ length: 6 }, (_, i) => ({
+      Array.from({ length: 2 }, (_, i) => ({
         loai_hang: 'nhap_lai',
         stt: i + 1,
         ten_hang: '',
@@ -586,8 +651,8 @@ export default function PhieuDeNghiModule({
         const xList = ct.filter(c => c.loai_hang === 'xuat_ra')
         const nList = ct.filter(c => c.loai_hang === 'nhap_lai')
 
-        // Đệm thêm dòng trống nếu ít hơn 6
-        while (xList.length < 6) {
+        // Đệm thêm dòng trống nếu ít hơn 2 (giữ form gọn; bản in tự đệm tới 6)
+        while (xList.length < 2) {
           xList.push({
             loai_hang: 'xuat_ra',
             stt: xList.length + 1,
@@ -598,7 +663,7 @@ export default function PhieuDeNghiModule({
             ghi_chu: '',
           })
         }
-        while (nList.length < 6) {
+        while (nList.length < 2) {
           nList.push({
             loai_hang: 'nhap_lai',
             stt: nList.length + 1,
@@ -1043,29 +1108,29 @@ export default function PhieuDeNghiModule({
                   </div>
 
                   <div>
-                    <label className="block text-slate-600 font-semibold mb-1">Tên hàng / Model máy</label>
+                    <label className="block text-slate-600 font-semibold mb-1">Mã hàng (máy)</label>
                     <Input
-                      value={form.ten_may}
-                      onChange={e => setForm({ ...form, ten_may: e.target.value })}
-                      placeholder="VD: Konica Minolta C360i..."
-                      className="h-8 bg-white"
+                      value={form.ma_may}
+                      onChange={e => setForm({ ...form, ma_may: e.target.value })}
+                      placeholder="VD: AA6W04.1CTD..."
+                      className="h-8 font-mono bg-white"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-slate-600 font-semibold mb-1">Mã máy / Mã hàng</label>
+                    <label className="block text-slate-600 font-semibold mb-1">Tên hàng (máy)</label>
                     <Input
-                      value={form.ma_may}
-                      onChange={e => setForm({ ...form, ma_may: e.target.value })}
-                      placeholder="VD: 36051..."
-                      className="h-8 font-mono bg-white"
+                      value={form.ten_may}
+                      onChange={e => setForm({ ...form, ten_may: e.target.value })}
+                      placeholder="VD: bizhub 308e..."
+                      className="h-8 bg-white"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div>
-                    <label className="block text-slate-600 font-semibold mb-1">Số máy / Serial</label>
+                    <label className="block text-slate-600 font-semibold mb-1">Serial</label>
                     <Input
                       value={form.serial}
                       onChange={e => setForm({ ...form, serial: e.target.value })}
@@ -1079,7 +1144,7 @@ export default function PhieuDeNghiModule({
                     <Input
                       value={form.kho_may}
                       onChange={e => setForm({ ...form, kho_may: e.target.value })}
-                      placeholder="Kho máy..."
+                      placeholder="VD: Lai Xá..."
                       className="h-8 bg-white"
                     />
                   </div>
@@ -1103,23 +1168,26 @@ export default function PhieuDeNghiModule({
                       className="h-8 bg-white"
                     />
                   </div>
+                </div>
 
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-slate-600 font-semibold mb-1">Số report / Thẻ kho</label>
-                    <div className="flex gap-1.5">
-                      <Input
-                        value={form.so_report}
-                        onChange={e => setForm({ ...form, so_report: e.target.value })}
-                        placeholder="Report..."
-                        className="h-8 font-mono bg-white"
-                      />
-                      <Input
-                        value={form.the_kho}
-                        onChange={e => setForm({ ...form, the_kho: e.target.value })}
-                        placeholder="Thẻ..."
-                        className="h-8 bg-white"
-                      />
-                    </div>
+                    <label className="block text-slate-600 font-semibold mb-1">Số report</label>
+                    <Input
+                      value={form.so_report}
+                      onChange={e => setForm({ ...form, so_report: e.target.value })}
+                      placeholder="Report..."
+                      className="h-8 font-mono bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">Thẻ kho</label>
+                    <Input
+                      value={form.the_kho}
+                      onChange={e => setForm({ ...form, the_kho: e.target.value })}
+                      placeholder="Thẻ kho..."
+                      className="h-8 bg-white"
+                    />
                   </div>
                 </div>
 
@@ -1153,64 +1221,48 @@ export default function PhieuDeNghiModule({
                     </Button>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
+                    <div className="grid grid-cols-12 gap-1.5 px-0.5 text-[10px] font-semibold uppercase text-indigo-700/70">
+                      <div className="col-span-1 text-center">TT</div>
+                      <div className="col-span-4">Mã hàng</div>
+                      <div className="col-span-5">Tên hàng</div>
+                      <div className="col-span-2 text-center">SL</div>
+                    </div>
                     {linesXuat.map((ln, idx) => (
-                      <div key={idx} className="bg-white p-2 rounded border border-indigo-100 shadow-2xs space-y-1.5">
-                        <div className="flex items-center justify-between text-[11px] text-slate-500">
-                          <span className="font-semibold text-indigo-700">Dòng {idx + 1}</span>
+                      <div key={idx} className="grid grid-cols-12 gap-1.5 items-center">
+                        <div className="col-span-1 text-center text-[11px] font-semibold text-indigo-700">{idx + 1}</div>
+                        <div className="col-span-4">
+                          <MaHangCombo
+                            value={ln.ma_hang}
+                            inventory={inventory}
+                            onChangeMa={(v) => updateLine('xuat_ra', idx, 'ma_hang', v)}
+                            onPick={(ma, ten) => { updateLine('xuat_ra', idx, 'ma_hang', ma); updateLine('xuat_ra', idx, 'ten_hang', ten) }}
+                          />
+                        </div>
+                        <div className="col-span-5 flex items-center gap-1">
+                          <Input
+                            value={ln.ten_hang}
+                            onChange={e => updateLine('xuat_ra', idx, 'ten_hang', e.target.value)}
+                            placeholder="Tên hàng / vật tư..."
+                            className="h-7 text-xs"
+                          />
+                        </div>
+                        <div className="col-span-2 flex items-center gap-1">
+                          <Input
+                            type="number"
+                            value={ln.so_luong ?? ''}
+                            onChange={e => updateLine('xuat_ra', idx, 'so_luong', e.target.value)}
+                            placeholder="SL"
+                            className="h-7 text-xs text-center font-bold text-indigo-700"
+                          />
                           <button
                             type="button"
                             onClick={() => removeLine('xuat_ra', idx)}
-                            className="text-slate-400 hover:text-rose-600"
+                            className="text-slate-300 hover:text-rose-600 shrink-0"
                             title="Xóa dòng này"
                           >
-                            ✕
+                            <X className="w-3.5 h-3.5" />
                           </button>
-                        </div>
-                        <div className="grid grid-cols-12 gap-1.5">
-                          <div className="col-span-7">
-                            <Input
-                              value={ln.ten_hang}
-                              onChange={e => updateLine('xuat_ra', idx, 'ten_hang', e.target.value)}
-                              placeholder="Tên hàng hóa / vật tư..."
-                              className="h-7 text-xs"
-                            />
-                          </div>
-                          <div className="col-span-5">
-                            <Input
-                              value={ln.ma_hang}
-                              onChange={e => updateLine('xuat_ra', idx, 'ma_hang', e.target.value)}
-                              placeholder="Mã hàng..."
-                              className="h-7 text-xs font-mono"
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-12 gap-1.5">
-                          <div className="col-span-3">
-                            <Input
-                              value={ln.dvt}
-                              onChange={e => updateLine('xuat_ra', idx, 'dvt', e.target.value)}
-                              placeholder="ĐVT"
-                              className="h-7 text-xs text-center"
-                            />
-                          </div>
-                          <div className="col-span-3">
-                            <Input
-                              type="number"
-                              value={ln.so_luong ?? ''}
-                              onChange={e => updateLine('xuat_ra', idx, 'so_luong', e.target.value)}
-                              placeholder="SL"
-                              className="h-7 text-xs text-center font-bold text-indigo-700"
-                            />
-                          </div>
-                          <div className="col-span-6">
-                            <Input
-                              value={ln.ghi_chu}
-                              onChange={e => updateLine('xuat_ra', idx, 'ghi_chu', e.target.value)}
-                              placeholder="Ghi chú..."
-                              className="h-7 text-xs"
-                            />
-                          </div>
                         </div>
                       </div>
                     ))}
@@ -1234,64 +1286,48 @@ export default function PhieuDeNghiModule({
                     </Button>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
+                    <div className="grid grid-cols-12 gap-1.5 px-0.5 text-[10px] font-semibold uppercase text-emerald-700/70">
+                      <div className="col-span-1 text-center">TT</div>
+                      <div className="col-span-4">Mã hàng</div>
+                      <div className="col-span-5">Tên hàng</div>
+                      <div className="col-span-2 text-center">SL</div>
+                    </div>
                     {linesNhap.map((ln, idx) => (
-                      <div key={idx} className="bg-white p-2 rounded border border-emerald-100 shadow-2xs space-y-1.5">
-                        <div className="flex items-center justify-between text-[11px] text-slate-500">
-                          <span className="font-semibold text-emerald-700">Dòng {idx + 1}</span>
+                      <div key={idx} className="grid grid-cols-12 gap-1.5 items-center">
+                        <div className="col-span-1 text-center text-[11px] font-semibold text-emerald-700">{idx + 1}</div>
+                        <div className="col-span-4">
+                          <MaHangCombo
+                            value={ln.ma_hang}
+                            inventory={inventory}
+                            onChangeMa={(v) => updateLine('nhap_lai', idx, 'ma_hang', v)}
+                            onPick={(ma, ten) => { updateLine('nhap_lai', idx, 'ma_hang', ma); updateLine('nhap_lai', idx, 'ten_hang', ten) }}
+                          />
+                        </div>
+                        <div className="col-span-5 flex items-center gap-1">
+                          <Input
+                            value={ln.ten_hang}
+                            onChange={e => updateLine('nhap_lai', idx, 'ten_hang', e.target.value)}
+                            placeholder="Tên hàng / vật tư..."
+                            className="h-7 text-xs"
+                          />
+                        </div>
+                        <div className="col-span-2 flex items-center gap-1">
+                          <Input
+                            type="number"
+                            value={ln.so_luong ?? ''}
+                            onChange={e => updateLine('nhap_lai', idx, 'so_luong', e.target.value)}
+                            placeholder="SL"
+                            className="h-7 text-xs text-center font-bold text-emerald-700"
+                          />
                           <button
                             type="button"
                             onClick={() => removeLine('nhap_lai', idx)}
-                            className="text-slate-400 hover:text-rose-600"
+                            className="text-slate-300 hover:text-rose-600 shrink-0"
                             title="Xóa dòng này"
                           >
-                            ✕
+                            <X className="w-3.5 h-3.5" />
                           </button>
-                        </div>
-                        <div className="grid grid-cols-12 gap-1.5">
-                          <div className="col-span-7">
-                            <Input
-                              value={ln.ten_hang}
-                              onChange={e => updateLine('nhap_lai', idx, 'ten_hang', e.target.value)}
-                              placeholder="Tên hàng hóa / vật tư..."
-                              className="h-7 text-xs"
-                            />
-                          </div>
-                          <div className="col-span-5">
-                            <Input
-                              value={ln.ma_hang}
-                              onChange={e => updateLine('nhap_lai', idx, 'ma_hang', e.target.value)}
-                              placeholder="Mã hàng..."
-                              className="h-7 text-xs font-mono"
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-12 gap-1.5">
-                          <div className="col-span-3">
-                            <Input
-                              value={ln.dvt}
-                              onChange={e => updateLine('nhap_lai', idx, 'dvt', e.target.value)}
-                              placeholder="ĐVT"
-                              className="h-7 text-xs text-center"
-                            />
-                          </div>
-                          <div className="col-span-3">
-                            <Input
-                              type="number"
-                              value={ln.so_luong ?? ''}
-                              onChange={e => updateLine('nhap_lai', idx, 'so_luong', e.target.value)}
-                              placeholder="SL"
-                              className="h-7 text-xs text-center font-bold text-emerald-700"
-                            />
-                          </div>
-                          <div className="col-span-6">
-                            <Input
-                              value={ln.ghi_chu}
-                              onChange={e => updateLine('nhap_lai', idx, 'ghi_chu', e.target.value)}
-                              placeholder="Ghi chú..."
-                              className="h-7 text-xs"
-                            />
-                          </div>
                         </div>
                       </div>
                     ))}
