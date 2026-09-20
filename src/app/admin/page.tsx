@@ -1957,6 +1957,7 @@ export default function AdminDashboard() {
                 currentUserName={currentAdmin?.full_name || ''}
                 customers={customers}
                 inventory={inventory}
+                khoMayOptions={danhMuc.filter(d => d.nhom === 'kho_may' && d.active).sort((a, b) => a.thu_tu - b.thu_tu).map(d => d.gia_tri)}
               />
             ) : (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6 space-y-6">
@@ -8185,6 +8186,7 @@ const DANH_MUC_NHOMS = [
   { key: 'nv_kinh_doanh', label: 'NV Kinh doanh' },
   { key: 'nha_cung_cap', label: 'Nhà cung cấp' },
   { key: 'hang', label: 'Hãng máy' },
+  { key: 'kho_may', label: 'Kho máy' },
 ]
 
 // Khách hàng cụm: một khách (mã số) gom nhiều điểm máy. Chỉ admin. Gán/gỡ máy thủ công.

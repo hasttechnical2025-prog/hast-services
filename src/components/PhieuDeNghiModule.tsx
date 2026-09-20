@@ -457,12 +457,14 @@ export default function PhieuDeNghiModule({
   currentUserRole = 'admin',
   currentUserName = '',
   inventory = [],
+  khoMayOptions = [],
 }: {
   showNotification: (t: 'success' | 'error', m: string) => void
   currentUserRole?: string
   currentUserName?: string
   customers?: any[]
   inventory?: any[]
+  khoMayOptions?: string[]
 }) {
   const [rows, setRows] = useState<PhieuDeNghi[]>([])
   const [loading, setLoading] = useState(true)
@@ -1280,20 +1282,27 @@ export default function PhieuDeNghiModule({
                     <label className="block text-slate-600 font-semibold mb-1">Serial</label>
                     <Input
                       value={form.serial}
-                      onChange={e => setForm({ ...form, serial: e.target.value })}
+                      onChange={e => setForm({ ...form, serial: e.target.value.toUpperCase() })}
                       placeholder="Serial..."
-                      className="h-8 font-mono bg-white"
+                      className="h-8 font-mono bg-white uppercase"
                     />
                   </div>
 
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">Kho máy</label>
-                    <Input
+                    <select
                       value={form.kho_may}
                       onChange={e => setForm({ ...form, kho_may: e.target.value })}
-                      placeholder="Kho máy..."
-                      className="h-8 bg-white"
-                    />
+                      className="h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    >
+                      <option value="">— Chọn kho —</option>
+                      {form.kho_may && !khoMayOptions.includes(form.kho_may) && (
+                        <option value={form.kho_may}>{form.kho_may}</option>
+                      )}
+                      {khoMayOptions.map(k => (
+                        <option key={k} value={k}>{k}</option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
