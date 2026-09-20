@@ -179,18 +179,15 @@ export function printPhieuDeNghiA4(phieu: PhieuDeNghi, origin: string) {
       margin-bottom: 3mm;
       font-size: 10pt;
     }
-    .meta-line3 {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1.5mm 3mm;
-      margin-bottom: 1.5mm;
-    }
     .meta-line5 {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       gap: 1.5mm 3mm;
       margin-bottom: 1.5mm;
     }
+    .mc1 { grid-column: 1; }
+    .mc2 { grid-column: 2 / 4; }
+    .mc4 { grid-column: 4 / 6; }
     .meta-item {
       display: flex;
       align-items: baseline;
@@ -298,10 +295,10 @@ export function printPhieuDeNghiA4(phieu: PhieuDeNghi, origin: string) {
     <div class="date-row">${ngayStr}</div>
 
     <div class="meta-box">
-      <div class="meta-line3">
-        <div class="meta-item"><span class="meta-label">Mã hàng:</span><span class="meta-val">${esc(phieu.ma_may || '')}</span></div>
-        <div class="meta-item"><span class="meta-label">Tên hàng:</span><span class="meta-val">${esc(phieu.ten_may || '')}</span></div>
-        <div class="meta-item"><span class="meta-label">Serial:</span><span class="meta-val">${esc(phieu.serial || '')}</span></div>
+      <div class="meta-line5">
+        <div class="meta-item mc1"><span class="meta-label">Mã hàng:</span><span class="meta-val">${esc(phieu.ma_may || '')}</span></div>
+        <div class="meta-item mc2"><span class="meta-label">Tên hàng:</span><span class="meta-val">${esc(phieu.ten_may || '')}</span></div>
+        <div class="meta-item mc4"><span class="meta-label">Serial:</span><span class="meta-val">${esc(phieu.serial || '')}</span></div>
       </div>
       <div class="meta-line5">
         <div class="meta-item"><span class="meta-label">Kho máy:</span><span class="meta-val">${esc(phieu.kho_may || '')}</span></div>
