@@ -240,6 +240,7 @@ export function printPhieuDeNghiA4(phieu: PhieuDeNghi, origin: string) {
     .c-ma  { width: 16%; text-align: center; }
     .c-ten { width: 21.5%; }
     .c-sl  { width: 6%; text-align: center; font-weight: bold; }
+    td.c-ma { text-align: left; }   /* ô dữ liệu mã hàng căn trái (tiêu đề vẫn canh giữa) */
     td.c-ten {
       line-height: 1.15;
       word-break: break-word;
