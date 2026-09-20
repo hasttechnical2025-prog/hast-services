@@ -75,7 +75,7 @@ export async function GET(request: Request) {
     const data: any = {
       ds,
       VI_TRI: kh?.vi_tri_dat_may || kh?.dia_chi || '',
-      TEN_KH: cum?.ten_khach_hang || kh?.ten_khach_hang || '',
+      TEN_KH: (cum?.ten_khach_hang || kh?.ten_khach_hang || '').toUpperCase(),
       DIA_CHI: cum?.dia_chi || kh?.dia_chi || '',
     }
     if (tpl.price) {
