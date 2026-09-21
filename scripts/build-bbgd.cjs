@@ -25,10 +25,24 @@ function replaceHighlights(xml, reps) {
   })
 }
 
+// Xóa 1 đoạn dòng "……" trống đầu tiên nằm SAU mốc text (giảm số dòng kẻ chấm ở 1 mục).
+function removeOneDottedLineAfter(xml, marker) {
+  const ps = xml.match(/<w:p\b[\s\S]*?<\/w:p>/g) || []
+  const textOf = p => [...p.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map(m => m[1]).join('')
+  const isDotted = p => { const t = textOf(p).trim(); return t.length > 3 && /^[.…\s]+$/.test(t) }
+  const mi = ps.findIndex(p => textOf(p).includes(marker))
+  if (mi < 0) throw new Error('Không thấy mốc: ' + marker)
+  for (let j = mi + 1; j < ps.length; j++) {
+    if (isDotted(ps[j])) return xml.replace(ps[j], '')   // replace literal (string) -> xóa đúng đoạn đó
+  }
+  throw new Error('Không thấy dòng "……" sau mốc: ' + marker)
+}
+
 const zip = new PizZip(fs.readFileSync(SRC))
 let xml = zip.file('word/document.xml').asText()
 xml = replaceHighlights(xml, reps)
 xml = xml.replace(/<w:highlight w:val="(?!none)[^"]*"\s*\/>/g, '')   // dọn highlight còn sót
+xml = removeOneDottedLineAfter(xml, 'Phần tạo ảnh')                  // bớt 1 dòng "……" ở mục Phần tạo ảnh
 zip.file('word/document.xml', xml)
 const buf = zip.generate({ type: 'nodebuffer' })
 fs.writeFileSync(OUT, buf)
