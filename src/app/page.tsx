@@ -37,6 +37,13 @@ export default function Home() {
             Sổ công tác Mobile (KTV)
           </Link>
 
+          <Link
+            href="/lenh-xuat-hang"
+            className="w-full py-3 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition font-medium block"
+          >
+            Lệnh xuất hàng (Kinh doanh)
+          </Link>
+
           <div className="pt-2 mt-1 border-t border-slate-100">
             <PasskeyLoginButton
               onResult={(m) => setMsg(m)}
