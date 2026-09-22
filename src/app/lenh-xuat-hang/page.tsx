@@ -9,6 +9,7 @@ import { Plus, FileText, PenSquare, Trash2, X, Save, RefreshCw, LogOut, Package 
 type Line = { stt?: number; ma_hang: string; ten_hang: string; dvt: string; so_luong: number | string; don_gia: number | string; vat: number | string; ghi_chu?: string }
 type Lenh = {
   id: string; so_lenh: string | null; ngay: string; ten_khach_hang: string; dia_chi: string | null; ma_so_thue: string | null
+  so_hop_dong: string | null
   nguoi_kinh_doanh_id: string | null; ghi_chu: string | null; trang_thai_hd: string
   so_hoa_don: string | null; ngay_xuat_hd: string | null
   nguoi_kd?: { full_name: string } | null
@@ -41,7 +42,7 @@ export default function LenhXuatHangPage() {
   const [open, setOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [form, setForm] = useState({ so_lenh: '', ngay: new Date().toISOString().slice(0, 10), ten_khach_hang: '', dia_chi: '', ma_so_thue: '', ghi_chu: '' })
+  const [form, setForm] = useState({ so_lenh: '', ngay: new Date().toISOString().slice(0, 10), ten_khach_hang: '', dia_chi: '', ma_so_thue: '', so_hop_dong: '', ghi_chu: '' })
   const [lines, setLines] = useState<Line[]>([emptyLine(), emptyLine()])
   const [delTarget, setDelTarget] = useState<Lenh | null>(null)
 
@@ -67,7 +68,7 @@ export default function LenhXuatHangPage() {
   const filtered = useMemo(() => {
     const kw = q.trim().toLowerCase()
     if (!kw) return rows
-    return rows.filter(r => [r.so_lenh, r.ten_khach_hang, r.so_hoa_don, r.nguoi_kd?.full_name].filter(Boolean).join(' ').toLowerCase().includes(kw))
+    return rows.filter(r => [r.so_lenh, r.ten_khach_hang, r.so_hop_dong, r.so_hoa_don, r.nguoi_kd?.full_name].filter(Boolean).join(' ').toLowerCase().includes(kw))
   }, [rows, q])
 
   const lineTotal = (l: Line) => (Number(l.so_luong) || 0) * (Number(l.don_gia) || 0)
@@ -76,13 +77,13 @@ export default function LenhXuatHangPage() {
 
   const openCreate = () => {
     setEditingId(null)
-    setForm({ so_lenh: '', ngay: new Date().toISOString().slice(0, 10), ten_khach_hang: '', dia_chi: '', ma_so_thue: '', ghi_chu: '' })
+    setForm({ so_lenh: '', ngay: new Date().toISOString().slice(0, 10), ten_khach_hang: '', dia_chi: '', ma_so_thue: '', so_hop_dong: '', ghi_chu: '' })
     setLines([emptyLine(), emptyLine()])
     setOpen(true)
   }
   const openEdit = async (r: Lenh) => {
     setEditingId(r.id)
-    setForm({ so_lenh: r.so_lenh || '', ngay: r.ngay ? r.ngay.slice(0, 10) : new Date().toISOString().slice(0, 10), ten_khach_hang: r.ten_khach_hang || '', dia_chi: r.dia_chi || '', ma_so_thue: r.ma_so_thue || '', ghi_chu: r.ghi_chu || '' })
+    setForm({ so_lenh: r.so_lenh || '', ngay: r.ngay ? r.ngay.slice(0, 10) : new Date().toISOString().slice(0, 10), ten_khach_hang: r.ten_khach_hang || '', dia_chi: r.dia_chi || '', ma_so_thue: r.ma_so_thue || '', so_hop_dong: r.so_hop_dong || '', ghi_chu: r.ghi_chu || '' })
     try {
       const res = await fetch(`/api/admin/lenh-xuat?id=${r.id}`)
       const j = await res.json()
@@ -182,7 +183,7 @@ export default function LenhXuatHangPage() {
                   return (
                     <tr key={r.id} className="hover:bg-slate-50">
                       <td className="px-3 py-2.5 whitespace-nowrap">{fmtDate(r.ngay)}{r.so_lenh ? <div className="text-[10px] text-slate-400 font-mono">{r.so_lenh}</div> : null}</td>
-                      <td className="px-3 py-2.5"><div className="font-medium text-slate-800">{r.ten_khach_hang}</div>{r.dia_chi && <div className="text-[10px] text-slate-400">{r.dia_chi}</div>}</td>
+                      <td className="px-3 py-2.5"><div className="font-medium text-slate-800">{r.ten_khach_hang}</div>{r.so_hop_dong && <div className="text-[10px] text-slate-500">HĐ: <span className="font-mono">{r.so_hop_dong}</span></div>}{r.dia_chi && <div className="text-[10px] text-slate-400">{r.dia_chi}</div>}</td>
                       {isManager && <td className="px-3 py-2.5">{r.nguoi_kd?.full_name || <span className="text-slate-300">—</span>}</td>}
                       <td className="px-3 py-2.5 text-center">{(r.soct_lenh_xuat_ct || []).length}</td>
                       <td className="px-3 py-2.5 text-right font-semibold text-slate-800">{fmtVnd(cardTong(r))} đ</td>
@@ -238,6 +239,10 @@ export default function LenhXuatHangPage() {
                   <Input value={form.ma_so_thue} onChange={e => setForm({ ...form, ma_so_thue: e.target.value })} placeholder="MST..." className="h-8 font-mono bg-white" />
                 </div>
                 <div>
+                  <label className="block text-slate-600 font-semibold mb-1">Số hợp đồng</label>
+                  <Input value={form.so_hop_dong} onChange={e => setForm({ ...form, so_hop_dong: e.target.value })} placeholder="VD: 260922/KH-ST" className="h-8 bg-white" />
+                </div>
+                <div className="col-span-2 sm:col-span-2">
                   <label className="block text-slate-600 font-semibold mb-1">Ghi chú</label>
                   <Input value={form.ghi_chu} onChange={e => setForm({ ...form, ghi_chu: e.target.value })} placeholder="..." className="h-8 bg-white" />
                 </div>

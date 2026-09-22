@@ -98,6 +98,7 @@ export async function POST(request: Request) {
         ten_khach_hang: String(b.ten_khach_hang).trim(),
         dia_chi: (b.dia_chi || '').trim() || null,
         ma_so_thue: (b.ma_so_thue || '').trim() || null,
+        so_hop_dong: (b.so_hop_dong || '').trim() || null,
         id_khach_hang: b.id_khach_hang || null,
         nguoi_kinh_doanh_id: nvId,
         created_by: session.id,
@@ -149,6 +150,7 @@ export async function PUT(request: Request) {
     if (b.ten_khach_hang !== undefined) updates.ten_khach_hang = String(b.ten_khach_hang || '').trim()
     if (b.dia_chi !== undefined) updates.dia_chi = (b.dia_chi || '').trim() || null
     if (b.ma_so_thue !== undefined) updates.ma_so_thue = (b.ma_so_thue || '').trim() || null
+    if (b.so_hop_dong !== undefined) updates.so_hop_dong = (b.so_hop_dong || '').trim() || null
     if (b.id_khach_hang !== undefined) updates.id_khach_hang = b.id_khach_hang || null
     if (b.ghi_chu !== undefined) updates.ghi_chu = (b.ghi_chu || '').trim() || null
     if (isManager && b.nguoi_kinh_doanh_id !== undefined) updates.nguoi_kinh_doanh_id = b.nguoi_kinh_doanh_id || null
