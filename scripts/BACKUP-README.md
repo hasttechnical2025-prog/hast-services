@@ -9,16 +9,16 @@ Backup lưu ở `App So Cong tac/backups/` (đã gitignore — **không** commit
 
 ## Bước 1 — Cài PostgreSQL client (pg_dump)
 
-Tải **PostgreSQL 17** (bản Windows) tại https://www.postgresql.org/download/windows/ (EDB installer).
-Khi cài, có thể **bỏ chọn "PostgreSQL Server"**, chỉ cần **"Command Line Tools"** (chứa `pg_dump`/`pg_restore`).
-Mặc định cài vào `C:\Program Files\PostgreSQL\17\bin` — script tự tìm ở đây nên **không bắt buộc** thêm PATH.
+Tải **PostgreSQL 17 trở lên (18 cũng được)** cho Windows tại https://www.postgresql.org/download/windows/ (EDB installer).
+Khi cài, **chỉ cần "Command Line Tools"** (`pg_dump`/`pg_restore`) — có thể bỏ chọn "PostgreSQL Server" (khi đó không bị hỏi Port/mật khẩu). Nếu cứ để cài đủ thì ở màn hình **Port** để mặc định **5432** (server local này không dùng cho backup, vô hại).
+Cài vào `C:\Program Files\PostgreSQL\<phiên bản>\bin` — script **tự dò và chọn bản mới nhất** nên không cần thêm PATH.
 
-Kiểm tra:
+Kiểm tra (đổi 18 thành phiên bản đã cài):
 ```powershell
-& "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" --version
+& "C:\Program Files\PostgreSQL\18\bin\pg_dump.exe" --version
 ```
 
-> Dùng client **17** (mới hơn hoặc bằng server) để tránh lỗi lệch version.
+> Client phải **≥ server** (Supabase PG 15/17). 17 hoặc 18 đều đạt; chỉ client CŨ hơn server mới lỗi.
 
 ## Bước 2 — Lấy chuỗi kết nối & tạo file cấu hình
 
