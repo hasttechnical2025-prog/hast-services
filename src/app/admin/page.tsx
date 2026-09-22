@@ -806,6 +806,7 @@ export default function AdminDashboard() {
       fetchData(true)
       fetchPhieuCount()
       if (['admin', 'tech_admin'].includes(currentUserRole)) fetchCanhBaoTon()
+      if (currentUserRole === 'admin') fetchCongNoChuaCum()   // chuông "công nợ chưa gán cụm" tự cập nhật
     },        // broadcast/focus/mạng: refetch NGẦM đầy đủ (kho/khách có thể đổi)
     !!currentAdmin,
     30000,                                                // poll dự phòng 30s (chỉ khi tab hiển thị)
@@ -7062,7 +7063,8 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
   }
   useEffect(() => { fetchList() }, [])
   // Realtime "tự lành": đánh dấu báo giá / lên hóa đơn từ máy khác -> công nợ tự cập nhật
-  useRealtimeRefetch(CONGNO_TOPIC, DATA_EVENT, () => fetchList())
+  // Nghe cả CONGNO (cong-no/tách HĐ) VÀ JOBS (đẩy/kéo Kanban, thu tiền...) -> tab Công nợ tự refresh.
+  useRealtimeRefetch([CONGNO_TOPIC, JOBS_TOPIC], DATA_EVENT, () => fetchList())
 
   // Gom phiếu theo KHÁCH CỤM khi điểm máy đã gán cụm (ma_khach_cum); còn lại gom theo
   // điểm máy (mỗi máy lẻ = 1 khách) như cũ. => chưa gán vẫn chạy y hệt trước đây.
