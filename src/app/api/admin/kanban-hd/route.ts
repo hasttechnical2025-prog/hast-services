@@ -48,7 +48,7 @@ export async function GET(request: Request) {
       return supabaseAdmin
         .from('soct_cong_viec')
         .select(`
-          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, mien_phi, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, ngay_xuat_hd, thanh_toan_luc, nguoi_xuat_hd, dntt_luc, so_dntt, dntt_lan, lam_tron, ten_khach_hd, nguon, ly_do_tra, minvoice_luc, minvoice_lan, tach_rieng,
+          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, mien_phi, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, ngay_xuat_hd, thanh_toan_luc, ban_giao_kt_luc, nguoi_xuat_hd, dntt_luc, so_dntt, dntt_lan, lam_tron, ten_khach_hd, nguon, ly_do_tra, minvoice_luc, minvoice_lan, tach_rieng,
           nguoi_xuat:soct_users!nguoi_xuat_hd ( full_name ),
           soct_khach_hang (
             id,
@@ -235,6 +235,7 @@ export async function PUT(request: Request) {
         updates.so_dntt = null
         updates.minvoice_luc = null   // gỡ cờ "đã xuất M-invoice" -> phiếu quay lại chờ, cần xuất lại
         updates.minvoice_lan = 0
+        updates.ban_giao_kt_luc = null   // trả HẲN về cột 1 -> xóa mốc bàn giao (lần sau đóng dấu mới)
       }
     }
 
@@ -259,6 +260,16 @@ export async function PUT(request: Request) {
       .in('id', targetIds)
 
     if (upErr) throw upErr
+
+    // Mốc BÀN GIAO kế toán (vào cột 2 = 'Đang xử lý HĐ'): đóng dấu LẦN ĐẦU (chỉ set khi đang NULL
+    // -> giữ nguyên khi kéo tới lui 2<->3). Reset về cột 1 đã xóa ở updates phía trên.
+    if (trang_thai_hd === 'Đang xử lý HĐ') {
+      await supabaseAdmin
+        .from('soct_cong_viec')
+        .update({ ban_giao_kt_luc: new Date(Date.now() + 7 * 3600 * 1000).toISOString() })
+        .in('id', targetIds)
+        .is('ban_giao_kt_luc', null)
+    }
 
     // Nếu là hoàn tất hóa đơn, ta cũng đồng bộ tick cờ hoa_don = true cho tất cả vật tư
     // của các phiếu này (để khớp logic công nợ hiện hành của app)

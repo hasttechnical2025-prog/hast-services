@@ -60,6 +60,7 @@ type Ticket = {
   so_hoa_don: string | null
   ngay_xuat_hd?: string | null
   thanh_toan_luc?: string | null // mốc NGÀY THU (chuyển sang 'Đã thanh toán') — kỳ Cột 4 dựa vào đây
+  ban_giao_kt_luc?: string | null // mốc office bàn giao kế toán (vào cột 2)
   so_tien_da_thu?: number // đã thu theo số hóa đơn (công nợ phải thu)
   dntt_luc?: string | null // lần xuất ĐNTT gần nhất (thời điểm)
   so_dntt?: string | null
@@ -1558,6 +1559,28 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                       {count === 1 ? fmtDate(card.tickets[0].ngay) : ''}
                     </span>
                   </div>
+
+                  {/* Timeline chuyển cột: Bàn giao (cột 2) → Lên HĐ (cột 3) → Thu (cột 4). "—" nếu chưa qua. */}
+                  {(() => {
+                    const t0 = card.tickets[0]
+                    const bg = card.tickets.find((t: any) => t.ban_giao_kt_luc)?.ban_giao_kt_luc
+                    const xh = t0.ngay_xuat_hd
+                    const tt = t0.thanh_toan_luc
+                    const dm = (s: any) => { if (!s) return '—'; const p = String(s).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}` : '—' }
+                    const full = (lbl: string, s: any) => `${lbl}: ${s ? fmtDate(String(s).slice(0, 10)) : 'chưa'}`
+                    return (
+                      <div
+                        className="mt-1 flex items-center gap-1 text-[9px] text-slate-400 font-medium"
+                        title={[full('Bàn giao KT', bg), full('Lên hóa đơn', xh), full('Thanh toán', tt)].join('\n')}
+                      >
+                        <span className="inline-flex items-center gap-0.5"><Upload className="w-2.5 h-2.5" />{dm(bg)}</span>
+                        <span className="text-slate-300">›</span>
+                        <span className="inline-flex items-center gap-0.5"><FileText className="w-2.5 h-2.5" />{dm(xh)}</span>
+                        <span className="text-slate-300">›</span>
+                        <span className="inline-flex items-center gap-0.5"><Landmark className="w-2.5 h-2.5" />{dm(tt)}</span>
+                      </div>
+                    )
+                  })()}
 
                   <div className="pt-1.5 border-t border-dashed border-slate-100 flex justify-between items-end">
                     <div className="text-[10px] text-slate-400">Thành tiền:</div>
