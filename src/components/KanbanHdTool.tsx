@@ -1567,7 +1567,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                     const xh = t0.ngay_xuat_hd
                     const tt = t0.thanh_toan_luc
                     const dm = (s: any) => { if (!s) return '—'; const p = String(s).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}` : '—' }
-                    const full = (lbl: string, s: any) => `${lbl}: ${s ? fmtDate(String(s).slice(0, 10)) : 'chưa'}`
+                    const full = (lbl: string, s: any) => `${lbl}: ${s ? fmtDate(String(s).slice(0, 10)) : '#N/A'}`
                     return (
                       <div
                         className="mt-1 flex items-center gap-1 text-[9px] text-slate-400 font-medium"
