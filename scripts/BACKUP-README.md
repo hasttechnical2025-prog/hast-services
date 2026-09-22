@@ -22,11 +22,11 @@ Kiểm tra (đổi 18 thành phiên bản đã cài):
 
 ## Bước 2 — Lấy chuỗi kết nối & tạo file cấu hình
 
-1. Supabase Dashboard → **Project Settings → Database → Connection string** → chọn tab **Session pooler** → copy dạng **URI**. Nó giống:
+1. Supabase Dashboard → bấm nút **Connect** (góc trên, cạnh `main PRODUCTION`) → mục **Connection string** → chọn kiểu **Session pooler** → copy **URI**. Project này (ref `gdlsyktofnvmzajocfcs`, region Sydney = ap-southeast-2) sẽ dạng:
    ```
-   postgresql://postgres.gdlsyktofnvmzajocfcs:[MẬT-KHẨU]@aws-0-<region>.pooler.supabase.com:5432/postgres
+   postgresql://postgres.gdlsyktofnvmzajocfcs:[MẬT-KHẨU]@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres
    ```
-   Thay `[MẬT-KHẨU]` bằng **Database password** (Settings → Database → *Reset database password* nếu quên).
+   Thay `[MẬT-KHẨU]` bằng **Database password** (Project Settings → Database → *Reset database password* nếu quên — reset KHÔNG ảnh hưởng app vì app dùng service-role key, không dùng mật khẩu Postgres).
    > Dùng **Session pooler** (cổng 5432) vì hỗ trợ IPv4 — hợp với PC thường. Đừng dùng Transaction pooler (6543) cho pg_dump.
 2. Tạo file **`scripts/.backup-conn`** (đã gitignore), dán đúng **1 dòng** chuỗi trên vào, lưu lại.
 
