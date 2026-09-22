@@ -3717,7 +3717,8 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
     username: "",
     password: "",
     role: "ktv",
-    telegram_id: ""
+    telegram_id: "",
+    kd_quan_ly: false,   // cờ quản lý kinh doanh (sale_admin) — chỉ dùng khi role = kinh_doanh
   })
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -3727,7 +3728,7 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
   const [qrLoadingId, setQrLoadingId] = useState<string | null>(null)
 
   const resetForm = () => {
-    setFormData({ id: "", full_name: "", username: "", password: "", role: "ktv", telegram_id: "" })
+    setFormData({ id: "", full_name: "", username: "", password: "", role: "ktv", telegram_id: "", kd_quan_ly: false })
     setIsEditing(false)
   }
 
@@ -3801,7 +3802,8 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
       username: user.username || "",
       password: "", // Không show password cũ
       role: user.role,
-      telegram_id: user.telegram_id || ""
+      telegram_id: user.telegram_id || "",
+      kd_quan_ly: !!user.kd_quan_ly,
     })
     setIsEditing(true)
   }
@@ -3873,6 +3875,15 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
             <option value="admin">Admin</option>
           </select>
         </div>
+        {formData.role === 'kinh_doanh' && (
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Vai trò kinh doanh</label>
+            <label className="flex items-center gap-2 h-10 px-3 rounded-md border border-slate-200 bg-slate-50/60 cursor-pointer select-none">
+              <input type="checkbox" checked={formData.kd_quan_ly} onChange={(e) => setFormData({ ...formData, kd_quan_ly: e.target.checked })} className="w-4 h-4 accent-blue-600" />
+              <span className="text-sm text-slate-700">Quản lý kinh doanh <span className="text-slate-400">(sale_admin — thấy mọi lệnh)</span></span>
+            </label>
+          </div>
+        )}
         <div className="lg:col-span-2 flex items-end gap-2">
           {isEditing && <Button type="button" variant="outline" onClick={resetForm} className="h-10">Hủy sửa</Button>}
           <Button type="submit" disabled={loading} className="h-10 w-full sm:w-auto">{loading ? "Đang lưu..." : isEditing ? "Cập nhật tài khoản" : "Tạo tài khoản mới"}</Button>
@@ -3905,6 +3916,7 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
                 {col.show('username') && <td className="px-4 py-2 font-mono text-xs">{u.username || <span className="text-slate-400 italic">N/A</span>}</td>}
                 {col.show('role') && <td className="px-4 py-2">
                   <span className={`px-2 py-0.5 rounded text-xs font-semibold ${u.role === 'admin' ? 'bg-red-50 text-red-600' : u.role === 'ktv' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600'}`}>{u.role}</span>
+                  {u.role === 'kinh_doanh' && u.kd_quan_ly && <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-violet-50 text-violet-700 border border-violet-200">QL</span>}
                 </td>}
                 {col.show('telegram') && <td className="px-4 py-2 text-center">
                   {u.role === 'ktv'
