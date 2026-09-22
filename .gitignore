@@ -36,6 +36,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Sao lưu database (KHÔNG commit — chứa dữ liệu khách + mật khẩu băm)
+/backups/
+*.dump
+/scripts/.backup-conn
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
