@@ -535,24 +535,24 @@ export default function LenhXuatHangPage() {
                   <Button type="button" variant="outline" onClick={addLine} className="h-7 text-[11px] px-2 text-blue-700 border-blue-200 hover:bg-blue-100/50"><Plus className="w-3.5 h-3.5 mr-1" /> Thêm dòng</Button>
                 </div>
                 <div className="grid grid-cols-12 gap-1.5 px-0.5 text-[10px] font-semibold uppercase text-blue-700/70">
-                  <div className="col-span-2">Mã hàng</div><div className="col-span-4">Tên hàng</div><div className="col-span-1 text-center">ĐVT</div>
+                  <div className="col-span-2">Mã hàng</div><div className="col-span-3">Tên hàng</div><div className="col-span-1 text-center">ĐVT</div>
                   <div className="col-span-1 text-center">SL</div><div className="col-span-2 text-right">Đơn giá</div><div className="col-span-1 text-center">VAT%</div>
-                  <div className="col-span-1 text-right">Thành tiền</div>
+                  <div className="col-span-2 text-right pr-5">Thành tiền</div>
                 </div>
                 {lines.map((l, i) => (
-                  <div key={i} className="grid grid-cols-12 gap-1.5 items-start">
+                  <div key={i} className="grid grid-cols-12 gap-1.5 items-center">
                     <div className="col-span-2">
                       <MayCombo value={l.ma_hang} catalog={catalog}
                         onChangeMa={(v) => updLine(i, 'ma_hang', v)}
                         onPick={(it) => setLines(prev => { const n = [...prev]; n[i] = { ...n[i], ma_hang: it.ma_hang, ten_hang: it.ten_hang || '', dvt: it.dvt || 'Cái', don_gia: (n[i].don_gia === '' || n[i].don_gia == null || Number(n[i].don_gia) === 0) ? (Number(it.don_gia_niem_yet) || '') : n[i].don_gia }; return n })} />
                     </div>
-                    <div className="col-span-4"><textarea value={l.ten_hang} onChange={e => updLine(i, 'ten_hang', e.target.value)} placeholder="Tên hàng" rows={2} className="w-full rounded-md border border-slate-200 bg-white text-xs px-2 py-1 leading-tight resize-none focus:outline-none focus:ring-2 focus:ring-blue-200" /></div>
+                    <div className="col-span-3"><textarea value={l.ten_hang} onChange={e => updLine(i, 'ten_hang', e.target.value)} placeholder="Tên hàng" rows={2} className="w-full rounded-md border border-slate-200 bg-white text-xs px-2 py-1 leading-tight resize-none focus:outline-none focus:ring-2 focus:ring-blue-200" /></div>
                     <div className="col-span-1"><Input value={l.dvt} onChange={e => updLine(i, 'dvt', e.target.value)} className="h-7 text-xs text-center px-1" /></div>
                     <div className="col-span-1"><Input type="number" value={l.so_luong} onChange={e => updLine(i, 'so_luong', e.target.value)} className="h-7 text-xs text-center px-1 font-bold text-blue-700" /></div>
-                    <div className="col-span-2"><Input type="number" value={l.don_gia} onChange={e => updLine(i, 'don_gia', e.target.value)} placeholder="0" className="h-7 text-xs text-right" /></div>
+                    <div className="col-span-2"><Input inputMode="numeric" value={l.don_gia === '' || l.don_gia == null ? '' : Number(String(l.don_gia).replace(/\D/g, '') || 0).toLocaleString('vi-VN')} onChange={e => updLine(i, 'don_gia', e.target.value.replace(/\D/g, ''))} placeholder="0" className="h-7 text-xs text-right" /></div>
                     <div className="col-span-1"><Input type="number" value={l.vat} onChange={e => updLine(i, 'vat', e.target.value)} className="h-7 text-xs text-center px-1" /></div>
-                    <div className="col-span-1 flex items-center justify-end gap-1 h-7 text-[11px] font-semibold text-slate-700">
-                      <span className="truncate">{fmtVnd(lineTotal(l))}</span>
+                    <div className="col-span-2 flex items-center justify-end gap-1.5 text-xs font-semibold text-slate-800">
+                      <span className="whitespace-nowrap">{fmtVnd(lineTotal(l))}</span>
                       <button type="button" onClick={() => rmLine(i)} className="text-slate-300 hover:text-rose-600 shrink-0" title="Xóa dòng"><X className="w-3.5 h-3.5" /></button>
                     </div>
                   </div>
