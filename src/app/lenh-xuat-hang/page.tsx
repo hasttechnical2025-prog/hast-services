@@ -81,10 +81,13 @@ function CatalogManager({ catalog, isManager, hangOptions, onClose, onChanged, n
   const [busy, setBusy] = useState(false)
   const emptyF = { ma_hang: '', ten_hang: '', dvt: 'Cái', don_gia_niem_yet: '', hang: '' }
   const [f, setF] = useState(emptyF)
-  // Nhập hàng loạt (dán từ Excel)
+  // Nhập hàng loạt (dán từ Excel) — có bước KIỂM TRA trước khi nhập
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulkText, setBulkText] = useState('')
   const [importing, setImporting] = useState(false)
+  type PRow = { ma_hang: string; ten_hang: string; dvt: string; don_gia_niem_yet: number; status: 'ok' | 'err' | 'overwrite'; note: string }
+  const [preview, setPreview] = useState<PRow[] | null>(null)
+  const setBulk = (v: string) => { setBulkText(v); setPreview(null) }   // sửa nội dung -> phải kiểm tra lại
   const list = useMemo(() => {
     const kw = q.trim().toLowerCase()
     if (!kw) return catalog
@@ -94,18 +97,37 @@ function CatalogManager({ catalog, isManager, hangOptions, onClose, onChanged, n
   const pick = (c: HangHoa) => { setEditing(true); setF({ ma_hang: c.ma_hang, ten_hang: c.ten_hang, dvt: c.dvt || 'Cái', don_gia_niem_yet: c.don_gia_niem_yet != null ? String(c.don_gia_niem_yet) : '', hang: c.hang || '' }) }
   const fmtGia = (s: string) => { const d = String(s).replace(/\D/g, ''); return d ? Number(d).toLocaleString('vi-VN') : '' }
 
-  // Parse & import hàng loạt: mỗi dòng "Mã ⇥ Tên ⇥ ĐVT ⇥ Đơn giá" (tab hoặc nhiều dấu cách/;,).
-  const doImport = async () => {
-    const rows = bulkText.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => {
+  // Bóc tách dòng dán: "Mã ⇥ Tên ⇥ ĐVT ⇥ Đơn giá" (tab, hoặc nhiều dấu cách/; , ) + gắn trạng thái.
+  const parseRows = (text: string): PRow[] => {
+    const existing = new Set(catalog.map(c => String(c.ma_hang || '').toUpperCase()))
+    const seen = new Set<string>()
+    return text.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => {
       const c = l.split('\t').length > 1 ? l.split('\t') : l.split(/\s{2,}|;|,(?=\s)/)
-      return { ma_hang: (c[0] || '').trim(), ten_hang: (c[1] || '').trim(), dvt: (c[2] || '').trim() || 'Cái', don_gia_niem_yet: Number(String(c[3] || '').replace(/\D/g, '')) || 0 }
-    }).filter(r => r.ma_hang && r.ten_hang)
-    if (rows.length === 0) { notify('error', 'Không có dòng hợp lệ (cần Mã + Tên)'); return }
+      const ma = (c[0] || '').trim().toUpperCase()
+      const ten = (c[1] || '').trim()
+      const dvt = (c[2] || '').trim() || 'Cái'
+      const gia = Number(String(c[3] || '').replace(/\D/g, '')) || 0
+      let status: PRow['status'] = 'ok'; let note = ''
+      if (!ma || !ten) { status = 'err'; note = !ma ? 'Thiếu mã' : 'Thiếu tên' }
+      else if (seen.has(ma)) { status = 'err'; note = 'Trùng mã trong danh sách dán' }
+      else if (existing.has(ma)) { status = 'overwrite'; note = 'Đã có — sẽ ghi đè' }
+      if (ma) seen.add(ma)
+      return { ma_hang: ma, ten_hang: ten, dvt, don_gia_niem_yet: gia, status, note }
+    })
+  }
+  const doCheck = () => {
+    const rows = parseRows(bulkText)
+    if (rows.length === 0) { notify('error', 'Chưa có dòng nào để kiểm tra'); return }
+    setPreview(rows)
+  }
+  const doImport = async () => {
+    const rows = (preview || []).filter(r => r.status !== 'err')
+    if (rows.length === 0) { notify('error', 'Không có dòng hợp lệ để nhập'); return }
     setImporting(true)
     try {
       const res = await fetch('/api/admin/hang-hoa', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: rows }) })
       const j = await res.json()
-      if (res.ok) { notify('success', `Đã nhập ${j.count} mã`); setBulkText(''); setBulkOpen(false); onChanged() }
+      if (res.ok) { notify('success', `Đã nhập ${j.count} mã`); setBulkText(''); setPreview(null); setBulkOpen(false); onChanged() }
       else notify('error', j.error || 'Lỗi import')
     } catch { notify('error', 'Lỗi kết nối') } finally { setImporting(false) }
   }
@@ -147,13 +169,49 @@ function CatalogManager({ catalog, isManager, hangOptions, onClose, onChanged, n
 
               {bulkOpen ? (
                 <div className="bg-slate-50/80 p-3 rounded-lg border border-slate-200 space-y-2">
-                  <p className="text-[11px] text-slate-500">Dán từ Excel, mỗi dòng: <b>Mã hàng ⇥ Tên hàng ⇥ ĐVT ⇥ Đơn giá</b> (ĐVT/Đơn giá bỏ trống cũng được). <b>Trùng mã sẽ ghi đè</b>.</p>
-                  <textarea value={bulkText} onChange={e => setBulkText(e.target.value)} rows={8}
+                  <p className="text-[11px] text-slate-500">Dán từ Excel, mỗi dòng: <b>Mã hàng ⇥ Tên hàng ⇥ ĐVT ⇥ Đơn giá</b> (ĐVT/Đơn giá bỏ trống cũng được). Bấm <b>Kiểm tra</b> trước, rồi <b>Nhập</b>. Trùng mã sẽ ghi đè.</p>
+                  <textarea value={bulkText} onChange={e => setBulk(e.target.value)} rows={7}
                     placeholder={"1102RJ3AX.0G0\tMáy photo TASKalfa 5002i\tCái\t0\nTC10106.1G0\tMáy DC-V 3060CP\tCái\t0"}
                     className="w-full rounded-md border border-slate-200 bg-white p-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-200" />
-                  <div className="flex justify-end">
-                    <Button onClick={doImport} disabled={importing} className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white">{importing ? 'Đang nhập...' : 'Nhập danh sách'}</Button>
+                  <div className="flex items-center justify-end gap-2">
+                    <Button variant="outline" onClick={doCheck} className="h-8 text-xs">Kiểm tra</Button>
+                    <Button onClick={doImport} disabled={importing || !preview || preview.every(r => r.status === 'err')} className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white">{importing ? 'Đang nhập...' : 'Nhập danh sách'}</Button>
                   </div>
+
+                  {preview && (() => {
+                    const ok = preview.filter(r => r.status === 'ok').length
+                    const ow = preview.filter(r => r.status === 'overwrite').length
+                    const er = preview.filter(r => r.status === 'err').length
+                    return (
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap gap-2 text-[11px]">
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">Mới hợp lệ: {ok}</span>
+                          <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold">Ghi đè: {ow}</span>
+                          <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-semibold">Lỗi (bỏ qua): {er}</span>
+                        </div>
+                        <div className="border border-slate-200 rounded-lg overflow-hidden max-h-56 overflow-y-auto">
+                          <table className="w-full text-left text-[11px] text-slate-600">
+                            <thead className="bg-slate-100 text-slate-500 uppercase sticky top-0"><tr><th className="px-2 py-1">Mã</th><th className="px-2 py-1">Tên</th><th className="px-2 py-1 text-center">ĐVT</th><th className="px-2 py-1 text-right">Đơn giá</th><th className="px-2 py-1">Trạng thái</th></tr></thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {preview.map((r, i) => (
+                                <tr key={i} className={r.status === 'err' ? 'bg-rose-50/40' : r.status === 'overwrite' ? 'bg-amber-50/40' : ''}>
+                                  <td className="px-2 py-1 font-mono font-semibold text-slate-800">{r.ma_hang || <span className="text-rose-500 italic">(trống)</span>}</td>
+                                  <td className="px-2 py-1">{r.ten_hang || <span className="text-rose-500 italic">(trống)</span>}</td>
+                                  <td className="px-2 py-1 text-center">{r.dvt}</td>
+                                  <td className="px-2 py-1 text-right">{r.don_gia_niem_yet.toLocaleString('vi-VN')}</td>
+                                  <td className="px-2 py-1">
+                                    {r.status === 'ok' && <span className="text-emerald-600">✓ Mới</span>}
+                                    {r.status === 'overwrite' && <span className="text-amber-600">↻ {r.note}</span>}
+                                    {r.status === 'err' && <span className="text-rose-600">✕ {r.note}</span>}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-12 gap-2.5 bg-slate-50/80 p-3 rounded-lg border border-slate-200">
