@@ -4304,6 +4304,15 @@ function BbbgExportButton({ jobId, bbbgLuc, onExported, showNotification }: {
 }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const toggle = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (open) { setOpen(false); return }
+    const r = btnRef.current?.getBoundingClientRect()
+    if (r) setPos({ top: r.bottom + 4, left: Math.max(8, r.right - 240) })   // menu w-60 = 240px, canh phải nút
+    setOpen(true)
+  }
   // Tải blob .docx từ 1 URL chứng từ (BBBG theo mẫu, hoặc BBGĐ).
   const download = async (url: string, fallbackName: string, okMsg: string) => {
     setOpen(false); setBusy(true)
@@ -4321,16 +4330,16 @@ function BbbgExportButton({ jobId, bbbgLuc, onExported, showNotification }: {
   const doExportBBGD = () => download(`/api/admin/bbgd?id=${jobId}`, 'BBGD.docx', 'Đã xuất Biên bản giám định.')
   return (
     <div className="relative inline-block">
-      <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(o => !o) }} disabled={busy}
+      <button ref={btnRef} type="button" onClick={toggle} disabled={busy}
         title={bbbgLuc ? 'Đã xuất chứng từ — xuất lại' : 'Xuất chứng từ (BBBG / BBGĐ)'}
         className={`relative p-1 rounded hover:bg-slate-100 transition ${bbbgLuc ? 'text-emerald-600' : 'text-slate-500 hover:text-blue-600'}`}>
         <FileText className="w-4 h-4" />
         {bbbgLuc && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-white" />}
       </button>
-      {open && (
+      {open && pos && (
         <>
-          <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setOpen(false) }} />
-          <div className="absolute right-0 mt-1 w-60 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1" onClick={e => e.stopPropagation()}>
+          <div className="fixed inset-0 z-[70]" onClick={(e) => { e.stopPropagation(); setOpen(false) }} />
+          <div className="fixed w-60 bg-white border border-slate-200 rounded-lg shadow-lg z-[71] py-1" style={{ top: pos.top, left: pos.left }} onClick={e => e.stopPropagation()}>
             <div className="px-3 py-1 text-[10px] font-semibold text-slate-400 uppercase">Biên bản bàn giao</div>
             {BBBG_TEMPLATE_LIST.map(t => (
               <button key={t.key} onClick={() => doExportBBBG(t.key)} className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2">
