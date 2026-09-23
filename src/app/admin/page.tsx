@@ -1290,16 +1290,22 @@ export default function AdminDashboard() {
   })()
 
   const exportJobsExcel = () => {
-    const headers = ['Ngày', 'Khách hàng', 'Địa chỉ', 'Mã máy', 'Model', 'SL', 'Loại việc', 'KTV', 'KM', 'Trạng thái', 'Ghi chú']
+    const headers = ['Ngày', 'Số phiếu', 'Khách hàng', 'Địa chỉ', 'Mã máy', 'Model', 'SL', 'Loại việc', 'Mã hàng', 'Tên hàng', 'KTV', 'KM', 'Trạng thái', 'Ghi chú']
     const rows = filteredJobs.map(j => {
+      const vt = (j.soct_chi_tiet_vat_tu || []) as any[]
+      const maHang = vt.map(v => v.ma_hang).filter(Boolean).join(', ')
+      const tenHang = vt.map(v => v.soct_kho_hang?.ten_hang || v.ma_hang).filter(Boolean).join(', ')
       return [
         formatDate(j.ngay),
+        j.report || '',
         j.soct_khach_hang?.ten_khach_hang,
         j.soct_khach_hang?.vi_tri_dat_may || j.soct_khach_hang?.dia_chi, // ưu tiên nơi đặt máy
         j.ma_may,
         j.soct_khach_hang?.model || '',
         j.so_luong || 1,
         j.loai_cong_viec,
+        maHang,   // vật tư: mã hàng (gộp nhiều dòng bằng dấu phẩy)
+        tenHang,  // vật tư: tên hàng tương ứng
         j.soct_users?.full_name || 'Chưa giao',
         j.km,
         j.ket_qua,
