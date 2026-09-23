@@ -161,15 +161,15 @@ function CatalogManager({ catalog, isManager, hangOptions, onClose, onChanged, n
                     <label className="block text-slate-600 font-semibold mb-1">Mã hàng *</label>
                     <Input value={f.ma_hang} disabled={editing} onChange={e => setF({ ...f, ma_hang: e.target.value.toUpperCase() })} className="h-8 font-mono uppercase bg-white disabled:opacity-60" />
                   </div>
-                  <div className="sm:col-span-6">
+                  <div className="sm:col-span-7">
                     <label className="block text-slate-600 font-semibold mb-1">Tên hàng *</label>
                     <Input value={f.ten_hang} onChange={e => setF({ ...f, ten_hang: e.target.value })} className="h-8 bg-white" />
                   </div>
-                  <div className="sm:col-span-3">
+                  <div className="sm:col-span-2">
                     <label className="block text-slate-600 font-semibold mb-1">ĐVT</label>
-                    <Input value={f.dvt} onChange={e => setF({ ...f, dvt: e.target.value })} className="h-8 bg-white" />
+                    <Input value={f.dvt} onChange={e => setF({ ...f, dvt: e.target.value })} className="h-8 bg-white text-center px-1" />
                   </div>
-                  <div className="sm:col-span-4">
+                  <div className="sm:col-span-3">
                     <label className="block text-slate-600 font-semibold mb-1">Hãng</label>
                     <select value={f.hang} onChange={e => setF({ ...f, hang: e.target.value })} className="h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200">
                       <option value="">— Chọn hãng —</option>
@@ -181,7 +181,7 @@ function CatalogManager({ catalog, isManager, hangOptions, onClose, onChanged, n
                     <label className="block text-slate-600 font-semibold mb-1">Đơn giá niêm yết</label>
                     <Input inputMode="numeric" value={fmtGia(f.don_gia_niem_yet)} onChange={e => setF({ ...f, don_gia_niem_yet: e.target.value.replace(/\D/g, '') })} placeholder="0" className="h-8 text-right bg-white" />
                   </div>
-                  <div className="sm:col-span-4 flex items-end gap-2">
+                  <div className="sm:col-span-5 flex items-end gap-2">
                     <Button onClick={save} disabled={busy} className="h-8 flex-1 text-xs bg-blue-600 hover:bg-blue-700 text-white">{editing ? 'Lưu' : 'Thêm'}</Button>
                     {editing && <Button variant="outline" onClick={reset} className="h-8 text-xs">Hủy</Button>}
                   </div>
