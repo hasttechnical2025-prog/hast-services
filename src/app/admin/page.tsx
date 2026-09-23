@@ -3328,6 +3328,7 @@ function GiaNiemYetTool({ showNotification, hangOptions }: { showNotification: (
             placeholder={"CT200401\t936000\t1123000\nCT200719\t1058000\t1270000"}
             className="w-full rounded-md border border-slate-200 bg-white p-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-200" />
           <div className="flex items-center justify-end gap-2">
+            <Button variant="outline" onClick={() => { setBulkText(''); setPreview(null); setBulkOpen(false) }} className="h-8 text-xs text-slate-500">Hủy</Button>
             <Button variant="outline" onClick={doCheck} className="h-8 text-xs">Kiểm tra</Button>
             <Button onClick={doImport} disabled={importing || !preview || preview.every(r => r.status === 'err')} className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white">{importing ? 'Đang nhập...' : 'Nhập'}</Button>
           </div>
