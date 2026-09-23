@@ -9,10 +9,11 @@ import { Plus, FileText, PenSquare, Trash2, X, Save, RefreshCw, LogOut, Package,
 type HangHoa = { ma_hang: string; ten_hang: string; dvt: string | null; don_gia_niem_yet: number | null; hang: string | null; model: string | null; ghi_chu: string | null }
 
 // Combobox tra DANH MỤC MÁY (chọn mã -> tự điền tên + đơn giá niêm yết); vẫn cho gõ tự do mã ngoài danh mục.
-function MayCombo({ value, catalog, onChangeMa, onPick }: {
+function MayCombo({ value, catalog, onChangeMa, onPick, inputClass }: {
   value: string; catalog: HangHoa[]
   onChangeMa: (ma: string) => void
   onPick: (it: HangHoa) => void
+  inputClass?: string
 }) {
   const [open, setOpen] = useState(false)
   const [kw, setKw] = useState('')
@@ -34,7 +35,7 @@ function MayCombo({ value, catalog, onChangeMa, onPick }: {
     <div ref={boxRef} className="relative">
       <Input value={value}
         onChange={e => { const v = e.target.value.toUpperCase(); onChangeMa(v); setKw(v); place(); setOpen(true) }}
-        onFocus={() => { place(); setOpen(true) }} placeholder="Mã" className="h-7 text-xs font-mono uppercase" />
+        onFocus={() => { place(); setOpen(true) }} placeholder="Mã" className={`h-7 text-xs font-mono uppercase ${inputClass || ''}`} />
       {open && pos && matches.length > 0 && (
         <div className="fixed z-[80] max-h-56 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg text-xs" style={{ top: pos.top, left: pos.left, width: pos.width }}>
           {matches.map((it, i) => (
@@ -495,37 +496,42 @@ export default function LenhXuatHangPage() {
               <button onClick={() => setOpen(false)} disabled={submitting} className="text-slate-400 hover:text-slate-600 p-1"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-5 overflow-y-auto space-y-4 flex-1 text-xs">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50/80 p-3.5 rounded-lg border border-slate-200">
-                {/* Hàng 1: chứng từ */}
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Ngày lập</label>
-                  <DateField value={form.ngay} onChange={v => { setForm(f => ({ ...f, ngay: v })); if (!editingId) fetchNextLenh(v) }} heightClass="h-8" className="w-full" />
+              <div className="flex flex-col sm:flex-row gap-3 bg-slate-50/80 p-3.5 rounded-lg border border-slate-200">
+                {/* Cột trái: thông tin khách */}
+                <div className="flex-1 space-y-3 min-w-0">
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">Tên khách hàng <span className="text-rose-500">*</span></label>
+                    <Input value={form.ten_khach_hang} onChange={e => setForm({ ...form, ten_khach_hang: e.target.value })} placeholder="Tên khách mua hàng..." className="h-8 bg-white" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">Địa chỉ</label>
+                    <Input value={form.dia_chi} onChange={e => setForm({ ...form, dia_chi: e.target.value })} placeholder="Địa chỉ xuất hóa đơn..." className="h-8 bg-white" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-600 font-semibold mb-1">Mã số thuế</label>
+                      <Input value={form.ma_so_thue} onChange={e => setForm({ ...form, ma_so_thue: e.target.value })} placeholder="MST..." className="h-8 font-mono bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-slate-600 font-semibold mb-1">Ghi chú</label>
+                      <Input value={form.ghi_chu} onChange={e => setForm({ ...form, ghi_chu: e.target.value })} placeholder="..." className="h-8 bg-white" />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Số lệnh <span className="text-rose-500">*</span></label>
-                  <Input value={form.so_lenh} readOnly title="Số lệnh do hệ thống tự cấp (YYMMDD-xx)" className="h-8 bg-slate-100 font-mono font-bold text-blue-700 cursor-not-allowed" />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-slate-600 font-semibold mb-1">Số hợp đồng</label>
-                  <Input value={form.so_hop_dong} onChange={e => setForm({ ...form, so_hop_dong: e.target.value })} placeholder="VD: 260922/KH-ST" className="h-8 bg-white" />
-                </div>
-                {/* Hàng 2: khách */}
-                <div className="col-span-2 sm:col-span-3">
-                  <label className="block text-slate-600 font-semibold mb-1">Tên khách hàng <span className="text-rose-500">*</span></label>
-                  <Input value={form.ten_khach_hang} onChange={e => setForm({ ...form, ten_khach_hang: e.target.value })} placeholder="Tên khách mua hàng..." className="h-8 bg-white" />
-                </div>
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Mã số thuế</label>
-                  <Input value={form.ma_so_thue} onChange={e => setForm({ ...form, ma_so_thue: e.target.value })} placeholder="MST..." className="h-8 font-mono bg-white" />
-                </div>
-                {/* Hàng 3: địa chỉ + ghi chú */}
-                <div className="col-span-2 sm:col-span-3">
-                  <label className="block text-slate-600 font-semibold mb-1">Địa chỉ</label>
-                  <Input value={form.dia_chi} onChange={e => setForm({ ...form, dia_chi: e.target.value })} placeholder="Địa chỉ xuất hóa đơn..." className="h-8 bg-white" />
-                </div>
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Ghi chú</label>
-                  <Input value={form.ghi_chu} onChange={e => setForm({ ...form, ghi_chu: e.target.value })} placeholder="..." className="h-8 bg-white" />
+                {/* Cột phải: chứng từ */}
+                <div className="w-full sm:w-52 shrink-0 space-y-3 sm:border-l sm:border-slate-200 sm:pl-3">
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">Ngày lập</label>
+                    <DateField value={form.ngay} onChange={v => { setForm(f => ({ ...f, ngay: v })); if (!editingId) fetchNextLenh(v) }} heightClass="h-8" className="w-full" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">Số lệnh <span className="text-rose-500">*</span></label>
+                    <Input value={form.so_lenh} readOnly title="Số lệnh do hệ thống tự cấp (YYMMDD-xx)" className="h-8 bg-slate-100 font-mono font-bold text-blue-700 cursor-not-allowed" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">Số hợp đồng</label>
+                    <Input value={form.so_hop_dong} onChange={e => setForm({ ...form, so_hop_dong: e.target.value })} placeholder="VD: 260922/KH-ST" className="h-8 bg-white" />
+                  </div>
                 </div>
               </div>
 
@@ -534,29 +540,43 @@ export default function LenhXuatHangPage() {
                   <span className="font-bold text-blue-900 uppercase text-xs">Danh sách hàng ({lines.length} dòng)</span>
                   <Button type="button" variant="outline" onClick={addLine} className="h-7 text-[11px] px-2 text-blue-700 border-blue-200 hover:bg-blue-100/50"><Plus className="w-3.5 h-3.5 mr-1" /> Thêm dòng</Button>
                 </div>
-                <div className="grid grid-cols-12 gap-1.5 px-0.5 text-[10px] font-semibold uppercase text-blue-700/70">
-                  <div className="col-span-2">Mã hàng</div><div className="col-span-3">Tên hàng</div><div className="col-span-1 text-center">ĐVT</div>
-                  <div className="col-span-1 text-center">SL</div><div className="col-span-2 text-right">Đơn giá</div><div className="col-span-1 text-center">VAT%</div>
-                  <div className="col-span-2 text-right pr-5">Thành tiền</div>
+                <div className="overflow-hidden rounded-md border border-blue-200 bg-white">
+                  <table className="w-full table-fixed border-collapse text-xs">
+                    <colgroup>
+                      <col className="w-[15%]" /><col /><col className="w-[8%]" /><col className="w-[7%]" />
+                      <col className="w-[16%]" /><col className="w-[7%]" /><col className="w-[20%]" />
+                    </colgroup>
+                    <thead>
+                      <tr className="bg-blue-50 text-[10px] font-semibold uppercase text-blue-700/80 [&>th]:px-2 [&>th]:py-1.5 [&>th]:border-r [&>th]:border-blue-100 [&>th:last-child]:border-r-0">
+                        <th className="text-left">Mã hàng</th><th className="text-left">Tên hàng</th><th className="text-center">ĐVT</th>
+                        <th className="text-center">SL</th><th className="text-right">Đơn giá</th><th className="text-center">VAT%</th>
+                        <th className="text-right">Thành tiền</th>
+                      </tr>
+                    </thead>
+                    <tbody className="[&>tr>td]:border-t [&>tr>td]:border-slate-100 [&>tr>td]:border-r [&>tr>td]:border-r-slate-100 [&>tr>td:last-child]:border-r-0 [&>tr>td]:px-1 [&>tr>td]:align-middle">
+                      {lines.map((l, i) => (
+                        <tr key={i}>
+                          <td className="p-0">
+                            <MayCombo value={l.ma_hang} catalog={catalog} inputClass="border-transparent bg-transparent shadow-none rounded-none focus-visible:ring-1"
+                              onChangeMa={(v) => updLine(i, 'ma_hang', v)}
+                              onPick={(it) => setLines(prev => { const n = [...prev]; n[i] = { ...n[i], ma_hang: it.ma_hang, ten_hang: it.ten_hang || '', dvt: it.dvt || 'Cái', don_gia: (n[i].don_gia === '' || n[i].don_gia == null || Number(n[i].don_gia) === 0) ? (Number(it.don_gia_niem_yet) || '') : n[i].don_gia }; return n })} />
+                          </td>
+                          <td className="p-0"><textarea value={l.ten_hang} onChange={e => updLine(i, 'ten_hang', e.target.value)} placeholder="Tên hàng" rows={2} className="w-full block bg-transparent text-xs px-2 py-1.5 leading-tight resize-none border-0 focus:outline-none focus:ring-1 focus:ring-blue-300 focus:ring-inset" /></td>
+                          <td><Input value={l.dvt} onChange={e => updLine(i, 'dvt', e.target.value)} className="h-7 text-xs text-center px-1 border-transparent bg-transparent shadow-none rounded-none focus-visible:ring-1" /></td>
+                          <td><Input type="number" value={l.so_luong} onChange={e => updLine(i, 'so_luong', e.target.value)} className="h-7 text-xs text-center px-1 font-bold text-blue-700 border-transparent bg-transparent shadow-none rounded-none focus-visible:ring-1" /></td>
+                          <td><Input inputMode="numeric" value={l.don_gia === '' || l.don_gia == null ? '' : Number(String(l.don_gia).replace(/\D/g, '') || 0).toLocaleString('vi-VN')} onChange={e => updLine(i, 'don_gia', e.target.value.replace(/\D/g, ''))} placeholder="0" className="h-7 text-xs text-right border-transparent bg-transparent shadow-none rounded-none focus-visible:ring-1" /></td>
+                          <td><Input type="number" value={l.vat} onChange={e => updLine(i, 'vat', e.target.value)} className="h-7 text-xs text-center px-1 border-transparent bg-transparent shadow-none rounded-none focus-visible:ring-1" /></td>
+                          <td>
+                            <div className="flex items-center justify-end gap-1.5 pr-1 text-xs font-semibold text-slate-800">
+                              <span className="whitespace-nowrap">{fmtVnd(lineTotal(l))}</span>
+                              <button type="button" onClick={() => rmLine(i)} className="text-slate-300 hover:text-rose-600 shrink-0" title="Xóa dòng"><X className="w-3.5 h-3.5" /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                {lines.map((l, i) => (
-                  <div key={i} className="grid grid-cols-12 gap-1.5 items-center">
-                    <div className="col-span-2">
-                      <MayCombo value={l.ma_hang} catalog={catalog}
-                        onChangeMa={(v) => updLine(i, 'ma_hang', v)}
-                        onPick={(it) => setLines(prev => { const n = [...prev]; n[i] = { ...n[i], ma_hang: it.ma_hang, ten_hang: it.ten_hang || '', dvt: it.dvt || 'Cái', don_gia: (n[i].don_gia === '' || n[i].don_gia == null || Number(n[i].don_gia) === 0) ? (Number(it.don_gia_niem_yet) || '') : n[i].don_gia }; return n })} />
-                    </div>
-                    <div className="col-span-3"><textarea value={l.ten_hang} onChange={e => updLine(i, 'ten_hang', e.target.value)} placeholder="Tên hàng" rows={2} className="w-full rounded-md border border-slate-200 bg-white text-xs px-2 py-1 leading-tight resize-none focus:outline-none focus:ring-2 focus:ring-blue-200" /></div>
-                    <div className="col-span-1"><Input value={l.dvt} onChange={e => updLine(i, 'dvt', e.target.value)} className="h-7 text-xs text-center px-1" /></div>
-                    <div className="col-span-1"><Input type="number" value={l.so_luong} onChange={e => updLine(i, 'so_luong', e.target.value)} className="h-7 text-xs text-center px-1 font-bold text-blue-700" /></div>
-                    <div className="col-span-2"><Input inputMode="numeric" value={l.don_gia === '' || l.don_gia == null ? '' : Number(String(l.don_gia).replace(/\D/g, '') || 0).toLocaleString('vi-VN')} onChange={e => updLine(i, 'don_gia', e.target.value.replace(/\D/g, ''))} placeholder="0" className="h-7 text-xs text-right" /></div>
-                    <div className="col-span-1"><Input type="number" value={l.vat} onChange={e => updLine(i, 'vat', e.target.value)} className="h-7 text-xs text-center px-1" /></div>
-                    <div className="col-span-2 flex items-center justify-end gap-1.5 text-xs font-semibold text-slate-800">
-                      <span className="whitespace-nowrap">{fmtVnd(lineTotal(l))}</span>
-                      <button type="button" onClick={() => rmLine(i)} className="text-slate-300 hover:text-rose-600 shrink-0" title="Xóa dòng"><X className="w-3.5 h-3.5" /></button>
-                    </div>
-                  </div>
-                ))}
                 <div className="pt-1.5 border-t border-dashed border-blue-100 text-right text-xs">
                   <span className="text-slate-500">Tổng chưa VAT: </span><span className="font-bold text-slate-800">{fmtVnd(formTong)} đ</span>
                 </div>
