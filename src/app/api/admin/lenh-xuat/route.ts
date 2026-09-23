@@ -17,6 +17,18 @@ async function scope(session: any) {
 }
 
 // GET: danh sách lệnh (đã scope theo role) kèm dòng hàng.
+// Cấp số lệnh tự động: YYMMDD-xx (prefix theo NGÀY LẬP, xx tăng dần & reset mỗi ngày).
+async function nextSoLenh(ngay?: string): Promise<string> {
+  const d = String(ngay || new Date(Date.now() + 7 * 3600 * 1000).toISOString()).slice(0, 10)
+  const p = d.split('-')
+  const prefix = p.length === 3 ? `${p[0].slice(2)}${p[1]}${p[2]}` : ''
+  if (!prefix) return ''
+  const { data } = await supabaseAdmin.from('soct_lenh_xuat').select('so_lenh').like('so_lenh', `${prefix}-%`)
+  let max = 0
+  for (const r of (data || [])) { const m = String(r.so_lenh || '').match(/-(\d+)$/); if (m) max = Math.max(max, parseInt(m[1], 10)) }
+  return `${prefix}-${String(max + 1).padStart(2, '0')}`
+}
+
 export async function GET(request: Request) {
   try {
     const session = await requireRole('admin', 'kinh_doanh')
@@ -24,6 +36,11 @@ export async function GET(request: Request) {
     const { isManager } = await scope(session)
 
     const { searchParams } = new URL(request.url)
+
+    // Gợi ý số lệnh kế tiếp cho form (theo ngày lập) — server vẫn cấp lại lúc lưu để không trùng.
+    const nextLenh = searchParams.get('next_lenh')
+    if (nextLenh !== null) return NextResponse.json({ next_so_lenh: await nextSoLenh(nextLenh) })
+
     const id = searchParams.get('id')
 
     if (id) {
@@ -93,7 +110,7 @@ export async function POST(request: Request) {
     const { data: lenh, error } = await supabaseAdmin
       .from('soct_lenh_xuat')
       .insert({
-        so_lenh: (b.so_lenh || '').trim() || null,
+        so_lenh: await nextSoLenh(b.ngay),   // server TỰ cấp (YYMMDD-xx), không nhận từ client
         ngay: b.ngay || undefined,
         ten_khach_hang: String(b.ten_khach_hang).trim(),
         dia_chi: (b.dia_chi || '').trim() || null,
@@ -145,7 +162,7 @@ export async function PUT(request: Request) {
     }
 
     const updates: any = { updated_at: new Date().toISOString() }
-    if (b.so_lenh !== undefined) updates.so_lenh = (b.so_lenh || '').trim() || null
+    // so_lenh BẤT BIẾN (hệ thống cấp lúc tạo) — không cho sửa qua PUT
     if (b.ngay !== undefined) updates.ngay = b.ngay || undefined
     if (b.ten_khach_hang !== undefined) updates.ten_khach_hang = String(b.ten_khach_hang || '').trim()
     if (b.dia_chi !== undefined) updates.dia_chi = (b.dia_chi || '').trim() || null
