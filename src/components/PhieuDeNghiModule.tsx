@@ -453,6 +453,52 @@ function MaHangCombo({
   )
 }
 
+// Combobox riêng cho ô "Mã hàng (máy)" của BM38: tra GỘP cả kho VẬT TƯ và danh mục MÁY,
+// mỗi gợi ý gắn nhãn nguồn [Máy]/[Vật tư]; chọn -> điền tên; vẫn gõ tự do. (Chỉ dùng ở BM38.)
+function MaMayUnionCombo({ value, inventory, mayList, onChangeMa, onPick }: {
+  value: string
+  inventory: any[]
+  mayList: any[]
+  onChangeMa: (ma: string) => void
+  onPick: (ma: string, ten: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [kw, setKw] = useState('')
+  const boxRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h)
+  }, [])
+  const matches = useMemo(() => {
+    const s = (kw || value).trim().toLowerCase()
+    const may = (Array.isArray(mayList) ? mayList : []).map((it: any) => ({ src: 'Máy' as const, ma: String(it?.ma_hang || ''), ten: String(it?.ten_hang || '') }))
+    const vt = (Array.isArray(inventory) ? inventory : []).map((it: any) => ({ src: 'Vật tư' as const, ma: String(it?.ma_hang || ''), ten: String(it?.ten_hang || '') }))
+    const all = [...may, ...vt]   // ưu tiên MÁY trước
+    if (!s) return all.slice(0, 30)
+    return all.filter(x => x.ma.toLowerCase().includes(s) || x.ten.toLowerCase().includes(s)).slice(0, 30)
+  }, [kw, value, inventory, mayList])
+  return (
+    <div ref={boxRef} className="relative">
+      <Input value={value}
+        onChange={e => { const v = e.target.value.toUpperCase(); onChangeMa(v); setKw(v); setOpen(true) }}
+        onFocus={() => setOpen(true)} placeholder="Mã hàng / mã máy..." className="h-8 text-xs font-mono uppercase bg-white" />
+      {open && matches.length > 0 && (
+        <div className="absolute z-30 mt-0.5 w-[340px] max-w-[80vw] max-h-56 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg text-xs">
+          {matches.map((it, i) => (
+            <button key={i} type="button"
+              onMouseDown={(e) => { e.preventDefault(); onPick(it.ma, it.ten); setOpen(false); setKw('') }}
+              className="w-full text-left px-2 py-1.5 hover:bg-slate-100 flex items-center gap-2">
+              <span className={`shrink-0 text-[9px] font-semibold px-1 py-0.5 rounded border ${it.src === 'Máy' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>{it.src}</span>
+              <span className="font-mono font-semibold text-slate-800 shrink-0">{it.ma}</span>
+              <span className="text-slate-500 truncate">{it.ten}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function PhieuDeNghiModule({
   showNotification,
   currentUserRole = 'admin',
@@ -473,6 +519,12 @@ export default function PhieuDeNghiModule({
   const [tuNgay, setTuNgay] = useState('')
   const [denNgay, setDenNgay] = useState('')
   const [nextSoPhieu, setNextSoPhieu] = useState('5758')
+
+  // Danh mục MÁY (soct_hang_hoa) để union vào ô "Mã hàng (máy)". Đọc 1 lần.
+  const [mayList, setMayList] = useState<any[]>([])
+  useEffect(() => {
+    fetch('/api/admin/hang-hoa').then(r => r.ok ? r.json() : { data: [] }).then(j => setMayList(j.data || [])).catch(() => {})
+  }, [])
 
   // Sorting
   const [sortField, setSortField] = useState<'so_phieu' | 'ngay_lap' | 'ten_may' | 'ma_may'>('so_phieu')
@@ -1333,9 +1385,10 @@ export default function PhieuDeNghiModule({
 
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">Mã hàng (máy)</label>
-                    <MaHangCombo
+                    <MaMayUnionCombo
                       value={form.ma_may}
                       inventory={inventory}
+                      mayList={mayList}
                       onChangeMa={(v) => setMachineMa(v)}
                       onPick={(ma, ten) => setMachineMa(ma, ten)}
                     />
