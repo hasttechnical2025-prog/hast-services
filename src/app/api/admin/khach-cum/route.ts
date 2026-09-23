@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
-import { requireRole } from '@/lib/session'
+import { requireTab } from '@/lib/session'
 import { logAudit } from '@/lib/audit'
 import { broadcastKhachChanged } from '@/lib/realtime'
 
@@ -10,7 +10,7 @@ import { broadcastKhachChanged } from '@/lib/realtime'
 // Danh sách cụm + số điểm máy mỗi cụm.
 export async function GET() {
   try {
-    const session = await requireRole('admin')
+    const session = await requireTab('quan_ly', 'quan_ly.khach_cum')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
     const clusters = await selectAll((from, to) => supabaseAdmin
@@ -48,7 +48,7 @@ export async function GET() {
 // Tạo cụm mới (nhập tay).
 export async function POST(request: Request) {
   try {
-    const session = await requireRole('admin')
+    const session = await requireTab('quan_ly', 'quan_ly.khach_cum')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const body = await request.json()
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
 // Sửa tên/địa chỉ cụm (không đổi mã — mã là khóa; muốn đổi mã thì xóa & tạo lại).
 export async function PUT(request: Request) {
   try {
-    const session = await requireRole('admin')
+    const session = await requireTab('quan_ly', 'quan_ly.khach_cum')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const body = await request.json()
@@ -135,7 +135,7 @@ export async function PUT(request: Request) {
 // ma_khach_cum = null -> gỡ khỏi cụm (máy về "lẻ").
 export async function PATCH(request: Request) {
   try {
-    const session = await requireRole('admin')
+    const session = await requireTab('quan_ly', 'quan_ly.khach_cum')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const { ma_khach_cum, ids } = await request.json()
@@ -160,7 +160,7 @@ export async function PATCH(request: Request) {
 // Xóa cụm (?ma=...). Máy thuộc cụm tự về "lẻ" (ON DELETE SET NULL).
 export async function DELETE(request: Request) {
   try {
-    const session = await requireRole('admin')
+    const session = await requireTab('quan_ly', 'quan_ly.khach_cum')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const { searchParams } = new URL(request.url)

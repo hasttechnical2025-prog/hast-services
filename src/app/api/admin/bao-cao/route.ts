@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
-import { requireRole } from '@/lib/session'
+import { requireTab } from '@/lib/session'
 import { buildReportData, type ManualFields } from '@/lib/report/bao-cao'
 
 export const runtime = 'nodejs'
@@ -13,7 +13,7 @@ const THANG_RE = /^\d{4}-\d{2}$/
 // Xem trước số liệu (JSON) để hiển thị trên màn hình trước khi xuất
 export async function GET(request: Request) {
   try {
-    const session = await requireRole('admin')
+    const session = await requireTab('quan_ly', 'quan_ly.bao_cao')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
     const thang = new URL(request.url).searchParams.get('thang') || ''
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 // Xuất file .docx đã điền dữ liệu (không lưu)
 export async function POST(request: Request) {
   try {
-    const session = await requireRole('admin')
+    const session = await requireTab('quan_ly', 'quan_ly.bao_cao')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const body = await request.json()

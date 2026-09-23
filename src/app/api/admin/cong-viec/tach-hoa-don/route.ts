@@ -16,7 +16,7 @@ export const runtime = 'nodejs'
 //    Không đụng kho (tổng SL không đổi; INSERT ket_qua='Hoàn thành' không kích hoạt trigger trừ kho).
 export async function POST(request: Request) {
   try {
-    const session = await requireTab('cong_no')
+    const session = await requireTab('tai_chinh', 'tai_chinh.cong_no')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const body = await request.json()

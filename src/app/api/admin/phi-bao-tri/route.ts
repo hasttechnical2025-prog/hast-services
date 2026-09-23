@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
-import { requireRole } from '@/lib/session'
+import { requireTab } from '@/lib/session'
 import { logAudit } from '@/lib/audit'
 import { LOAI_HD_BAO_TRI } from '@/lib/bao-tri'
 
@@ -11,7 +11,7 @@ export const runtime = 'nodejs'
 // (report dạng "PBT-<năm>-<hddv>") -> client biết HĐ nào đã lập kỳ nào.
 export async function GET() {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireTab('tai_chinh', 'tai_chinh.phi_bao_tri')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
     const data = await selectAll<any>((from, to) => supabaseAdmin
@@ -42,7 +42,7 @@ export async function GET() {
 // Phí bảo trì — KHÔNG đụng route sửa khách hàng (admin-only). Chỉ set field được gửi.
 export async function PATCH(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireTab('tai_chinh', 'tai_chinh.phi_bao_tri')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const body = await request.json()
@@ -81,7 +81,7 @@ export async function PATCH(request: Request) {
 // ngay_ky_hddv, don_gia_bt}] }. Chỉ ghi máy HĐBT/MF; bỏ qua máy ngoài diện.
 export async function PUT(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin', 'staff')
+    const session = await requireTab('tai_chinh', 'tai_chinh.phi_bao_tri')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const { items } = await request.json()

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { requireRole } from '@/lib/session'
+import { requireTab } from '@/lib/session'
 import { sendTelegramMessage } from '@/lib/telegram'
 import { broadcastLeaveChanged } from '@/lib/realtime'
 import { moTaKhoang, LOAI_LABEL, type Buoi, type LoaiNghi } from '@/lib/nghi-phep'
@@ -16,7 +16,7 @@ const SEL = 'id, loai, tu_ngay, den_ngay, buoi, so_ngay, ly_do, trang_thai, ghi_
 // GET: ?count=1 -> số đơn chờ duyệt (badge). Mặc định -> { pending, upcoming }
 export async function GET(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin')
+    const session = await requireTab('quan_ly', 'quan_ly.nghi_phep')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
     const sp = new URL(request.url).searchParams
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
 // PUT: duyệt / từ chối. Body { id, action:'duyet'|'tu_choi', ghi_chu? }
 export async function PUT(request: Request) {
   try {
-    const session = await requireRole('admin', 'tech_admin')
+    const session = await requireTab('quan_ly', 'quan_ly.nghi_phep')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const body = await request.json()

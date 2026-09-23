@@ -11,7 +11,7 @@ export const runtime = 'nodejs'
 
 // Báo giá dùng chung cho Công nợ VÀ Giám định -> ai thấy MỘT trong hai tab đều được.
 async function requireBaoGia() {
-  return (await requireTab('cong_no')) || (await requireTab('theo_doi_may', 'theo_doi_may.giam_dinh'))
+  return (await requireTab('tai_chinh', 'tai_chinh.cong_no')) || (await requireTab('theo_doi_may', 'theo_doi_may.giam_dinh'))
 }
 
 // GET ?ma_hang=A,B,C -> gợi ý giá BÁN GẦN NHẤT của từng mã hàng (lấy từ phiếu đã lập).

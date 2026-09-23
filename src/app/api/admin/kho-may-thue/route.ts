@@ -19,8 +19,8 @@ const nameTokens = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]
 export async function GET() {
   try {
     // Đọc: role có tab Kho máy thuê, HOẶC kinh doanh (trang /kho-thue), HOẶC tech_admin (app /m).
-    let session = await requireTab('tai_chinh', 'tai_chinh.kho_may_thue')
-    if (!session) session = await requireRole('kinh_doanh', 'tech_admin')
+    let session = await requireTab('kho_hang', 'kho_hang.may_thue')
+    if (!session) session = await requireRole('kinh_doanh')   // kinh_doanh: trang /kho-thue riêng (ngoài toggle)
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
     const { data, error } = await supabaseAdmin
@@ -81,7 +81,7 @@ export async function GET() {
 // cột chuẩn hóa khach_hang.
 export async function PUT(request: Request) {
   try {
-    const session = await requireTab('tai_chinh', 'tai_chinh.kho_may_thue')
+    const session = await requireTab('kho_hang', 'kho_hang.may_thue')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const { id, khach_hang, dia_chi, tinh_trang, counter, vat_tu } = await request.json()

@@ -9,7 +9,7 @@ export const runtime = 'nodejs'
 // Danh sách phiếu công nợ: có số phiếu + chưa lên hóa đơn (Chưa hóa đơn / Đã báo giá)
 export async function GET() {
   try {
-    const session = await requireTab('cong_no')
+    const session = await requireTab('tai_chinh', 'tai_chinh.cong_no')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
     const data = await selectAll((from, to) => supabaseAdmin
@@ -50,7 +50,7 @@ export async function GET() {
 // Cập nhật trạng thái hóa đơn hàng loạt. 'Đã lên hóa đơn' -> đồng bộ cờ hoa_don các dòng vật tư.
 export async function PUT(request: Request) {
   try {
-    const session = await requireTab('cong_no')
+    const session = await requireTab('tai_chinh', 'tai_chinh.cong_no')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
     const { ids, trang_thai_hd } = await request.json()
