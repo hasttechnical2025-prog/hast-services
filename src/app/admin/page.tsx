@@ -3225,6 +3225,42 @@ function GiaNiemYetTool({ showNotification, hangOptions }: { showNotification: (
   const [q, setQ] = useState(''); const [qModel, setQModel] = useState(''); const [fHang, setFHang] = useState('')
   const [edits, setEdits] = useState<Record<string, { gia_niem_yet: string; gia_nhan_vien: string; gia_quan_ly: string }>>({})
   const [savingMa, setSavingMa] = useState<string | null>(null)
+  // Bulk import giá (admin) — chọn cột giá tương ứng + Kiểm tra trước khi nhập
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkText, setBulkText] = useState('')
+  const [colMap, setColMap] = useState<string[]>(['gia_niem_yet', 'gia_nhan_vien', 'gia_quan_ly']) // cột 2,3,4 của bảng dán
+  const [preview, setPreview] = useState<any[] | null>(null)
+  const [importing, setImporting] = useState(false)
+  const setBulk = (v: string) => { setBulkText(v); setPreview(null) }
+  const maSet = useMemo(() => new Set(rows.map(r => String(r.ma_hang || '').toUpperCase())), [rows])
+  const PRICE_OPTS: [string, string][] = [['', '— bỏ qua —'], ['gia_niem_yet', 'Giá niêm yết'], ['gia_nhan_vien', 'Giá nhân viên'], ['gia_quan_ly', 'Giá quản lý']]
+  const PRICE_LABEL: Record<string, string> = { gia_niem_yet: 'Niêm yết', gia_nhan_vien: 'Nhân viên', gia_quan_ly: 'Quản lý' }
+  const doCheck = () => {
+    const out = bulkText.split(/\r?\n/).map(l => l.replace(/\s+$/, '')).filter(l => l.trim()).map(l => {
+      const c = l.split('\t').length > 1 ? l.split('\t') : l.split(/\s{2,}|;/)
+      const ma = (c[0] || '').trim().toUpperCase()
+      const prices: any = {}
+      colMap.forEach((tgt, i) => { if (tgt) { const raw = String(c[i + 1] ?? '').replace(/\D/g, ''); if (raw !== '') prices[tgt] = Number(raw) } })
+      let status: 'ok' | 'err' = 'ok'; let note = ''
+      if (!ma) { status = 'err'; note = 'Thiếu mã' }
+      else if (!maSet.has(ma)) { status = 'err'; note = 'Không có trong kho' }
+      else if (Object.keys(prices).length === 0) { status = 'err'; note = 'Không có giá' }
+      return { ma_hang: ma, prices, status, note }
+    })
+    if (out.length === 0) { showNotification('error', 'Chưa có dòng để kiểm tra'); return }
+    setPreview(out)
+  }
+  const doImport = async () => {
+    const items = (preview || []).filter(r => r.status === 'ok').map(r => ({ ma_hang: r.ma_hang, ...r.prices }))
+    if (items.length === 0) { showNotification('error', 'Không có dòng hợp lệ để nhập'); return }
+    setImporting(true)
+    try {
+      const res = await fetch('/api/admin/gia-niem-yet', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }) })
+      const j = await res.json()
+      if (res.ok) { showNotification('success', `Đã nhập giá cho ${j.count} mã`); setBulkText(''); setPreview(null); setBulkOpen(false); load() }
+      else showNotification('error', j.error || 'Lỗi import')
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setImporting(false) }
+  }
 
   const load = useCallback(() => {
     setLoading(true)
@@ -3269,8 +3305,61 @@ function GiaNiemYetTool({ showNotification, hangOptions }: { showNotification: (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h2 className="text-xl font-bold text-slate-800">Giá niêm yết vật tư {!canEdit && <span className="text-xs font-normal text-slate-400">(chỉ tra cứu)</span>}</h2>
-        <Button variant="outline" onClick={load} className="h-9 gap-1.5 text-sm"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Làm mới</Button>
+        <div className="flex items-center gap-2">
+          {canEdit && <Button variant="outline" onClick={() => setBulkOpen(v => !v)} className="h-9 gap-1.5 text-sm"><Upload className="w-4 h-4" /> Nhập giá hàng loạt</Button>}
+          <Button variant="outline" onClick={load} className="h-9 gap-1.5 text-sm"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Làm mới</Button>
+        </div>
       </div>
+
+      {canEdit && bulkOpen && (
+        <div className="bg-slate-50/80 p-3.5 rounded-lg border border-slate-200 space-y-2.5">
+          <p className="text-xs text-slate-500">Dán từ Excel: <b>cột 1 = Mã hàng</b>, các cột sau là giá — chọn mỗi cột ứng với loại giá nào bên dưới. Chỉ cập nhật mã <b>đã có trong kho</b>; trùng thì ghi đè. Bấm <b>Kiểm tra</b> rồi <b>Nhập</b>.</p>
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            {[0, 1, 2].map(i => (
+              <label key={i} className="flex items-center gap-1.5">
+                <span className="text-slate-500">Cột {i + 2}:</span>
+                <select value={colMap[i]} onChange={e => { const m = [...colMap]; m[i] = e.target.value; setColMap(m); setPreview(null) }} className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs">
+                  {PRICE_OPTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </label>
+            ))}
+          </div>
+          <textarea value={bulkText} onChange={e => setBulk(e.target.value)} rows={7}
+            placeholder={"CT200401\t936000\t1123000\nCT200719\t1058000\t1270000"}
+            className="w-full rounded-md border border-slate-200 bg-white p-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-200" />
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="outline" onClick={doCheck} className="h-8 text-xs">Kiểm tra</Button>
+            <Button onClick={doImport} disabled={importing || !preview || preview.every(r => r.status === 'err')} className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white">{importing ? 'Đang nhập...' : 'Nhập'}</Button>
+          </div>
+          {preview && (() => {
+            const ok = preview.filter(r => r.status === 'ok').length
+            const er = preview.length - ok
+            const cols2 = colMap.filter(Boolean)
+            return (
+              <div className="space-y-1.5">
+                <div className="flex gap-2 text-[11px]">
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">Cập nhật: {ok}</span>
+                  <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-semibold">Lỗi (bỏ qua): {er}</span>
+                </div>
+                <div className="border border-slate-200 rounded-lg overflow-hidden max-h-56 overflow-y-auto">
+                  <table className="w-full text-left text-[11px] text-slate-600">
+                    <thead className="bg-slate-100 text-slate-500 uppercase sticky top-0"><tr><th className="px-2 py-1">Mã</th>{cols2.map(c => <th key={c} className="px-2 py-1 text-right">{PRICE_LABEL[c]}</th>)}<th className="px-2 py-1">Trạng thái</th></tr></thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {preview.map((r, idx) => (
+                        <tr key={idx} className={r.status === 'err' ? 'bg-rose-50/40' : ''}>
+                          <td className="px-2 py-1 font-mono font-semibold text-slate-800">{r.ma_hang || <span className="text-rose-500 italic">(trống)</span>}</td>
+                          {cols2.map(c => <td key={c} className="px-2 py-1 text-right">{r.prices[c] != null ? Number(r.prices[c]).toLocaleString('vi-VN') : ''}</td>)}
+                          <td className="px-2 py-1">{r.status === 'ok' ? <span className="text-emerald-600">✓ Cập nhật</span> : <span className="text-rose-600">✕ {r.note}</span>}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      )}
       <div className="flex flex-wrap gap-2.5">
         <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã / tên vật tư..." className="h-9 w-56" />
         <Input value={qModel} onChange={e => setQModel(e.target.value)} placeholder="Tìm model..." className="h-9 w-44" />

@@ -52,9 +52,29 @@ export async function PUT(request: Request) {
     const session = await requireRole('admin')
     if (!session) return NextResponse.json({ error: 'Chỉ admin được nhập giá niêm yết' }, { status: 401 })
     const b = await request.json()
+    const num = (v: any) => (v === '' || v == null) ? null : (Number(String(v).replace(/\D/g, '')) || 0)
+
+    // BULK: body.items = [{ ma_hang, gia_niem_yet?, gia_nhan_vien?, gia_quan_ly? }]
+    // Chỉ UPDATE mã đã có trong kho (không tạo mã mới ở đây). Field nào có mới cập nhật.
+    if (Array.isArray(b.items)) {
+      let count = 0
+      for (const it of b.items) {
+        const m = String(it.ma_hang || '').trim()
+        if (!m) continue
+        const u: any = {}
+        if (it.gia_niem_yet !== undefined) u.gia_niem_yet = num(it.gia_niem_yet)
+        if (it.gia_nhan_vien !== undefined) u.gia_nhan_vien = num(it.gia_nhan_vien)
+        if (it.gia_quan_ly !== undefined) u.gia_quan_ly = num(it.gia_quan_ly)
+        if (Object.keys(u).length === 0) continue
+        const { data, error } = await supabaseAdmin.from('soct_kho_hang').update(u).eq('ma_hang', m).select('ma_hang')
+        if (!error && data && data.length) count++
+      }
+      await logAudit(session, 'Import giá niêm yết', `${count} mã`)
+      return NextResponse.json({ success: true, count })
+    }
+
     const ma = String(b.ma_hang || '').trim()
     if (!ma) return NextResponse.json({ error: 'Thiếu mã hàng' }, { status: 400 })
-    const num = (v: any) => (v === '' || v == null) ? null : (Number(String(v).replace(/\D/g, '')) || 0)
     const updates: any = {}
     if (b.gia_niem_yet !== undefined) updates.gia_niem_yet = num(b.gia_niem_yet)
     if (b.gia_nhan_vien !== undefined) updates.gia_nhan_vien = num(b.gia_nhan_vien)
