@@ -37,6 +37,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Chỉ quản lý kinh doanh / admin được sửa danh mục' }, { status: 403 })
     }
     const b = await request.json()
+
+    // BULK import: body.items = [{ma_hang, ten_hang, dvt?, don_gia_niem_yet?, hang?, model? }]
+    // Upsert theo ma_hang (import lại sẽ cập nhật). Bỏ dòng thiếu mã/tên.
+    if (Array.isArray(b.items)) {
+      const rows = b.items
+        .map((r: any) => ({
+          ma_hang: String(r.ma_hang || '').trim().toUpperCase(),
+          ten_hang: String(r.ten_hang || '').trim(),
+          dvt: (r.dvt || '').trim() || 'Cái',
+          don_gia_niem_yet: Number(r.don_gia_niem_yet) || 0,
+          hang: (r.hang || '').trim() || null,
+          model: (r.model || '').trim() || null,
+        }))
+        .filter((r: any) => r.ma_hang && r.ten_hang)
+      if (rows.length === 0) return NextResponse.json({ error: 'Không có dòng hợp lệ (cần Mã + Tên)' }, { status: 400 })
+      const { error } = await supabaseAdmin.from('soct_hang_hoa').upsert(rows, { onConflict: 'ma_hang' })
+      if (error) throw error
+      await logAudit(session, 'Import hàng hóa/máy', `${rows.length} mã`)
+      return NextResponse.json({ success: true, count: rows.length })
+    }
+
     const ma = String(b.ma_hang || '').trim().toUpperCase()
     if (!ma) return NextResponse.json({ error: 'Vui lòng nhập mã hàng' }, { status: 400 })
     if (!String(b.ten_hang || '').trim()) return NextResponse.json({ error: 'Vui lòng nhập tên hàng' }, { status: 400 })

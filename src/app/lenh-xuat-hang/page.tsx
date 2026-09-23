@@ -72,22 +72,43 @@ const TT_LABEL: Record<string, { label: string; cls: string }> = {
 const emptyLine = (): Line => ({ ma_hang: '', ten_hang: '', dvt: 'Cái', so_luong: 1, don_gia: '', vat: 8, ghi_chu: '' })
 
 // Quản lý Danh mục Máy & Hàng hóa. Thêm/sửa/xóa chỉ khi isManager (sale_admin/admin); còn lại chỉ xem.
-function CatalogManager({ catalog, isManager, onClose, onChanged, notify }: {
-  catalog: HangHoa[]; isManager: boolean; onClose: () => void; onChanged: () => void
+function CatalogManager({ catalog, isManager, hangOptions, onClose, onChanged, notify }: {
+  catalog: HangHoa[]; isManager: boolean; hangOptions: string[]; onClose: () => void; onChanged: () => void
   notify: (t: 'success' | 'error', m: string) => void
 }) {
   const [q, setQ] = useState('')
   const [editing, setEditing] = useState(false)
   const [busy, setBusy] = useState(false)
-  const emptyF = { ma_hang: '', ten_hang: '', dvt: 'Cái', don_gia_niem_yet: '' as any, hang: '', model: '', ghi_chu: '' }
+  const emptyF = { ma_hang: '', ten_hang: '', dvt: 'Cái', don_gia_niem_yet: '', hang: '' }
   const [f, setF] = useState(emptyF)
+  // Nhập hàng loạt (dán từ Excel)
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkText, setBulkText] = useState('')
+  const [importing, setImporting] = useState(false)
   const list = useMemo(() => {
     const kw = q.trim().toLowerCase()
     if (!kw) return catalog
     return catalog.filter(c => [c.ma_hang, c.ten_hang, c.hang, c.model].filter(Boolean).join(' ').toLowerCase().includes(kw))
   }, [catalog, q])
   const reset = () => { setF(emptyF); setEditing(false) }
-  const pick = (c: HangHoa) => { setEditing(true); setF({ ma_hang: c.ma_hang, ten_hang: c.ten_hang, dvt: c.dvt || 'Cái', don_gia_niem_yet: (c.don_gia_niem_yet ?? '') as any, hang: c.hang || '', model: c.model || '', ghi_chu: c.ghi_chu || '' }) }
+  const pick = (c: HangHoa) => { setEditing(true); setF({ ma_hang: c.ma_hang, ten_hang: c.ten_hang, dvt: c.dvt || 'Cái', don_gia_niem_yet: c.don_gia_niem_yet != null ? String(c.don_gia_niem_yet) : '', hang: c.hang || '' }) }
+  const fmtGia = (s: string) => { const d = String(s).replace(/\D/g, ''); return d ? Number(d).toLocaleString('vi-VN') : '' }
+
+  // Parse & import hàng loạt: mỗi dòng "Mã ⇥ Tên ⇥ ĐVT ⇥ Đơn giá" (tab hoặc nhiều dấu cách/;,).
+  const doImport = async () => {
+    const rows = bulkText.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => {
+      const c = l.split('\t').length > 1 ? l.split('\t') : l.split(/\s{2,}|;|,(?=\s)/)
+      return { ma_hang: (c[0] || '').trim(), ten_hang: (c[1] || '').trim(), dvt: (c[2] || '').trim() || 'Cái', don_gia_niem_yet: Number(String(c[3] || '').replace(/\D/g, '')) || 0 }
+    }).filter(r => r.ma_hang && r.ten_hang)
+    if (rows.length === 0) { notify('error', 'Không có dòng hợp lệ (cần Mã + Tên)'); return }
+    setImporting(true)
+    try {
+      const res = await fetch('/api/admin/hang-hoa', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: rows }) })
+      const j = await res.json()
+      if (res.ok) { notify('success', `Đã nhập ${j.count} mã`); setBulkText(''); setBulkOpen(false); onChanged() }
+      else notify('error', j.error || 'Lỗi import')
+    } catch { notify('error', 'Lỗi kết nối') } finally { setImporting(false) }
+  }
   const save = async () => {
     if (!f.ma_hang.trim()) { notify('error', 'Nhập mã hàng'); return }
     if (!f.ten_hang.trim()) { notify('error', 'Nhập tên hàng'); return }
@@ -116,22 +137,63 @@ function CatalogManager({ catalog, isManager, onClose, onChanged, notify }: {
         </div>
         <div className="p-5 overflow-y-auto space-y-4 flex-1 text-xs">
           {isManager && (
-            <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5 bg-slate-50/80 p-3 rounded-lg border border-slate-200">
-              <div><label className="block text-slate-600 font-semibold mb-1">Mã hàng *</label><Input value={f.ma_hang} disabled={editing} onChange={e => setF({ ...f, ma_hang: e.target.value.toUpperCase() })} className="h-8 font-mono uppercase bg-white disabled:opacity-60" /></div>
-              <div className="col-span-2"><label className="block text-slate-600 font-semibold mb-1">Tên hàng *</label><Input value={f.ten_hang} onChange={e => setF({ ...f, ten_hang: e.target.value })} className="h-8 bg-white" /></div>
-              <div><label className="block text-slate-600 font-semibold mb-1">ĐVT</label><Input value={f.dvt} onChange={e => setF({ ...f, dvt: e.target.value })} className="h-8 bg-white" /></div>
-              <div><label className="block text-slate-600 font-semibold mb-1">Đơn giá niêm yết</label><Input type="number" value={f.don_gia_niem_yet} onChange={e => setF({ ...f, don_gia_niem_yet: e.target.value })} className="h-8 text-right bg-white" /></div>
-              <div className="flex items-end"><Button onClick={save} disabled={busy} className="h-8 w-full text-xs bg-blue-600 hover:bg-blue-700 text-white">{editing ? 'Lưu' : 'Thêm'}</Button></div>
-              <div className="col-span-2"><label className="block text-slate-600 font-semibold mb-1">Hãng</label><Input value={f.hang} onChange={e => setF({ ...f, hang: e.target.value })} className="h-8 bg-white" /></div>
-              <div className="col-span-2"><label className="block text-slate-600 font-semibold mb-1">Model</label><Input value={f.model} onChange={e => setF({ ...f, model: e.target.value })} className="h-8 bg-white" /></div>
-              <div className="col-span-2 flex items-end gap-2">{editing && <Button variant="outline" onClick={reset} className="h-8 text-xs">Hủy sửa</Button>}</div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase">{bulkOpen ? 'Nhập hàng loạt' : (editing ? 'Sửa mã' : 'Thêm mã')}</span>
+                <button type="button" onClick={() => setBulkOpen(v => !v)} className="text-[11px] font-semibold text-blue-600 hover:underline">
+                  {bulkOpen ? '— Đóng nhập hàng loạt' : '+ Nhập hàng loạt (dán từ Excel)'}
+                </button>
+              </div>
+
+              {bulkOpen ? (
+                <div className="bg-slate-50/80 p-3 rounded-lg border border-slate-200 space-y-2">
+                  <p className="text-[11px] text-slate-500">Dán từ Excel, mỗi dòng: <b>Mã hàng ⇥ Tên hàng ⇥ ĐVT ⇥ Đơn giá</b> (ĐVT/Đơn giá bỏ trống cũng được). <b>Trùng mã sẽ ghi đè</b>.</p>
+                  <textarea value={bulkText} onChange={e => setBulkText(e.target.value)} rows={8}
+                    placeholder={"1102RJ3AX.0G0\tMáy photo TASKalfa 5002i\tCái\t0\nTC10106.1G0\tMáy DC-V 3060CP\tCái\t0"}
+                    className="w-full rounded-md border border-slate-200 bg-white p-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                  <div className="flex justify-end">
+                    <Button onClick={doImport} disabled={importing} className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white">{importing ? 'Đang nhập...' : 'Nhập danh sách'}</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-12 gap-2.5 bg-slate-50/80 p-3 rounded-lg border border-slate-200">
+                  <div className="sm:col-span-3">
+                    <label className="block text-slate-600 font-semibold mb-1">Mã hàng *</label>
+                    <Input value={f.ma_hang} disabled={editing} onChange={e => setF({ ...f, ma_hang: e.target.value.toUpperCase() })} className="h-8 font-mono uppercase bg-white disabled:opacity-60" />
+                  </div>
+                  <div className="sm:col-span-6">
+                    <label className="block text-slate-600 font-semibold mb-1">Tên hàng *</label>
+                    <Input value={f.ten_hang} onChange={e => setF({ ...f, ten_hang: e.target.value })} className="h-8 bg-white" />
+                  </div>
+                  <div className="sm:col-span-3">
+                    <label className="block text-slate-600 font-semibold mb-1">ĐVT</label>
+                    <Input value={f.dvt} onChange={e => setF({ ...f, dvt: e.target.value })} className="h-8 bg-white" />
+                  </div>
+                  <div className="sm:col-span-4">
+                    <label className="block text-slate-600 font-semibold mb-1">Hãng</label>
+                    <select value={f.hang} onChange={e => setF({ ...f, hang: e.target.value })} className="h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                      <option value="">— Chọn hãng —</option>
+                      {f.hang && !hangOptions.includes(f.hang) && <option value={f.hang}>{f.hang}</option>}
+                      {hangOptions.map(h => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                  </div>
+                  <div className="sm:col-span-4">
+                    <label className="block text-slate-600 font-semibold mb-1">Đơn giá niêm yết</label>
+                    <Input inputMode="numeric" value={fmtGia(f.don_gia_niem_yet)} onChange={e => setF({ ...f, don_gia_niem_yet: e.target.value.replace(/\D/g, '') })} placeholder="0" className="h-8 text-right bg-white" />
+                  </div>
+                  <div className="sm:col-span-4 flex items-end gap-2">
+                    <Button onClick={save} disabled={busy} className="h-8 flex-1 text-xs bg-blue-600 hover:bg-blue-700 text-white">{editing ? 'Lưu' : 'Thêm'}</Button>
+                    {editing && <Button variant="outline" onClick={reset} className="h-8 text-xs">Hủy</Button>}
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã / tên / hãng / model..." className="h-8 bg-white" />
           <div className="border border-slate-200 rounded-lg overflow-hidden">
             <table className="w-full text-left text-xs text-slate-600">
               <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase border-b border-slate-200">
-                <tr><th className="px-2.5 py-2">Mã</th><th className="px-2.5 py-2">Tên</th><th className="px-2.5 py-2 text-center">ĐVT</th><th className="px-2.5 py-2 text-right">Đơn giá niêm yết</th><th className="px-2.5 py-2">Hãng/Model</th>{isManager && <th className="px-2.5 py-2 text-center">Thao tác</th>}</tr>
+                <tr><th className="px-2.5 py-2">Mã</th><th className="px-2.5 py-2">Tên</th><th className="px-2.5 py-2 text-center">ĐVT</th><th className="px-2.5 py-2 text-right">Đơn giá niêm yết</th><th className="px-2.5 py-2">Hãng</th>{isManager && <th className="px-2.5 py-2 text-center">Thao tác</th>}</tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {list.length === 0 ? (
@@ -142,7 +204,7 @@ function CatalogManager({ catalog, isManager, onClose, onChanged, notify }: {
                     <td className="px-2.5 py-1.5">{c.ten_hang}</td>
                     <td className="px-2.5 py-1.5 text-center">{c.dvt || '—'}</td>
                     <td className="px-2.5 py-1.5 text-right">{Math.round(Number(c.don_gia_niem_yet) || 0).toLocaleString('vi-VN')}</td>
-                    <td className="px-2.5 py-1.5 text-[11px] text-slate-500">{[c.hang, c.model].filter(Boolean).join(' · ') || '—'}</td>
+                    <td className="px-2.5 py-1.5 text-[11px] text-slate-500">{c.hang || '—'}</td>
                     {isManager && <td className="px-2.5 py-1.5 text-center whitespace-nowrap">
                       <button onClick={() => pick(c)} title="Sửa" className="p-1 rounded text-amber-600 hover:bg-amber-50"><PenSquare className="w-4 h-4" /></button>
                       <button onClick={() => del(c.ma_hang)} title="Xóa" className="p-1 rounded text-rose-600 hover:bg-rose-50 ml-1"><Trash2 className="w-4 h-4" /></button>
@@ -180,8 +242,12 @@ export default function LenhXuatHangPage() {
   // Danh mục máy & hàng hóa (vlookup dòng hàng) + màn quản lý
   const [catalog, setCatalog] = useState<HangHoa[]>([])
   const [catOpen, setCatOpen] = useState(false)
+  const [hangOptions, setHangOptions] = useState<string[]>([])
   const loadCatalog = useCallback(() => {
     fetch('/api/admin/hang-hoa').then(r => r.ok ? r.json() : { data: [] }).then(j => setCatalog(j.data || [])).catch(() => {})
+    fetch('/api/admin/danh-muc?nhom=hang').then(r => r.ok ? r.json() : { data: [] })
+      .then(j => setHangOptions((j.data || []).filter((d: any) => d.active).sort((a: any, b: any) => (a.thu_tu || 0) - (b.thu_tu || 0)).map((d: any) => d.gia_tri)))
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -426,7 +492,7 @@ export default function LenhXuatHangPage() {
         </div>
       )}
 
-      {catOpen && <CatalogManager catalog={catalog} isManager={isManager} onClose={() => setCatOpen(false)} onChanged={loadCatalog} notify={notify} />}
+      {catOpen && <CatalogManager catalog={catalog} isManager={isManager} hangOptions={hangOptions} onClose={() => setCatOpen(false)} onChanged={loadCatalog} notify={notify} />}
 
       {/* Xác nhận xóa */}
       {delTarget && (
