@@ -1,10 +1,53 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import DateField from "@/components/DateField"
-import { Plus, FileText, PenSquare, Trash2, X, Save, RefreshCw, LogOut, Package } from "lucide-react"
+import { Plus, FileText, PenSquare, Trash2, X, Save, RefreshCw, LogOut, Package, Boxes } from "lucide-react"
+
+type HangHoa = { ma_hang: string; ten_hang: string; dvt: string | null; don_gia_niem_yet: number | null; hang: string | null; model: string | null; ghi_chu: string | null }
+
+// Combobox tra DANH MỤC MÁY (chọn mã -> tự điền tên + đơn giá niêm yết); vẫn cho gõ tự do mã ngoài danh mục.
+function MayCombo({ value, catalog, onChangeMa, onPick }: {
+  value: string; catalog: HangHoa[]
+  onChangeMa: (ma: string) => void
+  onPick: (it: HangHoa) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [kw, setKw] = useState('')
+  const boxRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h)
+  }, [])
+  const matches = useMemo(() => {
+    const s = (kw || value).trim().toLowerCase()
+    const list = Array.isArray(catalog) ? catalog : []
+    if (!s) return list.slice(0, 30)
+    return list.filter(it => String(it.ma_hang || '').toLowerCase().includes(s) || String(it.ten_hang || '').toLowerCase().includes(s)).slice(0, 30)
+  }, [kw, value, catalog])
+  return (
+    <div ref={boxRef} className="relative">
+      <Input value={value}
+        onChange={e => { const v = e.target.value.toUpperCase(); onChangeMa(v); setKw(v); setOpen(true) }}
+        onFocus={() => setOpen(true)} placeholder="Mã" className="h-7 text-xs font-mono uppercase" />
+      {open && matches.length > 0 && (
+        <div className="absolute z-30 mt-0.5 w-[340px] max-w-[80vw] max-h-56 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg text-xs">
+          {matches.map((it, i) => (
+            <button key={i} type="button"
+              onMouseDown={(e) => { e.preventDefault(); onPick(it); setOpen(false); setKw('') }}
+              className="w-full text-left px-2 py-1.5 hover:bg-slate-100 flex items-center gap-2">
+              <span className="font-mono font-semibold text-slate-800 shrink-0">{it.ma_hang}</span>
+              <span className="text-slate-500 truncate">{it.ten_hang}</span>
+              <span className="ml-auto text-[10px] text-slate-400 shrink-0">{Math.round(Number(it.don_gia_niem_yet) || 0).toLocaleString('vi-VN')}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 type Line = { stt?: number; ma_hang: string; ten_hang: string; dvt: string; so_luong: number | string; don_gia: number | string; vat: number | string; ghi_chu?: string }
 type Lenh = {
@@ -28,6 +71,94 @@ const TT_LABEL: Record<string, { label: string; cls: string }> = {
 
 const emptyLine = (): Line => ({ ma_hang: '', ten_hang: '', dvt: 'Cái', so_luong: 1, don_gia: '', vat: 8, ghi_chu: '' })
 
+// Quản lý Danh mục Máy & Hàng hóa. Thêm/sửa/xóa chỉ khi isManager (sale_admin/admin); còn lại chỉ xem.
+function CatalogManager({ catalog, isManager, onClose, onChanged, notify }: {
+  catalog: HangHoa[]; isManager: boolean; onClose: () => void; onChanged: () => void
+  notify: (t: 'success' | 'error', m: string) => void
+}) {
+  const [q, setQ] = useState('')
+  const [editing, setEditing] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const emptyF = { ma_hang: '', ten_hang: '', dvt: 'Cái', don_gia_niem_yet: '' as any, hang: '', model: '', ghi_chu: '' }
+  const [f, setF] = useState(emptyF)
+  const list = useMemo(() => {
+    const kw = q.trim().toLowerCase()
+    if (!kw) return catalog
+    return catalog.filter(c => [c.ma_hang, c.ten_hang, c.hang, c.model].filter(Boolean).join(' ').toLowerCase().includes(kw))
+  }, [catalog, q])
+  const reset = () => { setF(emptyF); setEditing(false) }
+  const pick = (c: HangHoa) => { setEditing(true); setF({ ma_hang: c.ma_hang, ten_hang: c.ten_hang, dvt: c.dvt || 'Cái', don_gia_niem_yet: (c.don_gia_niem_yet ?? '') as any, hang: c.hang || '', model: c.model || '', ghi_chu: c.ghi_chu || '' }) }
+  const save = async () => {
+    if (!f.ma_hang.trim()) { notify('error', 'Nhập mã hàng'); return }
+    if (!f.ten_hang.trim()) { notify('error', 'Nhập tên hàng'); return }
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/hang-hoa', { method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f) })
+      const j = await res.json()
+      if (res.ok) { notify('success', editing ? 'Đã cập nhật mã' : 'Đã thêm mã'); reset(); onChanged() }
+      else notify('error', j.error || 'Lỗi lưu')
+    } catch { notify('error', 'Lỗi kết nối') } finally { setBusy(false) }
+  }
+  const del = async (ma: string) => {
+    if (!window.confirm(`Xóa mã ${ma} khỏi danh mục?`)) return
+    try {
+      const res = await fetch(`/api/admin/hang-hoa?ma=${encodeURIComponent(ma)}`, { method: 'DELETE' })
+      const j = await res.json()
+      if (res.ok) { notify('success', 'Đã xóa mã'); onChanged() } else notify('error', j.error || 'Lỗi xóa')
+    } catch { notify('error', 'Lỗi kết nối') }
+  }
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 z-[60] flex items-center justify-center p-3 overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl my-6 flex flex-col max-h-[92vh] overflow-hidden border border-slate-200">
+        <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+          <h3 className="text-base font-bold text-slate-800 flex items-center gap-2"><Boxes className="w-5 h-5 text-blue-600" />Danh mục Máy &amp; Hàng hóa</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-5 overflow-y-auto space-y-4 flex-1 text-xs">
+          {isManager && (
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5 bg-slate-50/80 p-3 rounded-lg border border-slate-200">
+              <div><label className="block text-slate-600 font-semibold mb-1">Mã hàng *</label><Input value={f.ma_hang} disabled={editing} onChange={e => setF({ ...f, ma_hang: e.target.value.toUpperCase() })} className="h-8 font-mono uppercase bg-white disabled:opacity-60" /></div>
+              <div className="col-span-2"><label className="block text-slate-600 font-semibold mb-1">Tên hàng *</label><Input value={f.ten_hang} onChange={e => setF({ ...f, ten_hang: e.target.value })} className="h-8 bg-white" /></div>
+              <div><label className="block text-slate-600 font-semibold mb-1">ĐVT</label><Input value={f.dvt} onChange={e => setF({ ...f, dvt: e.target.value })} className="h-8 bg-white" /></div>
+              <div><label className="block text-slate-600 font-semibold mb-1">Đơn giá niêm yết</label><Input type="number" value={f.don_gia_niem_yet} onChange={e => setF({ ...f, don_gia_niem_yet: e.target.value })} className="h-8 text-right bg-white" /></div>
+              <div className="flex items-end"><Button onClick={save} disabled={busy} className="h-8 w-full text-xs bg-blue-600 hover:bg-blue-700 text-white">{editing ? 'Lưu' : 'Thêm'}</Button></div>
+              <div className="col-span-2"><label className="block text-slate-600 font-semibold mb-1">Hãng</label><Input value={f.hang} onChange={e => setF({ ...f, hang: e.target.value })} className="h-8 bg-white" /></div>
+              <div className="col-span-2"><label className="block text-slate-600 font-semibold mb-1">Model</label><Input value={f.model} onChange={e => setF({ ...f, model: e.target.value })} className="h-8 bg-white" /></div>
+              <div className="col-span-2 flex items-end gap-2">{editing && <Button variant="outline" onClick={reset} className="h-8 text-xs">Hủy sửa</Button>}</div>
+            </div>
+          )}
+          <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã / tên / hãng / model..." className="h-8 bg-white" />
+          <div className="border border-slate-200 rounded-lg overflow-hidden">
+            <table className="w-full text-left text-xs text-slate-600">
+              <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase border-b border-slate-200">
+                <tr><th className="px-2.5 py-2">Mã</th><th className="px-2.5 py-2">Tên</th><th className="px-2.5 py-2 text-center">ĐVT</th><th className="px-2.5 py-2 text-right">Đơn giá niêm yết</th><th className="px-2.5 py-2">Hãng/Model</th>{isManager && <th className="px-2.5 py-2 text-center">Thao tác</th>}</tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {list.length === 0 ? (
+                  <tr><td colSpan={isManager ? 6 : 5} className="px-4 py-6 text-center text-slate-400">Chưa có mã nào.</td></tr>
+                ) : list.map(c => (
+                  <tr key={c.ma_hang} className="hover:bg-slate-50">
+                    <td className="px-2.5 py-1.5 font-mono font-semibold text-slate-800">{c.ma_hang}</td>
+                    <td className="px-2.5 py-1.5">{c.ten_hang}</td>
+                    <td className="px-2.5 py-1.5 text-center">{c.dvt || '—'}</td>
+                    <td className="px-2.5 py-1.5 text-right">{Math.round(Number(c.don_gia_niem_yet) || 0).toLocaleString('vi-VN')}</td>
+                    <td className="px-2.5 py-1.5 text-[11px] text-slate-500">{[c.hang, c.model].filter(Boolean).join(' · ') || '—'}</td>
+                    {isManager && <td className="px-2.5 py-1.5 text-center whitespace-nowrap">
+                      <button onClick={() => pick(c)} title="Sửa" className="p-1 rounded text-amber-600 hover:bg-amber-50"><PenSquare className="w-4 h-4" /></button>
+                      <button onClick={() => del(c.ma_hang)} title="Xóa" className="p-1 rounded text-rose-600 hover:bg-rose-50 ml-1"><Trash2 className="w-4 h-4" /></button>
+                    </td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {!isManager && <p className="text-[11px] text-slate-400">Chỉ quản lý kinh doanh được thêm/sửa danh mục.</p>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function LenhXuatHangPage() {
   const [me, setMe] = useState<{ full_name: string; role: string } | null>(null)
   const [authErr, setAuthErr] = useState(false)
@@ -46,6 +177,13 @@ export default function LenhXuatHangPage() {
   const [lines, setLines] = useState<Line[]>([emptyLine(), emptyLine()])
   const [delTarget, setDelTarget] = useState<Lenh | null>(null)
 
+  // Danh mục máy & hàng hóa (vlookup dòng hàng) + màn quản lý
+  const [catalog, setCatalog] = useState<HangHoa[]>([])
+  const [catOpen, setCatOpen] = useState(false)
+  const loadCatalog = useCallback(() => {
+    fetch('/api/admin/hang-hoa').then(r => r.ok ? r.json() : { data: [] }).then(j => setCatalog(j.data || [])).catch(() => {})
+  }, [])
+
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.ok ? r.json() : Promise.reject()).then(j => {
       const u = j.data
@@ -63,7 +201,7 @@ export default function LenhXuatHangPage() {
       else notify('error', j.error || 'Lỗi tải danh sách')
     } catch { notify('error', 'Lỗi kết nối') } finally { setLoading(false) }
   }, [])
-  useEffect(() => { if (me) load() }, [me, load])
+  useEffect(() => { if (me) { load(); loadCatalog() } }, [me, load, loadCatalog])
 
   const filtered = useMemo(() => {
     const kw = q.trim().toLowerCase()
@@ -153,6 +291,7 @@ export default function LenhXuatHangPage() {
             <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm khách, số lệnh, số HĐ..." className="h-9 pl-3" />
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setCatOpen(true)} className="h-9 gap-1.5 text-slate-700" title="Danh mục Máy & Hàng hóa"><Boxes className="w-4 h-4" /> Danh mục máy</Button>
             <Button variant="outline" onClick={load} className="h-9 w-9 p-0" title="Làm mới"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /></Button>
             <Button onClick={openCreate} className="h-9 gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"><Plus className="w-4 h-4" /> Tạo lệnh</Button>
           </div>
@@ -260,7 +399,11 @@ export default function LenhXuatHangPage() {
                 </div>
                 {lines.map((l, i) => (
                   <div key={i} className="grid grid-cols-12 gap-1.5 items-center">
-                    <div className="col-span-2"><Input value={l.ma_hang} onChange={e => updLine(i, 'ma_hang', e.target.value.toUpperCase())} placeholder="Mã" className="h-7 text-xs font-mono uppercase" /></div>
+                    <div className="col-span-2">
+                      <MayCombo value={l.ma_hang} catalog={catalog}
+                        onChangeMa={(v) => updLine(i, 'ma_hang', v)}
+                        onPick={(it) => setLines(prev => { const n = [...prev]; n[i] = { ...n[i], ma_hang: it.ma_hang, ten_hang: it.ten_hang || '', dvt: it.dvt || 'Cái', don_gia: (n[i].don_gia === '' || n[i].don_gia == null || Number(n[i].don_gia) === 0) ? (Number(it.don_gia_niem_yet) || '') : n[i].don_gia }; return n })} />
+                    </div>
                     <div className="col-span-3"><Input value={l.ten_hang} onChange={e => updLine(i, 'ten_hang', e.target.value)} placeholder="Tên hàng" className="h-7 text-xs" /></div>
                     <div className="col-span-1"><Input value={l.dvt} onChange={e => updLine(i, 'dvt', e.target.value)} className="h-7 text-xs text-center px-1" /></div>
                     <div className="col-span-1"><Input type="number" value={l.so_luong} onChange={e => updLine(i, 'so_luong', e.target.value)} className="h-7 text-xs text-center px-1 font-bold text-blue-700" /></div>
@@ -282,6 +425,8 @@ export default function LenhXuatHangPage() {
           </div>
         </div>
       )}
+
+      {catOpen && <CatalogManager catalog={catalog} isManager={isManager} onClose={() => setCatOpen(false)} onChanged={loadCatalog} notify={notify} />}
 
       {/* Xác nhận xóa */}
       {delTarget && (
