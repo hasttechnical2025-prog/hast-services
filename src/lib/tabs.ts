@@ -14,7 +14,7 @@ export const TAB_TREE: { key: string, label: string, subs: TabSub[], alwaysOn?: 
       { key: 'giam_dinh', label: 'Giám định' },
     ]
   },
-  { key: 'kho_hang', label: 'Kho hàng', subs: [{ key: 'ton_kho', label: 'Tồn kho' }, { key: 'dat_hang', label: 'Đặt hàng' }, { key: 'thong_ke', label: 'Thống kê nhập' }, { key: 'may_thue', label: 'Kho máy thuê' }, { key: 'phieu_de_nghi', label: 'Phiếu đề nghị' }] },
+  { key: 'kho_hang', label: 'Kho hàng', subs: [{ key: 'ton_kho', label: 'Tồn kho' }, { key: 'dat_hang', label: 'Đặt hàng' }, { key: 'thong_ke', label: 'Thống kê nhập' }, { key: 'gia_niem_yet', label: 'Giá niêm yết' }, { key: 'may_thue', label: 'Kho máy thuê' }, { key: 'phieu_de_nghi', label: 'Phiếu đề nghị' }] },
   {
     key: 'tai_chinh', label: 'Tài chính', subs: [
       { key: 'cong_no', label: 'Công nợ' },
@@ -37,7 +37,7 @@ export const DEFAULT_TAB_VIS: Record<string, Record<string, boolean>> = {
   tech_admin: {
     cong_viec: true, 'cong_viec.hoan_phieu': true,
     theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true,
-    kho_hang: true, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': true, 'kho_hang.thong_ke': true, 'kho_hang.may_thue': false, 'kho_hang.phieu_de_nghi': false,
+    kho_hang: true, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': true, 'kho_hang.thong_ke': true, 'kho_hang.gia_niem_yet': false, 'kho_hang.may_thue': false, 'kho_hang.phieu_de_nghi': false,
     tai_chinh: true, 'tai_chinh.kanban': true, 'tai_chinh.cong_no': true, 'tai_chinh.thue_cpc': false, 'tai_chinh.phi_bao_tri': true,
     quan_ly: true, 'quan_ly.nhat_ky': true, 'quan_ly.khach_hang': false, 'quan_ly.khach_cum': false, 'quan_ly.bao_cao': false, 'quan_ly.nghi_phep': true,
     tro_ly: false
@@ -45,7 +45,7 @@ export const DEFAULT_TAB_VIS: Record<string, Record<string, boolean>> = {
   staff: {
     cong_viec: true, 'cong_viec.hoan_phieu': true,
     theo_doi_may: true, 'theo_doi_may.bao_tri': true, 'theo_doi_may.giam_dinh': true,
-    kho_hang: false, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': false, 'kho_hang.thong_ke': false, 'kho_hang.may_thue': false, 'kho_hang.phieu_de_nghi': false,
+    kho_hang: false, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': false, 'kho_hang.thong_ke': false, 'kho_hang.gia_niem_yet': false, 'kho_hang.may_thue': false, 'kho_hang.phieu_de_nghi': false,
     tai_chinh: true, 'tai_chinh.kanban': true, 'tai_chinh.cong_no': false, 'tai_chinh.thue_cpc': false, 'tai_chinh.phi_bao_tri': true,
     quan_ly: false, 'quan_ly.nhat_ky': false, 'quan_ly.khach_hang': false, 'quan_ly.khach_cum': false, 'quan_ly.bao_cao': false, 'quan_ly.nghi_phep': false,
     tro_ly: false
@@ -53,7 +53,7 @@ export const DEFAULT_TAB_VIS: Record<string, Record<string, boolean>> = {
   kthc: {
     cong_viec: false, 'cong_viec.hoan_phieu': false,
     theo_doi_may: false, 'theo_doi_may.bao_tri': false, 'theo_doi_may.giam_dinh': false,
-    kho_hang: false, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': false, 'kho_hang.thong_ke': false, 'kho_hang.may_thue': false, 'kho_hang.phieu_de_nghi': false,
+    kho_hang: false, 'kho_hang.ton_kho': false, 'kho_hang.dat_hang': false, 'kho_hang.thong_ke': false, 'kho_hang.gia_niem_yet': false, 'kho_hang.may_thue': false, 'kho_hang.phieu_de_nghi': false,
     tai_chinh: true, 'tai_chinh.kanban': true, 'tai_chinh.cong_no': false, 'tai_chinh.thue_cpc': false, 'tai_chinh.phi_bao_tri': false,
     quan_ly: false, 'quan_ly.nhat_ky': false, 'quan_ly.khach_hang': false, 'quan_ly.khach_cum': false, 'quan_ly.bao_cao': true, 'quan_ly.nghi_phep': false,
     tro_ly: false

@@ -272,7 +272,7 @@ export default function AdminDashboard() {
   // Tab con bên trong "Theo dõi máy"
   const [monitorTab, setMonitorTab] = useState<"bao_tri" | "giam_dinh">("bao_tri")
   // Tab con bên trong "Kho hàng" (tech_admin không thấy Tồn kho -> mặc định Đặt hàng)
-  const [khoTab, setKhoTab] = useState<"ton_kho" | "dat_hang" | "thong_ke" | "may_thue" | "phieu_de_nghi">("ton_kho")
+  const [khoTab, setKhoTab] = useState<"ton_kho" | "dat_hang" | "thong_ke" | "gia_niem_yet" | "may_thue" | "phieu_de_nghi">("ton_kho")
   // Tab con bên trong "Quản lý"
   const [quanLyTab, setQuanLyTab] = useState<"nhat_ky" | "khach_hang" | "khach_cum" | "bao_cao" | "nghi_phep">("nhat_ky")
   // Tab con bên trong "Sổ công tác" (Giao việc / Hoàn phiếu)
@@ -313,7 +313,7 @@ export default function AdminDashboard() {
   // Nếu tab con đang chọn bị ẩn -> nhảy về tab con hiện đầu tiên
   const firstVisibleSub = (parent: string, subs: string[], current: string) =>
     subVisible(parent, current) ? current : (subs.find(s => subVisible(parent, s)) || current)
-  const effectiveKhoTab = firstVisibleSub('kho_hang', ['ton_kho', 'dat_hang', 'thong_ke', 'may_thue', 'phieu_de_nghi'], khoTab) as "ton_kho" | "dat_hang" | "thong_ke" | "may_thue" | "phieu_de_nghi"
+  const effectiveKhoTab = firstVisibleSub('kho_hang', ['ton_kho', 'dat_hang', 'thong_ke', 'gia_niem_yet', 'may_thue', 'phieu_de_nghi'], khoTab) as "ton_kho" | "dat_hang" | "thong_ke" | "gia_niem_yet" | "may_thue" | "phieu_de_nghi"
   const effectiveMonitorTab = firstVisibleSub('theo_doi_may', ['bao_tri', 'giam_dinh'], monitorTab) as "bao_tri" | "giam_dinh"
   const effectiveQuanLyTab = firstVisibleSub('quan_ly', ['nhat_ky', 'khach_hang', 'khach_cum', 'bao_cao', 'nghi_phep'], quanLyTab) as "nhat_ky" | "khach_hang" | "khach_cum" | "bao_cao" | "nghi_phep"
   const effectiveCongTacTab = firstVisibleSub('cong_viec', ['giao_viec', 'hoan_phieu'], congTacTab) as "giao_viec" | "hoan_phieu"
@@ -1981,7 +1981,7 @@ export default function AdminDashboard() {
           <div className="space-y-4">
             {/* Thanh tab con của Kho hàng — để NGOÀI thẻ overflow-hidden để sticky chạy */}
             <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto">
-              {([['ton_kho','Tồn kho'],['dat_hang',`Đặt hàng${datHangLines.length > 0 ? ` (${datHangLines.length})` : ''}`],['thong_ke','Thống kê nhập'],['may_thue','Kho máy thuê'],['phieu_de_nghi','Phiếu đề nghị']] as const)
+              {([['ton_kho','Tồn kho'],['dat_hang',`Đặt hàng${datHangLines.length > 0 ? ` (${datHangLines.length})` : ''}`],['thong_ke','Thống kê nhập'],['gia_niem_yet','Giá niêm yết'],['may_thue','Kho máy thuê'],['phieu_de_nghi','Phiếu đề nghị']] as const)
                 .filter(([k]) => subVisible('kho_hang', k))
                 .map(([k,l]) => (
                 <button key={k} onClick={() => setKhoTab(k as any)} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${effectiveKhoTab === k ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>{l}</button>
@@ -2034,6 +2034,9 @@ export default function AdminDashboard() {
                 )}
                 {effectiveKhoTab === "thong_ke" && (
                   <NhapHangThangTool showNotification={showNotification} canhBao={canhBaoTon} refetchCanhBao={fetchCanhBaoTon} hangOptions={dmOptions('hang', ['Konica', 'Fuji', 'Khác'])} cartCount={datHangLines.length} onAddToCart={handleAddToCartFromWarning} onGoToCart={() => setKhoTab('dat_hang')} />
+                )}
+                {effectiveKhoTab === "gia_niem_yet" && (
+                  <GiaNiemYetTool showNotification={showNotification} hangOptions={dmOptions('hang', ['Konica', 'Fuji', 'Khác'])} />
                 )}
                 {effectiveKhoTab === "may_thue" && (
                   <>
@@ -3211,6 +3214,116 @@ const INVENTORY_COLS: ColDef[] = [
   { key: 'trang_thai', label: 'Trạng thái' },
   { key: 'thaotac', label: 'Thao tác', locked: true },
 ]
+
+// Giá niêm yết vật tư (tab Kho hàng › Giá niêm yết) — CHỈ tra cứu. Server lọc cột giá + dòng theo role;
+// admin (canEdit) nhập giá #.###, role khác chỉ xem. Bộ lọc chỉ lọc trong danh sách role được thấy.
+function GiaNiemYetTool({ showNotification, hangOptions }: { showNotification: (t: 'success' | 'error', m: string) => void, hangOptions: string[] }) {
+  const [rows, setRows] = useState<any[]>([])
+  const [cols, setCols] = useState<{ niem_yet: boolean; nhan_vien: boolean; quan_ly: boolean }>({ niem_yet: true, nhan_vien: false, quan_ly: false })
+  const [canEdit, setCanEdit] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [q, setQ] = useState(''); const [qModel, setQModel] = useState(''); const [fHang, setFHang] = useState('')
+  const [edits, setEdits] = useState<Record<string, { gia_niem_yet: string; gia_nhan_vien: string; gia_quan_ly: string }>>({})
+  const [savingMa, setSavingMa] = useState<string | null>(null)
+
+  const load = useCallback(() => {
+    setLoading(true)
+    fetch('/api/admin/gia-niem-yet').then(r => r.ok ? r.json() : { data: [] }).then(j => {
+      setRows(j.data || []); if (j.cols) setCols(j.cols); setCanEdit(!!j.canEdit)
+      const m: any = {}
+      ;(j.data || []).forEach((r: any) => { m[r.ma_hang] = { gia_niem_yet: r.gia_niem_yet != null ? String(r.gia_niem_yet) : '', gia_nhan_vien: r.gia_nhan_vien != null ? String(r.gia_nhan_vien) : '', gia_quan_ly: r.gia_quan_ly != null ? String(r.gia_quan_ly) : '' } })
+      setEdits(m)
+    }).catch(() => {}).finally(() => setLoading(false))
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  const fmt = (s: string) => { const d = String(s).replace(/\D/g, ''); return d ? Number(d).toLocaleString('vi-VN') : '' }
+  const fmtNum = (n: any) => n == null ? '—' : Number(n).toLocaleString('vi-VN')
+  const filtered = useMemo(() => {
+    const kw = q.trim().toLowerCase(), km = qModel.trim().toLowerCase()
+    return rows.filter(r => {
+      if (kw && !`${r.ma_hang} ${r.ten_hang}`.toLowerCase().includes(kw)) return false
+      if (km && !String(r.model || '').toLowerCase().includes(km)) return false
+      if (fHang && String(r.hang || '') !== fHang) return false
+      return true
+    })
+  }, [rows, q, qModel, fHang])
+
+  const setE = (ma: string, k: string, v: string) => setEdits(p => ({ ...p, [ma]: { ...p[ma], [k]: v.replace(/\D/g, '') } }))
+  const saveRow = async (ma: string) => {
+    setSavingMa(ma)
+    try {
+      const e = edits[ma] || { gia_niem_yet: '', gia_nhan_vien: '', gia_quan_ly: '' }
+      const body: any = { ma_hang: ma }
+      if (cols.niem_yet) body.gia_niem_yet = e.gia_niem_yet
+      if (cols.nhan_vien) body.gia_nhan_vien = e.gia_nhan_vien
+      if (cols.quan_ly) body.gia_quan_ly = e.gia_quan_ly
+      const res = await fetch('/api/admin/gia-niem-yet', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const j = await res.json()
+      if (res.ok) { showNotification('success', `Đã lưu giá ${ma}`); setRows(prev => prev.map(r => r.ma_hang === ma ? { ...r, gia_niem_yet: cols.niem_yet ? (body.gia_niem_yet === '' ? null : Number(body.gia_niem_yet)) : r.gia_niem_yet, gia_nhan_vien: cols.nhan_vien ? (body.gia_nhan_vien === '' ? null : Number(body.gia_nhan_vien)) : r.gia_nhan_vien, gia_quan_ly: cols.quan_ly ? (body.gia_quan_ly === '' ? null : Number(body.gia_quan_ly)) : r.gia_quan_ly } : r)) }
+      else showNotification('error', j.error || 'Lỗi lưu')
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setSavingMa(null) }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h2 className="text-xl font-bold text-slate-800">Giá niêm yết vật tư {!canEdit && <span className="text-xs font-normal text-slate-400">(chỉ tra cứu)</span>}</h2>
+        <Button variant="outline" onClick={load} className="h-9 gap-1.5 text-sm"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Làm mới</Button>
+      </div>
+      <div className="flex flex-wrap gap-2.5">
+        <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã / tên vật tư..." className="h-9 w-56" />
+        <Input value={qModel} onChange={e => setQModel(e.target.value)} placeholder="Tìm model..." className="h-9 w-44" />
+        <select value={fHang} onChange={e => setFHang(e.target.value)} className="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-700">
+          <option value="">Tất cả hãng</option>
+          {hangOptions.map(h => <option key={h} value={h}>{h}</option>)}
+        </select>
+        <span className="ml-auto self-center text-xs text-slate-400">{filtered.length} vật tư</span>
+      </div>
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-slate-600">
+            <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase border-b border-slate-200">
+              <tr>
+                <th className="px-3 py-2.5 text-left">Mã hàng</th>
+                <th className="px-3 py-2.5 text-left">Tên vật tư</th>
+                <th className="px-3 py-2.5 text-left">Model</th>
+                <th className="px-3 py-2.5 text-left">Hãng</th>
+                <th className="px-3 py-2.5 text-center">Tồn</th>
+                {cols.niem_yet && <th className="px-3 py-2.5 text-right">Giá niêm yết</th>}
+                {cols.nhan_vien && <th className="px-3 py-2.5 text-right">Giá nhân viên</th>}
+                {cols.quan_ly && <th className="px-3 py-2.5 text-right">Giá quản lý</th>}
+                {canEdit && <th className="px-3 py-2.5 text-center">Lưu</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
+                <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải...</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400">Không có vật tư nào.</td></tr>
+              ) : filtered.map(r => {
+                const e = edits[r.ma_hang] || { gia_niem_yet: '', gia_nhan_vien: '', gia_quan_ly: '' }
+                return (
+                  <tr key={r.ma_hang} className="hover:bg-slate-50">
+                    <td className="px-3 py-2 font-mono font-semibold text-slate-800 whitespace-nowrap">{r.ma_hang}</td>
+                    <td className="px-3 py-2">{r.ten_hang}</td>
+                    <td className="px-3 py-2 text-slate-500">{r.model || '—'}</td>
+                    <td className="px-3 py-2 text-slate-500">{r.hang || '—'}</td>
+                    <td className="px-3 py-2 text-center">{r.ton_kho ?? 0}</td>
+                    {cols.niem_yet && <td className="px-3 py-2 text-right">{canEdit ? <Input inputMode="numeric" value={fmt(e.gia_niem_yet)} onChange={ev => setE(r.ma_hang, 'gia_niem_yet', ev.target.value)} className="h-8 w-28 text-right ml-auto" /> : <span className="font-semibold text-slate-700">{fmtNum(r.gia_niem_yet)}</span>}</td>}
+                    {cols.nhan_vien && <td className="px-3 py-2 text-right">{canEdit ? <Input inputMode="numeric" value={fmt(e.gia_nhan_vien)} onChange={ev => setE(r.ma_hang, 'gia_nhan_vien', ev.target.value)} className="h-8 w-28 text-right ml-auto" /> : <span className="font-semibold text-slate-700">{fmtNum(r.gia_nhan_vien)}</span>}</td>}
+                    {cols.quan_ly && <td className="px-3 py-2 text-right">{canEdit ? <Input inputMode="numeric" value={fmt(e.gia_quan_ly)} onChange={ev => setE(r.ma_hang, 'gia_quan_ly', ev.target.value)} className="h-8 w-28 text-right ml-auto" /> : <span className="font-semibold text-slate-700">{fmtNum(r.gia_quan_ly)}</span>}</td>}
+                    {canEdit && <td className="px-3 py-2 text-center"><Button onClick={() => saveRow(r.ma_hang)} disabled={savingMa === r.ma_hang} className="h-7 px-2 text-[11px] bg-blue-600 hover:bg-blue-700 text-white">{savingMa === r.ma_hang ? '...' : 'Lưu'}</Button></td>}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSuccess, showNotification, confirmDelete, danhMuc }: { inventory: any[], lowStock?: number, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, confirmDelete: (id: string, type: 'job' | 'user' | 'inventory') => void, danhMuc: any[] }) {
   const col = useColView('inventory', INVENTORY_COLS)
