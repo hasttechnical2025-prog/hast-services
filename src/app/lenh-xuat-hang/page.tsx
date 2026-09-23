@@ -16,11 +16,14 @@ function MayCombo({ value, catalog, onChangeMa, onPick }: {
 }) {
   const [open, setOpen] = useState(false)
   const [kw, setKw] = useState('')
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const boxRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const h = (e: MouseEvent) => { if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false) }
     document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h)
   }, [])
+  // Dropdown dùng FIXED bám ô input -> không bị modal/overflow cắt. [[ui-dropdown-overflow-gotcha]]
+  const place = () => { const r = boxRef.current?.getBoundingClientRect(); if (r) setPos({ top: r.bottom + 2, left: r.left, width: Math.max(r.width, 300) }) }
   const matches = useMemo(() => {
     const s = (kw || value).trim().toLowerCase()
     const list = Array.isArray(catalog) ? catalog : []
@@ -30,10 +33,10 @@ function MayCombo({ value, catalog, onChangeMa, onPick }: {
   return (
     <div ref={boxRef} className="relative">
       <Input value={value}
-        onChange={e => { const v = e.target.value.toUpperCase(); onChangeMa(v); setKw(v); setOpen(true) }}
-        onFocus={() => setOpen(true)} placeholder="Mã" className="h-7 text-xs font-mono uppercase" />
-      {open && matches.length > 0 && (
-        <div className="absolute z-30 mt-0.5 w-[340px] max-w-[80vw] max-h-56 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg text-xs">
+        onChange={e => { const v = e.target.value.toUpperCase(); onChangeMa(v); setKw(v); place(); setOpen(true) }}
+        onFocus={() => { place(); setOpen(true) }} placeholder="Mã" className="h-7 text-xs font-mono uppercase" />
+      {open && pos && matches.length > 0 && (
+        <div className="fixed z-[80] max-h-56 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg text-xs" style={{ top: pos.top, left: pos.left, width: pos.width }}>
           {matches.map((it, i) => (
             <button key={i} type="button"
               onMouseDown={(e) => { e.preventDefault(); onPick(it); setOpen(false); setKw('') }}
@@ -72,8 +75,8 @@ const TT_LABEL: Record<string, { label: string; cls: string }> = {
 const emptyLine = (): Line => ({ ma_hang: '', ten_hang: '', dvt: 'Cái', so_luong: 1, don_gia: '', vat: 8, ghi_chu: '' })
 
 // Quản lý Danh mục Máy & Hàng hóa. Thêm/sửa/xóa chỉ khi isManager (sale_admin/admin); còn lại chỉ xem.
-function CatalogManager({ catalog, isManager, hangOptions, onClose, onChanged, notify }: {
-  catalog: HangHoa[]; isManager: boolean; hangOptions: string[]; onClose: () => void; onChanged: () => void
+function CatalogManager({ catalog, setCatalog, isManager, hangOptions, onClose, onChanged, notify }: {
+  catalog: HangHoa[]; setCatalog: React.Dispatch<React.SetStateAction<HangHoa[]>>; isManager: boolean; hangOptions: string[]; onClose: () => void; onChanged: () => void
   notify: (t: 'success' | 'error', m: string) => void
 }) {
   const [q, setQ] = useState('')
@@ -138,7 +141,12 @@ function CatalogManager({ catalog, isManager, hangOptions, onClose, onChanged, n
     try {
       const res = await fetch('/api/admin/hang-hoa', { method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f) })
       const j = await res.json()
-      if (res.ok) { notify('success', editing ? 'Đã cập nhật mã' : 'Đã thêm mã'); reset(); onChanged() }
+      if (res.ok) {
+        // Cập nhật CỤC BỘ (không refetch toàn danh mục -> phản hồi tức thì, không "treo")
+        const item: HangHoa = { ma_hang: f.ma_hang.trim().toUpperCase(), ten_hang: f.ten_hang.trim(), dvt: (f.dvt || '').trim() || 'Cái', don_gia_niem_yet: Number(f.don_gia_niem_yet) || 0, hang: (f.hang || '').trim() || null, model: null, ghi_chu: null }
+        setCatalog(prev => editing ? prev.map(c => c.ma_hang === item.ma_hang ? { ...c, ...item, model: c.model, ghi_chu: c.ghi_chu } : c) : [...prev, item].sort((a, b) => String(a.ma_hang).localeCompare(String(b.ma_hang))))
+        notify('success', editing ? 'Đã cập nhật mã' : 'Đã thêm mã'); reset()
+      }
       else notify('error', j.error || 'Lỗi lưu')
     } catch { notify('error', 'Lỗi kết nối') } finally { setBusy(false) }
   }
@@ -147,7 +155,7 @@ function CatalogManager({ catalog, isManager, hangOptions, onClose, onChanged, n
     try {
       const res = await fetch(`/api/admin/hang-hoa?ma=${encodeURIComponent(ma)}`, { method: 'DELETE' })
       const j = await res.json()
-      if (res.ok) { notify('success', 'Đã xóa mã'); onChanged() } else notify('error', j.error || 'Lỗi xóa')
+      if (res.ok) { setCatalog(prev => prev.filter(c => c.ma_hang !== ma)); notify('success', 'Đã xóa mã') } else notify('error', j.error || 'Lỗi xóa')
     } catch { notify('error', 'Lỗi kết nối') }
   }
   return (
@@ -408,7 +416,7 @@ export default function LenhXuatHangPage() {
           <button onClick={logout} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600"><LogOut className="w-4 h-4" /> Đăng xuất</button>
         </header>
 
-        {note && <div className={`px-3 py-2 rounded-lg text-sm border ${note.t === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>{note.m}</div>}
+        {note && <div className={`fixed top-4 right-4 z-[120] px-4 py-2.5 rounded-lg text-sm font-medium shadow-lg border ${note.t === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>{note.m}</div>}
 
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[220px] max-w-sm">
@@ -550,7 +558,7 @@ export default function LenhXuatHangPage() {
         </div>
       )}
 
-      {catOpen && <CatalogManager catalog={catalog} isManager={isManager} hangOptions={hangOptions} onClose={() => setCatOpen(false)} onChanged={loadCatalog} notify={notify} />}
+      {catOpen && <CatalogManager catalog={catalog} setCatalog={setCatalog} isManager={isManager} hangOptions={hangOptions} onClose={() => setCatOpen(false)} onChanged={loadCatalog} notify={notify} />}
 
       {/* Xác nhận xóa */}
       {delTarget && (
