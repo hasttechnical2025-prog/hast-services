@@ -387,88 +387,27 @@ export function printPhieuDeNghiA4(phieu: PhieuDeNghi, origin: string) {
   w.document.close()
 }
 
-// Combobox chọn mã hàng từ kho: gõ để lọc theo mã/tên, chọn xong tự điền Tên hàng.
-// Vẫn cho gõ tự do mã ngoài danh mục (kho không có) — Tên hàng khi đó nhập tay.
-function MaHangCombo({
-  value,
-  inventory,
-  onChangeMa,
-  onPick,
-}: {
-  value: string
-  inventory: any[]
-  onChangeMa: (ma: string) => void
-  onPick: (ma: string, ten: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [kw, setKw] = useState('')
-  const boxRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const h = (e: MouseEvent) => {
-      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [])
-
-  const matches = useMemo(() => {
-    const s = (kw || value).trim().toLowerCase()
-    const list = Array.isArray(inventory) ? inventory : []
-    if (!s) return list.slice(0, 30)
-    return list
-      .filter((it: any) =>
-        String(it?.ma_hang || '').toLowerCase().includes(s) ||
-        String(it?.ten_hang || '').toLowerCase().includes(s)
-      )
-      .slice(0, 30)
-  }, [kw, value, inventory])
-
-  return (
-    <div ref={boxRef} className="relative">
-      <Input
-        value={value}
-        onChange={e => { const v = e.target.value.toUpperCase(); onChangeMa(v); setKw(v); setOpen(true) }}
-        onFocus={() => setOpen(true)}
-        placeholder="Mã hàng..."
-        className="h-7 text-xs font-mono uppercase"
-      />
-      {open && matches.length > 0 && (
-        <div className="absolute z-30 mt-0.5 w-[320px] max-w-[80vw] max-h-56 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg text-xs">
-          {matches.map((it: any, i: number) => (
-            <button
-              key={i}
-              type="button"
-              onMouseDown={(e) => { e.preventDefault(); onPick(String(it?.ma_hang || ''), String(it?.ten_hang || '')); setOpen(false); setKw('') }}
-              className="w-full text-left px-2 py-1.5 hover:bg-slate-100 flex items-center gap-2"
-            >
-              <span className="font-mono font-semibold text-slate-800 shrink-0">{it?.ma_hang}</span>
-              <span className="text-slate-500 truncate">{it?.ten_hang}</span>
-              <span className="ml-auto text-[10px] text-slate-400 shrink-0">Tồn: {Number(it?.ton_kho) || 0}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // Combobox riêng cho ô "Mã hàng (máy)" của BM38: tra GỘP cả kho VẬT TƯ và danh mục MÁY,
 // mỗi gợi ý gắn nhãn nguồn [Máy]/[Vật tư]; chọn -> điền tên; vẫn gõ tự do. (Chỉ dùng ở BM38.)
-function MaMayUnionCombo({ value, inventory, mayList, onChangeMa, onPick }: {
+// Combobox tra GỘP kho VẬT TƯ + danh mục MÁY (nhãn [Máy]/[Vật tư]) cho MỌI ô mã hàng của BM38
+// (mã máy có thể xuất hiện ở bất kỳ dòng nào). Dropdown FIXED bám ô -> không bị modal cắt. [[ui-dropdown-overflow-gotcha]]
+function MaMayUnionCombo({ value, inventory, mayList, onChangeMa, onPick, dense }: {
   value: string
   inventory: any[]
   mayList: any[]
   onChangeMa: (ma: string) => void
   onPick: (ma: string, ten: string) => void
+  dense?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [kw, setKw] = useState('')
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const boxRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const h = (e: MouseEvent) => { if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false) }
     document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h)
   }, [])
+  const place = () => { const r = boxRef.current?.getBoundingClientRect(); if (r) setPos({ top: r.bottom + 2, left: r.left, width: Math.max(r.width, 300) }) }
   const matches = useMemo(() => {
     const s = (kw || value).trim().toLowerCase()
     const may = (Array.isArray(mayList) ? mayList : []).map((it: any) => ({ src: 'Máy' as const, ma: String(it?.ma_hang || ''), ten: String(it?.ten_hang || '') }))
@@ -480,10 +419,11 @@ function MaMayUnionCombo({ value, inventory, mayList, onChangeMa, onPick }: {
   return (
     <div ref={boxRef} className="relative">
       <Input value={value}
-        onChange={e => { const v = e.target.value.toUpperCase(); onChangeMa(v); setKw(v); setOpen(true) }}
-        onFocus={() => setOpen(true)} placeholder="Mã hàng / mã máy..." className="h-8 text-xs font-mono uppercase bg-white" />
-      {open && matches.length > 0 && (
-        <div className="absolute z-30 mt-0.5 w-[340px] max-w-[80vw] max-h-56 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg text-xs">
+        onChange={e => { const v = e.target.value.toUpperCase(); onChangeMa(v); setKw(v); place(); setOpen(true) }}
+        onFocus={() => { place(); setOpen(true) }} placeholder={dense ? 'Mã' : 'Mã hàng / mã máy...'}
+        className={`${dense ? 'h-7' : 'h-8'} text-xs font-mono uppercase bg-white`} />
+      {open && pos && matches.length > 0 && (
+        <div className="fixed z-[80] max-h-56 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg text-xs" style={{ top: pos.top, left: pos.left, width: pos.width }}>
           {matches.map((it, i) => (
             <button key={i} type="button"
               onMouseDown={(e) => { e.preventDefault(); onPick(it.ma, it.ten); setOpen(false); setKw('') }}
@@ -1532,9 +1472,11 @@ export default function PhieuDeNghiModule({
                       <div key={idx} className="grid grid-cols-12 gap-1.5 items-center">
                         <div className="col-span-1 text-center text-[11px] font-semibold text-indigo-700">{idx + 1}</div>
                         <div className="col-span-3">
-                          <MaHangCombo
+                          <MaMayUnionCombo
                             value={ln.ma_hang}
                             inventory={inventory}
+                            mayList={mayList}
+                            dense
                             onChangeMa={(v) => { updateLine('xuat_ra', idx, 'ma_hang', v); updateLine('xuat_ra', idx, 'tinh_ton', inKho(v)); if (v && (ln.so_luong === '' || ln.so_luong == null)) updateLine('xuat_ra', idx, 'so_luong', 1) }}
                             onPick={(ma, ten) => { updateLine('xuat_ra', idx, 'ma_hang', ma); updateLine('xuat_ra', idx, 'ten_hang', ten); updateLine('xuat_ra', idx, 'tinh_ton', inKho(ma)); if (ln.so_luong === '' || ln.so_luong == null) updateLine('xuat_ra', idx, 'so_luong', 1) }}
                           />
@@ -1611,9 +1553,11 @@ export default function PhieuDeNghiModule({
                       <div key={idx} className="grid grid-cols-12 gap-1.5 items-center">
                         <div className="col-span-1 text-center text-[11px] font-semibold text-emerald-700">{idx + 1}</div>
                         <div className="col-span-3">
-                          <MaHangCombo
+                          <MaMayUnionCombo
                             value={ln.ma_hang}
                             inventory={inventory}
+                            mayList={mayList}
+                            dense
                             onChangeMa={(v) => { updateLine('nhap_lai', idx, 'ma_hang', v); updateLine('nhap_lai', idx, 'tinh_ton', inKho(v)); if (v && (ln.so_luong === '' || ln.so_luong == null)) updateLine('nhap_lai', idx, 'so_luong', 1) }}
                             onPick={(ma, ten) => { updateLine('nhap_lai', idx, 'ma_hang', ma); updateLine('nhap_lai', idx, 'ten_hang', ten); updateLine('nhap_lai', idx, 'tinh_ton', inKho(ma)); if (ln.so_luong === '' || ln.so_luong == null) updateLine('nhap_lai', idx, 'so_luong', 1) }}
                           />
