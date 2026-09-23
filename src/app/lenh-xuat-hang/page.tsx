@@ -495,35 +495,35 @@ export default function LenhXuatHangPage() {
               <button onClick={() => setOpen(false)} disabled={submitting} className="text-slate-400 hover:text-slate-600 p-1"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-5 overflow-y-auto space-y-4 flex-1 text-xs">
-              <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 bg-slate-50/80 p-3.5 rounded-lg border border-slate-200">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50/80 p-3.5 rounded-lg border border-slate-200">
                 {/* Hàng 1: chứng từ */}
-                <div className="sm:col-span-2">
+                <div>
                   <label className="block text-slate-600 font-semibold mb-1">Ngày lập</label>
-                  <DateField value={form.ngay} onChange={v => { setForm(f => ({ ...f, ngay: v })); if (!editingId) fetchNextLenh(v) }} heightClass="h-8" className="w-36" />
+                  <DateField value={form.ngay} onChange={v => { setForm(f => ({ ...f, ngay: v })); if (!editingId) fetchNextLenh(v) }} heightClass="h-8" className="w-full" />
                 </div>
-                <div className="sm:col-span-2">
+                <div>
                   <label className="block text-slate-600 font-semibold mb-1">Số lệnh <span className="text-rose-500">*</span></label>
                   <Input value={form.so_lenh} readOnly title="Số lệnh do hệ thống tự cấp (YYMMDD-xx)" className="h-8 bg-slate-100 font-mono font-bold text-blue-700 cursor-not-allowed" />
                 </div>
-                <div className="sm:col-span-2">
+                <div className="col-span-2">
                   <label className="block text-slate-600 font-semibold mb-1">Số hợp đồng</label>
                   <Input value={form.so_hop_dong} onChange={e => setForm({ ...form, so_hop_dong: e.target.value })} placeholder="VD: 260922/KH-ST" className="h-8 bg-white" />
                 </div>
                 {/* Hàng 2: khách */}
-                <div className="sm:col-span-4">
+                <div className="col-span-2 sm:col-span-3">
                   <label className="block text-slate-600 font-semibold mb-1">Tên khách hàng <span className="text-rose-500">*</span></label>
                   <Input value={form.ten_khach_hang} onChange={e => setForm({ ...form, ten_khach_hang: e.target.value })} placeholder="Tên khách mua hàng..." className="h-8 bg-white" />
                 </div>
-                <div className="sm:col-span-2">
+                <div>
                   <label className="block text-slate-600 font-semibold mb-1">Mã số thuế</label>
                   <Input value={form.ma_so_thue} onChange={e => setForm({ ...form, ma_so_thue: e.target.value })} placeholder="MST..." className="h-8 font-mono bg-white" />
                 </div>
                 {/* Hàng 3: địa chỉ + ghi chú */}
-                <div className="sm:col-span-4">
+                <div className="col-span-2 sm:col-span-3">
                   <label className="block text-slate-600 font-semibold mb-1">Địa chỉ</label>
                   <Input value={form.dia_chi} onChange={e => setForm({ ...form, dia_chi: e.target.value })} placeholder="Địa chỉ xuất hóa đơn..." className="h-8 bg-white" />
                 </div>
-                <div className="sm:col-span-2">
+                <div>
                   <label className="block text-slate-600 font-semibold mb-1">Ghi chú</label>
                   <Input value={form.ghi_chu} onChange={e => setForm({ ...form, ghi_chu: e.target.value })} placeholder="..." className="h-8 bg-white" />
                 </div>
