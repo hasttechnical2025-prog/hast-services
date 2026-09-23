@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom"
-import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy, X, Palmtree, Send, Hand, Bell, Droplets, FileText, FileSpreadsheet, ToggleRight, ToggleLeft } from "lucide-react"
+import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy, X, Palmtree, Send, Hand, Bell, Droplets, FileText, FileSpreadsheet, ToggleRight, ToggleLeft, Save } from "lucide-react"
 import { BBBG_TEMPLATE_LIST } from "@/lib/bbbg-templates"
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
@@ -3285,15 +3285,15 @@ function GiaNiemYetTool({ showNotification, hangOptions }: { showNotification: (
           <table className="w-full text-xs text-slate-600">
             <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase border-b border-slate-200">
               <tr>
-                <th className="px-3 py-2.5 text-left">Mã hàng</th>
-                <th className="px-3 py-2.5 text-left">Tên vật tư</th>
-                <th className="px-3 py-2.5 text-left">Model</th>
-                <th className="px-3 py-2.5 text-left">Hãng</th>
-                <th className="px-3 py-2.5 text-center">Tồn</th>
-                {cols.niem_yet && <th className="px-3 py-2.5 text-right">Giá niêm yết</th>}
-                {cols.nhan_vien && <th className="px-3 py-2.5 text-right">Giá nhân viên</th>}
-                {cols.quan_ly && <th className="px-3 py-2.5 text-right">Giá quản lý</th>}
-                {canEdit && <th className="px-3 py-2.5 text-center">Lưu</th>}
+                <th className="px-2 py-2.5 text-left">Mã hàng</th>
+                <th className="px-2 py-2.5 text-left">Tên vật tư</th>
+                <th className="px-2 py-2.5 text-left">Model</th>
+                <th className="px-2 py-2.5 text-left">Hãng</th>
+                <th className="px-2 py-2.5 text-center">Tồn</th>
+                {cols.niem_yet && <th className="px-2 py-2.5 text-right">Giá niêm yết</th>}
+                {cols.nhan_vien && <th className="px-2 py-2.5 text-right">Giá NV</th>}
+                {cols.quan_ly && <th className="px-2 py-2.5 text-right">Giá QL</th>}
+                {canEdit && <th className="px-2 py-2.5 text-center w-9"></th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -3305,15 +3305,15 @@ function GiaNiemYetTool({ showNotification, hangOptions }: { showNotification: (
                 const e = edits[r.ma_hang] || { gia_niem_yet: '', gia_nhan_vien: '', gia_quan_ly: '' }
                 return (
                   <tr key={r.ma_hang} className="hover:bg-slate-50">
-                    <td className="px-3 py-2 font-mono font-semibold text-slate-800 whitespace-nowrap">{r.ma_hang}</td>
-                    <td className="px-3 py-2">{r.ten_hang}</td>
-                    <td className="px-3 py-2 text-slate-500">{r.model || '—'}</td>
-                    <td className="px-3 py-2 text-slate-500">{r.hang || '—'}</td>
-                    <td className="px-3 py-2 text-center">{r.ton_kho ?? 0}</td>
-                    {cols.niem_yet && <td className="px-3 py-2 text-right">{canEdit ? <Input inputMode="numeric" value={fmt(e.gia_niem_yet)} onChange={ev => setE(r.ma_hang, 'gia_niem_yet', ev.target.value)} className="h-8 w-24 text-right text-xs px-1 ml-auto" /> : <span className="font-semibold text-slate-700">{fmtNum(r.gia_niem_yet)}</span>}</td>}
-                    {cols.nhan_vien && <td className="px-3 py-2 text-right">{canEdit ? <Input inputMode="numeric" value={fmt(e.gia_nhan_vien)} onChange={ev => setE(r.ma_hang, 'gia_nhan_vien', ev.target.value)} className="h-8 w-24 text-right text-xs px-1 ml-auto" /> : <span className="font-semibold text-slate-700">{fmtNum(r.gia_nhan_vien)}</span>}</td>}
-                    {cols.quan_ly && <td className="px-3 py-2 text-right">{canEdit ? <Input inputMode="numeric" value={fmt(e.gia_quan_ly)} onChange={ev => setE(r.ma_hang, 'gia_quan_ly', ev.target.value)} className="h-8 w-24 text-right text-xs px-1 ml-auto" /> : <span className="font-semibold text-slate-700">{fmtNum(r.gia_quan_ly)}</span>}</td>}
-                    {canEdit && <td className="px-3 py-2 text-center"><Button onClick={() => saveRow(r.ma_hang)} disabled={savingMa === r.ma_hang} className="h-7 px-2 text-[11px] bg-blue-600 hover:bg-blue-700 text-white">{savingMa === r.ma_hang ? '...' : 'Lưu'}</Button></td>}
+                    <td className="px-2 py-2 font-mono font-semibold text-slate-800 whitespace-nowrap">{r.ma_hang}</td>
+                    <td className="px-2 py-2">{r.ten_hang}</td>
+                    <td className="px-2 py-2 text-[10px] text-slate-400 max-w-[120px] truncate" title={r.model || ''}>{r.model || '—'}</td>
+                    <td className="px-2 py-2 text-slate-500 whitespace-nowrap">{r.hang || '—'}</td>
+                    <td className="px-2 py-2 text-center">{r.ton_kho ?? 0}</td>
+                    {cols.niem_yet && <td className="px-2 py-2 text-right">{canEdit ? <Input inputMode="numeric" value={fmt(e.gia_niem_yet)} onChange={ev => setE(r.ma_hang, 'gia_niem_yet', ev.target.value)} className="h-8 w-24 text-right text-xs px-1 ml-auto" /> : <span className="font-semibold text-slate-700">{fmtNum(r.gia_niem_yet)}</span>}</td>}
+                    {cols.nhan_vien && <td className="px-2 py-2 text-right">{canEdit ? <Input inputMode="numeric" value={fmt(e.gia_nhan_vien)} onChange={ev => setE(r.ma_hang, 'gia_nhan_vien', ev.target.value)} className="h-8 w-24 text-right text-xs px-1 ml-auto" /> : <span className="font-semibold text-slate-700">{fmtNum(r.gia_nhan_vien)}</span>}</td>}
+                    {cols.quan_ly && <td className="px-2 py-2 text-right">{canEdit ? <Input inputMode="numeric" value={fmt(e.gia_quan_ly)} onChange={ev => setE(r.ma_hang, 'gia_quan_ly', ev.target.value)} className="h-8 w-24 text-right text-xs px-1 ml-auto" /> : <span className="font-semibold text-slate-700">{fmtNum(r.gia_quan_ly)}</span>}</td>}
+                    {canEdit && <td className="px-2 py-2 text-center"><button onClick={() => saveRow(r.ma_hang)} disabled={savingMa === r.ma_hang} title="Lưu giá dòng này" className="p-1 rounded text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition disabled:opacity-50">{savingMa === r.ma_hang ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}</button></td>}
                   </tr>
                 )
               })}
