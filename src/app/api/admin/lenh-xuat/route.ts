@@ -205,6 +205,7 @@ export async function POST(request: Request) {
       if (e2) console.error('Lỗi thêm dòng lệnh xuất:', e2)
     }
     await logAudit(session, 'Tạo lệnh xuất hàng', `KH ${String(b.ten_khach_hang).trim()}`)
+    await broadcastLenhXuatChanged()   // đẩy realtime -> mọi bàn KD/admin thấy lệnh mới ngay (không cần refresh)
     return NextResponse.json({ data: lenh, success: true })
   } catch (error: any) {
     console.error('Error POST lenh-xuat:', error)
@@ -372,6 +373,7 @@ export async function PUT(request: Request) {
       if (lines.length > 0) await supabaseAdmin.from('soct_lenh_xuat_ct').insert(lines)
     }
     await logAudit(session, 'Sửa lệnh xuất hàng', `lệnh ${b.id}`)
+    await broadcastLenhXuatChanged()
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error PUT lenh-xuat:', error)
@@ -404,6 +406,7 @@ export async function DELETE(request: Request) {
     const { error } = await supabaseAdmin.from('soct_lenh_xuat').delete().eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     await logAudit(session, 'Xóa lệnh xuất hàng', `lệnh ${id}`)
+    await broadcastLenhXuatChanged()
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error DELETE lenh-xuat:', error)
