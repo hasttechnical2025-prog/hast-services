@@ -300,13 +300,24 @@ const KD_COLS: { key: string; title: string; head: string; dot: string }[] = [
   { key: 'Đã lên hóa đơn', title: '3. Đã lên hóa đơn', head: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-400' },
   { key: 'Đã thanh toán', title: '4. Đã thanh toán', head: 'bg-indigo-50 text-indigo-700', dot: 'bg-indigo-400' },
 ]
-function KanbanBoard({ rows, isManager, onOpen }: { rows: Lenh[]; isManager: boolean; onOpen: (r: Lenh) => void }) {
+function KanbanBoard({ rows, isManager, onOpen, onHandoverDrop }: { rows: Lenh[]; isManager: boolean; onOpen: (r: Lenh) => void; onHandoverDrop: (id: string) => void }) {
   const tong = (r: Lenh) => (r.soct_lenh_xuat_ct || []).reduce((s, l) => s + (Number(l.so_luong) || 0) * (Number(l.don_gia) || 0), 0)
   const onKanban = rows.filter(r => r.tren_kanban)   // Kanban CHỈ hiện lệnh đã đẩy (Nháp nằm ở Danh sách)
+  // Kéo nhanh: CHỈ sale_admin, CHỈ chiều cột 1 -> cột 2 (bàn giao); mọi chiều khác kế toán làm ở /admin.
+  const isDropCol = (key: string) => key === 'Đang xử lý HĐ'
+  const handleDrop = (e: React.DragEvent, key: string) => {
+    e.preventDefault()
+    if (!isManager || !isDropCol(key)) return
+    try {
+      const d = JSON.parse(e.dataTransfer.getData('text/plain') || '{}')
+      if (d.state === 'Chờ xuất HĐ' && d.id) onHandoverDrop(d.id)
+    } catch { /* bỏ qua drop lỗi */ }
+  }
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
       {KD_COLS.map(col => {
         const cards = onKanban.filter(r => (r.trang_thai_hd || 'Chờ xuất HĐ') === col.key)
+        const canDrop = isManager && isDropCol(col.key)
         return (
           <div key={col.key} className="border border-slate-200 rounded-xl bg-white flex flex-col shadow-sm">
             <div className={`p-3 rounded-t-xl flex items-center gap-2 ${col.head}`}>
@@ -314,13 +325,20 @@ function KanbanBoard({ rows, isManager, onOpen }: { rows: Lenh[]; isManager: boo
               <h3 className="text-xs font-bold uppercase tracking-wider">{col.title.slice(3)}</h3>
               <span className="ml-auto text-xs font-semibold opacity-70">{cards.length}</span>
             </div>
-            <div className="flex-1 p-2.5 space-y-2.5 bg-slate-50 min-h-[420px] max-h-[640px] overflow-y-auto rounded-b-xl">
+            <div
+              onDragOver={canDrop ? (e => e.preventDefault()) : undefined}
+              onDrop={canDrop ? (e => handleDrop(e, col.key)) : undefined}
+              className={`flex-1 p-2.5 space-y-2.5 bg-slate-50 min-h-[420px] max-h-[640px] overflow-y-auto rounded-b-xl ${canDrop ? 'transition-colors' : ''}`}>
               {cards.length === 0 ? (
-                <div className="text-center py-10 text-[11px] text-slate-400 italic">Trống</div>
+                <div className="text-center py-10 text-[11px] text-slate-400 italic">{canDrop ? 'Kéo lệnh vào đây để bàn giao' : 'Trống'}</div>
               ) : cards.map(r => {
                 const isCol1 = r.trang_thai_hd === 'Chờ xuất HĐ'
+                const canDrag = isManager && isCol1
                 return (
-                  <div key={r.id} onClick={() => onOpen(r)} className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-sm hover:shadow hover:bg-slate-50/60 transition cursor-pointer">
+                  <div key={r.id} onClick={() => onOpen(r)}
+                    draggable={canDrag}
+                    onDragStart={canDrag ? (e => e.dataTransfer.setData('text/plain', JSON.stringify({ id: r.id, state: r.trang_thai_hd }))) : undefined}
+                    className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-sm hover:shadow hover:bg-slate-50/60 transition cursor-pointer">
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <span className="text-[10px] font-mono font-semibold text-slate-500">{r.so_lenh || '—'}</span>
                       <span className="text-[10px] text-slate-400 flex items-center gap-0.5"><Clock className="w-3 h-3" />{fmtDate(r.ngay)}</span>
@@ -337,6 +355,7 @@ function KanbanBoard({ rows, isManager, onOpen }: { rows: Lenh[]; isManager: boo
                       {isCol1 && r.ly_do_tra && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-rose-50 text-rose-600 border-rose-200" title={r.ly_do_tra}>⚠ KT trả lại</span>}
                     </div>
                     {isCol1 && r.ly_do_tra && <div className="mt-1 text-[10px] text-rose-600 leading-snug">{r.ly_do_tra}</div>}
+                    {canDrag && <div className="mt-1.5 pt-1.5 border-t border-dashed border-slate-100 text-[9px] text-slate-400 flex items-center gap-1">⠿ Kéo sang cột 2 để bàn giao · bấm để xem</div>}
                   </div>
                 )
               })}
@@ -559,7 +578,7 @@ export default function LenhXuatHangPage() {
         </div>
 
         {view === 'kanban' ? (
-          <KanbanBoard rows={filtered} isManager={isManager} onOpen={setDetail} />
+          <KanbanBoard rows={filtered} isManager={isManager} onOpen={setDetail} onHandoverDrop={(id) => { const r = filtered.find(x => x.id === id); if (r) setHandoverTarget(r) }} />
         ) : (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
