@@ -60,7 +60,9 @@ type Lenh = {
   so_hop_dong: string | null
   nguoi_kinh_doanh_id: string | null; ghi_chu: string | null; trang_thai_hd: string
   so_hoa_don: string | null; ngay_xuat_hd: string | null; ly_do_tra?: string | null
+  tren_kanban?: boolean
   nguoi_kd?: { full_name: string } | null
+  nguoi_bg?: { full_name: string } | null
   soct_lenh_xuat_ct?: Line[]
 }
 
@@ -298,12 +300,13 @@ const KD_COLS: { key: string; title: string; head: string; dot: string }[] = [
   { key: 'Đã lên hóa đơn', title: '3. Đã lên hóa đơn', head: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-400' },
   { key: 'Đã thanh toán', title: '4. Đã thanh toán', head: 'bg-indigo-50 text-indigo-700', dot: 'bg-indigo-400' },
 ]
-function KanbanBoard({ rows, isManager, onHandover }: { rows: Lenh[]; isManager: boolean; onHandover: (r: Lenh) => void }) {
+function KanbanBoard({ rows, isManager, onOpen }: { rows: Lenh[]; isManager: boolean; onOpen: (r: Lenh) => void }) {
   const tong = (r: Lenh) => (r.soct_lenh_xuat_ct || []).reduce((s, l) => s + (Number(l.so_luong) || 0) * (Number(l.don_gia) || 0), 0)
+  const onKanban = rows.filter(r => r.tren_kanban)   // Kanban CHỈ hiện lệnh đã đẩy (Nháp nằm ở Danh sách)
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
       {KD_COLS.map(col => {
-        const cards = rows.filter(r => (r.trang_thai_hd || 'Chờ xuất HĐ') === col.key)
+        const cards = onKanban.filter(r => (r.trang_thai_hd || 'Chờ xuất HĐ') === col.key)
         return (
           <div key={col.key} className="border border-slate-200 rounded-xl bg-white flex flex-col shadow-sm">
             <div className={`p-3 rounded-t-xl flex items-center gap-2 ${col.head}`}>
@@ -317,7 +320,7 @@ function KanbanBoard({ rows, isManager, onHandover }: { rows: Lenh[]; isManager:
               ) : cards.map(r => {
                 const isCol1 = r.trang_thai_hd === 'Chờ xuất HĐ'
                 return (
-                  <div key={r.id} className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-sm hover:shadow transition">
+                  <div key={r.id} onClick={() => onOpen(r)} className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-sm hover:shadow hover:bg-slate-50/60 transition cursor-pointer">
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <span className="text-[10px] font-mono font-semibold text-slate-500">{r.so_lenh || '—'}</span>
                       <span className="text-[10px] text-slate-400 flex items-center gap-0.5"><Clock className="w-3 h-3" />{fmtDate(r.ngay)}</span>
@@ -334,9 +337,6 @@ function KanbanBoard({ rows, isManager, onHandover }: { rows: Lenh[]; isManager:
                       {isCol1 && r.ly_do_tra && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-rose-50 text-rose-600 border-rose-200" title={r.ly_do_tra}>⚠ KT trả lại</span>}
                     </div>
                     {isCol1 && r.ly_do_tra && <div className="mt-1 text-[10px] text-rose-600 leading-snug">{r.ly_do_tra}</div>}
-                    {isCol1 && isManager && (
-                      <button onClick={() => onHandover(r)} className="mt-2 w-full inline-flex items-center justify-center gap-1 h-7 rounded-md text-[11px] font-semibold bg-blue-600 hover:bg-blue-700 text-white"><Send className="w-3.5 h-3.5" /> Bàn giao kế toán</button>
-                    )}
                   </div>
                 )
               })}
@@ -368,6 +368,10 @@ export default function LenhXuatHangPage() {
   const [delTarget, setDelTarget] = useState<Lenh | null>(null)
   const [handoverTarget, setHandoverTarget] = useState<Lenh | null>(null) // sale_admin bàn giao lệnh cho kế toán
   const [handing, setHanding] = useState(false)
+  const [pushTarget, setPushTarget] = useState<Lenh | null>(null)   // đẩy lệnh Nháp lên Kanban
+  const [recallTarget, setRecallTarget] = useState<Lenh | null>(null) // sale_admin thu hồi lệnh về Nháp
+  const [detail, setDetail] = useState<Lenh | null>(null)           // modal xem chi tiết read-only (Kanban)
+  const [acting, setActing] = useState(false)
 
   // Danh mục máy & hàng hóa (vlookup dòng hàng) + màn quản lý
   const [catalog, setCatalog] = useState<HangHoa[]>([])
@@ -478,9 +482,37 @@ export default function LenhXuatHangPage() {
         body: JSON.stringify({ id: handoverTarget.id, trang_thai_hd: 'Đang xử lý HĐ' }),
       })
       const j = await res.json().catch(() => ({}))
-      if (res.ok) { notify('success', 'Đã bàn giao lệnh cho kế toán.'); setHandoverTarget(null); load() }
+      if (res.ok) { notify('success', 'Đã bàn giao lệnh cho kế toán.'); setHandoverTarget(null); setDetail(null); load() }
       else notify('error', j.error || 'Lỗi bàn giao')
     } catch { notify('error', 'Lỗi kết nối') } finally { setHanding(false) }
+  }
+
+  // Đẩy lệnh Nháp lên Kanban (khóa sửa/xóa sau đó). NV đẩy lệnh của mình; sale_admin đẩy bất kỳ.
+  const doPush = async () => {
+    if (!pushTarget) return
+    setActing(true)
+    try {
+      const res = await fetch('/api/admin/lenh-xuat?push=1', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: pushTarget.id }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (res.ok) { notify('success', 'Đã đẩy lệnh lên Kanban.'); setPushTarget(null); load() }
+      else notify('error', j.error || 'Lỗi đẩy lệnh')
+    } catch { notify('error', 'Lỗi kết nối') } finally { setActing(false) }
+  }
+
+  // Thu hồi lệnh về Nháp (CHỈ sale_admin) — mở khóa cho kinh doanh sửa. Chỉ khi lệnh còn ở cột 1.
+  const doRecall = async () => {
+    if (!recallTarget) return
+    setActing(true)
+    try {
+      const res = await fetch('/api/admin/lenh-xuat?recall=1', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: recallTarget.id }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (res.ok) { notify('success', 'Đã thu hồi lệnh về Nháp.'); setRecallTarget(null); setDetail(null); load() }
+      else notify('error', j.error || 'Lỗi thu hồi')
+    } catch { notify('error', 'Lỗi kết nối') } finally { setActing(false) }
   }
 
   const logout = async () => { try { await fetch('/api/auth/logout', { method: 'POST' }) } catch {} ; window.location.href = '/' }
@@ -527,7 +559,7 @@ export default function LenhXuatHangPage() {
         </div>
 
         {view === 'kanban' ? (
-          <KanbanBoard rows={filtered} isManager={isManager} onHandover={setHandoverTarget} />
+          <KanbanBoard rows={filtered} isManager={isManager} onOpen={setDetail} />
         ) : (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
@@ -550,7 +582,7 @@ export default function LenhXuatHangPage() {
                   <tr><td colSpan={isManager ? 7 : 6} className="px-4 py-8 text-center text-slate-400">Chưa có lệnh xuất hàng nào.</td></tr>
                 ) : filtered.map(r => {
                   const tt = TT_LABEL[r.trang_thai_hd] || TT_LABEL['Chờ xuất HĐ']
-                  const editable = r.trang_thai_hd === 'Chờ xuất HĐ'
+                  const editable = !r.tren_kanban   // NHÁP: chưa đẩy Kanban -> sửa/xóa/đẩy được
                   return (
                     <tr key={r.id} className="hover:bg-slate-50">
                       <td className="px-3 py-2.5 whitespace-nowrap">{fmtDate(r.ngay)}{r.so_lenh ? <div className="text-[10px] text-slate-400 font-mono">{r.so_lenh}</div> : null}</td>
@@ -559,7 +591,9 @@ export default function LenhXuatHangPage() {
                       <td className="px-3 py-2.5 text-center">{(r.soct_lenh_xuat_ct || []).length}</td>
                       <td className="px-3 py-2.5 text-right font-semibold text-slate-800">{fmtVnd(cardTong(r))} đ</td>
                       <td className="px-3 py-2.5 text-center whitespace-nowrap">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${tt.cls}`}>{tt.label}</span>
+                        {editable
+                          ? <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-slate-100 text-slate-500 border-slate-200">Nháp</span>
+                          : <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${tt.cls}`}>{tt.label}</span>}
                         {r.so_hoa_don && <div className="text-[10px] text-emerald-600 font-mono mt-0.5">HĐ {r.so_hoa_don}</div>}
                         {editable && r.ly_do_tra && <div className="text-[10px] text-rose-600 mt-0.5 max-w-[180px] whitespace-normal" title={r.ly_do_tra}>⚠ KT trả lại: {r.ly_do_tra}</div>}
                       </td>
@@ -568,9 +602,9 @@ export default function LenhXuatHangPage() {
                           <div className="flex items-center justify-center gap-1">
                             <button onClick={() => openEdit(r)} title="Sửa lệnh" className="p-1 rounded text-amber-600 hover:bg-amber-50"><PenSquare className="w-4 h-4" /></button>
                             <button onClick={() => setDelTarget(r)} title="Xóa lệnh" className="p-1 rounded text-rose-600 hover:bg-rose-50"><Trash2 className="w-4 h-4" /></button>
-                            {isManager && <button onClick={() => setHandoverTarget(r)} title="Bàn giao cho kế toán" className="p-1 rounded text-blue-600 hover:bg-blue-50"><Send className="w-4 h-4" /></button>}
+                            <button onClick={() => setPushTarget(r)} title="Đẩy lên Kanban" className="p-1 rounded text-blue-600 hover:bg-blue-50"><Send className="w-4 h-4" /></button>
                           </div>
-                        ) : <span className="text-[10px] text-slate-400 italic">đã bàn giao</span>}
+                        ) : <span className="text-[10px] text-slate-400 italic">đã lên Kanban</span>}
                       </td>
                     </tr>
                   )
@@ -689,13 +723,110 @@ export default function LenhXuatHangPage() {
 
       {/* Xác nhận bàn giao kế toán (sale_admin) — sau bàn giao KHÓA sửa/xóa lệnh */}
       {handoverTarget && (
-        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4" onClick={() => !handing && setHandoverTarget(null)}>
+        <div className="fixed inset-0 bg-slate-900/60 z-[70] flex items-center justify-center p-4" onClick={() => !handing && setHandoverTarget(null)}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-5 space-y-4 border border-slate-200" onClick={e => e.stopPropagation()}>
             <h3 className="text-base font-bold text-slate-800">Bàn giao cho kế toán</h3>
             <p className="text-xs text-slate-500">Bàn giao lệnh của <b>{handoverTarget.ten_khach_hang}</b> ({(handoverTarget.soct_lenh_xuat_ct || []).length} dòng hàng) cho kế toán lên hóa đơn?<br />Sau khi bàn giao sẽ <b>không sửa/xóa</b> được lệnh này nữa.</p>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setHandoverTarget(null)} disabled={handing} className="h-9 text-xs">Hủy</Button>
               <Button onClick={doHandover} disabled={handing} className="h-9 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-1.5"><Send className="w-4 h-4" />{handing ? 'Đang bàn giao…' : 'Bàn giao'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL XEM CHI TIẾT (read-only) — bàn duyệt của sale_admin trước khi bàn giao */}
+      {detail && (() => {
+        const lines = detail.soct_lenh_xuat_ct || []
+        const truocVat = lines.reduce((s, l) => s + (Number(l.so_luong) || 0) * (Number(l.don_gia) || 0), 0)
+        const sauVat = Math.round(lines.reduce((s, l) => { const tt = (Number(l.so_luong) || 0) * (Number(l.don_gia) || 0); return s + tt * (1 + (Number(l.vat) || 0) / 100) }, 0))
+        const isCol1 = detail.trang_thai_hd === 'Chờ xuất HĐ'
+        return (
+          <div className="fixed inset-0 bg-slate-900/60 z-[60] flex items-center justify-center p-3 overflow-y-auto" onClick={() => setDetail(null)}>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl my-6 flex flex-col max-h-[92vh] overflow-hidden border border-slate-200" onClick={e => e.stopPropagation()}>
+              <div className="px-5 py-3.5 border-b border-slate-200 bg-blue-50 flex items-center justify-between shrink-0">
+                <h3 className="text-base font-bold text-slate-800">Lệnh xuất {detail.so_lenh || ''}</h3>
+                <button onClick={() => setDetail(null)} className="text-slate-400 hover:text-slate-600 p-1"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="p-5 overflow-y-auto space-y-3 flex-1 text-xs">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                  <div><span className="text-slate-400">Khách hàng: </span><b className="text-slate-800">{detail.ten_khach_hang}</b></div>
+                  <div><span className="text-slate-400">NV kinh doanh: </span><b className="text-slate-700">{detail.nguoi_kd?.full_name || '—'}</b></div>
+                  <div><span className="text-slate-400">Ngày lập: </span>{fmtDate(detail.ngay)}</div>
+                  <div><span className="text-slate-400">Số hợp đồng: </span>{detail.so_hop_dong || '—'}</div>
+                  {detail.ma_so_thue && <div><span className="text-slate-400">MST: </span><span className="font-mono">{detail.ma_so_thue}</span></div>}
+                  {detail.nguoi_bg?.full_name && <div><span className="text-slate-400">Người bàn giao: </span><b className="text-slate-700">{detail.nguoi_bg.full_name}</b></div>}
+                  {detail.dia_chi && <div className="col-span-2"><span className="text-slate-400">Địa chỉ: </span>{detail.dia_chi}</div>}
+                  {detail.so_hoa_don && <div><span className="text-slate-400">Số HĐ: </span><b className="font-mono text-emerald-700">{detail.so_hoa_don}</b></div>}
+                  {detail.ngay_xuat_hd && <div><span className="text-slate-400">Ngày xuất HĐ: </span>{fmtDate(detail.ngay_xuat_hd)}</div>}
+                </div>
+                {isCol1 && detail.ly_do_tra && (
+                  <div className="rounded-md bg-rose-50 border border-rose-200 px-3 py-2 text-[11px] text-rose-700"><b>⚠ Kế toán trả lại — cần sửa:</b> {detail.ly_do_tra}</div>
+                )}
+                <div className="overflow-hidden rounded-md border border-slate-200">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 text-[10px] uppercase text-slate-500 [&>th]:px-2 [&>th]:py-1.5 [&>th]:text-left [&>th]:border-b [&>th]:border-slate-200">
+                        <th>Mã</th><th>Tên hàng</th><th className="!text-center">ĐVT</th><th className="!text-center">SL</th><th className="!text-right">Đơn giá</th><th className="!text-center">VAT</th><th className="!text-right">Thành tiền</th>
+                      </tr>
+                    </thead>
+                    <tbody className="[&>tr>td]:px-2 [&>tr>td]:py-1.5 [&>tr>td]:border-t [&>tr>td]:border-slate-100">
+                      {lines.map((l, i) => (
+                        <tr key={i}>
+                          <td className="font-mono">{l.ma_hang || ''}</td>
+                          <td>{l.ten_hang || ''}</td>
+                          <td className="text-center">{l.dvt || 'Cái'}</td>
+                          <td className="text-center font-semibold">{l.so_luong}</td>
+                          <td className="text-right">{fmtVnd(l.don_gia)}</td>
+                          <td className="text-center">{l.vat}%</td>
+                          <td className="text-right font-semibold">{fmtVnd((Number(l.so_luong) || 0) * (Number(l.don_gia) || 0))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex justify-end gap-6 text-xs pt-1">
+                  <div><span className="text-slate-400">Trước VAT: </span><b>{fmtVnd(truocVat)} đ</b></div>
+                  <div><span className="text-slate-400">Tổng sau VAT: </span><b className="text-slate-800 text-sm">{fmtVnd(sauVat)} đ</b></div>
+                </div>
+              </div>
+              <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-end gap-2 shrink-0 flex-wrap">
+                <Button variant="outline" onClick={() => setDetail(null)} className="h-9 text-xs">Đóng</Button>
+                {isManager && isCol1 && (
+                  <>
+                    <Button variant="outline" onClick={() => setRecallTarget(detail)} className="h-9 text-xs border-amber-200 text-amber-700 hover:bg-amber-50">← Thu hồi (sửa lại)</Button>
+                    <Button onClick={() => setHandoverTarget(detail)} className="h-9 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-1.5"><Send className="w-4 h-4" /> Bàn giao kế toán</Button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Xác nhận ĐẨY LÊN KANBAN (Nháp -> Chờ bàn giao). Sau khi đẩy khóa sửa/xóa. */}
+      {pushTarget && (
+        <div className="fixed inset-0 bg-slate-900/60 z-[65] flex items-center justify-center p-4" onClick={() => !acting && setPushTarget(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-5 space-y-4 border border-slate-200" onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-slate-800">Đẩy lệnh lên Kanban</h3>
+            <p className="text-xs text-slate-500">Đẩy lệnh của <b>{pushTarget.ten_khach_hang}</b> ({(pushTarget.soct_lenh_xuat_ct || []).length} dòng hàng) lên Kanban để quản lý duyệt & bàn giao kế toán?<br />Sau khi đẩy sẽ <b>khóa sửa/xóa</b> (muốn sửa lại phải nhờ quản lý Thu hồi).</p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setPushTarget(null)} disabled={acting} className="h-9 text-xs">Hủy</Button>
+              <Button onClick={doPush} disabled={acting} className="h-9 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-1.5"><Send className="w-4 h-4" />{acting ? 'Đang đẩy…' : 'Đẩy lên Kanban'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Xác nhận THU HỒI (Kanban -> Nháp), CHỈ sale_admin */}
+      {recallTarget && (
+        <div className="fixed inset-0 bg-slate-900/60 z-[65] flex items-center justify-center p-4" onClick={() => !acting && setRecallTarget(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-5 space-y-4 border border-slate-200" onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-slate-800">Thu hồi lệnh về Nháp</h3>
+            <p className="text-xs text-slate-500">Thu hồi lệnh của <b>{recallTarget.ten_khach_hang}</b> khỏi Kanban? Lệnh về Nháp và <b>mở khóa</b> cho kinh doanh sửa lại.</p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setRecallTarget(null)} disabled={acting} className="h-9 text-xs">Hủy</Button>
+              <Button onClick={doRecall} disabled={acting} className="h-9 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white">{acting ? 'Đang thu hồi…' : 'Thu hồi'}</Button>
             </div>
           </div>
         </div>

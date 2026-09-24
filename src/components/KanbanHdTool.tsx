@@ -344,6 +344,19 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     finally { setKdBusy(false) }
   }
 
+  // Thu hồi lệnh KD về Nháp (gỡ khỏi Kanban). CHỈ admin dùng ở bàn /admin (sale_admin thu hồi ở trang KD).
+  const kdRecall = async (id: string) => {
+    setKdBusy(true)
+    try {
+      const res = await fetch('/api/admin/lenh-xuat?recall=1', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (res.ok) { showNotification('success', 'Đã thu hồi lệnh về Nháp (trang Kinh doanh).'); setKdActive(null); loadKd() }
+      else showNotification('error', j.error || 'Lỗi thu hồi')
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setKdBusy(false) }
+  }
+
   // Bảng chuyển hợp lệ cho thẻ KD trên BÀN KẾ TOÁN (admin/kthc). Handover 1->2 do sale_admin làm ở trang KD;
   // ở đây admin vẫn kéo được 1->2 (server cho admin). Trả về 2->1 đi qua modal lý do.
   const KD_TRANS: Record<string, string[]> = {
@@ -2133,8 +2146,10 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
               const st = kdActive.trang_thai_hd
               const isKt = role === 'admin' || role === 'kthc'
               const btns: React.ReactNode[] = []
-              if (st === 'Chờ xuất HĐ' && role === 'admin')
+              if (st === 'Chờ xuất HĐ' && role === 'admin') {
+                btns.push(<Button key="thuhoi" variant="outline" onClick={() => kdRecall(kdActive.id)} disabled={kdBusy} className="h-9 text-xs border-amber-200 text-amber-700 hover:bg-amber-50">← Thu hồi</Button>)
                 btns.push(<Button key="giao" onClick={() => handleKdMove(kdActive, 'Đang xử lý HĐ')} disabled={kdBusy} className="h-9 bg-blue-600 hover:bg-blue-700 text-white text-xs">Bàn giao Kế toán →</Button>)
+              }
               if (st === 'Đang xử lý HĐ' && isKt) {
                 btns.push(<Button key="tra" variant="outline" onClick={() => handleKdMove(kdActive, 'Chờ xuất HĐ')} disabled={kdBusy} className="h-9 text-xs border-rose-200 text-rose-700 hover:bg-rose-50">← Trả lại</Button>)
                 btns.push(<Button key="hd" onClick={() => handleKdMove(kdActive, 'Đã lên hóa đơn')} disabled={kdBusy} className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs">Lên hóa đơn →</Button>)

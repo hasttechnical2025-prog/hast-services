@@ -42,6 +42,7 @@ async function kanbanGet(searchParams: URLSearchParams) {
   if (searchParams.get('count') === '1') {
     const rows = await selectAll<any>((from, to) => supabaseAdmin
       .from('soct_lenh_xuat').select('id, trang_thai_hd')
+      .eq('tren_kanban', true)
       .in('trang_thai_hd', ['Chờ xuất HĐ', 'Đang xử lý HĐ']).range(from, to))
     let c1 = 0, c2 = 0
     for (const t of (rows || [])) { if (t.trang_thai_hd === 'Chờ xuất HĐ') c1++; else c2++ }
@@ -56,7 +57,8 @@ async function kanbanGet(searchParams: URLSearchParams) {
 
   const rows = await selectAll<any>((from, to) => supabaseAdmin
     .from('soct_lenh_xuat')
-    .select(`*, soct_lenh_xuat_ct(*), nguoi_kd:soct_users!nguoi_kinh_doanh_id(full_name)`)
+    .select(`*, soct_lenh_xuat_ct(*), nguoi_kd:soct_users!nguoi_kinh_doanh_id(full_name), nguoi_bg:soct_users!nguoi_ban_giao_id(full_name)`)
+    .eq('tren_kanban', true)   // NHÁP (chưa đẩy) KHÔNG hiện trên Kanban
     .in('trang_thai_hd', ['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn', 'Đã thanh toán'])
     .order('ngay', { ascending: false }).range(from, to))
 
@@ -88,6 +90,7 @@ async function kanbanGet(searchParams: URLSearchParams) {
       so_lenh: r.so_lenh, ngay: r.ngay, so_hop_dong: r.so_hop_dong || null,
       ten_khach_hang: r.ten_khach_hang, dia_chi: r.dia_chi, ma_so_thue: r.ma_so_thue,
       nguoi_kinh_doanh_id: r.nguoi_kinh_doanh_id, nguoi_kd_ten: r.nguoi_kd?.full_name || '',
+      nguoi_ban_giao_ten: r.nguoi_bg?.full_name || '',
       trang_thai_hd: r.trang_thai_hd, so_hoa_don: r.so_hoa_don, ngay_xuat_hd: r.ngay_xuat_hd, ly_do_tra: r.ly_do_tra || null,
       ban_giao_kt_luc: r.ban_giao_kt_luc, thanh_toan_luc: r.thanh_toan_luc,
       tach_rieng: r.tach_rieng, lam_tron: r.lam_tron, ten_khach_hd: r.ten_khach_hd,
@@ -119,7 +122,7 @@ export async function GET(request: Request) {
     if (id) {
       const { data, error } = await supabaseAdmin
         .from('soct_lenh_xuat')
-        .select(`*, soct_lenh_xuat_ct(*), nguoi_kd:soct_users!nguoi_kinh_doanh_id(full_name)`)
+        .select(`*, soct_lenh_xuat_ct(*), nguoi_kd:soct_users!nguoi_kinh_doanh_id(full_name), nguoi_bg:soct_users!nguoi_ban_giao_id(full_name)`)
         .eq('id', id).single()
       if (error || !data) return NextResponse.json({ error: 'Không tìm thấy lệnh' }, { status: 404 })
       // NV chỉ xem lệnh của mình
@@ -133,7 +136,7 @@ export async function GET(request: Request) {
     const rows = await selectAll<any>((from, to) => {
       let q = supabaseAdmin
         .from('soct_lenh_xuat')
-        .select(`*, soct_lenh_xuat_ct(*), nguoi_kd:soct_users!nguoi_kinh_doanh_id(full_name)`)
+        .select(`*, soct_lenh_xuat_ct(*), nguoi_kd:soct_users!nguoi_kinh_doanh_id(full_name), nguoi_bg:soct_users!nguoi_ban_giao_id(full_name)`)
       if (!isManager) q = q.eq('nguoi_kinh_doanh_id', session.id)   // NV chỉ thấy của mình (scope ở SERVER)
       return q.order('ngay', { ascending: false }).order('created_at', { ascending: false }).range(from, to)
     })
@@ -289,6 +292,7 @@ async function kanbanPut(body: any) {
   const updates: any = { trang_thai_hd, updated_at: new Date().toISOString() }
 
   if (isHandover && tach_rieng !== undefined) updates.tach_rieng = !!tach_rieng
+  if (isHandover) updates.nguoi_ban_giao_id = session.id   // đóng dấu NGƯỜI bàn giao (double-check của sale_admin)
 
   if (trang_thai_hd === 'Đã lên hóa đơn' || trang_thai_hd === 'Đã thanh toán') {
     if (so_hoa_don !== undefined) updates.so_hoa_don = String(so_hoa_don).trim()
@@ -303,7 +307,7 @@ async function kanbanPut(body: any) {
       updates.nguoi_xuat_hd = null
       updates.dntt_luc = null; updates.so_dntt = null
       updates.minvoice_luc = null; updates.minvoice_lan = 0
-      updates.ban_giao_kt_luc = null
+      updates.ban_giao_kt_luc = null; updates.nguoi_ban_giao_id = null   // sẽ đóng dấu lại khi bàn giao lần sau
     }
   }
 
@@ -327,12 +331,77 @@ async function kanbanPut(body: any) {
   return NextResponse.json({ success: true, count: targetIds.length })
 }
 
-// PUT: sửa lệnh — CHỈ khi còn ở cột 1 (Chờ xuất HĐ). Sang kế toán rồi thì khóa (giống kỹ thuật).
+// ===== ĐẨY LÊN KANBAN (Nháp -> Chờ bàn giao) =====
+// Kinh doanh tự quyết định đẩy: NV đẩy lệnh CỦA MÌNH, sale_admin/admin đẩy lệnh bất kỳ. Sau khi đẩy KHÓA
+// sửa/xóa (lưu vết). Yêu cầu có ≥1 dòng hàng. Xóa ly_do_tra (lần nộp mới). Broadcast để mọi bàn cập nhật.
+async function pushKanban(body: any) {
+  const session = await requireRole('admin', 'kinh_doanh')
+  if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
+  const { isManager } = await scope(session)
+  const id = body?.id
+  if (!id) return NextResponse.json({ error: 'Thiếu id lệnh' }, { status: 400 })
+
+  const { data: cur } = await supabaseAdmin
+    .from('soct_lenh_xuat').select('nguoi_kinh_doanh_id, tren_kanban').eq('id', id).maybeSingle()
+  if (!cur) return NextResponse.json({ error: 'Không tìm thấy lệnh' }, { status: 404 })
+  if (!isManager && cur.nguoi_kinh_doanh_id !== session.id) {
+    return NextResponse.json({ error: 'Không có quyền đẩy lệnh này' }, { status: 403 })
+  }
+  if (cur.tren_kanban) return NextResponse.json({ error: 'Lệnh đã ở trên Kanban.' }, { status: 409 })
+
+  const { count } = await supabaseAdmin.from('soct_lenh_xuat_ct').select('id', { count: 'exact', head: true }).eq('lenh_id', id)
+  if ((count || 0) === 0) return NextResponse.json({ error: 'Lệnh chưa có dòng hàng — không đẩy được.' }, { status: 400 })
+
+  const { error } = await supabaseAdmin.from('soct_lenh_xuat')
+    .update({ tren_kanban: true, trang_thai_hd: 'Chờ xuất HĐ', ly_do_tra: null, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  await logAudit(session, 'Đẩy lệnh xuất lên Kanban', `lệnh ${id}`)
+  await broadcastLenhXuatChanged()
+  return NextResponse.json({ success: true })
+}
+
+// ===== THU HỒI (Kanban Chờ bàn giao -> Nháp) =====
+// CHỈ sale_admin/admin (double-check gate). Chỉ khi lệnh CÒN Ở CỘT 1 ('Chờ xuất HĐ'); đã sang cột 2+ thì
+// kthc phải "Trả lại" về cột 1 trước. Đưa về Nháp -> mở khóa cho kinh doanh sửa; GIỮ ly_do_tra (nếu kthc
+// đã trả kèm lý do) để NV biết cần sửa gì.
+async function recallKanban(body: any) {
+  const session = await requireRole('admin', 'kinh_doanh')
+  if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
+  let isSaleAdmin = session.role === 'admin'
+  if (session.role === 'kinh_doanh') {
+    const { data } = await supabaseAdmin.from('soct_users').select('kd_quan_ly').eq('id', session.id).maybeSingle()
+    isSaleAdmin = !!data?.kd_quan_ly
+  }
+  if (!isSaleAdmin) return NextResponse.json({ error: 'Chỉ quản lý kinh doanh (sale_admin) mới được thu hồi lệnh.' }, { status: 403 })
+
+  const id = body?.id
+  if (!id) return NextResponse.json({ error: 'Thiếu id lệnh' }, { status: 400 })
+  const { data: cur } = await supabaseAdmin
+    .from('soct_lenh_xuat').select('tren_kanban, trang_thai_hd').eq('id', id).maybeSingle()
+  if (!cur) return NextResponse.json({ error: 'Không tìm thấy lệnh' }, { status: 404 })
+  if (!cur.tren_kanban) return NextResponse.json({ error: 'Lệnh đang ở Nháp — không cần thu hồi.' }, { status: 409 })
+  if (cur.trang_thai_hd !== 'Chờ xuất HĐ') {
+    return NextResponse.json({ error: 'Lệnh đã bàn giao kế toán — kế toán phải "Trả lại" về cột 1 trước khi thu hồi.' }, { status: 409 })
+  }
+
+  const { error } = await supabaseAdmin.from('soct_lenh_xuat')
+    .update({ tren_kanban: false, ban_giao_kt_luc: null, nguoi_ban_giao_id: null, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  await logAudit(session, 'Thu hồi lệnh xuất về Nháp', `lệnh ${id}`)
+  await broadcastLenhXuatChanged()
+  return NextResponse.json({ success: true })
+}
+
+// PUT: sửa lệnh — CHỈ khi còn NHÁP (chưa đẩy Kanban). Đẩy rồi thì khóa (lưu vết).
 export async function PUT(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const b = await request.json()
     if (searchParams.get('kanban') === '1') return await kanbanPut(b)
+    if (searchParams.get('push') === '1') return await pushKanban(b)      // Nháp -> đẩy lên Kanban
+    if (searchParams.get('recall') === '1') return await recallKanban(b)  // Thu hồi: Kanban -> Nháp (chỉ sale_admin)
 
     const session = await requireRole('admin', 'kinh_doanh')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
@@ -342,14 +411,15 @@ export async function PUT(request: Request) {
 
     const { data: cur } = await supabaseAdmin
       .from('soct_lenh_xuat')
-      .select('nguoi_kinh_doanh_id, trang_thai_hd')
+      .select('nguoi_kinh_doanh_id, tren_kanban')
       .eq('id', b.id).maybeSingle()
     if (!cur) return NextResponse.json({ error: 'Không tìm thấy lệnh' }, { status: 404 })
     if (!isManager && cur.nguoi_kinh_doanh_id !== session.id) {
       return NextResponse.json({ error: 'Không có quyền sửa lệnh này' }, { status: 403 })
     }
-    if (cur.trang_thai_hd !== 'Chờ xuất HĐ') {
-      return NextResponse.json({ error: 'Lệnh đã bàn giao kế toán — không sửa được. Nhờ kế toán trả về nếu cần.' }, { status: 409 })
+    // Khóa sửa khi đã ĐẨY LÊN KANBAN (lưu vết). Muốn sửa: sale_admin "Thu hồi" về Nháp trước.
+    if (cur.tren_kanban) {
+      return NextResponse.json({ error: 'Lệnh đã đẩy lên Kanban — không sửa được. Nhờ quản lý kinh doanh "Thu hồi" về Nháp nếu cần.' }, { status: 409 })
     }
 
     const updates: any = { updated_at: new Date().toISOString() }
@@ -394,13 +464,13 @@ export async function DELETE(request: Request) {
 
     const { data: cur } = await supabaseAdmin
       .from('soct_lenh_xuat')
-      .select('nguoi_kinh_doanh_id, trang_thai_hd').eq('id', id).maybeSingle()
+      .select('nguoi_kinh_doanh_id, tren_kanban').eq('id', id).maybeSingle()
     if (!cur) return NextResponse.json({ error: 'Không tìm thấy lệnh' }, { status: 404 })
     if (!isManager && cur.nguoi_kinh_doanh_id !== session.id) {
       return NextResponse.json({ error: 'Không có quyền xóa lệnh này' }, { status: 403 })
     }
-    if (cur.trang_thai_hd !== 'Chờ xuất HĐ') {
-      return NextResponse.json({ error: 'Lệnh đã bàn giao kế toán — không xóa được.' }, { status: 409 })
+    if (cur.tren_kanban) {
+      return NextResponse.json({ error: 'Lệnh đã đẩy lên Kanban — không xóa được. Nhờ quản lý kinh doanh "Thu hồi" về Nháp trước.' }, { status: 409 })
     }
 
     const { error } = await supabaseAdmin.from('soct_lenh_xuat').delete().eq('id', id)
