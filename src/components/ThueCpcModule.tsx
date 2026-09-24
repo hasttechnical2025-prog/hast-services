@@ -41,7 +41,7 @@ const fmtInt = (v: any) => (v === null || v === undefined || v === '' ? '—' : 
 // Kỳ mặc định tab Nhập counter: từ ngày 1..cutoff hiện kỳ THÁNG TRƯỚC (còn đang đọc counter máy
 // chốt giữa tháng của kỳ trước — đọc vào ngày D của tháng này); sau ngày cutoff mới nhảy sang kỳ
 // tháng hiện tại. cutoff = ngày chốt lớn nhất trong đợt (admin đặt ở Cấu hình: counter_chuyen_ky_ngay).
-const monthNow = (cutoff = 25) => {
+const monthNow = (cutoff = 20) => {
   const d = new Date()
   if (d.getDate() <= cutoff) {
     // Mẹo an toàn: Đưa ngày về mùng 1 trước khi lùi tháng để tránh lỗi tràn lịch JS
@@ -94,10 +94,12 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
   const [dueCount, setDueCount] = useState(0) // số máy cần lấy counter (badge tab) — theo kỳ đang chọn
   const [counterThang, setCounterThang] = useState(monthNow()) // kỳ đang chọn ở tab Nhập counter (nâng lên để badge bám theo)
   const [thangTouched, setThangTouched] = useState(false) // user đã tự chọn kỳ chưa (đừng ghi đè bằng mặc định)
-  // Lấy "ngày chuyển kỳ" từ Cấu hình -> đặt lại kỳ mặc định cho đúng (nếu user chưa tự chọn).
+  const [chuyenKyNgay, setChuyenKyNgay] = useState(20) // ngưỡng chia kỳ máy chốt số (Cấu hình)
+  // Lấy "ngày chuyển kỳ" từ Cấu hình -> đặt ngưỡng + kỳ mặc định cho đúng (nếu user chưa tự chọn).
   useEffect(() => {
     fetch('/api/admin/cau-hinh').then(r => r.ok ? r.json() : null).then(j => {
-      const cutoff = parseInt(j?.data?.counter_chuyen_ky_ngay || '25') || 25
+      const cutoff = parseInt(j?.data?.counter_chuyen_ky_ngay || '20') || 20
+      setChuyenKyNgay(cutoff)
       if (!thangTouched) setCounterThang(monthNow(cutoff))
     }).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -120,12 +122,12 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
       let n = 0
       for (const r of j.data?.rows || []) {
         const daNhap = r.so_bw != null || r.so_mau != null
-        const s = counterStatus(chotSoDate(counterThang, r.chot_so_ngay, r.chot_so_cuoi_thang), daNhap, today).status
+        const s = counterStatus(chotSoDate(counterThang, r.chot_so_ngay, r.chot_so_cuoi_thang, chuyenKyNgay), daNhap, today).status
         if (s === 'overdue' || s === 'due_soon') n++
       }
       setDueCount(n)
     }).catch(() => { })
-  }, [counterThang, badgeVer])
+  }, [counterThang, badgeVer, chuyenKyNgay])
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
       {/* Tab cháu STICKY: ghim dưới header (--head-h) + tab con (~2.5rem). Nền trắng phủ hết bề
@@ -149,7 +151,7 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
       )}
       {active === 'counter' && (
         <div className="space-y-8">
-          {canS('counter') && <CounterTab showNotification={showNotification} thang={counterThang} setThang={(v: string) => { setThangTouched(true); setCounterThang(v) }} onSaved={() => setBadgeVer(v => v + 1)} refreshVer={refreshVer} />}
+          {canS('counter') && <CounterTab showNotification={showNotification} thang={counterThang} setThang={(v: string) => { setThangTouched(true); setCounterThang(v) }} chuyenKyNgay={chuyenKyNgay} onSaved={() => setBadgeVer(v => v + 1)} refreshVer={refreshVer} />}
           {canS('bang_ke') && <div className="pt-2 border-t border-slate-100"><BangKeTab showNotification={showNotification} thang={counterThang} refreshVer={refreshVer} /></div>}
         </div>
       )}
@@ -532,7 +534,7 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
 }
 
 // ============================ TAB 2: NHẬP COUNTER ============================
-function CounterTab({ showNotification, thang, setThang, onSaved, refreshVer = 0 }: { showNotification: Notify, thang: string, setThang: (v: string) => void, onSaved: () => void, refreshVer?: number }) {
+function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSaved, refreshVer = 0 }: { showNotification: Notify, thang: string, setThang: (v: string) => void, chuyenKyNgay?: number, onSaved: () => void, refreshVer?: number }) {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [edits, setEdits] = useState<Record<string, { so_bw: string, so_mau: string, ghi_chu: string }>>({})
@@ -704,7 +706,7 @@ function CounterTab({ showNotification, thang, setThang, onSaved, refreshVer = 0
   // Gắn trạng thái lấy counter cho kỳ đang chọn
   const withStatus = rows.map((r: any) => {
     const daNhap = r.so_bw != null || r.so_mau != null
-    const chot = chotSoDate(thang, r.chot_so_ngay, r.chot_so_cuoi_thang)
+    const chot = chotSoDate(thang, r.chot_so_ngay, r.chot_so_cuoi_thang, chuyenKyNgay)
     const st = counterStatus(chot, daNhap, today)
     return { r, st }
   })

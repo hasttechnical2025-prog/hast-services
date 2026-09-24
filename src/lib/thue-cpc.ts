@@ -95,10 +95,14 @@ export function kyTruoc(thang_nam: string): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
-// Ngày ĐỌC counter đóng kỳ 'YYYY-MM' (= cuối kỳ). Trả về Date (UTC) hoặc null nếu chưa cấu hình.
-// - Cuối tháng: đọc vào ngày cuối của CHÍNH tháng M (kỳ trùng tháng dương lịch).
-// - Giữa tháng (ngày D): kỳ chạy D/M -> D/(M+1), nên đọc vào ngày D của tháng M+1.
-export function chotSoDate(thang_nam: string, chot_so_ngay: number | null | undefined, cuoi_thang: boolean): Date | null {
+// Ngày ĐỌC counter đóng kỳ 'YYYY-MM'. Trả về Date (UTC) hoặc null nếu chưa cấu hình.
+// PHỤ THUỘC NGƯỠNG chuyenKyNgay (mặc định 20) — quyết định máy thuộc kỳ nào & đọc vào tháng nào:
+// - Cuối tháng: đọc vào ngày cuối CHÍNH tháng M (như chốt > ngưỡng).
+// - Giữa tháng ngày D:
+//     · D  >  ngưỡng -> máy thuộc kỳ THÁNG NÀY  -> đọc vào ngày D của CHÍNH tháng M (D/M).
+//     · D <=  ngưỡng -> máy thuộc kỳ THÁNG TRƯỚC -> đọc vào ngày D của tháng M+1 (D/(M+1)).
+//   (VD ngưỡng 20, hôm nay 24/9: chốt 25 ở kỳ T9 = 25/9 "còn 1"; chốt 18 ở kỳ T8 = 18/9.)
+export function chotSoDate(thang_nam: string, chot_so_ngay: number | null | undefined, cuoi_thang: boolean, chuyenKyNgay = 20): Date | null {
   const [y, m] = thang_nam.split('-').map(Number)
   if (!y || !m) return null
   if (cuoi_thang) {
@@ -106,7 +110,12 @@ export function chotSoDate(thang_nam: string, chot_so_ngay: number | null | unde
     return new Date(Date.UTC(y, m - 1, lastDay))
   }
   if (chot_so_ngay && chot_so_ngay >= 1) {
-    // Tháng M+1 (m là 1-based -> chỉ số tháng = m ứng với tháng kế tiếp)
+    if (chot_so_ngay > chuyenKyNgay) {
+      // Kỳ THÁNG NÀY: đọc vào ngày D của chính tháng M (kẹp theo số ngày thực của tháng).
+      const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate()
+      return new Date(Date.UTC(y, m - 1, Math.min(chot_so_ngay, lastDay)))
+    }
+    // Kỳ THÁNG TRƯỚC: đọc vào ngày D của tháng M+1 (m là 1-based -> chỉ số tháng = m ứng với tháng kế tiếp).
     const next = new Date(Date.UTC(y, m, 1))
     const ny = next.getUTCFullYear()
     const nIdx = next.getUTCMonth() // 0-based của tháng M+1

@@ -369,6 +369,9 @@ async function counter(tinhTrang: string, ngay: string, maMay: string, model: st
   const [y, m] = thang.split('-').map(Number)
   const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate()
   const lead = Math.max(5, lastDay - vnNow.getUTCDate())
+  // Ngưỡng chia kỳ máy chốt số (Cấu hình counter_chuyen_ky_ngay; mặc định 20).
+  const { data: ckRow } = await supabaseAdmin.from('soct_cau_hinh').select('gia_tri').eq('khoa', 'counter_chuyen_ky_ngay').maybeSingle()
+  const chuyenKyNgay = parseInt(ckRow?.gia_tri || '20') || 20
 
   const mays = await selectAll((from, to) => supabaseAdmin
     .from('soct_khach_hang')
@@ -384,7 +387,7 @@ async function counter(tinhTrang: string, ngay: string, maMay: string, model: st
       : st.status === 'due_soon' ? (st.days === 0 ? 'Đến hạn hôm nay' : `Còn ${st.days} ngày`)
         : st.status === 'not_yet' ? `Chưa tới hạn (còn ${st.days} ngày)` : 'Chưa đặt ngày chốt'
 
-  let list = (mays as any[]).map(mc => ({ ...mc, _st: counterStatus(chotSoDate(thang, mc.chot_so_ngay, mc.chot_so_cuoi_thang), daNhapSet.has(mc.id), today, lead) }))
+  let list = (mays as any[]).map(mc => ({ ...mc, _st: counterStatus(chotSoDate(thang, mc.chot_so_ngay, mc.chot_so_cuoi_thang, chuyenKyNgay), daNhapSet.has(mc.id), today, lead) }))
 
   // Hỏi theo NGÀY CHỐT SỐ cụ thể ("máy nào cần lấy counter ngày 25")
   const day = /^\d{4}-\d{2}-\d{2}$/.test(ngay || '') ? parseInt(ngay.slice(8, 10), 10) : null

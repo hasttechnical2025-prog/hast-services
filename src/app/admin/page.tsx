@@ -452,7 +452,7 @@ export default function AdminDashboard() {
   // Ngày CHUYỂN KỲ mặc định của tab Nhập counter: từ ngày 1..N hiển thị kỳ THÁNG TRƯỚC (còn đang
   // đọc counter máy chốt giữa tháng của kỳ trước), sau ngày N mới nhảy sang kỳ tháng hiện tại.
   // N = ngày chốt lớn nhất trong đợt (admin đặt ở Cấu hình; mặc định 25).
-  const counterChuyenKyNgay = parseInt(cauHinh.counter_chuyen_ky_ngay || '25') || 25
+  const counterChuyenKyNgay = parseInt(cauHinh.counter_chuyen_ky_ngay || '20') || 20
 
   // Máy thuê/CPC sắp/đã đến hạn lấy counter (báo trước N ngày) — panel cạnh cảnh báo HĐBT.
   useEffect(() => {
@@ -473,7 +473,7 @@ export default function AdminDashboard() {
         const due = (j.data?.rows || [])
           .map((m: any) => {
             const daNhap = m.so_bw != null || m.so_mau != null
-            const st = counterStatus(chotSoDate(thang, m.chot_so_ngay, m.chot_so_cuoi_thang), daNhap, today, counterBaoTruocNgay)
+            const st = counterStatus(chotSoDate(thang, m.chot_so_ngay, m.chot_so_cuoi_thang, counterChuyenKyNgay), daNhap, today, counterBaoTruocNgay)
             return { ...m, _st: st }
           })
           .filter((m: any) => m._st.status === 'overdue' || m._st.status === 'due_soon')
@@ -6729,7 +6729,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     nguong_ton_thap: cauHinh.nguong_ton_thap || '0',
     phieu_cung_canh_bao_ngay: cauHinh.phieu_cung_canh_bao_ngay || '3',
     counter_bao_truoc_ngay: cauHinh.counter_bao_truoc_ngay || '3',
-    counter_chuyen_ky_ngay: cauHinh.counter_chuyen_ky_ngay || '25',
+    counter_chuyen_ky_ngay: cauHinh.counter_chuyen_ky_ngay || '20',
     bao_cao_cho_phep_ngay: cauHinh.bao_cao_cho_phep_ngay || '7',
     phien_van_phong_ngay: cauHinh.phien_van_phong_ngay || '7',
     phien_ktv_ngay: cauHinh.phien_ktv_ngay || '30',
@@ -6803,7 +6803,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
       nguong_ton_thap: String(parseInt(cfg.nguong_ton_thap) || 0),
       phieu_cung_canh_bao_ngay: String(parseInt(cfg.phieu_cung_canh_bao_ngay) || 3),
       counter_bao_truoc_ngay: String(parseInt(cfg.counter_bao_truoc_ngay) || 3),
-      counter_chuyen_ky_ngay: String(Math.min(31, Math.max(1, parseInt(cfg.counter_chuyen_ky_ngay) || 25))),
+      counter_chuyen_ky_ngay: String(Math.min(31, Math.max(1, parseInt(cfg.counter_chuyen_ky_ngay) || 20))),
       bao_cao_cho_phep_ngay: String(Number.isFinite(parseInt(cfg.bao_cao_cho_phep_ngay)) ? parseInt(cfg.bao_cao_cho_phep_ngay) : 7),
       phien_van_phong_ngay: String(parseInt(cfg.phien_van_phong_ngay) || 7),
       phien_ktv_ngay: String(parseInt(cfg.phien_ktv_ngay) || 30),
@@ -6885,7 +6885,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
           {numField('Ngưỡng tồn thấp (đỏ khi ≤)', 'nguong_ton_thap')}
           {numField('Cảnh báo trễ nộp phiếu (ngày)', 'phieu_cung_canh_bao_ngay')}
           {numField('Báo trước hạn lấy counter (ngày)', 'counter_bao_truoc_ngay', 'Máy thuê/CPC: cảnh báo trước N ngày tới hạn chốt số')}
-          {numField('Ngày chuyển kỳ counter', 'counter_chuyen_ky_ngay', 'Nhập counter: từ ngày 1..N hiện kỳ tháng TRƯỚC (đang đọc máy chốt giữa tháng); sau ngày N mới nhảy sang kỳ hiện tại. Đặt = ngày chốt lớn nhất trong đợt (VD 25)')}
+          {numField('Ngày chuyển kỳ counter', 'counter_chuyen_ky_ngay', 'Máy chốt số ngày ≤ N thuộc kỳ THÁNG TRƯỚC (đọc vào ngày D tháng sau); chốt > N thuộc kỳ THÁNG NÀY (đọc vào ngày D chính tháng). Cũng là mốc dropdown mặc định nhảy kỳ. Mặc định 20')}
           {numField('KTV nộp báo cáo trễ tối đa (ngày)', 'bao_cao_cho_phep_ngay', 'Cho phép nộp/sửa báo cáo lùi về N ngày. 0 = chỉ hôm nay')}
         </div>
         <div className="flex flex-wrap gap-6">
