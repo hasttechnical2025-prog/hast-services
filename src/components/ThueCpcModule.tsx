@@ -28,7 +28,7 @@ const chotLabelShort = (r: any) => r.chot_so_cuoi_thang ? 'Cuối tháng' : (r.c
 const STATUS_BADGE: Record<CounterStatus, { label: (d: number) => string, cls: string }> = {
   done: { label: () => 'Đã lấy', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   overdue: { label: d => `Quá hạn ${d} ngày`, cls: 'bg-red-50 text-red-700 border-red-200' },
-  due_soon: { label: d => d === 0 ? 'Đến ngày hôm nay' : `Còn ${d} ngày`, cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  due_soon: { label: d => d === 0 ? 'Hôm nay' : `Còn ${d} ngày`, cls: 'bg-amber-50 text-amber-700 border-amber-200' },
   not_yet: { label: d => `Còn ${d} ngày`, cls: 'bg-slate-50 text-slate-500 border-slate-200' },
   no_date: { label: () => 'Chưa đặt ngày chốt', cls: 'bg-slate-50 text-slate-400 border-slate-200' },
 }
