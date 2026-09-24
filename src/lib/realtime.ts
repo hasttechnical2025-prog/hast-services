@@ -19,6 +19,8 @@ export const GIAMDINH_TOPIC = 'soct_giamdinh'
 export const DATHANG_TOPIC = 'soct_dathang'
 export const BAOTRI_TOPIC = 'soct_baotri'
 export const THUECPC_TOPIC = 'soct_thuecpc'
+// Lệnh xuất hàng (kinh doanh) — topic RIÊNG để không refetch chéo Kanban kỹ thuật.
+export const LENHXUAT_TOPIC = 'soct_lenhxuat'
 export const DATA_EVENT = 'changed'
 
 async function broadcast(topic: string, event: string): Promise<void> {
@@ -78,4 +80,8 @@ export function broadcastBaoTriChanged(): Promise<void> {
 
 export function broadcastThueCpcChanged(): Promise<void> {
   return broadcast(THUECPC_TOPIC, DATA_EVENT)
+}
+
+export function broadcastLenhXuatChanged(): Promise<void> {
+  return broadcast(LENHXUAT_TOPIC, DATA_EVENT)
 }
