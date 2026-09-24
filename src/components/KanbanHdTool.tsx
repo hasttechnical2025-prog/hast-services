@@ -86,6 +86,23 @@ type GroupedCard = {
   trang_thai_hd: string
 }
 
+// Thẻ nguồn KINH DOANH (lệnh xuất hàng) — shape SẠCH RIÊNG từ /api/admin/lenh-xuat?kanban=1.
+// KHÔNG trộn vào Ticket kỹ thuật; component vẽ nhánh render riêng để không đụng path kỹ thuật.
+type KdLine = { stt: number; ma_hang: string | null; ten_hang: string | null; ten_hang_hd: string | null; dvt: string | null; so_luong: number; don_gia: number; vat: number; thanh_tien: number }
+type KdTicket = {
+  id: string; nguon: 'lenh_xuat'
+  so_lenh: string | null; ngay: string; so_hop_dong: string | null
+  ten_khach_hang: string; dia_chi: string | null; ma_so_thue: string | null
+  nguoi_kinh_doanh_id: string | null; nguoi_kd_ten: string
+  trang_thai_hd: string; so_hoa_don: string | null; ngay_xuat_hd: string | null
+  ban_giao_kt_luc: string | null; thanh_toan_luc: string | null
+  tach_rieng: boolean; lam_tron: number | null; ten_khach_hd: string | null
+  minvoice_luc: string | null; minvoice_lan: number
+  dntt_luc: string | null; so_dntt: string | null; dntt_lan: number
+  lines: KdLine[]; tong_truoc_vat: number; tong_sau_vat: number
+  da_thu: number; cho_duyet: number
+}
+
 const fmtDate = (s: string) => {
   if (!s) return ''
   const d = new Date(s)
@@ -170,6 +187,8 @@ function buildMinvoiceRows(tickets: Ticket[], kyHieu: string, ngayHD: Date, soDo
 
 export default function KanbanHdTool({ role = 'staff', showNotification }: { role?: string, showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [tickets, setTickets] = useState<Ticket[]>([])
+  const [kdTickets, setKdTickets] = useState<KdTicket[]>([]) // nguồn kinh doanh (lệnh xuất) — chỉ admin/kthc
+  const [kdActive, setKdActive] = useState<KdTicket | null>(null) // modal xem thẻ KD
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("") // tìm khách / số phiếu / số hóa đơn
   const [col3ChiKyNay, setCol3ChiKyNay] = useState(false) // cột Chờ thanh toán: lọc theo kỳ hay lũy kế
@@ -280,6 +299,31 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       supabase.removeChannel(ch)
     }
   }, [load])
+
+  // Nguồn KINH DOANH (lệnh xuất): CHỈ kế toán (admin/kthc) thấy trên bàn này. tech_admin/staff = trống.
+  const canSeeKd = role === 'admin' || role === 'kthc'
+  const loadKd = useCallback(async () => {
+    if (!canSeeKd) { setKdTickets([]); return }
+    try {
+      const res = await fetch(`/api/admin/lenh-xuat?kanban=1&thang_nam=${thang}`)
+      const j = await res.json()
+      if (res.ok) {
+        const fresh: KdTicket[] = j.data || []
+        setKdTickets(fresh)
+        setKdActive(prev => prev ? (fresh.find(t => t.id === prev.id) || null) : prev)
+      }
+    } catch { /* im lặng — nguồn phụ, không chặn bàn kỹ thuật */ }
+  }, [canSeeKd, thang])
+
+  useEffect(() => {
+    loadKd()
+    // Topic RIÊNG soct_lenhxuat -> không refetch chéo với Kanban kỹ thuật.
+    const ch = supabase
+      .channel("soct_lenhxuat")
+      .on('broadcast', { event: "changed" }, () => { loadKd() })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [loadKd])
 
   // Đóng modal -> bỏ trạng thái đang sửa tên (tránh sót khi mở thẻ khác)
   useEffect(() => { if (!activeCard) { setEditName(null); setRoundOpen(false) } }, [activeCard])
@@ -898,6 +942,18 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     && (!col3ChiKyNay || String(t.ngay_xuat_hd || '').startsWith(thang)))
   const col4Tickets = shown.filter(t => t.trang_thai_hd === 'Đã thanh toán')
 
+  // ===== Nguồn KINH DOANH (lệnh xuất) — thẻ RIÊNG, 1 lệnh = 1 thẻ (không gom cụm). =====
+  const kdMatch = (t: KdTicket) => {
+    if (!sTokens.length) return true
+    const hay = norm(`${t.ten_khach_hang || ''} ${t.so_lenh || ''} ${t.so_hoa_don || ''} ${t.so_hop_dong || ''} ${t.nguoi_kd_ten || ''}`)
+    return sTokens.every(tok => hay.includes(tok))
+  }
+  const kdShown = kdTickets.filter(kdMatch)
+  const kdCol1 = kdShown.filter(t => t.trang_thai_hd === 'Chờ xuất HĐ').sort((a, b) => String(b.ngay).localeCompare(String(a.ngay)))
+  const kdCol2 = kdShown.filter(t => t.trang_thai_hd === 'Đang xử lý HĐ').sort((a, b) => String(b.ngay).localeCompare(String(a.ngay)))
+  const kdCol3 = kdShown.filter(t => t.trang_thai_hd === 'Đã lên hóa đơn' && (!col3ChiKyNay || String(t.ngay_xuat_hd || '').startsWith(thang))).sort((a, b) => String(b.ngay_xuat_hd || '').localeCompare(String(a.ngay_xuat_hd || '')))
+  const kdCol4 = kdShown.filter(t => t.trang_thai_hd === 'Đã thanh toán').sort((a, b) => String(b.thanh_toan_luc || '').localeCompare(String(a.thanh_toan_luc || '')))
+
   // Khóa gom nhóm 1 phiếu. `respectTachRieng`: cột 2 tôn trọng ý định ĐẨY LẺ đã lưu (tach_rieng)
   // -> phiếu đẩy lẻ thành thẻ riêng; còn lại gom theo cụm. Phiếu Thuê/CPC & Phí BT luôn 1 thẻ/phiếu.
   const groupKeyOf = (t: Ticket, respectTachRieng: boolean) => {
@@ -1380,14 +1436,44 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     return b
   })()
 
-  const renderCardList = (cards: any[], state: 'Chờ xuất HĐ' | 'Đang xử lý HĐ' | 'Đã lên hóa đơn' | 'Đã thanh toán') => {
+  // Thẻ KINH DOANH (lệnh xuất) — đọc-thôi (4a). Viền tím để phân biệt phiếu kỹ thuật; click mở modal xem.
+  const renderKdCard = (t: KdTicket) => {
+    const chuaBanGiao = t.trang_thai_hd === 'Chờ xuất HĐ'
+    const con = Math.max(0, t.tong_sau_vat - t.da_thu)
+    return (
+      <div key={`kd:${t.id}`}
+        onClick={() => setKdActive(t)}
+        className="bg-white border rounded-lg p-3 shadow-sm hover:shadow transition cursor-pointer border-violet-200 relative overflow-hidden hover:bg-violet-50/30">
+        <div className="absolute top-0 left-0 bottom-0 w-1 bg-violet-400"></div>
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 uppercase tracking-wide shrink-0">KD{t.so_lenh ? ` · ${t.so_lenh}` : ''}</span>
+          <span className="text-[10px] text-slate-400 shrink-0">{fmtDate(t.ngay)}</span>
+        </div>
+        <div className="text-sm font-bold text-slate-800 leading-tight">{(t.ten_khach_hd || t.ten_khach_hang || 'Khách lẻ').toUpperCase()}</div>
+        {t.ma_so_thue && <div className="text-[10px] text-slate-400 font-mono">MST {t.ma_so_thue}</div>}
+        <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-1"><User className="w-3 h-3" /> {t.nguoi_kd_ten || '—'}{t.so_hop_dong ? ` · HĐ ${t.so_hop_dong}` : ''}</div>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <span className="text-[10px] text-slate-400">{t.lines.length} dòng hàng</span>
+          <span className="text-sm font-bold text-slate-800">{fmtVnd(t.tong_sau_vat)} đ</span>
+        </div>
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {t.so_hoa_don && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-mono font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">HĐ {t.so_hoa_don}</span>}
+          {chuaBanGiao && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-slate-50 text-slate-400 border-slate-200">chưa bàn giao</span>}
+          {t.da_thu > 0 && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">Đã thu {fmtVnd(t.da_thu)}{con > 0 ? ` · còn ${fmtVnd(con)}` : ''}</span>}
+          {t.cho_duyet > 0 && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-amber-50 text-amber-700 border-amber-200">Chờ duyệt {fmtVnd(t.cho_duyet)}</span>}
+        </div>
+      </div>
+    )
+  }
+
+  const renderCardList = (cards: any[], state: 'Chờ xuất HĐ' | 'Đang xử lý HĐ' | 'Đã lên hóa đơn' | 'Đã thanh toán', kdCards: KdTicket[] = []) => {
     return (
       <div
         onDragOver={e => e.preventDefault()}
         onDrop={e => handleDrop(e, state)}
         className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50 min-h-[500px] max-h-[700px] rounded-b-xl border-t border-slate-100"
       >
-        {cards.length === 0 ? (
+        {cards.length === 0 && kdCards.length === 0 ? (
           <div className="text-center py-12 text-xs text-slate-400 italic">
             Trống
           </div>
@@ -1658,6 +1744,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
             )
           })
         )}
+        {kdCards.map(renderKdCard)}
       </div>
     )
   }
@@ -1795,7 +1882,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                   <Clock className="w-4 h-4" /> 1. Chờ lên hóa đơn ({cardsCol1.length})
                 </h3>
               </div>
-              {renderCardList(cardsCol1, 'Chờ xuất HĐ')}
+              {renderCardList(cardsCol1, 'Chờ xuất HĐ', kdCol1)}
             </div>
           )}
 
@@ -1842,7 +1929,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                 ⚠ <b>{col2PendingCount}</b> phiếu đã xuất M-invoice nhưng <b>chưa nhập số HĐ</b>. Hãy đối chiếu đã lên hóa đơn trên MISA chưa — nhập số HĐ để chốt sang <i>Chờ thanh toán</i>. (Nếu thực sự chưa lên: mở thẻ, bấm <b>Xuất lại</b>.)
               </div>
             )}
-            {renderCardList(cardsCol2, 'Đang xử lý HĐ')}
+            {renderCardList(cardsCol2, 'Đang xử lý HĐ', kdCol2)}
           </div>
 
           {/* CỘT 3: CHỜ THANH TOÁN (Trạng thái Đã lên hóa đơn) */}
@@ -1912,7 +1999,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                 )}
               </div>
             )}
-            {renderCardList(cardsCol3Shown, 'Đã lên hóa đơn')}
+            {renderCardList(cardsCol3Shown, 'Đã lên hóa đơn', kdCol3)}
           </div>
 
           {/* CỘT 4: ĐÃ THANH TOÁN */}
@@ -1922,7 +2009,67 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                 <Landmark className="w-4 h-4" /> {role === 'kthc' ? '3.' : '4.'} Đã thanh toán ({cardsCol4.length})
               </h3>
             </div>
-            {renderCardList(cardsCol4, 'Đã thanh toán')}
+            {renderCardList(cardsCol4, 'Đã thanh toán', kdCol4)}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL XEM THẺ KINH DOANH (lệnh xuất) — đọc-thôi (4a) */}
+      {kdActive && (
+        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-3 overflow-y-auto" onClick={() => setKdActive(null)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl my-6 flex flex-col max-h-[92vh] overflow-hidden border border-slate-200" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-3.5 border-b border-slate-200 bg-violet-50 flex items-center justify-between shrink-0">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 uppercase">KD</span>
+                Lệnh xuất {kdActive.so_lenh || ''}
+              </h3>
+              <button onClick={() => setKdActive(null)} className="text-slate-400 hover:text-slate-600 p-1"><span className="text-xl leading-none">×</span></button>
+            </div>
+            <div className="p-5 overflow-y-auto space-y-3 flex-1 text-xs">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                <div><span className="text-slate-400">Khách hàng: </span><b className="text-slate-800">{kdActive.ten_khach_hd || kdActive.ten_khach_hang}</b></div>
+                <div><span className="text-slate-400">NV kinh doanh: </span><b className="text-slate-700">{kdActive.nguoi_kd_ten || '—'}</b></div>
+                <div><span className="text-slate-400">Ngày lập: </span>{fmtDate(kdActive.ngay)}</div>
+                <div><span className="text-slate-400">Số hợp đồng: </span>{kdActive.so_hop_dong || '—'}</div>
+                {kdActive.ma_so_thue && <div><span className="text-slate-400">MST: </span><span className="font-mono">{kdActive.ma_so_thue}</span></div>}
+                {kdActive.dia_chi && <div className="col-span-2"><span className="text-slate-400">Địa chỉ: </span>{kdActive.dia_chi}</div>}
+                {kdActive.so_hoa_don && <div><span className="text-slate-400">Số HĐ: </span><b className="font-mono text-emerald-700">{kdActive.so_hoa_don}</b></div>}
+                {kdActive.ngay_xuat_hd && <div><span className="text-slate-400">Ngày xuất HĐ: </span>{fmtDate(kdActive.ngay_xuat_hd)}</div>}
+              </div>
+              <div className="overflow-hidden rounded-md border border-slate-200">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 text-[10px] uppercase text-slate-500 [&>th]:px-2 [&>th]:py-1.5 [&>th]:text-left [&>th]:border-b [&>th]:border-slate-200">
+                      <th>Mã</th><th>Tên hàng</th><th className="!text-center">ĐVT</th><th className="!text-center">SL</th><th className="!text-right">Đơn giá</th><th className="!text-center">VAT</th><th className="!text-right">Thành tiền</th>
+                    </tr>
+                  </thead>
+                  <tbody className="[&>tr>td]:px-2 [&>tr>td]:py-1.5 [&>tr>td]:border-t [&>tr>td]:border-slate-100">
+                    {kdActive.lines.map((l, i) => (
+                      <tr key={i}>
+                        <td className="font-mono">{l.ma_hang || ''}</td>
+                        <td>{l.ten_hang_hd || l.ten_hang || ''}</td>
+                        <td className="text-center">{l.dvt || 'Cái'}</td>
+                        <td className="text-center font-semibold">{l.so_luong}</td>
+                        <td className="text-right">{fmtVnd(l.don_gia)}</td>
+                        <td className="text-center">{l.vat}%</td>
+                        <td className="text-right font-semibold">{fmtVnd(l.thanh_tien)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex justify-end gap-6 text-xs pt-1">
+                <div><span className="text-slate-400">Trước VAT: </span><b>{fmtVnd(kdActive.tong_truoc_vat)} đ</b></div>
+                <div><span className="text-slate-400">Tổng sau VAT: </span><b className="text-slate-800 text-sm">{fmtVnd(kdActive.tong_sau_vat)} đ</b></div>
+              </div>
+              {(kdActive.da_thu > 0 || kdActive.cho_duyet > 0) && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {kdActive.da_thu > 0 && <span className="inline-block border rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">Đã thu (đã duyệt): {fmtVnd(kdActive.da_thu)} đ</span>}
+                  {kdActive.cho_duyet > 0 && <span className="inline-block border rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-amber-50 text-amber-700 border-amber-200">Chờ kế toán duyệt: {fmtVnd(kdActive.cho_duyet)} đ</span>}
+                </div>
+              )}
+              <p className="text-[10px] text-slate-400 italic pt-1">Bàn giao / lên hóa đơn / thu tiền cho lệnh KD sẽ mở ở bước kế tiếp.</p>
+            </div>
           </div>
         </div>
       )}
