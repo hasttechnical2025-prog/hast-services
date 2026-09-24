@@ -38,9 +38,12 @@ type Notify = (type: 'success' | 'error', message: string) => void
 
 const money = (v: any) => Math.round(Number(v) || 0).toLocaleString('vi-VN')
 const fmtInt = (v: any) => (v === null || v === undefined || v === '' ? '—' : (Number(v) || 0).toLocaleString('vi-VN'))
-const monthNow = () => {
+// Kỳ mặc định tab Nhập counter: từ ngày 1..cutoff hiện kỳ THÁNG TRƯỚC (còn đang đọc counter máy
+// chốt giữa tháng của kỳ trước — đọc vào ngày D của tháng này); sau ngày cutoff mới nhảy sang kỳ
+// tháng hiện tại. cutoff = ngày chốt lớn nhất trong đợt (admin đặt ở Cấu hình: counter_chuyen_ky_ngay).
+const monthNow = (cutoff = 25) => {
   const d = new Date()
-  if (d.getDate() <= 20) {
+  if (d.getDate() <= cutoff) {
     // Mẹo an toàn: Đưa ngày về mùng 1 trước khi lùi tháng để tránh lỗi tràn lịch JS
     d.setDate(1)
     d.setMonth(d.getMonth() - 1)
@@ -90,6 +93,15 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
   const [sub, setSub] = useState<'danh_sach' | 'counter'>('danh_sach')
   const [dueCount, setDueCount] = useState(0) // số máy cần lấy counter (badge tab) — theo kỳ đang chọn
   const [counterThang, setCounterThang] = useState(monthNow()) // kỳ đang chọn ở tab Nhập counter (nâng lên để badge bám theo)
+  const [thangTouched, setThangTouched] = useState(false) // user đã tự chọn kỳ chưa (đừng ghi đè bằng mặc định)
+  // Lấy "ngày chuyển kỳ" từ Cấu hình -> đặt lại kỳ mặc định cho đúng (nếu user chưa tự chọn).
+  useEffect(() => {
+    fetch('/api/admin/cau-hinh').then(r => r.ok ? r.json() : null).then(j => {
+      const cutoff = parseInt(j?.data?.counter_chuyen_ky_ngay || '25') || 25
+      if (!thangTouched) setCounterThang(monthNow(cutoff))
+    }).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [badgeVer, setBadgeVer] = useState(0) // tăng sau mỗi lần lưu counter -> badge tính lại
   const [refreshVer, setRefreshVer] = useState(0) // realtime: tăng khi có thay đổi -> BÁO NHẸ cho CounterTab (KHÔNG remount, tránh trôi danh sách đang nhập)
   useRealtimeRefetch(THUECPC_TOPIC, DATA_EVENT, () => { setRefreshVer(v => v + 1); setBadgeVer(v => v + 1) })
@@ -137,7 +149,7 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
       )}
       {active === 'counter' && (
         <div className="space-y-8">
-          {canS('counter') && <CounterTab showNotification={showNotification} thang={counterThang} setThang={setCounterThang} onSaved={() => setBadgeVer(v => v + 1)} refreshVer={refreshVer} />}
+          {canS('counter') && <CounterTab showNotification={showNotification} thang={counterThang} setThang={(v: string) => { setThangTouched(true); setCounterThang(v) }} onSaved={() => setBadgeVer(v => v + 1)} refreshVer={refreshVer} />}
           {canS('bang_ke') && <div className="pt-2 border-t border-slate-100"><BangKeTab showNotification={showNotification} thang={counterThang} refreshVer={refreshVer} /></div>}
         </div>
       )}

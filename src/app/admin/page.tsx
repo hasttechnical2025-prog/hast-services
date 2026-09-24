@@ -449,6 +449,10 @@ export default function AdminDashboard() {
 
   // Số ngày báo trước hạn lấy counter (admin chỉnh ở Cài đặt hệ thống; mặc định 3).
   const counterBaoTruocNgay = parseInt(cauHinh.counter_bao_truoc_ngay || '3') || 3
+  // Ngày CHUYỂN KỲ mặc định của tab Nhập counter: từ ngày 1..N hiển thị kỳ THÁNG TRƯỚC (còn đang
+  // đọc counter máy chốt giữa tháng của kỳ trước), sau ngày N mới nhảy sang kỳ tháng hiện tại.
+  // N = ngày chốt lớn nhất trong đợt (admin đặt ở Cấu hình; mặc định 25).
+  const counterChuyenKyNgay = parseInt(cauHinh.counter_chuyen_ky_ngay || '25') || 25
 
   // Máy thuê/CPC sắp/đã đến hạn lấy counter (báo trước N ngày) — panel cạnh cảnh báo HĐBT.
   useEffect(() => {
@@ -457,7 +461,7 @@ export default function AdminDashboard() {
     const vnNow = new Date(Date.now() + 7 * 3600 * 1000)
     const today = vnNow.toISOString().slice(0, 10)
     const dTmp = new Date(vnNow.getTime())
-    if (dTmp.getUTCDate() <= 20) {
+    if (dTmp.getUTCDate() <= counterChuyenKyNgay) {
       dTmp.setUTCDate(1)
       dTmp.setUTCMonth(dTmp.getUTCMonth() - 1)
     }
@@ -478,7 +482,7 @@ export default function AdminDashboard() {
       })
       .catch(() => { })
     return () => { alive = false }
-  }, [currentAdmin, activeTab, congTacTab, counterBaoTruocNgay])
+  }, [currentAdmin, activeTab, congTacTab, counterBaoTruocNgay, counterChuyenKyNgay])
 
   // Ai nghỉ HÔM NAY (đã duyệt + chờ duyệt) -> banner Sổ công tác. Chỉ admin/tech_admin
   // được API cho phép (staff/kthc gọi sẽ 401 -> banner rỗng, không sao).
@@ -6725,6 +6729,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     nguong_ton_thap: cauHinh.nguong_ton_thap || '0',
     phieu_cung_canh_bao_ngay: cauHinh.phieu_cung_canh_bao_ngay || '3',
     counter_bao_truoc_ngay: cauHinh.counter_bao_truoc_ngay || '3',
+    counter_chuyen_ky_ngay: cauHinh.counter_chuyen_ky_ngay || '25',
     bao_cao_cho_phep_ngay: cauHinh.bao_cao_cho_phep_ngay || '7',
     phien_van_phong_ngay: cauHinh.phien_van_phong_ngay || '7',
     phien_ktv_ngay: cauHinh.phien_ktv_ngay || '30',
@@ -6798,6 +6803,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
       nguong_ton_thap: String(parseInt(cfg.nguong_ton_thap) || 0),
       phieu_cung_canh_bao_ngay: String(parseInt(cfg.phieu_cung_canh_bao_ngay) || 3),
       counter_bao_truoc_ngay: String(parseInt(cfg.counter_bao_truoc_ngay) || 3),
+      counter_chuyen_ky_ngay: String(Math.min(31, Math.max(1, parseInt(cfg.counter_chuyen_ky_ngay) || 25))),
       bao_cao_cho_phep_ngay: String(Number.isFinite(parseInt(cfg.bao_cao_cho_phep_ngay)) ? parseInt(cfg.bao_cao_cho_phep_ngay) : 7),
       phien_van_phong_ngay: String(parseInt(cfg.phien_van_phong_ngay) || 7),
       phien_ktv_ngay: String(parseInt(cfg.phien_ktv_ngay) || 30),
@@ -6815,7 +6821,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setSaving(false) }
   }
 
-  const numField = (label: string, key: 'repeat_ngay' | 'hdbt_canh_bao_thang' | 'nguong_ton_thap' | 'vp_lat' | 'vp_lng' | 'phien_van_phong_ngay' | 'phien_ktv_ngay' | 'phieu_cung_canh_bao_ngay' | 'counter_bao_truoc_ngay' | 'bao_cao_cho_phep_ngay', hint?: string, step?: string) => (
+  const numField = (label: string, key: 'repeat_ngay' | 'hdbt_canh_bao_thang' | 'nguong_ton_thap' | 'vp_lat' | 'vp_lng' | 'phien_van_phong_ngay' | 'phien_ktv_ngay' | 'phieu_cung_canh_bao_ngay' | 'counter_bao_truoc_ngay' | 'counter_chuyen_ky_ngay' | 'bao_cao_cho_phep_ngay', hint?: string, step?: string) => (
     <div className="space-y-1">
       <label className="text-xs font-semibold text-slate-600">{label}</label>
       <Input value={(cfg as any)[key]} onChange={(e) => setCfg({ ...cfg, [key]: e.target.value })} className="bg-white" inputMode="decimal" {...(step ? { step } : {})} />
@@ -6879,6 +6885,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
           {numField('Ngưỡng tồn thấp (đỏ khi ≤)', 'nguong_ton_thap')}
           {numField('Cảnh báo trễ nộp phiếu (ngày)', 'phieu_cung_canh_bao_ngay')}
           {numField('Báo trước hạn lấy counter (ngày)', 'counter_bao_truoc_ngay', 'Máy thuê/CPC: cảnh báo trước N ngày tới hạn chốt số')}
+          {numField('Ngày chuyển kỳ counter', 'counter_chuyen_ky_ngay', 'Nhập counter: từ ngày 1..N hiện kỳ tháng TRƯỚC (đang đọc máy chốt giữa tháng); sau ngày N mới nhảy sang kỳ hiện tại. Đặt = ngày chốt lớn nhất trong đợt (VD 25)')}
           {numField('KTV nộp báo cáo trễ tối đa (ngày)', 'bao_cao_cho_phep_ngay', 'Cho phép nộp/sửa báo cáo lùi về N ngày. 0 = chỉ hôm nay')}
         </div>
         <div className="flex flex-wrap gap-6">

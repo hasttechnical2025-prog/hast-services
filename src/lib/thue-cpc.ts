@@ -95,11 +95,9 @@ export function kyTruoc(thang_nam: string): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
-// Ngày ĐỌC counter đóng kỳ 'YYYY-MM' (= CUỐI kỳ). Trả về Date (UTC) hoặc null nếu chưa cấu hình.
-// Phải KHỚP cuối kỳ hóa đơn (kyNgayHoaDon.cuoi) để nhắc "Còn X ngày" đúng:
+// Ngày ĐỌC counter đóng kỳ 'YYYY-MM' (= cuối kỳ). Trả về Date (UTC) hoặc null nếu chưa cấu hình.
 // - Cuối tháng: đọc vào ngày cuối của CHÍNH tháng M (kỳ trùng tháng dương lịch).
-// - Giữa tháng (ngày D): kỳ tháng M = D/(M-1) -> D/M, nên đọc/đóng kỳ vào ngày D của CHÍNH tháng M.
-//   (Trước đây trả nhầm D/(M+1) -> lệch 1 tháng, báo "Còn ~30 ngày" cho máy chốt ngày lẻ.)
+// - Giữa tháng (ngày D): kỳ chạy D/M -> D/(M+1), nên đọc vào ngày D của tháng M+1.
 export function chotSoDate(thang_nam: string, chot_so_ngay: number | null | undefined, cuoi_thang: boolean): Date | null {
   const [y, m] = thang_nam.split('-').map(Number)
   if (!y || !m) return null
@@ -108,8 +106,12 @@ export function chotSoDate(thang_nam: string, chot_so_ngay: number | null | unde
     return new Date(Date.UTC(y, m - 1, lastDay))
   }
   if (chot_so_ngay && chot_so_ngay >= 1) {
-    const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate() // số ngày tháng M (kẹp ngày chốt 31 ở tháng 30 ngày)
-    return new Date(Date.UTC(y, m - 1, Math.min(chot_so_ngay, lastDay)))
+    // Tháng M+1 (m là 1-based -> chỉ số tháng = m ứng với tháng kế tiếp)
+    const next = new Date(Date.UTC(y, m, 1))
+    const ny = next.getUTCFullYear()
+    const nIdx = next.getUTCMonth() // 0-based của tháng M+1
+    const lastDayNext = new Date(Date.UTC(ny, nIdx + 1, 0)).getUTCDate()
+    return new Date(Date.UTC(ny, nIdx, Math.min(chot_so_ngay, lastDayNext)))
   }
   return null
 }
