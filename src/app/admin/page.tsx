@@ -1179,10 +1179,10 @@ export default function AdminDashboard() {
 
       if (res.ok) {
         const { data: user } = await res.json()
-        // Kinh doanh không dùng trang Admin -> hướng sang trang Kho máy thuê (mobile).
+        // Kinh doanh không dùng trang Admin -> cookie đã set, chuyển thẳng sang trang Lệnh xuất hàng.
         if (user.role === 'kinh_doanh') {
           setLoginForm({ username: "", password: "" })
-          showNotification('error', 'Tài khoản Kinh doanh — vui lòng mở trang /kho-thue (trên điện thoại).')
+          window.location.href = '/lenh-xuat-hang'
           return
         }
         setCurrentAdmin(user)

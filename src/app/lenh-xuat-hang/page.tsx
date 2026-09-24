@@ -369,7 +369,10 @@ function KanbanBoard({ rows, isManager, onOpen, onHandoverDrop }: { rows: Lenh[]
 
 export default function LenhXuatHangPage() {
   const [me, setMe] = useState<{ full_name: string; role: string } | null>(null)
-  const [authErr, setAuthErr] = useState(false)
+  const [authErr, setAuthErr] = useState(false)       // đã đăng nhập nhưng SAI vai trò
+  const [needLogin, setNeedLogin] = useState(false)   // chưa đăng nhập -> hiện form
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' })
+  const [loginLoading, setLoginLoading] = useState(false)
   const [rows, setRows] = useState<Lenh[]>([])
   const [isManager, setIsManager] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -406,10 +409,28 @@ export default function LenhXuatHangPage() {
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.ok ? r.json() : Promise.reject()).then(j => {
       const u = j.data
-      if (!u || !['kinh_doanh', 'admin'].includes(u.role)) { setAuthErr(true); return }
+      if (!u) { setNeedLogin(true); return }                                   // chưa đăng nhập -> form
+      if (!['kinh_doanh', 'admin'].includes(u.role)) { setAuthErr(true); return } // sai vai trò
       setMe(u)
-    }).catch(() => setAuthErr(true))
+    }).catch(() => setNeedLogin(true))   // 401 = chưa đăng nhập
   }, [])
+
+  // Đăng nhập ngay trên trang KD (dùng chung endpoint /api/admin/login — set cookie httpOnly).
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoginLoading(true)
+    try {
+      const res = await fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(loginForm) })
+      const j = await res.json()
+      if (!res.ok) { notify('error', j.error || 'Đăng nhập thất bại'); return }
+      const u = j.data
+      if (!u || !['kinh_doanh', 'admin'].includes(u.role)) {
+        notify('error', 'Tài khoản này không thuộc phòng Kinh doanh.'); return
+      }
+      setLoginForm({ username: '', password: '' })
+      setNeedLogin(false); setAuthErr(false); setMe(u)
+    } catch { notify('error', 'Lỗi kết nối') } finally { setLoginLoading(false) }
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -535,6 +556,31 @@ export default function LenhXuatHangPage() {
   }
 
   const logout = async () => { try { await fetch('/api/auth/logout', { method: 'POST' }) } catch {} ; window.location.href = '/' }
+
+  // Chưa đăng nhập -> form đăng nhập ngay tại trang KD.
+  // data-allow-enter: NGOẠI LỆ có chủ đích (giống form /admin) — Enter = đăng nhập ở CHÍNH form này (xem AGENTS.md).
+  if (needLogin) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+      {note && <div className={`fixed top-4 right-4 z-[120] px-4 py-2.5 rounded-lg text-sm font-medium shadow-lg border ${note.t === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>{note.m}</div>}
+      <form onSubmit={handleLogin} data-allow-enter className="bg-white p-8 rounded-xl shadow-md border border-slate-200 w-full max-w-sm space-y-5">
+        <div className="text-center space-y-1">
+          <img src="/logo.png" alt="Logo" className="h-16 w-auto object-contain mx-auto mb-3" />
+          <h1 className="text-xl font-bold text-slate-800">Lệnh xuất hàng</h1>
+          <p className="text-xs text-slate-400">Đăng nhập tài khoản Kinh doanh để tiếp tục</p>
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-slate-600">Tên đăng nhập</label>
+          <Input required placeholder="Nhập tên đăng nhập" value={loginForm.username} onChange={e => setLoginForm({ ...loginForm, username: e.target.value })} />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-slate-600">Mật khẩu</label>
+          <Input required type="password" placeholder="Nhập mật khẩu" value={loginForm.password} onChange={e => setLoginForm({ ...loginForm, password: e.target.value })} />
+        </div>
+        <Button type="submit" disabled={loginLoading} className="w-full h-11 font-semibold bg-blue-600 hover:bg-blue-700 text-white">{loginLoading ? 'Đang xác thực...' : 'Đăng nhập'}</Button>
+        <button type="button" onClick={() => window.location.href = '/'} className="w-full text-xs text-slate-400 hover:text-slate-600">Về trang chọn vai trò</button>
+      </form>
+    </div>
+  )
 
   if (authErr) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
