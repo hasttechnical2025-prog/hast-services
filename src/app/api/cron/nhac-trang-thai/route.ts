@@ -47,11 +47,12 @@ export async function GET(request: Request) {
     const gioDangLam = parseFloat(cfg.nhac_dang_lam_gio || '4') || 4    // 'Đang làm' quá Y giờ
     const gioLapLai = parseFloat(cfg.nhac_lap_lai_gio || '2') || 2      // khoảng nhắc lại tối thiểu
     const now = Date.now()
+    const vnToday = new Date(now + 7 * H).toISOString().slice(0, 10) // ngày VN hôm nay (YYYY-MM-DD)
 
     // Lấy các việc đang treo (Đã nhận / Đang làm) có KTV phụ trách.
     const jobs = await selectAll<any>((from, to) => supabaseAdmin
       .from('soct_cong_viec')
-      .select('id, ma_may, ket_qua, report, nhan_luc, bat_dau_luc, nhac_luc, ktv_id, soct_users!ktv_id ( full_name, telegram_id ), soct_khach_hang ( ten_khach_hang )')
+      .select('id, ngay, ma_may, ket_qua, report, nhan_luc, bat_dau_luc, nhac_luc, ktv_id, soct_users!ktv_id ( full_name, telegram_id ), soct_khach_hang ( ten_khach_hang )')
       .in('ket_qua', ['Đã nhận', 'Đang làm'])
       .not('ktv_id', 'is', null)
       .range(from, to))
@@ -63,6 +64,8 @@ export async function GET(request: Request) {
     for (const j of jobs || []) {
       const tg = j.soct_users?.telegram_id
       if (!tg) continue // KTV chưa liên kết Telegram -> không nhắc được
+      // Việc có NGÀY THỰC HIỆN ở TƯƠNG LAI -> chưa tới ngày làm, KHÔNG nhắc (nhận trước ngày mai là bình thường).
+      if (j.ngay && String(j.ngay).slice(0, 10) > vnToday) continue
       // Chống spam: đã nhắc gần đây thì bỏ qua
       if (j.nhac_luc && now - new Date(j.nhac_luc).getTime() < gioLapLai * H) continue
 
