@@ -4310,7 +4310,11 @@ function LoaiViecVatTuCell({ job }: { job: Job }) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const ref = useRef<HTMLSpanElement>(null)
   const vts = ((job.soct_chi_tiet_vat_tu || []) as any[]).filter(v => !v.da_tra)
-  const has = vts.length > 0
+  const hasVt = vts.length > 0
+  const ghi = String((job as any).ghi_chu || '').trim()
+  // CHỈ loại "Khác" (không phân loại được, nội dung nằm ở Ghi chú) -> popover hiện Ghi chú.
+  const hasGhi = !hasVt && job.loai_cong_viec === 'Khác' && ghi.length > 0
+  const has = hasVt || hasGhi
   const show = () => {
     if (!has) return
     const r = ref.current?.getBoundingClientRect()
@@ -4323,16 +4327,25 @@ function LoaiViecVatTuCell({ job }: { job: Job }) {
       {pos && has && (
         <div className="fixed z-[80] w-64 rounded-lg border border-slate-200 bg-white shadow-xl p-2.5 text-left"
           style={{ top: pos.top, left: pos.left }}>
-          <div className="text-[10px] font-bold uppercase text-slate-500 mb-1.5">Vật tư ({vts.length})</div>
-          <div className="space-y-1">
-            {vts.map((v, i) => (
-              <div key={i} className="flex items-start gap-2 text-xs">
-                <span className="font-mono text-slate-500 shrink-0">{v.ma_hang}</span>
-                <span className="text-slate-700 flex-1 leading-tight">{v.soct_kho_hang?.ten_hang || v.ten_hang_hd || ''}</span>
-                <span className="font-semibold text-blue-700 shrink-0">×{Number(v.so_luong) || 0}</span>
+          {hasVt ? (
+            <>
+              <div className="text-[10px] font-bold uppercase text-slate-500 mb-1.5">Vật tư ({vts.length})</div>
+              <div className="space-y-1">
+                {vts.map((v, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs">
+                    <span className="font-mono text-slate-500 shrink-0">{v.ma_hang}</span>
+                    <span className="text-slate-700 flex-1 leading-tight">{v.soct_kho_hang?.ten_hang || v.ten_hang_hd || ''}</span>
+                    <span className="font-semibold text-blue-700 shrink-0">×{Number(v.so_luong) || 0}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          ) : (
+            <>
+              <div className="text-[10px] font-bold uppercase text-slate-500 mb-1.5">Ghi chú</div>
+              <div className="text-xs text-slate-700 leading-snug whitespace-pre-wrap break-words">{ghi}</div>
+            </>
+          )}
         </div>
       )}
     </span>
