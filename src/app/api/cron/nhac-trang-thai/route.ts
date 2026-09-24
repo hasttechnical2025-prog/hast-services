@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { sendTelegramMessage } from '@/lib/telegram'
-import { isBaoTri, getCauHinh } from '@/lib/config'
+import { isBaoTri } from '@/lib/config'
 import { logCronRun } from '@/lib/cron-log'
 
 export const runtime = 'nodejs'
@@ -14,15 +14,12 @@ function vnNowMinutes(): number {
   const vn = new Date(Date.now() + 7 * H)
   return vn.getUTCHours() * 60 + vn.getUTCMinutes()
 }
-function vnHHMM(iso: string): string {
-  const vn = new Date(new Date(iso).getTime() + 7 * H)
-  return `${String(vn.getUTCHours()).padStart(2, '0')}:${String(vn.getUTCMinutes()).padStart(2, '0')}`
-}
+// Nhắc KTV cập nhật trạng thái công việc qua Telegram — kiểu DIGEST (gộp), KHÔNG réo từng việc.
+// "Số hóa trọn vẹn": mỗi KTV nhận 1 tin GỘP liệt kê mọi việc chưa cập nhật, vào 2 "giờ vàng"
+// 20h & 21h (VN). KHÔNG escalation người-nhắc-người. Tin 21h tự tính lại -> ai đã cập nhật sau 20h
+// thì tin 21h ngắn đi/không gửi. Việc NGÀY TƯƠNG LAI (chưa tới ngày làm) không đưa vào.
+const GIO_VANG = [20, 21] // giờ VN gửi digest
 
-// Nhắc KTV cập nhật trạng thái công việc qua Telegram (DM). Chạy định kỳ (Vercel Cron mỗi giờ).
-//  - 'Đã nhận' quá lâu chưa bấm Đang làm  -> nhắc bắt đầu.
-//  - 'Đang làm' quá lâu chưa Hoàn thành    -> nhắc hoàn thành.
-// Chống spam: chỉ nhắc lại sau `nhac_lap_lai_gio`; chỉ trong khung giờ làm việc.
 export async function GET(request: Request) {
   try {
     const authHeader = request.headers.get('authorization')
@@ -35,72 +32,56 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: 'Đang bảo trì — bỏ qua' })
     }
 
-    // Khung giờ nhắc 7:30–21:00 (giờ VN). Cron chạy mỗi giờ nhưng ngoài khung thì bỏ qua.
-    const mins = vnNowMinutes()
-    if (mins < 7 * 60 + 30 || mins > 21 * 60) {
-      await logCronRun('nhac-trang-thai', 'skipped', 'cron', { reason: 'Ngoài khung giờ (7:30–21:00)', mins })
-      return NextResponse.json({ message: 'Ngoài khung giờ nhắc (7:30–21:00)' })
+    // Chỉ gửi vào giờ vàng (VN). Cron chạy đúng 20h/21h nhưng vẫn chốt lại phòng lệch lịch.
+    const vnHour = Math.floor(vnNowMinutes() / 60)
+    if (!GIO_VANG.includes(vnHour)) {
+      await logCronRun('nhac-trang-thai', 'skipped', 'cron', { reason: 'Ngoài giờ vàng (20h/21h)', vnHour })
+      return NextResponse.json({ message: 'Ngoài giờ vàng digest (20h/21h)' })
     }
 
-    const cfg = await getCauHinh()
-    const gioDaNhan = parseFloat(cfg.nhac_da_nhan_gio || '2') || 2      // 'Đã nhận' quá X giờ
-    const gioDangLam = parseFloat(cfg.nhac_dang_lam_gio || '4') || 4    // 'Đang làm' quá Y giờ
-    const gioLapLai = parseFloat(cfg.nhac_lap_lai_gio || '2') || 2      // khoảng nhắc lại tối thiểu
     const now = Date.now()
     const vnToday = new Date(now + 7 * H).toISOString().slice(0, 10) // ngày VN hôm nay (YYYY-MM-DD)
 
-    // Lấy các việc đang treo (Đã nhận / Đang làm) có KTV phụ trách.
+    // Việc còn treo (Đã nhận / Đang làm) có KTV phụ trách, NGÀY <= hôm nay (bỏ việc ngày tương lai).
     const jobs = await selectAll<any>((from, to) => supabaseAdmin
       .from('soct_cong_viec')
-      .select('id, ngay, ma_may, ket_qua, report, nhan_luc, bat_dau_luc, nhac_luc, ktv_id, soct_users!ktv_id ( full_name, telegram_id ), soct_khach_hang ( ten_khach_hang )')
+      .select('id, ngay, ma_may, ket_qua, report, nhan_luc, bat_dau_luc, ktv_id, soct_users!ktv_id ( full_name, telegram_id ), soct_khach_hang ( ten_khach_hang )')
       .in('ket_qua', ['Đã nhận', 'Đang làm'])
       .not('ktv_id', 'is', null)
+      .lte('ngay', vnToday)
       .range(from, to))
 
-    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://services.hasttech.app') + '/ktv'
-    const nudgedIds: string[] = []
-    let sent = 0
-
+    // Gom việc theo KTV (chỉ KTV đã liên kết Telegram).
+    const byKtv = new Map<string, { tg: string; ten: string; daNhan: any[]; dangLam: any[] }>()
     for (const j of jobs || []) {
       const tg = j.soct_users?.telegram_id
-      if (!tg) continue // KTV chưa liên kết Telegram -> không nhắc được
-      // Việc có NGÀY THỰC HIỆN ở TƯƠNG LAI -> chưa tới ngày làm, KHÔNG nhắc (nhận trước ngày mai là bình thường).
-      if (j.ngay && String(j.ngay).slice(0, 10) > vnToday) continue
-      // Chống spam: đã nhắc gần đây thì bỏ qua
-      if (j.nhac_luc && now - new Date(j.nhac_luc).getTime() < gioLapLai * H) continue
-
+      if (!tg) continue
+      let g = byKtv.get(j.ktv_id)
+      if (!g) { g = { tg, ten: j.soct_users?.full_name || '', daNhan: [], dangLam: [] }; byKtv.set(j.ktv_id, g) }
       const kh = j.soct_khach_hang?.ten_khach_hang || j.ma_may || j.report || 'việc'
-      let msg: string | null = null
-
-      if (j.ket_qua === 'Đã nhận' && j.nhan_luc && now - new Date(j.nhan_luc).getTime() >= gioDaNhan * H) {
-        msg = [
-          '⏰ <b>NHẮC CẬP NHẬT CÔNG VIỆC</b>',
-          `Bạn đã nhận việc <b>${esc(kh)}</b> lúc ${vnHHMM(j.nhan_luc)} nhưng chưa bấm "Đang làm".`,
-          `Khi tới nơi, mở app bấm <b>Đang làm</b> để văn phòng nắm được tiến độ.`,
-          `\n👉 <a href="${appUrl}">Mở App KTV</a>`,
-        ].join('\n')
-      } else if (j.ket_qua === 'Đang làm' && j.bat_dau_luc && now - new Date(j.bat_dau_luc).getTime() >= gioDangLam * H) {
-        const gio = Math.floor((now - new Date(j.bat_dau_luc).getTime()) / H)
-        msg = [
-          '⏰ <b>NHẮC CẬP NHẬT CÔNG VIỆC</b>',
-          `Việc <b>${esc(kh)}</b> bạn đang làm đã khoảng ${gio} giờ.`,
-          `Nếu đã xong, mở app bấm <b>Hoàn thành</b>.`,
-          `\n👉 <a href="${appUrl}">Mở App KTV</a>`,
-        ].join('\n')
-      }
-
-      if (msg) {
-        const r = await sendTelegramMessage(tg, msg)
-        if (r.success) { sent++; nudgedIds.push(j.id) }
-      }
+      if (j.ket_qua === 'Đang làm') g.dangLam.push(kh); else g.daNhan.push(kh)
     }
 
-    // Đóng dấu đã nhắc (để không spam ở lần cron kế tiếp)
-    if (nudgedIds.length > 0) {
-      await supabaseAdmin.from('soct_cong_viec').update({ nhac_luc: new Date().toISOString() }).in('id', nudgedIds)
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://services.hasttech.app') + '/ktv'
+    let sent = 0
+    for (const g of byKtv.values()) {
+      const tong = g.daNhan.length + g.dangLam.length
+      if (tong === 0) continue
+      const bullets: string[] = []
+      for (const kh of g.dangLam) bullets.push(`• <b>${esc(kh)}</b> — đang làm, bấm <b>Hoàn thành</b> nếu xong`)
+      for (const kh of g.daNhan) bullets.push(`• <b>${esc(kh)}</b> — chưa bắt đầu, bấm <b>Đang làm</b> khi tới nơi`)
+      const msg = [
+        '🔔 <b>NHẮC CẬP NHẬT CÔNG VIỆC</b>',
+        `Chào bạn, cuối ngày rồi — bạn còn <b>${tong} việc</b> chưa cập nhật trạng thái:`,
+        bullets.join('\n'),
+        `\nMở app cập nhật giúp văn phòng nắm tiến độ nhé.`,
+        `👉 <a href="${appUrl}">Mở App KTV</a>`,
+      ].join('\n')
+      const r = await sendTelegramMessage(g.tg, msg)
+      if (r.success) sent++
     }
 
-    await logCronRun('nhac-trang-thai', 'ok', 'cron', { sent })
+    await logCronRun('nhac-trang-thai', 'ok', 'cron', { sent, ktv: byKtv.size, vnHour })
     return NextResponse.json({ success: true, sent })
   } catch (error: any) {
     console.error('Error in cron nhac-trang-thai:', error)
