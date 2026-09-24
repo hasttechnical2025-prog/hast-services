@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import DateField from "@/components/DateField"
+import ThuTienPanel from "@/components/ThuTienPanel"
 import { supabase } from "@/lib/supabase"
 import { Plus, FileText, PenSquare, Trash2, X, Save, RefreshCw, LogOut, Package, Boxes, Send, List, LayoutGrid, Clock } from "lucide-react"
 
@@ -61,6 +62,7 @@ type Lenh = {
   nguoi_kinh_doanh_id: string | null; ghi_chu: string | null; trang_thai_hd: string
   so_hoa_don: string | null; ngay_xuat_hd: string | null; ly_do_tra?: string | null
   tren_kanban?: boolean
+  da_thu?: number; cho_duyet?: number
   nguoi_kd?: { full_name: string } | null
   nguoi_bg?: { full_name: string } | null
   soct_lenh_xuat_ct?: Line[]
@@ -353,6 +355,8 @@ function KanbanBoard({ rows, isManager, onOpen, onHandoverDrop }: { rows: Lenh[]
                     <div className="mt-1.5 flex flex-wrap items-center gap-1">
                       {r.so_hoa_don && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-mono font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">HĐ {r.so_hoa_don}</span>}
                       {isCol1 && r.ly_do_tra && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-rose-50 text-rose-600 border-rose-200" title={r.ly_do_tra}>⚠ KT trả lại</span>}
+                      {!!r.da_thu && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">Đã thu {fmtVnd(r.da_thu)}</span>}
+                      {!!r.cho_duyet && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-amber-50 text-amber-700 border-amber-200">Chờ duyệt {fmtVnd(r.cho_duyet)}</span>}
                     </div>
                     {isCol1 && r.ly_do_tra && <div className="mt-1 text-[10px] text-rose-600 leading-snug">{r.ly_do_tra}</div>}
                     {canDrag && <div className="mt-1.5 pt-1.5 border-t border-dashed border-slate-100 text-[9px] text-slate-400 flex items-center gap-1">⠿ Kéo sang cột 2 để bàn giao · bấm để xem</div>}
@@ -368,7 +372,7 @@ function KanbanBoard({ rows, isManager, onOpen, onHandoverDrop }: { rows: Lenh[]
 }
 
 export default function LenhXuatHangPage() {
-  const [me, setMe] = useState<{ full_name: string; role: string } | null>(null)
+  const [me, setMe] = useState<{ id?: string; full_name: string; role: string } | null>(null)
   const [authErr, setAuthErr] = useState(false)       // đã đăng nhập nhưng SAI vai trò
   const [needLogin, setNeedLogin] = useState(false)   // chưa đăng nhập -> hiện form
   const [loginForm, setLoginForm] = useState({ username: '', password: '' })
@@ -854,6 +858,10 @@ export default function LenhXuatHangPage() {
                   <div><span className="text-slate-400">Trước VAT: </span><b>{fmtVnd(truocVat)} đ</b></div>
                   <div><span className="text-slate-400">Tổng sau VAT: </span><b className="text-slate-800 text-sm">{fmtVnd(sauVat)} đ</b></div>
                 </div>
+                {/* Thu tiền / đặt cọc — CHỈ khi lệnh đã bàn giao kế toán (từ cột 2 trở đi). NV/sale_admin khai. */}
+                {!isCol1 && (
+                  <ThuTienPanel lenhId={detail.id} role={me?.role || 'kinh_doanh'} meId={me?.id} canKhai={true} tongSauVat={sauVat} onChanged={load} notify={notify} />
+                )}
               </div>
               <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-end gap-2 shrink-0 flex-wrap">
                 <Button variant="outline" onClick={() => setDetail(null)} className="h-9 text-xs">Đóng</Button>

@@ -140,7 +140,20 @@ export async function GET(request: Request) {
       if (!isManager) q = q.eq('nguoi_kinh_doanh_id', session.id)   // NV chỉ thấy của mình (scope ở SERVER)
       return q.order('ngay', { ascending: false }).order('created_at', { ascending: false }).range(from, to)
     })
-    return NextResponse.json({ data: rows || [], isManager })
+
+    // Gắn tổng thu tiền (Lát 5): đã thu = SUM khoản DA_DUYET, chờ duyệt = SUM CHO_DUYET (soct_thu_tien).
+    const lenhIds = (rows || []).map((r: any) => r.id)
+    const daThu = new Map<string, number>(), choDuyet = new Map<string, number>()
+    if (lenhIds.length) {
+      const thu = await selectAll<any>((from, to) => supabaseAdmin
+        .from('soct_thu_tien').select('lenh_id, so_tien, trang_thai').in('lenh_id', lenhIds).range(from, to))
+      for (const t of (thu || [])) {
+        const m = t.trang_thai === 'da_duyet' ? daThu : choDuyet
+        m.set(t.lenh_id, (m.get(t.lenh_id) || 0) + (Number(t.so_tien) || 0))
+      }
+    }
+    const data = (rows || []).map((r: any) => ({ ...r, da_thu: Math.round(daThu.get(r.id) || 0), cho_duyet: Math.round(choDuyet.get(r.id) || 0) }))
+    return NextResponse.json({ data, isManager })
   } catch (error: any) {
     console.error('Error GET lenh-xuat:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })

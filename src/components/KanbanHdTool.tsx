@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import MonthField from "@/components/MonthField"
 import DateField from "@/components/DateField"
+import ThuTienPanel from "@/components/ThuTienPanel"
 import { supabase } from "@/lib/supabase"
 
 type VatTu = {
@@ -2139,6 +2140,10 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
               )}
               {kdActive.trang_thai_hd === 'Chờ xuất HĐ' && kdActive.ly_do_tra && (
                 <div className="rounded-md bg-rose-50 border border-rose-200 px-3 py-2 text-[11px] text-rose-700"><b>⚠ Kế toán trả lại — cần sửa:</b> {kdActive.ly_do_tra}</div>
+              )}
+              {/* Thu tiền + DUYỆT (Lát 5) — từ cột 2 trở đi; kế toán khai & duyệt tại đây. */}
+              {['Đang xử lý HĐ', 'Đã lên hóa đơn', 'Đã thanh toán'].includes(kdActive.trang_thai_hd) && (
+                <ThuTienPanel lenhId={kdActive.id} role={role} canKhai={isKeToan} tongSauVat={kdActive.tong_sau_vat} onChanged={loadKd} notify={showNotification} />
               )}
             </div>
             {/* Footer thao tác thẻ KD (nút thay kéo — dùng được trên điện thoại). Server gate lại theo role. */}
