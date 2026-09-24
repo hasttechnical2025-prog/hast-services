@@ -88,7 +88,7 @@ async function kanbanGet(searchParams: URLSearchParams) {
       so_lenh: r.so_lenh, ngay: r.ngay, so_hop_dong: r.so_hop_dong || null,
       ten_khach_hang: r.ten_khach_hang, dia_chi: r.dia_chi, ma_so_thue: r.ma_so_thue,
       nguoi_kinh_doanh_id: r.nguoi_kinh_doanh_id, nguoi_kd_ten: r.nguoi_kd?.full_name || '',
-      trang_thai_hd: r.trang_thai_hd, so_hoa_don: r.so_hoa_don, ngay_xuat_hd: r.ngay_xuat_hd,
+      trang_thai_hd: r.trang_thai_hd, so_hoa_don: r.so_hoa_don, ngay_xuat_hd: r.ngay_xuat_hd, ly_do_tra: r.ly_do_tra || null,
       ban_giao_kt_luc: r.ban_giao_kt_luc, thanh_toan_luc: r.thanh_toan_luc,
       tach_rieng: r.tach_rieng, lam_tron: r.lam_tron, ten_khach_hd: r.ten_khach_hd,
       minvoice_luc: r.minvoice_luc, minvoice_lan: r.minvoice_lan,
@@ -238,22 +238,50 @@ async function kanbanPut(body: any) {
   const allowed = ['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn', 'Đã thanh toán']
   if (!allowed.includes(trang_thai_hd)) return NextResponse.json({ error: 'Trạng thái không hợp lệ' }, { status: 400 })
 
-  // Trạng thái hiện tại (để gate chuyển tiếp).
+  // Trạng thái hiện tại (để gate chuyển tiếp). Mọi ID phải tồn tại + cùng 1 cột nguồn.
   const { data: curRows } = await supabaseAdmin.from('soct_lenh_xuat').select('id, trang_thai_hd').in('id', targetIds)
+  if ((curRows || []).length !== new Set(targetIds).size) return NextResponse.json({ error: 'Không tìm thấy lệnh (có thể đã bị xóa) — tải lại trang.' }, { status: 404 })
   const fromStates = new Set((curRows || []).map((r: any) => r.trang_thai_hd))
-  const isHandover = trang_thai_hd === 'Đang xử lý HĐ' && [...fromStates].every(s => s === 'Chờ xuất HĐ')
+  if (fromStates.size !== 1) return NextResponse.json({ error: 'Các lệnh đang ở khác cột — thao tác từng lệnh.' }, { status: 400 })
+  const fromState = [...fromStates][0]
+  if (fromState === trang_thai_hd) return NextResponse.json({ success: true, count: 0 })
+  const isHandover = fromState === 'Chờ xuất HĐ' && trang_thai_hd === 'Đang xử lý HĐ'
 
   // GATE quyền theo hành động:
-  if (trang_thai_hd === 'Đang xử lý HĐ' && isHandover) {
+  if (isHandover) {
     // Bàn giao kế toán (cột 1 -> 2): CHỈ sale_admin/admin.
     if (!isSaleAdmin) return NextResponse.json({ error: 'Chỉ quản lý kinh doanh (sale_admin) mới được bàn giao lệnh cho kế toán.' }, { status: 403 })
+    // Không bàn giao lệnh RỖNG (không dòng hàng) -> kế toán không có gì để lên HĐ.
+    const { count } = await supabaseAdmin.from('soct_lenh_xuat_ct').select('id', { count: 'exact', head: true }).in('lenh_id', targetIds)
+    if ((count || 0) === 0) return NextResponse.json({ error: 'Lệnh chưa có dòng hàng — không bàn giao được.' }, { status: 400 })
   } else {
-    // Mọi chuyển khác (lên HĐ / thanh toán / trả về / kéo ngược 3->2): CHỈ kế toán.
+    // Mọi chuyển khác: CHỈ kế toán. kthc đi theo ma trận (giống kỹ thuật + trả về 2->1 kèm lý do);
+    // admin được mọi hướng (sửa sai).
     if (!isKeToan) return NextResponse.json({ error: 'Chỉ kế toán (KT-HC) mới được lên hóa đơn / thanh toán / trả về.' }, { status: 403 })
+    const KTHC_OK = new Set([
+      'Đang xử lý HĐ>Đã lên hóa đơn', 'Đã lên hóa đơn>Đã thanh toán', 'Đã thanh toán>Đã lên hóa đơn',
+      'Đã lên hóa đơn>Đang xử lý HĐ', 'Đang xử lý HĐ>Chờ xuất HĐ',
+    ])
+    if (!isAdmin && !KTHC_OK.has(`${fromState}>${trang_thai_hd}`)) {
+      return NextResponse.json({ error: 'Chuyển trạng thái không hợp lệ đối với Kế toán.' }, { status: 403 })
+    }
+    if (!isAdmin && fromState === 'Đang xử lý HĐ' && trang_thai_hd === 'Chờ xuất HĐ' && !String(ly_do_tra || '').trim()) {
+      return NextResponse.json({ error: 'Nhập lý do trả lại để phòng kinh doanh biết cần sửa gì.' }, { status: 400 })
+    }
   }
 
   if (trang_thai_hd === 'Đã lên hóa đơn' && (!so_hoa_don || !String(so_hoa_don).trim())) {
     return NextResponse.json({ error: 'Yêu cầu điền số hóa đơn trước khi hoàn thành.' }, { status: 400 })
+  }
+  // Số HĐ KD phải DUY NHẤT (1 thẻ = 1 số HĐ = 1 nguồn) — chặn cứng trùng với lệnh khác hoặc phiếu kỹ thuật.
+  if (trang_thai_hd === 'Đã lên hóa đơn' && fromState === 'Đang xử lý HĐ') {
+    const so = String(so_hoa_don).trim()
+    const [{ data: dupLx }, { data: dupCv }] = await Promise.all([
+      supabaseAdmin.from('soct_lenh_xuat').select('so_lenh').ilike('so_hoa_don', so).not('id', 'in', `(${targetIds.join(',')})`).limit(1),
+      supabaseAdmin.from('soct_cong_viec').select('report').ilike('so_hoa_don', so).limit(1),
+    ])
+    if (dupLx?.length) return NextResponse.json({ error: `Số hóa đơn "${so}" đã dùng cho lệnh xuất ${dupLx[0].so_lenh || 'khác'}.` }, { status: 409 })
+    if (dupCv?.length) return NextResponse.json({ error: `Số hóa đơn "${so}" đã dùng cho phiếu kỹ thuật ${dupCv[0].report || ''}.` }, { status: 409 })
   }
 
   const isReset = trang_thai_hd === 'Chờ xuất HĐ'

@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import DateField from "@/components/DateField"
-import { Plus, FileText, PenSquare, Trash2, X, Save, RefreshCw, LogOut, Package, Boxes } from "lucide-react"
+import { supabase } from "@/lib/supabase"
+import { Plus, FileText, PenSquare, Trash2, X, Save, RefreshCw, LogOut, Package, Boxes, Send, List, LayoutGrid, Clock } from "lucide-react"
 
 type HangHoa = { ma_hang: string; ten_hang: string; dvt: string | null; don_gia_niem_yet: number | null; hang: string | null; model: string | null; ghi_chu: string | null }
 
@@ -58,7 +59,7 @@ type Lenh = {
   id: string; so_lenh: string | null; ngay: string; ten_khach_hang: string; dia_chi: string | null; ma_so_thue: string | null
   so_hop_dong: string | null
   nguoi_kinh_doanh_id: string | null; ghi_chu: string | null; trang_thai_hd: string
-  so_hoa_don: string | null; ngay_xuat_hd: string | null
+  so_hoa_don: string | null; ngay_xuat_hd: string | null; ly_do_tra?: string | null
   nguoi_kd?: { full_name: string } | null
   soct_lenh_xuat_ct?: Line[]
 }
@@ -288,6 +289,65 @@ function CatalogManager({ catalog, setCatalog, isManager, hangOptions, onClose, 
   )
 }
 
+// Bảng Kanban 4 cột (đọc-để-theo-dõi) trên trang KD. Dựng client-side từ list ĐÃ scope (NV=của mình,
+// sale_admin=tất cả) — KHÔNG gọi endpoint ?kanban=1 (đó là bàn kế toán admin/kthc). sale_admin có nút
+// "Bàn giao" ở cột 1; các cột 2/3/4 thuần theo dõi (kế toán thao tác bên /admin). Kéo-thả KHÔNG mở ở đây.
+const KD_COLS: { key: string; title: string; head: string; dot: string }[] = [
+  { key: 'Chờ xuất HĐ', title: '1. Chờ bàn giao', head: 'bg-slate-50 text-slate-600', dot: 'bg-slate-400' },
+  { key: 'Đang xử lý HĐ', title: '2. Đã bàn giao KT', head: 'bg-amber-50 text-amber-700', dot: 'bg-amber-400' },
+  { key: 'Đã lên hóa đơn', title: '3. Đã lên hóa đơn', head: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-400' },
+  { key: 'Đã thanh toán', title: '4. Đã thanh toán', head: 'bg-indigo-50 text-indigo-700', dot: 'bg-indigo-400' },
+]
+function KanbanBoard({ rows, isManager, onHandover }: { rows: Lenh[]; isManager: boolean; onHandover: (r: Lenh) => void }) {
+  const tong = (r: Lenh) => (r.soct_lenh_xuat_ct || []).reduce((s, l) => s + (Number(l.so_luong) || 0) * (Number(l.don_gia) || 0), 0)
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {KD_COLS.map(col => {
+        const cards = rows.filter(r => (r.trang_thai_hd || 'Chờ xuất HĐ') === col.key)
+        return (
+          <div key={col.key} className="border border-slate-200 rounded-xl bg-white flex flex-col shadow-sm">
+            <div className={`p-3 rounded-t-xl flex items-center gap-2 ${col.head}`}>
+              <span className={`w-2 h-2 rounded-full ${col.dot}`} />
+              <h3 className="text-xs font-bold uppercase tracking-wider">{col.title.slice(3)}</h3>
+              <span className="ml-auto text-xs font-semibold opacity-70">{cards.length}</span>
+            </div>
+            <div className="flex-1 p-2.5 space-y-2.5 bg-slate-50 min-h-[420px] max-h-[640px] overflow-y-auto rounded-b-xl">
+              {cards.length === 0 ? (
+                <div className="text-center py-10 text-[11px] text-slate-400 italic">Trống</div>
+              ) : cards.map(r => {
+                const isCol1 = r.trang_thai_hd === 'Chờ xuất HĐ'
+                return (
+                  <div key={r.id} className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-sm hover:shadow transition">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-[10px] font-mono font-semibold text-slate-500">{r.so_lenh || '—'}</span>
+                      <span className="text-[10px] text-slate-400 flex items-center gap-0.5"><Clock className="w-3 h-3" />{fmtDate(r.ngay)}</span>
+                    </div>
+                    <div className="text-sm font-bold text-slate-800 leading-tight">{r.ten_khach_hang}</div>
+                    {r.so_hop_dong && <div className="text-[10px] text-slate-400">HĐ: <span className="font-mono">{r.so_hop_dong}</span></div>}
+                    {isManager && <div className="text-[10px] text-slate-500 mt-0.5">NV: {r.nguoi_kd?.full_name || '—'}</div>}
+                    <div className="mt-1.5 flex items-center justify-between gap-2">
+                      <span className="text-[10px] text-slate-400">{(r.soct_lenh_xuat_ct || []).length} dòng</span>
+                      <span className="text-sm font-bold text-slate-800">{fmtVnd(tong(r))} đ</span>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                      {r.so_hoa_don && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-mono font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">HĐ {r.so_hoa_don}</span>}
+                      {isCol1 && r.ly_do_tra && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-rose-50 text-rose-600 border-rose-200" title={r.ly_do_tra}>⚠ KT trả lại</span>}
+                    </div>
+                    {isCol1 && r.ly_do_tra && <div className="mt-1 text-[10px] text-rose-600 leading-snug">{r.ly_do_tra}</div>}
+                    {isCol1 && isManager && (
+                      <button onClick={() => onHandover(r)} className="mt-2 w-full inline-flex items-center justify-center gap-1 h-7 rounded-md text-[11px] font-semibold bg-blue-600 hover:bg-blue-700 text-white"><Send className="w-3.5 h-3.5" /> Bàn giao kế toán</button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function LenhXuatHangPage() {
   const [me, setMe] = useState<{ full_name: string; role: string } | null>(null)
   const [authErr, setAuthErr] = useState(false)
@@ -295,6 +355,7 @@ export default function LenhXuatHangPage() {
   const [isManager, setIsManager] = useState(false)
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
+  const [view, setView] = useState<'list' | 'kanban'>('list')
   const [note, setNote] = useState<{ t: 'success' | 'error'; m: string } | null>(null)
   const notify = (t: 'success' | 'error', m: string) => { setNote({ t, m }); setTimeout(() => setNote(null), 3500) }
 
@@ -305,6 +366,8 @@ export default function LenhXuatHangPage() {
   const [form, setForm] = useState({ so_lenh: '', ngay: new Date().toISOString().slice(0, 10), ten_khach_hang: '', dia_chi: '', ma_so_thue: '', so_hop_dong: '', ghi_chu: '' })
   const [lines, setLines] = useState<Line[]>([emptyLine(), emptyLine()])
   const [delTarget, setDelTarget] = useState<Lenh | null>(null)
+  const [handoverTarget, setHandoverTarget] = useState<Lenh | null>(null) // sale_admin bàn giao lệnh cho kế toán
+  const [handing, setHanding] = useState(false)
 
   // Danh mục máy & hàng hóa (vlookup dòng hàng) + màn quản lý
   const [catalog, setCatalog] = useState<HangHoa[]>([])
@@ -335,6 +398,13 @@ export default function LenhXuatHangPage() {
     } catch { notify('error', 'Lỗi kết nối') } finally { setLoading(false) }
   }, [])
   useEffect(() => { if (me) { load(); loadCatalog() } }, [me, load, loadCatalog])
+
+  // Realtime: kthc lên HĐ / thu tiền / trả lại lệnh -> bàn Kanban KD tự cập nhật (topic riêng soct_lenhxuat).
+  useEffect(() => {
+    if (!me) return
+    const ch = supabase.channel('soct_lenhxuat').on('broadcast', { event: 'changed' }, () => { load() }).subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [me, load])
 
   const filtered = useMemo(() => {
     const kw = q.trim().toLowerCase()
@@ -398,6 +468,21 @@ export default function LenhXuatHangPage() {
     } catch { notify('error', 'Lỗi kết nối') }
   }
 
+  // Bàn giao lệnh cho kế toán (cột 1 -> 2). CHỈ sale_admin (server gate lại). Sau bàn giao khóa sửa.
+  const doHandover = async () => {
+    if (!handoverTarget) return
+    setHanding(true)
+    try {
+      const res = await fetch('/api/admin/lenh-xuat?kanban=1', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: handoverTarget.id, trang_thai_hd: 'Đang xử lý HĐ' }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (res.ok) { notify('success', 'Đã bàn giao lệnh cho kế toán.'); setHandoverTarget(null); load() }
+      else notify('error', j.error || 'Lỗi bàn giao')
+    } catch { notify('error', 'Lỗi kết nối') } finally { setHanding(false) }
+  }
+
   const logout = async () => { try { await fetch('/api/auth/logout', { method: 'POST' }) } catch {} ; window.location.href = '/' }
 
   if (authErr) return (
@@ -431,12 +516,19 @@ export default function LenhXuatHangPage() {
             <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm khách, số lệnh, số HĐ..." className="h-9 pl-3" />
           </div>
           <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5" title="Chuyển giữa danh sách và bảng Kanban theo dõi luồng">
+              <button onClick={() => setView('list')} className={`inline-flex items-center gap-1 h-8 px-2.5 rounded-md text-xs font-semibold transition ${view === 'list' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}><List className="w-3.5 h-3.5" /> Danh sách</button>
+              <button onClick={() => setView('kanban')} className={`inline-flex items-center gap-1 h-8 px-2.5 rounded-md text-xs font-semibold transition ${view === 'kanban' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}><LayoutGrid className="w-3.5 h-3.5" /> Kanban</button>
+            </div>
             <Button variant="outline" onClick={() => setCatOpen(true)} className="h-9 gap-1.5 text-slate-700" title="Danh mục Máy & Hàng hóa"><Boxes className="w-4 h-4" /> Danh mục máy</Button>
             <Button variant="outline" onClick={load} className="h-9 w-9 p-0" title="Làm mới"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /></Button>
             <Button onClick={openCreate} className="h-9 gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"><Plus className="w-4 h-4" /> Tạo lệnh</Button>
           </div>
         </div>
 
+        {view === 'kanban' ? (
+          <KanbanBoard rows={filtered} isManager={isManager} onHandover={setHandoverTarget} />
+        ) : (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-slate-600">
@@ -469,12 +561,14 @@ export default function LenhXuatHangPage() {
                       <td className="px-3 py-2.5 text-center whitespace-nowrap">
                         <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${tt.cls}`}>{tt.label}</span>
                         {r.so_hoa_don && <div className="text-[10px] text-emerald-600 font-mono mt-0.5">HĐ {r.so_hoa_don}</div>}
+                        {editable && r.ly_do_tra && <div className="text-[10px] text-rose-600 mt-0.5 max-w-[180px] whitespace-normal" title={r.ly_do_tra}>⚠ KT trả lại: {r.ly_do_tra}</div>}
                       </td>
                       <td className="px-3 py-2.5 text-center whitespace-nowrap">
                         {editable ? (
                           <div className="flex items-center justify-center gap-1">
                             <button onClick={() => openEdit(r)} title="Sửa lệnh" className="p-1 rounded text-amber-600 hover:bg-amber-50"><PenSquare className="w-4 h-4" /></button>
                             <button onClick={() => setDelTarget(r)} title="Xóa lệnh" className="p-1 rounded text-rose-600 hover:bg-rose-50"><Trash2 className="w-4 h-4" /></button>
+                            {isManager && <button onClick={() => setHandoverTarget(r)} title="Bàn giao cho kế toán" className="p-1 rounded text-blue-600 hover:bg-blue-50"><Send className="w-4 h-4" /></button>}
                           </div>
                         ) : <span className="text-[10px] text-slate-400 italic">đã bàn giao</span>}
                       </td>
@@ -485,6 +579,7 @@ export default function LenhXuatHangPage() {
             </table>
           </div>
         </div>
+        )}
       </div>
 
       {/* Modal tạo/sửa */}
@@ -591,6 +686,20 @@ export default function LenhXuatHangPage() {
       )}
 
       {catOpen && <CatalogManager catalog={catalog} setCatalog={setCatalog} isManager={isManager} hangOptions={hangOptions} onClose={() => setCatOpen(false)} onChanged={loadCatalog} notify={notify} />}
+
+      {/* Xác nhận bàn giao kế toán (sale_admin) — sau bàn giao KHÓA sửa/xóa lệnh */}
+      {handoverTarget && (
+        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4" onClick={() => !handing && setHandoverTarget(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-5 space-y-4 border border-slate-200" onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-slate-800">Bàn giao cho kế toán</h3>
+            <p className="text-xs text-slate-500">Bàn giao lệnh của <b>{handoverTarget.ten_khach_hang}</b> ({(handoverTarget.soct_lenh_xuat_ct || []).length} dòng hàng) cho kế toán lên hóa đơn?<br />Sau khi bàn giao sẽ <b>không sửa/xóa</b> được lệnh này nữa.</p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setHandoverTarget(null)} disabled={handing} className="h-9 text-xs">Hủy</Button>
+              <Button onClick={doHandover} disabled={handing} className="h-9 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-1.5"><Send className="w-4 h-4" />{handing ? 'Đang bàn giao…' : 'Bàn giao'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Xác nhận xóa */}
       {delTarget && (

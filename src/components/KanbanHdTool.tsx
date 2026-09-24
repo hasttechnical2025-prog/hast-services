@@ -94,7 +94,7 @@ type KdTicket = {
   so_lenh: string | null; ngay: string; so_hop_dong: string | null
   ten_khach_hang: string; dia_chi: string | null; ma_so_thue: string | null
   nguoi_kinh_doanh_id: string | null; nguoi_kd_ten: string
-  trang_thai_hd: string; so_hoa_don: string | null; ngay_xuat_hd: string | null
+  trang_thai_hd: string; so_hoa_don: string | null; ngay_xuat_hd: string | null; ly_do_tra: string | null
   ban_giao_kt_luc: string | null; thanh_toan_luc: string | null
   tach_rieng: boolean; lam_tron: number | null; ten_khach_hd: string | null
   minvoice_luc: string | null; minvoice_lan: number
@@ -189,6 +189,9 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [kdTickets, setKdTickets] = useState<KdTicket[]>([]) // nguồn kinh doanh (lệnh xuất) — chỉ admin/kthc
   const [kdActive, setKdActive] = useState<KdTicket | null>(null) // modal xem thẻ KD
+  const [kdInvoice, setKdInvoice] = useState<{ id: string; so_hoa_don: string; ten: string } | null>(null) // modal nhập số HĐ khi lên HĐ lệnh KD (2->3)
+  const [kdReturn, setKdReturn] = useState<{ id: string; reason: string; ten: string } | null>(null) // modal kế toán trả lại lệnh KD (2->1)
+  const [kdBusy, setKdBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("") // tìm khách / số phiếu / số hóa đơn
   const [col3ChiKyNay, setCol3ChiKyNay] = useState(false) // cột Chờ thanh toán: lọc theo kỳ hay lũy kế
@@ -325,6 +328,45 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     return () => { supabase.removeChannel(ch) }
   }, [loadKd])
 
+  // ===== Chuyển trạng thái thẻ KINH DOANH (lệnh xuất) — PUT /api/admin/lenh-xuat?kanban=1 =====
+  // Endpoint RIÊNG (không đụng kanban-hd kỹ thuật). Server gate lại quyền theo role+cột; đây chỉ là UX.
+  const kdMove = async (id: string, targetState: string, extra: Record<string, any> = {}) => {
+    setKdBusy(true)
+    try {
+      const res = await fetch('/api/admin/lenh-xuat?kanban=1', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, trang_thai_hd: targetState, ...extra }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (res.ok) { showNotification('success', 'Đã chuyển trạng thái lệnh KD.'); loadKd(); return true }
+      showNotification('error', j.error || 'Lỗi chuyển trạng thái'); return false
+    } catch { showNotification('error', 'Lỗi kết nối'); return false }
+    finally { setKdBusy(false) }
+  }
+
+  // Bảng chuyển hợp lệ cho thẻ KD trên BÀN KẾ TOÁN (admin/kthc). Handover 1->2 do sale_admin làm ở trang KD;
+  // ở đây admin vẫn kéo được 1->2 (server cho admin). Trả về 2->1 đi qua modal lý do.
+  const KD_TRANS: Record<string, string[]> = {
+    'Chờ xuất HĐ': ['Đang xử lý HĐ'],
+    'Đang xử lý HĐ': ['Đã lên hóa đơn', 'Chờ xuất HĐ'],
+    'Đã lên hóa đơn': ['Đã thanh toán', 'Đang xử lý HĐ'],
+    'Đã thanh toán': ['Đã lên hóa đơn'],
+  }
+  // Điều phối 1 thao tác kéo/nút cho thẻ KD (mở modal khi cần nhập thêm).
+  const handleKdMove = (t: KdTicket, targetState: string): boolean => {
+    if (!(KD_TRANS[t.trang_thai_hd] || []).includes(targetState)) {
+      showNotification('error', 'Chuyển trạng thái không hợp lệ cho lệnh KD.'); return false
+    }
+    const ten = (t.ten_khach_hd || t.ten_khach_hang || 'Khách lẻ')
+    if (t.trang_thai_hd === 'Đang xử lý HĐ' && targetState === 'Đã lên hóa đơn') {
+      setKdInvoice({ id: t.id, so_hoa_don: t.so_hoa_don || '', ten }); return true // cần số HĐ
+    }
+    if (t.trang_thai_hd === 'Đang xử lý HĐ' && targetState === 'Chờ xuất HĐ') {
+      setKdReturn({ id: t.id, reason: '', ten }); return true // cần lý do trả lại
+    }
+    kdMove(t.id, targetState); return true
+  }
+
   // Đóng modal -> bỏ trạng thái đang sửa tên (tránh sót khi mở thẻ khác)
   useEffect(() => { if (!activeCard) { setEditName(null); setRoundOpen(false) } }, [activeCard])
 
@@ -375,6 +417,15 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       const raw = e.dataTransfer.getData("text/plain")
       if (!raw) return
       const cardData = JSON.parse(raw)
+
+      // Nhánh SỚM cho thẻ KINH DOANH (lệnh xuất) — đi endpoint riêng, KHÔNG đụng path kỹ thuật bên dưới.
+      if (cardData.kind === 'kd') {
+        if (cardData.currentState === targetState) return
+        const t = kdTickets.find(k => k.id === cardData.id)
+        if (t) handleKdMove(t, targetState)
+        return
+      }
+
       const targetIds = cardData.ids || [cardData.id]
       const sourceState = cardData.currentState
 
@@ -1440,8 +1491,12 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const renderKdCard = (t: KdTicket) => {
     const chuaBanGiao = t.trang_thai_hd === 'Chờ xuất HĐ'
     const con = Math.max(0, t.tong_sau_vat - t.da_thu)
+    // Kéo được nếu cột hiện tại có đích hợp lệ (server vẫn gate quyền theo role).
+    const canDrag = (KD_TRANS[t.trang_thai_hd] || []).length > 0
     return (
       <div key={`kd:${t.id}`}
+        draggable={canDrag}
+        onDragStart={e => e.dataTransfer.setData('text/plain', JSON.stringify({ kind: 'kd', id: t.id, currentState: t.trang_thai_hd }))}
         onClick={() => setKdActive(t)}
         className="bg-white border rounded-lg p-3 shadow-sm hover:shadow transition cursor-pointer border-violet-200 relative overflow-hidden hover:bg-violet-50/30">
         <div className="absolute top-0 left-0 bottom-0 w-1 bg-violet-400"></div>
@@ -1459,6 +1514,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
         <div className="mt-1.5 flex flex-wrap gap-1">
           {t.so_hoa_don && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-mono font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">HĐ {t.so_hoa_don}</span>}
           {chuaBanGiao && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-slate-50 text-slate-400 border-slate-200">chưa bàn giao</span>}
+          {chuaBanGiao && t.ly_do_tra && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-rose-50 text-rose-600 border-rose-200" title={t.ly_do_tra}>KT trả lại</span>}
           {t.da_thu > 0 && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">Đã thu {fmtVnd(t.da_thu)}{con > 0 ? ` · còn ${fmtVnd(con)}` : ''}</span>}
           {t.cho_duyet > 0 && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-amber-50 text-amber-700 border-amber-200">Chờ duyệt {fmtVnd(t.cho_duyet)}</span>}
         </div>
@@ -2068,7 +2124,74 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                   {kdActive.cho_duyet > 0 && <span className="inline-block border rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-amber-50 text-amber-700 border-amber-200">Chờ kế toán duyệt: {fmtVnd(kdActive.cho_duyet)} đ</span>}
                 </div>
               )}
-              <p className="text-[10px] text-slate-400 italic pt-1">Bàn giao / lên hóa đơn / thu tiền cho lệnh KD sẽ mở ở bước kế tiếp.</p>
+              {kdActive.trang_thai_hd === 'Chờ xuất HĐ' && kdActive.ly_do_tra && (
+                <div className="rounded-md bg-rose-50 border border-rose-200 px-3 py-2 text-[11px] text-rose-700"><b>⚠ Kế toán trả lại — cần sửa:</b> {kdActive.ly_do_tra}</div>
+              )}
+            </div>
+            {/* Footer thao tác thẻ KD (nút thay kéo — dùng được trên điện thoại). Server gate lại theo role. */}
+            {(() => {
+              const st = kdActive.trang_thai_hd
+              const isKt = role === 'admin' || role === 'kthc'
+              const btns: React.ReactNode[] = []
+              if (st === 'Chờ xuất HĐ' && role === 'admin')
+                btns.push(<Button key="giao" onClick={() => handleKdMove(kdActive, 'Đang xử lý HĐ')} disabled={kdBusy} className="h-9 bg-blue-600 hover:bg-blue-700 text-white text-xs">Bàn giao Kế toán →</Button>)
+              if (st === 'Đang xử lý HĐ' && isKt) {
+                btns.push(<Button key="tra" variant="outline" onClick={() => handleKdMove(kdActive, 'Chờ xuất HĐ')} disabled={kdBusy} className="h-9 text-xs border-rose-200 text-rose-700 hover:bg-rose-50">← Trả lại</Button>)
+                btns.push(<Button key="hd" onClick={() => handleKdMove(kdActive, 'Đã lên hóa đơn')} disabled={kdBusy} className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs">Lên hóa đơn →</Button>)
+              }
+              if (st === 'Đã lên hóa đơn' && isKt) {
+                btns.push(<Button key="back" variant="outline" onClick={() => handleKdMove(kdActive, 'Đang xử lý HĐ')} disabled={kdBusy} className="h-9 text-xs">← Trả về xử lý</Button>)
+                btns.push(<Button key="tt" onClick={() => handleKdMove(kdActive, 'Đã thanh toán')} disabled={kdBusy} className="h-9 bg-indigo-600 hover:bg-indigo-700 text-white text-xs">Đánh dấu đã thanh toán →</Button>)
+              }
+              if (st === 'Đã thanh toán' && isKt)
+                btns.push(<Button key="unpaid" variant="outline" onClick={() => handleKdMove(kdActive, 'Đã lên hóa đơn')} disabled={kdBusy} className="h-9 text-xs">← Bỏ đánh dấu thanh toán</Button>)
+              return (
+                <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-end gap-2 shrink-0 flex-wrap">
+                  <Button variant="outline" onClick={() => setKdActive(null)} className="h-9 text-xs">Đóng</Button>
+                  {btns}
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL nhập SỐ HĐ khi lên hóa đơn lệnh KD (2->3) */}
+      {kdInvoice && (
+        <div className="fixed inset-0 bg-black/50 z-[72] flex items-center justify-center p-4" onClick={() => !kdBusy && setKdInvoice(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-4 bg-emerald-50 border-b border-emerald-100">
+              <h3 className="text-base font-bold text-emerald-800">Lên hóa đơn lệnh KD</h3>
+              <p className="text-xs text-emerald-600 mt-0.5">{kdInvoice.ten}</p>
+            </div>
+            <div className="p-5 space-y-1">
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Số hóa đơn <span className="text-red-500">*</span></label>
+              <Input value={kdInvoice.so_hoa_don} onChange={e => setKdInvoice(v => v ? { ...v, so_hoa_don: e.target.value.toUpperCase() } : v)} placeholder="Nhập số hóa đơn đã xuất trên phần mềm" className="h-10 bg-white uppercase font-mono font-bold text-slate-800" />
+              <p className="text-[10px] text-slate-400">Số HĐ phải duy nhất (không trùng lệnh khác / phiếu kỹ thuật).</p>
+            </div>
+            <div className="p-4 border-t border-slate-100 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setKdInvoice(null)} disabled={kdBusy} className="h-9 text-xs">Hủy</Button>
+              <Button onClick={async () => { const ok = await kdMove(kdInvoice.id, 'Đã lên hóa đơn', { so_hoa_don: kdInvoice.so_hoa_don.trim() }); if (ok) setKdInvoice(null) }} disabled={kdBusy || !kdInvoice.so_hoa_don.trim()} className="h-9 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">{kdBusy ? 'Đang lưu…' : 'Hoàn tất lên HĐ'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL kế toán TRẢ LẠI lệnh KD về cột 1 (nhập lý do) */}
+      {kdReturn && (
+        <div className="fixed inset-0 bg-black/50 z-[75] flex items-center justify-center p-4" onClick={() => !kdBusy && setKdReturn(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-4 bg-rose-50 border-b border-rose-100">
+              <h3 className="text-base font-bold text-rose-800">Trả lệnh về phòng Kinh doanh</h3>
+              <p className="text-xs text-rose-600 mt-0.5">{kdReturn.ten} · nêu rõ cần sửa gì.</p>
+            </div>
+            <div className="p-5">
+              <label className="text-xs font-semibold text-slate-600">Lý do trả lại <span className="text-red-500">*</span></label>
+              <textarea value={kdReturn.reason} onChange={e => setKdReturn(r => r ? { ...r, reason: e.target.value } : r)} rows={4} placeholder="VD: Thiếu MST khách; sai đơn giá dòng máy; chưa có số hợp đồng…" className="mt-1 w-full rounded-md border border-slate-200 p-2.5 text-sm outline-none focus:ring-2 focus:ring-rose-300 resize-none" />
+            </div>
+            <div className="p-4 border-t border-slate-100 flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setKdReturn(null)} disabled={kdBusy} className="text-xs">Hủy</Button>
+              <Button size="sm" onClick={async () => { const ok = await kdMove(kdReturn.id, 'Chờ xuất HĐ', { ly_do_tra: kdReturn.reason.trim() }); if (ok) { setKdReturn(null); setKdActive(null) } }} disabled={kdBusy || !kdReturn.reason.trim()} className="text-xs bg-rose-600 hover:bg-rose-700 text-white">{kdBusy ? 'Đang trả…' : 'Trả lại lệnh'}</Button>
             </div>
           </div>
         </div>
