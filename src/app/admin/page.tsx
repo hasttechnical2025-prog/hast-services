@@ -433,9 +433,8 @@ export default function AdminDashboard() {
     return items.length > 0 ? items : fallback
   }
 
-  // Loại công việc đang dùng + giá trị mặc định cho form (luôn là lựa chọn ĐẦU TIÊN thực tế).
+  // Loại công việc đang dùng (form KHÔNG pre-select — buộc office chọn chủ ý).
   const loaiCvOptions = dmOptions('loai_cong_viec', LOAI_CV_FALLBACK)
-  const loaiCvMacDinh = loaiCvOptions[0] || ''
 
   // Khách hàng sắp/đã hết hạn HĐBT (trong vòng N tháng theo cấu hình)
   const hdbtCanhBaoThang = parseInt(cauHinh.hdbt_canh_bao_thang || '2') || 2
@@ -599,7 +598,7 @@ export default function AdminDashboard() {
     ngay: todayVN(), // Mặc định ngày hôm nay (giờ VN)
     ma_may: "",
     id_khach_hang: "",
-    loai_cong_viec: LOAI_CV_FALLBACK[0],
+    loai_cong_viec: "",   // BẮT BUỘC office chọn chủ ý (không pre-select để tránh "để nguyên mặc định sai")
     km: 0,
     so_luong: 1,
     ktv_id: "",
@@ -627,7 +626,7 @@ export default function AdminDashboard() {
       ngay: todayVN(),
       ma_may: "",
       id_khach_hang: "",
-      loai_cong_viec: loaiCvMacDinh,
+      loai_cong_viec: "",   // buộc chọn khi tạo mới
       km: 0,
       so_luong: 1,
       ktv_id: "",
@@ -655,7 +654,7 @@ export default function AdminDashboard() {
       ngay: job.ngay || todayVN(),
       ma_may: job.ma_may || '',
       id_khach_hang: job.id_khach_hang || '',
-      loai_cong_viec: job.loai_cong_viec || loaiCvMacDinh,
+      loai_cong_viec: job.loai_cong_viec || "",
       km: job.km || 0,
       so_luong: job.so_luong || 1,
       ktv_id: job.ktv_id || '',
@@ -864,7 +863,8 @@ export default function AdminDashboard() {
   // Không có bước này, <select> hiển thị option đầu nhưng state giữ giá trị cũ -> lưu sai.
   useEffect(() => {
     if (editingJobId || loaiCvOptions.length === 0) return
-    if (!loaiCvOptions.includes(formData.loai_cong_viec)) {
+    // GIỮ rỗng "" (buộc chọn) — chỉ nhảy về option đầu khi giá trị KHÁC rỗng mà không còn trong danh mục.
+    if (formData.loai_cong_viec && !loaiCvOptions.includes(formData.loai_cong_viec)) {
       setFormData(prev => ({ ...prev, loai_cong_viec: loaiCvOptions[0] }))
     }
   }, [danhMuc, editingJobId]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1065,6 +1065,11 @@ export default function AdminDashboard() {
 
     if (!finalCustomerId || finalCustomerId === "NEW") {
       return fail("Vui lòng chọn khách hàng hoặc khai báo thông tin khách hàng mới")
+    }
+
+    // Loại việc BẮT BUỘC chọn (không để mặc định dính) — office phải chọn đúng loại.
+    if (!String(formData.loai_cong_viec || '').trim()) {
+      return fail("Vui lòng chọn Loại công việc.")
     }
 
     // Giao mực / Thay vật tư BẮT BUỘC có Số phiếu + ít nhất 1 vật tư (loại khác thì không).
@@ -2639,6 +2644,8 @@ export default function AdminDashboard() {
                     value={formData.loai_cong_viec}
                     onChange={(e) => setFormData({...formData, loai_cong_viec: e.target.value})}
                   >
+                    {/* Placeholder buộc chọn — không pre-select loại nào, office phải chọn chủ ý */}
+                    <option value="" disabled>— Chọn loại việc —</option>
                     {/* Phiếu cũ có loại việc đã bị xóa khỏi danh mục -> vẫn hiện đúng giá trị thật
                         (không để select nói một đằng, state một nẻo) */}
                     {formData.loai_cong_viec && !loaiCvOptions.includes(formData.loai_cong_viec) && (
