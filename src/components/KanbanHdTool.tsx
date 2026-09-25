@@ -1935,7 +1935,18 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
           </label>
           {role !== 'kthc' && (
             <label className="flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer select-none">
-              <input type="checkbox" checked={grouped} onChange={e => setGrouped(e.target.checked)} className="w-3.5 h-3.5 accent-blue-600" />
+              <input type="checkbox" checked={grouped} onChange={e => {
+                if (e.target.checked) {
+                  // Tick = GOM cả khách cụm -> dễ gộp nhầm khi danh sách dài. Xác nhận trước.
+                  setConfirmDialog({
+                    title: 'Gom nhóm theo khách hàng?',
+                    message: 'Mọi phiếu của cùng một khách (cụm) sẽ được GỘP lại để lên CHUNG 1 hóa đơn — bỏ qua việc gom theo từng lô đẩy. Đồng ý gom?',
+                    onConfirm: () => setGrouped(true),
+                  })
+                } else {
+                  setGrouped(false)
+                }
+              }} className="w-3.5 h-3.5 accent-blue-600" />
               Tự động gom nhóm theo khách hàng
             </label>
           )}
