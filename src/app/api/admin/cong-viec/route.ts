@@ -514,7 +514,7 @@ export async function PUT(request: Request) {
       if (!['admin', 'tech_admin', 'staff'].includes(session.role)) {
         return NextResponse.json({ error: 'Không có quyền sửa phiếu' }, { status: 403 })
       }
-      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('ket_qua, trang_thai_hd, ktv_id, ktv2_id, so_hoa_don').eq('id', id).single()
+      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('ket_qua, trang_thai_hd, ktv_id, ktv2_id, so_hoa_don, id_khach_hang, ma_may, loai_cong_viec, report, ghi_chu, ngay').eq('id', id).single()
       if (!cur) return NextResponse.json({ error: 'Không tìm thấy công việc' }, { status: 404 })
       // Admin sửa được mọi trạng thái; tech_admin/staff chỉ sửa khi phiếu chưa bắt đầu
       // (Chờ nhận / Đã nhận) — sau khi KTV bấm Đang làm thì không cho sửa nữa
@@ -614,16 +614,29 @@ export async function PUT(request: Request) {
         }
       }
 
-      // DM người MỚI được gán khi admin sửa phiếu (thay webhook DB nhánh UPDATE)
-      await notifyReassign(
-        { id_khach_hang, ngay: ngay || new Date().toISOString().split('T')[0], ma_may, loai_cong_viec, ghi_chu, report: reportNorm || null, ktv_id: ktv_id || null, ktv2_id: ktv2_id || null },
-        cur.ktv_id || null, cur.ktv2_id || null, session.full_name
-      )
-      // Đồng bộ tin group (phiếu tiền-xử lý): cập nhật NỘI DUNG (loại việc/khách/ghi chú/model...)
-      // + trạng thái phân công lên tin "CHỜ NHẬN"/"ĐÃ CÓ NGƯỜI NHẬN". syncGroupJobMessage SỬA TIN
-      // TẠI CHỖ khi phiếu có telegram_message_id -> KHÔNG đẻ tin mới. Phiếu Đã-nhận không có tin
-      // group riêng (giao thẳng KTV / tạo hàng loạt) tự bỏ qua (hàm chỉ đăng mới cho phiếu Chờ nhận).
-      if (preWork) await syncGroupJobMessage(id)
+      // CHỐNG SPAM TELE: chỉ đụng Telegram khi có thay đổi THỰC SỰ liên quan tin/gán KTV.
+      // Các field KHÔNG nằm trong tin (KM, số lượng, vật tư, MF, giá…) -> sửa vặt KHÔNG bắn tin.
+      // (VD hay gặp: sửa lại KM=0 khi KTV không đi xe / cập nhật KM sau khi đo khoảng cách.)
+      const ngayEff = ngay || new Date().toISOString().split('T')[0]
+      const ktvChanged = (ktv_id || null) !== (cur.ktv_id || null) || (ktv2_id || null) !== (cur.ktv2_id || null)
+      const msgChanged =
+        id_khach_hang !== cur.id_khach_hang ||
+        (ma_may || null) !== (cur.ma_may || null) ||
+        loai_cong_viec !== cur.loai_cong_viec ||
+        (reportNorm || null) !== (cur.report || null) ||
+        (ghi_chu || '') !== (cur.ghi_chu || '') ||
+        ngayEff !== cur.ngay
+
+      // DM người MỚI được gán — chỉ khi KTV thực sự đổi.
+      if (ktvChanged) {
+        await notifyReassign(
+          { id_khach_hang, ngay: ngayEff, ma_may, loai_cong_viec, ghi_chu, report: reportNorm || null, ktv_id: ktv_id || null, ktv2_id: ktv2_id || null },
+          cur.ktv_id || null, cur.ktv2_id || null, session.full_name
+        )
+      }
+      // Đồng bộ tin group phiếu tiền-xử lý — chỉ khi đổi KTV hoặc nội dung tin (khách/ngày/loại/mã máy/
+      // số phiếu/ghi chú). Sửa KM/SL/vật tư/MF đơn thuần -> KHÔNG gọi (không sửa/không đẻ tin trên group).
+      if (preWork && (ktvChanged || msgChanged)) await syncGroupJobMessage(id)
 
       await broadcastJobsChanged()
       await logAudit(session, 'Sửa công việc', `id ${id}${ma_may ? ` — máy ${ma_may}` : ''}`)
