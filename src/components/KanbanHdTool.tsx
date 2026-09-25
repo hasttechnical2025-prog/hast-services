@@ -67,7 +67,8 @@ type Ticket = {
   so_dntt?: string | null
   dntt_lan?: number // số lần đã xuất ĐNTT
   lam_tron?: number // khoản làm tròn tổng sau thuế (đồng, cho phép âm)
-  tach_rieng?: boolean // đẩy LẺ sang kế toán (không gom cụm ở cột 2) — set lúc bàn giao cột 1->2
+  tach_rieng?: boolean // (cũ) đẩy LẺ sang kế toán — thay bằng hd_lo; giữ để không vỡ phiếu cũ
+  hd_lo?: string | null // "lô đẩy Kanban": các phiếu cùng 1 lần đẩy từ Công nợ -> 1 thẻ = 1 hóa đơn
   ten_khach_hd?: string | null // tên người mua ghi đè trên hóa đơn (bảng kê gộp Thuê/CPC = tên hợp đồng)
   nguon?: string | null // 'thue_cpc' = phiếu sinh từ bảng kê Thuê/CPC (mỗi phiếu = 1 thẻ riêng)
   ly_do_tra?: string | null // lý do kế toán trả phiếu về Cột 1 (thiếu/sai thông tin lên HĐ)
@@ -1027,21 +1028,26 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     const cumId = t.soct_khach_hang?.ma_khach_cum
     return cumId ? `cum:${cumId}` : `may:${t.id_khach_hang}`
   }
-  const buildCards = (colTickets: Ticket[], state: string, respectTachRieng: boolean) => {
+  // Khóa gom theo LÔ ĐẨY (mặc định) / theo KHÁCH (khi tick "gom nhóm"):
+  //  - Thuê/CPC & Phí BT: LUÔN 1 thẻ/phiếu.
+  //  - grouped (tick): gom theo cụm/khách (ghi đè).
+  //  - có hd_lo: gom theo lô đẩy (mỗi lần đẩy = 1 thẻ = 1 HĐ) — đúng nghiệp vụ.
+  //  - phiếu CŨ chưa có hd_lo: giữ hành vi cũ (cột 1 lẻ; cột 2 theo cụm+tach_rieng) -> không phải thu hồi.
+  const groupKeyLo = (t: Ticket, state: string) => {
+    if (t.nguon === 'thue_cpc' || t.nguon === 'phi_bao_tri') return `tc:${t.id}`
+    if (grouped) { const cumId = t.soct_khach_hang?.ma_khach_cum; return cumId ? `cum:${cumId}` : `may:${t.id_khach_hang}` }
+    if (t.hd_lo) return `lo:${t.hd_lo}`
+    return state === 'Chờ xuất HĐ' ? `solo:${t.id}` : groupKeyOf(t, true)
+  }
+  // Cột 1 & 2: gom theo LÔ (hoặc theo khách khi tick). Phiếu cũ NULL lô -> hành vi cũ.
+  const getColumnCards = (colTickets: Ticket[], state: string) => {
     const map = new Map<string, GroupedCard>()
     colTickets.forEach(t => {
-      const groupKey = groupKeyOf(t, respectTachRieng)
-      if (!map.has(groupKey)) map.set(groupKey, { id: groupKey, customer: t.soct_khach_hang, tickets: [], trang_thai_hd: state })
-      map.get(groupKey)!.tickets.push(t)
+      const k = groupKeyLo(t, state)
+      if (!map.has(k)) map.set(k, { id: k, customer: t.soct_khach_hang, tickets: [], trang_thai_hd: state })
+      map.get(k)!.tickets.push(t)
     })
     return [...map.values()]
-  }
-  // Cột 1: theo CỜ HIỂN THỊ `grouped` của office (phiếu chưa đẩy nên chưa có tách lẻ).
-  const getColumnCards = (colTickets: Ticket[], state: string) => {
-    if (!grouped) {
-      return colTickets.map(t => ({ id: t.id, customer: t.soct_khach_hang, tickets: [t], trang_thai_hd: state }))
-    }
-    return buildCards(colTickets, state, false)
   }
 
   // SẮP XẾP THẺ: mọi cột "mới nhất lên đầu". Cột 1/2 theo NGÀY PHIẾU (đẩy mới nhất trên đầu);
@@ -1052,8 +1058,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   const cardThu = (c: any) => (c.tickets || []).reduce((m: string, t: any) => { const d = String(t.thanh_toan_luc || t.ngay_xuat_hd || ''); return d > m ? d : m }, '')
 
   const cardsCol1 = getColumnCards(col1Tickets, 'Chờ xuất HĐ').sort((a, b) => cardNgay(b).localeCompare(cardNgay(a)))
-  // Cột 2: LUÔN theo ý định đã lưu (tach_rieng) — không phụ thuộc cờ `grouped` per-viewer (kthc thấy đúng).
-  const cardsCol2 = buildCards(col2Tickets, 'Đang xử lý HĐ', true).sort((a, b) => cardNgay(b).localeCompare(cardNgay(a)))
+  // Cột 2: gom theo LÔ ĐẨY (giữ nguyên qua bàn giao, không phụ thuộc cờ `grouped` per-viewer).
+  const cardsCol2 = getColumnCards(col2Tickets, 'Đang xử lý HĐ').sort((a, b) => cardNgay(b).localeCompare(cardNgay(a)))
   // M-invoice: thẻ CHƯA xuất (nút hàng loạt chỉ đụng các thẻ này) & số thẻ đã xuất nhưng CHƯA có số HĐ.
   const cardsCol2ChuaXuat = cardsCol2.filter((c: any) => !cardMinvoiceExported(c.tickets))
   const col2PendingCount = cardsCol2.filter((c: any) => cardMinvoicePending(c.tickets)).length
@@ -1588,11 +1594,9 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                           <div className="font-bold text-slate-800 text-xs leading-snug line-clamp-2">
                             {tenKh}
                           </div>
-                          {state === 'Đang xử lý HĐ' && (card.tickets.length > 1
-                            ? <span className="inline-block mt-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200" title="Đẩy GOM theo cụm — kế toán xuất 1 hóa đơn cho cả nhóm">Gom cụm · {card.tickets.length} phiếu</span>
-                            : card.tickets[0]?.tach_rieng
-                              ? <span className="inline-block mt-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200" title="Đẩy LẺ — xuất hóa đơn riêng cho phiếu này">Đẩy lẻ</span>
-                              : null)}
+                          {state === 'Đang xử lý HĐ' && card.tickets.length > 1 && (
+                            <span className="inline-block mt-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200" title="Lô gộp — kế toán xuất 1 hóa đơn cho cả nhóm phiếu này">Gộp {card.tickets.length} phiếu</span>
+                          )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                         {/* Xuất riêng THẺ NÀY ra M-invoice (1 chạm) — chỉ kế toán, chỉ cột KT-HC lên hóa đơn.

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireTab } from '@/lib/session'
 import { logAudit } from '@/lib/audit'
@@ -59,7 +60,14 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Trạng thái không hợp lệ' }, { status: 400 })
     }
 
-    const { error } = await supabaseAdmin.from('soct_cong_viec').update({ trang_thai_hd }).in('id', ids)
+    // "Lô đẩy Kanban": đẩy nhóm phiếu lên Kanban (-> 'Chờ xuất HĐ') thì đóng dấu CÙNG 1 hd_lo cho
+    // đúng nhóm này -> Kanban gom thành 1 thẻ = 1 hóa đơn. Kéo về công nợ ('Chưa hóa đơn'/'Đã báo giá')
+    // -> xóa hd_lo để lần đẩy sau là lô mới. 'Đã lên hóa đơn' -> giữ nguyên hd_lo.
+    const updates: Record<string, any> = { trang_thai_hd }
+    if (trang_thai_hd === 'Chờ xuất HĐ') updates.hd_lo = `lo_${randomUUID()}`
+    else if (trang_thai_hd === 'Chưa hóa đơn' || trang_thai_hd === 'Đã báo giá') updates.hd_lo = null
+
+    const { error } = await supabaseAdmin.from('soct_cong_viec').update(updates).in('id', ids)
     if (error) throw error
 
     // Đồng bộ cờ hoa_don ở cấp dòng vật tư để Sổ công tác khớp với công nợ (2 chiều):
