@@ -1941,7 +1941,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                   setConfirmDialog({
                     title: 'Gom nhóm theo khách hàng?',
                     message: 'Mọi phiếu của cùng một khách (cụm) sẽ được GỘP lại để lên CHUNG 1 hóa đơn — bỏ qua việc gom theo từng lô đẩy. Đồng ý gom?',
-                    onConfirm: () => setGrouped(true),
+                    onConfirm: async () => { setGrouped(true) },
                   })
                 } else {
                   setGrouped(false)
