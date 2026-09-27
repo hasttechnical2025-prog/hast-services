@@ -88,7 +88,7 @@ export default function KtvMobileWeb() {
   const [releasing, setReleasing] = useState(false)
 
   // State phục vụ nghiệp vụ Báo cáo & Nhật ký KTV
-  const [ktvTab, setKtvTab] = useState<"jobs" | "report" | "nghi">("jobs")
+  const [ktvTab, setKtvTab] = useState<"jobs" | "report" | "nghi" | "doi">("jobs")
   const [selectedReportDate, setSelectedReportDate] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -774,10 +774,18 @@ export default function KtvMobileWeb() {
                   >
                     🌴 Nghỉ phép
                   </button>
+                  <button
+                    onClick={() => setKtvTab("doi")}
+                    className={`flex-1 py-2 rounded-md font-semibold text-xs transition flex items-center justify-center gap-1.5 ${ktvTab === 'doi' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    👥 Cả đội
+                  </button>
                 </div>
 
                 {ktvTab === "nghi" ? (
                   <NghiPhepDangKy notify={showNotification} />
+                ) : ktvTab === "doi" ? (
+                  <DoiHomNay />
                 ) : ktvTab === "jobs" ? (
                   <>
                     {/* NHẮC: PHIẾU CỨNG CHƯA NỘP */}
@@ -1580,6 +1588,81 @@ function JobReportCard({ job, readOnly, draftVal, onValueChange, options }: { jo
           </select>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ===== "Việc cả đội HÔM NAY" — minh bạch đội, read-only, realtime =====
+// Chỉ hiện: khách + khu vực + loại việc + trạng thái + KTV. KHÔNG km/giá/số phiếu.
+type DoiJob = { id: string; khach: string; khu_vuc: string; loai_cong_viec: string; ket_qua: string; ktv_id: string | null; ktv_ten: string; ktv2_ten: string }
+const KQ_STYLE: Record<string, string> = {
+  'Hoàn thành': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'Đang làm': 'bg-blue-50 text-blue-700 border-blue-200',
+  'Chưa hoàn thành': 'bg-amber-50 text-amber-700 border-amber-200',
+  'Đã nhận': 'bg-violet-50 text-violet-700 border-violet-200',
+  'Chờ nhận': 'bg-slate-100 text-slate-600 border-slate-200',
+}
+function DoiHomNay() {
+  const [rows, setRows] = useState<DoiJob[]>([])
+  const [loading, setLoading] = useState(true)
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
+    try {
+      const res = await fetch('/api/ktv/doi-hom-nay')
+      const j = await res.json()
+      if (res.ok) setRows(j.data || [])
+    } catch { /* im lặng */ } finally { setLoading(false) }
+  }, [])
+  useEffect(() => { load() }, [load])
+  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => load(true), true, 30000)
+
+  // Gom theo KTV phụ trách; việc chưa ai nhận -> nhóm "Chưa có người nhận" (xếp cuối).
+  const groups = new Map<string, { ten: string; jobs: DoiJob[] }>()
+  for (const r of rows) {
+    const key = r.ktv_ten || '__chua__'
+    if (!groups.has(key)) groups.set(key, { ten: r.ktv_ten || 'Chưa có người nhận', jobs: [] })
+    groups.get(key)!.jobs.push(r)
+  }
+  const list = [...groups.values()].sort((a, b) => {
+    if (a.ten === 'Chưa có người nhận') return 1
+    if (b.ten === 'Chưa có người nhận') return -1
+    return a.ten.localeCompare(b.ten)
+  })
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-slate-500">Việc cả đội hôm nay ({rows.length})</p>
+        <button onClick={() => load()} className="text-slate-400 hover:text-emerald-600 p-1" title="Làm mới"><RefreshCw className="w-4 h-4" /></button>
+      </div>
+      {loading ? (
+        <div className="text-center py-10 text-xs text-slate-400 italic">Đang tải…</div>
+      ) : rows.length === 0 ? (
+        <div className="text-center py-10 text-xs text-slate-400 italic">Hôm nay chưa có việc nào.</div>
+      ) : (
+        list.map((g, gi) => (
+          <div key={gi} className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+              <span className="font-bold text-slate-700 text-sm">{g.ten}</span>
+              <span className="text-[11px] text-slate-400">{g.jobs.length} việc</span>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {g.jobs.map(j => (
+                <div key={j.id} className="px-3 py-2 flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-slate-800 leading-snug">{j.khach}</div>
+                    {j.khu_vuc && <div className="text-[11px] text-slate-400 flex items-start gap-1 mt-0.5"><MapPin className="w-3 h-3 mt-0.5 shrink-0" /><span className="line-clamp-1">{j.khu_vuc}</span></div>}
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      {j.loai_cong_viec}{j.ktv2_ten ? ` · kèm: ${j.ktv2_ten}` : ''}
+                    </div>
+                  </div>
+                  <span className={`shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full border ${KQ_STYLE[j.ket_qua] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>{j.ket_qua}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))
+      )}
     </div>
   )
 }
