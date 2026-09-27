@@ -763,6 +763,12 @@ export default function KtvMobileWeb() {
                     💼 Nhận việc
                   </button>
                   <button
+                    onClick={() => setKtvTab("doi")}
+                    className={`flex-1 py-2 rounded-md font-semibold text-xs transition flex items-center justify-center gap-1.5 ${ktvTab === 'doi' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    👥 C.việc chung
+                  </button>
+                  <button
                     onClick={() => setKtvTab("report")}
                     className={`flex-1 py-2 rounded-md font-semibold text-xs transition flex items-center justify-center gap-1.5 ${ktvTab === 'report' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                   >
@@ -773,12 +779,6 @@ export default function KtvMobileWeb() {
                     className={`flex-1 py-2 rounded-md font-semibold text-xs transition flex items-center justify-center gap-1.5 ${ktvTab === 'nghi' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                   >
                     🌴 Nghỉ phép
-                  </button>
-                  <button
-                    onClick={() => setKtvTab("doi")}
-                    className={`flex-1 py-2 rounded-md font-semibold text-xs transition flex items-center justify-center gap-1.5 ${ktvTab === 'doi' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                  >
-                    👥 Cả đội
                   </button>
                 </div>
 
@@ -1632,7 +1632,7 @@ function DoiHomNay() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-500">Việc cả đội hôm nay ({rows.length})</p>
+        <p className="text-xs text-slate-500">Công việc chung của phòng ({rows.length})</p>
         <button onClick={() => load()} className="text-slate-400 hover:text-emerald-600 p-1" title="Làm mới"><RefreshCw className="w-4 h-4" /></button>
       </div>
       {loading ? (
