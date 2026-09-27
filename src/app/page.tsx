@@ -1,11 +1,16 @@
 "use client"
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { PasskeyLoginButton } from '@/components/PasskeyButtons'
 
 export default function Home() {
   const [msg, setMsg] = useState<string | null>(null)
+  // Lệnh xuất hàng (Kinh doanh) BẮT BUỘC làm trên PC -> ẩn lựa chọn này trên thiết bị di động.
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    setIsMobile(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768)
+  }, [])
   const handleAdminLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     // Phát hiện thiết bị di động (Mobile User-Agent hoặc chiều rộng màn hình nhỏ)
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768
@@ -37,12 +42,14 @@ export default function Home() {
             Sổ công tác Mobile (KTV)
           </Link>
 
-          <Link
-            href="/lenh-xuat-hang"
-            className="w-full py-3 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition font-medium block"
-          >
-            Lệnh xuất hàng (Kinh doanh)
-          </Link>
+          {!isMobile && (
+            <Link
+              href="/lenh-xuat-hang"
+              className="w-full py-3 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition font-medium block"
+            >
+              Lệnh xuất hàng (Kinh doanh)
+            </Link>
+          )}
 
           <div className="pt-2 mt-1 border-t border-slate-100">
             <PasskeyLoginButton
