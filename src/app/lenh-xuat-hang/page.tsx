@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import DateField from "@/components/DateField"
 import ThuTienPanel from "@/components/ThuTienPanel"
 import { supabase } from "@/lib/supabase"
-import { Plus, FileText, PenSquare, Trash2, X, Save, RefreshCw, LogOut, Package, Boxes, Send, List, LayoutGrid, Clock, Printer } from "lucide-react"
+import { Plus, FileText, PenSquare, Trash2, X, Save, RefreshCw, LogOut, Package, Boxes, Send, List, LayoutGrid, Clock, FileDown } from "lucide-react"
 
 type HangHoa = { ma_hang: string; ten_hang: string; dvt: string | null; don_gia_niem_yet: number | null; hang: string | null; model: string | null; ghi_chu: string | null }
 
@@ -681,7 +681,7 @@ export default function LenhXuatHangPage() {
                       </td>
                       <td className="px-3 py-2.5 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1">
-                          <button onClick={() => doPrint(r)} title="In lệnh (.docx)" className="p-1 rounded text-slate-500 hover:bg-slate-100"><Printer className="w-4 h-4" /></button>
+                          <button onClick={() => doPrint(r)} title="Xuất Word (.docx)" className="p-1 rounded text-sky-600 hover:bg-sky-50"><FileDown className="w-4 h-4" /></button>
                           {editable ? (
                             <>
                               <button onClick={() => openEdit(r)} title="Sửa lệnh" className="p-1 rounded text-amber-600 hover:bg-amber-50"><PenSquare className="w-4 h-4" /></button>
@@ -881,7 +881,7 @@ export default function LenhXuatHangPage() {
               </div>
               <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-end gap-2 shrink-0 flex-wrap">
                 <Button variant="outline" onClick={() => setDetail(null)} className="h-9 text-xs">Đóng</Button>
-                <Button variant="outline" onClick={() => doPrint(detail)} className="h-9 text-xs gap-1.5"><Printer className="w-4 h-4" /> In lệnh</Button>
+                <Button variant="outline" onClick={() => doPrint(detail)} className="h-9 text-xs gap-1.5"><FileDown className="w-4 h-4" /> Xuất Word</Button>
                 {isManager && isCol1 && (
                   <>
                     <Button variant="outline" onClick={() => setRecallTarget(detail)} className="h-9 text-xs border-amber-200 text-amber-700 hover:bg-amber-50">← Thu hồi (sửa lại)</Button>
