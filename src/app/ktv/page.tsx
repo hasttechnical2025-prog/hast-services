@@ -762,12 +762,15 @@ export default function KtvMobileWeb() {
                   >
                     💼 Nhận việc
                   </button>
+                  {/* TẠM ẨN tab "C.việc chung" (chờ chốt nghiệp vụ) — GIỮ code DoiHomNay + endpoint
+                      /api/ktv/doi-hom-nay để bật lại nhanh: bỏ comment nút này là hiện.
                   <button
                     onClick={() => setKtvTab("doi")}
                     className={`flex-1 py-2 rounded-md font-semibold text-xs transition flex items-center justify-center gap-1.5 ${ktvTab === 'doi' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                   >
                     👥 C.việc chung
                   </button>
+                  */}
                   <button
                     onClick={() => setKtvTab("report")}
                     className={`flex-1 py-2 rounded-md font-semibold text-xs transition flex items-center justify-center gap-1.5 ${ktvTab === 'report' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
