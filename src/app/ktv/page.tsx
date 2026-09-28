@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { MapPin, Clipboard, CheckCircle, Play, AlertTriangle, RefreshCw, Inbox, Hand, Send, ChevronLeft, ChevronRight, Plus, Trash2, Calendar, CalendarClock, FileText, Settings, Home } from "lucide-react"
+import { MapPin, Clipboard, CheckCircle, Play, AlertTriangle, RefreshCw, Inbox, Hand, Send, ChevronLeft, ChevronRight, Plus, Trash2, Calendar, CalendarClock, FileText, Settings, Home, Users, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import AccountSettings from "@/components/AccountSettings"
@@ -72,6 +72,7 @@ export default function KtvMobileWeb() {
   const [activeJob, setActiveJob] = useState<Job | null>(null)
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null)
   const [showSettings, setShowSettings] = useState(false)
+  const [showTeam, setShowTeam] = useState(false) // overlay "Công việc chung của phòng"
   // Modal hủy nhận việc (kèm lý do tùy chọn)
   const [releaseTarget, setReleaseTarget] = useState<Job | null>(null)
   // Hộp thoại xác nhận thời lượng khi bấm Hoàn thành + số thao tác còn chờ đồng bộ
@@ -657,9 +658,14 @@ export default function KtvMobileWeb() {
           <Clipboard className="w-5 h-5" /> Sổ công tác KTV
         </h1>
         {currentKtv && (
-          <button onClick={handleLogout} className="text-xs bg-emerald-700 px-2 py-1 rounded text-emerald-100 hover:bg-emerald-800 transition">
-            Đăng xuất
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowTeam(true)} title="Công việc chung của phòng" className="p-1.5 rounded bg-emerald-700 text-emerald-100 hover:bg-emerald-800 transition">
+              <Users className="w-4 h-4" />
+            </button>
+            <button onClick={handleLogout} className="text-xs bg-emerald-700 px-2 py-1 rounded text-emerald-100 hover:bg-emerald-800 transition">
+              Đăng xuất
+            </button>
+          </div>
         )}
       </header>
 
@@ -762,15 +768,6 @@ export default function KtvMobileWeb() {
                   >
                     💼 Nhận việc
                   </button>
-                  {/* TẠM ẨN tab "C.việc chung" (chờ chốt nghiệp vụ) — GIỮ code DoiHomNay + endpoint
-                      /api/ktv/doi-hom-nay để bật lại nhanh: bỏ comment nút này là hiện.
-                  <button
-                    onClick={() => setKtvTab("doi")}
-                    className={`flex-1 py-2 rounded-md font-semibold text-xs transition flex items-center justify-center gap-1.5 ${ktvTab === 'doi' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                  >
-                    👥 C.việc chung
-                  </button>
-                  */}
                   <button
                     onClick={() => setKtvTab("report")}
                     className={`flex-1 py-2 rounded-md font-semibold text-xs transition flex items-center justify-center gap-1.5 ${ktvTab === 'report' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
@@ -787,8 +784,6 @@ export default function KtvMobileWeb() {
 
                 {ktvTab === "nghi" ? (
                   <NghiPhepDangKy notify={showNotification} />
-                ) : ktvTab === "doi" ? (
-                  <DoiHomNay />
                 ) : ktvTab === "jobs" ? (
                   <>
                     {/* NHẮC: PHIẾU CỨNG CHƯA NỘP */}
@@ -1325,6 +1320,19 @@ export default function KtvMobileWeb() {
 
       {showSettings && <AccountSettings notify={(m, ok) => showNotification(ok ? 'success' : 'error', m)} onClose={() => setShowSettings(false)} />}
 
+      {/* OVERLAY: Công việc chung của phòng (read-only, realtime) */}
+      {showTeam && (
+        <div className="fixed inset-0 z-50 bg-slate-50 flex flex-col">
+          <div className="bg-emerald-600 text-white p-4 sticky top-0 shadow-md flex items-center justify-between z-10">
+            <h2 className="text-base font-bold flex items-center gap-2"><Users className="w-5 h-5" /> Công việc chung của phòng</h2>
+            <button onClick={() => setShowTeam(false)} title="Đóng" className="p-1.5 rounded bg-emerald-700 text-emerald-100 hover:bg-emerald-800 transition"><X className="w-4 h-4" /></button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <DoiHomNay />
+          </div>
+        </div>
+      )}
+
       {/* Modal chọn KTV để chuyển việc (gửi lời mời) */}
       {transferTarget && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
@@ -1635,7 +1643,7 @@ function DoiHomNay() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-500">Công việc chung của phòng ({rows.length})</p>
+        <p className="text-xs text-slate-500">{rows.length} việc hôm nay</p>
         <button onClick={() => load()} className="text-slate-400 hover:text-emerald-600 p-1" title="Làm mới"><RefreshCw className="w-4 h-4" /></button>
       </div>
       {loading ? (
