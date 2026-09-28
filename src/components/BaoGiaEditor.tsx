@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input"
 
 // soPhieu / srcIds: CHỈ dùng hiển thị & khoanh vùng phiếu trong app (Công nợ) — KHÔNG
 // đưa vào file báo giá .docx (bị lọc bỏ khi xuất). Giám định không dùng 2 field này.
-export type BaoGiaRow = { ten: string; dvt: string; sl: number; gia: number; vat: number; gc: string; soPhieu?: string; srcIds?: string[] }
+// maHang/lineIds/ten0: CHỈ dùng nội bộ Công nợ để GHI NGƯỢC chỉnh sửa xuống dòng vật tư khi đẩy
+// Kanban (ten0 = tên gốc lúc nạp -> chỉ ghi ten_hang_hd khi user thực sự sửa). Báo giá bỏ qua.
+export type BaoGiaRow = { ten: string; dvt: string; sl: number; gia: number; vat: number; gc: string; soPhieu?: string; srcIds?: string[]; maHang?: string; lineIds?: string[]; ten0?: string }
 
 export const emptyBaoGiaRow = (): BaoGiaRow => ({ ten: '', dvt: 'Cái', sl: 1, gia: 0, vat: 8, gc: '' })
 
@@ -20,6 +22,7 @@ const asciiFile = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').repl
 export default function BaoGiaEditor({
   rows, onRowsChange, khachHang, onKhachHangChange, diaChi, onDiaChiChange,
   showNotification, onExported, toolbarExtra, rightToolbarExtra, footerExtra, emptyText, canExport = true, showSoPhieu = false,
+  slDisabled = false, phieuChips = true,
 }: {
   rows: BaoGiaRow[]
   onRowsChange: (rows: BaoGiaRow[]) => void
@@ -35,6 +38,8 @@ export default function BaoGiaEditor({
   emptyText?: string
   canExport?: boolean
   showSoPhieu?: boolean
+  slDisabled?: boolean   // Công nợ: SL khóa (sửa SL dùng nút Tách dòng)
+  phieuChips?: boolean   // false: ẩn chips "Xóa cả phiếu" (Công nợ tự quản việc chọn phiếu)
 }) {
   const [markups, setMarkups] = useState({ a: '3', b: '5', c: '6' })
   const [nam, setNam] = useState(String(new Date().getFullYear()))
@@ -116,7 +121,7 @@ export default function BaoGiaEditor({
         </div>
       </div>
 
-      {showSoPhieu && phieu.length > 0 && (
+      {phieuChips && showSoPhieu && phieu.length > 0 && (
         <div className="px-4 py-2 border-b border-slate-200 bg-white flex flex-wrap items-center gap-1.5">
           <span className="text-xs font-semibold text-slate-500 mr-1">Xóa cả phiếu:</span>
           {phieu.map(p => (
@@ -153,7 +158,9 @@ export default function BaoGiaEditor({
                 {showSoPhieu && <td className="px-2 py-1.5 text-xs font-mono text-slate-500 whitespace-nowrap">{r.soPhieu || '—'}</td>}
                 <td className="px-3 py-1.5"><Input value={r.ten} onChange={e => upd(i, 'ten', e.target.value)} className="h-8 bg-white" /></td>
                 <td className="px-2 py-1.5"><Input value={r.dvt} onChange={e => upd(i, 'dvt', e.target.value)} className="h-8 bg-white" /></td>
-                <td className="px-2 py-1.5"><Input value={String(r.sl)} onChange={e => upd(i, 'sl', parseInt(digits(e.target.value)) || 0)} className="h-8 bg-white text-center" /></td>
+                <td className="px-2 py-1.5">{slDisabled
+                  ? <div className="h-8 flex items-center justify-center text-slate-700 font-medium" title="Sửa số lượng bằng nút Tách dòng">{r.sl}</div>
+                  : <Input value={String(r.sl)} onChange={e => upd(i, 'sl', parseInt(digits(e.target.value)) || 0)} className="h-8 bg-white text-center" />}</td>
                 <td className="px-3 py-1.5"><Input value={fmtN(r.gia)} onChange={e => upd(i, 'gia', parseInt(digits(e.target.value)) || 0)} className="h-8 bg-white text-right" /></td>
                 <td className="px-2 py-1.5"><Input value={String(r.vat)} onChange={e => upd(i, 'vat', parseFloat(e.target.value.replace(',', '.')) || 0)} className="h-8 bg-white text-center" /></td>
                 <td className="px-3 py-1.5 text-right font-medium text-slate-700 whitespace-nowrap">{fmtN((Number(r.sl) || 0) * (Number(r.gia) || 0))}</td>

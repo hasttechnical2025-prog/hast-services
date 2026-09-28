@@ -54,10 +54,32 @@ export async function PUT(request: Request) {
     const session = await requireTab('tai_chinh', 'tai_chinh.cong_no')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
-    const { ids, trang_thai_hd } = await request.json()
+    const { ids, trang_thai_hd, line_edits } = await request.json()
     if (!Array.isArray(ids) || ids.length === 0) return NextResponse.json({ error: 'Chưa chọn phiếu' }, { status: 400 })
     if (!['Chưa hóa đơn', 'Đã báo giá', 'Đã lên hóa đơn', 'Chờ xuất HĐ'].includes(trang_thai_hd)) {
       return NextResponse.json({ error: 'Trạng thái không hợp lệ' }, { status: 400 })
+    }
+
+    // TIỀN XỬ LÝ trước khi đẩy Kanban: ghi đơn giá/ĐVT/VAT (và tên in HĐ nếu user sửa) xuống từng
+    // dòng vật tư. thanh_tien tính lại theo SL hiện có (SL khóa ở UI, không nhận ở đây). Chỉ ghi
+    // dòng thuộc các phiếu đang đẩy (id_cong_viec ∈ ids) để an toàn.
+    if (Array.isArray(line_edits) && line_edits.length > 0) {
+      const idSet = new Set<string>(ids)
+      const lineIds = line_edits.map((e: any) => e.line_id).filter(Boolean)
+      const { data: curLines } = await supabaseAdmin
+        .from('soct_chi_tiet_vat_tu').select('id, id_cong_viec, so_luong').in('id', lineIds)
+      const slById = new Map<string, number>((curLines || []).map((l: any) => [l.id, Number(l.so_luong) || 0]))
+      const okIds = new Set<string>((curLines || []).filter((l: any) => idSet.has(l.id_cong_viec)).map((l: any) => l.id))
+      for (const e of line_edits) {
+        if (!e.line_id || !okIds.has(e.line_id)) continue
+        const sl = slById.get(e.line_id) || 0
+        const gia = Number(e.don_gia) || 0
+        const upd: Record<string, any> = { don_gia: gia, thanh_tien: Math.round(gia * sl) }
+        if (e.vat !== undefined) upd.vat = Number(e.vat) || 0
+        if (e.don_vi_tinh !== undefined) upd.don_vi_tinh = String(e.don_vi_tinh || '').trim() || 'Cái'
+        if (e.ten_hang_hd !== undefined) upd.ten_hang_hd = e.ten_hang_hd ? String(e.ten_hang_hd).trim() : null
+        await supabaseAdmin.from('soct_chi_tiet_vat_tu').update(upd).eq('id', e.line_id)
+      }
     }
 
     // "Lô đẩy Kanban": đẩy nhóm phiếu lên Kanban (-> 'Chờ xuất HĐ') thì đóng dấu CÙNG 1 hd_lo cho

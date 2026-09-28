@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom"
-import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy, X, Palmtree, Send, Hand, Bell, Droplets, FileText, FileSpreadsheet, ToggleRight, ToggleLeft, Save } from "lucide-react"
+import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy, X, Palmtree, Send, Hand, Bell, Droplets, FileText, FileSpreadsheet, ToggleRight, ToggleLeft, Save, Scissors } from "lucide-react"
 import { BBBG_TEMPLATE_LIST } from "@/lib/bbbg-templates"
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
@@ -7338,7 +7338,7 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
   const [list, setList] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selIds, setSelIds] = useState<string[]>([])
-  const [gop, setGop] = useState(false)
+  const [selPhieuIds, setSelPhieuIds] = useState<string[]>([]) // phiếu ĐƯỢC CHỌN trong cụm (mặc định chọn hết)
   const [rows, setRows] = useState<BaoGiaRow[]>([])
   const [khTen, setKhTen] = useState('')
   const [khDiaChi, setKhDiaChi] = useState('')
@@ -7381,32 +7381,41 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
     .map((c: any) => ({ ...c, tickets: [...c.tickets].sort(byReport) }))
   const selCusts = custs.filter(c => selIds.includes(c.id))
   const selTickets = selCusts.flatMap(c => c.tickets)
+  // Phiếu ĐƯỢC CHỌN (checkbox) trong cụm -> dữ liệu bảng + đẩy Kanban chỉ theo các phiếu này.
+  const chosenTickets = selTickets.filter((t: any) => selPhieuIds.includes(t.id))
 
   // Mỗi dòng vật tư mang theo Số phiếu (report) + id phiếu nguồn (srcIds) để:
   //  - hiển thị cột "Số phiếu" trong bảng,
   //  - khoanh vùng đúng phiếu khi Đánh dấu báo giá / Lên hóa đơn (thanh toán từng phần).
-  const buildRows = (tickets: any[], gopMa: boolean): BaoGiaRow[] => {
-    const lines = tickets.flatMap((t: any) => (t.soct_chi_tiet_vat_tu || []).map((v: any) => ({
-      ten: v.ten_hd || v.soct_kho_hang?.ten_hang || v.ma_hang || '', sl: Number(v.so_luong) || 0, gia: Number(v.don_gia) || 0, vat: Number(v.vat) || 0,
-      soPhieu: t.report || '', srcId: t.id as string,
-    })))
-    if (!gopMa) return lines.map((l: any) => ({ ten: l.ten, sl: l.sl, gia: l.gia, vat: l.vat, dvt: 'Cái', gc: '', soPhieu: l.soPhieu, srcIds: [l.srcId] }))
+  // LUÔN gộp theo MÃ HÀNG (bỏ toggle gộp): các dòng cùng mã trong các phiếu ĐÃ CHỌN gộp thành 1 dòng
+  // (cộng SL). Mang theo lineIds (id dòng vật tư) + ten0 (tên gốc) để GHI NGƯỢC khi đẩy Kanban.
+  // Bỏ dòng đã trả kho (da_tra). Dòng không có mã kho -> gộp theo tên.
+  const buildRows = (tickets: any[]): BaoGiaRow[] => {
+    const lines = tickets.flatMap((t: any) => (t.soct_chi_tiet_vat_tu || [])
+      .filter((v: any) => !v.da_tra)
+      .map((v: any) => ({
+        maHang: v.ma_hang || '', ten: v.ten_hd || v.soct_kho_hang?.ten_hang || v.ma_hang || '',
+        sl: Number(v.so_luong) || 0, gia: Number(v.don_gia) || 0, vat: Number(v.vat) || 0, dvt: v.don_vi_tinh || 'Cái',
+        soPhieu: t.report || '', srcId: t.id as string, lineId: v.id as string,
+      })))
     const m = new Map<string, any>()
     for (const l of lines) {
-      const k = `${l.ten}|${l.gia}|${l.vat}`
-      if (!m.has(k)) m.set(k, { ten: l.ten, sl: l.sl, gia: l.gia, vat: l.vat, dvt: 'Cái', gc: '', soPhieu: l.soPhieu, srcIds: [l.srcId] })
-      else { const e = m.get(k); e.sl += l.sl; if (!e.srcIds.includes(l.srcId)) e.srcIds.push(l.srcId); if (e.soPhieu !== l.soPhieu) e.soPhieu = 'nhiều' }
+      const k = l.maHang || `ten:${l.ten}`
+      if (!m.has(k)) m.set(k, { ten: l.ten, ten0: l.ten, dvt: l.dvt, sl: l.sl, gia: l.gia, vat: l.vat, gc: '', soPhieu: l.soPhieu, maHang: l.maHang, srcIds: [l.srcId], lineIds: [l.lineId] })
+      else { const e = m.get(k); e.sl += l.sl; if (!e.srcIds.includes(l.srcId)) e.srcIds.push(l.srcId); e.lineIds.push(l.lineId); if (e.soPhieu !== l.soPhieu) e.soPhieu = 'nhiều' }
     }
     return [...m.values()]
   }
-  useEffect(() => { setRows(buildRows(selTickets, gop)) }, [selIds, gop]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setRows(buildRows(chosenTickets)) }, [selIds, selPhieuIds]) // eslint-disable-line react-hooks/exhaustive-deps
   // Chọn 1 khách/cụm (radio) — tránh trộn nhiều khách khác nhau. Bấm lại = bỏ chọn.
+  // Chọn cụm -> mặc định TICK HẾT phiếu của cụm (office bỏ tick cái không đẩy).
   const toggleSel = (c: any) => {
     setSelIds(prev => {
-      if (prev[0] === c.id) { setKhTen(''); setKhDiaChi(''); return [] }
-      setKhTen(c.ten); setKhDiaChi(c.dia_chi); return [c.id]
+      if (prev[0] === c.id) { setKhTen(''); setKhDiaChi(''); setSelPhieuIds([]); return [] }
+      setKhTen(c.ten); setKhDiaChi(c.dia_chi); setSelPhieuIds(c.tickets.map((t: any) => t.id)); return [c.id]
     })
   }
+  const togglePhieu = (id: string) => setSelPhieuIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
 
   const fmtN = (x: any) => (Number(x) || 0).toLocaleString('vi-VN')
 
@@ -7471,13 +7480,33 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
     // Kèm phiếu KHÔNG có vật tư đang chọn (không tạo dòng nào) để không bỏ sót khi
     // thanh toán toàn bộ (không xóa dòng nào -> hành xử như trước đây).
     const inRows = new Set<string>(rows.flatMap((r: any) => r.srcIds || []))
-    const noVatTu = selTickets.filter((t: any) => !(t.soct_chi_tiet_vat_tu?.length)).map((t: any) => t.id)
+    const noVatTu = chosenTickets.filter((t: any) => !(t.soct_chi_tiet_vat_tu?.length)).map((t: any) => t.id)
     const ids = Array.from(new Set<string>([...inRows, ...noVatTu]))
     if (ids.length === 0) return showNotification('error', 'Không có phiếu nào trong bảng để cập nhật.')
     setWorking(true)
     try {
       const res = await fetch('/api/admin/cong-no', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, trang_thai_hd }) })
-      if (res.ok) { showNotification('success', `Đã cập nhật ${ids.length} phiếu → ${trang_thai_hd}.`); setSelIds([]); setKhTen(''); setKhDiaChi(''); fetchList() }
+      if (res.ok) { showNotification('success', `Đã cập nhật ${ids.length} phiếu → ${trang_thai_hd}.`); setSelIds([]); setKhTen(''); setKhDiaChi(''); setSelPhieuIds([]); fetchList() }
+      else { const j = await res.json(); showNotification('error', j.error) }
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setWorking(false) }
+  }
+
+  // ĐẨY KANBAN (tiền xử lý): GHI đơn giá/ĐVT/VAT (và tên nếu user sửa) xuống dòng vật tư rồi
+  // chuyển 'Chờ xuất HĐ'. SL KHÔNG ghi (khóa; muốn đổi dùng Tách dòng). Kanban nhận dữ liệu sạch.
+  const pushKanban = async () => {
+    const inRows = new Set<string>(rows.flatMap((r: any) => r.srcIds || []))
+    const noVatTu = chosenTickets.filter((t: any) => !(t.soct_chi_tiet_vat_tu?.length)).map((t: any) => t.id)
+    const ids = Array.from(new Set<string>([...inRows, ...noVatTu]))
+    if (ids.length === 0) return showNotification('error', 'Chưa chọn phiếu nào để đẩy.')
+    // line_edits: mỗi dòng vật tư nhận đơn giá/ĐVT/VAT của row; tên chỉ ghi khi user SỬA (ten != ten0).
+    const line_edits = rows.flatMap((r: any) => (r.lineIds || []).map((lid: string) => ({
+      line_id: lid, don_gia: Number(r.gia) || 0, vat: Number(r.vat) || 0, don_vi_tinh: (r.dvt || '').trim() || 'Cái',
+      ...(String(r.ten || '').trim() !== String(r.ten0 || '').trim() ? { ten_hang_hd: String(r.ten || '').trim() || null } : {}),
+    })))
+    setWorking(true)
+    try {
+      const res = await fetch('/api/admin/cong-no', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, trang_thai_hd: 'Chờ xuất HĐ', line_edits }) })
+      if (res.ok) { showNotification('success', `Đã đẩy ${ids.length} phiếu sang Kanban (cột 1) với dữ liệu đã chuẩn bị.`); setSelIds([]); setKhTen(''); setKhDiaChi(''); setSelPhieuIds([]); fetchList() }
       else { const j = await res.json(); showNotification('error', j.error) }
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setWorking(false) }
   }
@@ -7589,17 +7618,40 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
         <p className="text-sm text-slate-400 text-center py-6">Lựa chọn khách hàng để xuất công nợ hoặc lập báo giá</p>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          {/* LỰA CHỌN PHIẾU (opt-in): mặc định tick hết; bỏ tick = không đưa vào bảng/đẩy Kanban. */}
+          {selTickets.length > 0 && (
+            <div className="px-4 py-2 border-b border-slate-200 bg-slate-50/70 flex flex-wrap items-center gap-1.5">
+              <span className="text-xs font-semibold text-slate-500 mr-1">Chọn phiếu đẩy Kanban:</span>
+              {selTickets.slice().sort(byReport).map((t: any) => {
+                const on = selPhieuIds.includes(t.id)
+                return (
+                  <button key={t.id} onClick={() => togglePhieu(t.id)}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-mono rounded-full border transition ${on ? 'bg-blue-50 text-blue-700 border-blue-300' : 'bg-white text-slate-400 border-slate-200 line-through'}`}
+                    title={on ? 'Đang chọn — bấm để bỏ' : 'Đã bỏ — bấm để chọn lại'}>
+                    <span className={`w-3 h-3 rounded-sm border flex items-center justify-center ${on ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300'}`}>{on ? '✓' : ''}</span>
+                    {t.report || t.id.slice(0, 6)}
+                  </button>
+                )
+              })}
+              <div className="ml-auto flex gap-1">
+                <button onClick={() => setSelPhieuIds(selTickets.map((t: any) => t.id))} className="text-[11px] text-blue-600 hover:underline px-1">Chọn tất</button>
+                <button onClick={() => setSelPhieuIds([])} className="text-[11px] text-slate-400 hover:underline px-1">Bỏ tất</button>
+              </div>
+            </div>
+          )}
           <BaoGiaEditor
             rows={rows}
             onRowsChange={setRows}
             showSoPhieu
+            slDisabled
+            phieuChips={false}
             khachHang={khTen}
             onKhachHangChange={setKhTen}
             diaChi={khDiaChi}
             onDiaChiChange={setKhDiaChi}
             showNotification={showNotification}
             canExport={selCusts.length > 0}
-            emptyText="Khách này chưa có vật tư trong các phiếu. Thêm dòng thủ công nếu cần."
+            emptyText="Chưa chọn phiếu nào (hoặc phiếu đã chọn không có vật tư). Tick phiếu ở trên."
             rightToolbarExtra={
               <Button variant="outline" onClick={exportBangKe} disabled={exportingXlsx || selCusts.length === 0}
                 className="h-9 gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
@@ -7607,18 +7659,13 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
                 <FileSpreadsheet className={`w-4 h-4 ${exportingXlsx ? 'animate-pulse' : ''}`} /> Xuất Excel công nợ
               </Button>
             }
-            toolbarExtra={
-              <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none h-9">
-                <input type="checkbox" checked={gop} onChange={e => setGop(e.target.checked)} className="w-4 h-4 accent-blue-600" /> Gộp theo mặt hàng
-              </label>
-            }
             footerExtra={
               <>
                 {splitTickets.length > 0 && (
-                  <Button variant="outline" onClick={openSplit} disabled={working} className="h-9 w-9 p-0 border-amber-300 text-amber-700 hover:bg-amber-50" title="Tách dòng lên HĐ: chọn dòng lên hóa đơn; dòng còn lại tách sang phiếu con ở lại Công nợ">✂</Button>
+                  <Button variant="outline" onClick={openSplit} disabled={working} className="h-9 gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50" title="Tách dòng lên HĐ: chọn dòng lên hóa đơn; dòng còn lại tách sang phiếu con ở lại Công nợ"><Scissors className="w-4 h-4" /> Tách dòng</Button>
                 )}
                 <Button variant="outline" onClick={() => setStatus('Đã báo giá')} disabled={working} title="Đánh dấu đã báo giá" className="h-9 w-9 p-0"><CheckCircle2 className="w-4 h-4" /></Button>
-                <Button onClick={() => setStatus('Chờ xuất HĐ')} disabled={working} className="h-9 bg-blue-600 hover:bg-blue-700">📤 Đẩy sang Kế toán (Kanban)</Button>
+                <Button onClick={pushKanban} disabled={working} className="h-9 bg-blue-600 hover:bg-blue-700">📤 Đẩy sang Kế toán (Kanban)</Button>
               </>
             }
           />
