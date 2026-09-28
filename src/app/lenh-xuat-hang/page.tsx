@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import DateField from "@/components/DateField"
 import ThuTienPanel from "@/components/ThuTienPanel"
 import { supabase } from "@/lib/supabase"
-import { Plus, FileText, PenSquare, Trash2, X, Save, RefreshCw, LogOut, Package, Boxes, Send, List, LayoutGrid, Clock } from "lucide-react"
+import { Plus, FileText, PenSquare, Trash2, X, Save, RefreshCw, LogOut, Package, Boxes, Send, List, LayoutGrid, Clock, Printer } from "lucide-react"
 
 type HangHoa = { ma_hang: string; ten_hang: string; dvt: string | null; don_gia_niem_yet: number | null; hang: string | null; model: string | null; ghi_chu: string | null }
 
@@ -559,6 +559,19 @@ export default function LenhXuatHangPage() {
     } catch { notify('error', 'Lỗi kết nối') } finally { setActing(false) }
   }
 
+  // In lệnh xuất (.docx) — tải file về máy.
+  const doPrint = async (r: Lenh) => {
+    try {
+      const res = await fetch(`/api/admin/lenh-xuat/print?id=${r.id}`)
+      if (!res.ok) { const j = await res.json().catch(() => ({})); notify('error', j.error || 'Lỗi in lệnh'); return }
+      const blob = await res.blob()
+      const cd = res.headers.get('Content-Disposition') || ''
+      const fname = decodeURIComponent((cd.match(/filename="?([^"]+)"?/) || [])[1] || `LenhXuat-${r.so_lenh || r.id}.docx`)
+      const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = fname; a.click(); URL.revokeObjectURL(url)
+      notify('success', 'Đã xuất file lệnh xuất.')
+    } catch { notify('error', 'Lỗi kết nối') }
+  }
+
   const logout = async () => { try { await fetch('/api/auth/logout', { method: 'POST' }) } catch {} ; window.location.href = '/' }
 
   // Chưa đăng nhập -> form đăng nhập ngay tại trang KD.
@@ -667,13 +680,16 @@ export default function LenhXuatHangPage() {
                         {editable && r.ly_do_tra && <div className="text-[10px] text-rose-600 mt-0.5 max-w-[180px] whitespace-normal" title={r.ly_do_tra}>⚠ KT trả lại: {r.ly_do_tra}</div>}
                       </td>
                       <td className="px-3 py-2.5 text-center whitespace-nowrap">
-                        {editable ? (
-                          <div className="flex items-center justify-center gap-1">
-                            <button onClick={() => openEdit(r)} title="Sửa lệnh" className="p-1 rounded text-amber-600 hover:bg-amber-50"><PenSquare className="w-4 h-4" /></button>
-                            <button onClick={() => setDelTarget(r)} title="Xóa lệnh" className="p-1 rounded text-rose-600 hover:bg-rose-50"><Trash2 className="w-4 h-4" /></button>
-                            <button onClick={() => setPushTarget(r)} title="Đẩy lên Kanban" className="p-1 rounded text-blue-600 hover:bg-blue-50"><Send className="w-4 h-4" /></button>
-                          </div>
-                        ) : <span className="text-[10px] text-slate-400 italic">đã lên Kanban</span>}
+                        <div className="flex items-center justify-center gap-1">
+                          <button onClick={() => doPrint(r)} title="In lệnh (.docx)" className="p-1 rounded text-slate-500 hover:bg-slate-100"><Printer className="w-4 h-4" /></button>
+                          {editable ? (
+                            <>
+                              <button onClick={() => openEdit(r)} title="Sửa lệnh" className="p-1 rounded text-amber-600 hover:bg-amber-50"><PenSquare className="w-4 h-4" /></button>
+                              <button onClick={() => setDelTarget(r)} title="Xóa lệnh" className="p-1 rounded text-rose-600 hover:bg-rose-50"><Trash2 className="w-4 h-4" /></button>
+                              <button onClick={() => setPushTarget(r)} title="Đẩy lên Kanban" className="p-1 rounded text-blue-600 hover:bg-blue-50"><Send className="w-4 h-4" /></button>
+                            </>
+                          ) : <span className="text-[10px] text-slate-400 italic">đã lên Kanban</span>}
+                        </div>
                       </td>
                     </tr>
                   )
@@ -865,6 +881,7 @@ export default function LenhXuatHangPage() {
               </div>
               <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-end gap-2 shrink-0 flex-wrap">
                 <Button variant="outline" onClick={() => setDetail(null)} className="h-9 text-xs">Đóng</Button>
+                <Button variant="outline" onClick={() => doPrint(detail)} className="h-9 text-xs gap-1.5"><Printer className="w-4 h-4" /> In lệnh</Button>
                 {isManager && isCol1 && (
                   <>
                     <Button variant="outline" onClick={() => setRecallTarget(detail)} className="h-9 text-xs border-amber-200 text-amber-700 hover:bg-amber-50">← Thu hồi (sửa lại)</Button>
