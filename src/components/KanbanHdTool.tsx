@@ -802,7 +802,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   // ── XUẤT EXCEL CÔNG NỢ (dữ liệu thô cho kthc pivot) ─────────────────────────────
   // 2 sheet: "Cong no chua thu" (cột 3, lũy kế đến cutoff) + "Da thanh toan" (cột 4, range).
   // Bảng phẳng: 1 dòng = 1 số HĐ, AutoFilter + freeze header, KHÔNG subtotal/tổng.
-  const buildCongNoSheet = (ws: any, list: Ticket[], isChuaThu: boolean) => {
+  const buildCongNoSheet = (ws: any, list: Ticket[], isChuaThu: boolean, kdRows: any[] = []) => {
     const headers = ['STT', 'Phòng ban', 'NV kinh doanh', 'Số HĐ', 'Ngày HĐ', 'Khách hàng', 'MST', 'Địa chỉ', 'Số phiếu', 'SL phiếu', 'Trước VAT', 'VAT (%)', 'Tiền VAT', 'Tổng sau VAT', 'Đã thu']
     if (isChuaThu) headers.push('Còn nợ', 'Tuổi nợ')
     headers.push('Người lập HĐ', 'Số ĐNTT', 'MF', 'Ghi chú')
@@ -849,6 +849,20 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       ws.addRow(row)
     })
 
+    // Nguồn KINH DOANH (lệnh xuất) — server đã dựng sẵn dòng phẳng; chỉ việc append (Phòng ban=Kinh doanh).
+    kdRows.forEach((k: any, j: number) => {
+      const tong = Math.round(Number(k.tong_sau_vat) || 0)
+      const daThu = Math.round(Number(k.da_thu) || 0)
+      const kRow: any[] = [
+        cards.length + j + 1, 'Kinh doanh', k.nv_kinh_doanh || '', k.so_hoa_don || '', toDate(k.ngay_xuat_hd),
+        k.ten_khach || '', k.mst || '', k.dia_chi || '', k.so_lenh || '', 1,
+        Math.round(Number(k.truoc_vat) || 0), k.vat_rate, Math.round(Number(k.tien_vat) || 0), tong, daThu,
+      ]
+      if (isChuaThu) { const tuoi = daysSince(k.ngay_xuat_hd); kRow.push(Math.max(0, tong - daThu), tuoi == null ? '' : tuoi) }
+      kRow.push(k.nguoi_lap || '', k.so_dntt || '', '', '')
+      ws.addRow(kRow)
+    })
+
     ws.getRow(1).font = { bold: true }
     ws.views = [{ state: 'frozen', ySplit: 1 }]
     const lastCol = ws.getColumn(headers.length).letter
@@ -875,14 +889,19 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       if (!res.ok) { showNotification('error', j.error || 'Lỗi tải dữ liệu xuất'); return }
       const chuaThu: Ticket[] = (j.chua_thu || []).filter(matchSearch)
       const daThanhToan: Ticket[] = (j.da_thanh_toan || []).filter(matchSearch)
-      if (chuaThu.length === 0 && daThanhToan.length === 0) {
+      // Nguồn KD (dòng phẳng): lọc theo ô Tìm trên các trường khách/số lệnh/số HĐ.
+      const kw = search.trim().toLowerCase()
+      const kdMatch = (k: any) => !kw || [k.ten_khach, k.so_lenh, k.so_hoa_don, k.nv_kinh_doanh].filter(Boolean).join(' ').toLowerCase().includes(kw)
+      const kdChuaThu: any[] = (j.kd_chua_thu || []).filter(kdMatch)
+      const kdDaThanhToan: any[] = (j.kd_da_thanh_toan || []).filter(kdMatch)
+      if (chuaThu.length === 0 && daThanhToan.length === 0 && kdChuaThu.length === 0 && kdDaThanhToan.length === 0) {
         showNotification('error', 'Không có dữ liệu công nợ khớp bộ lọc.')
         return
       }
       const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
       const wb = new ExcelJS.Workbook()
-      buildCongNoSheet(wb.addWorksheet('Cong no chua thu'), chuaThu, true)
-      buildCongNoSheet(wb.addWorksheet('Da thanh toan'), daThanhToan, false)
+      buildCongNoSheet(wb.addWorksheet('Cong no chua thu'), chuaThu, true, kdChuaThu)
+      buildCongNoSheet(wb.addWorksheet('Da thanh toan'), daThanhToan, false, kdDaThanhToan)
       const buf = await wb.xlsx.writeBuffer()
       const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
       const a = document.createElement('a')
@@ -2252,7 +2271,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                       className={`px-3 py-1.5 rounded border text-xs font-medium transition ${expPhongBan === v ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>{l}</button>
                   ))}
                 </div>
-                {expPhongBan === 'kinh_doanh' && <p className="text-[11px] text-amber-600 mt-1.5">Phòng Kinh doanh chưa có dữ liệu (lệnh xuất hàng chưa triển khai) — file sẽ trống.</p>}
+                {expPhongBan === 'kinh_doanh' && <p className="text-[11px] text-slate-500 mt-1.5">Chỉ lệnh xuất hàng (phòng Kinh doanh); &quot;Đã thu&quot; = tổng khoản kế toán ĐÃ DUYỆT.</p>}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">① Công nợ chưa thu — Nợ tính đến ngày</label>

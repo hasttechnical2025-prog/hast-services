@@ -36,15 +36,11 @@ export async function GET(request: Request) {
     const den = searchParams.get('den') || ''
 
     const isoDay = /^\d{4}-\d{2}-\d{2}$/
-
-    // Chỉ có nguồn KỸ THUẬT (soct_cong_viec). Nguồn KINH DOANH (soct_lenh_xuat) chưa code
-    // -> phong_ban=kinh_doanh trả rỗng; tat_ca / ky_thuat = như nhau (chỉ kỹ thuật).
-    if (phongBan === 'kinh_doanh') {
-      return NextResponse.json({ chua_thu: [], da_thanh_toan: [] })
-    }
+    const wantTech = phongBan === 'tat_ca' || phongBan === 'ky_thuat'
+    const wantKd = phongBan === 'tat_ca' || phongBan === 'kinh_doanh'
 
     // Sheet "chưa thu": Đã lên hóa đơn, đã có ngày xuất, <= cutoff (nếu có).
-    const chuaThu = await selectAll<any>((from, to) => {
+    const chuaThu = !wantTech ? [] : await selectAll<any>((from, to) => {
       let q = supabaseAdmin
         .from('soct_cong_viec')
         .select(SELECT)
@@ -55,7 +51,7 @@ export async function GET(request: Request) {
     })
 
     // Sheet "đã thanh toán": Đã thanh toán, ngày xuất trong [tu, den].
-    const daThanhToan = await selectAll<any>((from, to) => {
+    const daThanhToan = !wantTech ? [] : await selectAll<any>((from, to) => {
       let q = supabaseAdmin
         .from('soct_cong_viec')
         .select(SELECT)
@@ -65,6 +61,54 @@ export async function GET(request: Request) {
       if (isoDay.test(den)) q = q.lte('ngay_xuat_hd', den)
       return q.order('ngay_xuat_hd', { ascending: false }).range(from, to)
     })
+
+    // ===== Nguồn KINH DOANH (soct_lenh_xuat) — dựng SẴN dòng phẳng để client chỉ việc append.
+    // Đã thu = SUM soct_thu_tien da_duyet (KHÔNG dùng soct_hd_thu — đó là luồng kỹ thuật).
+    const LX_SELECT = `id, so_lenh, ngay, ngay_xuat_hd, so_hoa_don, so_dntt, lam_tron, ten_khach_hang, ten_khach_hd, dia_chi, ma_so_thue,
+      nguoi_kd:soct_users!nguoi_kinh_doanh_id ( full_name ), nguoi_xuat:soct_users!nguoi_xuat_hd ( full_name ),
+      soct_lenh_xuat_ct ( so_luong, don_gia, vat )`
+    const buildKdRows = (rows: any[], daThuMap: Map<string, number>) => rows.map((r: any) => {
+      const lines = r.soct_lenh_xuat_ct || []
+      const truoc = Math.round(lines.reduce((s: number, l: any) => s + (Number(l.so_luong) || 0) * (Number(l.don_gia) || 0), 0))
+      const tong = Math.round(lines.reduce((s: number, l: any) => { const tt = (Number(l.so_luong) || 0) * (Number(l.don_gia) || 0); return s + tt * (1 + (Number(l.vat) || 0) / 100) }, 0)) + (Number(r.lam_tron) || 0)
+      const rates: number[] = [...new Set<number>(lines.map((l: any) => Number(l.vat) || 0))]
+      const vatRate: number | string = rates.length === 0 ? '' : rates.length === 1 ? rates[0] : 'mix'
+      return {
+        so_hoa_don: r.so_hoa_don || '', ngay_xuat_hd: r.ngay_xuat_hd || null,
+        ten_khach: r.ten_khach_hd || r.ten_khach_hang || 'Khách hàng lẻ', mst: r.ma_so_thue || '', dia_chi: r.dia_chi || '',
+        so_lenh: r.so_lenh || '', truoc_vat: truoc, vat_rate: vatRate, tien_vat: tong - truoc, tong_sau_vat: tong,
+        da_thu: Math.round(daThuMap.get(r.id) || 0), nguoi_lap: r.nguoi_xuat?.full_name || '',
+        so_dntt: r.so_dntt || '', nv_kinh_doanh: r.nguoi_kd?.full_name || '',
+      }
+    })
+    const daThuDuyetMap = async (lenhIds: string[]) => {
+      const m = new Map<string, number>()
+      if (!lenhIds.length) return m
+      const thu = await selectAll<any>((from, to) => supabaseAdmin
+        .from('soct_thu_tien').select('lenh_id, so_tien, trang_thai').eq('trang_thai', 'da_duyet').in('lenh_id', lenhIds).range(from, to))
+      for (const t of (thu || [])) m.set(t.lenh_id, (m.get(t.lenh_id) || 0) + (Number(t.so_tien) || 0))
+      return m
+    }
+
+    let kdChuaThu: any[] = [], kdDaThanhToan: any[] = []
+    if (wantKd) {
+      const kdCt = await selectAll<any>((from, to) => {
+        let q = supabaseAdmin.from('soct_lenh_xuat').select(LX_SELECT)
+          .eq('tren_kanban', true).eq('trang_thai_hd', 'Đã lên hóa đơn').not('ngay_xuat_hd', 'is', null)
+        if (isoDay.test(cutoff)) q = q.lte('ngay_xuat_hd', cutoff)
+        return q.order('ngay_xuat_hd', { ascending: false }).range(from, to)
+      })
+      const kdTt = await selectAll<any>((from, to) => {
+        let q = supabaseAdmin.from('soct_lenh_xuat').select(LX_SELECT)
+          .eq('tren_kanban', true).eq('trang_thai_hd', 'Đã thanh toán').not('ngay_xuat_hd', 'is', null)
+        if (isoDay.test(tu)) q = q.gte('ngay_xuat_hd', tu)
+        if (isoDay.test(den)) q = q.lte('ngay_xuat_hd', den)
+        return q.order('ngay_xuat_hd', { ascending: false }).range(from, to)
+      })
+      const map = await daThuDuyetMap([...(kdCt || []), ...(kdTt || [])].map((r: any) => r.id))
+      kdChuaThu = buildKdRows(kdCt || [], map)
+      kdDaThanhToan = buildKdRows(kdTt || [], map)
+    }
 
     // Gắn số tiền đã thu theo số hóa đơn (soct_hd_thu) + tên hàng hiển thị (giống GET chính).
     const { data: thuRows } = await supabaseAdmin.from('soct_hd_thu').select('so_hoa_don, so_tien_da_thu')
@@ -82,7 +126,7 @@ export async function GET(request: Request) {
     attach(chuaThu || [])
     attach(daThanhToan || [])
 
-    return NextResponse.json({ chua_thu: chuaThu || [], da_thanh_toan: daThanhToan || [] })
+    return NextResponse.json({ chua_thu: chuaThu || [], da_thanh_toan: daThanhToan || [], kd_chua_thu: kdChuaThu, kd_da_thanh_toan: kdDaThanhToan })
   } catch (error: any) {
     console.error('Error exporting kanban cong no:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
