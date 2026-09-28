@@ -7339,6 +7339,7 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
   const [loading, setLoading] = useState(true)
   const [selIds, setSelIds] = useState<string[]>([])
   const [selPhieuIds, setSelPhieuIds] = useState<string[]>([]) // phiếu ĐƯỢC CHỌN trong cụm (mặc định chọn hết)
+  const [tpl, setTpl] = useState<Record<string, { ten?: string; gia?: number; dvt?: string }>>({}) // MẪU tên/giá/ĐVT của khách/cụm
   const [rows, setRows] = useState<BaoGiaRow[]>([])
   const [khTen, setKhTen] = useState('')
   const [khDiaChi, setKhDiaChi] = useState('')
@@ -7355,6 +7356,16 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
     catch { showNotification('error', 'Lỗi kết nối!') } finally { setLoading(false) }
   }
   useEffect(() => { fetchList() }, [])
+  // Nạp MẪU tên/giá/ĐVT của khách/cụm (scope_key = id cụm/máy) để "Áp mẫu khách" + bật/tắt nút.
+  const fetchTpl = async (scopeKey: string) => {
+    try {
+      const res = await fetch(`/api/admin/ten-hang-rieng?scope_key=${encodeURIComponent(scopeKey)}`)
+      const j = await res.json()
+      const m: Record<string, { ten?: string; gia?: number; dvt?: string }> = {}
+      for (const r of (j.data || [])) m[r.ma_hang] = { ten: r.ten_hang ?? undefined, gia: r.don_gia == null ? undefined : Number(r.don_gia), dvt: r.don_vi_tinh ?? undefined }
+      setTpl(m)
+    } catch { setTpl({}) }
+  }
   // Realtime "tự lành": đánh dấu báo giá / lên hóa đơn từ máy khác -> công nợ tự cập nhật
   // Nghe cả CONGNO (cong-no/tách HĐ) VÀ JOBS (đẩy/kéo Kanban, thu tiền...) -> tab Công nợ tự refresh.
   useRealtimeRefetch([CONGNO_TOPIC, JOBS_TOPIC], DATA_EVENT, () => fetchList())
@@ -7401,18 +7412,18 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
     const m = new Map<string, any>()
     for (const l of lines) {
       const k = l.maHang || `ten:${l.ten}`
-      if (!m.has(k)) m.set(k, { ten: l.ten, ten0: l.ten, dvt: l.dvt, sl: l.sl, gia: l.gia, vat: l.vat, gc: '', soPhieu: l.soPhieu, maHang: l.maHang, srcIds: [l.srcId], lineIds: [l.lineId] })
-      else { const e = m.get(k); e.sl += l.sl; if (!e.srcIds.includes(l.srcId)) e.srcIds.push(l.srcId); e.lineIds.push(l.lineId); if (e.soPhieu !== l.soPhieu) e.soPhieu = 'nhiều' }
+      if (!m.has(k)) m.set(k, { ten: l.ten, ten0: l.ten, dvt: l.dvt, sl: l.sl, gia: l.gia, vat: l.vat, gc: '', soPhieu: l.soPhieu, maHang: l.maHang, srcIds: [l.srcId], lineIds: [l.lineId], _reports: new Set([l.soPhieu]) })
+      else { const e = m.get(k); e.sl += l.sl; if (!e.srcIds.includes(l.srcId)) e.srcIds.push(l.srcId); e.lineIds.push(l.lineId); e._reports.add(l.soPhieu); if (e.soPhieu !== l.soPhieu) e.soPhieu = 'nhiều' }
     }
-    return [...m.values()]
+    return [...m.values()].map((r: any) => { const { _reports, ...rest } = r; return { ...rest, soPhieuList: [..._reports].filter(Boolean).join(', ') } })
   }
   useEffect(() => { setRows(buildRows(chosenTickets)) }, [selIds, selPhieuIds]) // eslint-disable-line react-hooks/exhaustive-deps
   // Chọn 1 khách/cụm (radio) — tránh trộn nhiều khách khác nhau. Bấm lại = bỏ chọn.
   // Chọn cụm -> mặc định TICK HẾT phiếu của cụm (office bỏ tick cái không đẩy).
   const toggleSel = (c: any) => {
     setSelIds(prev => {
-      if (prev[0] === c.id) { setKhTen(''); setKhDiaChi(''); setSelPhieuIds([]); return [] }
-      setKhTen(c.ten); setKhDiaChi(c.dia_chi); setSelPhieuIds(c.tickets.map((t: any) => t.id)); return [c.id]
+      if (prev[0] === c.id) { setKhTen(''); setKhDiaChi(''); setSelPhieuIds([]); setTpl({}); return [] }
+      setKhTen(c.ten); setKhDiaChi(c.dia_chi); setSelPhieuIds(c.tickets.map((t: any) => t.id)); fetchTpl(c.id); return [c.id]
     })
   }
   const togglePhieu = (id: string) => setSelPhieuIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -7509,6 +7520,84 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
       if (res.ok) { showNotification('success', `Đã đẩy ${ids.length} phiếu sang Kanban (cột 1) với dữ liệu đã chuẩn bị.`); setSelIds([]); setKhTen(''); setKhDiaChi(''); setSelPhieuIds([]); fetchList() }
       else { const j = await res.json(); showNotification('error', j.error) }
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setWorking(false) }
+  }
+
+  // ÁP MẪU KHÁCH: điền tên/giá/ĐVT đã lưu (theo mã) vào bảng (client) — chưa ghi DB, sẽ ghi khi Đẩy.
+  const hasTpl = Object.keys(tpl).length > 0
+  const apMauKhach = () => {
+    if (!hasTpl) return
+    const n = rows.filter((r: any) => r.maHang && tpl[r.maHang]).length
+    setRows(prev => prev.map((r: any) => {
+      const t = r.maHang ? tpl[r.maHang] : undefined
+      return t ? { ...r, ten: t.ten ?? r.ten, gia: t.gia ?? r.gia, dvt: t.dvt ?? r.dvt } : r
+    }))
+    showNotification('success', n > 0 ? `Đã áp mẫu cho ${n} mặt hàng.` : 'Không có mã nào khớp mẫu đã lưu.')
+  }
+  // LƯU MẪU: lưu tên/giá/ĐVT hiện tại của các dòng thành MẪU cho khách/cụm (soct_ten_hang_rieng).
+  const luuMau = async () => {
+    const scope = selIds[0]
+    if (!scope) return
+    const items = rows.filter((r: any) => r.maHang)
+    if (items.length === 0) return showNotification('error', 'Không có mặt hàng có mã để lưu mẫu.')
+    setWorking(true)
+    try {
+      let ok = 0
+      for (const r of items) {
+        const res = await fetch('/api/admin/ten-hang-rieng', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pham_vi: 'khach', scope_key: scope, ma_hang: r.maHang, ten_hang: r.ten, don_gia: r.gia, don_vi_tinh: r.dvt }),
+        })
+        if (res.ok) ok++
+      }
+      showNotification('success', `Đã lưu mẫu ${ok}/${items.length} mặt hàng cho khách này.`)
+      await fetchTpl(scope)
+    } catch { showNotification('error', 'Lỗi lưu mẫu.') } finally { setWorking(false) }
+  }
+  // XUẤT EXCEL (sửa giá) — cùng format cột 1: Mã · Tên · SL · ĐVT · Đơn giá · VAT · Thành tiền.
+  const [exportingPrep, setExportingPrep] = useState(false)
+  const exportPrepExcel = async () => {
+    if (rows.length === 0) return showNotification('error', 'Chưa có dòng nào để xuất.')
+    setExportingPrep(true)
+    try {
+      const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
+      const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('HangHoa')
+      ws.addRow(['Mã hàng', 'Tên hàng', 'SL', 'ĐVT', 'Đơn giá', 'VAT (%)', 'Thành tiền (chưa VAT)'])
+      for (const r of rows) ws.addRow([(r as any).maHang || '', r.ten, r.sl, r.dvt || 'Cái', r.gia, r.vat, (Number(r.sl) || 0) * (Number(r.gia) || 0)])
+      ws.getRow(1).font = { bold: true }
+      const buf = await wb.xlsx.writeBuffer()
+      const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+      const a = document.createElement('a')
+      const ascii = (khTen || 'khach').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'khach'
+      a.href = url; a.download = `Cong-no-sua-gia_${ascii}.xlsx`; a.click(); URL.revokeObjectURL(url)
+      showNotification('success', 'Đã xuất Excel để sửa giá.')
+    } catch { showNotification('error', 'Lỗi xuất Excel') } finally { setExportingPrep(false) }
+  }
+  // NHẬP EXCEL (sửa giá) — khớp theo MÃ HÀNG, cập nhật Tên/ĐVT/Đơn giá/VAT vào bảng (client).
+  // KHÔNG đụng SL (SL khóa). Áp vào state rows; ghi DB khi Đẩy Kanban.
+  const importPrepExcel = async (file: File) => {
+    try {
+      const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
+      const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer())
+      const ws = wb.worksheets[0]
+      if (!ws) return showNotification('error', 'File không có sheet dữ liệu.')
+      const byMa = new Map<string, { ten?: string; dvt?: string; gia?: number; vat?: number }>()
+      ws.eachRow((row: any, idx: number) => {
+        if (idx === 1) return // header
+        const ma = String(row.getCell(1).value ?? '').trim()
+        if (!ma) return
+        const ten = String(row.getCell(2).value ?? '').trim()
+        const dvt = String(row.getCell(4).value ?? '').trim()
+        const gia = Number(String(row.getCell(5).value ?? '').replace(/[^\d.-]/g, ''))
+        const vat = Number(String(row.getCell(6).value ?? '').replace(/[^\d.-]/g, ''))
+        byMa.set(ma, { ten: ten || undefined, dvt: dvt || undefined, gia: Number.isFinite(gia) ? gia : undefined, vat: Number.isFinite(vat) ? vat : undefined })
+      })
+      const n = rows.filter((r: any) => r.maHang && byMa.has(r.maHang)).length
+      setRows(prev => prev.map((r: any) => {
+        const u = r.maHang ? byMa.get(r.maHang) : undefined
+        return u ? { ...r, ten: u.ten ?? r.ten, dvt: u.dvt ?? r.dvt, gia: u.gia ?? r.gia, vat: u.vat ?? r.vat } : r
+      }))
+      showNotification('success', n > 0 ? `Đã cập nhật ${n} mặt hàng từ Excel (SL giữ nguyên).` : 'Không có mã nào trong file khớp bảng.')
+    } catch { showNotification('error', 'Lỗi đọc file Excel.') }
   }
 
   // CHỈ xét phiếu CÒN TRONG BẢNG đối soát (đã trừ các phiếu bị "Xóa cả phiếu") — khớp với
@@ -7651,6 +7740,7 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
             onDiaChiChange={setKhDiaChi}
             showNotification={showNotification}
             canExport={selCusts.length > 0}
+            allowAddRow={false}
             emptyText="Chưa chọn phiếu nào (hoặc phiếu đã chọn không có vật tư). Tick phiếu ở trên."
             rightToolbarExtra={
               <Button variant="outline" onClick={exportBangKe} disabled={exportingXlsx || selCusts.length === 0}
@@ -7661,12 +7751,27 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
             }
             footerExtra={
               <>
-                {splitTickets.length > 0 && (
-                  <Button variant="outline" onClick={openSplit} disabled={working} className="h-9 gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50" title="Tách dòng lên HĐ: chọn dòng lên hóa đơn; dòng còn lại tách sang phiếu con ở lại Công nợ"><Scissors className="w-4 h-4" /> Tách dòng</Button>
-                )}
                 <Button variant="outline" onClick={() => setStatus('Đã báo giá')} disabled={working} title="Đánh dấu đã báo giá" className="h-9 w-9 p-0"><CheckCircle2 className="w-4 h-4" /></Button>
                 <Button onClick={pushKanban} disabled={working} className="h-9 bg-blue-600 hover:bg-blue-700">📤 Đẩy sang Kế toán (Kanban)</Button>
               </>
+            }
+            footerRow2={
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={apMauKhach} disabled={working || !hasTpl} title={hasTpl ? 'Điền tên/giá/ĐVT đã lưu cho khách này' : 'Khách này chưa có mẫu đã lưu'} className="h-9 gap-1.5"><RefreshCw className="w-4 h-4" /> Áp mẫu khách</Button>
+                  <Button variant="outline" onClick={luuMau} disabled={working} title="Lưu tên/giá/ĐVT hiện tại thành mẫu cho khách này" className="h-9 gap-1.5"><Save className="w-4 h-4" /> Lưu mẫu</Button>
+                </div>
+                <div className="flex gap-2">
+                  {splitTickets.length > 0 && (
+                    <Button variant="outline" onClick={openSplit} disabled={working} className="h-9 gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50" title="Tách dòng lên HĐ: chọn dòng lên hóa đơn; dòng còn lại tách sang phiếu con ở lại Công nợ"><Scissors className="w-4 h-4" /> Tách dòng</Button>
+                  )}
+                  <label className={`inline-flex items-center h-9 gap-1.5 px-3 rounded-md border border-slate-200 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer ${working ? 'opacity-50 pointer-events-none' : ''}`} title="Nhập Excel (sửa giá): khớp theo Mã hàng, cập nhật Tên/ĐVT/Đơn giá/VAT — KHÔNG đổi SL">
+                    <Upload className="w-4 h-4" /> Nhập Excel
+                    <input type="file" accept=".xlsx" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) importPrepExcel(f); e.target.value = '' }} />
+                  </label>
+                  <Button variant="outline" onClick={exportPrepExcel} disabled={exportingPrep || rows.length === 0} className="h-9 gap-1.5" title="Xuất Excel (sửa giá): tải bảng ra để sửa hàng loạt rồi Nhập lại"><Download className={`w-4 h-4 ${exportingPrep ? 'animate-pulse' : ''}`} /> Xuất Excel</Button>
+                </div>
+              </div>
             }
           />
         </div>

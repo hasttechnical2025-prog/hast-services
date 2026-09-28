@@ -192,3 +192,21 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
+
+// GET ?scope_key=cum:<..>|may:<..> -> danh sách MẪU tên/giá/ĐVT đã lưu của khách/cụm.
+// Dùng cho "Áp mẫu khách" ở Công nợ (nạp về client điền vào bảng trước khi đẩy Kanban).
+export async function GET(request: Request) {
+  try {
+    const session = await requireRole('admin', 'tech_admin', 'staff', 'kthc')
+    if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
+    const scope_key = String(new URL(request.url).searchParams.get('scope_key') || '').trim()
+    if (!scope_key) return NextResponse.json({ data: [] })
+    const { data, error } = await supabaseAdmin
+      .from('soct_ten_hang_rieng').select('ma_hang, ten_hang, don_gia, don_vi_tinh').eq('scope_key', scope_key)
+    if (error) throw error
+    return NextResponse.json({ data: data || [] })
+  } catch (error: any) {
+    console.error('Error GET ten-hang-rieng:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}

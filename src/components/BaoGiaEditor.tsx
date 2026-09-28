@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 // đưa vào file báo giá .docx (bị lọc bỏ khi xuất). Giám định không dùng 2 field này.
 // maHang/lineIds/ten0: CHỈ dùng nội bộ Công nợ để GHI NGƯỢC chỉnh sửa xuống dòng vật tư khi đẩy
 // Kanban (ten0 = tên gốc lúc nạp -> chỉ ghi ten_hang_hd khi user thực sự sửa). Báo giá bỏ qua.
-export type BaoGiaRow = { ten: string; dvt: string; sl: number; gia: number; vat: number; gc: string; soPhieu?: string; srcIds?: string[]; maHang?: string; lineIds?: string[]; ten0?: string }
+export type BaoGiaRow = { ten: string; dvt: string; sl: number; gia: number; vat: number; gc: string; soPhieu?: string; soPhieuList?: string; srcIds?: string[]; maHang?: string; lineIds?: string[]; ten0?: string }
 
 export const emptyBaoGiaRow = (): BaoGiaRow => ({ ten: '', dvt: 'Cái', sl: 1, gia: 0, vat: 8, gc: '' })
 
@@ -22,7 +22,7 @@ const asciiFile = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').repl
 export default function BaoGiaEditor({
   rows, onRowsChange, khachHang, onKhachHangChange, diaChi, onDiaChiChange,
   showNotification, onExported, toolbarExtra, rightToolbarExtra, footerExtra, emptyText, canExport = true, showSoPhieu = false,
-  slDisabled = false, phieuChips = true,
+  slDisabled = false, phieuChips = true, allowAddRow = true, footerRow2,
 }: {
   rows: BaoGiaRow[]
   onRowsChange: (rows: BaoGiaRow[]) => void
@@ -40,6 +40,8 @@ export default function BaoGiaEditor({
   showSoPhieu?: boolean
   slDisabled?: boolean   // Công nợ: SL khóa (sửa SL dùng nút Tách dòng)
   phieuChips?: boolean   // false: ẩn chips "Xóa cả phiếu" (Công nợ tự quản việc chọn phiếu)
+  allowAddRow?: boolean  // false: ẩn nút [+] Thêm dòng (Công nợ: phiếu sao hiện vậy, không thêm tay)
+  footerRow2?: ReactNode // hàng nút thứ 2 dưới tổng tiền (Công nợ: Áp mẫu/Lưu mẫu · Tách/Excel)
 }) {
   const [markups, setMarkups] = useState({ a: '3', b: '5', c: '6' })
   const [nam, setNam] = useState(String(new Date().getFullYear()))
@@ -113,7 +115,7 @@ export default function BaoGiaEditor({
               <Input value={markups.c} onChange={e => setMarkups({ ...markups, c: e.target.value })} className="bg-white w-16 text-center" />
             </div>
           </div>
-          <Button variant="outline" onClick={addRow} title="Thêm dòng" className="h-9 w-9 p-0"><Plus className="w-4 h-4" /></Button>
+          {allowAddRow && <Button variant="outline" onClick={addRow} title="Thêm dòng" className="h-9 w-9 p-0"><Plus className="w-4 h-4" /></Button>}
           <div className="ml-auto flex items-center gap-2">
             {rightToolbarExtra}
             <Button onClick={exportQuote} disabled={exporting || !canExport} title={exporting ? 'Đang xuất…' : 'Xuất báo giá (.docx)'} className="h-9 gap-1.5"><Download className={`w-4 h-4 ${exporting ? 'animate-pulse' : ''}`} /> Xuất báo giá (.docx)</Button>
@@ -155,7 +157,9 @@ export default function BaoGiaEditor({
             ) : rows.map((r, i) => (
               <tr key={i} className="hover:bg-slate-50">
                 <td className="px-3 py-1.5 text-slate-400">{i + 1}</td>
-                {showSoPhieu && <td className="px-2 py-1.5 text-xs font-mono text-slate-500 whitespace-nowrap">{r.soPhieu || '—'}</td>}
+                {showSoPhieu && <td className="px-2 py-1.5 text-xs font-mono text-slate-500 whitespace-nowrap">{r.soPhieu === 'nhiều' && r.soPhieuList
+                  ? <span className="cursor-help border-b border-dotted border-slate-300" title={`Gồm phiếu: ${r.soPhieuList}`}>nhiều</span>
+                  : (r.soPhieu || '—')}</td>}
                 <td className="px-3 py-1.5"><Input value={r.ten} onChange={e => upd(i, 'ten', e.target.value)} className="h-8 bg-white" /></td>
                 <td className="px-2 py-1.5"><Input value={r.dvt} onChange={e => upd(i, 'dvt', e.target.value)} className="h-8 bg-white" /></td>
                 <td className="px-2 py-1.5">{slDisabled
@@ -172,13 +176,16 @@ export default function BaoGiaEditor({
         </table>
       </div>
 
-      <div className="p-4 border-t border-slate-200 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-600">
-          <span>Cộng: <b className="text-slate-800">{fmtN(baseCong)} đ</b></span>
-          <span>Thuế GTGT: <b className="text-slate-800">{fmtN(baseThue)} đ</b></span>
-          <span>Tổng cộng: <b className="text-slate-800">{fmtN(baseCong + baseThue)} đ</b></span>
+      <div className="p-4 border-t border-slate-200 bg-slate-50/50 space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-600">
+            <span>Cộng: <b className="text-slate-800">{fmtN(baseCong)} đ</b></span>
+            <span>Thuế GTGT: <b className="text-slate-800">{fmtN(baseThue)} đ</b></span>
+            <span>Tổng cộng: <b className="text-slate-800">{fmtN(baseCong + baseThue)} đ</b></span>
+          </div>
+          {footerExtra && <div className="flex gap-2">{footerExtra}</div>}
         </div>
-        {footerExtra && <div className="flex gap-2">{footerExtra}</div>}
+        {footerRow2}
       </div>
     </>
   )
