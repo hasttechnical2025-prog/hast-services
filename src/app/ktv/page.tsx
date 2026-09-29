@@ -77,6 +77,10 @@ export default function KtvMobileWeb() {
   const [releaseTarget, setReleaseTarget] = useState<Job | null>(null)
   // Hộp thoại xác nhận thời lượng khi bấm Hoàn thành + số thao tác còn chờ đồng bộ
   const [finishTarget, setFinishTarget] = useState<{ jobId: string, phut: string } | null>(null)
+  // Báo cáo gửi khách (chỉ loại việc cấu hình, mặc định Sửa máy): chips + ghi chú, tùy chọn.
+  const [bckLoai, setBckLoai] = useState<string[]>(['Sửa máy'])
+  const [bckChips, setBckChips] = useState<string[]>([])
+  const [bckNote, setBckNote] = useState('')
   // Hộp thoại "Chưa hoàn thành": chọn NGÀY HẸN làm tiếp + giờ buổi này.
   const [chuaHtTarget, setChuaHtTarget] = useState<{ jobId: string, phut: string, ngay_hen: string } | null>(null)
   const [pendingSync, setPendingSync] = useState(0)
@@ -361,6 +365,11 @@ export default function KtvMobileWeb() {
   // Realtime "tự lành" cho pool việc: broadcast (tức thì) + mồi focus/mạng/nối-lại + poll 30s
   // dự phòng khi tab hiển thị (lỡ mất broadcast do WS chết ngầm vẫn tự khớp lại, khỏi phải F5).
   useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => fetchKtvJobs(true), !!currentKtv, 30000)
+  // Loại việc cần báo cáo gửi khách (cấu hình; mặc định Sửa máy).
+  useEffect(() => {
+    if (!currentKtv) return
+    fetch('/api/ktv/bao-cao-khach?config=1').then(r => r.ok ? r.json() : null).then(j => { if (Array.isArray(j?.loai) && j.loai.length) setBckLoai(j.loai) }).catch(() => {})
+  }, [currentKtv])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -522,6 +531,7 @@ export default function KtvMobileWeb() {
     if (nextStatus === 'Hoàn thành') {
       const job = jobs.find(j => j.id === jobId)
       const goiY = phutGiua(job?.bat_dau_luc, nowISO()) // mặc định = từ lúc bấm Đang làm tới giờ
+      setBckChips([]); setBckNote('') // reset ô báo cáo gửi khách
       setFinishTarget({ jobId, phut: goiY == null ? '' : String(lamTronPhut(goiY, 5)) })
       return
     }
@@ -1419,6 +1429,18 @@ export default function KtvMobileWeb() {
         const phutNum = parseInt(finishTarget.phut || '0', 10) || 0
         const setPhut = (v: number) => setFinishTarget(f => f ? { ...f, phut: String(Math.max(0, v)) } : f)
         const QUICK = [15, 30, 45, 60, 90, 120]
+        const fjob = jobs.find(j => j.id === finishTarget.jobId)
+        const needBaoCao = !!fjob && bckLoai.includes(fjob.loai_cong_viec)
+        const CHIPS: [string, string][] = [['ve_sinh', 'Vệ sinh máy'], ['sua_loi', 'Sửa lỗi'], ['can_chinh', 'Căn chỉnh'], ['hdbt', 'Máy HĐBT'], ['theo_doi', 'Theo dõi thêm']]
+        const toggleChip = (k: string) => setBckChips(prev => prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k])
+        const doFinish = async () => {
+          const jid = finishTarget.jobId
+          // Báo cáo gửi khách (tùy chọn): có tick chip / ghi chú thì gửi bản thô cho office (best-effort).
+          if (needBaoCao && (bckChips.length > 0 || bckNote.trim())) {
+            try { await fetch('/api/ktv/bao-cao-khach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_cong_viec: jid, chips: bckChips, ghi_chu: bckNote }) }) } catch { /* không chặn Hoàn thành */ }
+          }
+          setFinishTarget(null); applyStatus(jid, 'Hoàn thành', phutNum)
+        }
         return (
           <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
@@ -1443,10 +1465,26 @@ export default function KtvMobileWeb() {
                     </button>
                   ))}
                 </div>
+
+                {needBaoCao && (
+                  <div className="pt-2 border-t border-slate-100 space-y-2">
+                    <p className="text-xs font-semibold text-slate-600">Báo cáo gửi khách <span className="font-normal text-slate-400">(tùy chọn — bỏ trống nếu không cần)</span></p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {CHIPS.map(([k, l]) => (
+                        <button key={k} type="button" onClick={() => toggleChip(k)}
+                          className={`px-2.5 h-8 rounded-lg text-xs font-semibold border ${bckChips.includes(k) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200'}`}>
+                          {l}
+                        </button>
+                      ))}
+                    </div>
+                    <textarea value={bckNote} onChange={e => setBckNote(e.target.value)} rows={2} placeholder="Ghi chú thêm (tùy chọn)…"
+                      className="w-full text-sm rounded-lg border border-slate-200 px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                  </div>
+                )}
               </div>
               <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
                 <Button variant="outline" onClick={() => setFinishTarget(null)}>Hủy</Button>
-                <Button onClick={() => { const jid = finishTarget.jobId; setFinishTarget(null); applyStatus(jid, 'Hoàn thành', phutNum) }} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                <Button onClick={doFinish} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                   Xác nhận hoàn thành
                 </Button>
               </div>

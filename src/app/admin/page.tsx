@@ -276,7 +276,8 @@ export default function AdminDashboard() {
   // Tab con bên trong "Quản lý"
   const [quanLyTab, setQuanLyTab] = useState<"nhat_ky" | "khach_hang" | "khach_cum" | "bao_cao" | "nghi_phep">("nhat_ky")
   // Tab con bên trong "Sổ công tác" (Giao việc / Hoàn phiếu)
-  const [congTacTab, setCongTacTab] = useState<"giao_viec" | "hoan_phieu">("giao_viec")
+  const [congTacTab, setCongTacTab] = useState<"giao_viec" | "hoan_phieu" | "bao_cao_khach">("giao_viec")
+  const [bckCount, setBckCount] = useState(0) // badge: số báo cáo gửi khách CHỜ GỬI
   // Tab con bên trong "Tài chính" (Công nợ / Thuê-CPC)
   const [taiChinhTab, setTaiChinhTab] = useState<"cong_no" | "thue_cpc" | "kanban" | "phi_bao_tri">("cong_no")
   // Số phiếu cứng chưa hoàn (badge nhắc ở tab con Hoàn phiếu)
@@ -316,7 +317,7 @@ export default function AdminDashboard() {
   const effectiveKhoTab = firstVisibleSub('kho_hang', ['ton_kho', 'dat_hang', 'thong_ke', 'gia_niem_yet', 'may_thue', 'phieu_de_nghi'], khoTab) as "ton_kho" | "dat_hang" | "thong_ke" | "gia_niem_yet" | "may_thue" | "phieu_de_nghi"
   const effectiveMonitorTab = firstVisibleSub('theo_doi_may', ['bao_tri', 'giam_dinh'], monitorTab) as "bao_tri" | "giam_dinh"
   const effectiveQuanLyTab = firstVisibleSub('quan_ly', ['nhat_ky', 'khach_hang', 'khach_cum', 'bao_cao', 'nghi_phep'], quanLyTab) as "nhat_ky" | "khach_hang" | "khach_cum" | "bao_cao" | "nghi_phep"
-  const effectiveCongTacTab = firstVisibleSub('cong_viec', ['giao_viec', 'hoan_phieu'], congTacTab) as "giao_viec" | "hoan_phieu"
+  const effectiveCongTacTab = firstVisibleSub('cong_viec', ['giao_viec', 'hoan_phieu', 'bao_cao_khach'], congTacTab) as "giao_viec" | "hoan_phieu" | "bao_cao_khach"
   const effectiveTaiChinhTab = firstVisibleSub('tai_chinh', ['cong_no', 'thue_cpc', 'phi_bao_tri', 'kanban'], taiChinhTab) as "cong_no" | "thue_cpc" | "kanban" | "phi_bao_tri"
   const repeatNgay = parseInt(cauHinh.repeat_ngay || '30') || 30
   const nguongTonThap = parseInt(cauHinh.nguong_ton_thap || '0') || 0
@@ -482,6 +483,14 @@ export default function AdminDashboard() {
       .catch(() => { })
     return () => { alive = false }
   }, [currentAdmin, activeTab, congTacTab, counterBaoTruocNgay, counterChuyenKyNgay])
+
+  // Badge "Báo cáo gửi khách" — số báo cáo CHỜ GỬI (chỉ khi role được xem tab con này).
+  const refetchBckCount = useCallback(() => {
+    if (!subVisible('cong_viec', 'bao_cao_khach')) { setBckCount(0); return }
+    fetch('/api/admin/bao-cao-khach?count=1').then(r => r.ok ? r.json() : { count: 0 }).then(j => setBckCount(j.count || 0)).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserRole, cauHinh])
+  useEffect(() => { if (currentAdmin) refetchBckCount() }, [currentAdmin, activeTab, congTacTab, refetchBckCount])
 
   // Ai nghỉ HÔM NAY (đã duyệt + chờ duyệt) -> banner Sổ công tác. Chỉ admin/tech_admin
   // được API cho phép (staff/kthc gọi sẽ 401 -> banner rỗng, không sao).
@@ -1721,14 +1730,22 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        {/* Thanh tab con của Sổ công tác (chỉ hiện khi Hoàn phiếu được bật cho role) */}
-        {activeTab === "cong_viec" && subVisible('cong_viec', 'hoan_phieu') && (
+        {/* Thanh tab con của Sổ công tác (hiện khi có ≥1 tab con được bật cho role) */}
+        {activeTab === "cong_viec" && (subVisible('cong_viec', 'hoan_phieu') || subVisible('cong_viec', 'bao_cao_khach')) && (
           <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto mb-4">
             <button onClick={() => setCongTacTab("giao_viec")} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${effectiveCongTacTab === 'giao_viec' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>Giao việc</button>
-            <button onClick={() => setCongTacTab("hoan_phieu")} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${effectiveCongTacTab === 'hoan_phieu' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>
-              Hoàn phiếu
-              {phieuChuaHoan > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{phieuChuaHoan}</span>}
-            </button>
+            {subVisible('cong_viec', 'hoan_phieu') && (
+              <button onClick={() => setCongTacTab("hoan_phieu")} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${effectiveCongTacTab === 'hoan_phieu' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>
+                Hoàn phiếu
+                {phieuChuaHoan > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{phieuChuaHoan}</span>}
+              </button>
+            )}
+            {subVisible('cong_viec', 'bao_cao_khach') && (
+              <button onClick={() => setCongTacTab("bao_cao_khach")} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${effectiveCongTacTab === 'bao_cao_khach' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>
+                Báo cáo gửi khách
+                {bckCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{bckCount}</span>}
+              </button>
+            )}
           </div>
         )}
 
@@ -2085,6 +2102,11 @@ export default function AdminDashboard() {
               )}
             </div>
           </div>
+        )}
+
+        {/* Báo cáo gửi khách — tab con của Sổ công tác (office copy gửi Zalo/Email) */}
+        {activeTab === "cong_viec" && effectiveCongTacTab === "bao_cao_khach" && subVisible('cong_viec', 'bao_cao_khach') && (
+          <BaoCaoKhachTool showNotification={showNotification} onChanged={refetchBckCount} />
         )}
 
         {/* Hoàn phiếu — tab con của Sổ công tác */}
@@ -6788,6 +6810,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     counter_chuyen_ky_ngay: cauHinh.counter_chuyen_ky_ngay || '20',
     gsheet_thue_id: cauHinh.gsheet_thue_id || '',
     gsheet_thue_tab: cauHinh.gsheet_thue_tab || 'Danh sách',
+    bao_cao_khach_loai: cauHinh.bao_cao_khach_loai || 'Sửa máy',
     bao_cao_cho_phep_ngay: cauHinh.bao_cao_cho_phep_ngay || '7',
     phien_van_phong_ngay: cauHinh.phien_van_phong_ngay || '7',
     phien_ktv_ngay: cauHinh.phien_ktv_ngay || '30',
@@ -6864,6 +6887,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
       counter_chuyen_ky_ngay: String(Math.min(31, Math.max(1, parseInt(cfg.counter_chuyen_ky_ngay) || 20))),
       gsheet_thue_id: cfg.gsheet_thue_id.trim(),
       gsheet_thue_tab: cfg.gsheet_thue_tab.trim() || 'Danh sách',
+      bao_cao_khach_loai: cfg.bao_cao_khach_loai.trim() || 'Sửa máy',
       bao_cao_cho_phep_ngay: String(Number.isFinite(parseInt(cfg.bao_cao_cho_phep_ngay)) ? parseInt(cfg.bao_cao_cho_phep_ngay) : 7),
       phien_van_phong_ngay: String(parseInt(cfg.phien_van_phong_ngay) || 7),
       phien_ktv_ngay: String(parseInt(cfg.phien_ktv_ngay) || 30),
@@ -6963,6 +6987,11 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
           {numField('Báo trước hạn lấy counter (ngày)', 'counter_bao_truoc_ngay', 'Máy thuê/CPC: cảnh báo trước N ngày tới hạn chốt số')}
           {numField('Ngày chuyển kỳ counter', 'counter_chuyen_ky_ngay', 'Máy chốt số ngày ≤ N thuộc kỳ THÁNG TRƯỚC (đọc vào ngày D tháng sau); chốt > N thuộc kỳ THÁNG NÀY (đọc vào ngày D chính tháng). Cũng là mốc dropdown mặc định nhảy kỳ. Mặc định 20')}
           {numField('KTV nộp báo cáo trễ tối đa (ngày)', 'bao_cao_cho_phep_ngay', 'Cho phép nộp/sửa báo cáo lùi về N ngày. 0 = chỉ hôm nay')}
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Loại việc cần báo cáo khách</label>
+            <Input value={cfg.bao_cao_khach_loai} onChange={(e) => setCfg({ ...cfg, bao_cao_khach_loai: e.target.value })} placeholder="Sửa máy" className="bg-white" />
+            <p className="text-[11px] text-slate-400">KTV Hoàn thành các loại việc này mới hiện ô "Báo cáo gửi khách". Nhiều loại cách nhau dấu phẩy.</p>
+          </div>
         </div>
         <div className="flex flex-wrap gap-6">
           <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
@@ -7350,6 +7379,118 @@ function BaoCaoThangTool({ showNotification }: { showNotification: (type: 'succe
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+// Tab Sổ công tác › Báo cáo gửi khách: office xem báo cáo THÔ của KTV (việc Sửa máy), gọt câu trong
+// ô soạn (đã ghép sẵn template "fake bot"), Copy gửi Zalo/Email khách, rồi bấm "Đã gửi". Badge = chờ gửi.
+function BaoCaoKhachTool({ showNotification, onChanged }: { showNotification: (type: 'success' | 'error', msg: string) => void, onChanged: () => void }) {
+  const [tab, setTab] = useState<'cho_gui' | 'da_gui'>('cho_gui')
+  const [list, setList] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [texts, setTexts] = useState<Record<string, string>>({}) // nội dung soạn (office gọt được) theo id
+  const [busy, setBusy] = useState<string | null>(null)
+  const [copied, setCopied] = useState<string | null>(null)
+
+  const dmy = (s: any) => { if (!s) return ''; const p = String(s).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : '' }
+  // Ghép nội dung "fake bot" để office Copy gửi khách.
+  const buildText = (r: any): string => {
+    const cv = r.soct_cong_viec || {}
+    const kh = cv.soct_khach_hang || {}
+    const code = `BC-${String(r.created_at || '').slice(0, 10).replace(/-/g, '')}-${String(r.id || '').slice(0, 4).toUpperCase()}`
+    const vt = (cv.soct_chi_tiet_vat_tu || []).filter((v: any) => !v.da_tra)
+      .map((v: any) => `${v.ten_hang_hd || v.soct_kho_hang?.ten_hang || v.ma_hang} x${Number(v.so_luong) || 0}`).join(', ')
+    const lines = [
+      '━━━━━━━━━━━━━━━',
+      '🔧 HAST · BÁO CÁO KỸ THUẬT',
+      `Mã BC: ${code} · ${dmy(cv.ngay)}`,
+      '━━━━━━━━━━━━━━━',
+      `Kính gửi Quý khách ${kh.ten_khach_hang || 'Quý khách'},`,
+      '',
+      `- Thiết bị: ${kh.model || 'N/A'} — Mã máy: ${cv.ma_may || ''}`,
+      (kh.vi_tri_dat_may ? `- Vị trí: ${kh.vi_tri_dat_may}` : ''),
+      `- Ngày xử lý: ${dmy(cv.ngay)}`,
+      `- Kết quả / tình trạng: ${r.noi_dung || ''}`,
+      (vt ? `- Linh kiện đã thay: ${vt}` : ''),
+      '',
+      '━━━━━━━━━━━━━━━',
+      'Báo cáo được hệ thống HAST tổng hợp tự động.',
+    ].filter(l => l !== '')
+    return lines.join('\n')
+  }
+
+  const load = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/admin/bao-cao-khach?trang_thai=${tab}`)
+      const j = await res.json()
+      if (res.ok) {
+        setList(j.data || [])
+        const t: Record<string, string> = {}
+        for (const r of j.data || []) t[r.id] = buildText(r)
+        setTexts(t)
+      } else showNotification('error', j.error || 'Lỗi tải danh sách')
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setLoading(false) }
+  }
+  useEffect(() => { load() }, [tab]) // eslint-disable-line react-hooks/exhaustive-deps
+  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => load())
+
+  const copy = (id: string) => { navigator.clipboard.writeText(texts[id] || ''); setCopied(id); setTimeout(() => setCopied(null), 1500); showNotification('success', 'Đã copy — dán vào Zalo/Email khách.') }
+  const mark = async (id: string, action: 'da_gui' | 'cho_gui') => {
+    setBusy(id)
+    try {
+      const res = await fetch('/api/admin/bao-cao-khach', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action }) })
+      if (res.ok) { showNotification('success', action === 'da_gui' ? 'Đã đánh dấu đã gửi.' : 'Đã trả lại chờ gửi.'); load(); onChanged() }
+      else { const j = await res.json(); showNotification('error', j.error) }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setBusy(null) }
+  }
+  const remove = async (id: string) => {
+    setBusy(id)
+    try {
+      const res = await fetch(`/api/admin/bao-cao-khach?id=${id}`, { method: 'DELETE' })
+      if (res.ok) { showNotification('success', 'Đã xóa báo cáo.'); load(); onChanged() }
+      else { const j = await res.json(); showNotification('error', j.error) }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setBusy(null) }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <button onClick={() => setTab('cho_gui')} className={`h-9 px-3 rounded-lg text-sm font-semibold border ${tab === 'cho_gui' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200'}`}>Chờ gửi</button>
+        <button onClick={() => setTab('da_gui')} className={`h-9 px-3 rounded-lg text-sm font-semibold border ${tab === 'da_gui' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200'}`}>Đã gửi</button>
+        <span className="text-xs text-slate-400 ml-1">{list.length} báo cáo</span>
+        <button onClick={load} className="ml-auto text-slate-400 hover:text-blue-600 p-1" title="Làm mới"><RefreshCw className="w-4 h-4" /></button>
+      </div>
+
+      {loading ? <p className="text-sm text-slate-400 text-center py-10">Đang tải…</p>
+        : list.length === 0 ? <p className="text-sm text-slate-400 text-center py-10 italic">{tab === 'cho_gui' ? 'Không có báo cáo nào chờ gửi.' : 'Chưa có báo cáo đã gửi.'}</p>
+          : (
+            <div className="space-y-3">
+              {list.map((r: any) => {
+                const cv = r.soct_cong_viec || {}; const kh = cv.soct_khach_hang || {}
+                return (
+                  <div key={r.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
+                    <div className="flex items-start justify-between gap-2 flex-wrap">
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-800">{kh.ten_khach_hang || 'Khách lẻ'}</div>
+                        <div className="text-xs text-slate-500">{kh.model || 'N/A'} · Mã máy {cv.ma_may || '—'} · {dmy(cv.ngay)} · KTV {r.nguoi_tao_u?.full_name || '—'}</div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={() => copy(r.id)} className="h-9 px-3 rounded-md text-xs font-semibold border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 inline-flex items-center gap-1.5"><Copy className="w-3.5 h-3.5" /> {copied === r.id ? 'Đã copy' : 'Copy'}</button>
+                        {tab === 'cho_gui'
+                          ? <button onClick={() => mark(r.id, 'da_gui')} disabled={busy === r.id} className="h-9 px-3 rounded-md text-xs font-semibold border border-emerald-300 text-white bg-emerald-600 hover:bg-emerald-700 inline-flex items-center gap-1.5 disabled:opacity-50"><CheckCircle2 className="w-3.5 h-3.5" /> Đã gửi</button>
+                          : <button onClick={() => mark(r.id, 'cho_gui')} disabled={busy === r.id} className="h-9 px-3 rounded-md text-xs font-semibold border border-slate-200 text-slate-600 bg-white hover:bg-slate-50 disabled:opacity-50">Trả lại chờ gửi</button>}
+                        <button onClick={() => remove(r.id)} disabled={busy === r.id} className="h-9 w-9 p-0 rounded-md text-rose-500 hover:bg-rose-50 inline-flex items-center justify-center disabled:opacity-50" title="Xóa"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                    <textarea value={texts[r.id] ?? ''} onChange={e => setTexts(prev => ({ ...prev, [r.id]: e.target.value }))} rows={10}
+                      className="w-full text-xs font-mono leading-relaxed rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                  </div>
+                )
+              })}
+            </div>
+          )}
     </div>
   )
 }
