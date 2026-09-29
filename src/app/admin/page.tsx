@@ -7392,6 +7392,8 @@ function BaoCaoKhachTool({ showNotification, onChanged }: { showNotification: (t
   const [texts, setTexts] = useState<Record<string, string>>({}) // nội dung soạn (office gọt được) theo id
   const [busy, setBusy] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const [openId, setOpenId] = useState<string | null>(null) // accordion: chỉ 1 báo cáo mở tại 1 thời điểm
+  const [search, setSearch] = useState('')
 
   const dmy = (s: any) => { if (!s) return ''; const p = String(s).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : '' }
   // Ghép nội dung "fake bot" để office Copy gửi khách.
@@ -7430,6 +7432,7 @@ function BaoCaoKhachTool({ showNotification, onChanged }: { showNotification: (t
         const t: Record<string, string> = {}
         for (const r of j.data || []) t[r.id] = buildText(r)
         setTexts(t)
+        setOpenId(null)
       } else showNotification('error', j.error || 'Lỗi tải danh sách')
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setLoading(false) }
   }
@@ -7454,38 +7457,62 @@ function BaoCaoKhachTool({ showNotification, onChanged }: { showNotification: (t
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setBusy(null) }
   }
 
+  // Lọc theo tên khách / mã máy / model / KTV (bỏ dấu).
+  const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()
+  const sTokens = norm(search.trim()).split(/\s+/).filter(Boolean)
+  const shown = list.filter((r: any) => {
+    if (!sTokens.length) return true
+    const cv = r.soct_cong_viec || {}; const kh = cv.soct_khach_hang || {}
+    const hay = norm(`${kh.ten_khach_hang || ''} ${cv.ma_may || ''} ${kh.model || ''} ${r.nguoi_tao_u?.full_name || ''}`)
+    return sTokens.every(t => hay.includes(t))
+  })
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <button onClick={() => setTab('cho_gui')} className={`h-9 px-3 rounded-lg text-sm font-semibold border ${tab === 'cho_gui' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200'}`}>Chờ gửi</button>
         <button onClick={() => setTab('da_gui')} className={`h-9 px-3 rounded-lg text-sm font-semibold border ${tab === 'da_gui' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200'}`}>Đã gửi</button>
-        <span className="text-xs text-slate-400 ml-1">{list.length} báo cáo</span>
-        <button onClick={load} className="ml-auto text-slate-400 hover:text-blue-600 p-1" title="Làm mới"><RefreshCw className="w-4 h-4" /></button>
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm tên khách / mã máy / model / KTV…" className="pl-9 h-9 bg-white" />
+        </div>
+        <span className="text-xs text-slate-400">{shown.length}{shown.length !== list.length ? `/${list.length}` : ''} báo cáo</span>
+        <button onClick={load} className="text-slate-400 hover:text-blue-600 p-1" title="Làm mới"><RefreshCw className="w-4 h-4" /></button>
       </div>
 
       {loading ? <p className="text-sm text-slate-400 text-center py-10">Đang tải…</p>
-        : list.length === 0 ? <p className="text-sm text-slate-400 text-center py-10 italic">{tab === 'cho_gui' ? 'Không có báo cáo nào chờ gửi.' : 'Chưa có báo cáo đã gửi.'}</p>
+        : shown.length === 0 ? <p className="text-sm text-slate-400 text-center py-10 italic">{list.length === 0 ? (tab === 'cho_gui' ? 'Không có báo cáo nào chờ gửi.' : 'Chưa có báo cáo đã gửi.') : 'Không khớp tìm kiếm.'}</p>
           : (
-            <div className="space-y-3">
-              {list.map((r: any) => {
+            <div className="space-y-2">
+              {shown.map((r: any) => {
                 const cv = r.soct_cong_viec || {}; const kh = cv.soct_khach_hang || {}
+                const open = openId === r.id
                 return (
-                  <div key={r.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
-                    <div className="flex items-start justify-between gap-2 flex-wrap">
-                      <div className="min-w-0">
-                        <div className="font-bold text-slate-800">{kh.ten_khach_hang || 'Khách lẻ'}</div>
-                        <div className="text-xs text-slate-500">{kh.model || 'N/A'} · Mã máy {cv.ma_may || '—'} · {dmy(cv.ngay)} · KTV {r.nguoi_tao_u?.full_name || '—'}</div>
+                  <div key={r.id} className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                    {/* Dòng vắn tắt — bấm để xổ/thu */}
+                    <button onClick={() => setOpenId(open ? null : r.id)} className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-slate-50">
+                      <ChevronRight className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-slate-800 truncate">{kh.ten_khach_hang || 'Khách lẻ'}</div>
+                        <div className="text-[11px] text-slate-400 truncate">Mã máy {cv.ma_may || '—'} · {kh.model || 'N/A'} · {dmy(cv.ngay)} · KTV {r.nguoi_tao_u?.full_name || '—'}</div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => copy(r.id)} className="h-9 px-3 rounded-md text-xs font-semibold border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 inline-flex items-center gap-1.5"><Copy className="w-3.5 h-3.5" /> {copied === r.id ? 'Đã copy' : 'Copy'}</button>
-                        {tab === 'cho_gui'
-                          ? <button onClick={() => mark(r.id, 'da_gui')} disabled={busy === r.id} className="h-9 px-3 rounded-md text-xs font-semibold border border-emerald-300 text-white bg-emerald-600 hover:bg-emerald-700 inline-flex items-center gap-1.5 disabled:opacity-50"><CheckCircle2 className="w-3.5 h-3.5" /> Đã gửi</button>
-                          : <button onClick={() => mark(r.id, 'cho_gui')} disabled={busy === r.id} className="h-9 px-3 rounded-md text-xs font-semibold border border-slate-200 text-slate-600 bg-white hover:bg-slate-50 disabled:opacity-50">Trả lại chờ gửi</button>}
-                        <button onClick={() => remove(r.id)} disabled={busy === r.id} className="h-9 w-9 p-0 rounded-md text-rose-500 hover:bg-rose-50 inline-flex items-center justify-center disabled:opacity-50" title="Xóa"><Trash2 className="w-4 h-4" /></button>
+                      {tab === 'da_gui' && <span className="text-[10px] text-emerald-600 shrink-0">đã gửi</span>}
+                    </button>
+
+                    {/* Nội dung đầy đủ khi mở */}
+                    {open && (
+                      <div className="px-4 pb-4 space-y-3 border-t border-slate-100 pt-3">
+                        <div className="flex items-center gap-2 flex-wrap justify-end">
+                          <button onClick={() => copy(r.id)} className="h-9 px-3 rounded-md text-xs font-semibold border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 inline-flex items-center gap-1.5"><Copy className="w-3.5 h-3.5" /> {copied === r.id ? 'Đã copy' : 'Copy'}</button>
+                          {tab === 'cho_gui'
+                            ? <button onClick={() => mark(r.id, 'da_gui')} disabled={busy === r.id} className="h-9 px-3 rounded-md text-xs font-semibold border border-emerald-300 text-white bg-emerald-600 hover:bg-emerald-700 inline-flex items-center gap-1.5 disabled:opacity-50"><CheckCircle2 className="w-3.5 h-3.5" /> Đã gửi</button>
+                            : <button onClick={() => mark(r.id, 'cho_gui')} disabled={busy === r.id} className="h-9 px-3 rounded-md text-xs font-semibold border border-slate-200 text-slate-600 bg-white hover:bg-slate-50 disabled:opacity-50">Trả lại chờ gửi</button>}
+                          <button onClick={() => remove(r.id)} disabled={busy === r.id} className="h-9 w-9 p-0 rounded-md text-rose-500 hover:bg-rose-50 inline-flex items-center justify-center disabled:opacity-50" title="Xóa"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                        <textarea value={texts[r.id] ?? ''} onChange={e => setTexts(prev => ({ ...prev, [r.id]: e.target.value }))} rows={10}
+                          className="w-full text-xs font-mono leading-relaxed rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
                       </div>
-                    </div>
-                    <textarea value={texts[r.id] ?? ''} onChange={e => setTexts(prev => ({ ...prev, [r.id]: e.target.value }))} rows={10}
-                      className="w-full text-xs font-mono leading-relaxed rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                    )}
                   </div>
                 )
               })}
