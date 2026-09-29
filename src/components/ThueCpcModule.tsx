@@ -1039,10 +1039,10 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
                 Chỉ điền vào máy <b>CHƯA có</b> counter ở kỳ này. Máy đã có số trong app sẽ <b>giữ nguyên</b>.
               </p>
               {[
-                { k: 'willFill', label: `Sẽ điền (${gsPreview.willFill.length})`, cls: 'text-emerald-700', show: true },
-                { k: 'skipHave', label: `Đã có — bỏ qua (${gsPreview.skipHave.length})`, cls: 'text-slate-500', show: gsPreview.skipHave.length > 0 },
-                { k: 'empty', label: `Sheet chưa có số (${gsPreview.empty.length})`, cls: 'text-amber-600', show: gsPreview.empty.length > 0 },
-                { k: 'unmatched', label: `Không khớp mã (${gsPreview.unmatched.length})`, cls: 'text-rose-600', show: gsPreview.unmatched.length > 0 },
+                { k: 'willFill', label: `Counter mới (${gsPreview.willFill.length})`, cls: 'text-emerald-700', show: true },
+                { k: 'skipHave', label: `Đã có counter — bỏ qua (${gsPreview.skipHave.length})`, cls: 'text-slate-500', show: gsPreview.skipHave.length > 0 },
+                { k: 'empty', label: `Sheet chưa nhập counter (${gsPreview.empty.length})`, cls: 'text-amber-600', show: gsPreview.empty.length > 0 },
+                { k: 'unmatched', label: `Mã không có trong danh sách máy thuê kỳ ${thang} (${gsPreview.unmatched.length})`, cls: 'text-rose-600', show: gsPreview.unmatched.length > 0 },
               ].filter(g => g.show).map(g => (
                 <div key={g.k}>
                   <div className={`text-xs font-bold uppercase mb-1 ${g.cls}`}>{g.label}</div>
