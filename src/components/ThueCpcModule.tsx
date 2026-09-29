@@ -10,7 +10,7 @@ import DateField from "@/components/DateField"
 import MonthField from "@/components/MonthField"
 import { chotSoDate, counterStatus, CounterStatus, kyTruoc, tinhDongMay } from "@/lib/thue-cpc"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
-import { Save, FileText, RefreshCw, ArrowRight, Check, PenSquare, Search, ChevronUp, ChevronDown } from "lucide-react"
+import { Save, FileText, RefreshCw, ArrowRight, Check, PenSquare, Search, ChevronUp, ChevronDown, Download } from "lucide-react"
 
 const THUECPC_TOPIC = "soct_thuecpc"
 const DATA_EVENT = "changed"
@@ -604,6 +604,27 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [thang])
   useEffect(() => { load() }, [load])
+
+  // ĐỒNG BỘ COUNTER TỪ GOOGLE SHEET (chỉ điền chỗ trống) — xem trước rồi mới ghi.
+  const [gsPreview, setGsPreview] = useState<any | null>(null)
+  const [gsBusy, setGsBusy] = useState(false)
+  const gsOpenPreview = async () => {
+    setGsBusy(true)
+    try {
+      const res = await fetch(`/api/admin/thue-cpc/counter/gsheet-sync?thang_nam=${thang}`)
+      const j = await res.json()
+      if (res.ok) setGsPreview(j); else showNotification('error', j.error || 'Lỗi đọc Google Sheet')
+    } catch { showNotification('error', 'Lỗi kết nối Google Sheet') } finally { setGsBusy(false) }
+  }
+  const gsConfirm = async () => {
+    setGsBusy(true)
+    try {
+      const res = await fetch('/api/admin/thue-cpc/counter/gsheet-sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ thang_nam: thang }) })
+      const j = await res.json()
+      if (res.ok) { showNotification('success', `Đã điền ${j.count} máy từ Google Sheet (kỳ ${thang}).`); setGsPreview(null); load(); onSaved() }
+      else showNotification('error', j.error || 'Lỗi ghi counter')
+    } catch { showNotification('error', 'Lỗi kết nối' ) } finally { setGsBusy(false) }
+  }
   // Realtime: có thay đổi -> BÁO NHẸ (banner), KHÔNG tự tải lại. Bỏ qua "echo" của chính thao tác vừa rồi (<2.5s).
   useEffect(() => {
     if (refreshVer === 0) return
@@ -809,6 +830,10 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
           <label className="flex items-center gap-2 text-xs text-slate-600">Kỳ
             <MonthField value={thang} onChange={setThang} className="h-9 w-40 text-xs" />
           </label>
+          <button onClick={gsOpenPreview} disabled={gsBusy} title="Đọc counter từ Google Sheet, điền vào các máy CHƯA có số ở kỳ này (xem trước rồi mới ghi)"
+            className="h-9 px-3 rounded-md text-xs font-semibold border border-emerald-300 text-emerald-700 bg-white hover:bg-emerald-50 whitespace-nowrap disabled:opacity-50 inline-flex items-center gap-1.5">
+            <Download className={`w-3.5 h-3.5 ${gsBusy ? 'animate-pulse' : ''}`} /> Đồng bộ Google Sheet
+          </button>
         </div>
       </div>
 
@@ -998,6 +1023,47 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* MODAL XEM TRƯỚC ĐỒNG BỘ GOOGLE SHEET */}
+      {gsPreview && (
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4" onClick={() => !gsBusy && setGsPreview(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[88vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-1.5"><Download className="w-4 h-4 text-emerald-600" /> Đồng bộ counter từ Google Sheet — kỳ {thang}</h3>
+              <button onClick={() => setGsPreview(null)} className="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
+            </div>
+            <div className="p-4 overflow-y-auto space-y-3 text-sm">
+              <p className="text-xs text-slate-500 bg-emerald-50 border border-emerald-100 rounded px-3 py-2">
+                Chỉ điền vào máy <b>CHƯA có</b> counter ở kỳ này. Máy đã có số trong app sẽ <b>giữ nguyên</b>.
+              </p>
+              {[
+                { k: 'willFill', label: `Sẽ điền (${gsPreview.willFill.length})`, cls: 'text-emerald-700', show: true },
+                { k: 'skipHave', label: `Đã có — bỏ qua (${gsPreview.skipHave.length})`, cls: 'text-slate-500', show: gsPreview.skipHave.length > 0 },
+                { k: 'empty', label: `Sheet chưa có số (${gsPreview.empty.length})`, cls: 'text-amber-600', show: gsPreview.empty.length > 0 },
+                { k: 'unmatched', label: `Không khớp mã (${gsPreview.unmatched.length})`, cls: 'text-rose-600', show: gsPreview.unmatched.length > 0 },
+              ].filter(g => g.show).map(g => (
+                <div key={g.k}>
+                  <div className={`text-xs font-bold uppercase mb-1 ${g.cls}`}>{g.label}</div>
+                  <div className="border border-slate-100 rounded max-h-44 overflow-y-auto divide-y divide-slate-50">
+                    {gsPreview[g.k].length === 0 ? <div className="px-3 py-2 text-xs text-slate-400 italic">—</div> :
+                      gsPreview[g.k].map((it: any, i: number) => (
+                        <div key={i} className="px-3 py-1.5 flex items-center justify-between gap-2 text-xs">
+                          <span className="font-mono text-slate-500 shrink-0">{it.ma}</span>
+                          <span className="text-slate-600 flex-1 truncate">{it.ten || (it.cell ? `(sheet: ${it.cell})` : '')}</span>
+                          {g.k === 'willFill' && <span className="font-semibold text-slate-800 shrink-0">{it.so_bw ?? '—'}{it.so_mau != null ? ` / ${it.so_mau}` : ''}</span>}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="p-4 border-t border-slate-100 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setGsPreview(null)} disabled={gsBusy} className="h-9">Hủy</Button>
+              <Button onClick={gsConfirm} disabled={gsBusy || gsPreview.willFill.length === 0} className="h-9 bg-emerald-600 hover:bg-emerald-700">{gsBusy ? 'Đang ghi…' : `Điền ${gsPreview.willFill.length} máy`}</Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

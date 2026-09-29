@@ -6786,6 +6786,8 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     phieu_cung_canh_bao_ngay: cauHinh.phieu_cung_canh_bao_ngay || '3',
     counter_bao_truoc_ngay: cauHinh.counter_bao_truoc_ngay || '3',
     counter_chuyen_ky_ngay: cauHinh.counter_chuyen_ky_ngay || '20',
+    gsheet_thue_id: cauHinh.gsheet_thue_id || '',
+    gsheet_thue_tab: cauHinh.gsheet_thue_tab || 'Danh sách',
     bao_cao_cho_phep_ngay: cauHinh.bao_cao_cho_phep_ngay || '7',
     phien_van_phong_ngay: cauHinh.phien_van_phong_ngay || '7',
     phien_ktv_ngay: cauHinh.phien_ktv_ngay || '30',
@@ -6860,6 +6862,8 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
       phieu_cung_canh_bao_ngay: String(parseInt(cfg.phieu_cung_canh_bao_ngay) || 3),
       counter_bao_truoc_ngay: String(parseInt(cfg.counter_bao_truoc_ngay) || 3),
       counter_chuyen_ky_ngay: String(Math.min(31, Math.max(1, parseInt(cfg.counter_chuyen_ky_ngay) || 20))),
+      gsheet_thue_id: cfg.gsheet_thue_id.trim(),
+      gsheet_thue_tab: cfg.gsheet_thue_tab.trim() || 'Danh sách',
       bao_cao_cho_phep_ngay: String(Number.isFinite(parseInt(cfg.bao_cao_cho_phep_ngay)) ? parseInt(cfg.bao_cao_cho_phep_ngay) : 7),
       phien_van_phong_ngay: String(parseInt(cfg.phien_van_phong_ngay) || 7),
       phien_ktv_ngay: String(parseInt(cfg.phien_ktv_ngay) || 30),
@@ -6930,6 +6934,22 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
           {numField('Vĩ độ VP (lat)', 'vp_lat', 'Dùng để tính KM tới khách', 'any')}
           {numField('Kinh độ VP (lng)', 'vp_lng', 'VD: 105.809180', 'any')}
         </div>
+      </div>
+
+      {/* GOOGLE SHEET (đồng bộ counter máy thuê) */}
+      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+        <h3 className="text-lg font-semibold text-slate-700">Google Sheet — đồng bộ counter máy thuê</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-1 md:col-span-2">
+            <label className="text-xs font-semibold text-slate-600">Spreadsheet ID</label>
+            <Input value={cfg.gsheet_thue_id} onChange={(e) => setCfg({ ...cfg, gsheet_thue_id: e.target.value })} placeholder="Lấy từ URL: docs.google.com/spreadsheets/d/<ID>/edit" className="bg-white" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Tên tab (sheet)</label>
+            <Input value={cfg.gsheet_thue_tab} onChange={(e) => setCfg({ ...cfg, gsheet_thue_tab: e.target.value })} placeholder="Danh sách" className="bg-white" />
+          </div>
+        </div>
+        <p className="text-xs text-slate-500 leading-relaxed">Cần chia sẻ sheet (quyền Xem) cho email <b>service account</b> đã cấu hình ở máy chủ (env <code>GOOGLE_SA_EMAIL</code>). Cột tháng <code>MM/YYYY</code> = kỳ tương ứng; ô counter dạng <code>đen/màu</code>. Nút đồng bộ nằm ở tab <b>Thuê/CPC › Nhập counter</b>.</p>
       </div>
 
       {/* NGHIỆP VỤ */}
