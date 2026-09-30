@@ -7531,6 +7531,12 @@ function BaoCaoKhachTool({ showNotification, onChanged }: { showNotification: (t
         <button onClick={load} className="text-slate-400 hover:text-blue-600 p-1" title="Làm mới"><RefreshCw className="w-4 h-4" /></button>
       </div>
 
+      {tab === 'cho_gui' && list.length > 0 && (
+        <div className="rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-sm px-3 py-2 leading-relaxed">
+          ℹ️ Báo cáo sửa chữa được gửi từ KTV hiện trường. <b>Copy</b> nội dung báo cáo — chỉnh sửa nếu cần — và <b>paste</b> vào nhóm Zalo báo cáo sửa chữa dành cho khách hàng đã tạo.
+        </div>
+      )}
+
       {loading ? <p className="text-sm text-slate-400 text-center py-10">Đang tải…</p>
         : shown.length === 0 ? <p className="text-sm text-slate-400 text-center py-10 italic">{list.length === 0 ? (tab === 'cho_gui' ? 'Không có báo cáo nào chờ gửi.' : 'Chưa có báo cáo đã gửi.') : 'Không khớp tìm kiếm.'}</p>
           : (
