@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HAST — Sổ công tác & Kho hàng",
+  title: "HAST - Quản lý dịch vụ",
   description: "Hệ thống quản lý giao việc, kho hàng, bảo trì và giám định",
   // iOS: khi "Add to Home Screen" — chạy toàn màn hình, tên ngắn "HAST"
   appleWebApp: { capable: true, title: "HAST", statusBarStyle: "default" },
