@@ -2761,7 +2761,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
           stk1: cfg.hd_ban_stk1 || HD_BAN_DEFAULT.stk1,
           stk2: (cfg.hd_ban_stk2 ?? HD_BAN_DEFAULT.stk2),
         }
-        const Dash = ({ w = 120 }: { w?: number }) => <span className="text-slate-300 tracking-widest" style={{ display: 'inline-block', minWidth: w }}>·····················</span>
+        const Dash = ({ w = 120 }: { w?: number }) => <span style={{ display: 'inline-block', width: w, borderBottom: '1px dotted #94a3b8', height: '0.85em', verticalAlign: 'middle' }} />
         return (
           <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => setGiaoReview(null)}>
             <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -2785,8 +2785,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                         <div className="flex-1 text-center">
                           <div className="text-[#c0122b] font-bold text-lg leading-tight">HÓA ĐƠN GIÁ TRỊ GIA TĂNG</div>
                           <div className="italic text-[11px] text-slate-500">(Bản thể hiện của hóa đơn điện tử)</div>
-                          <div className="text-[12px] mt-0.5">Ngày <Dash w={26} /> tháng <Dash w={20} /> năm <Dash w={26} /></div>
-                          <div className="text-[12px]"><span className="text-[#2f6db5] font-semibold">Mã của cơ quan thuế:</span> <Dash w={150} /></div>
+                          <div className="text-[12px] mt-0.5">Ngày <Dash w={34} /> tháng <Dash w={34} /> năm <Dash w={40} /></div>
+                          <div className="text-[12px]"><span className="text-[#2f6db5] font-semibold">Mã của cơ quan thuế:</span> <Dash w={130} /></div>
                         </div>
                         <div className="w-1/4 text-[12px] text-right">
                           <div>Ký hiệu: <b>{kyHieuMinvoice || <Dash w={60} />}</b></div>
