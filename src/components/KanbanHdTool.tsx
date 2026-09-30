@@ -1058,16 +1058,19 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     return [...map.values()]
   }
 
-  // SẮP XẾP THẺ: mọi cột "mới nhất lên đầu". Cột 1/2 theo NGÀY PHIẾU (đẩy mới nhất trên đầu);
-  // cột 3/4 theo NGÀY XUẤT HĐ (mới lên HĐ / mới thanh toán trên đầu). Lấy ngày lớn nhất trong thẻ.
+  // SẮP XẾP THẺ: mọi cột "mới nhất lên đầu". Cột 1 theo NGÀY PHIẾU; cột 2 theo NGÀY BÀN GIAO
+  // (khớp mốc ↥ hiển thị trên thẻ — thẻ mới đẩy lên đầu); cột 3/4 theo NGÀY XUẤT HĐ / NGÀY THU.
+  // Lấy ngày lớn nhất trong thẻ.
   const cardNgay = (c: any) => (c.tickets || []).reduce((m: string, t: any) => (String(t.ngay || '') > m ? String(t.ngay || '') : m), '')
+  // Cột 2: sắp theo NGÀY BÀN GIAO KT (ban_giao_kt_luc, mốc ↥) — thẻ cũ chưa có mốc thì fallback ngày phiếu.
+  const cardBanGiao = (c: any) => (c.tickets || []).reduce((m: string, t: any) => { const d = String(t.ban_giao_kt_luc || t.ngay || ''); return d > m ? d : m }, '')
   const cardXuat = (c: any) => (c.tickets || []).reduce((m: string, t: any) => { const d = String(t.ngay_xuat_hd || t.ngay || ''); return d > m ? d : m }, '')
   // Cột 4 sắp theo NGÀY THU (mới thu nhất lên đầu) — khớp tiêu chí lọc kỳ của cột này.
   const cardThu = (c: any) => (c.tickets || []).reduce((m: string, t: any) => { const d = String(t.thanh_toan_luc || t.ngay_xuat_hd || ''); return d > m ? d : m }, '')
 
   const cardsCol1 = getColumnCards(col1Tickets, 'Chờ xuất HĐ').sort((a, b) => cardNgay(b).localeCompare(cardNgay(a)))
   // Cột 2: gom theo LÔ ĐẨY (giữ nguyên qua bàn giao, không phụ thuộc cờ `grouped` per-viewer).
-  const cardsCol2 = getColumnCards(col2Tickets, 'Đang xử lý HĐ').sort((a, b) => cardNgay(b).localeCompare(cardNgay(a)))
+  const cardsCol2 = getColumnCards(col2Tickets, 'Đang xử lý HĐ').sort((a, b) => cardBanGiao(b).localeCompare(cardBanGiao(a)))
   // M-invoice: thẻ CHƯA xuất (nút hàng loạt chỉ đụng các thẻ này) & số thẻ đã xuất nhưng CHƯA có số HĐ.
   const cardsCol2ChuaXuat = cardsCol2.filter((c: any) => !cardMinvoiceExported(c.tickets))
   const col2PendingCount = cardsCol2.filter((c: any) => cardMinvoicePending(c.tickets)).length
