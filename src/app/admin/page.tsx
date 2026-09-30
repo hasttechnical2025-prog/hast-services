@@ -7752,6 +7752,10 @@ function CongNoTool({ showNotification }: { showNotification: (type: 'success' |
       ws.addRow(['Mã hàng', 'Tên hàng', 'SL', 'ĐVT', 'Đơn giá', 'VAT (%)', 'Thành tiền (chưa VAT)'])
       for (const r of rows) ws.addRow([(r as any).maHang || '', r.ten, r.sl, r.dvt || 'Cái', r.gia, r.vat, (Number(r.sl) || 0) * (Number(r.gia) || 0)])
       ws.getRow(1).font = { bold: true }
+      // Tô nền vàng nhạt cột Tên hàng (B) & ĐVT (D) — office focus kiểm tra/điều chỉnh theo khách.
+      const HL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } } as const
+      for (let rN = 1; rN <= ws.rowCount; rN++) { ws.getCell(rN, 2).fill = HL as any; ws.getCell(rN, 4).fill = HL as any }
+      ws.getColumn(2).width = 42; ws.getColumn(4).width = 10
       const buf = await wb.xlsx.writeBuffer()
       const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
       const a = document.createElement('a')
