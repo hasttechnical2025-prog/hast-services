@@ -305,7 +305,10 @@ async function kanbanPut(body: any) {
   const updates: any = { trang_thai_hd, updated_at: new Date().toISOString() }
 
   if (isHandover && tach_rieng !== undefined) updates.tach_rieng = !!tach_rieng
-  if (isHandover) updates.nguoi_ban_giao_id = session.id   // đóng dấu NGƯỜI bàn giao (double-check của sale_admin)
+  if (isHandover) {
+    updates.nguoi_ban_giao_id = session.id   // đóng dấu NGƯỜI bàn giao (double-check của sale_admin)
+    updates.ban_giao_kt_luc = new Date(Date.now() + 7 * 3600 * 1000).toISOString()  // mốc NGÀY bàn giao (giờ VN) -> cột 2 sort + hiện ↥
+  }
 
   if (trang_thai_hd === 'Đã lên hóa đơn' || trang_thai_hd === 'Đã thanh toán') {
     if (so_hoa_don !== undefined) updates.so_hoa_don = String(so_hoa_don).trim()

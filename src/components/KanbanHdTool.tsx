@@ -200,6 +200,124 @@ function buildMinvoiceRows(tickets: Ticket[], kyHieu: string, ngayHD: Date, soDo
   })
 }
 
+// ===== Bản xem trước HÓA ĐƠN dùng CHUNG (kỹ thuật + KD/lệnh xuất) =====
+// Dựng tờ HĐ GTGT theo mẫu M-invoice. Nhận shape đã chuẩn hóa: tên hàng đã giải quyết sẵn
+// (kỹ thuật ghép "Tên - Mã"; KD dùng tên kinh doanh). 1 nguồn chân lý cho giao diện hóa đơn.
+type InvSeller = { ten: string; mst: string; dia_chi: string; dien_thoai: string; email: string; stk1: string; stk2: string }
+type InvBuyer = { ten: string; dia_chi: string; mst: string }
+type InvItem = { ten: string; dvt: string; so_luong: number; don_gia: number; vat: number }
+function InvoiceSheet({ seller, buyer, items, kyHieu, lamTron = 0 }: { seller: InvSeller; buyer: InvBuyer; items: InvItem[]; kyHieu: string; lamTron?: number }) {
+  const Dash = ({ w = 120 }: { w?: number }) => <span style={{ display: 'inline-block', width: w, borderBottom: '1px dotted #94a3b8', height: '0.85em', verticalAlign: 'middle' }} />
+  const truocVat = items.reduce((s, it) => s + (Number(it.so_luong) || 0) * (Number(it.don_gia) || 0), 0)
+  const tienVat = items.reduce((s, it) => s + (Number(it.so_luong) || 0) * (Number(it.don_gia) || 0) * (Number(it.vat) || 0) / 100, 0)
+  const congTien = Math.round(truocVat)
+  const tienThue = Math.round(tienVat)
+  const tong = Math.round(truocVat + tienVat) + (Number(lamTron) || 0)
+  const vatRates = [...new Set(items.filter(it => (Number(it.don_gia) || 0) > 0).map(it => Number(it.vat) || 0))]
+  const multiVat = vatRates.length > 1
+  const thueSuat = vatRates.length ? vatRates[0] : 0
+  const bTen = String(buyer.ten || '').trim().toUpperCase()
+  const bDC = String(buyer.dia_chi || '').trim()
+  const bMST = String(buyer.mst || '').trim()
+  return (
+    <div className="mx-auto bg-white border-[3px] border-double border-[#2f6db5] shadow-sm" style={{ maxWidth: 760, fontFamily: '"Times New Roman", Times, serif', color: '#0f172a' }}>
+      <div className="p-5 space-y-2 text-[12.5px] leading-relaxed">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="w-1/4" />
+          <div className="flex-1 text-center">
+            <div className="text-[#c0122b] font-bold text-lg leading-tight">HÓA ĐƠN GIÁ TRỊ GIA TĂNG</div>
+            <div className="italic text-[11px] text-slate-500">(Bản thể hiện của hóa đơn điện tử)</div>
+            <div className="text-[12px] mt-0.5">Ngày <Dash w={34} /> tháng <Dash w={34} /> năm <Dash w={40} /></div>
+            <div className="text-[12px]"><span className="text-[#2f6db5] font-semibold">Mã của cơ quan thuế:</span> <Dash w={130} /></div>
+          </div>
+          <div className="w-1/4 text-[12px] text-right">
+            <div>Ký hiệu: <b>{kyHieu ? kyHieu.toUpperCase() : <Dash w={60} />}</b></div>
+            <div>Số: <Dash w={50} /></div>
+          </div>
+        </div>
+        {/* Người bán */}
+        <div className="border-t border-dashed border-slate-300 pt-2">
+          <div><span className="text-[#2f6db5] font-bold">Đơn vị bán hàng: </span><b>{seller.ten}</b></div>
+          <div><span className="text-[#2f6db5] font-semibold">Mã số thuế: </span><b>{seller.mst}</b></div>
+          <div><span className="text-slate-600">Địa chỉ: </span>{seller.dia_chi}</div>
+          <div><span className="text-slate-600">Điện thoại: </span>{seller.dien_thoai}<span className="ml-6 text-slate-600">Email: </span>{seller.email}</div>
+          {seller.stk1 && <div><span className="text-slate-600">Số tài khoản: </span>{seller.stk1}</div>}
+          {seller.stk2 && <div><span className="text-slate-600">Số tài khoản: </span>{seller.stk2}</div>}
+        </div>
+        {/* Người mua */}
+        <div className="border-t border-dashed border-slate-300 pt-2">
+          <div><span className="text-slate-600">Họ và tên người mua hàng: </span><Dash w={150} /></div>
+          <div><span className="text-[#2f6db5] font-semibold">Tên đơn vị: </span>{bTen ? <b>{bTen}</b> : <span className="text-rose-600 font-bold">⚠ Thiếu tên đơn vị</span>}</div>
+          <div><span className="text-slate-600">Địa chỉ: </span>{bDC || <span className="text-rose-600 font-bold">⚠ Thiếu địa chỉ</span>}</div>
+          <div><span className="text-slate-600">Số tài khoản: </span><Dash w={90} /><span className="ml-6 text-slate-600">Tại: </span><Dash w={90} /></div>
+          <div><span className="text-slate-600">Hình thức thanh toán: </span>TM/CK<span className="ml-6 text-[#2f6db5] font-semibold">Mã số thuế: </span>{bMST ? <b>{bMST}</b> : <span className="text-rose-600 font-bold">⚠ Thiếu MST</span>}</div>
+        </div>
+        {/* Bảng hàng hóa */}
+        <table className="w-full border-collapse text-[12px] mt-1">
+          <thead>
+            <tr className="bg-[#eaf1fb] text-[#2f6db5] [&>th]:border [&>th]:border-[#9fbfe4] [&>th]:px-1.5 [&>th]:py-1 [&>th]:font-semibold">
+              <th className="w-8">STT</th><th>Tên hàng hóa, dịch vụ</th><th className="w-14">ĐVT</th><th className="w-16">Số lượng</th><th className="w-24">Đơn giá</th><th className="w-28">Thành tiền</th>
+            </tr>
+          </thead>
+          <tbody className="[&>tr>td]:border [&>tr>td]:border-[#9fbfe4] [&>tr>td]:px-1.5 [&>tr>td]:py-1 align-top">
+            {items.map((it, i) => {
+              const tt = (Number(it.so_luong) || 0) * (Number(it.don_gia) || 0)
+              const dvt0 = !String(it.dvt || '').trim(), gia0 = (Number(it.don_gia) || 0) === 0, sl0 = (Number(it.so_luong) || 0) === 0
+              return (
+                <tr key={i}>
+                  <td className="text-center">{i + 1}</td>
+                  <td>{it.ten}</td>
+                  <td className={`text-center ${dvt0 ? 'text-rose-600 font-semibold' : ''}`}>{String(it.dvt || '').trim() || '(trống)'}</td>
+                  <td className={`text-center ${sl0 ? 'text-rose-600 font-semibold' : ''}`}>{it.so_luong}</td>
+                  <td className={`text-right ${gia0 ? 'text-rose-600 font-semibold' : ''}`}>{fmtVnd(it.don_gia)}</td>
+                  <td className="text-right">{fmtVnd(tt)}</td>
+                </tr>
+              )
+            })}
+            {items.length === 0 && <tr><td colSpan={6} className="text-center text-slate-400 italic py-3">Thẻ không có dòng hàng.</td></tr>}
+          </tbody>
+        </table>
+        {/* Tổng */}
+        <table className="w-full border-collapse text-[12px] border border-t-0 border-[#9fbfe4]">
+          <tbody className="[&>tr>td]:border [&>tr>td]:border-[#9fbfe4] [&>tr>td]:px-2 [&>tr>td]:py-1">
+            <tr>
+              <td colSpan={2}><div className="flex justify-end items-center gap-8"><span className="font-semibold">Cộng tiền hàng hóa, dịch vụ:</span><b className="w-32 text-right">{fmtVnd(congTien)}</b></div></td>
+            </tr>
+            <tr>
+              <td className="w-[45%]">Thuế suất GTGT: <b>{multiVat ? '(nhiều — phải tách HĐ)' : thueSuat + '%'}</b></td>
+              <td><div className="flex justify-end items-center gap-8"><span>Tiền thuế GTGT:</span><b className="w-32 text-right">{fmtVnd(tienThue)}</b></div></td>
+            </tr>
+            <tr>
+              <td colSpan={2}><div className="flex justify-end items-center gap-8"><span className="font-semibold">Tổng tiền thanh toán:</span><b className="w-32 text-right text-[#c0122b]">{fmtVnd(tong)}</b></div></td>
+            </tr>
+          </tbody>
+        </table>
+        {(Number(lamTron) || 0) !== 0 && <div className="text-[11px] text-amber-700 italic mt-0.5">⚠ Đã làm tròn {lamTron > 0 ? '+' : ''}{fmtVnd(lamTron)} đ vào tổng — nhắc kế toán kiểm tra.</div>}
+        <div className="text-[12.5px]"><b>Số tiền bằng chữ:</b> <i>{docSoTien(tong).replace(/\s*\.\/\.\s*$/, '')}</i></div>
+        {/* Chữ ký */}
+        <div className="flex justify-between text-center pt-3 text-[12px]">
+          <div className="w-1/2"><div className="font-semibold">Người mua hàng</div><div className="italic text-[11px] text-slate-500">(Chữ ký điện tử, Chữ ký số)</div></div>
+          <div className="w-1/2"><div className="font-semibold">Người bán hàng</div><div className="italic text-[11px] text-slate-500">(Chữ ký điện tử, Chữ ký số)</div></div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Tính khối người bán từ config (dùng chung 2 luồng).
+function sellerFromCfg(cfg: Record<string, string>): InvSeller {
+  return {
+    ten: cfg.hd_ban_ten || HD_BAN_DEFAULT.ten,
+    mst: cfg.hd_ban_mst || HD_BAN_DEFAULT.mst,
+    dia_chi: cfg.hd_ban_dia_chi || HD_BAN_DEFAULT.dia_chi,
+    dien_thoai: cfg.hd_ban_dien_thoai || HD_BAN_DEFAULT.dien_thoai,
+    email: cfg.hd_ban_email || HD_BAN_DEFAULT.email,
+    stk1: cfg.hd_ban_stk1 || HD_BAN_DEFAULT.stk1,
+    stk2: (cfg.hd_ban_stk2 ?? HD_BAN_DEFAULT.stk2),
+  }
+}
+
 export default function KanbanHdTool({ role = 'staff', showNotification }: { role?: string, showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [kdTickets, setKdTickets] = useState<KdTicket[]>([]) // nguồn kinh doanh (lệnh xuất) — chỉ admin/kthc
@@ -246,6 +364,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   } | null>(null)
   // Chốt chặn REVIEW trước khi bàn giao kế toán (cột 1 -> 2): office soi Tên hàng/SL/ĐVT read-only.
   const [giaoReview, setGiaoReview] = useState<{ tickets: Ticket[]; onConfirm: () => void } | null>(null)
+  const [kdReview, setKdReview] = useState<{ ticket: KdTicket; onConfirm: () => void } | null>(null) // chốt chặn xem trước HĐ cho lệnh KD
   const [cfg, setCfg] = useState<Record<string, string>>({}) // cấu hình hệ thống (khối người bán hóa đơn...)
   const [thang, setThang] = useState(() => {
     const d = new Date()
@@ -394,6 +513,10 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     }
     if (t.trang_thai_hd === 'Đang xử lý HĐ' && targetState === 'Chờ xuất HĐ') {
       setKdReturn({ id: t.id, reason: '', ten }); return true // cần lý do trả lại
+    }
+    // Bàn giao kế toán (cột 1 -> 2): LUÔN mở chốt chặn xem trước hóa đơn — khóa sửa sau đó (đồng bộ luồng kỹ thuật).
+    if (t.trang_thai_hd === 'Chờ xuất HĐ' && targetState === 'Đang xử lý HĐ') {
+      setKdReview({ ticket: t, onConfirm: () => kdMove(t.id, targetState) }); return true
     }
     kdMove(t.id, targetState); return true
   }
@@ -1038,7 +1161,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   }
   const kdShown = kdTickets.filter(kdMatch)
   const kdCol1 = kdShown.filter(t => t.trang_thai_hd === 'Chờ xuất HĐ').sort((a, b) => String(b.ngay).localeCompare(String(a.ngay)))
-  const kdCol2 = kdShown.filter(t => t.trang_thai_hd === 'Đang xử lý HĐ').sort((a, b) => String(b.ngay).localeCompare(String(a.ngay)))
+  const kdCol2 = kdShown.filter(t => t.trang_thai_hd === 'Đang xử lý HĐ').sort((a, b) => String(b.ban_giao_kt_luc || b.ngay).localeCompare(String(a.ban_giao_kt_luc || a.ngay)))
   const kdCol3 = kdShown.filter(t => t.trang_thai_hd === 'Đã lên hóa đơn' && (!col3ChiKyNay || String(t.ngay_xuat_hd || '').startsWith(thang))).sort((a, b) => String(b.ngay_xuat_hd || '').localeCompare(String(a.ngay_xuat_hd || '')))
   const kdCol4 = kdShown.filter(t => t.trang_thai_hd === 'Đã thanh toán').sort((a, b) => String(b.thanh_toan_luc || '').localeCompare(String(a.thanh_toan_luc || '')))
 
@@ -1556,7 +1679,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
           <span className="text-[10px] text-slate-400">{t.lines.length} dòng hàng</span>
           <span className="text-sm font-bold text-slate-800">{fmtVnd(t.tong_sau_vat)} đ</span>
         </div>
-        <div className="mt-1.5 flex flex-wrap gap-1">
+        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+          {t.ban_giao_kt_luc && <span className="inline-flex items-center gap-0.5 text-[9px] text-slate-400" title="Ngày bàn giao kế toán"><Upload className="w-2.5 h-2.5" />{fmtDate(t.ban_giao_kt_luc)}</span>}
           {t.so_hoa_don && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-mono font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">HĐ {t.so_hoa_don}</span>}
           {chuaBanGiao && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-slate-50 text-slate-400 border-slate-200">chưa bàn giao</span>}
           {chuaBanGiao && t.ly_do_tra && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-rose-50 text-rose-600 border-rose-200" title={t.ly_do_tra}>KT trả lại</span>}
@@ -2193,7 +2317,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
               const btns: React.ReactNode[] = []
               if (st === 'Chờ xuất HĐ' && role === 'admin') {
                 btns.push(<Button key="thuhoi" variant="outline" onClick={() => kdRecall(kdActive.id)} disabled={kdBusy} className="h-9 text-xs border-amber-200 text-amber-700 hover:bg-amber-50">← Thu hồi</Button>)
-                btns.push(<Button key="giao" onClick={() => handleKdMove(kdActive, 'Đang xử lý HĐ')} disabled={kdBusy} className="h-9 bg-blue-600 hover:bg-blue-700 text-white text-xs">Bàn giao Kế toán →</Button>)
+                btns.push(<Button key="giao" onClick={() => handleKdMove(kdActive, 'Đang xử lý HĐ')} disabled={kdBusy} className="h-9 bg-blue-600 hover:bg-blue-700 text-white text-xs">Xem &amp; Bàn giao Kế toán →</Button>)
               }
               if (st === 'Đang xử lý HĐ' && isKt) {
                 btns.push(<Button key="tra" variant="outline" onClick={() => handleKdMove(kdActive, 'Chờ xuất HĐ')} disabled={kdBusy} className="h-9 text-xs border-rose-200 text-rose-700 hover:bg-rose-50">← Trả lại</Button>)
@@ -2740,10 +2864,6 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
         // Thuế suất trên hóa đơn: các dòng có đơn giá > 0 (dòng giá 0/KM không tính thuế). 1 HĐ = 1 thuế suất.
         const vatRates = [...new Set(allVt.filter(v => !v.da_tra && (Number(v.don_gia) || 0) > 0).map(v => Number(v.vat) || 0))]
         const multiVat = vatRates.length > 1
-        const thueSuat = vatRates.length ? vatRates[0] : 0
-        const st = getVatTuStats(allVt)
-        const congTien = Math.round(st.truocVat)
-        const tienThue = Math.round(st.tienVat)
         const lt = cardLamTron(giaoReview.tickets) // khoản làm tròn (đồng, có thể âm)
         // Người mua: ưu tiên cụm (đơn vị xuất HĐ) rồi tới khách của máy; tên có thể bị ghi đè bởi ten_khach_hd.
         const t0 = giaoReview.tickets[0]
@@ -2752,17 +2872,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
         const muaTen = String(t0?.ten_khach_hd || cum?.ten_khach_hang || kh?.ten_khach_hang || '').trim().toUpperCase()
         const muaDC = String(cum?.dia_chi || kh?.dia_chi || '').trim()
         const muaMST = String(cum?.ma_so_thue || kh?.ma_so_thue || '').trim()
-        // Khối người bán (config hd_ban_* -> fallback mẫu Siêu Thanh)
-        const S = {
-          ten: cfg.hd_ban_ten || HD_BAN_DEFAULT.ten,
-          mst: cfg.hd_ban_mst || HD_BAN_DEFAULT.mst,
-          dia_chi: cfg.hd_ban_dia_chi || HD_BAN_DEFAULT.dia_chi,
-          dien_thoai: cfg.hd_ban_dien_thoai || HD_BAN_DEFAULT.dien_thoai,
-          email: cfg.hd_ban_email || HD_BAN_DEFAULT.email,
-          stk1: cfg.hd_ban_stk1 || HD_BAN_DEFAULT.stk1,
-          stk2: (cfg.hd_ban_stk2 ?? HD_BAN_DEFAULT.stk2),
-        }
-        const Dash = ({ w = 120 }: { w?: number }) => <span style={{ display: 'inline-block', width: w, borderBottom: '1px dotted #94a3b8', height: '0.85em', verticalAlign: 'middle' }} />
+        const S = sellerFromCfg(cfg)
         return (
           <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => setGiaoReview(null)}>
             <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -2777,94 +2887,13 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                   <div className="mb-3 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-[11px] px-3 py-2 text-center">
                     🧾 <b>BẢN XEM TRƯỚC</b> để office đối chiếu — <b>chưa phải hóa đơn hợp lệ</b>. Số HĐ · Ngày · Mã CQ thuế do kế toán phát hành trên M-invoice.
                   </div>
-                  {/* TỜ HÓA ĐƠN — dựng theo mẫu M-invoice, viền xanh */}
-                  <div className="mx-auto bg-white border-[3px] border-double border-[#2f6db5] shadow-sm" style={{ maxWidth: 760, fontFamily: '"Times New Roman", Times, serif', color: '#0f172a' }}>
-                    <div className="p-5 space-y-2 text-[12.5px] leading-relaxed">
-                      {/* Header */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="w-1/4" />
-                        <div className="flex-1 text-center">
-                          <div className="text-[#c0122b] font-bold text-lg leading-tight">HÓA ĐƠN GIÁ TRỊ GIA TĂNG</div>
-                          <div className="italic text-[11px] text-slate-500">(Bản thể hiện của hóa đơn điện tử)</div>
-                          <div className="text-[12px] mt-0.5">Ngày <Dash w={34} /> tháng <Dash w={34} /> năm <Dash w={40} /></div>
-                          <div className="text-[12px]"><span className="text-[#2f6db5] font-semibold">Mã của cơ quan thuế:</span> <Dash w={130} /></div>
-                        </div>
-                        <div className="w-1/4 text-[12px] text-right">
-                          <div>Ký hiệu: <b>{kyHieuMinvoice ? kyHieuMinvoice.toUpperCase() : <Dash w={60} />}</b></div>
-                          <div>Số: <Dash w={50} /></div>
-                        </div>
-                      </div>
-
-                      {/* Người bán */}
-                      <div className="border-t border-dashed border-slate-300 pt-2">
-                        <div><span className="text-[#2f6db5] font-bold">Đơn vị bán hàng: </span><b>{S.ten}</b></div>
-                        <div><span className="text-[#2f6db5] font-semibold">Mã số thuế: </span><b>{S.mst}</b></div>
-                        <div><span className="text-slate-600">Địa chỉ: </span>{S.dia_chi}</div>
-                        <div><span className="text-slate-600">Điện thoại: </span>{S.dien_thoai}<span className="ml-6 text-slate-600">Email: </span>{S.email}</div>
-                        {S.stk1 && <div><span className="text-slate-600">Số tài khoản: </span>{S.stk1}</div>}
-                        {S.stk2 && <div><span className="text-slate-600">Số tài khoản: </span>{S.stk2}</div>}
-                      </div>
-
-                      {/* Người mua */}
-                      <div className="border-t border-dashed border-slate-300 pt-2">
-                        <div><span className="text-slate-600">Họ và tên người mua hàng: </span><Dash w={150} /></div>
-                        <div><span className="text-[#2f6db5] font-semibold">Tên đơn vị: </span>{muaTen ? <b>{muaTen}</b> : <span className="text-rose-600 font-bold">⚠ Thiếu tên đơn vị</span>}</div>
-                        <div><span className="text-slate-600">Địa chỉ: </span>{muaDC || <span className="text-rose-600 font-bold">⚠ Thiếu địa chỉ</span>}</div>
-                        <div><span className="text-slate-600">Số tài khoản: </span><Dash w={90} /><span className="ml-6 text-slate-600">Tại: </span><Dash w={90} /></div>
-                        <div><span className="text-slate-600">Hình thức thanh toán: </span>TM/CK<span className="ml-6 text-[#2f6db5] font-semibold">Mã số thuế: </span>{muaMST ? <b>{muaMST}</b> : <span className="text-rose-600 font-bold">⚠ Thiếu MST</span>}</div>
-                      </div>
-
-                      {/* Bảng hàng hóa */}
-                      <table className="w-full border-collapse text-[12px] mt-1">
-                        <thead>
-                          <tr className="bg-[#eaf1fb] text-[#2f6db5] [&>th]:border [&>th]:border-[#9fbfe4] [&>th]:px-1.5 [&>th]:py-1 [&>th]:font-semibold">
-                            <th className="w-8">STT</th><th>Tên hàng hóa, dịch vụ</th><th className="w-14">ĐVT</th><th className="w-16">Số lượng</th><th className="w-24">Đơn giá</th><th className="w-28">Thành tiền</th>
-                          </tr>
-                        </thead>
-                        <tbody className="[&>tr>td]:border [&>tr>td]:border-[#9fbfe4] [&>tr>td]:px-1.5 [&>tr>td]:py-1 align-top">
-                          {items.map((it: any, i: number) => {
-                            const tt = (Number(it.so_luong) || 0) * (Number(it.don_gia) || 0)
-                            const dvt0 = !String(it.dvt || '').trim(), gia0 = (Number(it.don_gia) || 0) === 0, sl0 = (Number(it.so_luong) || 0) === 0
-                            return (
-                              <tr key={i}>
-                                <td className="text-center">{i + 1}</td>
-                                <td>{tenHangKeToan(it.ten_hang, it.ma_hang, it.ghepMa)}</td>
-                                <td className={`text-center ${dvt0 ? 'text-rose-600 font-semibold' : ''}`}>{String(it.dvt || '').trim() || '(trống)'}</td>
-                                <td className={`text-center ${sl0 ? 'text-rose-600 font-semibold' : ''}`}>{it.so_luong}</td>
-                                <td className={`text-right ${gia0 ? 'text-rose-600 font-semibold' : ''}`}>{fmtVnd(it.don_gia)}</td>
-                                <td className="text-right">{fmtVnd(tt)}</td>
-                              </tr>
-                            )
-                          })}
-                          {items.length === 0 && <tr><td colSpan={6} className="text-center text-slate-400 italic py-3">Thẻ không có dòng hàng.</td></tr>}
-                        </tbody>
-                      </table>
-
-                      {/* Tổng — bố cục theo mẫu: Thuế suất GTGT ở block trái; các dòng tiền ở block phải */}
-                      <table className="w-full border-collapse text-[12px] border border-t-0 border-[#9fbfe4]">
-                        <tbody className="[&>tr>td]:border [&>tr>td]:border-[#9fbfe4] [&>tr>td]:px-2 [&>tr>td]:py-1">
-                          <tr>
-                            <td colSpan={2}><div className="flex justify-end items-center gap-8"><span className="font-semibold">Cộng tiền hàng hóa, dịch vụ:</span><b className="w-32 text-right">{fmtVnd(congTien)}</b></div></td>
-                          </tr>
-                          <tr>
-                            <td className="w-[45%]">Thuế suất GTGT: <b>{multiVat ? '(nhiều — phải tách HĐ)' : thueSuat + '%'}</b></td>
-                            <td><div className="flex justify-end items-center gap-8"><span>Tiền thuế GTGT:</span><b className="w-32 text-right">{fmtVnd(tienThue)}</b></div></td>
-                          </tr>
-                          <tr>
-                            <td colSpan={2}><div className="flex justify-end items-center gap-8"><span className="font-semibold">Tổng tiền thanh toán:</span><b className="w-32 text-right text-[#c0122b]">{fmtVnd(tong)}</b></div></td>
-                          </tr>
-                        </tbody>
-                      </table>
-                      {lt !== 0 && <div className="text-[11px] text-amber-700 italic mt-0.5">⚠ Đã làm tròn {lt > 0 ? '+' : ''}{fmtVnd(lt)} đ vào tổng — nhắc kế toán kiểm tra.</div>}
-                      <div className="text-[12.5px]"><b>Số tiền bằng chữ:</b> <i>{docSoTien(tong).replace(/\s*\.\/\.\s*$/, '')}</i></div>
-
-                      {/* Chữ ký */}
-                      <div className="flex justify-between text-center pt-3 text-[12px]">
-                        <div className="w-1/2"><div className="font-semibold">Người mua hàng</div><div className="italic text-[11px] text-slate-500">(Chữ ký điện tử, Chữ ký số)</div></div>
-                        <div className="w-1/2"><div className="font-semibold">Người bán hàng</div><div className="italic text-[11px] text-slate-500">(Chữ ký điện tử, Chữ ký số)</div></div>
-                      </div>
-                    </div>
-                  </div>
+                  <InvoiceSheet
+                    seller={S}
+                    buyer={{ ten: muaTen, dia_chi: muaDC, mst: muaMST }}
+                    items={items.map((it: any) => ({ ten: tenHangKeToan(it.ten_hang, it.ma_hang, it.ghepMa), dvt: it.dvt, so_luong: it.so_luong, don_gia: it.don_gia, vat: it.vat }))}
+                    kyHieu={kyHieuMinvoice}
+                    lamTron={lt}
+                  />
               </div>
 
               <div className="p-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-2 flex-wrap">
@@ -2873,6 +2902,51 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                   <Button variant="outline" onClick={() => setGiaoReview(null)} className="h-9 text-xs">Hủy</Button>
                   <Button variant="outline" onClick={() => { const ts = giaoReview.tickets; setGiaoReview(null); setInvoiceNum(ts[0]?.so_hoa_don || ''); setActiveCard({ type: ts.length > 1 ? 'group' : 'single', tickets: ts }) }} className="h-9 text-xs">Mở thẻ để sửa</Button>
                   <Button onClick={() => { const fn = giaoReview.onConfirm; setGiaoReview(null); fn() }} className="h-9 text-xs bg-blue-600 hover:bg-blue-700 text-white">Bàn giao kế toán →</Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* CHỐT CHẶN xem trước hóa đơn cho LỆNH KD (cột 1 -> 2) — dùng chung InvoiceSheet. */}
+      {kdReview && (() => {
+        const t = kdReview.ticket
+        const kdItems = t.lines.map(l => ({ ten: String(l.ten_hang_hd || l.ten_hang || '').trim(), dvt: l.dvt || 'Cái', so_luong: l.so_luong, don_gia: l.don_gia, vat: l.vat }))
+        const canhBao = kdItems.reduce((n, it) => n + ((Number(it.don_gia) || 0) === 0 || !String(it.dvt || '').trim() || (Number(it.so_luong) || 0) === 0 ? 1 : 0), 0)
+        const vatRates = [...new Set(kdItems.filter(it => (Number(it.don_gia) || 0) > 0).map(it => Number(it.vat) || 0))]
+        const multiVat = vatRates.length > 1
+        const lt = Number(t.lam_tron) || 0
+        const truoc = kdItems.reduce((s, it) => s + it.so_luong * it.don_gia, 0)
+        const vat = kdItems.reduce((s, it) => s + it.so_luong * it.don_gia * it.vat / 100, 0)
+        const tong = Math.round(truoc + vat) + lt
+        return (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => setKdReview(null)}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="p-4 bg-amber-50 border-b border-amber-200">
+                <h3 className="text-base font-bold text-amber-800 flex items-center gap-2"><AlertCircle className="w-5 h-5" /> Kiểm tra trước khi bàn giao kế toán (lệnh KD)</h3>
+                <p className="text-xs text-amber-700 mt-1">Soi kỹ <b>Tên hàng · SL · ĐVT · MST/địa chỉ khách</b> như trên hóa đơn dưới đây. Sau khi bàn giao sẽ <b>KHÓA sửa</b> — kế toán lên hóa đơn ngay.{t.so_lenh ? ` · Lệnh: ${t.so_lenh}` : ''}</p>
+                {canhBao > 0 && <p className="text-xs font-semibold text-rose-600 mt-1">⚠ {canhBao} dòng cần xem lại (tô đỏ bên dưới): giá 0đ / ĐVT trống / SL 0.</p>}
+                {multiVat && <p className="text-xs font-semibold text-rose-600 mt-1">⚠ Lô có nhiều thuế suất ({vatRates.map(v => v + '%').join(', ')}) — 1 hóa đơn chỉ 1 thuế suất, phải TÁCH hóa đơn riêng.</p>}
+              </div>
+              <div className="overflow-auto flex-1 bg-slate-100 p-4">
+                <div className="mb-3 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-[11px] px-3 py-2 text-center">
+                  🧾 <b>BẢN XEM TRƯỚC</b> để office đối chiếu — <b>chưa phải hóa đơn hợp lệ</b>. Số HĐ · Ngày · Mã CQ thuế do kế toán phát hành trên M-invoice.
+                </div>
+                <InvoiceSheet
+                  seller={sellerFromCfg(cfg)}
+                  buyer={{ ten: t.ten_khach_hd || t.ten_khach_hang, dia_chi: t.dia_chi || '', mst: t.ma_so_thue || '' }}
+                  items={kdItems}
+                  kyHieu={kyHieuMinvoice}
+                  lamTron={lt}
+                />
+              </div>
+              <div className="p-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-2 flex-wrap">
+                <span className="text-xs text-slate-500">Tổng sau VAT: <b className="text-slate-800 text-sm">{fmtVnd(tong)} đ</b></span>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setKdReview(null)} className="h-9 text-xs">Hủy</Button>
+                  <Button variant="outline" onClick={() => { setKdReview(null); setKdActive(t) }} className="h-9 text-xs">Mở chi tiết lệnh</Button>
+                  <Button onClick={() => { const fn = kdReview.onConfirm; setKdReview(null); fn() }} className="h-9 text-xs bg-blue-600 hover:bg-blue-700 text-white">Bàn giao kế toán →</Button>
                 </div>
               </div>
             </div>
