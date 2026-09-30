@@ -2744,6 +2744,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
         const st = getVatTuStats(allVt)
         const congTien = Math.round(st.truocVat)
         const tienThue = Math.round(st.tienVat)
+        const lt = cardLamTron(giaoReview.tickets) // khoản làm tròn (đồng, có thể âm)
         // Người mua: ưu tiên cụm (đơn vị xuất HĐ) rồi tới khách của máy; tên có thể bị ghi đè bởi ten_khach_hd.
         const t0 = giaoReview.tickets[0]
         const kh = t0?.soct_khach_hang
@@ -2789,7 +2790,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                           <div className="text-[12px]"><span className="text-[#2f6db5] font-semibold">Mã của cơ quan thuế:</span> <Dash w={130} /></div>
                         </div>
                         <div className="w-1/4 text-[12px] text-right">
-                          <div>Ký hiệu: <b>{kyHieuMinvoice || <Dash w={60} />}</b></div>
+                          <div>Ký hiệu: <b>{kyHieuMinvoice ? kyHieuMinvoice.toUpperCase() : <Dash w={60} />}</b></div>
                           <div>Số: <Dash w={50} /></div>
                         </div>
                       </div>
@@ -2839,12 +2840,22 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                         </tbody>
                       </table>
 
-                      {/* Tổng */}
-                      <div className="border border-t-0 border-[#9fbfe4] text-[12px]">
-                        <div className="flex justify-between px-2 py-1 border-b border-[#9fbfe4]"><span className="font-semibold">Cộng tiền hàng hóa, dịch vụ:</span><b>{fmtVnd(congTien)}</b></div>
-                        <div className="flex justify-between px-2 py-1 border-b border-[#9fbfe4]"><span>Thuế suất GTGT: <b>{multiVat ? '(nhiều — phải tách HĐ)' : thueSuat + '%'}</b></span><span>Tiền thuế GTGT: <b>{fmtVnd(tienThue)}</b></span></div>
-                        <div className="flex justify-between px-2 py-1"><span className="font-semibold">Tổng tiền thanh toán:</span><b className="text-[#c0122b]">{fmtVnd(tong)}</b></div>
-                      </div>
+                      {/* Tổng — bố cục theo mẫu: Thuế suất GTGT ở block trái; các dòng tiền ở block phải */}
+                      <table className="w-full border-collapse text-[12px] border border-t-0 border-[#9fbfe4]">
+                        <tbody className="[&>tr>td]:border [&>tr>td]:border-[#9fbfe4] [&>tr>td]:px-2 [&>tr>td]:py-1">
+                          <tr>
+                            <td colSpan={2}><div className="flex justify-end items-center gap-8"><span className="font-semibold">Cộng tiền hàng hóa, dịch vụ:</span><b className="w-32 text-right">{fmtVnd(congTien)}</b></div></td>
+                          </tr>
+                          <tr>
+                            <td className="w-[45%]">Thuế suất GTGT: <b>{multiVat ? '(nhiều — phải tách HĐ)' : thueSuat + '%'}</b></td>
+                            <td><div className="flex justify-end items-center gap-8"><span>Tiền thuế GTGT:</span><b className="w-32 text-right">{fmtVnd(tienThue)}</b></div></td>
+                          </tr>
+                          <tr>
+                            <td colSpan={2}><div className="flex justify-end items-center gap-8"><span className="font-semibold">Tổng tiền thanh toán:</span><b className="w-32 text-right text-[#c0122b]">{fmtVnd(tong)}</b></div></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      {lt !== 0 && <div className="text-[11px] text-amber-700 italic mt-0.5">⚠ Đã làm tròn {lt > 0 ? '+' : ''}{fmtVnd(lt)} đ vào tổng — nhắc kế toán kiểm tra.</div>}
                       <div className="text-[12.5px]"><b>Số tiền bằng chữ:</b> <i>{docSoTien(tong).replace(/\s*\.\/\.\s*$/, '')}</i></div>
 
                       {/* Chữ ký */}
