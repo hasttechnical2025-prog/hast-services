@@ -2619,7 +2619,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                 const canKt = role === 'admin' || role === 'kthc'
                 return <>
                   {st === 'Chờ xuất HĐ' && canGiao && (
-                    <Button onClick={() => moveStatus('Đang xử lý HĐ')} disabled={completing} className="h-10">Bàn giao Kế toán →</Button>
+                    <Button onClick={() => moveStatus('Đang xử lý HĐ')} disabled={completing} className="h-10">Xem &amp; Bàn giao Kế toán →</Button>
                   )}
                   {st === 'Đã lên hóa đơn' && canKt && (
                     <>
