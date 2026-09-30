@@ -1435,8 +1435,9 @@ export default function KtvMobileWeb() {
         const toggleChip = (k: string) => setBckChips(prev => prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k])
         const doFinish = async () => {
           const jid = finishTarget.jobId
-          // Báo cáo gửi khách (tùy chọn): có tick chip / ghi chú thì gửi bản thô cho office (best-effort).
-          if (needBaoCao && (bckChips.length > 0 || bckNote.trim())) {
+          // Báo cáo sửa chữa: LUÔN gửi bản thô cho office với loại việc cần báo (best-effort). KTV không
+          // chọn chip/ghi chú -> server tự điền "Sửa chữa. Máy hoạt động bình thường." (tránh vội quên).
+          if (needBaoCao) {
             try { await fetch('/api/ktv/bao-cao-khach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_cong_viec: jid, chips: bckChips, ghi_chu: bckNote }) }) } catch { /* không chặn Hoàn thành */ }
           }
           setFinishTarget(null); applyStatus(jid, 'Hoàn thành', phutNum)
@@ -1468,7 +1469,7 @@ export default function KtvMobileWeb() {
 
                 {needBaoCao && (
                   <div className="pt-2 border-t border-slate-100 space-y-2">
-                    <p className="text-xs font-semibold text-slate-600">Báo cáo sửa chữa <span className="font-normal text-slate-400">(tùy chọn — bỏ trống nếu không cần)</span></p>
+                    <p className="text-xs font-semibold text-slate-600">Báo cáo sửa chữa <span className="font-normal text-slate-400">(bỏ trống = tự báo &quot;Máy hoạt động bình thường&quot;)</span></p>
                     <div className="flex flex-wrap gap-1.5">
                       {CHIPS.map(([k, l]) => (
                         <button key={k} type="button" onClick={() => toggleChip(k)}

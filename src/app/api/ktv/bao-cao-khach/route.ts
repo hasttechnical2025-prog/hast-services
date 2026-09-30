@@ -41,8 +41,9 @@ export async function POST(request: Request) {
     const chips: string[] = Array.isArray(b.chips) ? b.chips : []
     const ghiChu = String(b.ghi_chu || '').trim()
     const phrases = chips.map(c => CHIP_TEXT[c]).filter(Boolean)
-    const noi_dung = [phrases.join('. ') + (phrases.length ? '.' : ''), ghiChu].map(s => s.trim()).filter(Boolean).join(' ')
-    if (!noi_dung) return NextResponse.json({ success: true, skipped: true }) // không có gì -> không tạo báo cáo
+    let noi_dung = [phrases.join('. ') + (phrases.length ? '.' : ''), ghiChu].map(s => s.trim()).filter(Boolean).join(' ')
+    // KTV không chọn chip & không ghi chú -> TỰ ĐỘNG dùng nội dung mặc định (tránh vội quên báo cáo).
+    if (!noi_dung) noi_dung = 'Sửa chữa. Máy hoạt động bình thường.'
 
     const { error } = await supabaseAdmin.from('soct_bao_cao_khach').upsert({
       id_cong_viec: b.id_cong_viec, noi_dung, trang_thai: 'cho_gui', nguoi_tao: session.id,
