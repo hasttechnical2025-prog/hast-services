@@ -231,6 +231,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     message: string
     onConfirm: () => Promise<void>
   } | null>(null)
+  // Chốt chặn REVIEW trước khi bàn giao kế toán (cột 1 -> 2): office soi Tên hàng/SL/ĐVT read-only.
+  const [giaoReview, setGiaoReview] = useState<{ tickets: Ticket[]; onConfirm: () => void } | null>(null)
   const [thang, setThang] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -422,9 +424,6 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
 
   // Đếm dòng hàng còn ĐƠN GIÁ 0đ (chưa trả về kho). Dùng để cảnh báo trước khi bàn giao kế
   // toán — sau bàn giao KHÔNG sửa được giá nữa, dễ để lọt giá 0 vào hóa đơn.
-  const countZeroPrice = (ts: Ticket[]) =>
-    ts.reduce((n, t) => n + (t.soct_chi_tiet_vat_tu || []).filter(v => !v.da_tra && (Number(v.don_gia) || 0) === 0).length, 0)
-
   // Thả thẻ (Drop)
   const handleDrop = async (e: React.DragEvent, targetState: 'Chờ xuất HĐ' | 'Đang xử lý HĐ' | 'Đã lên hóa đơn' | 'Đã thanh toán') => {
     e.preventDefault()
@@ -524,17 +523,10 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
             showNotification('error', err.error || 'Lỗi chuyển trạng thái')
           }
         }
-        // Bàn giao kế toán (Cột 1 -> 2) mà còn dòng giá 0đ -> hỏi xác nhận (sau đó khóa sửa giá).
+        // Bàn giao kế toán (Cột 1 -> 2): LUÔN mở chốt review (soi Tên hàng/SL/ĐVT) trước khi đẩy — khóa sửa sau đó.
         if (sourceState === 'Chờ xuất HĐ' && targetState === 'Đang xử lý HĐ') {
-          const z = countZeroPrice(tickets.filter(t => targetIds.includes(t.id)))
-          if (z > 0) {
-            setConfirmDialog({
-              title: 'Còn dòng đơn giá 0đ',
-              message: `Phiếu còn ${z} dòng hàng đơn giá 0đ. Sau khi bàn giao kế toán sẽ KHÔNG sửa được giá nữa. Bàn giao luôn?`,
-              onConfirm: doMove,
-            })
-            return
-          }
+          setGiaoReview({ tickets: tickets.filter(t => targetIds.includes(t.id)), onConfirm: doMove })
+          return
         }
         await doMove()
       }
@@ -592,17 +584,10 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
   // Chuyển trạng thái trực tiếp từ NÚT trong modal (thay cho kéo thả — dùng được trên mobile).
   const moveStatus = async (targetState: string, keepInvoice = false) => {
     if (!activeCard) return
-    // Bàn giao kế toán (Cột 1 -> 2) mà còn dòng giá 0đ -> hỏi xác nhận trước.
+    // Bàn giao kế toán (Cột 1 -> 2): LUÔN mở chốt review (soi Tên hàng/SL/ĐVT) trước khi đẩy.
     if (targetState === 'Đang xử lý HĐ' && activeCard.tickets[0]?.trang_thai_hd === 'Chờ xuất HĐ') {
-      const z = countZeroPrice(activeCard.tickets)
-      if (z > 0) {
-        setConfirmDialog({
-          title: 'Còn dòng đơn giá 0đ',
-          message: `Phiếu còn ${z} dòng hàng đơn giá 0đ. Sau khi bàn giao kế toán sẽ KHÔNG sửa được giá nữa. Bàn giao luôn?`,
-          onConfirm: () => doMoveStatus(targetState, keepInvoice),
-        })
-        return
-      }
+      setGiaoReview({ tickets: activeCard.tickets, onConfirm: () => doMoveStatus(targetState, keepInvoice) })
+      return
     }
     await doMoveStatus(targetState, keepInvoice)
   }
@@ -2727,6 +2712,59 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
           </div>
         </div>
       )}
+
+      {/* CHỐT CHẶN: kiểm tra trước khi BÀN GIAO KẾ TOÁN (cột 1 -> 2). Read-only, luôn bật. */}
+      {giaoReview && (() => {
+        const allVt = giaoReview.tickets.flatMap(t => t.soct_chi_tiet_vat_tu || [])
+        const items = aggVatTu(allVt)
+        const tong = Math.round(getVatTuStats(allVt).sauVat) + cardLamTron(giaoReview.tickets)
+        const soPhieu = [...new Set(giaoReview.tickets.map(t => t.report).filter(Boolean))].join(', ')
+        const canhBao = items.reduce((n, it) => n + ((Number(it.don_gia) || 0) === 0 || !String(it.dvt || '').trim() || (Number(it.so_luong) || 0) === 0 ? 1 : 0), 0)
+        return (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => setGiaoReview(null)}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="p-4 bg-amber-50 border-b border-amber-200">
+                <h3 className="text-base font-bold text-amber-800 flex items-center gap-2"><AlertCircle className="w-5 h-5" /> Kiểm tra trước khi bàn giao kế toán</h3>
+                <p className="text-xs text-amber-700 mt-1">Soi kỹ <b>Tên hàng · SL · ĐVT</b>. Sau khi bàn giao sẽ <b>KHÓA sửa</b> — kế toán lên hóa đơn ngay.{soPhieu ? ` · Phiếu: ${soPhieu}` : ''}</p>
+                {canhBao > 0 && <p className="text-xs font-semibold text-rose-600 mt-1">⚠ {canhBao} dòng cần xem lại (đỏ bên dưới): giá 0đ / ĐVT trống / SL 0.</p>}
+              </div>
+              <div className="overflow-auto flex-1">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50 text-[10px] uppercase text-slate-500 sticky top-0">
+                    <tr className="[&>th]:px-2 [&>th]:py-1.5 [&>th]:text-left">
+                      <th>Mã</th><th className="bg-amber-50">Tên hàng (như HĐ)</th><th className="bg-amber-50 !text-center">SL</th><th className="bg-amber-50 !text-center">ĐVT</th><th className="!text-right">Đơn giá</th><th className="!text-center">VAT</th>
+                    </tr>
+                  </thead>
+                  <tbody className="[&>tr>td]:px-2 [&>tr>td]:py-1.5 [&>tr>td]:border-t [&>tr>td]:border-slate-100">
+                    {items.map((it: any, i: number) => {
+                      const gia0 = (Number(it.don_gia) || 0) === 0, dvt0 = !String(it.dvt || '').trim(), sl0 = (Number(it.so_luong) || 0) === 0
+                      return (
+                        <tr key={i}>
+                          <td className="font-mono text-slate-500">{it.ma_hang}</td>
+                          <td className="bg-amber-50/60 text-slate-800">{tenHangKeToan(it.ten_hang, it.ma_hang, it.ghepMa)}</td>
+                          <td className={`bg-amber-50/60 text-center font-semibold ${sl0 ? 'text-rose-600' : ''}`}>{it.so_luong}</td>
+                          <td className={`bg-amber-50/60 text-center ${dvt0 ? 'text-rose-600 font-semibold' : ''}`}>{String(it.dvt || '').trim() || '(trống)'}</td>
+                          <td className={`text-right ${gia0 ? 'text-rose-600 font-semibold' : 'text-slate-600'}`}>{fmtVnd(it.don_gia)}</td>
+                          <td className="text-center text-slate-500">{it.vat}%</td>
+                        </tr>
+                      )
+                    })}
+                    {items.length === 0 && <tr><td colSpan={6} className="px-2 py-4 text-center text-slate-400 italic">Thẻ không có dòng hàng.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+              <div className="p-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-2 flex-wrap">
+                <span className="text-xs text-slate-500">Tổng sau VAT: <b className="text-slate-800 text-sm">{fmtVnd(tong)} đ</b></span>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setGiaoReview(null)} className="h-9 text-xs">Hủy</Button>
+                  <Button variant="outline" onClick={() => { const ts = giaoReview.tickets; setGiaoReview(null); setInvoiceNum(ts[0]?.so_hoa_don || ''); setActiveCard({ type: ts.length > 1 ? 'group' : 'single', tickets: ts }) }} className="h-9 text-xs">Mở thẻ để sửa</Button>
+                  <Button onClick={() => { const fn = giaoReview.onConfirm; setGiaoReview(null); fn() }} className="h-9 text-xs bg-blue-600 hover:bg-blue-700 text-white">Bàn giao kế toán →</Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {confirmDialog && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => setConfirmDialog(null)}>
