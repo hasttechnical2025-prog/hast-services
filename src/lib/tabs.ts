@@ -7,7 +7,7 @@
 // chỉ kiểm quyền tới cấp con). Cháu mặc định HIỆN; key phân quyền dạng "cha.con.cháu".
 export type TabSub = { key: string, label: string, subs?: [string, string][] }
 export const TAB_TREE: { key: string, label: string, subs: TabSub[], alwaysOn?: boolean }[] = [
-  { key: 'cong_viec', label: 'Sổ công tác', subs: [{ key: 'hoan_phieu', label: 'Hoàn phiếu' }, { key: 'bao_cao_khach', label: 'Báo cáo gửi khách' }], alwaysOn: true },
+  { key: 'cong_viec', label: 'Sổ công tác', subs: [{ key: 'hoan_phieu', label: 'Hoàn phiếu' }, { key: 'bao_cao_khach', label: 'Báo cáo sửa chữa' }], alwaysOn: true },
   {
     key: 'theo_doi_may', label: 'Theo dõi máy', subs: [
       { key: 'bao_tri', label: 'Bảo trì', subs: [['da_bao_tri', 'Đã bảo trì'], ['chua_bao_tri', 'Chưa bảo trì'], ['tam_dung', 'Tạm dừng'], ['doi_chieu', 'Đối chiếu năm']] },

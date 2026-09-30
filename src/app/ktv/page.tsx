@@ -1468,7 +1468,7 @@ export default function KtvMobileWeb() {
 
                 {needBaoCao && (
                   <div className="pt-2 border-t border-slate-100 space-y-2">
-                    <p className="text-xs font-semibold text-slate-600">Báo cáo gửi khách <span className="font-normal text-slate-400">(tùy chọn — bỏ trống nếu không cần)</span></p>
+                    <p className="text-xs font-semibold text-slate-600">Báo cáo sửa chữa <span className="font-normal text-slate-400">(tùy chọn — bỏ trống nếu không cần)</span></p>
                     <div className="flex flex-wrap gap-1.5">
                       {CHIPS.map(([k, l]) => (
                         <button key={k} type="button" onClick={() => toggleChip(k)}

@@ -1742,7 +1742,7 @@ export default function AdminDashboard() {
             )}
             {subVisible('cong_viec', 'bao_cao_khach') && (
               <button onClick={() => setCongTacTab("bao_cao_khach")} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${effectiveCongTacTab === 'bao_cao_khach' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>
-                Báo cáo gửi khách
+                Báo cáo sửa chữa
                 {bckCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{bckCount}</span>}
               </button>
             )}
@@ -6990,7 +6990,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">Loại việc cần báo cáo khách</label>
             <Input value={cfg.bao_cao_khach_loai} onChange={(e) => setCfg({ ...cfg, bao_cao_khach_loai: e.target.value })} placeholder="Sửa máy" className="bg-white" />
-            <p className="text-[11px] text-slate-400">KTV Hoàn thành các loại việc này mới hiện ô "Báo cáo gửi khách". Nhiều loại cách nhau dấu phẩy.</p>
+            <p className="text-[11px] text-slate-400">KTV Hoàn thành các loại việc này mới hiện ô "Báo cáo sửa chữa". Nhiều loại cách nhau dấu phẩy.</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-6">

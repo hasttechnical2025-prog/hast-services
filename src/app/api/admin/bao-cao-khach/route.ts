@@ -55,7 +55,7 @@ export async function PUT(request: Request) {
       : { trang_thai: 'cho_gui', nguoi_gui: null, da_gui_luc: null }
     const { error } = await supabaseAdmin.from('soct_bao_cao_khach').update(upd).eq('id', id)
     if (error) throw error
-    await logAudit(session, 'Báo cáo gửi khách', action === 'da_gui' ? `đánh dấu đã gửi ${id}` : `trả lại chờ gửi ${id}`)
+    await logAudit(session, 'Báo cáo sửa chữa', action === 'da_gui' ? `đánh dấu đã gửi ${id}` : `trả lại chờ gửi ${id}`)
     await broadcastJobsChanged()
     return NextResponse.json({ success: true })
   } catch (error: any) {
@@ -73,7 +73,7 @@ export async function DELETE(request: Request) {
     if (!id) return NextResponse.json({ error: 'Thiếu id' }, { status: 400 })
     const { error } = await supabaseAdmin.from('soct_bao_cao_khach').delete().eq('id', id)
     if (error) throw error
-    await logAudit(session, 'Báo cáo gửi khách', `xóa ${id}`)
+    await logAudit(session, 'Báo cáo sửa chữa', `xóa ${id}`)
     await broadcastJobsChanged()
     return NextResponse.json({ success: true })
   } catch (error: any) {
