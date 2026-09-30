@@ -6819,6 +6819,14 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     geocode_import: (cauHinh.geocode_import ?? '1') !== '0',
     bao_tri: (cauHinh.bao_tri ?? '0') === '1',
     bao_tri_key: cauHinh.bao_tri_key || '',
+    // Thông tin người bán trên hóa đơn (bản xem trước ở Kanban HĐ). Trống -> dùng mặc định Siêu Thanh.
+    hd_ban_ten: cauHinh.hd_ban_ten || '',
+    hd_ban_mst: cauHinh.hd_ban_mst || '',
+    hd_ban_dia_chi: cauHinh.hd_ban_dia_chi || '',
+    hd_ban_dien_thoai: cauHinh.hd_ban_dien_thoai || '',
+    hd_ban_email: cauHinh.hd_ban_email || '',
+    hd_ban_stk1: cauHinh.hd_ban_stk1 || '',
+    hd_ban_stk2: cauHinh.hd_ban_stk2 || '',
   })
   const [tabVis, setTabVis] = useState<Record<string, Record<string, boolean>>>(() => {
     let parsed: any = {}; try { parsed = JSON.parse(cauHinh.tab_visibility || '{}') } catch {}
@@ -6896,6 +6904,13 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
       geocode_import: cfg.geocode_import ? '1' : '0',
       bao_tri: cfg.bao_tri ? '1' : '0',
       bao_tri_key: cfg.bao_tri_key.trim(),
+      hd_ban_ten: cfg.hd_ban_ten.trim(),
+      hd_ban_mst: cfg.hd_ban_mst.trim(),
+      hd_ban_dia_chi: cfg.hd_ban_dia_chi.trim(),
+      hd_ban_dien_thoai: cfg.hd_ban_dien_thoai.trim(),
+      hd_ban_email: cfg.hd_ban_email.trim(),
+      hd_ban_stk1: cfg.hd_ban_stk1.trim(),
+      hd_ban_stk2: cfg.hd_ban_stk2.trim(),
       tab_visibility: JSON.stringify(tabVis),
     }
     try {
@@ -6974,6 +6989,42 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
           </div>
         </div>
         <p className="text-xs text-slate-500 leading-relaxed">Cần chia sẻ sheet (quyền Xem) cho email <b>service account</b> đã cấu hình ở máy chủ (env <code>GOOGLE_SA_EMAIL</code>). Cột tháng <code>MM/YYYY</code> = kỳ tương ứng; ô counter dạng <code>đen/màu</code>. Nút đồng bộ nằm ở tab <b>Thuê/CPC › Nhập counter</b>.</p>
+      </div>
+
+      {/* NGƯỜI BÁN TRÊN HÓA ĐƠN (bản xem trước ở Kanban HĐ) */}
+      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+        <h3 className="text-lg font-semibold text-slate-700">Người bán trên hóa đơn</h3>
+        <p className="text-xs text-slate-500 leading-relaxed">Hiển thị ở <b>bản xem trước hóa đơn</b> (Kanban HĐ → chốt chặn bàn giao → &quot;Xem như hóa đơn&quot;). Để trống ô nào thì dùng mặc định (CTCP Siêu Thanh Hà Nội). Đây chỉ là bản xem trước nội bộ — hóa đơn hợp lệ vẫn phát hành trên M-invoice.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1 md:col-span-2">
+            <label className="text-xs font-semibold text-slate-600">Đơn vị bán hàng</label>
+            <Input value={cfg.hd_ban_ten} onChange={(e) => setCfg({ ...cfg, hd_ban_ten: e.target.value })} placeholder="CÔNG TY CỔ PHẦN SIÊU THANH HÀ NỘI" className="bg-white" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Mã số thuế</label>
+            <Input value={cfg.hd_ban_mst} onChange={(e) => setCfg({ ...cfg, hd_ban_mst: e.target.value })} placeholder="0100233103" className="bg-white" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Điện thoại</label>
+            <Input value={cfg.hd_ban_dien_thoai} onChange={(e) => setCfg({ ...cfg, hd_ban_dien_thoai: e.target.value })} placeholder="02438223888" className="bg-white" />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <label className="text-xs font-semibold text-slate-600">Địa chỉ</label>
+            <Input value={cfg.hd_ban_dia_chi} onChange={(e) => setCfg({ ...cfg, hd_ban_dia_chi: e.target.value })} placeholder="Số 5, phố Nguyễn Ngọc Vũ, Phường Thanh Xuân, Thành phố Hà Nội, Việt Nam" className="bg-white" />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <label className="text-xs font-semibold text-slate-600">Email</label>
+            <Input value={cfg.hd_ban_email} onChange={(e) => setCfg({ ...cfg, hd_ban_email: e.target.value })} placeholder="sieuthanh@sieuthanh.com.vn" className="bg-white" />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <label className="text-xs font-semibold text-slate-600">Số tài khoản 1</label>
+            <Input value={cfg.hd_ban_stk1} onChange={(e) => setCfg({ ...cfg, hd_ban_stk1: e.target.value })} placeholder="0671100009007 - Ngân hàng TMCP Quân Đội - Chi nhánh Hoàn Kiếm" className="bg-white" />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <label className="text-xs font-semibold text-slate-600">Số tài khoản 2</label>
+            <Input value={cfg.hd_ban_stk2} onChange={(e) => setCfg({ ...cfg, hd_ban_stk2: e.target.value })} placeholder="0011000025298 - Ngân hàng TMCP Ngoại thương Việt Nam – Chi nhánh SGD" className="bg-white" />
+          </div>
+        </div>
       </div>
 
       {/* NGHIỆP VỤ */}
