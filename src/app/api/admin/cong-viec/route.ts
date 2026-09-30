@@ -372,6 +372,10 @@ export async function POST(request: Request) {
     if (!id_khach_hang || !loai_cong_viec) {
       return NextResponse.json({ error: 'Thiếu thông tin bắt buộc' }, { status: 400 })
     }
+    // Loại việc "Khác" BẮT BUỘC có Ghi chú (nêu rõ công việc cụ thể).
+    if (String(loai_cong_viec).trim() === 'Khác' && !String(ghi_chu || '').trim()) {
+      return NextResponse.json({ error: 'Loại việc "Khác" bắt buộc nhập Ghi chú để nêu rõ công việc cụ thể.' }, { status: 400 })
+    }
     const loiVT = loiThieuVatTu(loai_cong_viec, report, vat_tu)
     if (loiVT) return NextResponse.json({ error: loiVT }, { status: 400 })
 

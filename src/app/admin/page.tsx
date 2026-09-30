@@ -1081,6 +1081,11 @@ export default function AdminDashboard() {
       return fail("Vui lòng chọn Loại công việc.")
     }
 
+    // Loại việc "Khác": BẮT BUỘC nhập Ghi chú để biết cụ thể là việc gì (gom việc lặt vặt vào "Khác").
+    if (formData.loai_cong_viec.trim() === 'Khác' && !String(formData.ghi_chu || '').trim()) {
+      return fail('Loại việc "Khác" bắt buộc nhập Ghi chú để nêu rõ công việc cụ thể.')
+    }
+
     // Giao mực / Thay vật tư BẮT BUỘC có Số phiếu + ít nhất 1 vật tư (loại khác thì không).
     if (LOAI_CV_CAN_VAT_TU.includes((formData.loai_cong_viec || '').trim())) {
       if (!String(formData.report || '').trim()) {
@@ -2831,15 +2836,20 @@ export default function AdminDashboard() {
                 })()}
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Ghi chú</label>
-                <textarea
-                  className="w-full p-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none min-h-[80px]"
-                  placeholder="Nhập ghi chú cho KTV..."
-                  value={formData.ghi_chu}
-                  onChange={(e) => setFormData({...formData, ghi_chu: e.target.value})}
-                ></textarea>
-              </div>
+              {(() => {
+                const ghiChuBatBuoc = formData.loai_cong_viec.trim() === 'Khác'
+                return (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Ghi chú {ghiChuBatBuoc && <span className="text-rose-600">* (bắt buộc với loại việc "Khác")</span>}</label>
+                    <textarea
+                      className={`w-full p-3 rounded-md border text-sm focus:ring-2 focus:ring-blue-500 outline-none min-h-[80px] ${ghiChuBatBuoc && !formData.ghi_chu.trim() ? 'border-rose-300 bg-rose-50/40' : 'border-slate-200'}`}
+                      placeholder={ghiChuBatBuoc ? 'Nêu rõ công việc cụ thể (vì loại việc là "Khác")...' : 'Nhập ghi chú cho KTV...'}
+                      value={formData.ghi_chu}
+                      onChange={(e) => setFormData({...formData, ghi_chu: e.target.value})}
+                    ></textarea>
+                  </div>
+                )
+              })()}
 
               <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
                 <Button type="button" variant="outline" onClick={closeAndResetModal} disabled={submitting}>Hủy</Button>

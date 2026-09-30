@@ -426,6 +426,7 @@ function GiaoViecMobile({ customers, technicians, loaiOptions, notify }: {
   const submit = async () => {
     if (!form.id_khach_hang) return notify('error', 'Chọn khách hàng / mã máy')
     if (!form.loai_cong_viec) return notify('error', 'Chọn loại việc')
+    if (form.loai_cong_viec.trim() === 'Khác' && !form.ghi_chu.trim()) return notify('error', 'Loại việc "Khác" bắt buộc nhập Ghi chú để nêu rõ công việc.')
     setSaving(true)
     try {
       const res = await fetch('/api/admin/cong-viec', {
@@ -509,8 +510,8 @@ function GiaoViecMobile({ customers, technicians, loaiOptions, notify }: {
 
       {/* Ghi chú */}
       <div className="space-y-1">
-        <label className="text-xs font-semibold text-slate-600">Ghi chú</label>
-        <textarea rows={2} value={form.ghi_chu} onChange={e => setForm({ ...form, ghi_chu: e.target.value })} placeholder="Ghi chú cho KTV..." className="w-full p-2.5 rounded-md border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+        <label className="text-xs font-semibold text-slate-600">Ghi chú {form.loai_cong_viec.trim() === 'Khác' && <span className="text-rose-600">* (bắt buộc với "Khác")</span>}</label>
+        <textarea rows={2} value={form.ghi_chu} onChange={e => setForm({ ...form, ghi_chu: e.target.value })} placeholder={form.loai_cong_viec.trim() === 'Khác' ? 'Nêu rõ công việc cụ thể...' : 'Ghi chú cho KTV...'} className={`w-full p-2.5 rounded-md border text-sm outline-none focus:ring-2 focus:ring-blue-500 ${form.loai_cong_viec.trim() === 'Khác' && !form.ghi_chu.trim() ? 'border-rose-300 bg-rose-50/40' : 'border-slate-200'}`} />
       </div>
 
       <Button onClick={submit} disabled={saving} className="w-full h-11 font-semibold">{saving ? 'Đang giao...' : 'Giao việc'}</Button>
