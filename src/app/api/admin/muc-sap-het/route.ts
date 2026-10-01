@@ -54,19 +54,20 @@ export async function GET() {
       .from('soct_muc_canh_bao_ack').select('ma_may, ma_muc, so_hop').range(from, to))
     const ackSet = new Set((acks || []).map(a => `${a.ma_may}|${a.ma_muc}|${a.so_hop}`))
 
-    // Phiếu "Giao mực" trong 1 năm gần đây -> tự bù trừ (máy + mã mực + ngày)
+    // Phiếu "Giao mực" / "Thay vật tư" trong 1 năm gần đây -> tự bù trừ THEO NHÓM:
+    // mực chỉ tắt bởi "Giao mực"; trống chỉ tắt bởi "Thay vật tư" (đúng loại việc trừ kho).
     const cutoff = new Date(Date.now() - 400 * 86400000).toISOString().slice(0, 10)
     const giaoMuc = await selectAll<any>((from, to) => supabaseAdmin
       .from('soct_cong_viec')
-      .select('ma_may, ngay, soct_chi_tiet_vat_tu(ma_hang)')
+      .select('ma_may, ngay, loai_cong_viec, soct_chi_tiet_vat_tu(ma_hang)')
       .in('loai_cong_viec', ['Giao mực', 'Thay vật tư']).gte('ngay', cutoff).range(from, to))
-    // ma_may -> [{ ma_hang, ngay }]
-    const giaoByMay = new Map<string, { ma_hang: string; ngay: string }[]>()
+    // ma_may -> [{ ma_hang, ngay, loai_cv }]
+    const giaoByMay = new Map<string, { ma_hang: string; ngay: string; loai_cv: string }[]>()
     for (const p of giaoMuc || []) {
       const mm = String(p.ma_may || '').trim()
       if (!mm) continue
       if (!giaoByMay.has(mm)) giaoByMay.set(mm, [])
-      for (const v of (p.soct_chi_tiet_vat_tu || [])) giaoByMay.get(mm)!.push({ ma_hang: String(v.ma_hang || '').trim(), ngay: String(p.ngay || '') })
+      for (const v of (p.soct_chi_tiet_vat_tu || [])) giaoByMay.get(mm)!.push({ ma_hang: String(v.ma_hang || '').trim(), ngay: String(p.ngay || ''), loai_cv: String(p.loai_cong_viec || '') })
     }
 
     const alerts: any[] = []
@@ -95,7 +96,8 @@ export async function GET() {
         for (const h of hist) { const v = counterOf(h, mc.loai); if (Number.isFinite(v) && v >= cycleStartVal) { cycleStartMonth = String(h.thang_nam); break } }
         const cycleStartDate = cycleStartMonth ? `${cycleStartMonth}-01` : ''
         const giaoList = giaoByMay.get(String(may.ma_may || '').trim()) || []
-        const daGiao = giaoList.some(g => g.ma_hang === mc.ma_hang && (!cycleStartDate || g.ngay >= cycleStartDate))
+        const loaiCanThiet = (mc.nhom === 'trong') ? 'Thay vật tư' : 'Giao mực' // mực: chỉ Giao mực; trống: chỉ Thay vật tư
+        const daGiao = giaoList.some(g => g.ma_hang === mc.ma_hang && g.loai_cv === loaiCanThiet && (!cycleStartDate || g.ngay >= cycleStartDate))
         if (daGiao) continue
         alerts.push({
           ma_may: may.ma_may, ten_khach_hang: may.ten_khach_hang, model: may.model,
