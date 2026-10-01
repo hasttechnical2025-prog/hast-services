@@ -88,7 +88,7 @@ async function kanbanGet(searchParams: URLSearchParams) {
     return {
       id: r.id, nguon: 'lenh_xuat',
       so_lenh: r.so_lenh, ngay: r.ngay, so_hop_dong: r.so_hop_dong || null,
-      ten_khach_hang: r.ten_khach_hang, dia_chi: r.dia_chi, ma_so_thue: r.ma_so_thue,
+      ten_khach_hang: r.ten_khach_hang, dia_chi: r.dia_chi, ma_so_thue: r.ma_so_thue, email_nhan_hd: r.email_nhan_hd || null,
       nguoi_kinh_doanh_id: r.nguoi_kinh_doanh_id, nguoi_kd_ten: r.nguoi_kd?.full_name || '',
       nguoi_ban_giao_ten: r.nguoi_bg?.full_name || '',
       trang_thai_hd: r.trang_thai_hd, so_hoa_don: r.so_hoa_don, ngay_xuat_hd: r.ngay_xuat_hd, ly_do_tra: r.ly_do_tra || null,
@@ -205,7 +205,9 @@ export async function POST(request: Request) {
         dia_chi: (b.dia_chi || '').trim() || null,
         ma_so_thue: (b.ma_so_thue || '').trim() || null,
         so_hop_dong: (b.so_hop_dong || '').trim() || null,
+        email_nhan_hd: (b.email_nhan_hd || '').trim() || null,
         id_khach_hang: b.id_khach_hang || null,
+        id_kh_kinh_doanh: b.id_kh_kinh_doanh || null,
         nguoi_kinh_doanh_id: nvId,
         created_by: session.id,
         ghi_chu: (b.ghi_chu || '').trim() || null,
@@ -305,10 +307,7 @@ async function kanbanPut(body: any) {
   const updates: any = { trang_thai_hd, updated_at: new Date().toISOString() }
 
   if (isHandover && tach_rieng !== undefined) updates.tach_rieng = !!tach_rieng
-  if (isHandover) {
-    updates.nguoi_ban_giao_id = session.id   // đóng dấu NGƯỜI bàn giao (double-check của sale_admin)
-    updates.ban_giao_kt_luc = new Date(Date.now() + 7 * 3600 * 1000).toISOString()  // mốc NGÀY bàn giao (giờ VN) -> cột 2 sort + hiện ↥
-  }
+  if (isHandover) updates.nguoi_ban_giao_id = session.id   // đóng dấu NGƯỜI bàn giao (mốc ban_giao_kt_luc đóng ở dưới, chỉ khi NULL)
 
   if (trang_thai_hd === 'Đã lên hóa đơn' || trang_thai_hd === 'Đã thanh toán') {
     if (so_hoa_don !== undefined) updates.so_hoa_don = String(so_hoa_don).trim()
@@ -445,7 +444,9 @@ export async function PUT(request: Request) {
     if (b.dia_chi !== undefined) updates.dia_chi = (b.dia_chi || '').trim() || null
     if (b.ma_so_thue !== undefined) updates.ma_so_thue = (b.ma_so_thue || '').trim() || null
     if (b.so_hop_dong !== undefined) updates.so_hop_dong = (b.so_hop_dong || '').trim() || null
+    if (b.email_nhan_hd !== undefined) updates.email_nhan_hd = (b.email_nhan_hd || '').trim() || null
     if (b.id_khach_hang !== undefined) updates.id_khach_hang = b.id_khach_hang || null
+    if (b.id_kh_kinh_doanh !== undefined) updates.id_kh_kinh_doanh = b.id_kh_kinh_doanh || null
     if (b.ghi_chu !== undefined) updates.ghi_chu = (b.ghi_chu || '').trim() || null
     if (isManager && b.nguoi_kinh_doanh_id !== undefined) updates.nguoi_kinh_doanh_id = b.nguoi_kinh_doanh_id || null
 

@@ -107,7 +107,7 @@ type KdLine = { stt: number; ma_hang: string | null; ten_hang: string | null; te
 type KdTicket = {
   id: string; nguon: 'lenh_xuat'
   so_lenh: string | null; ngay: string; so_hop_dong: string | null
-  ten_khach_hang: string; dia_chi: string | null; ma_so_thue: string | null
+  ten_khach_hang: string; dia_chi: string | null; ma_so_thue: string | null; email_nhan_hd?: string | null
   nguoi_kinh_doanh_id: string | null; nguoi_kd_ten: string
   trang_thai_hd: string; so_hoa_don: string | null; ngay_xuat_hd: string | null; ly_do_tra: string | null
   ban_giao_kt_luc: string | null; thanh_toan_luc: string | null
@@ -2266,6 +2266,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                 <div><span className="text-slate-400">Ngày lập: </span>{fmtDate(kdActive.ngay)}</div>
                 <div><span className="text-slate-400">Số hợp đồng: </span>{kdActive.so_hop_dong || '—'}</div>
                 {kdActive.ma_so_thue && <div><span className="text-slate-400">MST: </span><span className="font-mono">{kdActive.ma_so_thue}</span></div>}
+                {kdActive.email_nhan_hd && <div><span className="text-slate-400">Email nhận HĐ: </span>{kdActive.email_nhan_hd}</div>}
                 {kdActive.dia_chi && <div className="col-span-2"><span className="text-slate-400">Địa chỉ: </span>{kdActive.dia_chi}</div>}
                 {kdActive.so_hoa_don && <div><span className="text-slate-400">Số HĐ: </span><b className="font-mono text-emerald-700">{kdActive.so_hoa_don}</b></div>}
                 {kdActive.ngay_xuat_hd && <div><span className="text-slate-400">Ngày xuất HĐ: </span>{fmtDate(kdActive.ngay_xuat_hd)}</div>}

@@ -6837,6 +6837,9 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     hd_ban_email: cauHinh.hd_ban_email || '',
     hd_ban_stk1: cauHinh.hd_ban_stk1 || '',
     hd_ban_stk2: cauHinh.hd_ban_stk2 || '',
+    // Danh mục khách Kinh doanh (Lệnh xuất hàng)
+    kd_khach_pham_vi: cauHinh.kd_khach_pham_vi || 'rieng',       // rieng | saleadmin_all | chung
+    kd_khach_quyen_sua: cauHinh.kd_khach_quyen_sua || 'chu_so_huu', // chu_so_huu | chi_sale_admin
   })
   const [tabVis, setTabVis] = useState<Record<string, Record<string, boolean>>>(() => {
     let parsed: any = {}; try { parsed = JSON.parse(cauHinh.tab_visibility || '{}') } catch {}
@@ -6921,6 +6924,8 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
       hd_ban_email: cfg.hd_ban_email.trim(),
       hd_ban_stk1: cfg.hd_ban_stk1.trim(),
       hd_ban_stk2: cfg.hd_ban_stk2.trim(),
+      kd_khach_pham_vi: cfg.kd_khach_pham_vi,
+      kd_khach_quyen_sua: cfg.kd_khach_quyen_sua,
       tab_visibility: JSON.stringify(tabVis),
     }
     try {
@@ -7033,6 +7038,30 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
           <div className="space-y-1 md:col-span-2">
             <label className="text-xs font-semibold text-slate-600">Số tài khoản 2</label>
             <Input value={cfg.hd_ban_stk2} onChange={(e) => setCfg({ ...cfg, hd_ban_stk2: e.target.value })} placeholder="0011000025298 - Ngân hàng TMCP Ngoại thương Việt Nam – Chi nhánh SGD" className="bg-white" />
+          </div>
+        </div>
+      </div>
+
+      {/* DANH MỤC KHÁCH KINH DOANH (Lệnh xuất hàng) */}
+      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+        <h3 className="text-lg font-semibold text-slate-700">Danh mục khách — Kinh doanh (Lệnh xuất hàng)</h3>
+        <p className="text-xs text-slate-500 leading-relaxed">Chính sách danh mục khách của phòng Kinh doanh. MST luôn <b>duy nhất toàn hệ thống</b> (trừ khách lẻ không MST).</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Phạm vi xem danh sách khách</label>
+            <select value={cfg.kd_khach_pham_vi} onChange={(e) => setCfg({ ...cfg, kd_khach_pham_vi: e.target.value })} className="h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200">
+              <option value="rieng">Riêng — mỗi người chỉ thấy khách mình tạo</option>
+              <option value="saleadmin_all">Quản lý xem toàn bộ — NV thấy của mình</option>
+              <option value="chung">Chung — cả phòng thấy chung</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Quyền thêm/sửa/khóa khách</label>
+            <select value={cfg.kd_khach_quyen_sua} onChange={(e) => setCfg({ ...cfg, kd_khach_quyen_sua: e.target.value })} className="h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200">
+              <option value="chu_so_huu">Chủ sở hữu tự sửa — mỗi NV quản khách của mình</option>
+              <option value="chi_sale_admin">Chỉ quản lý KD (sale_admin) — NV chỉ chọn</option>
+            </select>
+            <p className="text-[11px] text-slate-400">Khi &quot;chỉ sale_admin&quot;: NV không thêm/sửa được nhưng vẫn thấy toàn bộ để chọn.</p>
           </div>
         </div>
       </div>

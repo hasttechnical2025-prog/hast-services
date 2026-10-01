@@ -6,7 +6,42 @@ import { Button } from "@/components/ui/button"
 import DateField from "@/components/DateField"
 import ThuTienPanel from "@/components/ThuTienPanel"
 import { supabase } from "@/lib/supabase"
-import { Plus, FileText, PenSquare, Trash2, X, Save, RefreshCw, LogOut, Package, Boxes, Send, List, LayoutGrid, Clock, FileDown } from "lucide-react"
+import { Plus, FileText, PenSquare, Trash2, X, Save, RefreshCw, LogOut, Package, Boxes, Send, List, LayoutGrid, Clock, FileDown, Users, KeyRound, Monitor, Search, Download } from "lucide-react"
+
+// Bỏ dấu + gộp khoảng trắng + lowercase (tìm kiếm kiểu Google: không dấu, không phân biệt hoa/thường).
+const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/\s+/g, ' ').trim()
+// Nhận diện ĐIỆN THOẠI (chặn trang Lệnh xuất — bắt buộc dùng PC). Không chặn khi thu nhỏ cửa sổ PC.
+const isPhoneDevice = () => { if (typeof navigator === 'undefined') return false; return /iPhone|iPod|Android.*Mobile|Windows Phone|BlackBerry|Opera Mini|IEMobile/i.test(navigator.userAgent || '') }
+
+type KhachKD = {
+  id: string; ten_khach_hang: string; dia_chi: string | null; ma_so_thue: string | null
+  email_nhan_hd: string | null; so_hop_dong: string | null; ghi_chu: string | null
+  nguoi_tao_id: string | null; nguon_cum_ma: string | null
+  nguoi_tao?: { full_name: string } | null
+}
+type KhachCaps = { isAdmin: boolean; isManager: boolean; phamVi: string; quyen: string; canCreate: boolean; myId: string }
+type KhachCum = { ma_khach_hang: string; ten_khach_hang: string; dia_chi: string | null; ma_so_thue: string | null; email_ke_toan: string | null }
+
+// Lọc khách theo nhiều từ khóa (AND, không cần đúng thứ tự) trên tên + MST + địa chỉ; ưu tiên tên bắt đầu bằng từ khóa.
+function filterKhach(list: KhachKD[], kw: string): KhachKD[] {
+  const toks = norm(kw).split(' ').filter(Boolean)
+  if (!toks.length) return list
+  const scored = list.map(k => {
+    const hay = norm([k.ten_khach_hang, k.ma_so_thue, k.dia_chi].filter(Boolean).join(' '))
+    const ok = toks.every(t => hay.includes(t))
+    if (!ok) return null
+    const starts = norm(k.ten_khach_hang).startsWith(toks[0]) ? 0 : 1
+    return { k, starts }
+  }).filter(Boolean) as { k: KhachKD; starts: number }[]
+  return scored.sort((a, b) => a.starts - b.starts || a.k.ten_khach_hang.localeCompare(b.k.ten_khach_hang)).map(x => x.k)
+}
+const canEditKhach = (r: KhachKD, caps: KhachCaps | null) => {
+  if (!caps) return false
+  if (caps.isAdmin) return true
+  if (caps.isManager) return caps.phamVi === 'rieng' ? r.nguoi_tao_id === caps.myId : true
+  if (caps.quyen === 'chi_sale_admin') return false
+  return r.nguoi_tao_id === caps.myId
+}
 
 type HangHoa = { ma_hang: string; ten_hang: string; dvt: string | null; don_gia_niem_yet: number | null; hang: string | null; model: string | null; ghi_chu: string | null }
 
@@ -58,6 +93,7 @@ function MayCombo({ value, catalog, onChangeMa, onPick, inputClass }: {
 type Line = { stt?: number; ma_hang: string; ten_hang: string; dvt: string; so_luong: number | string; don_gia: number | string; vat: number | string; ghi_chu?: string }
 type Lenh = {
   id: string; so_lenh: string | null; ngay: string; ten_khach_hang: string; dia_chi: string | null; ma_so_thue: string | null
+  email_nhan_hd?: string | null; id_kh_kinh_doanh?: string | null
   so_hop_dong: string | null
   nguoi_kinh_doanh_id: string | null; ghi_chu: string | null; trang_thai_hd: string
   so_hoa_don: string | null; ngay_xuat_hd: string | null; ly_do_tra?: string | null
@@ -81,9 +117,9 @@ const TT_LABEL: Record<string, { label: string; cls: string }> = {
 const emptyLine = (): Line => ({ ma_hang: '', ten_hang: '', dvt: 'Cái', so_luong: 1, don_gia: '', vat: 8, ghi_chu: '' })
 
 // Quản lý Danh mục Máy & Hàng hóa. Thêm/sửa/xóa chỉ khi isManager (sale_admin/admin); còn lại chỉ xem.
-function CatalogManager({ catalog, setCatalog, isManager, hangOptions, onClose, onChanged, notify }: {
-  catalog: HangHoa[]; setCatalog: React.Dispatch<React.SetStateAction<HangHoa[]>>; isManager: boolean; hangOptions: string[]; onClose: () => void; onChanged: () => void
-  notify: (t: 'success' | 'error', m: string) => void
+function CatalogManager({ catalog, setCatalog, isManager, hangOptions, onClose, onChanged, notify, inline = false }: {
+  catalog: HangHoa[]; setCatalog: React.Dispatch<React.SetStateAction<HangHoa[]>>; isManager: boolean; hangOptions: string[]; onClose?: () => void; onChanged: () => void
+  notify: (t: 'success' | 'error', m: string) => void; inline?: boolean
 }) {
   const [q, setQ] = useState('')
   const [editing, setEditing] = useState(false)
@@ -164,14 +200,9 @@ function CatalogManager({ catalog, setCatalog, isManager, hangOptions, onClose, 
       if (res.ok) { setCatalog(prev => prev.filter(c => c.ma_hang !== ma)); notify('success', 'Đã xóa mã') } else notify('error', j.error || 'Lỗi xóa')
     } catch { notify('error', 'Lỗi kết nối') }
   }
-  return (
-    <div className="fixed inset-0 bg-slate-900/60 z-[60] flex items-center justify-center p-3 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl my-6 flex flex-col max-h-[92vh] overflow-hidden border border-slate-200">
-        <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
-          <h3 className="text-base font-bold text-slate-800 flex items-center gap-2"><Boxes className="w-5 h-5 text-blue-600" />Danh mục Máy &amp; Hàng hóa</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1"><X className="w-5 h-5" /></button>
-        </div>
-        <div className="p-5 overflow-y-auto space-y-4 flex-1 text-xs">
+  const body = (
+    <>
+        <div className={inline ? 'space-y-4 text-xs' : 'p-5 overflow-y-auto space-y-4 flex-1 text-xs'}>
           {isManager && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -288,6 +319,17 @@ function CatalogManager({ catalog, setCatalog, isManager, hangOptions, onClose, 
           </div>
           {!isManager && <p className="text-[11px] text-slate-400">Chỉ quản lý kinh doanh được thêm/sửa danh mục.</p>}
         </div>
+    </>
+  )
+  if (inline) return body
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 z-[60] flex items-center justify-center p-3 overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl my-6 flex flex-col max-h-[92vh] overflow-hidden border border-slate-200">
+        <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+          <h3 className="text-base font-bold text-slate-800 flex items-center gap-2"><Boxes className="w-5 h-5 text-blue-600" />Danh mục Máy &amp; Hàng hóa</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1"><X className="w-5 h-5" /></button>
+        </div>
+        {body}
       </div>
     </div>
   )
@@ -371,6 +413,247 @@ function KanbanBoard({ rows, isManager, onOpen, onHandoverDrop }: { rows: Lenh[]
   )
 }
 
+// Modal chọn khách CỤM kỹ thuật (dùng chung cho "Lấy từ khách Kỹ thuật").
+function CumModal({ onPick, onClose, notify }: { onPick: (c: KhachCum) => void; onClose: () => void; notify: (t: 'success' | 'error', m: string) => void }) {
+  const [cum, setCum] = useState<KhachCum[] | null>(null)
+  const [kw, setKw] = useState('')
+  useEffect(() => {
+    fetch('/api/admin/kh-kinh-doanh?cum=1').then(r => r.ok ? r.json() : { data: [] }).then(j => setCum(j.data || [])).catch(() => { notify('error', 'Lỗi tải khách kỹ thuật'); setCum([]) })
+  }, [notify])
+  const matches = useMemo(() => {
+    const t = norm(kw).split(' ').filter(Boolean); const l = cum || []
+    if (!t.length) return l.slice(0, 60)
+    return l.filter(c => { const h = norm([c.ten_khach_hang, c.ma_so_thue, c.dia_chi].filter(Boolean).join(' ')); return t.every(x => h.includes(x)) }).slice(0, 60)
+  }, [cum, kw])
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 z-[80] flex items-center justify-center p-3" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl my-6 flex flex-col max-h-[85vh] overflow-hidden border border-slate-200" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+          <h3 className="text-base font-bold text-slate-800">Lấy từ khách Kỹ thuật (cụm)</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-4 space-y-3 overflow-y-auto flex-1 text-xs">
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <Input value={kw} onChange={e => setKw(e.target.value)} placeholder="Tìm tên khách / MST / địa chỉ…" className="h-9 pl-9 bg-white" />
+          </div>
+          {cum === null ? <p className="text-center text-slate-400 py-6">Đang tải…</p> : (
+            <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <table className="w-full text-left text-xs text-slate-600">
+                <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase border-b border-slate-200"><tr><th className="px-2.5 py-2">Tên khách</th><th className="px-2.5 py-2">MST</th><th className="px-2.5 py-2">Địa chỉ</th></tr></thead>
+                <tbody className="divide-y divide-slate-100">
+                  {matches.length === 0 ? <tr><td colSpan={3} className="px-4 py-6 text-center text-slate-400">Không có cụm khớp.</td></tr>
+                    : matches.map(c => (
+                      <tr key={c.ma_khach_hang} className="hover:bg-blue-50/60 cursor-pointer" onClick={() => onPick(c)}>
+                        <td className="px-2.5 py-1.5 font-medium text-slate-800">{c.ten_khach_hang}</td>
+                        <td className="px-2.5 py-1.5 font-mono text-[11px]">{c.ma_so_thue || '—'}</td>
+                        <td className="px-2.5 py-1.5 text-[11px] text-slate-500 truncate max-w-[260px]">{c.dia_chi || '—'}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Picker chọn khách KD cho FORM TẠO LỆNH: tìm kiểu Google + thêm nhanh + lấy từ kỹ thuật (tự tạo & chọn).
+function KhachPicker({ khList, caps, notify, onReload, onPick, onClose }: {
+  khList: KhachKD[]; caps: KhachCaps | null; notify: (t: 'success' | 'error', m: string) => void
+  onReload: () => void; onPick: (k: KhachKD) => void; onClose: () => void
+}) {
+  const [kw, setKw] = useState('')
+  const [showNew, setShowNew] = useState(false)
+  const [showCum, setShowCum] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [nf, setNf] = useState({ ten_khach_hang: '', dia_chi: '', ma_so_thue: '', email_nhan_hd: '', so_hop_dong: '' })
+  const matches = useMemo(() => filterKhach(khList, kw).slice(0, 60), [khList, kw])
+  const createPick = async (payload: any) => {
+    setBusy(true)
+    try {
+      const r = await fetch('/api/admin/kh-kinh-doanh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      const j = await r.json()
+      if (!r.ok) { notify('error', j.error || 'Lỗi lưu khách'); return null }
+      notify('success', 'Đã thêm khách'); onReload(); return j.data as KhachKD
+    } catch { notify('error', 'Lỗi kết nối'); return null } finally { setBusy(false) }
+  }
+  const pickCum = async (c: KhachCum) => {
+    setShowCum(false)
+    const mst = (c.ma_so_thue || '').trim()
+    if (mst) { const ex = khList.find(k => (k.ma_so_thue || '').trim() === mst); if (ex) { notify('success', 'Khách này đã có — đã chọn bản hiện có.'); onPick(ex); onClose(); return } }
+    const created = await createPick({ ten_khach_hang: c.ten_khach_hang, dia_chi: c.dia_chi || '', ma_so_thue: mst, email_nhan_hd: c.email_ke_toan || '', nguon_cum_ma: c.ma_khach_hang })
+    if (created) { onPick(created); onClose() }
+  }
+  const saveNew = async () => {
+    if (!nf.ten_khach_hang.trim()) { notify('error', 'Nhập tên khách'); return }
+    const created = await createPick({ ...nf })
+    if (created) { onPick(created); onClose() }
+  }
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 z-[75] flex items-center justify-center p-3" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl my-6 flex flex-col max-h-[88vh] overflow-hidden border border-slate-200" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+          <h3 className="text-base font-bold text-slate-800 flex items-center gap-2"><Users className="w-5 h-5 text-blue-600" />Chọn khách hàng</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-4 space-y-3 overflow-y-auto flex-1 text-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Input value={kw} onChange={e => setKw(e.target.value)} placeholder="Tìm tên / MST / địa chỉ…" className="h-9 pl-9 bg-white" />
+            </div>
+            {caps?.canCreate && <Button variant="outline" onClick={() => setShowNew(v => !v)} className="h-9 text-xs gap-1"><Plus className="w-4 h-4" /> Khách mới</Button>}
+            {caps?.canCreate && <Button variant="outline" onClick={() => setShowCum(true)} className="h-9 text-xs gap-1"><Download className="w-4 h-4" /> Lấy từ khách Kỹ thuật</Button>}
+          </div>
+          {showNew && caps?.canCreate && (
+            <div className="bg-slate-50/80 p-3 rounded-lg border border-slate-200 grid grid-cols-2 gap-2">
+              <div className="col-span-2"><label className="block text-slate-600 font-semibold mb-1">Tên khách <span className="text-rose-500">*</span></label><Input value={nf.ten_khach_hang} onChange={e => setNf({ ...nf, ten_khach_hang: e.target.value })} className="h-8 bg-white" /></div>
+              <div className="col-span-2"><label className="block text-slate-600 font-semibold mb-1">Địa chỉ</label><Input value={nf.dia_chi} onChange={e => setNf({ ...nf, dia_chi: e.target.value })} className="h-8 bg-white" /></div>
+              <div><label className="block text-slate-600 font-semibold mb-1">MST</label><Input value={nf.ma_so_thue} onChange={e => setNf({ ...nf, ma_so_thue: e.target.value })} className="h-8 font-mono bg-white" /></div>
+              <div><label className="block text-slate-600 font-semibold mb-1">Email nhận HĐ</label><Input value={nf.email_nhan_hd} onChange={e => setNf({ ...nf, email_nhan_hd: e.target.value })} className="h-8 bg-white" /></div>
+              <div className="col-span-2 flex justify-end"><Button onClick={saveNew} disabled={busy} className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white">{busy ? 'Đang lưu…' : 'Lưu & chọn'}</Button></div>
+            </div>
+          )}
+          <div className="border border-slate-200 rounded-lg overflow-hidden">
+            <table className="w-full text-left text-xs text-slate-600">
+              <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase border-b border-slate-200"><tr><th className="px-2.5 py-2">Tên khách</th><th className="px-2.5 py-2">MST</th><th className="px-2.5 py-2">Địa chỉ</th></tr></thead>
+              <tbody className="divide-y divide-slate-100">
+                {matches.length === 0 ? <tr><td colSpan={3} className="px-4 py-6 text-center text-slate-400">Không có khách khớp.</td></tr>
+                  : matches.map(k => (
+                    <tr key={k.id} className="hover:bg-blue-50/60 cursor-pointer" onClick={() => { onPick(k); onClose() }}>
+                      <td className="px-2.5 py-1.5 font-medium text-slate-800">{k.ten_khach_hang}</td>
+                      <td className="px-2.5 py-1.5 font-mono text-[11px]">{k.ma_so_thue || '—'}</td>
+                      <td className="px-2.5 py-1.5 text-[11px] text-slate-500 truncate max-w-[260px]">{k.dia_chi || '—'}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      {showCum && <CumModal notify={notify} onClose={() => setShowCum(false)} onPick={pickCum} />}
+    </div>
+  )
+}
+
+// Tab Danh mục › Khách hàng: quản lý CRUD + soft-delete + lấy từ kỹ thuật (prefill để duyệt rồi lưu).
+function KhachManager({ khList, caps, notify, onReload }: { khList: KhachKD[]; caps: KhachCaps | null; notify: (t: 'success' | 'error', m: string) => void; onReload: () => void }) {
+  const [q, setQ] = useState('')
+  const [editing, setEditing] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [showCum, setShowCum] = useState(false)
+  const emptyF = { ten_khach_hang: '', dia_chi: '', ma_so_thue: '', email_nhan_hd: '', so_hop_dong: '', ghi_chu: '' }
+  const [f, setF] = useState(emptyF)
+  const reset = () => { setF(emptyF); setEditing(null) }
+  const list = useMemo(() => filterKhach(khList, q), [khList, q])
+  const pick = (k: KhachKD) => { setEditing(k.id); setF({ ten_khach_hang: k.ten_khach_hang, dia_chi: k.dia_chi || '', ma_so_thue: k.ma_so_thue || '', email_nhan_hd: k.email_nhan_hd || '', so_hop_dong: k.so_hop_dong || '', ghi_chu: k.ghi_chu || '' }) }
+  const save = async () => {
+    if (!f.ten_khach_hang.trim()) { notify('error', 'Nhập tên khách'); return }
+    setBusy(true)
+    try {
+      const r = await fetch('/api/admin/kh-kinh-doanh', { method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editing ? { id: editing, ...f } : f) })
+      const j = await r.json()
+      if (!r.ok) { notify('error', j.error || 'Lỗi lưu'); return }
+      notify('success', editing ? 'Đã cập nhật khách' : 'Đã thêm khách'); reset(); onReload()
+    } catch { notify('error', 'Lỗi kết nối') } finally { setBusy(false) }
+  }
+  const hide = async (k: KhachKD) => {
+    if (!window.confirm(`Ẩn khách "${k.ten_khach_hang}" khỏi danh mục? (lệnh cũ vẫn giữ thông tin)`)) return
+    try {
+      const r = await fetch(`/api/admin/kh-kinh-doanh?id=${k.id}`, { method: 'DELETE' })
+      const j = await r.json()
+      if (!r.ok) { notify('error', j.error || 'Lỗi ẩn'); return }
+      notify('success', 'Đã ẩn khách'); if (editing === k.id) reset(); onReload()
+    } catch { notify('error', 'Lỗi kết nối') }
+  }
+  return (
+    <div className="space-y-4 text-xs">
+      {caps?.canCreate && (
+        <div className="bg-slate-50/80 p-3 rounded-lg border border-slate-200 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase">{editing ? 'Sửa khách' : 'Thêm khách'}</span>
+            <Button variant="outline" onClick={() => setShowCum(true)} className="h-7 text-[11px] gap-1"><Download className="w-3.5 h-3.5" /> Lấy từ khách Kỹ thuật</Button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-12 gap-2.5">
+            <div className="sm:col-span-5"><label className="block text-slate-600 font-semibold mb-1">Tên khách *</label><Input value={f.ten_khach_hang} onChange={e => setF({ ...f, ten_khach_hang: e.target.value })} className="h-8 bg-white" /></div>
+            <div className="sm:col-span-4"><label className="block text-slate-600 font-semibold mb-1">MST</label><Input value={f.ma_so_thue} onChange={e => setF({ ...f, ma_so_thue: e.target.value })} className="h-8 font-mono bg-white" /></div>
+            <div className="sm:col-span-3"><label className="block text-slate-600 font-semibold mb-1">Số HĐ</label><Input value={f.so_hop_dong} onChange={e => setF({ ...f, so_hop_dong: e.target.value })} className="h-8 bg-white" /></div>
+            <div className="sm:col-span-7"><label className="block text-slate-600 font-semibold mb-1">Địa chỉ</label><Input value={f.dia_chi} onChange={e => setF({ ...f, dia_chi: e.target.value })} className="h-8 bg-white" /></div>
+            <div className="sm:col-span-5"><label className="block text-slate-600 font-semibold mb-1">Email nhận HĐ</label><Input value={f.email_nhan_hd} onChange={e => setF({ ...f, email_nhan_hd: e.target.value })} className="h-8 bg-white" /></div>
+            <div className="sm:col-span-12 flex items-center gap-2 justify-end">
+              {editing && <Button variant="outline" onClick={reset} className="h-8 text-xs">Hủy</Button>}
+              <Button onClick={save} disabled={busy} className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white">{busy ? 'Đang lưu…' : (editing ? 'Lưu' : 'Thêm khách')}</Button>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="relative">
+        <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+        <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm tên / MST / địa chỉ…" className="h-9 pl-9 bg-white" />
+      </div>
+      <div className="border border-slate-200 rounded-lg overflow-hidden">
+        <table className="w-full text-left text-xs text-slate-600">
+          <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase border-b border-slate-200"><tr><th className="px-2.5 py-2">Tên khách</th><th className="px-2.5 py-2">MST</th><th className="px-2.5 py-2">Địa chỉ</th><th className="px-2.5 py-2">Email</th>{caps?.isManager && <th className="px-2.5 py-2">NV tạo</th>}<th className="px-2.5 py-2 text-center">Thao tác</th></tr></thead>
+          <tbody className="divide-y divide-slate-100">
+            {list.length === 0 ? <tr><td colSpan={caps?.isManager ? 6 : 5} className="px-4 py-6 text-center text-slate-400">Chưa có khách nào.</td></tr>
+              : list.map(k => (
+                <tr key={k.id} className="hover:bg-slate-50">
+                  <td className="px-2.5 py-1.5 font-medium text-slate-800">{k.ten_khach_hang}{k.nguon_cum_ma && <span className="ml-1.5 text-[9px] text-violet-500" title="Lấy từ khách kỹ thuật">KT</span>}</td>
+                  <td className="px-2.5 py-1.5 font-mono text-[11px]">{k.ma_so_thue || '—'}</td>
+                  <td className="px-2.5 py-1.5 text-[11px] text-slate-500 truncate max-w-[220px]">{k.dia_chi || '—'}</td>
+                  <td className="px-2.5 py-1.5 text-[11px] text-slate-500">{k.email_nhan_hd || '—'}</td>
+                  {caps?.isManager && <td className="px-2.5 py-1.5 text-[11px] text-slate-500">{k.nguoi_tao?.full_name || '—'}</td>}
+                  <td className="px-2.5 py-1.5 text-center whitespace-nowrap">
+                    {canEditKhach(k, caps) ? (
+                      <>
+                        <button onClick={() => pick(k)} title="Sửa" className="p-1 rounded text-amber-600 hover:bg-amber-50"><PenSquare className="w-4 h-4" /></button>
+                        <button onClick={() => hide(k)} title="Ẩn" className="p-1 rounded text-rose-600 hover:bg-rose-50 ml-1"><Trash2 className="w-4 h-4" /></button>
+                      </>
+                    ) : <span className="text-[10px] text-slate-300">—</span>}
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
+      {!caps?.canCreate && <p className="text-[11px] text-slate-400">Chỉ quản lý kinh doanh được thêm/sửa khách. Bạn vẫn chọn được khách khi tạo lệnh.</p>}
+      {showCum && <CumModal notify={notify} onClose={() => setShowCum(false)} onPick={(c) => { setShowCum(false); setEditing(null); setF({ ten_khach_hang: c.ten_khach_hang, dia_chi: c.dia_chi || '', ma_so_thue: c.ma_so_thue || '', email_nhan_hd: c.email_ke_toan || '', so_hop_dong: '', ghi_chu: '' }); notify('success', 'Đã điền từ khách kỹ thuật — kiểm tra rồi bấm Thêm khách.') }} />}
+    </div>
+  )
+}
+
+// Tab Hệ thống: đổi mật khẩu (giống kỹ thuật). Đổi xong -> server xóa phiên -> về "/".
+function ChangePwTab({ notify }: { notify: (t: 'success' | 'error', m: string) => void }) {
+  const [oldPw, setOldPw] = useState(''); const [np, setNp] = useState(''); const [np2, setNp2] = useState(''); const [busy, setBusy] = useState(false)
+  const save = async () => {
+    if (!oldPw || !np) return notify('error', 'Nhập đủ mật khẩu cũ và mới')
+    if (np.length < 6) return notify('error', 'Mật khẩu mới tối thiểu 6 ký tự')
+    if (np !== np2) return notify('error', 'Xác nhận mật khẩu mới không khớp')
+    setBusy(true)
+    try {
+      const r = await fetch('/api/auth/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ old_password: oldPw, new_password: np }) })
+      const j = await r.json()
+      if (!r.ok) { notify('error', j.error || 'Đổi mật khẩu thất bại'); return }
+      notify('success', 'Đã đổi mật khẩu. Đăng nhập lại…')
+      setTimeout(() => { window.location.href = '/' }, 1500)
+    } catch { notify('error', 'Lỗi kết nối') } finally { setBusy(false) }
+  }
+  const cls = "w-full h-10 px-3 rounded-md border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+  return (
+    <div className="max-w-sm space-y-3">
+      <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2"><KeyRound className="w-4 h-4 text-blue-600" /> Đổi mật khẩu</h3>
+      <input type="password" placeholder="Mật khẩu hiện tại" value={oldPw} onChange={e => setOldPw(e.target.value)} className={cls} />
+      <input type="password" placeholder="Mật khẩu mới (≥ 6 ký tự)" value={np} onChange={e => setNp(e.target.value)} className={cls} />
+      <input type="password" placeholder="Nhập lại mật khẩu mới" value={np2} onChange={e => setNp2(e.target.value)} className={cls} />
+      <Button onClick={save} disabled={busy} className="h-10 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold">{busy ? 'Đang lưu…' : 'Đổi mật khẩu'}</Button>
+      <p className="text-[11px] text-slate-400">Đổi xong sẽ đăng xuất để đăng nhập lại.</p>
+    </div>
+  )
+}
+
 export default function LenhXuatHangPage() {
   const [me, setMe] = useState<{ id?: string; full_name: string; role: string } | null>(null)
   const [authErr, setAuthErr] = useState(false)       // đã đăng nhập nhưng SAI vai trò
@@ -381,7 +664,13 @@ export default function LenhXuatHangPage() {
   const [isManager, setIsManager] = useState(false)
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
-  const [view, setView] = useState<'list' | 'kanban'>('list')
+  const [tab, setTab] = useState<'lenh' | 'danhmuc' | 'kanban' | 'hethong'>('lenh')
+  const [dmSub, setDmSub] = useState<'khach' | 'may'>('khach')
+  const [isMobile, setIsMobile] = useState(false)
+  // Danh mục khách KD
+  const [khList, setKhList] = useState<KhachKD[]>([])
+  const [khCaps, setKhCaps] = useState<KhachCaps | null>(null)
+  const [showKhachPicker, setShowKhachPicker] = useState(false)
   const [note, setNote] = useState<{ t: 'success' | 'error'; m: string } | null>(null)
   const notify = (t: 'success' | 'error', m: string) => { setNote({ t, m }); setTimeout(() => setNote(null), 3500) }
 
@@ -389,7 +678,7 @@ export default function LenhXuatHangPage() {
   const [open, setOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [form, setForm] = useState({ so_lenh: '', ngay: new Date().toISOString().slice(0, 10), ten_khach_hang: '', dia_chi: '', ma_so_thue: '', so_hop_dong: '', ghi_chu: '' })
+  const [form, setForm] = useState({ so_lenh: '', ngay: new Date().toISOString().slice(0, 10), ten_khach_hang: '', dia_chi: '', ma_so_thue: '', email_nhan_hd: '', so_hop_dong: '', ghi_chu: '', id_kh_kinh_doanh: '' })
   const [lines, setLines] = useState<Line[]>([emptyLine(), emptyLine()])
   const [delTarget, setDelTarget] = useState<Lenh | null>(null)
   const [handoverTarget, setHandoverTarget] = useState<Lenh | null>(null) // sale_admin bàn giao lệnh cho kế toán
@@ -401,7 +690,6 @@ export default function LenhXuatHangPage() {
 
   // Danh mục máy & hàng hóa (vlookup dòng hàng) + màn quản lý
   const [catalog, setCatalog] = useState<HangHoa[]>([])
-  const [catOpen, setCatOpen] = useState(false)
   const [hangOptions, setHangOptions] = useState<string[]>([])
   const loadCatalog = useCallback(() => {
     fetch('/api/admin/hang-hoa').then(r => r.ok ? r.json() : { data: [] }).then(j => setCatalog(j.data || [])).catch(() => {})
@@ -409,6 +697,13 @@ export default function LenhXuatHangPage() {
       .then(j => setHangOptions((j.data || []).filter((d: any) => d.active).sort((a: any, b: any) => (a.thu_tu || 0) - (b.thu_tu || 0)).map((d: any) => d.gia_tri)))
       .catch(() => {})
   }, [])
+
+  const loadKhach = useCallback(() => {
+    fetch('/api/admin/kh-kinh-doanh').then(r => r.ok ? r.json() : { data: [] }).then(j => { setKhList(j.data || []); if (j.caps) setKhCaps(j.caps) }).catch(() => {})
+  }, [])
+
+  // Chặn điện thoại (bắt buộc dùng PC để tạo tài khoản/thao tác lệnh xuất).
+  useEffect(() => { setIsMobile(isPhoneDevice()) }, [])
 
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.ok ? r.json() : Promise.reject()).then(j => {
@@ -445,7 +740,7 @@ export default function LenhXuatHangPage() {
       else notify('error', j.error || 'Lỗi tải danh sách')
     } catch { notify('error', 'Lỗi kết nối') } finally { setLoading(false) }
   }, [])
-  useEffect(() => { if (me) { load(); loadCatalog() } }, [me, load, loadCatalog])
+  useEffect(() => { if (me) { load(); loadCatalog(); loadKhach() } }, [me, load, loadCatalog, loadKhach])
 
   // Realtime: kthc lên HĐ / thu tiền / trả lại lệnh -> bàn Kanban KD tự cập nhật (topic riêng soct_lenhxuat).
   useEffect(() => {
@@ -472,14 +767,14 @@ export default function LenhXuatHangPage() {
   const openCreate = () => {
     setEditingId(null)
     const ngay = new Date().toISOString().slice(0, 10)
-    setForm({ so_lenh: '…', ngay, ten_khach_hang: '', dia_chi: '', ma_so_thue: '', so_hop_dong: '', ghi_chu: '' })
+    setForm({ so_lenh: '…', ngay, ten_khach_hang: '', dia_chi: '', ma_so_thue: '', email_nhan_hd: '', so_hop_dong: '', ghi_chu: '', id_kh_kinh_doanh: '' })
     setLines([emptyLine(), emptyLine()])
     setOpen(true)
     fetchNextLenh(ngay)
   }
   const openEdit = async (r: Lenh) => {
     setEditingId(r.id)
-    setForm({ so_lenh: r.so_lenh || '', ngay: r.ngay ? r.ngay.slice(0, 10) : new Date().toISOString().slice(0, 10), ten_khach_hang: r.ten_khach_hang || '', dia_chi: r.dia_chi || '', ma_so_thue: r.ma_so_thue || '', so_hop_dong: r.so_hop_dong || '', ghi_chu: r.ghi_chu || '' })
+    setForm({ so_lenh: r.so_lenh || '', ngay: r.ngay ? r.ngay.slice(0, 10) : new Date().toISOString().slice(0, 10), ten_khach_hang: r.ten_khach_hang || '', dia_chi: r.dia_chi || '', ma_so_thue: r.ma_so_thue || '', email_nhan_hd: r.email_nhan_hd || '', so_hop_dong: r.so_hop_dong || '', ghi_chu: r.ghi_chu || '', id_kh_kinh_doanh: r.id_kh_kinh_doanh || '' })
     try {
       const res = await fetch(`/api/admin/lenh-xuat?id=${r.id}`)
       const j = await res.json()
@@ -574,6 +869,18 @@ export default function LenhXuatHangPage() {
 
   const logout = async () => { try { await fetch('/api/auth/logout', { method: 'POST' }) } catch {} ; window.location.href = '/' }
 
+  // CHẶN điện thoại — Lệnh xuất hàng bắt buộc dùng máy tính (PC).
+  if (isMobile) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+      <div className="text-center space-y-3 max-w-xs">
+        <Monitor className="w-12 h-12 text-blue-600 mx-auto" />
+        <p className="text-slate-800 font-bold text-lg">Vui lòng dùng máy tính (PC)</p>
+        <p className="text-sm text-slate-500">Trang <b>Lệnh xuất hàng</b> chỉ hoạt động trên máy tính, không hỗ trợ điện thoại.</p>
+        <Button onClick={() => window.location.href = '/'} variant="outline" className="mt-1">Về trang chủ</Button>
+      </div>
+    </div>
+  )
+
   // Chưa đăng nhập -> form đăng nhập ngay tại trang KD.
   // data-allow-enter: NGOẠI LỆ có chủ đích (giống form /admin) — Enter = đăng nhập ở CHÍNH form này (xem AGENTS.md).
   if (needLogin) return (
@@ -625,24 +932,26 @@ export default function LenhXuatHangPage() {
 
         {note && <div className={`fixed top-4 right-4 z-[120] px-4 py-2.5 rounded-lg text-sm font-medium shadow-lg border ${note.t === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>{note.m}</div>}
 
+        {/* THANH TAB */}
+        <div className="flex items-center gap-1 flex-wrap bg-white rounded-xl border border-slate-200 p-1 shadow-sm">
+          {([['lenh', 'Lệnh xuất', List], ['danhmuc', 'Danh mục', Boxes], ['kanban', 'Kanban', LayoutGrid], ['hethong', 'Hệ thống', KeyRound]] as const).map(([k, label, Icon]) => (
+            <button key={k} onClick={() => setTab(k)} className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-semibold transition ${tab === k ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>
+              <Icon className="w-4 h-4" /> {label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'lenh' && (<>
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[220px] max-w-sm">
             <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm khách, số lệnh, số HĐ..." className="h-9 pl-3" />
           </div>
           <div className="flex items-center gap-2">
-            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5" title="Chuyển giữa danh sách và bảng Kanban theo dõi luồng">
-              <button onClick={() => setView('list')} className={`inline-flex items-center gap-1 h-8 px-2.5 rounded-md text-xs font-semibold transition ${view === 'list' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}><List className="w-3.5 h-3.5" /> Danh sách</button>
-              <button onClick={() => setView('kanban')} className={`inline-flex items-center gap-1 h-8 px-2.5 rounded-md text-xs font-semibold transition ${view === 'kanban' ? 'bg-rose-600 text-white' : 'text-rose-600 hover:bg-rose-50'}`}><LayoutGrid className="w-3.5 h-3.5" /> Kanban</button>
-            </div>
-            <Button variant="outline" onClick={() => setCatOpen(true)} className="h-9 gap-1.5 text-slate-700" title="Danh mục Máy & Hàng hóa"><Boxes className="w-4 h-4" /> Danh mục máy</Button>
             <Button variant="outline" onClick={load} className="h-9 w-9 p-0" title="Làm mới"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /></Button>
             <Button onClick={openCreate} className="h-9 gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"><Plus className="w-4 h-4" /> Tạo lệnh</Button>
           </div>
         </div>
 
-        {view === 'kanban' ? (
-          <KanbanBoard rows={filtered} isManager={isManager} onOpen={setDetail} onHandoverDrop={(id) => { const r = filtered.find(x => x.id === id); if (r) setHandoverTarget(r) }} />
-        ) : (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-slate-600">
@@ -698,6 +1007,26 @@ export default function LenhXuatHangPage() {
             </table>
           </div>
         </div>
+        </>)}
+
+        {tab === 'danhmuc' && (
+          <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 space-y-4">
+            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+              <button onClick={() => setDmSub('khach')} className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-semibold transition ${dmSub === 'khach' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><Users className="w-3.5 h-3.5" /> Danh mục khách hàng</button>
+              <button onClick={() => setDmSub('may')} className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-semibold transition ${dmSub === 'may' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><Boxes className="w-3.5 h-3.5" /> Danh mục máy</button>
+            </div>
+            {dmSub === 'khach'
+              ? <KhachManager khList={khList} caps={khCaps} notify={notify} onReload={loadKhach} />
+              : <CatalogManager catalog={catalog} setCatalog={setCatalog} isManager={isManager} hangOptions={hangOptions} onChanged={loadCatalog} notify={notify} inline />}
+          </div>
+        )}
+
+        {tab === 'kanban' && (
+          <KanbanBoard rows={filtered} isManager={isManager} onOpen={setDetail} onHandoverDrop={(id) => { const r = filtered.find(x => x.id === id); if (r) setHandoverTarget(r) }} />
+        )}
+
+        {tab === 'hethong' && (
+          <div className="bg-white rounded-xl border border-slate-200 p-5"><ChangePwTab notify={notify} /></div>
         )}
       </div>
 
@@ -714,8 +1043,11 @@ export default function LenhXuatHangPage() {
                 {/* Cột trái: thông tin khách */}
                 <div className="flex-1 space-y-3 min-w-0">
                   <div>
-                    <label className="block text-slate-600 font-semibold mb-1">Tên khách hàng <span className="text-rose-500">*</span></label>
-                    <Input value={form.ten_khach_hang} onChange={e => setForm({ ...form, ten_khach_hang: e.target.value })} placeholder="Tên khách mua hàng..." className="h-8 bg-white" />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-slate-600 font-semibold">Tên khách hàng <span className="text-rose-500">*</span></label>
+                      <Button type="button" variant="outline" onClick={() => setShowKhachPicker(true)} className="h-6 text-[11px] px-2 gap-1 text-blue-700 border-blue-200 hover:bg-blue-50"><Users className="w-3.5 h-3.5" /> Chọn khách</Button>
+                    </div>
+                    <Input value={form.ten_khach_hang} onChange={e => setForm({ ...form, ten_khach_hang: e.target.value, id_kh_kinh_doanh: '' })} placeholder="Chọn khách hoặc gõ tên..." className="h-8 bg-white" />
                   </div>
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">Địa chỉ</label>
@@ -727,9 +1059,13 @@ export default function LenhXuatHangPage() {
                       <Input value={form.ma_so_thue} onChange={e => setForm({ ...form, ma_so_thue: e.target.value })} placeholder="MST..." className="h-8 font-mono bg-white" />
                     </div>
                     <div>
-                      <label className="block text-slate-600 font-semibold mb-1">Ghi chú</label>
-                      <Input value={form.ghi_chu} onChange={e => setForm({ ...form, ghi_chu: e.target.value })} placeholder="..." className="h-8 bg-white" />
+                      <label className="block text-slate-600 font-semibold mb-1">Email nhận HĐ</label>
+                      <Input value={form.email_nhan_hd} onChange={e => setForm({ ...form, email_nhan_hd: e.target.value })} placeholder="email@..." className="h-8 bg-white" />
                     </div>
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">Ghi chú</label>
+                    <Input value={form.ghi_chu} onChange={e => setForm({ ...form, ghi_chu: e.target.value })} placeholder="..." className="h-8 bg-white" />
                   </div>
                 </div>
                 {/* Cột phải: chứng từ */}
@@ -804,7 +1140,12 @@ export default function LenhXuatHangPage() {
         </div>
       )}
 
-      {catOpen && <CatalogManager catalog={catalog} setCatalog={setCatalog} isManager={isManager} hangOptions={hangOptions} onClose={() => setCatOpen(false)} onChanged={loadCatalog} notify={notify} />}
+
+      {showKhachPicker && (
+        <KhachPicker khList={khList} caps={khCaps} notify={notify} onReload={loadKhach}
+          onPick={(k) => setForm(f => ({ ...f, ten_khach_hang: k.ten_khach_hang, dia_chi: k.dia_chi || '', ma_so_thue: k.ma_so_thue || '', email_nhan_hd: k.email_nhan_hd || '', so_hop_dong: k.so_hop_dong || f.so_hop_dong, id_kh_kinh_doanh: k.id }))}
+          onClose={() => setShowKhachPicker(false)} />
+      )}
 
       {/* Xác nhận bàn giao kế toán (sale_admin) — sau bàn giao KHÓA sửa/xóa lệnh */}
       {handoverTarget && (
