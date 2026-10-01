@@ -102,8 +102,23 @@ export async function GET() {
         })
       }
     }
-    alerts.sort((a, b) => a.con_lai - b.con_lai)
-    return NextResponse.json({ data: alerts, count: alerts.length, nguong })
+    // Gom mực MÀU cùng máy thành 1 dòng "Bộ mực màu (C/M/Y)" (định lượng màu giống nhau theo máy) -> đỡ nhiễu.
+    // BW giữ từng dòng. ma_muc_list dùng cho ack nhiều mã cùng lúc.
+    const out: any[] = alerts.filter(a => a.loai !== 'mau').map(a => ({ ...a, ma_muc_list: [a.ma_muc] }))
+    const byMay = new Map<string, any[]>()
+    for (const a of alerts.filter(a => a.loai === 'mau')) {
+      const k = `${a.ma_may}|${a.so_hop}`
+      if (!byMay.has(k)) byMay.set(k, [])
+      byMay.get(k)!.push(a)
+    }
+    for (const arr of byMay.values()) {
+      if (arr.length === 1) { out.push({ ...arr[0], ma_muc_list: [arr[0].ma_muc] }); continue }
+      const codes = [...new Set(arr.map(x => x.ma_muc))]
+      const rep = arr.reduce((m, x) => (x.con_lai < m.con_lai ? x : m), arr[0])
+      out.push({ ...rep, is_color_group: true, ma_muc: codes.join(', '), ma_muc_list: codes, con_lai: Math.min(...arr.map(x => x.con_lai)) })
+    }
+    out.sort((a, b) => a.con_lai - b.con_lai)
+    return NextResponse.json({ data: out, count: out.length, nguong })
   } catch (error: any) {
     console.error('Error GET muc-sap-het:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -117,13 +132,15 @@ export async function POST(request: Request) {
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
     const b = await request.json()
     const ma_may = String(b.ma_may || '').trim()
-    const ma_muc = String(b.ma_muc || '').trim()
+    const ma_mucs: string[] = (Array.isArray(b.ma_mucs) ? b.ma_mucs : (b.ma_muc ? [b.ma_muc] : [])).map((s: any) => String(s).trim()).filter(Boolean)
     const so_hop = parseInt(String(b.so_hop))
-    if (!ma_may || !ma_muc || !Number.isFinite(so_hop)) return NextResponse.json({ error: 'Thiếu tham số' }, { status: 400 })
+    if (!ma_may || ma_mucs.length === 0 || !Number.isFinite(so_hop)) return NextResponse.json({ error: 'Thiếu tham số' }, { status: 400 })
+    const now = new Date().toISOString()
+    const rows = ma_mucs.map(mc => ({ ma_may, ma_muc: mc, so_hop, nguoi_ack: session.id, acked_at: now }))
     const { error } = await supabaseAdmin.from('soct_muc_canh_bao_ack')
-      .upsert({ ma_may, ma_muc, so_hop, nguoi_ack: session.id, acked_at: new Date().toISOString() }, { onConflict: 'ma_may,ma_muc,so_hop' })
+      .upsert(rows, { onConflict: 'ma_may,ma_muc,so_hop' })
     if (error) throw error
-    await logAudit(session, 'Đã gửi mực máy thuê', `${ma_may} · ${ma_muc}`)
+    await logAudit(session, 'Đã gửi mực máy thuê', `${ma_may} · ${ma_mucs.join(', ')}`)
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error POST muc-sap-het:', error)

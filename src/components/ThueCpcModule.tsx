@@ -35,7 +35,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
   const daGui = async (r: any) => {
     setBusy(`${r.ma_may}|${r.ma_muc}|${r.so_hop}`)
     try {
-      const res = await fetch('/api/admin/muc-sap-het', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ma_may: r.ma_may, ma_muc: r.ma_muc, so_hop: r.so_hop }) })
+      const res = await fetch('/api/admin/muc-sap-het', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ma_may: r.ma_may, ma_mucs: r.ma_muc_list || [r.ma_muc], so_hop: r.so_hop }) })
       if (res.ok) { showNotification('success', 'Đã đánh dấu gửi mực.'); load() }
       else { const j = await res.json(); showNotification('error', j.error || 'Lỗi') }
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setBusy('') }
@@ -60,7 +60,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
                 : list.map((r, i) => (
                   <tr key={i} className="hover:bg-slate-50">
                     <td className="px-2.5 py-1.5"><div className="font-medium text-slate-800">{r.ten_khach_hang}</div><div className="text-[10px] text-slate-400 font-mono">{r.ma_may || '—'}{r.model ? ` · ${r.model}` : ''}</div></td>
-                    <td className="px-2.5 py-1.5 font-mono text-[11px]">{r.ma_muc}</td>
+                    <td className="px-2.5 py-1.5 font-mono text-[11px]">{r.is_color_group ? <span><span className="font-sans font-semibold text-amber-700">Bộ mực màu (C/M/Y)</span><div className="text-slate-400">{r.ma_muc}</div></span> : r.ma_muc}</td>
                     <td className="px-2.5 py-1.5 text-center"><span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${r.loai === 'mau' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>{r.loai === 'mau' ? 'Màu' : 'BW'}</span></td>
                     <td className="px-2.5 py-1.5 text-right font-mono">{Number(r.counter).toLocaleString('vi-VN')}<div className="text-[10px] text-slate-400 font-sans">kỳ {r.thang_nam}</div></td>
                     <td className="px-2.5 py-1.5 text-right">{Number(r.da_in).toLocaleString('vi-VN')} / {Number(r.dinh_luong).toLocaleString('vi-VN')}<div className="text-[10px] text-slate-400">hộp thứ {r.so_hop + 1}</div></td>
