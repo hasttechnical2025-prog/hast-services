@@ -4293,7 +4293,7 @@ function MucRow({ r, inv, kd, busy, onSave, onRemove }: {
   const [nhom, setNhom] = useState<string>(r.nhom || 'muc')
   const dirty = (dl !== (r.dinh_luong != null ? String(r.dinh_luong) : '')) || (loai !== (r.loai || 'bw')) || (nhom !== (r.nhom || 'muc'))
   return (
-    <div className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 text-xs ${kd <= 0 ? 'bg-red-50/60 border-red-200' : 'bg-slate-50 border-slate-200'}`}>
+    <div className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 text-xs ${kd <= 0 ? 'bg-red-50/60 border-red-200' : nhom === 'trong' ? 'bg-violet-50/70 border-violet-200' : 'bg-sky-50/60 border-sky-200'}`}>
       <span className="font-mono font-semibold text-slate-700 shrink-0">{r.ma_hang}</span>
       <span className="text-slate-600 truncate min-w-0 flex-1" title={inv?.ten_hang}>{inv?.ten_hang || '—'}</span>
       <span className="text-slate-400 shrink-0 whitespace-nowrap" title="Số lượng còn dùng được = tồn kho − đang giữ">Có sẵn {kd}</span>
