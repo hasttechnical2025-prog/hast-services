@@ -6,9 +6,10 @@ import { logAudit } from '@/lib/audit'
 
 export const runtime = 'nodejs'
 
-// Cảnh báo máy thuê SẮP HẾT MỰC (ước lượng "chia dư"): còn lại = định lượng − (counter MOD định lượng);
-// cảnh báo khi còn lại ≤ ngưỡng. Tắt khi: office bấm "Đã gửi mực" (ack theo chu kỳ hộp) HOẶC có phiếu
-// loại "Giao mực" cho máy đó + đúng mã mực, lập trong chu kỳ hộp hiện tại. CHỈ ước lượng chủ động.
+// Cảnh báo máy thuê SẮP HẾT vật tư (ước lượng chủ động). còn lại = định lượng − (counter MOD định lượng).
+// Candidate khi còn ≤ max(ngưỡng cố định, mức in ~1 tháng gần nhất) [ngưỡng động chống gọi muộn].
+// Tắt khi: (1) office bấm "Đã gửi" (ack theo chu kỳ hộp); (2) CÂN ĐỐI TỒN HỘP còn dự phòng:
+// (1 hộp theo máy lúc lắp) + tổng hộp đã giao/thay (phiếu đúng loại) > số hộp đã mở (soHop+1).
 
 const LOAI_HD_BILLING = ['Máy thuê', 'Máy CPC']
 const normModel = (s: any) => String(s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
@@ -72,8 +73,6 @@ export async function GET() {
 
     // counter theo loại: mau->so_mau, tong->so_bw+so_mau, bw->so_bw. Dùng chung cho mọi máy.
     const counterOf = (h: any, loai: string) => loai === 'mau' ? Number(h.so_mau) : loai === 'tong' ? (Number(h.so_bw) || 0) + (Number(h.so_mau) || 0) : Number(h.so_bw)
-    // counter tại (hoặc gần nhất TRƯỚC) tháng giao mực -> suy "hộp lúc giao".
-    const counterAtMonth = (h: any[], month: string, loai: string) => { let best: any = null; for (const r of h) { if (String(r.thang_nam) <= month) best = r; else break } return best ? counterOf(best, loai) : NaN }
 
     const alerts: any[] = []
     for (const may of mays || []) {
@@ -98,25 +97,21 @@ export async function GET() {
         if (conLai > nguongHieuLuc) continue
         // Tắt theo ack
         if (ackSet.has(`${may.ma_may}|${mc.ma_hang}|${soHop}`)) continue
-        // (a) Tắt theo phiếu Giao mực/Thay vật tư + NỚI theo SỐ LƯỢNG: giao N hộp phủ N chu kỳ hộp.
+        // (a) CÂN ĐỐI TỒN HỘP: máy lắp sẵn 1 hộp (factory) + TỔNG số hộp đã giao/thay theo phiếu
+        //     so với số hộp đã "mở" (soHop + 1, tính cả hộp đang dùng). Còn ≥ 1 hộp dự phòng -> KHÔNG nhắc.
         const giaoList = giaoByMay.get(String(may.ma_may || '').trim()) || []
         const need = (mc.nhom === 'trong') ? 'Thay vật tư' : 'Giao mực' // mực: chỉ Giao mực; trống: chỉ Thay vật tư
-        const covered = giaoList.some(g => {
-          if (g.ma_hang !== mc.ma_hang || g.loai_cv !== need) return false
-          const cAtGiao = counterAtMonth(hist, String(g.ngay).slice(0, 7), mc.loai)
-          if (!Number.isFinite(cAtGiao)) return false
-          const hopLucGiao = Math.floor(cAtGiao / Y)
-          const phuDenHop = hopLucGiao + (g.so_luong - 1) // N hộp -> phủ thêm (N-1) chu kỳ
-          return soHop <= phuDenHop
-        })
-        if (covered) continue
-        // Phiếu giao/thay gần nhất của mã này (để office đối chiếu) — kể cả khi chưa đủ phủ.
-        const matched = giaoList.filter(g => g.ma_hang === mc.ma_hang && g.loai_cv === need).sort((a, b) => String(b.ngay).localeCompare(String(a.ngay)))
-        const gn = matched[0]
+        const matched = giaoList.filter(g => g.ma_hang === mc.ma_hang && g.loai_cv === need)
+        const tongGiao = matched.reduce((s, g) => s + g.so_luong, 0)
+        const duPhong = (1 + tongGiao) - (soHop + 1) // 1 = hộp theo máy lúc lắp (factory)
+        if (duPhong >= 1) continue // còn hộp dự phòng chưa mở -> office khỏi liên hệ
+        // Phiếu giao/thay gần nhất của mã này (để office đối chiếu).
+        const gn = matched.slice().sort((a, b) => String(b.ngay).localeCompare(String(a.ngay)))[0]
         alerts.push({
           ma_may: may.ma_may, ten_khach_hang: may.ten_khach_hang, model: may.model,
           ma_muc: mc.ma_hang, loai: mc.loai, nhom: mc.nhom || 'muc', dinh_luong: Y,
           counter: C, da_in: daIn, con_lai: conLai, so_hop: soHop, thang_nam: latest.thang_nam,
+          du_phong: duPhong,
           giao_gan_nhat: gn ? { so_phieu: gn.so_phieu, ngay: gn.ngay, so_luong: gn.so_luong } : null,
         })
       }
