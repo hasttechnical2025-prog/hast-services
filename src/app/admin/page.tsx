@@ -4296,7 +4296,7 @@ function MucRow({ r, inv, kd, busy, onSave, onRemove }: {
     <div className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 text-xs ${kd <= 0 ? 'bg-red-50/60 border-red-200' : 'bg-slate-50 border-slate-200'}`}>
       <span className="font-mono font-semibold text-slate-700 shrink-0">{r.ma_hang}</span>
       <span className="text-slate-600 truncate min-w-0 flex-1" title={inv?.ten_hang}>{inv?.ten_hang || '—'}</span>
-      <span className="text-slate-400 shrink-0 whitespace-nowrap">KD {kd}</span>
+      <span className="text-slate-400 shrink-0 whitespace-nowrap" title="Số lượng còn dùng được = tồn kho − đang giữ">Có sẵn {kd}</span>
       <span className="flex items-center gap-1.5 shrink-0">
         <select value={nhom} onChange={(e) => setNhom(e.target.value)} title="Nhóm vật tư" className="h-7 rounded-md border border-slate-200 bg-white px-1.5 text-xs">
           <option value="muc">Mực</option>
