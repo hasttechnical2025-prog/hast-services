@@ -13,7 +13,7 @@ import { useRealtimeRefetch } from "@/lib/useRealtime"
 import { Save, FileText, RefreshCw, ArrowRight, Check, PenSquare, Search, ChevronUp, ChevronDown, Download, Droplets } from "lucide-react"
 
 // Tab "Cảnh báo mực" — máy thuê sắp hết mực (ước lượng chia dư). Office bấm "Đã gửi mực" để tắt.
-function CanhBaoMucTab({ showNotification, onCount }: { showNotification: Notify; onCount?: (n: number) => void }) {
+function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotification: Notify; onCount?: (n: number) => void; refreshVer?: number }) {
   const [rows, setRows] = useState<any[]>([])
   const [nguong, setNguong] = useState(2000)
   const [loading, setLoading] = useState(true)
@@ -25,7 +25,7 @@ function CanhBaoMucTab({ showNotification, onCount }: { showNotification: Notify
       setRows(j.data || []); if (j.nguong) setNguong(j.nguong); onCount?.(j.count || 0)
     }).catch(() => {}).finally(() => setLoading(false))
   }, [onCount])
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load() }, [load, refreshVer]) // refreshVer tăng khi có thay đổi counter (realtime) -> tự nạp lại
   const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
   const list = useMemo(() => {
     const kw = norm(q).trim()
@@ -224,7 +224,7 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
         </div>
       )}
       {active === 'canh_bao_muc' && canS('canh_bao_muc') && (
-        <CanhBaoMucTab showNotification={showNotification} onCount={setMucCount} />
+        <CanhBaoMucTab showNotification={showNotification} onCount={setMucCount} refreshVer={refreshVer} />
       )}
     </div>
   )

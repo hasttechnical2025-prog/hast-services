@@ -839,6 +839,11 @@ export default function AdminDashboard() {
     () => { fetchJobsOnly(); fetchPhieuCount() },         // poll: NHẸ + ngầm — chỉ tải lại danh sách việc
   )
 
+  // Realtime riêng Thuê/CPC: lưu counter từ máy nào -> chuông "sắp hết mực" cập nhật TỨC THÌ (không chờ poll 60s).
+  useRealtimeRefetch('soct_thuecpc', DATA_EVENT, () => {
+    if (['admin', 'tech_admin', 'staff'].includes(currentUserRole)) fetchMucSapHet()
+  }, !!currentAdmin)
+
   // Tìm kiếm theo mã máy để điền tự động
   const handleMaMayChange = (val: string) => {
     setFormData(prev => ({ ...prev, ma_may: val }))
