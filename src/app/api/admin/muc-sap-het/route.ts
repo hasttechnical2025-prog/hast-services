@@ -94,9 +94,10 @@ export async function GET() {
         if (Y <= 0) continue
         const Cchot = counterOf(latest, mc.loai)
         if (!Number.isFinite(Cchot) || Cchot <= 0) continue
-        // DỰ ĐOÁN counter HÔM NAY = counter chốt + (mức in/ngày × số ngày đã qua). Mức in/ngày = mức in tháng gần nhất ÷ 30.
+        // DỰ ĐOÁN counter HÔM NAY = counter chốt + (mức in/ngày × số ngày đã qua).
+        // Mức in/ngày = mức in tháng gần nhất ÷ 26 (ngày làm việc/tháng) -> sát thực tế hơn /30.
         const mucInThang = prev ? Math.max(0, Cchot - counterOf(prev, mc.loai)) : 0
-        const mucInNgay = mucInThang / 30
+        const mucInNgay = mucInThang / 26
         const C = Math.round(Cchot + mucInNgay * daysSince) // dùng counter DỰ ĐOÁN cho mọi tính toán
         const soHop = Math.floor(C / Y)
         const daIn = C % Y
