@@ -52,17 +52,18 @@ function CanhBaoMucTab({ showNotification, onCount }: { showNotification: Notify
       <div className="border border-slate-200 rounded-lg overflow-hidden">
         <table className="w-full text-left text-xs text-slate-600">
           <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase border-b border-slate-200">
-            <tr><th className="px-2.5 py-2">Khách / máy</th><th className="px-2.5 py-2">Mực</th><th className="px-2.5 py-2 text-center">Loại</th><th className="px-2.5 py-2 text-right">Đã in / Định lượng</th><th className="px-2.5 py-2 text-right">Còn lại</th><th className="px-2.5 py-2 text-center">Thao tác</th></tr>
+            <tr><th className="px-2.5 py-2">Khách / máy</th><th className="px-2.5 py-2">Mực</th><th className="px-2.5 py-2 text-center">Loại</th><th className="px-2.5 py-2 text-right">Counter</th><th className="px-2.5 py-2 text-right">Đã in / Định lượng</th><th className="px-2.5 py-2 text-right">Còn lại</th><th className="px-2.5 py-2 text-center">Thao tác</th></tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {loading ? <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải…</td></tr>
-              : list.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Không có máy nào sắp hết mực. 🎉</td></tr>
+            {loading ? <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải…</td></tr>
+              : list.length === 0 ? <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Không có máy nào sắp hết mực. 🎉</td></tr>
                 : list.map((r, i) => (
                   <tr key={i} className="hover:bg-slate-50">
                     <td className="px-2.5 py-1.5"><div className="font-medium text-slate-800">{r.ten_khach_hang}</div><div className="text-[10px] text-slate-400 font-mono">{r.ma_may || '—'}{r.model ? ` · ${r.model}` : ''}</div></td>
                     <td className="px-2.5 py-1.5 font-mono text-[11px]">{r.ma_muc}</td>
                     <td className="px-2.5 py-1.5 text-center"><span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${r.loai === 'mau' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>{r.loai === 'mau' ? 'Màu' : 'BW'}</span></td>
-                    <td className="px-2.5 py-1.5 text-right">{Number(r.da_in).toLocaleString('vi-VN')} / {Number(r.dinh_luong).toLocaleString('vi-VN')}</td>
+                    <td className="px-2.5 py-1.5 text-right font-mono">{Number(r.counter).toLocaleString('vi-VN')}<div className="text-[10px] text-slate-400 font-sans">kỳ {r.thang_nam}</div></td>
+                    <td className="px-2.5 py-1.5 text-right">{Number(r.da_in).toLocaleString('vi-VN')} / {Number(r.dinh_luong).toLocaleString('vi-VN')}<div className="text-[10px] text-slate-400">hộp thứ {r.so_hop + 1}</div></td>
                     <td className="px-2.5 py-1.5 text-right font-bold text-red-600">{Number(r.con_lai).toLocaleString('vi-VN')}</td>
                     <td className="px-2.5 py-1.5 text-center"><button onClick={() => daGui(r)} disabled={busy === `${r.ma_may}|${r.ma_muc}|${r.so_hop}`} className="h-8 px-3 rounded-md text-xs font-semibold border border-emerald-300 text-white bg-emerald-600 hover:bg-emerald-700 inline-flex items-center gap-1.5 disabled:opacity-50"><Check className="w-3.5 h-3.5" /> Đã gửi mực</button></td>
                   </tr>
