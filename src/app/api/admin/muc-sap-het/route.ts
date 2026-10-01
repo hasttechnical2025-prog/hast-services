@@ -24,7 +24,7 @@ export async function GET() {
     // Máy thuê/CPC
     const mays = await selectAll<any>((from, to) => supabaseAdmin
       .from('soct_khach_hang')
-      .select('id, ten_khach_hang, ma_may, model, may_mau')
+      .select('id, ten_khach_hang, ma_may, model, may_mau, chot_so_ngay, chot_so_cuoi_thang')
       .in('loai_hd', LOAI_HD_BILLING).range(from, to))
 
     // Map model -> mực (chỉ mực có định lượng)
@@ -74,6 +74,7 @@ export async function GET() {
     // counter theo loại: mau->so_mau, tong->so_bw+so_mau, bw->so_bw. Dùng chung cho mọi máy.
     const counterOf = (h: any, loai: string) => loai === 'mau' ? Number(h.so_mau) : loai === 'tong' ? (Number(h.so_bw) || 0) + (Number(h.so_mau) || 0) : Number(h.so_bw)
 
+    const nowVN = Date.now() + 7 * 3600 * 1000
     const alerts: any[] = []
     for (const may of mays || []) {
       const mapped = mapByModel.get(normModel(may.model)) || []
@@ -82,17 +83,25 @@ export async function GET() {
       if (!hist.length) continue
       const latest = hist[hist.length - 1]
       const prev = hist.length >= 2 ? hist[hist.length - 2] : null
+      // Số ngày kể từ KỲ CHỐT gần nhất tới hôm nay (để nội suy counter). Chặn trần 45 ngày (dữ liệu cũ -> đừng suy quá đà).
+      const [yy, mm] = String(latest.thang_nam).split('-').map(Number)
+      const lastDay = new Date(Date.UTC(yy, mm, 0)).getUTCDate()
+      const readDay = may.chot_so_cuoi_thang ? lastDay : Math.min(Number(may.chot_so_ngay) || lastDay, lastDay)
+      const readMs = Date.UTC(yy, mm - 1, readDay)
+      const daysSince = Math.max(0, Math.min(45, Math.floor((nowVN - readMs) / 86400000)))
       for (const mc of mapped) {
         const Y = Number(mc.dinh_luong) || 0
         if (Y <= 0) continue
-        const C = counterOf(latest, mc.loai)
-        if (!Number.isFinite(C) || C <= 0) continue
+        const Cchot = counterOf(latest, mc.loai)
+        if (!Number.isFinite(Cchot) || Cchot <= 0) continue
+        // DỰ ĐOÁN counter HÔM NAY = counter chốt + (mức in/ngày × số ngày đã qua). Mức in/ngày = mức in tháng gần nhất ÷ 30.
+        const mucInThang = prev ? Math.max(0, Cchot - counterOf(prev, mc.loai)) : 0
+        const mucInNgay = mucInThang / 30
+        const C = Math.round(Cchot + mucInNgay * daysSince) // dùng counter DỰ ĐOÁN cho mọi tính toán
         const soHop = Math.floor(C / Y)
         const daIn = C % Y
         const conLai = Y - daIn
-        // (b) NGƯỠNG ĐỘNG: cảnh báo khi còn ≤ max(ngưỡng cố định, mức in ~1 tháng gần nhất)
-        // -> máy in nhiều luôn được báo trước ~1 tháng, bù độ phân giải counter theo tháng.
-        const mucInThang = prev ? Math.max(0, C - counterOf(prev, mc.loai)) : 0
+        // (b) NGƯỠNG ĐỘNG: cảnh báo khi còn ≤ max(ngưỡng cố định, mức in ~1 tháng gần nhất).
         const nguongHieuLuc = Math.max(nguong, mucInThang)
         if (conLai > nguongHieuLuc) continue
         // Tắt theo ack
@@ -110,7 +119,8 @@ export async function GET() {
         alerts.push({
           ma_may: may.ma_may, ten_khach_hang: may.ten_khach_hang, model: may.model,
           ma_muc: mc.ma_hang, loai: mc.loai, nhom: mc.nhom || 'muc', dinh_luong: Y,
-          counter: C, da_in: daIn, con_lai: conLai, so_hop: soHop, thang_nam: latest.thang_nam,
+          counter: C, counter_chot: Cchot, muc_in_ngay: Math.round(mucInNgay), days_since: daysSince,
+          da_in: daIn, con_lai: conLai, so_hop: soHop, thang_nam: latest.thang_nam,
           du_phong: duPhong,
           giao_gan_nhat: gn ? { so_phieu: gn.so_phieu, ngay: gn.ngay, so_luong: gn.so_luong } : null,
         })
