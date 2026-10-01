@@ -15,7 +15,7 @@ export async function GET() {
 
     const data = await selectAll<any>((from, to) => supabaseAdmin
       .from('soct_muc_may_thue')
-      .select('id, model_may, ma_hang')
+      .select('id, model_may, ma_hang, dinh_luong, loai')
       .order('model_may')
       .range(from, to))
     return NextResponse.json({ data })
@@ -34,10 +34,12 @@ export async function POST(request: Request) {
     const model_may = String(body.model_may || '').trim()
     const ma_hang = String(body.ma_hang || '').trim()
     if (!model_may || !ma_hang) return NextResponse.json({ error: 'Thiếu model máy hoặc mã mực' }, { status: 400 })
+    const dinh_luong = body.dinh_luong === '' || body.dinh_luong == null ? null : (parseInt(String(body.dinh_luong).replace(/\D/g, '')) || null)
+    const loai = String(body.loai || 'bw').trim() === 'mau' ? 'mau' : 'bw'
 
     const { error } = await supabaseAdmin
       .from('soct_muc_may_thue')
-      .upsert({ model_may, ma_hang }, { onConflict: 'model_may,ma_hang', ignoreDuplicates: true })
+      .upsert({ model_may, ma_hang, dinh_luong, loai }, { onConflict: 'model_may,ma_hang' })
     // Mã mực chưa có trong kho -> vi phạm FK
     if (error?.code === '23503') return NextResponse.json({ error: `Mã mực "${ma_hang}" chưa có trong kho.` }, { status: 400 })
     if (error) throw error
@@ -46,6 +48,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error adding muc-may-thue:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+// PUT: cập nhật định lượng + loại cho 1 dòng map (admin).
+export async function PUT(request: Request) {
+  try {
+    const session = await requireRole('admin')
+    if (!session) return NextResponse.json({ error: 'Chỉ admin được sửa map mực máy thuê' }, { status: 401 })
+    const body = await request.json()
+    if (!body.id) return NextResponse.json({ error: 'Thiếu id' }, { status: 400 })
+    const dinh_luong = body.dinh_luong === '' || body.dinh_luong == null ? null : (parseInt(String(body.dinh_luong).replace(/\D/g, '')) || null)
+    const loai = String(body.loai || 'bw').trim() === 'mau' ? 'mau' : 'bw'
+    const { error } = await supabaseAdmin.from('soct_muc_may_thue').update({ dinh_luong, loai }).eq('id', body.id)
+    if (error) throw error
+    await logAudit(session, 'Sửa định lượng mực máy thuê', `id ${body.id}`)
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error('Error updating muc-may-thue:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

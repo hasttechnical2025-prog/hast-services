@@ -352,6 +352,7 @@ export default function AdminDashboard() {
   const [counterDueList, setCounterDueList] = useState<any[]>([])
   const [leaveToday, setLeaveToday] = useState<any[]>([]) // ai nghỉ hôm nay (banner Sổ công tác)
   const [mucMap, setMucMap] = useState<any[]>([])         // map model máy thuê -> mã mực (theo dõi tồn mực)
+  const [mucSapHet, setMucSapHet] = useState<any[]>([])   // máy thuê SẮP hết mực (ước lượng chia dư) -> chuông
   const [canhBaoTon, setCanhBaoTon] = useState<any[]>([]) // ứng viên cảnh báo tồn kho (đã nhập 12 tháng)
   const [confirmGiamDinhOpen, setConfirmGiamDinhOpen] = useState<{
     message: string,
@@ -515,6 +516,16 @@ export default function AdminDashboard() {
     if (!currentAdmin) return
     fetchMucMap()
   }, [currentAdmin])
+
+  // Máy thuê SẮP hết mực -> chuông (office: admin/tech_admin/staff). Panel chi tiết ở Thuê/CPC.
+  const fetchMucSapHet = useCallback(() => {
+    fetch('/api/admin/muc-sap-het').then(r => r.ok ? r.json() : { data: [] }).then(j => setMucSapHet(j.data || [])).catch(() => { })
+  }, [])
+  useEffect(() => {
+    if (!currentAdmin) return
+    if (!['admin', 'tech_admin', 'staff'].includes(currentUserRole)) { setMucSapHet([]); return }
+    fetchMucSapHet()
+  }, [currentAdmin, currentUserRole, fetchMucSapHet])
 
   // Cảnh báo tồn kho (đã nhập 12 tháng gần nhất) -> chuông + panel Thống kê nhập.
   // CHỈ admin/tech_admin (endpoint gate theo tab thong_ke; staff không thấy).
@@ -1454,6 +1465,26 @@ export default function AdminDashboard() {
               ))}
             </tbody>
           </table>
+        </div>
+      ),
+    },
+    {
+      key: 'muc_sap_het', icon: Droplets, tone: 'amber', label: 'Máy thuê sắp hết mực', count: mucSapHet.length,
+      detail: (
+        <div className="border border-amber-100 rounded-lg overflow-hidden">
+          <table className="w-full text-left text-xs text-slate-600">
+            <thead className="bg-amber-50 text-amber-800"><tr><th className="px-2.5 py-1.5 font-medium">Khách / máy</th><th className="px-2 py-1.5 font-medium">Mực</th><th className="px-2 py-1.5 font-medium text-right">Còn (trang)</th></tr></thead>
+            <tbody className="divide-y divide-slate-100">
+              {mucSapHet.map((m: any, i: number) => (
+                <tr key={i}>
+                  <td className="px-2.5 py-1.5"><div className="font-medium text-slate-800">{m.ten_khach_hang}</div><div className="text-[10px] text-slate-400 font-mono">{m.ma_may || '—'}</div></td>
+                  <td className="px-2 py-1.5 font-mono text-[11px]">{m.ma_muc}<span className="ml-1 text-[9px] text-slate-400">{m.loai === 'mau' ? 'Màu' : 'BW'}</span></td>
+                  <td className="px-2 py-1.5 text-right font-semibold text-red-600">{Number(m.con_lai).toLocaleString('vi-VN')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button onClick={() => { setActiveTab('tai_chinh'); setTaiChinhTab('thue_cpc') }} className="w-full text-center text-[11px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border-t border-amber-100 py-1.5">→ Mở Thuê/CPC › Cảnh báo mực</button>
         </div>
       ),
     },
@@ -4244,6 +4275,31 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
 
 // Panel quản lý map "model máy thuê → mã mực" (chỉ admin). Liệt kê các model máy đang thuê/CPC,
 // mỗi model gắn nhiều mã mực (chọn từ kho). Chỉ mã nằm ở đây mới được cảnh báo tồn ở chuông.
+// 1 dòng mực trong map: hiện KD + nhập ĐỊNH LƯỢNG (trang/hộp) + LOẠI (BW/Màu) cho cảnh báo sắp hết mực.
+function MucRow({ r, inv, kd, busy, onSave, onRemove }: {
+  r: any; inv: any; kd: number; busy: boolean
+  onSave: (id: string, dinh_luong: string, loai: string) => void; onRemove: (id: string) => void
+}) {
+  const [dl, setDl] = useState<string>(r.dinh_luong != null ? String(r.dinh_luong) : '')
+  const [loai, setLoai] = useState<string>(r.loai || 'bw')
+  const dirty = (dl !== (r.dinh_luong != null ? String(r.dinh_luong) : '')) || (loai !== (r.loai || 'bw'))
+  return (
+    <div className={`flex items-center gap-2 flex-wrap rounded-lg border px-2 py-1.5 text-xs ${kd <= 0 ? 'bg-red-50/60 border-red-200' : 'bg-slate-50 border-slate-200'}`}>
+      <span className="font-mono font-semibold text-slate-700">{r.ma_hang}</span>
+      <span className="text-slate-400" title={inv?.ten_hang}>· KD {kd}</span>
+      <span className="ml-auto flex items-center gap-1.5">
+        <Input value={dl} onChange={(e) => setDl(e.target.value.replace(/\D/g, ''))} placeholder="Định lượng" title="Số trang/hộp (nhà SX)" className="h-7 w-24 text-right bg-white" inputMode="numeric" />
+        <select value={loai} onChange={(e) => setLoai(e.target.value)} className="h-7 rounded-md border border-slate-200 bg-white px-1.5 text-xs">
+          <option value="bw">BW</option>
+          <option value="mau">Màu</option>
+        </select>
+        {dirty && <button type="button" disabled={busy} onClick={() => onSave(r.id, dl, loai)} className="h-7 px-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold">Lưu</button>}
+        <button type="button" disabled={busy} onClick={() => onRemove(r.id)} className="hover:bg-red-100 rounded p-1 text-slate-400 hover:text-red-600" title="Bỏ mực"><X className="w-3.5 h-3.5" /></button>
+      </span>
+    </div>
+  )
+}
+
 function MucMayThueTool({ customers, inventory, committed, mucMap, onUpdate, showNotification }: {
   customers: any[], inventory: any[], committed: Record<string, number>, mucMap: any[],
   onUpdate: () => void, showNotification: (t: 'success' | 'error', m: string) => void
@@ -4281,13 +4337,20 @@ function MucMayThueTool({ customers, inventory, committed, mucMap, onUpdate, sho
       if (res.ok) { onUpdate() } else showNotification('error', 'Không xóa được')
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setBusy(false) }
   }
+  const saveYield = async (id: string, dinh_luong: string, loai: string) => {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/muc-may-thue', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, dinh_luong, loai }) })
+      if (res.ok) { showNotification('success', 'Đã lưu định lượng mực.'); onUpdate() } else { const j = await res.json(); showNotification('error', j.error || 'Lỗi lưu') }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setBusy(false) }
+  }
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-4">
       <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2"><Droplets className="w-4 h-4 text-red-500" /> Mực dự phòng máy thuê</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Gán mã mực cho từng model. Khi khả dụng (tồn − đang giữ) ≤ 0, chuông sẽ cảnh báo.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Gán mã mực cho từng model + <b>định lượng</b> (trang/hộp) &amp; <b>loại BW/Màu</b> để cảnh báo sắp hết mực. Khả dụng ≤ 0 → chuông cảnh báo tồn.</p>
         </div>
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -4315,18 +4378,11 @@ function MucMayThueTool({ customers, inventory, committed, mucMap, onUpdate, sho
                 <span className="text-sm font-semibold text-slate-800">{model}</span>
                 <span className="text-xs text-slate-500">{so} máy</span>
               </div>
-              <div className="flex flex-wrap gap-1.5 mb-2">
+              <div className="space-y-1.5 mb-2">
                 {rows.length === 0 ? <span className="text-xs text-slate-400 italic">Chưa gán mực</span> : rows.map((r: any) => {
                   const inv = inventory.find(i => i.ma_hang === r.ma_hang)
                   const kd = (Number(inv?.ton_kho) || 0) - (committed[r.ma_hang] || 0)
-                  return (
-                    <span key={r.id} className={`inline-flex items-center gap-1.5 rounded-full pl-2 pr-1 py-1 text-xs border ${kd <= 0 ? 'bg-red-50 border-red-200 text-red-700' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
-                      <span className="font-mono font-medium">{r.ma_hang}</span>
-                      <span className="text-slate-400">·</span>
-                      <span title={inv?.ten_hang}>KD {kd}</span>
-                      <button type="button" disabled={busy} onClick={() => removeMuc(r.id)} className="hover:bg-red-100 rounded-full p-0.5 text-slate-400 hover:text-red-600"><X className="w-3 h-3" /></button>
-                    </span>
-                  )
+                  return <MucRow key={r.id} r={r} inv={inv} kd={kd} busy={busy} onSave={saveYield} onRemove={removeMuc} />
                 })}
               </div>
               <div className="max-w-md">
@@ -6818,6 +6874,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     phieu_cung_canh_bao_ngay: cauHinh.phieu_cung_canh_bao_ngay || '3',
     counter_bao_truoc_ngay: cauHinh.counter_bao_truoc_ngay || '3',
     counter_chuyen_ky_ngay: cauHinh.counter_chuyen_ky_ngay || '20',
+    muc_canh_bao_con_trang: cauHinh.muc_canh_bao_con_trang || '2000',
     gsheet_thue_id: cauHinh.gsheet_thue_id || '',
     gsheet_thue_tab: cauHinh.gsheet_thue_tab || 'Danh sách',
     bao_cao_khach_loai: cauHinh.bao_cao_khach_loai || 'Sửa máy',
@@ -6906,6 +6963,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
       phieu_cung_canh_bao_ngay: String(parseInt(cfg.phieu_cung_canh_bao_ngay) || 3),
       counter_bao_truoc_ngay: String(parseInt(cfg.counter_bao_truoc_ngay) || 3),
       counter_chuyen_ky_ngay: String(Math.min(31, Math.max(1, parseInt(cfg.counter_chuyen_ky_ngay) || 20))),
+      muc_canh_bao_con_trang: String(parseInt(cfg.muc_canh_bao_con_trang) || 2000),
       gsheet_thue_id: cfg.gsheet_thue_id.trim(),
       gsheet_thue_tab: cfg.gsheet_thue_tab.trim() || 'Danh sách',
       bao_cao_khach_loai: cfg.bao_cao_khach_loai.trim() || 'Sửa máy',
@@ -6935,7 +6993,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setSaving(false) }
   }
 
-  const numField = (label: string, key: 'repeat_ngay' | 'hdbt_canh_bao_thang' | 'nguong_ton_thap' | 'vp_lat' | 'vp_lng' | 'phien_van_phong_ngay' | 'phien_ktv_ngay' | 'phieu_cung_canh_bao_ngay' | 'counter_bao_truoc_ngay' | 'counter_chuyen_ky_ngay' | 'bao_cao_cho_phep_ngay', hint?: string, step?: string) => (
+  const numField = (label: string, key: 'repeat_ngay' | 'hdbt_canh_bao_thang' | 'nguong_ton_thap' | 'vp_lat' | 'vp_lng' | 'phien_van_phong_ngay' | 'phien_ktv_ngay' | 'phieu_cung_canh_bao_ngay' | 'counter_bao_truoc_ngay' | 'counter_chuyen_ky_ngay' | 'muc_canh_bao_con_trang' | 'bao_cao_cho_phep_ngay', hint?: string, step?: string) => (
     <div className="space-y-1">
       <label className="text-xs font-semibold text-slate-600">{label}</label>
       <Input value={(cfg as any)[key]} onChange={(e) => setCfg({ ...cfg, [key]: e.target.value })} className="bg-white" inputMode="decimal" {...(step ? { step } : {})} />
@@ -7075,6 +7133,7 @@ function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cau
           {numField('Ngưỡng tồn thấp (đỏ khi ≤)', 'nguong_ton_thap')}
           {numField('Cảnh báo trễ nộp phiếu (ngày)', 'phieu_cung_canh_bao_ngay')}
           {numField('Báo trước hạn lấy counter (ngày)', 'counter_bao_truoc_ngay', 'Máy thuê/CPC: cảnh báo trước N ngày tới hạn chốt số')}
+          {numField('Cảnh báo sắp hết mực (còn ≤ trang)', 'muc_canh_bao_con_trang', 'Máy thuê: counter ÷ định lượng, còn ≤ N trang thì cảnh báo để office liên hệ khách. Mặc định 2000')}
           {numField('Ngày chuyển kỳ counter', 'counter_chuyen_ky_ngay', 'Máy chốt số ngày ≤ N thuộc kỳ THÁNG TRƯỚC (đọc vào ngày D tháng sau); chốt > N thuộc kỳ THÁNG NÀY (đọc vào ngày D chính tháng). Cũng là mốc dropdown mặc định nhảy kỳ. Mặc định 20')}
           {numField('KTV nộp báo cáo trễ tối đa (ngày)', 'bao_cao_cho_phep_ngay', 'Cho phép nộp/sửa báo cáo lùi về N ngày. 0 = chỉ hôm nay')}
           <div className="space-y-1">

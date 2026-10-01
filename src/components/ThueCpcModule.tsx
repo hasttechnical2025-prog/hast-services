@@ -10,7 +10,69 @@ import DateField from "@/components/DateField"
 import MonthField from "@/components/MonthField"
 import { chotSoDate, counterStatus, CounterStatus, kyTruoc, tinhDongMay } from "@/lib/thue-cpc"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
-import { Save, FileText, RefreshCw, ArrowRight, Check, PenSquare, Search, ChevronUp, ChevronDown, Download } from "lucide-react"
+import { Save, FileText, RefreshCw, ArrowRight, Check, PenSquare, Search, ChevronUp, ChevronDown, Download, Droplets } from "lucide-react"
+
+// Tab "Cảnh báo mực" — máy thuê sắp hết mực (ước lượng chia dư). Office bấm "Đã gửi mực" để tắt.
+function CanhBaoMucTab({ showNotification, onCount }: { showNotification: Notify; onCount?: (n: number) => void }) {
+  const [rows, setRows] = useState<any[]>([])
+  const [nguong, setNguong] = useState(2000)
+  const [loading, setLoading] = useState(true)
+  const [q, setQ] = useState('')
+  const [busy, setBusy] = useState('')
+  const load = useCallback(() => {
+    setLoading(true)
+    fetch('/api/admin/muc-sap-het').then(r => r.ok ? r.json() : { data: [] }).then(j => {
+      setRows(j.data || []); if (j.nguong) setNguong(j.nguong); onCount?.(j.count || 0)
+    }).catch(() => {}).finally(() => setLoading(false))
+  }, [onCount])
+  useEffect(() => { load() }, [load])
+  const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  const list = useMemo(() => {
+    const kw = norm(q).trim()
+    if (!kw) return rows
+    return rows.filter(r => norm([r.ten_khach_hang, r.ma_may, r.model, r.ma_muc].join(' ')).includes(kw))
+  }, [rows, q])
+  const daGui = async (r: any) => {
+    setBusy(`${r.ma_may}|${r.ma_muc}|${r.so_hop}`)
+    try {
+      const res = await fetch('/api/admin/muc-sap-het', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ma_may: r.ma_may, ma_muc: r.ma_muc, so_hop: r.so_hop }) })
+      if (res.ok) { showNotification('success', 'Đã đánh dấu gửi mực.'); load() }
+      else { const j = await res.json(); showNotification('error', j.error || 'Lỗi') }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setBusy('') }
+  }
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <p className="text-xs text-slate-500 leading-relaxed max-w-2xl">Ước lượng theo <b>counter ÷ định lượng hộp mực</b> (còn ≤ <b>{nguong.toLocaleString('vi-VN')}</b> trang thì cảnh báo). Office chủ động liên hệ khách kiểm tra/giao mực; bấm <b>Đã gửi mực</b> để tắt (hoặc tự tắt khi có phiếu <b>Giao mực</b> cho máy). Chỉ là ước lượng.</p>
+        <div className="flex items-center gap-2">
+          <div className="relative"><Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" /><Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm khách / máy / mực…" className="h-9 pl-9 bg-white w-56" /></div>
+          <Button variant="outline" onClick={load} className="h-9 w-9 p-0" title="Làm mới"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /></Button>
+        </div>
+      </div>
+      <div className="border border-slate-200 rounded-lg overflow-hidden">
+        <table className="w-full text-left text-xs text-slate-600">
+          <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase border-b border-slate-200">
+            <tr><th className="px-2.5 py-2">Khách / máy</th><th className="px-2.5 py-2">Mực</th><th className="px-2.5 py-2 text-center">Loại</th><th className="px-2.5 py-2 text-right">Đã in / Định lượng</th><th className="px-2.5 py-2 text-right">Còn lại</th><th className="px-2.5 py-2 text-center">Thao tác</th></tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {loading ? <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải…</td></tr>
+              : list.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Không có máy nào sắp hết mực. 🎉</td></tr>
+                : list.map((r, i) => (
+                  <tr key={i} className="hover:bg-slate-50">
+                    <td className="px-2.5 py-1.5"><div className="font-medium text-slate-800">{r.ten_khach_hang}</div><div className="text-[10px] text-slate-400 font-mono">{r.ma_may || '—'}{r.model ? ` · ${r.model}` : ''}</div></td>
+                    <td className="px-2.5 py-1.5 font-mono text-[11px]">{r.ma_muc}</td>
+                    <td className="px-2.5 py-1.5 text-center"><span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${r.loai === 'mau' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>{r.loai === 'mau' ? 'Màu' : 'BW'}</span></td>
+                    <td className="px-2.5 py-1.5 text-right">{Number(r.da_in).toLocaleString('vi-VN')} / {Number(r.dinh_luong).toLocaleString('vi-VN')}<div className="text-[10px] text-slate-400">hộp thứ {r.so_hop + 1}</div></td>
+                    <td className="px-2.5 py-1.5 text-right font-bold text-red-600">{Number(r.con_lai).toLocaleString('vi-VN')}</td>
+                    <td className="px-2.5 py-1.5 text-center"><button onClick={() => daGui(r)} disabled={busy === `${r.ma_may}|${r.ma_muc}|${r.so_hop}`} className="h-8 px-3 rounded-md text-xs font-semibold border border-emerald-300 text-white bg-emerald-600 hover:bg-emerald-700 inline-flex items-center gap-1.5 disabled:opacity-50"><Check className="w-3.5 h-3.5" /> Đã gửi mực</button></td>
+                  </tr>
+                ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
 
 const THUECPC_TOPIC = "soct_thuecpc"
 const DATA_EVENT = "changed"
@@ -90,7 +152,8 @@ function SearchSelect({ options, value, onChange, placeholder }: { options: { va
 
 export default function ThueCpcModule({ showNotification, canSub }: { showNotification: Notify, canSub?: (g: string) => boolean }) {
   const canS = canSub || (() => true)
-  const [sub, setSub] = useState<'danh_sach' | 'counter'>('danh_sach')
+  const [sub, setSub] = useState<'danh_sach' | 'counter' | 'canh_bao_muc'>('danh_sach')
+  const [mucCount, setMucCount] = useState(0) // badge: số máy sắp hết mực
   const [dueCount, setDueCount] = useState(0) // số máy cần lấy counter (badge tab) — theo kỳ đang chọn
   const [counterThang, setCounterThang] = useState(monthNow()) // kỳ đang chọn ở tab Nhập counter (nâng lên để badge bám theo)
   const [thangTouched, setThangTouched] = useState(false) // user đã tự chọn kỳ chưa (đừng ghi đè bằng mặc định)
@@ -112,7 +175,10 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
   const allTabs: [typeof sub, string, boolean][] = [
     ['danh_sach', 'Danh sách máy', canS('don_gia') || canS('khung')],
     ['counter', 'Nhập counter', canS('counter') || canS('bang_ke')],
+    ['canh_bao_muc', 'Cảnh báo mực', canS('canh_bao_muc')],
   ]
+  // Badge số máy sắp hết mực (cho tab)
+  useEffect(() => { fetch('/api/admin/muc-sap-het').then(r => r.ok ? r.json() : { count: 0 }).then(j => setMucCount(j.count || 0)).catch(() => {}) }, [badgeVer])
   const tabs = allTabs.filter(([, , ok]) => ok)
   const active = tabs.some(([k]) => k === sub) ? sub : (tabs[0]?.[0] ?? sub)
   // Đếm máy cần lấy counter cho KỲ ĐANG CHỌN để gắn badge lên tab
@@ -139,6 +205,7 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
             <button key={k} onClick={() => setSub(k)} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${active === k ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>
               {l}
               {k === 'counter' && dueCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{dueCount}</span>}
+              {k === 'canh_bao_muc' && mucCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{mucCount}</span>}
             </button>
           ))}
         </div>
@@ -154,6 +221,9 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
           {canS('counter') && <CounterTab showNotification={showNotification} thang={counterThang} setThang={(v: string) => { setThangTouched(true); setCounterThang(v) }} chuyenKyNgay={chuyenKyNgay} onSaved={() => setBadgeVer(v => v + 1)} refreshVer={refreshVer} />}
           {canS('bang_ke') && <div className="pt-2 border-t border-slate-100"><BangKeTab showNotification={showNotification} thang={counterThang} refreshVer={refreshVer} /></div>}
         </div>
+      )}
+      {active === 'canh_bao_muc' && canS('canh_bao_muc') && (
+        <CanhBaoMucTab showNotification={showNotification} onCount={setMucCount} />
       )}
     </div>
   )
