@@ -927,19 +927,24 @@ export default function LenhXuatHangPage() {
               <p className="text-xs text-slate-400">Phòng Kinh doanh{me ? ` · ${me.full_name}${isManager ? ' (Quản lý)' : ''}` : ''}</p>
             </div>
           </div>
+          {/* THANH TAB (trong header, giống trang kỹ thuật) */}
+          <div className="flex items-center gap-1 flex-wrap">
+            {([['lenh', 'Lệnh xuất', List], ['danhmuc', 'Danh mục', Boxes], ['kanban', 'Kanban hóa đơn', LayoutGrid], ['hethong', 'Hệ thống', KeyRound]] as const).map(([k, label, Icon]) => {
+              const active = tab === k
+              const cls = active
+                ? (k === 'kanban' ? 'bg-rose-600 text-white' : 'bg-blue-600 text-white')
+                : (k === 'kanban' ? 'text-rose-600 hover:bg-rose-50' : 'text-slate-500 hover:bg-slate-100')
+              return (
+                <button key={k} onClick={() => setTab(k)} className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-semibold transition ${cls}`}>
+                  <Icon className="w-4 h-4" /> {label}
+                </button>
+              )
+            })}
+          </div>
           <button onClick={logout} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600"><LogOut className="w-4 h-4" /> Đăng xuất</button>
         </header>
 
         {note && <div className={`fixed top-4 right-4 z-[120] px-4 py-2.5 rounded-lg text-sm font-medium shadow-lg border ${note.t === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>{note.m}</div>}
-
-        {/* THANH TAB */}
-        <div className="flex items-center gap-1 flex-wrap bg-white rounded-xl border border-slate-200 p-1 shadow-sm">
-          {([['lenh', 'Lệnh xuất', List], ['danhmuc', 'Danh mục', Boxes], ['kanban', 'Kanban', LayoutGrid], ['hethong', 'Hệ thống', KeyRound]] as const).map(([k, label, Icon]) => (
-            <button key={k} onClick={() => setTab(k)} className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-semibold transition ${tab === k ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>
-              <Icon className="w-4 h-4" /> {label}
-            </button>
-          ))}
-        </div>
 
         {tab === 'lenh' && (<>
         <div className="flex items-center justify-between gap-3 flex-wrap">
