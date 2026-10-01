@@ -1455,6 +1455,11 @@ export default function AdminDashboard() {
   const modelsChuaMapMuc = [...new Set(rentalMays.filter(c => c.model && String(c.model).trim()).map(c => String(c.model).trim()))]
     .filter(m => !mappedModelSet.has(normModel(m)))
   const mayChuaViTri = rentalMays.filter(c => !String(c.vi_tri_dat_may || '').trim())
+  // Vật tư máy thuê ĐÃ map nhưng CHƯA nhập định lượng -> không cảnh báo sắp hết được. CHỈ admin.
+  const vatTuChuaDinhLuong = currentUserRole === 'admin'
+    ? mucMap.filter((r: any) => !r.dinh_luong || Number(r.dinh_luong) <= 0)
+      .map((r: any) => ({ ...r, ten_hang: inventory.find((i: any) => i.ma_hang === r.ma_hang)?.ten_hang || '' }))
+    : []
 
   const alertSections: AlertSection[] = [
     {
@@ -1649,6 +1654,27 @@ export default function AdminDashboard() {
           <div className="flex flex-wrap gap-1.5">
             {modelsChuaMapMuc.map((m) => <span key={m} className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded px-2 py-0.5">{m}</span>)}
           </div>
+        </div>
+      ),
+    },
+    {
+      key: 'vat_tu_chua_dinh_luong', icon: Droplets, tone: 'amber', label: 'Vật tư máy thuê chưa có định lượng', count: vatTuChuaDinhLuong.length,
+      detail: (
+        <div className="border border-amber-100 rounded-lg overflow-hidden">
+          <p className="text-[11px] text-slate-500 px-2 py-1 bg-amber-50/50">Chưa nhập định lượng → KHÔNG cảnh báo được sắp cần thay. Vào Kho hàng › Kho máy thuê › Vật tư tiêu hao để nhập.</p>
+          <table className="w-full text-left text-xs text-slate-600">
+            <thead className="bg-amber-50 text-amber-800"><tr><th className="px-2.5 py-1.5 font-medium">Model</th><th className="px-2 py-1.5 font-medium">Mã / tên vật tư</th><th className="px-2 py-1.5 font-medium text-center">Nhóm</th></tr></thead>
+            <tbody className="divide-y divide-slate-100">
+              {vatTuChuaDinhLuong.slice(0, 40).map((r: any, i: number) => (
+                <tr key={i}>
+                  <td className="px-2.5 py-1.5 whitespace-nowrap">{r.model_may}</td>
+                  <td className="px-2 py-1.5"><span className="font-mono font-semibold text-slate-700">{r.ma_hang}</span>{r.ten_hang ? <span className="text-slate-500"> · {r.ten_hang}</span> : ''}</td>
+                  <td className="px-2 py-1.5 text-center"><span className={`text-[10px] font-semibold ${r.nhom === 'trong' ? 'text-violet-600' : 'text-sky-600'}`}>{r.nhom === 'trong' ? 'Trống' : 'Mực'}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {vatTuChuaDinhLuong.length > 40 && <p className="text-[10px] text-slate-400 px-2 py-1">…và {vatTuChuaDinhLuong.length - 40} dòng nữa.</p>}
         </div>
       ),
     },
