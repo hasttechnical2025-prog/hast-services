@@ -62,7 +62,7 @@ function CanhBaoMucTab({ showNotification, onCount }: { showNotification: Notify
                     <td className="px-2.5 py-1.5"><div className="font-medium text-slate-800">{r.ten_khach_hang}</div><div className="text-[10px] text-slate-400 font-mono">{r.ma_may || '—'}{r.model ? ` · ${r.model}` : ''}</div></td>
                     <td className="px-2.5 py-1.5 font-mono text-[11px]">{r.ma_muc}</td>
                     <td className="px-2.5 py-1.5 text-center"><span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${r.loai === 'mau' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>{r.loai === 'mau' ? 'Màu' : 'BW'}</span></td>
-                    <td className="px-2.5 py-1.5 text-right">{Number(r.da_in).toLocaleString('vi-VN')} / {Number(r.dinh_luong).toLocaleString('vi-VN')}<div className="text-[10px] text-slate-400">hộp thứ {r.so_hop + 1}</div></td>
+                    <td className="px-2.5 py-1.5 text-right">{Number(r.da_in).toLocaleString('vi-VN')} / {Number(r.dinh_luong).toLocaleString('vi-VN')}</td>
                     <td className="px-2.5 py-1.5 text-right font-bold text-red-600">{Number(r.con_lai).toLocaleString('vi-VN')}</td>
                     <td className="px-2.5 py-1.5 text-center"><button onClick={() => daGui(r)} disabled={busy === `${r.ma_may}|${r.ma_muc}|${r.so_hop}`} className="h-8 px-3 rounded-md text-xs font-semibold border border-emerald-300 text-white bg-emerald-600 hover:bg-emerald-700 inline-flex items-center gap-1.5 disabled:opacity-50"><Check className="w-3.5 h-3.5" /> Đã gửi mực</button></td>
                   </tr>

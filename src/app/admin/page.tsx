@@ -559,12 +559,15 @@ export default function AdminDashboard() {
   // Chỉ office thấy chuông (admin/tech_admin/staff); refresh định kỳ.
   useEffect(() => {
     if (!['admin', 'tech_admin', 'staff'].includes(currentUserRole)) return
-    const load = () => fetch('/api/admin/kanban-hd?count=1').then(r => r.json())
-      .then(j => { if (j && typeof j.col1 === 'number') setKanbanCounts({ col1: j.col1, col2: j.col2, col1_phieu: j.col1_phieu ?? j.col1, col2_phieu: j.col2_phieu ?? j.col2 }) }).catch(() => { })
+    const load = () => {
+      fetch('/api/admin/kanban-hd?count=1').then(r => r.json())
+        .then(j => { if (j && typeof j.col1 === 'number') setKanbanCounts({ col1: j.col1, col2: j.col2, col1_phieu: j.col1_phieu ?? j.col1, col2_phieu: j.col2_phieu ?? j.col2 }) }).catch(() => { })
+      fetchMucSapHet() // làm mới cảnh báo sắp hết mực cho chuông (bắt cả auto bù trừ khi có phiếu Giao mực)
+    }
     load()
     const t = setInterval(load, 60000)
     return () => clearInterval(t)
-  }, [currentUserRole])
+  }, [currentUserRole, fetchMucSapHet])
 
   // Đo chiều cao header (thay đổi khi wrap trên mobile / bật chuông…) -> cập nhật --head-h.
   useEffect(() => {
@@ -2109,7 +2112,7 @@ export default function AdminDashboard() {
                 {effectiveKhoTab === "may_thue" && (
                   <>
                     {currentUserRole === 'admin' && (
-                      <MucMayThueTool customers={customers} inventory={inventory} committed={committed} mucMap={mucMap} onUpdate={fetchMucMap} showNotification={showNotification} />
+                      <MucMayThueTool customers={customers} inventory={inventory} committed={committed} mucMap={mucMap} onUpdate={() => { fetchMucMap(); fetchMucSapHet() }} showNotification={showNotification} />
                     )}
                     <KhoMayThueTool showNotification={showNotification} />
                   </>
