@@ -4335,7 +4335,9 @@ function MucMayThueTool({ customers, inventory, committed, mucMap, onUpdate, sho
   })()
   const ql = q.trim().toLowerCase()
   const shown = ql ? models.filter(m => m.model.toLowerCase().includes(ql)) : models
+  // Sắp CỐ ĐỊNH trong mỗi model: Mực trước, Trống sau; rồi theo mã hàng -> không "nhảy" khi thêm/refetch.
   const maByModel = (model: string) => mucMap.filter(r => r.model_may === model)
+    .slice().sort((a, b) => String(a.nhom || 'muc').localeCompare(String(b.nhom || 'muc')) || String(a.ma_hang).localeCompare(String(b.ma_hang)))
 
   const addMuc = async (model: string, ma_hang: string) => {
     if (!ma_hang) return
