@@ -29,7 +29,7 @@ export async function GET() {
     // Map model -> mực (chỉ mực có định lượng)
     const maps = await selectAll<any>((from, to) => supabaseAdmin
       .from('soct_muc_may_thue')
-      .select('model_may, ma_hang, dinh_luong, loai').range(from, to))
+      .select('model_may, ma_hang, dinh_luong, loai, nhom').range(from, to))
     const mapByModel = new Map<string, any[]>()
     for (const m of maps || []) {
       if (!m.dinh_luong || m.dinh_luong <= 0) continue
@@ -59,7 +59,7 @@ export async function GET() {
     const giaoMuc = await selectAll<any>((from, to) => supabaseAdmin
       .from('soct_cong_viec')
       .select('ma_may, ngay, soct_chi_tiet_vat_tu(ma_hang)')
-      .eq('loai_cong_viec', 'Giao mực').gte('ngay', cutoff).range(from, to))
+      .in('loai_cong_viec', ['Giao mực', 'Thay vật tư']).gte('ngay', cutoff).range(from, to))
     // ma_may -> [{ ma_hang, ngay }]
     const giaoByMay = new Map<string, { ma_hang: string; ngay: string }[]>()
     for (const p of giaoMuc || []) {
@@ -76,10 +76,12 @@ export async function GET() {
       const hist = histByMay.get(may.id) || []
       if (!hist.length) continue
       const latest = hist[hist.length - 1]
+      // counter theo loại: mau->so_mau, tong->so_bw+so_mau, bw (mặc định)->so_bw
+      const counterOf = (h: any, loai: string) => loai === 'mau' ? Number(h.so_mau) : loai === 'tong' ? (Number(h.so_bw) || 0) + (Number(h.so_mau) || 0) : Number(h.so_bw)
       for (const mc of mapped) {
         const Y = Number(mc.dinh_luong) || 0
         if (Y <= 0) continue
-        const C = Number(mc.loai === 'mau' ? latest.so_mau : latest.so_bw)
+        const C = counterOf(latest, mc.loai)
         if (!Number.isFinite(C) || C <= 0) continue
         const soHop = Math.floor(C / Y)
         const daIn = C % Y
@@ -87,35 +89,35 @@ export async function GET() {
         if (conLai > nguong) continue
         // Tắt theo ack
         if (ackSet.has(`${may.ma_may}|${mc.ma_hang}|${soHop}`)) continue
-        // Tắt theo phiếu Giao mực trong chu kỳ hộp hiện tại
+        // Tắt theo phiếu Giao mực / Thay vật tư trong chu kỳ hiện tại
         const cycleStartVal = soHop * Y
         let cycleStartMonth = ''
-        for (const h of hist) { const v = Number(mc.loai === 'mau' ? h.so_mau : h.so_bw); if (Number.isFinite(v) && v >= cycleStartVal) { cycleStartMonth = String(h.thang_nam); break } }
+        for (const h of hist) { const v = counterOf(h, mc.loai); if (Number.isFinite(v) && v >= cycleStartVal) { cycleStartMonth = String(h.thang_nam); break } }
         const cycleStartDate = cycleStartMonth ? `${cycleStartMonth}-01` : ''
         const giaoList = giaoByMay.get(String(may.ma_may || '').trim()) || []
         const daGiao = giaoList.some(g => g.ma_hang === mc.ma_hang && (!cycleStartDate || g.ngay >= cycleStartDate))
         if (daGiao) continue
         alerts.push({
           ma_may: may.ma_may, ten_khach_hang: may.ten_khach_hang, model: may.model,
-          ma_muc: mc.ma_hang, loai: mc.loai, dinh_luong: Y,
+          ma_muc: mc.ma_hang, loai: mc.loai, nhom: mc.nhom || 'muc', dinh_luong: Y,
           counter: C, da_in: daIn, con_lai: conLai, so_hop: soHop, thang_nam: latest.thang_nam,
         })
       }
     }
-    // Gom mực MÀU cùng máy thành 1 dòng "Bộ mực màu (C/M/Y)" (định lượng màu giống nhau theo máy) -> đỡ nhiễu.
-    // BW giữ từng dòng. ma_muc_list dùng cho ack nhiều mã cùng lúc.
-    const out: any[] = alerts.filter(a => a.loai !== 'mau').map(a => ({ ...a, ma_muc_list: [a.ma_muc] }))
-    const byMay = new Map<string, any[]>()
-    for (const a of alerts.filter(a => a.loai === 'mau')) {
-      const k = `${a.ma_may}|${a.so_hop}`
-      if (!byMay.has(k)) byMay.set(k, [])
-      byMay.get(k)!.push(a)
+    // Gom các vật tư cùng (máy, nhóm, counter, chu kỳ) khi có NHIỀU mã (bộ màu C/M/Y) -> 1 dòng; còn lại = min.
+    // ma_muc_list dùng cho ack nhiều mã cùng lúc.
+    const groups = new Map<string, any[]>()
+    for (const a of alerts) {
+      const k = `${a.ma_may}|${a.nhom}|${a.loai}|${a.so_hop}`
+      if (!groups.has(k)) groups.set(k, [])
+      groups.get(k)!.push(a)
     }
-    for (const arr of byMay.values()) {
+    const out: any[] = []
+    for (const arr of groups.values()) {
       if (arr.length === 1) { out.push({ ...arr[0], ma_muc_list: [arr[0].ma_muc] }); continue }
       const codes = [...new Set(arr.map(x => x.ma_muc))]
       const rep = arr.reduce((m, x) => (x.con_lai < m.con_lai ? x : m), arr[0])
-      out.push({ ...rep, is_color_group: true, ma_muc: codes.join(', '), ma_muc_list: codes, con_lai: Math.min(...arr.map(x => x.con_lai)) })
+      out.push({ ...rep, is_group: true, ma_muc: codes.join(', '), ma_muc_list: codes, con_lai: Math.min(...arr.map(x => x.con_lai)) })
     }
     out.sort((a, b) => a.con_lai - b.con_lai)
     return NextResponse.json({ data: out, count: out.length, nguong })

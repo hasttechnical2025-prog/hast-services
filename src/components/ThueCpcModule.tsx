@@ -43,7 +43,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <p className="text-xs text-slate-500 leading-relaxed max-w-2xl">Ước lượng theo <b>counter ÷ định lượng hộp mực</b> (còn ≤ <b>{nguong.toLocaleString('vi-VN')}</b> trang thì cảnh báo). Office chủ động liên hệ khách kiểm tra/giao mực; bấm <b>Đã gửi mực</b> để tắt (hoặc tự tắt khi có phiếu <b>Giao mực</b> cho máy). Chỉ là ước lượng.</p>
+        <p className="text-xs text-slate-500 leading-relaxed max-w-2xl">Ước lượng theo <b>counter ÷ định lượng vật tư</b> (còn ≤ <b>{nguong.toLocaleString('vi-VN')}</b> trang thì cảnh báo) — gồm <b>Mực</b> &amp; <b>Trống</b>. Office chủ động liên hệ khách kiểm tra; bấm <b>Đã gửi</b> để tắt (hoặc tự tắt khi có phiếu <b>Giao mực/Thay vật tư</b> cho máy). Chỉ là ước lượng.</p>
         <div className="flex items-center gap-2">
           <div className="relative"><Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" /><Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm khách / máy / mực…" className="h-9 pl-9 bg-white w-56" /></div>
           <Button variant="outline" onClick={load} className="h-9 w-9 p-0" title="Làm mới"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /></Button>
@@ -56,12 +56,16 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải…</td></tr>
-              : list.length === 0 ? <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Không có máy nào sắp hết mực. 🎉</td></tr>
+              : list.length === 0 ? <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Không có máy nào sắp cần thay vật tư. 🎉</td></tr>
                 : list.map((r, i) => (
                   <tr key={i} className="hover:bg-slate-50">
                     <td className="px-2.5 py-1.5"><div className="font-medium text-slate-800">{r.ten_khach_hang}</div><div className="text-[10px] text-slate-400 font-mono">{r.ma_may || '—'}{r.model ? ` · ${r.model}` : ''}</div></td>
-                    <td className="px-2.5 py-1.5 font-mono text-[11px]">{r.is_color_group ? <span><span className="font-sans font-semibold text-amber-700">Bộ mực màu (C/M/Y)</span><div className="text-slate-400">{r.ma_muc}</div></span> : r.ma_muc}</td>
-                    <td className="px-2.5 py-1.5 text-center"><span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${r.loai === 'mau' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>{r.loai === 'mau' ? 'Màu' : 'BW'}</span></td>
+                    <td className="px-2.5 py-1.5 text-[11px]">
+                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold mr-1.5 ${r.nhom === 'trong' ? 'bg-violet-50 text-violet-700' : 'bg-sky-50 text-sky-700'}`}>{r.nhom === 'trong' ? 'Trống' : 'Mực'}</span>
+                      {r.is_group ? <span className="font-semibold text-amber-700">Bộ {r.nhom === 'trong' ? 'trống' : 'mực'} màu (C/M/Y)</span> : <span className="font-mono">{r.ma_muc}</span>}
+                      {r.is_group && <div className="text-slate-400 font-mono ml-[52px]">{r.ma_muc}</div>}
+                    </td>
+                    <td className="px-2.5 py-1.5 text-center"><span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${r.loai === 'mau' ? 'bg-amber-50 text-amber-700' : r.loai === 'tong' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{r.loai === 'mau' ? 'Màu' : r.loai === 'tong' ? 'Tổng' : 'BW'}</span></td>
                     <td className="px-2.5 py-1.5 text-right font-mono">{Number(r.counter).toLocaleString('vi-VN')}<div className="text-[10px] text-slate-400 font-sans">kỳ {r.thang_nam}</div></td>
                     <td className="px-2.5 py-1.5 text-right">{Number(r.da_in).toLocaleString('vi-VN')} / {Number(r.dinh_luong).toLocaleString('vi-VN')}<div className="text-[10px] text-slate-400">hộp thứ {r.so_hop + 1}</div></td>
                     <td className="px-2.5 py-1.5 text-right font-bold text-red-600">{Number(r.con_lai).toLocaleString('vi-VN')}</td>
@@ -176,7 +180,7 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
   const allTabs: [typeof sub, string, boolean][] = [
     ['danh_sach', 'Danh sách máy', canS('don_gia') || canS('khung')],
     ['counter', 'Nhập counter', canS('counter') || canS('bang_ke')],
-    ['canh_bao_muc', 'Cảnh báo mực', canS('canh_bao_muc')],
+    ['canh_bao_muc', 'Cảnh báo vật tư', canS('canh_bao_muc')],
   ]
   // Badge số máy sắp hết mực (cho tab)
   useEffect(() => { fetch('/api/admin/muc-sap-het').then(r => r.ok ? r.json() : { count: 0 }).then(j => setMucCount(j.count || 0)).catch(() => {}) }, [badgeVer])

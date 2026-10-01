@@ -1477,7 +1477,7 @@ export default function AdminDashboard() {
       ),
     },
     {
-      key: 'muc_sap_het', icon: Droplets, tone: 'amber', label: 'Máy thuê sắp hết mực', count: mucSapHet.length,
+      key: 'muc_sap_het', icon: Droplets, tone: 'amber', label: 'Máy thuê sắp cần thay vật tư', count: mucSapHet.length,
       detail: (
         <div className="border border-amber-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
@@ -1486,7 +1486,7 @@ export default function AdminDashboard() {
               {mucSapHet.map((m: any, i: number) => (
                 <tr key={i}>
                   <td className="px-2.5 py-1.5"><div className="font-medium text-slate-800">{m.ten_khach_hang}</div><div className="text-[10px] text-slate-400 font-mono">{m.ma_may || '—'}</div></td>
-                  <td className="px-2 py-1.5 font-mono text-[11px]">{m.ma_muc}<span className="ml-1 text-[9px] text-slate-400">{m.loai === 'mau' ? 'Màu' : 'BW'}</span></td>
+                  <td className="px-2 py-1.5 text-[11px]"><span className={`text-[9px] font-semibold mr-1 ${m.nhom === 'trong' ? 'text-violet-600' : 'text-sky-600'}`}>{m.nhom === 'trong' ? 'Trống' : 'Mực'}</span><span className="font-mono">{m.is_group ? `Bộ màu (C/M/Y)` : m.ma_muc}</span></td>
                   <td className="px-2 py-1.5 text-right font-semibold text-red-600">{Number(m.con_lai).toLocaleString('vi-VN')}</td>
                 </tr>
               ))}
@@ -4286,23 +4286,29 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
 // 1 dòng mực trong map: hiện KD + nhập ĐỊNH LƯỢNG (trang/hộp) + LOẠI (BW/Màu) cho cảnh báo sắp hết mực.
 function MucRow({ r, inv, kd, busy, onSave, onRemove }: {
   r: any; inv: any; kd: number; busy: boolean
-  onSave: (id: string, dinh_luong: string, loai: string) => void; onRemove: (id: string) => void
+  onSave: (id: string, dinh_luong: string, loai: string, nhom: string) => void; onRemove: (id: string) => void
 }) {
   const [dl, setDl] = useState<string>(r.dinh_luong != null ? String(r.dinh_luong) : '')
   const [loai, setLoai] = useState<string>(r.loai || 'bw')
-  const dirty = (dl !== (r.dinh_luong != null ? String(r.dinh_luong) : '')) || (loai !== (r.loai || 'bw'))
+  const [nhom, setNhom] = useState<string>(r.nhom || 'muc')
+  const dirty = (dl !== (r.dinh_luong != null ? String(r.dinh_luong) : '')) || (loai !== (r.loai || 'bw')) || (nhom !== (r.nhom || 'muc'))
   return (
     <div className={`flex items-center gap-2 flex-wrap rounded-lg border px-2 py-1.5 text-xs ${kd <= 0 ? 'bg-red-50/60 border-red-200' : 'bg-slate-50 border-slate-200'}`}>
       <span className="font-mono font-semibold text-slate-700">{r.ma_hang}</span>
       <span className="text-slate-400" title={inv?.ten_hang}>· KD {kd}</span>
       <span className="ml-auto flex items-center gap-1.5">
+        <select value={nhom} onChange={(e) => setNhom(e.target.value)} title="Nhóm vật tư" className="h-7 rounded-md border border-slate-200 bg-white px-1.5 text-xs">
+          <option value="muc">Mực</option>
+          <option value="trong">Trống</option>
+        </select>
         <Input value={dl ? Number(dl).toLocaleString('vi-VN') : ''} onChange={(e) => setDl(e.target.value.replace(/\D/g, ''))} placeholder="Định lượng" title="Số trang/hộp (nhà SX)" className="h-7 w-24 text-right bg-white" inputMode="numeric" />
-        <select value={loai} onChange={(e) => setLoai(e.target.value)} className="h-7 rounded-md border border-slate-200 bg-white px-1.5 text-xs">
+        <select value={loai} onChange={(e) => setLoai(e.target.value)} title="Counter tính theo" className="h-7 rounded-md border border-slate-200 bg-white px-1.5 text-xs">
           <option value="bw">BW</option>
           <option value="mau">Màu</option>
+          <option value="tong">Tổng</option>
         </select>
-        {dirty && <button type="button" disabled={busy} onClick={() => onSave(r.id, dl, loai)} className="h-7 px-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold">Lưu</button>}
-        <button type="button" disabled={busy} onClick={() => onRemove(r.id)} className="hover:bg-red-100 rounded p-1 text-slate-400 hover:text-red-600" title="Bỏ mực"><X className="w-3.5 h-3.5" /></button>
+        {dirty && <button type="button" disabled={busy} onClick={() => onSave(r.id, dl, loai, nhom)} className="h-7 px-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold">Lưu</button>}
+        <button type="button" disabled={busy} onClick={() => onRemove(r.id)} className="hover:bg-red-100 rounded p-1 text-slate-400 hover:text-red-600" title="Bỏ vật tư"><X className="w-3.5 h-3.5" /></button>
       </span>
     </div>
   )
@@ -4345,11 +4351,11 @@ function MucMayThueTool({ customers, inventory, committed, mucMap, onUpdate, sho
       if (res.ok) { onUpdate() } else showNotification('error', 'Không xóa được')
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setBusy(false) }
   }
-  const saveYield = async (id: string, dinh_luong: string, loai: string) => {
+  const saveYield = async (id: string, dinh_luong: string, loai: string, nhom: string) => {
     setBusy(true)
     try {
-      const res = await fetch('/api/admin/muc-may-thue', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, dinh_luong, loai }) })
-      if (res.ok) { showNotification('success', 'Đã lưu định lượng mực.'); onUpdate() } else { const j = await res.json(); showNotification('error', j.error || 'Lỗi lưu') }
+      const res = await fetch('/api/admin/muc-may-thue', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, dinh_luong, loai, nhom }) })
+      if (res.ok) { showNotification('success', 'Đã lưu định lượng vật tư.'); onUpdate() } else { const j = await res.json(); showNotification('error', j.error || 'Lỗi lưu') }
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setBusy(false) }
   }
 
@@ -4357,8 +4363,8 @@ function MucMayThueTool({ customers, inventory, committed, mucMap, onUpdate, sho
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-4">
       <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2"><Droplets className="w-4 h-4 text-red-500" /> Mực dự phòng máy thuê</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Gán mã mực cho từng model + <b>định lượng</b> (trang/hộp) &amp; <b>loại BW/Màu</b> để cảnh báo sắp hết mực. Khả dụng ≤ 0 → chuông cảnh báo tồn.</p>
+          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2"><Droplets className="w-4 h-4 text-red-500" /> Vật tư tiêu hao máy thuê</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Gán mã vật tư (<b>Mực</b>/<b>Trống</b>) cho từng model + <b>định lượng</b> (trang/hộp) &amp; <b>counter theo</b> (BW/Màu/Tổng) để cảnh báo sắp cần thay. Khả dụng ≤ 0 → chuông cảnh báo tồn. <i>Trống đen máy màu → Tổng; trống màu → Màu; máy đen trắng → BW.</i></p>
         </div>
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
