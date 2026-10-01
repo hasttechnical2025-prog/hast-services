@@ -4288,7 +4288,7 @@ function MucRow({ r, inv, kd, busy, onSave, onRemove }: {
       <span className="font-mono font-semibold text-slate-700">{r.ma_hang}</span>
       <span className="text-slate-400" title={inv?.ten_hang}>· KD {kd}</span>
       <span className="ml-auto flex items-center gap-1.5">
-        <Input value={dl} onChange={(e) => setDl(e.target.value.replace(/\D/g, ''))} placeholder="Định lượng" title="Số trang/hộp (nhà SX)" className="h-7 w-24 text-right bg-white" inputMode="numeric" />
+        <Input value={dl ? Number(dl).toLocaleString('vi-VN') : ''} onChange={(e) => setDl(e.target.value.replace(/\D/g, ''))} placeholder="Định lượng" title="Số trang/hộp (nhà SX)" className="h-7 w-24 text-right bg-white" inputMode="numeric" />
         <select value={loai} onChange={(e) => setLoai(e.target.value)} className="h-7 rounded-md border border-slate-200 bg-white px-1.5 text-xs">
           <option value="bw">BW</option>
           <option value="mau">Màu</option>
