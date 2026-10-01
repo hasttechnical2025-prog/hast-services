@@ -59,15 +59,15 @@ export async function GET() {
     const cutoff = new Date(Date.now() - 400 * 86400000).toISOString().slice(0, 10)
     const giaoMuc = await selectAll<any>((from, to) => supabaseAdmin
       .from('soct_cong_viec')
-      .select('ma_may, ngay, loai_cong_viec, soct_chi_tiet_vat_tu(ma_hang)')
+      .select('ma_may, ngay, report, loai_cong_viec, soct_chi_tiet_vat_tu(ma_hang,so_luong)')
       .in('loai_cong_viec', ['Giao mực', 'Thay vật tư']).gte('ngay', cutoff).range(from, to))
-    // ma_may -> [{ ma_hang, ngay, loai_cv, so_luong }]
-    const giaoByMay = new Map<string, { ma_hang: string; ngay: string; loai_cv: string; so_luong: number }[]>()
+    // ma_may -> [{ ma_hang, ngay, loai_cv, so_luong, so_phieu }]
+    const giaoByMay = new Map<string, { ma_hang: string; ngay: string; loai_cv: string; so_luong: number; so_phieu: string }[]>()
     for (const p of giaoMuc || []) {
       const mm = String(p.ma_may || '').trim()
       if (!mm) continue
       if (!giaoByMay.has(mm)) giaoByMay.set(mm, [])
-      for (const v of (p.soct_chi_tiet_vat_tu || [])) giaoByMay.get(mm)!.push({ ma_hang: String(v.ma_hang || '').trim(), ngay: String(p.ngay || ''), loai_cv: String(p.loai_cong_viec || ''), so_luong: Math.max(1, Number(v.so_luong) || 1) })
+      for (const v of (p.soct_chi_tiet_vat_tu || [])) giaoByMay.get(mm)!.push({ ma_hang: String(v.ma_hang || '').trim(), ngay: String(p.ngay || ''), loai_cv: String(p.loai_cong_viec || ''), so_luong: Math.max(1, Number(v.so_luong) || 1), so_phieu: String(p.report || '') })
     }
 
     // counter theo loại: mau->so_mau, tong->so_bw+so_mau, bw->so_bw. Dùng chung cho mọi máy.
@@ -110,10 +110,14 @@ export async function GET() {
           return soHop <= phuDenHop
         })
         if (covered) continue
+        // Phiếu giao/thay gần nhất của mã này (để office đối chiếu) — kể cả khi chưa đủ phủ.
+        const matched = giaoList.filter(g => g.ma_hang === mc.ma_hang && g.loai_cv === need).sort((a, b) => String(b.ngay).localeCompare(String(a.ngay)))
+        const gn = matched[0]
         alerts.push({
           ma_may: may.ma_may, ten_khach_hang: may.ten_khach_hang, model: may.model,
           ma_muc: mc.ma_hang, loai: mc.loai, nhom: mc.nhom || 'muc', dinh_luong: Y,
           counter: C, da_in: daIn, con_lai: conLai, so_hop: soHop, thang_nam: latest.thang_nam,
+          giao_gan_nhat: gn ? { so_phieu: gn.so_phieu, ngay: gn.ngay, so_luong: gn.so_luong } : null,
         })
       }
     }
