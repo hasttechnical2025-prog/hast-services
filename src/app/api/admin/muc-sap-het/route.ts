@@ -61,14 +61,19 @@ export async function GET() {
       .from('soct_cong_viec')
       .select('ma_may, ngay, loai_cong_viec, soct_chi_tiet_vat_tu(ma_hang)')
       .in('loai_cong_viec', ['Giao mực', 'Thay vật tư']).gte('ngay', cutoff).range(from, to))
-    // ma_may -> [{ ma_hang, ngay, loai_cv }]
-    const giaoByMay = new Map<string, { ma_hang: string; ngay: string; loai_cv: string }[]>()
+    // ma_may -> [{ ma_hang, ngay, loai_cv, so_luong }]
+    const giaoByMay = new Map<string, { ma_hang: string; ngay: string; loai_cv: string; so_luong: number }[]>()
     for (const p of giaoMuc || []) {
       const mm = String(p.ma_may || '').trim()
       if (!mm) continue
       if (!giaoByMay.has(mm)) giaoByMay.set(mm, [])
-      for (const v of (p.soct_chi_tiet_vat_tu || [])) giaoByMay.get(mm)!.push({ ma_hang: String(v.ma_hang || '').trim(), ngay: String(p.ngay || ''), loai_cv: String(p.loai_cong_viec || '') })
+      for (const v of (p.soct_chi_tiet_vat_tu || [])) giaoByMay.get(mm)!.push({ ma_hang: String(v.ma_hang || '').trim(), ngay: String(p.ngay || ''), loai_cv: String(p.loai_cong_viec || ''), so_luong: Math.max(1, Number(v.so_luong) || 1) })
     }
+
+    // counter theo loại: mau->so_mau, tong->so_bw+so_mau, bw->so_bw. Dùng chung cho mọi máy.
+    const counterOf = (h: any, loai: string) => loai === 'mau' ? Number(h.so_mau) : loai === 'tong' ? (Number(h.so_bw) || 0) + (Number(h.so_mau) || 0) : Number(h.so_bw)
+    // counter tại (hoặc gần nhất TRƯỚC) tháng giao mực -> suy "hộp lúc giao".
+    const counterAtMonth = (h: any[], month: string, loai: string) => { let best: any = null; for (const r of h) { if (String(r.thang_nam) <= month) best = r; else break } return best ? counterOf(best, loai) : NaN }
 
     const alerts: any[] = []
     for (const may of mays || []) {
@@ -77,8 +82,7 @@ export async function GET() {
       const hist = histByMay.get(may.id) || []
       if (!hist.length) continue
       const latest = hist[hist.length - 1]
-      // counter theo loại: mau->so_mau, tong->so_bw+so_mau, bw (mặc định)->so_bw
-      const counterOf = (h: any, loai: string) => loai === 'mau' ? Number(h.so_mau) : loai === 'tong' ? (Number(h.so_bw) || 0) + (Number(h.so_mau) || 0) : Number(h.so_bw)
+      const prev = hist.length >= 2 ? hist[hist.length - 2] : null
       for (const mc of mapped) {
         const Y = Number(mc.dinh_luong) || 0
         if (Y <= 0) continue
@@ -87,18 +91,25 @@ export async function GET() {
         const soHop = Math.floor(C / Y)
         const daIn = C % Y
         const conLai = Y - daIn
-        if (conLai > nguong) continue
+        // (b) NGƯỠNG ĐỘNG: cảnh báo khi còn ≤ max(ngưỡng cố định, mức in ~1 tháng gần nhất)
+        // -> máy in nhiều luôn được báo trước ~1 tháng, bù độ phân giải counter theo tháng.
+        const mucInThang = prev ? Math.max(0, C - counterOf(prev, mc.loai)) : 0
+        const nguongHieuLuc = Math.max(nguong, mucInThang)
+        if (conLai > nguongHieuLuc) continue
         // Tắt theo ack
         if (ackSet.has(`${may.ma_may}|${mc.ma_hang}|${soHop}`)) continue
-        // Tắt theo phiếu Giao mực / Thay vật tư trong chu kỳ hiện tại
-        const cycleStartVal = soHop * Y
-        let cycleStartMonth = ''
-        for (const h of hist) { const v = counterOf(h, mc.loai); if (Number.isFinite(v) && v >= cycleStartVal) { cycleStartMonth = String(h.thang_nam); break } }
-        const cycleStartDate = cycleStartMonth ? `${cycleStartMonth}-01` : ''
+        // (a) Tắt theo phiếu Giao mực/Thay vật tư + NỚI theo SỐ LƯỢNG: giao N hộp phủ N chu kỳ hộp.
         const giaoList = giaoByMay.get(String(may.ma_may || '').trim()) || []
-        const loaiCanThiet = (mc.nhom === 'trong') ? 'Thay vật tư' : 'Giao mực' // mực: chỉ Giao mực; trống: chỉ Thay vật tư
-        const daGiao = giaoList.some(g => g.ma_hang === mc.ma_hang && g.loai_cv === loaiCanThiet && (!cycleStartDate || g.ngay >= cycleStartDate))
-        if (daGiao) continue
+        const need = (mc.nhom === 'trong') ? 'Thay vật tư' : 'Giao mực' // mực: chỉ Giao mực; trống: chỉ Thay vật tư
+        const covered = giaoList.some(g => {
+          if (g.ma_hang !== mc.ma_hang || g.loai_cv !== need) return false
+          const cAtGiao = counterAtMonth(hist, String(g.ngay).slice(0, 7), mc.loai)
+          if (!Number.isFinite(cAtGiao)) return false
+          const hopLucGiao = Math.floor(cAtGiao / Y)
+          const phuDenHop = hopLucGiao + (g.so_luong - 1) // N hộp -> phủ thêm (N-1) chu kỳ
+          return soHop <= phuDenHop
+        })
+        if (covered) continue
         alerts.push({
           ma_may: may.ma_may, ten_khach_hang: may.ten_khach_hang, model: may.model,
           ma_muc: mc.ma_hang, loai: mc.loai, nhom: mc.nhom || 'muc', dinh_luong: Y,
