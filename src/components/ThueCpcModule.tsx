@@ -17,13 +17,16 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
   const [rows, setRows] = useState<any[]>([])
   const [nguong, setNguong] = useState(2000)
   const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState('')
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState('')
   const load = useCallback(() => {
-    setLoading(true)
-    fetch('/api/admin/muc-sap-het').then(r => r.ok ? r.json() : { data: [] }).then(j => {
+    setLoading(true); setErr('')
+    fetch('/api/admin/muc-sap-het').then(async r => {
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) { setErr(j.error || `Lỗi tải (${r.status})`); setRows([]); onCount?.(0); return }
       setRows(j.data || []); if (j.nguong) setNguong(j.nguong); onCount?.(j.count || 0)
-    }).catch(() => {}).finally(() => setLoading(false))
+    }).catch(() => setErr('Lỗi kết nối')).finally(() => setLoading(false))
   }, [onCount])
   useEffect(() => { load() }, [load, refreshVer]) // refreshVer tăng khi có thay đổi counter (realtime) -> tự nạp lại
   const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -56,6 +59,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải…</td></tr>
+              : err ? <tr><td colSpan={7} className="px-4 py-8 text-center text-rose-600">⚠ {err} — bấm Làm mới để thử lại.</td></tr>
               : list.length === 0 ? <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Không có máy nào sắp cần thay vật tư. 🎉</td></tr>
                 : list.map((r, i) => (
                   <tr key={i} className="hover:bg-slate-50">
