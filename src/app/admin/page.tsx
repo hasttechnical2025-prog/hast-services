@@ -4283,7 +4283,7 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
 
 // Panel quản lý map "model máy thuê → mã mực" (chỉ admin). Liệt kê các model máy đang thuê/CPC,
 // mỗi model gắn nhiều mã mực (chọn từ kho). Chỉ mã nằm ở đây mới được cảnh báo tồn ở chuông.
-// 1 dòng mực trong map: hiện KD + nhập ĐỊNH LƯỢNG (trang/hộp) + LOẠI (BW/Màu) cho cảnh báo sắp hết mực.
+// 1 dòng vật tư trong map: hiện "Có sẵn" (khả dụng kho) + Nhóm + ĐỊNH LƯỢNG + counter theo (BW/Màu/Tổng).
 function MucRow({ r, inv, kd, busy, onSave, onRemove }: {
   r: any; inv: any; kd: number; busy: boolean
   onSave: (id: string, dinh_luong: string, loai: string, nhom: string) => void; onRemove: (id: string) => void
@@ -4701,7 +4701,7 @@ function MaterialCombobox({ inventory, value, onChange, committed }: { inventory
                 <div className="text-slate-500 text-xs truncate">{item.ten_hang}</div>
               </div>
               {committed
-                ? <span className={`text-xs shrink-0 text-right leading-tight ${kd <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>KD: {kd}{giu > 0 && <span className="block text-[10px] text-amber-600">Tồn {item.ton_kho} · giữ {giu}</span>}</span>
+                ? <span className={`text-xs shrink-0 text-right leading-tight ${kd <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>Có sẵn: {kd}{giu > 0 && <span className="block text-[10px] text-amber-600">Tồn {item.ton_kho} · giữ {giu}</span>}</span>
                 : <span className={`text-xs shrink-0 ${item.ton_kho <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>Tồn: {item.ton_kho}</span>}
             </button>
             )
@@ -6413,7 +6413,7 @@ function DatHangTool({
                     title="Bấm để sắp xếp theo Tồn kho / Khả dụng"
                   >
                     <div className="inline-flex items-center justify-center gap-1">
-                      <span>Tồn / KD</span>
+                      <span>Tồn / Có sẵn</span>
                       {leftSortField === 'ton_kho' && (
                         leftSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
                       )}
@@ -6471,7 +6471,7 @@ function DatHangTool({
                           return (
                             <td className={`px-3 py-2.5 text-center font-bold leading-tight ${isOut ? 'bg-red-50/50' : ''}`} title={giu > 0 ? `Tồn ${item.ton_kho}, đang giữ ${giu} ở phiếu chưa hoàn thành` : undefined}>
                               <span className={isOut ? 'text-red-500' : 'text-slate-600'}>{item.ton_kho}</span>
-                              {giu > 0 && <span className={`block text-[10px] font-semibold ${kd <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>KD {kd}</span>}
+                              {giu > 0 && <span className={`block text-[10px] font-semibold ${kd <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>Có sẵn {kd}</span>}
                             </td>
                           )
                         })()}
