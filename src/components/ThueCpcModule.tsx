@@ -42,11 +42,11 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
   }
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <p className="text-xs text-slate-500 leading-relaxed max-w-2xl">Ước lượng theo <b>counter ÷ định lượng vật tư</b> (còn ≤ <b>{nguong.toLocaleString('vi-VN')}</b> trang thì cảnh báo) — gồm <b>Mực</b> &amp; <b>Trống</b>. Office chủ động liên hệ khách kiểm tra; bấm <b>Đã gửi</b> để tắt (hoặc tự tắt khi có phiếu <b>Giao mực/Thay vật tư</b> cho máy). Chỉ là ước lượng.</p>
+      <div className="space-y-2">
+        <p className="text-xs text-slate-500 leading-relaxed">Ước lượng theo <b>counter ÷ định lượng vật tư</b> (còn ≤ <b>{nguong.toLocaleString('vi-VN')}</b> trang thì cảnh báo) — gồm <b>Mực</b> &amp; <b>Trống</b>. Office chủ động liên hệ khách kiểm tra; bấm <b>Đã gửi</b> để tắt (hoặc tự tắt khi có phiếu <b>Giao mực/Thay vật tư</b> cho máy). Chỉ là ước lượng.</p>
         <div className="flex items-center gap-2">
-          <div className="relative"><Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" /><Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm khách / máy / mực…" className="h-9 pl-9 bg-white w-56" /></div>
-          <Button variant="outline" onClick={load} className="h-9 w-9 p-0" title="Làm mới"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /></Button>
+          <div className="relative flex-1 max-w-xs"><Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" /><Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm khách / máy / mực…" className="h-9 pl-9 bg-white w-full" /></div>
+          <Button variant="outline" onClick={load} className="h-9 w-9 p-0 shrink-0" title="Làm mới"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /></Button>
         </div>
       </div>
       <div className="border border-slate-200 rounded-lg overflow-hidden">
