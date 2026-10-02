@@ -58,7 +58,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
       <div className="border border-slate-200 rounded-lg overflow-hidden">
         <table className="w-full text-left text-xs text-slate-600">
           <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase border-b border-slate-200">
-            <tr><th className="px-2.5 py-2">Khách / máy</th><th className="px-2.5 py-2">Mực</th><th className="px-2.5 py-2 text-center">Loại</th><th className="px-2.5 py-2 text-right">Counter</th><th className="px-2.5 py-2 text-right">Đã in / Định lượng</th><th className="px-2.5 py-2 text-right">Còn lại</th><th className="px-2.5 py-2">Giao gần nhất</th><th className="px-2.5 py-2 text-center">Thao tác</th></tr>
+            <tr><th className="px-2.5 py-2">Khách / máy</th><th className="px-2.5 py-2">Mực</th><th className="px-2.5 py-2 text-center">Loại</th><th className="px-2.5 py-2 text-right">Counter hôm nay</th><th className="px-2.5 py-2 text-right">Đã in / Định lượng</th><th className="px-2.5 py-2 text-right">Còn lại</th><th className="px-2.5 py-2">Giao gần nhất</th><th className="px-2.5 py-2 text-center">Thao tác</th></tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải…</td></tr>
