@@ -20,14 +20,15 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
   const [err, setErr] = useState('')
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState('')
+  const [xemTatCa, setXemTatCa] = useState(false) // tra cứu MỌI máy (kể cả chưa cảnh báo)
   const load = useCallback(() => {
     setLoading(true); setErr('')
-    fetch('/api/admin/muc-sap-het').then(async r => {
+    fetch('/api/admin/muc-sap-het' + (xemTatCa ? '?all=1' : '')).then(async r => {
       const j = await r.json().catch(() => ({}))
       if (!r.ok) { setErr(j.error || `Lỗi tải (${r.status})`); setRows([]); onCount?.(0); return }
       setRows(j.data || []); if (j.nguong) setNguong(j.nguong); onCount?.(j.count || 0)
     }).catch(() => setErr('Lỗi kết nối')).finally(() => setLoading(false))
-  }, [onCount])
+  }, [onCount, xemTatCa])
   useEffect(() => { load() }, [load, refreshVer]) // refreshVer tăng khi có thay đổi counter (realtime) -> tự nạp lại
   const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
   const fmtDMY = (s: any) => { const p = String(s || '').slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : '' }
@@ -50,6 +51,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
         <p className="text-xs text-slate-500 leading-relaxed">Ước lượng theo <b>counter DỰ ĐOÁN hôm nay</b> (= counter chốt + mức in/ngày × số ngày đã qua) ÷ định lượng — cảnh báo khi còn <b>≤ {nguong.toLocaleString('vi-VN')}</b> trang <b>hoặc ≤ ~1 tháng in</b>, gồm <b>Mực</b> &amp; <b>Trống</b>. Tự tắt khi <b>còn hộp dự phòng</b> (1 hộp theo máy + đã giao − đã mở) hoặc bấm <b>Đã gửi</b>. Chỉ là ước lượng.</p>
         <div className="flex items-center gap-2">
           <div className="relative flex-1 max-w-xs"><Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" /><Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm khách / máy / mực…" className="h-9 pl-9 bg-white w-full" /></div>
+          <label className="inline-flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none whitespace-nowrap"><input type="checkbox" checked={xemTatCa} onChange={e => setXemTatCa(e.target.checked)} className="w-4 h-4 accent-blue-600" /> Xem tất cả máy</label>
           <Button variant="outline" onClick={load} className="h-9 w-9 p-0 shrink-0" title="Làm mới"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /></Button>
         </div>
       </div>
@@ -61,7 +63,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
           <tbody className="divide-y divide-slate-100">
             {loading ? <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải…</td></tr>
               : err ? <tr><td colSpan={8} className="px-4 py-8 text-center text-rose-600">⚠ {err} — bấm Làm mới để thử lại.</td></tr>
-              : list.length === 0 ? <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">Không có máy nào sắp cần thay vật tư. 🎉</td></tr>
+              : list.length === 0 ? <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">{xemTatCa ? 'Không có máy khớp tìm kiếm.' : 'Không có máy nào sắp cần thay vật tư. 🎉'}</td></tr>
                 : list.map((r, i) => (
                   <tr key={i} className="hover:bg-slate-50">
                     <td className="px-2.5 py-1.5"><div className="font-medium text-slate-800">{r.ten_khach_hang}</div><div className="text-[10px] text-slate-400 font-mono">{r.ma_may || '—'}{r.model ? ` · ${r.model}` : ''}</div></td>
@@ -73,9 +75,15 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
                     <td className="px-2.5 py-1.5 text-center"><span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${r.loai === 'mau' ? 'bg-amber-50 text-amber-700' : r.loai === 'tong' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{r.loai === 'mau' ? 'Màu' : r.loai === 'tong' ? 'Tổng' : 'BW'}</span></td>
                     <td className="px-2.5 py-1.5 text-right font-mono">{Number(r.counter).toLocaleString('vi-VN')} <span className="text-[9px] font-sans text-blue-500">dự đoán</span><div className="text-[10px] text-slate-400 font-sans">chốt {Number(r.counter_chot ?? r.counter).toLocaleString('vi-VN')} · kỳ {r.thang_nam}{r.days_since ? ` · +${r.days_since}ng × ${Number(r.muc_in_ngay || 0).toLocaleString('vi-VN')}/ng` : ''}</div></td>
                     <td className="px-2.5 py-1.5 text-right">{Number(r.da_in).toLocaleString('vi-VN')} / {Number(r.dinh_luong).toLocaleString('vi-VN')}<div className="text-[10px] text-slate-400">hộp thứ {r.so_hop + 1}</div></td>
-                    <td className="px-2.5 py-1.5 text-right font-bold text-red-600">{Number(r.con_lai).toLocaleString('vi-VN')}</td>
+                    <td className={`px-2.5 py-1.5 text-right font-bold ${r.trang_thai && r.trang_thai !== 'canh_bao' ? 'text-slate-600' : 'text-red-600'}`}>{Number(r.con_lai).toLocaleString('vi-VN')}</td>
                     <td className="px-2.5 py-1.5 text-[11px]">{r.giao_gan_nhat ? <span><span className="font-mono text-slate-700">{r.giao_gan_nhat.so_phieu || '—'}</span> <span className="text-slate-400">×{r.giao_gan_nhat.so_luong}</span><div className="text-slate-400">{fmtDMY(r.giao_gan_nhat.ngay)}</div></span> : <span className="text-slate-300">Chưa có</span>}</td>
-                    <td className="px-2.5 py-1.5 text-center"><button onClick={() => daGui(r)} disabled={busy === `${r.ma_may}|${r.ma_muc}|${r.so_hop}`} className="h-8 px-3 rounded-md text-xs font-semibold border border-emerald-300 text-white bg-emerald-600 hover:bg-emerald-700 inline-flex items-center gap-1.5 disabled:opacity-50"><Check className="w-3.5 h-3.5" /> Đã gửi mực</button></td>
+                    <td className="px-2.5 py-1.5 text-center">
+                      {(!r.trang_thai || r.trang_thai === 'canh_bao')
+                        ? <button onClick={() => daGui(r)} disabled={busy === `${r.ma_may}|${r.ma_muc}|${r.so_hop}`} className="h-8 px-3 rounded-md text-xs font-semibold border border-emerald-300 text-white bg-emerald-600 hover:bg-emerald-700 inline-flex items-center gap-1.5 disabled:opacity-50"><Check className="w-3.5 h-3.5" /> Đã gửi mực</button>
+                        : r.trang_thai === 'du_phong' ? <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">Còn dự phòng{r.du_phong > 0 ? ` (${r.du_phong})` : ''}</span>
+                        : r.trang_thai === 'da_gui' ? <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-500">Đã gửi</span>
+                        : <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-sky-50 text-sky-600">Còn nhiều</span>}
+                    </td>
                   </tr>
                 ))}
           </tbody>

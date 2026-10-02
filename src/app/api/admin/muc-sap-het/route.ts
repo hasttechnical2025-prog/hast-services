@@ -14,10 +14,11 @@ export const runtime = 'nodejs'
 const LOAI_HD_BILLING = ['Máy thuê', 'Máy CPC']
 const normModel = (s: any) => String(s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await requireRole('admin', 'tech_admin', 'staff')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
+    const showAll = new URL(request.url).searchParams.get('all') === '1' // tra cứu MỌI máy (kể cả chưa cảnh báo)
     const cfg = await getCauHinh()
     const nguong = parseInt(cfg.muc_canh_bao_con_trang || '2000') || 2000
 
@@ -104,9 +105,6 @@ export async function GET() {
         const conLai = Y - daIn
         // (b) NGƯỠNG ĐỘNG: cảnh báo khi còn ≤ max(ngưỡng cố định, mức in ~1 tháng gần nhất).
         const nguongHieuLuc = Math.max(nguong, mucInThang)
-        if (conLai > nguongHieuLuc) continue
-        // Tắt theo ack
-        if (ackSet.has(`${may.ma_may}|${mc.ma_hang}|${soHop}`)) continue
         // (a) CÂN ĐỐI TỒN HỘP: máy lắp sẵn 1 hộp (factory) + TỔNG số hộp đã giao/thay theo phiếu
         //     so với số hộp đã "mở" (soHop + 1, tính cả hộp đang dùng). Còn ≥ 1 hộp dự phòng -> KHÔNG nhắc.
         const giaoList = giaoByMay.get(String(may.ma_may || '').trim()) || []
@@ -114,7 +112,10 @@ export async function GET() {
         const matched = giaoList.filter(g => g.ma_hang === mc.ma_hang && g.loai_cv === need)
         const tongGiao = matched.reduce((s, g) => s + g.so_luong, 0)
         const duPhong = (1 + tongGiao) - (soHop + 1) // 1 = hộp theo máy lúc lắp (factory)
-        if (duPhong >= 1) continue // còn hộp dự phòng chưa mở -> office khỏi liên hệ
+        const isAck = ackSet.has(`${may.ma_may}|${mc.ma_hang}|${soHop}`)
+        // Trạng thái: da_gui (office đã bấm) > du_phong (còn hộp) > canh_bao (cần liên hệ) > on (còn nhiều)
+        const trang_thai = isAck ? 'da_gui' : duPhong >= 1 ? 'du_phong' : conLai <= nguongHieuLuc ? 'canh_bao' : 'on'
+        if (!showAll && trang_thai !== 'canh_bao') continue // mặc định chỉ trả máy cần cảnh báo
         // Phiếu giao/thay gần nhất của mã này (để office đối chiếu).
         const gn = matched.slice().sort((a, b) => String(b.ngay).localeCompare(String(a.ngay)))[0]
         alerts.push({
@@ -122,7 +123,7 @@ export async function GET() {
           ma_muc: mc.ma_hang, loai: mc.loai, nhom: mc.nhom || 'muc', dinh_luong: Y,
           counter: C, counter_chot: Cchot, muc_in_ngay: Math.round(mucInNgay), days_since: daysSince,
           da_in: daIn, con_lai: conLai, so_hop: soHop, thang_nam: latest.thang_nam,
-          du_phong: duPhong,
+          du_phong: duPhong, trang_thai,
           giao_gan_nhat: gn ? { so_phieu: gn.so_phieu, ngay: gn.ngay, so_luong: gn.so_luong } : null,
         })
       }
@@ -143,7 +144,8 @@ export async function GET() {
       out.push({ ...rep, is_group: true, ma_muc: codes.join(', '), ma_muc_list: codes, con_lai: Math.min(...arr.map(x => x.con_lai)) })
     }
     out.sort((a, b) => a.con_lai - b.con_lai)
-    return NextResponse.json({ data: out, count: out.length, nguong })
+    const count = out.filter((x: any) => x.trang_thai === 'canh_bao').length
+    return NextResponse.json({ data: out, count, nguong })
   } catch (error: any) {
     console.error('Error GET muc-sap-het:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
