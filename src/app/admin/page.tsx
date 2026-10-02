@@ -5397,6 +5397,53 @@ function NhapHangThangTool({
   const [extraRows, setExtraRows] = useState<any[]>([])
   const [findKw, setFindKw] = useState("")
   const [finding, setFinding] = useState(false)
+  // Gợi ý tức thì khi gõ: để biết mã có trong kho không + tên hàng (phòng nhớ nhầm mã).
+  const [sug, setSug] = useState<any[]>([])
+  const [showSug, setShowSug] = useState(false)
+  const [sugLoading, setSugLoading] = useState(false)
+  const sugToken = useRef(0)
+  const addWrapRef = useRef<HTMLDivElement>(null)
+  const sugBoxRef = useRef<HTMLDivElement>(null)
+  const [sugRect, setSugRect] = useState<{ left: number; top: number; width: number } | null>(null)
+
+  // Debounce tra kho khi gõ (>=2 ký tự). Hủy kết quả cũ bằng token.
+  useEffect(() => {
+    const kw = findKw.trim()
+    if (kw.length < 2) { setSug([]); setSugLoading(false); return }
+    const t = ++sugToken.current
+    setSugLoading(true); setShowSug(true)
+    const id = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/admin/canh-bao-ton?find=' + encodeURIComponent(kw))
+        const j = await res.json()
+        if (t !== sugToken.current) return
+        setSug(res.ok ? (j.items || []).slice(0, 40) : [])
+      } catch { if (t === sugToken.current) setSug([]) }
+      finally { if (t === sugToken.current) setSugLoading(false) }
+    }, 250)
+    return () => clearTimeout(id)
+  }, [findKw])
+
+  // Bám vị trí ô input (position:fixed) để dropdown không bị cắt bởi overflow bảng/thẻ.
+  useEffect(() => {
+    if (!showSug) return
+    const upd = () => { const el = addWrapRef.current; if (el) { const r = el.getBoundingClientRect(); setSugRect({ left: r.left, top: r.bottom + 4, width: r.width }) } }
+    upd()
+    window.addEventListener('scroll', upd, true); window.addEventListener('resize', upd)
+    const onDoc = (e: MouseEvent) => {
+      if (addWrapRef.current?.contains(e.target as Node)) return
+      if (sugBoxRef.current?.contains(e.target as Node)) return
+      setShowSug(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => { window.removeEventListener('scroll', upd, true); window.removeEventListener('resize', upd); document.removeEventListener('mousedown', onDoc) }
+  }, [showSug, sug.length])
+
+  // Thêm 1 mặt hàng từ gợi ý vào danh sách đặt ngưỡng.
+  const addOneRow = (item: any) => {
+    setExtraRows(prev => prev.some((x: any) => x.ma_hang === item.ma_hang) ? prev : [...prev, item])
+    setShowAll(true); setShowSug(false); setFindKw("")
+  }
 
   // Gộp ứng viên từ server + các mặt hàng vừa tra thêm (chưa có trong danh sách).
   const canhBaoMerged = useMemo(() => {
@@ -5419,7 +5466,7 @@ function NhapHangThangTool({
         const seen = new Set(prev.map((x: any) => x.ma_hang))
         return [...prev, ...add.filter((x: any) => !seen.has(x.ma_hang))]
       })
-      setShowAll(true) // để thấy cả mục CHƯA cảnh báo mà đặt ngưỡng
+      setShowAll(true); setShowSug(false) // để thấy cả mục CHƯA cảnh báo mà đặt ngưỡng
       if (items.length === 0) showNotification('error', 'Không tìm thấy mã/tên trong kho.')
       else if (add.length === 0) showNotification('success', 'Các mã khớp đã có trong danh sách.')
       else showNotification('success', `Đã thêm ${add.length} mặt hàng vào danh sách để đặt ngưỡng.`)
@@ -5658,16 +5705,17 @@ function NhapHangThangTool({
         {/* (B) Thêm mặt hàng CŨ (nhập đã lâu, không còn trong 12 tháng) để đặt ngưỡng cảnh báo. */}
         <div className="flex flex-wrap gap-2 items-center bg-slate-50 border border-slate-200 rounded-md px-3 py-2">
           <span className="text-[11px] font-semibold text-slate-600">Thêm mặt hàng cũ:</span>
-          <div className="relative w-64">
+          <div className="relative w-72" ref={addWrapRef}>
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
             <Input
-              placeholder="Mã / tên vật tư cần thêm ngưỡng…"
+              placeholder="Gõ mã / tên vật tư (gợi ý từ toàn kho)…"
               className="pl-8 pr-6 h-9 text-xs bg-white"
               value={findKw}
               onChange={(e) => setFindKw(e.target.value)}
+              onFocus={() => { if (findKw.trim().length >= 2) setShowSug(true) }}
             />
             {findKw && (
-              <button onClick={() => setFindKw("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs" title="Xóa">✕</button>
+              <button onClick={() => { setFindKw(""); setSug([]); setShowSug(false) }} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs" title="Xóa">✕</button>
             )}
           </div>
           <button
@@ -5675,12 +5723,51 @@ function NhapHangThangTool({
             onClick={doFindAll}
             disabled={finding || !findKw.trim()}
             className="text-xs font-semibold px-3 py-2 rounded border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 transition"
-            title="Tra toàn kho (không giới hạn 12 tháng) theo mã/tên và thêm vào danh sách để đặt ngưỡng"
+            title="Thêm TẤT CẢ mặt hàng khớp mã/tên vào danh sách để đặt ngưỡng"
           >
-            {finding ? 'Đang tra…' : 'Tra toàn kho & thêm'}
+            {finding ? 'Đang tra…' : 'Thêm tất cả khớp'}
           </button>
-          <span className="text-[11px] text-slate-400">Tra trong toàn bộ kho — chọn mã cũ, nhập ngưỡng rồi bấm <b>Lưu</b>.</span>
+          <span className="text-[11px] text-slate-400">Gõ để xem gợi ý từ toàn kho → chọn mã, nhập ngưỡng rồi bấm <b>Lưu</b>.</span>
         </div>
+
+        {/* Dropdown gợi ý (position:fixed theo rect ô input, portal ra body để không bị cắt). */}
+        {showSug && sugRect && findKw.trim().length >= 2 && typeof document !== 'undefined' && createPortal(
+          <div
+            ref={sugBoxRef}
+            style={{ position: 'fixed', left: sugRect.left, top: sugRect.top, width: Math.max(sugRect.width, 360), zIndex: 9999 }}
+            className="bg-white border border-slate-200 rounded-lg shadow-xl max-h-80 overflow-y-auto text-xs"
+          >
+            {sugLoading && <div className="px-3 py-2.5 text-slate-400">Đang tra kho…</div>}
+            {!sugLoading && sug.length === 0 && <div className="px-3 py-2.5 text-rose-600">Không có mã/tên nào khớp trong kho.</div>}
+            {!sugLoading && sug.map((it: any) => {
+              const inList = canhBaoMerged.some((x: any) => x.ma_hang === it.ma_hang)
+              const hasNg = it.nguong_dat != null && Number(it.nguong_dat) > 0
+              return (
+                <button
+                  key={it.ma_hang}
+                  type="button"
+                  onClick={() => addOneRow(it)}
+                  className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-slate-100 last:border-b-0 flex items-start gap-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono font-bold text-slate-800">{it.ma_hang}</span>
+                      {hasNg && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">ngưỡng {Number(it.nguong_dat).toLocaleString('vi-VN')}</span>}
+                      {inList && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-semibold">đã trong danh sách</span>}
+                    </div>
+                    <div className="text-slate-600 truncate">{it.ten_hang || <span className="italic text-slate-400">(chưa có tên)</span>}</div>
+                    {(it.model || it.hang) && <div className="text-[11px] text-slate-400 truncate">{[it.hang, it.model].filter(Boolean).join(' · ')}</div>}
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div className="text-[10px] text-slate-400 uppercase">Tồn</div>
+                    <div className={`font-bold ${Number(it.ton_kho) <= 0 ? 'text-rose-600' : 'text-slate-700'}`}>{Number(it.ton_kho || 0).toLocaleString('vi-VN')}</div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>,
+          document.body
+        )}
 
         {dirtyNg.size > 0 && (
           <div className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">
