@@ -1456,8 +1456,10 @@ export default function AdminDashboard() {
     .filter(m => !mappedModelSet.has(normModel(m)))
   const mayChuaViTri = rentalMays.filter(c => !String(c.vi_tri_dat_may || '').trim())
   // Vật tư máy thuê ĐÃ map nhưng CHƯA nhập định lượng -> không cảnh báo sắp hết được. CHỈ admin.
+  // CHỈ xét model CÒN trong danh sách máy thuê hiện tại; model đã rời -> bỏ qua (giữ nguyên dữ liệu gán).
+  const rentalModelSet = new Set(rentalMays.filter(c => c.model && String(c.model).trim()).map(c => normModel(c.model)))
   const vatTuChuaDinhLuong = currentUserRole === 'admin'
-    ? mucMap.filter((r: any) => !r.dinh_luong || Number(r.dinh_luong) <= 0)
+    ? mucMap.filter((r: any) => (!r.dinh_luong || Number(r.dinh_luong) <= 0) && rentalModelSet.has(normModel(r.model_may)))
       .map((r: any) => ({ ...r, ten_hang: inventory.find((i: any) => i.ma_hang === r.ma_hang)?.ten_hang || '' }))
     : []
 
