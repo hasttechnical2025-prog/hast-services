@@ -9081,7 +9081,7 @@ function DoiChieuMinvoiceModal({ onClose, showNotification, isAdmin }: { onClose
   const [busy, setBusy] = useState(false)
   const [res, setRes] = useState<any>(null)
   const [applying, setApplying] = useState('')
-  const apply = async (x: any, field: 'ten' | 'dia_chi' | 'email', value: string) => {
+  const apply = async (x: any, field: 'ten' | 'dia_chi' | 'email' | 'mst', value: string) => {
     setApplying(`${x.key}|${field}`)
     try {
       const r = await fetch('/api/admin/doi-chieu-khach', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: x.source, key: x.key, field, value }) })
@@ -9103,7 +9103,7 @@ function DoiChieuMinvoiceModal({ onClose, showNotification, isAdmin }: { onClose
       })
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setApplying('') }
   }
-  const ApBtn = ({ x, field, value }: { x: any, field: 'ten' | 'dia_chi' | 'email', value: string }) => isAdmin
+  const ApBtn = ({ x, field, value }: { x: any, field: 'ten' | 'dia_chi' | 'email' | 'mst', value: string }) => isAdmin
     ? <button onClick={() => apply(x, field, value)} disabled={applying === `${x.key}|${field}`} className="mt-1 h-6 px-2 rounded text-[10px] font-semibold bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50">{applying === `${x.key}|${field}` ? '...' : 'Áp minVoice'}</button>
     : null
   const stripH = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().trim()
