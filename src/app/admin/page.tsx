@@ -9096,8 +9096,9 @@ function DoiChieuMinvoiceModal({ onClose, showNotification, isAdmin }: { onClose
           if (field === 'ten') { n.ten_app = value; n.ten_lech = false }
           if (field === 'dia_chi') { n.dia_chi_app = value; n.dia_chi_lech = false }
           if (field === 'email') { n.email_app = value; n.email_thieu = [] }
+          if (field === 'mst') { n.mst_app = value; n.mst_lech = false }
           return n
-        }).filter((it: any) => it.ten_lech || it.dia_chi_lech || (it.email_thieu && it.email_thieu.length))
+        }).filter((it: any) => it.ten_lech || it.dia_chi_lech || it.mst_lech || (it.email_thieu && it.email_thieu.length))
         return { ...prev, lech }
       })
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setApplying('') }
@@ -9164,7 +9165,7 @@ function DoiChieuMinvoiceModal({ onClose, showNotification, isAdmin }: { onClose
                       <tbody className="divide-y divide-slate-100">
                         {res.lech.map((x: any, i: number) => (
                           <tr key={i} className="align-top">
-                            <td className="px-2 py-1.5 whitespace-nowrap">{srcBadge(x.source)} <span className="font-mono">{x.mst || '—'}</span></td>
+                            <td className="px-2 py-1.5 whitespace-nowrap">{srcBadge(x.source)} <span className="font-mono">{x.mst || '—'}</span>{x.mst_lech && <div className="text-rose-600 font-mono">app: {x.mst_app || '(trống)'}<ApBtn x={x} field="mst" value={x.mst} /></div>}</td>
                             <td className="px-2 py-1.5">{x.ten_lech ? <div><span className="text-slate-800">{x.ten_mv}</span><div className="text-rose-600">app: {x.ten_app || '(trống)'}</div><ApBtn x={x} field="ten" value={x.ten_mv} /></div> : <span className="text-slate-500">{x.ten_mv}</span>}</td>
                             <td className="px-2 py-1.5">{x.dia_chi_lech ? <div className="text-slate-800">{x.dia_chi_mv || '(trống)'}<div className="text-rose-600">app: {x.dia_chi_app || '(trống)'}</div><ApBtn x={x} field="dia_chi" value={x.dia_chi_mv} /></div> : <span className="text-emerald-600">khớp</span>}</td>
                             <td className="px-2 py-1.5">{x.email_thieu?.length ? <div className="text-rose-600">{x.email_thieu.join(', ')}<ApBtn x={x} field="email" value={x.email_mv} /></div> : <span className="text-emerald-600">đủ</span>}</td>

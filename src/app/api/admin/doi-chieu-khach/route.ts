@@ -10,6 +10,9 @@ export const runtime = 'nodejs'
 // giữ dấu, gộp space), địa chỉ, email (theo tập). minVoice = chuẩn -> báo LỆCH + CHƯA CÓ. Read-only.
 
 const normName = (s: any) => String(s ?? '').normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase()
+// So khớp địa chỉ/tên KHOAN DUNG: chuẩn hóa gạch nối + bỏ dấu câu (. , ; - /) -> coi như space, gộp space.
+// Hết báo "lệch giả" do minVoice có dấu chấm cuối / biến thể gạch nối. Vẫn giữ dấu tiếng Việt.
+const normLoose = (s: any) => normName(s).replace(/[‐-―−]/g, '-').replace(/[.,;/\-]+/g, ' ').replace(/\s+/g, ' ').trim()
 const normMst = (s: any) => String(s ?? '').replace(/\s+/g, '').trim()
 const emailSet = (s: any) => new Set(String(s ?? '').toLowerCase().split(/[;,\s]+/).map(x => x.trim()).filter(x => x.includes('@')))
 
@@ -49,16 +52,17 @@ export async function POST(request: Request) {
       if (!matches.length) { thieu.push({ ten, mst: row.mst || '', dia_chi: row.dia_chi || '', email: row.email || '' }); continue }
       let anyDiff = false
       for (const m of matches) {
-        const tenLech = normName(ten) !== normName(m.ten)
-        const diaChiLech = normName(row.dia_chi) !== normName(m.dia_chi)
+        const tenLech = normLoose(ten) !== normLoose(m.ten)
+        const diaChiLech = normLoose(row.dia_chi) !== normLoose(m.dia_chi)
+        const mstLech = !!mst && normMst(m.mst) !== mst // minVoice có MST mà app khác (thường do khớp theo TÊN)
         const inEmails = emailSet(row.email), appEmails = emailSet(m.email)
         const emailThieu = [...inEmails].filter(e => !appEmails.has(e)) // email minVoice có mà app thiếu
-        if (tenLech || diaChiLech || emailThieu.length) {
+        if (tenLech || diaChiLech || mstLech || emailThieu.length) {
           anyDiff = true
           lech.push({
             source: m.source, ma: m.ma, key: m.key,
             ten_mv: ten, ten_app: m.ten, ten_lech: tenLech,
-            mst,
+            mst, mst_app: m.mst || '', mst_lech: mstLech,
             dia_chi_mv: row.dia_chi || '', dia_chi_app: m.dia_chi, dia_chi_lech: diaChiLech,
             email_mv: row.email || '', email_app: m.email, email_thieu: emailThieu,
           })
@@ -75,8 +79,8 @@ export async function POST(request: Request) {
 
 // PUT: ÁP 1 trường từ minVoice vào bản app (CHỈ admin). { source: 'KT'|'KD', key, field: 'ten'|'dia_chi'|'email', value }
 const COL: Record<string, Record<string, string>> = {
-  KT: { ten: 'ten_khach_hang', dia_chi: 'dia_chi', email: 'email_ke_toan' },
-  KD: { ten: 'ten_khach_hang', dia_chi: 'dia_chi', email: 'email_nhan_hd' },
+  KT: { ten: 'ten_khach_hang', dia_chi: 'dia_chi', email: 'email_ke_toan', mst: 'ma_so_thue' },
+  KD: { ten: 'ten_khach_hang', dia_chi: 'dia_chi', email: 'email_nhan_hd', mst: 'ma_so_thue' },
 }
 export async function PUT(request: Request) {
   try {
@@ -84,7 +88,7 @@ export async function PUT(request: Request) {
     if (!session) return NextResponse.json({ error: 'Chỉ admin được áp thông tin' }, { status: 401 })
     const b = await request.json()
     const source = b.source === 'KT' || b.source === 'KD' ? b.source : ''
-    const field = ['ten', 'dia_chi', 'email'].includes(b.field) ? b.field : ''
+    const field = ['ten', 'dia_chi', 'email', 'mst'].includes(b.field) ? b.field : ''
     const key = String(b.key || '').trim()
     if (!source || !field || !key) return NextResponse.json({ error: 'Thiếu tham số' }, { status: 400 })
     const col = COL[source][field]
