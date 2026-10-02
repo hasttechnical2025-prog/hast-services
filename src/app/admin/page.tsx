@@ -2318,7 +2318,7 @@ export default function AdminDashboard() {
 
               {/* TAB CON: KHÁCH HÀNG CỤM */}
               {effectiveQuanLyTab === "khach_cum" && (
-                <KhachCumTool customers={customers} onUpdateSuccess={fetchData} showNotification={showNotification} />
+                <KhachCumTool customers={customers} onUpdateSuccess={fetchData} showNotification={showNotification} currentUserRole={currentUserRole} />
               )}
 
               {/* TAB CON: BÁO CÁO THÁNG */}
@@ -9075,11 +9075,36 @@ const DANH_MUC_NHOMS = [
 ]
 
 // Đối chiếu danh sách khách CHUẨN từ minVoice (dán từ Excel, kèm tiêu đề) với khách CỤM/KD trong app.
-function DoiChieuMinvoiceModal({ onClose, showNotification }: { onClose: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+function DoiChieuMinvoiceModal({ onClose, showNotification, isAdmin }: { onClose: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, isAdmin: boolean }) {
   const [scope, setScope] = useState<'both' | 'cum' | 'kd'>('both')
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [res, setRes] = useState<any>(null)
+  const [applying, setApplying] = useState('')
+  const apply = async (x: any, field: 'ten' | 'dia_chi' | 'email', value: string) => {
+    setApplying(`${x.key}|${field}`)
+    try {
+      const r = await fetch('/api/admin/doi-chieu-khach', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: x.source, key: x.key, field, value }) })
+      const j = await r.json()
+      if (!r.ok) { showNotification('error', j.error || 'Lỗi áp'); return }
+      showNotification('success', 'Đã áp minVoice vào app.')
+      setRes((prev: any) => {
+        if (!prev) return prev
+        const lech = prev.lech.map((it: any) => {
+          if (it !== x) return it
+          const n = { ...it }
+          if (field === 'ten') { n.ten_app = value; n.ten_lech = false }
+          if (field === 'dia_chi') { n.dia_chi_app = value; n.dia_chi_lech = false }
+          if (field === 'email') { n.email_app = value; n.email_thieu = [] }
+          return n
+        }).filter((it: any) => it.ten_lech || it.dia_chi_lech || (it.email_thieu && it.email_thieu.length))
+        return { ...prev, lech }
+      })
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setApplying('') }
+  }
+  const ApBtn = ({ x, field, value }: { x: any, field: 'ten' | 'dia_chi' | 'email', value: string }) => isAdmin
+    ? <button onClick={() => apply(x, field, value)} disabled={applying === `${x.key}|${field}`} className="mt-1 h-6 px-2 rounded text-[10px] font-semibold bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50">{applying === `${x.key}|${field}` ? '...' : 'Áp minVoice'}</button>
+    : null
   const stripH = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().trim()
   const parse = (): { ten: string, dia_chi: string, mst: string, email: string }[] | null => {
     const lines = text.split(/\r?\n/).map(l => l.replace(/\s+$/, '')).filter(l => l.trim())
@@ -9140,9 +9165,9 @@ function DoiChieuMinvoiceModal({ onClose, showNotification }: { onClose: () => v
                         {res.lech.map((x: any, i: number) => (
                           <tr key={i} className="align-top">
                             <td className="px-2 py-1.5 whitespace-nowrap">{srcBadge(x.source)} <span className="font-mono">{x.mst || '—'}</span></td>
-                            <td className="px-2 py-1.5">{x.ten_lech ? <span><span className="text-slate-800">{x.ten_mv}</span><div className="text-rose-600">app: {x.ten_app || '(trống)'}</div></span> : <span className="text-slate-500">{x.ten_mv}</span>}</td>
-                            <td className="px-2 py-1.5">{x.dia_chi_lech ? <span className="text-slate-800">{x.dia_chi_mv || '(trống)'}<div className="text-rose-600">app: {x.dia_chi_app || '(trống)'}</div></span> : <span className="text-emerald-600">khớp</span>}</td>
-                            <td className="px-2 py-1.5">{x.email_thieu?.length ? <span className="text-rose-600">{x.email_thieu.join(', ')}</span> : <span className="text-emerald-600">đủ</span>}</td>
+                            <td className="px-2 py-1.5">{x.ten_lech ? <div><span className="text-slate-800">{x.ten_mv}</span><div className="text-rose-600">app: {x.ten_app || '(trống)'}</div><ApBtn x={x} field="ten" value={x.ten_mv} /></div> : <span className="text-slate-500">{x.ten_mv}</span>}</td>
+                            <td className="px-2 py-1.5">{x.dia_chi_lech ? <div className="text-slate-800">{x.dia_chi_mv || '(trống)'}<div className="text-rose-600">app: {x.dia_chi_app || '(trống)'}</div><ApBtn x={x} field="dia_chi" value={x.dia_chi_mv} /></div> : <span className="text-emerald-600">khớp</span>}</td>
+                            <td className="px-2 py-1.5">{x.email_thieu?.length ? <div className="text-rose-600">{x.email_thieu.join(', ')}<ApBtn x={x} field="email" value={x.email_mv} /></div> : <span className="text-emerald-600">đủ</span>}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -9177,7 +9202,7 @@ function DoiChieuMinvoiceModal({ onClose, showNotification }: { onClose: () => v
 }
 
 // Khách hàng cụm: một khách (mã số) gom nhiều điểm máy. Chỉ admin. Gán/gỡ máy thủ công.
-function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { customers: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+function KhachCumTool({ customers, onUpdateSuccess, showNotification, currentUserRole }: { customers: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, currentUserRole: string }) {
   const [clusters, setClusters] = useState<{ ma_khach_hang: string, ten_khach_hang: string, dia_chi: string, ma_so_thue?: string | null, email_ke_toan?: string | null, so_may: number, members: { id: string, ma_may: string, ten_khach_hang: string }[] }[]>([])
   const [assignedIds, setAssignedIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -9263,7 +9288,7 @@ function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { custom
       <div className="flex justify-end">
         <Button variant="outline" onClick={() => setDoiChieuOpen(true)} className="gap-1.5 h-9 text-xs"><FileSpreadsheet className="w-4 h-4" /> Đối chiếu minVoice</Button>
       </div>
-      {doiChieuOpen && <DoiChieuMinvoiceModal onClose={() => setDoiChieuOpen(false)} showNotification={showNotification} />}
+      {doiChieuOpen && <DoiChieuMinvoiceModal onClose={() => setDoiChieuOpen(false)} showNotification={showNotification} isAdmin={currentUserRole === 'admin'} />}
       <StatCards items={[
         { label: 'Khách cụm', value: clusters.length.toLocaleString('vi-VN'), sub: 'một khách · nhiều máy', icon: Users, tint: 'text-blue-600 bg-blue-50 ring-blue-100' },
         { label: 'Máy đã gán cụm', value: assignedCount.toLocaleString('vi-VN'), sub: 'thuộc một cụm', icon: Boxes, tint: 'text-emerald-600 bg-emerald-50 ring-emerald-100' },
