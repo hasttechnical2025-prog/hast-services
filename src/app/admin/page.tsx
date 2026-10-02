@@ -9074,6 +9074,108 @@ const DANH_MUC_NHOMS = [
   { key: 'kho_may', label: 'Kho máy' },
 ]
 
+// Đối chiếu danh sách khách CHUẨN từ minVoice (dán từ Excel, kèm tiêu đề) với khách CỤM/KD trong app.
+function DoiChieuMinvoiceModal({ onClose, showNotification }: { onClose: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+  const [scope, setScope] = useState<'both' | 'cum' | 'kd'>('both')
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [res, setRes] = useState<any>(null)
+  const stripH = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+  const parse = (): { ten: string, dia_chi: string, mst: string, email: string }[] | null => {
+    const lines = text.split(/\r?\n/).map(l => l.replace(/\s+$/, '')).filter(l => l.trim())
+    if (lines.length < 2) return null
+    const header = lines[0].split('\t').map(stripH)
+    const find = (...keys: string[]) => header.findIndex(h => keys.some(k => h.includes(k)))
+    const iTen = find('doi tuong', 'ten', 'khach'), iDc = find('dia chi'), iMst = find('ma so thue', 'mst'), iEmail = find('email')
+    if (iTen < 0) return null
+    return lines.slice(1).map(l => { const c = l.split('\t'); return { ten: (c[iTen] || '').trim(), dia_chi: iDc >= 0 ? (c[iDc] || '').trim() : '', mst: iMst >= 0 ? (c[iMst] || '').trim() : '', email: iEmail >= 0 ? (c[iEmail] || '').trim() : '' } }).filter(r => r.ten)
+  }
+  const run = async () => {
+    const rows = parse()
+    if (!rows || !rows.length) { showNotification('error', 'Dán dữ liệu KÈM dòng tiêu đề (có cột Tên Đối Tượng...). Chưa đọc được.'); return }
+    setBusy(true); setRes(null)
+    try {
+      const r = await fetch('/api/admin/doi-chieu-khach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rows, scope }) })
+      const j = await r.json()
+      if (!r.ok) { showNotification('error', j.error || 'Lỗi đối chiếu'); return }
+      setRes(j.data)
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setBusy(false) }
+  }
+  const srcBadge = (s: string) => <span className={`text-[9px] font-semibold px-1 py-0.5 rounded ${s === 'KT' ? 'bg-sky-50 text-sky-700' : 'bg-violet-50 text-violet-700'}`}>{s}</span>
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 z-[70] flex items-center justify-center p-3 overflow-y-auto" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl my-6 flex flex-col max-h-[92vh] overflow-hidden border border-slate-200" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+          <h3 className="text-base font-bold text-slate-800 flex items-center gap-2"><FileSpreadsheet className="w-5 h-5 text-emerald-600" /> Đối chiếu khách minVoice ↔ app</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-5 overflow-y-auto space-y-3 flex-1 text-xs">
+          <p className="text-[11px] text-slate-500 leading-relaxed">Copy từ Excel minVoice (gồm <b>dòng tiêu đề</b>: Tên Đối Tượng · Địa Chỉ · Mã Số Thuế · Email) rồi dán vào đây. minVoice là <b>chuẩn</b> → báo chỗ <b>lệch</b> & <b>chưa có</b> trong app (chỉ đọc, không ghi đè).</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-slate-500">Đối chiếu với:</span>
+            {([['both', 'Cả hai'], ['cum', 'Khách kỹ thuật'], ['kd', 'Khách kinh doanh']] as const).map(([k, l]) => (
+              <button key={k} onClick={() => setScope(k)} className={`h-8 px-3 rounded-lg text-xs font-semibold border ${scope === k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200'}`}>{l}</button>
+            ))}
+          </div>
+          <textarea value={text} onChange={e => { setText(e.target.value); setRes(null) }} rows={6} placeholder={"Dán ở đây (kèm dòng tiêu đề)…\nSTT\tMã DVKT\tTên Đối Tượng\tĐịa Chỉ\tMã Số Thuế\tEmail"} className="w-full rounded-md border border-slate-200 bg-white p-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-200" />
+          <div className="flex justify-end"><Button onClick={run} disabled={busy} className="h-9 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">{busy ? 'Đang đối chiếu…' : 'Đối chiếu'}</Button></div>
+
+          {res && (
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-semibold">Tổng: {res.tong}</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">Khớp đủ: {res.khop}</span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold">Lệch: {res.lech.length}</span>
+                <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-semibold">Chưa có trong app: {res.thieu.length}</span>
+                <span className="px-2 py-0.5 rounded-full bg-slate-50 text-slate-400 border border-slate-200">Đã quét {res.so_ban_ghi} bản ghi app</span>
+              </div>
+
+              {res.lech.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-semibold text-amber-700 mb-1">Lệch thông tin (minVoice ≠ app)</p>
+                  <div className="border border-amber-200 rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+                    <table className="w-full text-left text-[11px] text-slate-600">
+                      <thead className="bg-amber-50 text-amber-800 sticky top-0"><tr><th className="px-2 py-1.5">Nguồn · MST</th><th className="px-2 py-1.5">Tên</th><th className="px-2 py-1.5">Địa chỉ</th><th className="px-2 py-1.5">Email thiếu</th></tr></thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {res.lech.map((x: any, i: number) => (
+                          <tr key={i} className="align-top">
+                            <td className="px-2 py-1.5 whitespace-nowrap">{srcBadge(x.source)} <span className="font-mono">{x.mst || '—'}</span></td>
+                            <td className="px-2 py-1.5">{x.ten_lech ? <span><span className="text-slate-800">{x.ten_mv}</span><div className="text-rose-600">app: {x.ten_app || '(trống)'}</div></span> : <span className="text-slate-500">{x.ten_mv}</span>}</td>
+                            <td className="px-2 py-1.5">{x.dia_chi_lech ? <span className="text-slate-800">{x.dia_chi_mv || '(trống)'}<div className="text-rose-600">app: {x.dia_chi_app || '(trống)'}</div></span> : <span className="text-emerald-600">khớp</span>}</td>
+                            <td className="px-2 py-1.5">{x.email_thieu?.length ? <span className="text-rose-600">{x.email_thieu.join(', ')}</span> : <span className="text-emerald-600">đủ</span>}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {res.thieu.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-semibold text-rose-700 mb-1">Chưa có trong app (cần tạo/gán MST)</p>
+                  <div className="border border-rose-200 rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+                    <table className="w-full text-left text-[11px] text-slate-600">
+                      <thead className="bg-rose-50 text-rose-800 sticky top-0"><tr><th className="px-2 py-1.5">Tên</th><th className="px-2 py-1.5">MST</th><th className="px-2 py-1.5">Địa chỉ</th></tr></thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {res.thieu.map((x: any, i: number) => (
+                          <tr key={i}><td className="px-2 py-1.5">{x.ten}</td><td className="px-2 py-1.5 font-mono">{x.mst || '—'}</td><td className="px-2 py-1.5 text-slate-500 truncate max-w-[280px]">{x.dia_chi || '—'}</td></tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {res.lech.length === 0 && res.thieu.length === 0 && <p className="text-center text-emerald-600 py-4 font-semibold">Tất cả khớp — không có gì lệch. 🎉</p>}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Khách hàng cụm: một khách (mã số) gom nhiều điểm máy. Chỉ admin. Gán/gỡ máy thủ công.
 function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { customers: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const [clusters, setClusters] = useState<{ ma_khach_hang: string, ten_khach_hang: string, dia_chi: string, ma_so_thue?: string | null, email_ke_toan?: string | null, so_may: number, members: { id: string, ma_may: string, ten_khach_hang: string }[] }[]>([])
@@ -9154,9 +9256,14 @@ function KhachCumTool({ customers, onUpdateSuccess, showNotification }: { custom
   const togglePick = (id: string) => setPickIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
 
   const cumList = clusters.filter(c => !cumSearch.trim() || `${c.ma_khach_hang} ${c.ten_khach_hang}`.toLowerCase().includes(cumSearch.trim().toLowerCase()))
+  const [doiChieuOpen, setDoiChieuOpen] = useState(false)
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <Button variant="outline" onClick={() => setDoiChieuOpen(true)} className="gap-1.5 h-9 text-xs"><FileSpreadsheet className="w-4 h-4" /> Đối chiếu minVoice</Button>
+      </div>
+      {doiChieuOpen && <DoiChieuMinvoiceModal onClose={() => setDoiChieuOpen(false)} showNotification={showNotification} />}
       <StatCards items={[
         { label: 'Khách cụm', value: clusters.length.toLocaleString('vi-VN'), sub: 'một khách · nhiều máy', icon: Users, tint: 'text-blue-600 bg-blue-50 ring-blue-100' },
         { label: 'Máy đã gán cụm', value: assignedCount.toLocaleString('vi-VN'), sub: 'thuộc một cụm', icon: Boxes, tint: 'text-emerald-600 bg-emerald-50 ring-emerald-100' },
