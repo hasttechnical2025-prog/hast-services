@@ -23,34 +23,63 @@ function chunkArray<T>(arr: T[], size = 150): T[][] {
   return chunks
 }
 
-// GET: danh sách ỨNG VIÊN cảnh báo tồn = hàng đã từng nhập trong 12 tháng gần nhất (mọi hãng).
+const KHO_COLS = 'ma_hang, ten_hang, model, hang, ton_kho, nguong_dat, ngung_su_dung'
+const notNgung = (k: any) => !k.ngung_su_dung && String(k.ngung_su_dung).toLowerCase() !== 'true'
+
+// GET: danh sách ỨNG VIÊN cảnh báo tồn (mọi hãng), gồm:
+//   - hàng đã từng nhập trong 12 tháng gần nhất, VÀ
+//   - hàng ĐÃ đặt ngưỡng (nguong_dat != null) — dù nhập đã lâu, vẫn ở lại danh sách + vẫn cảnh báo.
 // Mỗi mặt hàng kèm: tồn kho, hãng, model, ngưỡng đã đặt (nguong_dat), số lượng ĐANG CHỜ VỀ (đơn đã đặt, chưa nhận đủ).
 // Client tự lọc "cần cảnh báo" = nguong_dat > 0 && ton_kho <= nguong_dat.
-export async function GET() {
+// ?find=<từ khóa>: tra TOÀN kho theo mã/tên (không giới hạn 12 tháng) để thêm ngưỡng cho mặt hàng cũ.
+export async function GET(request: Request) {
   try {
     const session = await requireTab('kho_hang', 'kho_hang.thong_ke')
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
-    // (1) Mã hàng đã nhập trong 12 tháng gần nhất.
-    const nhap = await selectAll<any>((from, to) => supabaseAdmin
-      .from('soct_nhap_hang_thang')
-      .select('ma_hang')
-      .gte('thang_nam', cutoff12())
-      .gt('so_luong_nhap', 0)
-      .range(from, to))
-    const maNhap = [...new Set((nhap || []).map((r: any) => r.ma_hang).filter(Boolean))]
-    if (maNhap.length === 0) return NextResponse.json({ items: [] })
+    const find = (new URL(request.url).searchParams.get('find') || '').replace(/[%,()]/g, ' ').trim()
 
-    // (2) Trong số đó, lấy hàng trong kho (mọi hãng).
-    // Dùng chunking để tránh vượt quá giới hạn URL query string của PostgREST.
     const kho: any[] = []
-    for (const batch of chunkArray(maNhap, 150)) {
-      const batchKho = await selectAll<any>((from, to) => supabaseAdmin
+    const seen = new Set<string>()
+    const addKho = (rows: any[] | null) => {
+      for (const k of (rows || [])) {
+        if (!notNgung(k) || !k.ma_hang || seen.has(k.ma_hang)) continue
+        seen.add(k.ma_hang); kho.push(k)
+      }
+    }
+
+    if (find) {
+      // (B) Tra toàn kho theo mã/tên — để chọn mặt hàng nhập đã lâu mà đặt ngưỡng.
+      const like = `%${find}%`
+      const found = await selectAll<any>((from, to) => supabaseAdmin
         .from('soct_kho_hang')
-        .select('ma_hang, ten_hang, model, hang, ton_kho, nguong_dat, ngung_su_dung')
-        .in('ma_hang', batch)
+        .select(KHO_COLS)
+        .or(`ma_hang.ilike.${like},ten_hang.ilike.${like}`)
         .range(from, to))
-      if (batchKho) kho.push(...batchKho.filter((k: any) => !k.ngung_su_dung && String(k.ngung_su_dung).toLowerCase() !== 'true'))
+      addKho((found || []).slice(0, 200))
+    } else {
+      // (1) Mã hàng đã nhập trong 12 tháng gần nhất.
+      const nhap = await selectAll<any>((from, to) => supabaseAdmin
+        .from('soct_nhap_hang_thang')
+        .select('ma_hang')
+        .gte('thang_nam', cutoff12())
+        .gt('so_luong_nhap', 0)
+        .range(from, to))
+      const maNhap = [...new Set((nhap || []).map((r: any) => r.ma_hang).filter(Boolean))]
+      // (2) Trong số đó, lấy hàng trong kho (mọi hãng). Chunk để tránh vượt giới hạn URL PostgREST.
+      for (const batch of chunkArray(maNhap, 150)) {
+        addKho(await selectAll<any>((from, to) => supabaseAdmin
+          .from('soct_kho_hang')
+          .select(KHO_COLS)
+          .in('ma_hang', batch)
+          .range(from, to)))
+      }
+      // (A) Thêm MỌI hàng đã đặt ngưỡng (nguong_dat != null) dù nhập đã lâu -> ở lại danh sách + vẫn cảnh báo.
+      addKho(await selectAll<any>((from, to) => supabaseAdmin
+        .from('soct_kho_hang')
+        .select(KHO_COLS)
+        .not('nguong_dat', 'is', null)
+        .range(from, to)))
     }
 
     const maAll = kho.map((k: any) => k.ma_hang)

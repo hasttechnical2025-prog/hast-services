@@ -5393,6 +5393,38 @@ function NhapHangThangTool({
   const [filterHang, setFilterHang] = useState("")
   const [sortField, setSortField] = useState<string>("model")
   const [sortAsc, setSortAsc] = useState<boolean>(true)
+  // (B) Thêm mặt hàng CŨ (nhập >12 tháng) vào danh sách để đặt ngưỡng: tra toàn kho theo mã/tên.
+  const [extraRows, setExtraRows] = useState<any[]>([])
+  const [findKw, setFindKw] = useState("")
+  const [finding, setFinding] = useState(false)
+
+  // Gộp ứng viên từ server + các mặt hàng vừa tra thêm (chưa có trong danh sách).
+  const canhBaoMerged = useMemo(() => {
+    const have = new Set((canhBao || []).map((x: any) => x.ma_hang))
+    return [...(canhBao || []), ...extraRows.filter((x: any) => !have.has(x.ma_hang))]
+  }, [canhBao, extraRows])
+
+  const doFindAll = async () => {
+    const kw = findKw.trim()
+    if (!kw) return
+    setFinding(true)
+    try {
+      const res = await fetch('/api/admin/canh-bao-ton?find=' + encodeURIComponent(kw))
+      const j = await res.json()
+      if (!res.ok) { showNotification('error', j.error || 'Lỗi tìm kho'); return }
+      const items: any[] = j.items || []
+      const have = new Set((canhBao || []).map((x: any) => x.ma_hang))
+      const add = items.filter((x: any) => !have.has(x.ma_hang))
+      setExtraRows(prev => {
+        const seen = new Set(prev.map((x: any) => x.ma_hang))
+        return [...prev, ...add.filter((x: any) => !seen.has(x.ma_hang))]
+      })
+      setShowAll(true) // để thấy cả mục CHƯA cảnh báo mà đặt ngưỡng
+      if (items.length === 0) showNotification('error', 'Không tìm thấy mã/tên trong kho.')
+      else if (add.length === 0) showNotification('success', 'Các mã khớp đã có trong danh sách.')
+      else showNotification('success', `Đã thêm ${add.length} mặt hàng vào danh sách để đặt ngưỡng.`)
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setFinding(false) }
+  }
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -5405,19 +5437,30 @@ function NhapHangThangTool({
 
   const allHangOptions = useMemo(() => {
     const set = new Set<string>(hangOptions || [])
-    for (const x of (canhBao || [])) {
+    for (const x of canhBaoMerged) {
       const h = String(x.hang || '').trim()
       if (h) set.add(h)
     }
     return Array.from(set).filter(Boolean).sort((a, b) => a.localeCompare(b))
-  }, [hangOptions, canhBao])
+  }, [hangOptions, canhBaoMerged])
 
-  // Seed lại giá trị ngưỡng mỗi khi dữ liệu cha đổi (sau khi Lưu/refetch).
+  // Seed lại giá trị ngưỡng mỗi khi dữ liệu CHA đổi (sau khi Lưu/refetch): reset dirty + bỏ danh sách tra thêm
+  // (mặt hàng đã đặt ngưỡng sẽ tự quay lại từ server qua nhánh "đã có ngưỡng").
   useEffect(() => {
     const m: Record<string, string> = {}
     for (const x of (canhBao || [])) m[x.ma_hang] = x.nguong_dat == null ? '' : String(x.nguong_dat)
-    setNgMap(m); setDirtyNg(new Set())
+    setNgMap(m); setDirtyNg(new Set()); setExtraRows([])
   }, [canhBao])
+
+  // Khi tra thêm mặt hàng cũ: nạp ô ngưỡng cho các mã mới (giữ nguyên giá trị đang gõ của mã cũ).
+  useEffect(() => {
+    if (!extraRows.length) return
+    setNgMap(prev => {
+      const m = { ...prev }
+      for (const x of extraRows) if (!(x.ma_hang in m)) m[x.ma_hang] = x.nguong_dat == null ? '' : String(x.nguong_dat)
+      return m
+    })
+  }, [extraRows])
   const ngOf = (ma: string) => (ngMap[ma] ?? '')
   const setNg = (ma: string, v: string) => {
     const digits = v.replace(/[^\d]/g, '')
@@ -5428,7 +5471,7 @@ function NhapHangThangTool({
   // Trạng thái cảnh báo ban đầu (đã lưu trong DB) dùng riêng cho việc sắp xếp và lọc hiển thị,
   // tránh việc vừa gõ dở ngưỡng trong ô input làm dòng bị nhảy lên đầu bảng gây mất focus.
   const isSavedWarn = (x: any) => { const n = Number(x.nguong_dat || 0); return n > 0 && Number(x.ton_kho) <= n }
-  const cbRows = (canhBao || [])
+  const cbRows = canhBaoMerged
     .filter((x: any) => showAll || isSavedWarn(x) || dirtyNg.has(x.ma_hang))
     .filter((x: any) => {
       if (filterSearch) {
@@ -5478,7 +5521,7 @@ function NhapHangThangTool({
       }
       return sortAsc ? cmp : -cmp
     })
-  const warnCount = (canhBao || []).filter(isWarn).length
+  const warnCount = canhBaoMerged.filter(isWarn).length
 
   // Danh sách các mặt hàng đang thiếu (tồn <= ngưỡng, thiếu = ngưỡng - tồn)
   const thieuList = useMemo(() => {
@@ -5518,7 +5561,7 @@ function NhapHangThangTool({
           <Package className="w-5 h-5 text-amber-600 shrink-0" />
           <div>
             <h3 className="text-sm font-bold text-slate-800">Cảnh báo tồn kho {warnCount > 0 && <span className="text-amber-700">({warnCount})</span>}</h3>
-            <p className="text-[11px] text-slate-500">Mặt hàng đã nhập trong 12 tháng gần nhất (mọi hãng). Cảnh báo khi <b>tồn ≤ ngưỡng</b>. Bỏ trống ngưỡng = không cảnh báo.</p>
+            <p className="text-[11px] text-slate-500">Mặt hàng đã nhập trong 12 tháng gần nhất (mọi hãng) + mọi mặt hàng <b>đã đặt ngưỡng</b>. Cảnh báo khi <b>tồn ≤ ngưỡng</b>. Bỏ trống ngưỡng = không cảnh báo. Hàng nhập đã lâu: dùng ô <b>“Thêm mặt hàng cũ”</b> bên dưới.</p>
           </div>
           <div className="ml-auto flex items-center gap-2 flex-wrap">
             {cartCount != null && cartCount > 0 && onGoToCart && (
@@ -5610,6 +5653,33 @@ function NhapHangThangTool({
           <div className="text-[11px] text-slate-400 ml-auto">
             Hiển thị <b>{cbRows.length}</b> mặt hàng
           </div>
+        </div>
+
+        {/* (B) Thêm mặt hàng CŨ (nhập đã lâu, không còn trong 12 tháng) để đặt ngưỡng cảnh báo. */}
+        <div className="flex flex-wrap gap-2 items-center bg-slate-50 border border-slate-200 rounded-md px-3 py-2">
+          <span className="text-[11px] font-semibold text-slate-600">Thêm mặt hàng cũ:</span>
+          <div className="relative w-64">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+            <Input
+              placeholder="Mã / tên vật tư cần thêm ngưỡng…"
+              className="pl-8 pr-6 h-9 text-xs bg-white"
+              value={findKw}
+              onChange={(e) => setFindKw(e.target.value)}
+            />
+            {findKw && (
+              <button onClick={() => setFindKw("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs" title="Xóa">✕</button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={doFindAll}
+            disabled={finding || !findKw.trim()}
+            className="text-xs font-semibold px-3 py-2 rounded border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 transition"
+            title="Tra toàn kho (không giới hạn 12 tháng) theo mã/tên và thêm vào danh sách để đặt ngưỡng"
+          >
+            {finding ? 'Đang tra…' : 'Tra toàn kho & thêm'}
+          </button>
+          <span className="text-[11px] text-slate-400">Tra trong toàn bộ kho — chọn mã cũ, nhập ngưỡng rồi bấm <b>Lưu</b>.</span>
         </div>
 
         {dirtyNg.size > 0 && (
