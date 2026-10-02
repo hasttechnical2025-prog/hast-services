@@ -9080,7 +9080,7 @@ function DoiChieuMinvoiceModal({ onClose, showNotification }: { onClose: () => v
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [res, setRes] = useState<any>(null)
-  const stripH = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+  const stripH = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().trim()
   const parse = (): { ten: string, dia_chi: string, mst: string, email: string }[] | null => {
     const lines = text.split(/\r?\n/).map(l => l.replace(/\s+$/, '')).filter(l => l.trim())
     if (lines.length < 2) return null
