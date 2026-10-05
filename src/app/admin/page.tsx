@@ -1466,6 +1466,7 @@ export default function AdminDashboard() {
   const alertSections: AlertSection[] = [
     {
       key: 'muc', icon: Droplets, tone: 'red', label: 'Mực máy thuê đã hết', count: mucCanhBao.length,
+      nav: { label: '→ Mở Thuê/CPC › Cảnh báo vật tư', onClick: () => { setActiveTab('tai_chinh'); setTaiChinhTab('thue_cpc') }, canSee: subVisible('tai_chinh', 'thue_cpc') },
       detail: (
         <div className="border border-red-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
@@ -1485,6 +1486,7 @@ export default function AdminDashboard() {
     },
     {
       key: 'muc_sap_het', icon: Droplets, tone: 'amber', label: 'Máy thuê sắp cần thay vật tư', count: mucSapHet.length,
+      nav: { label: '→ Mở Thuê/CPC › Cảnh báo vật tư', onClick: () => { setActiveTab('tai_chinh'); setTaiChinhTab('thue_cpc') }, canSee: subVisible('tai_chinh', 'thue_cpc') },
       detail: (
         <div className="border border-amber-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
@@ -1499,12 +1501,12 @@ export default function AdminDashboard() {
               ))}
             </tbody>
           </table>
-          <button onClick={() => { setActiveTab('tai_chinh'); setTaiChinhTab('thue_cpc') }} className="w-full text-center text-[11px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border-t border-amber-100 py-1.5">→ Mở Thuê/CPC › Cảnh báo mực</button>
         </div>
       ),
     },
     {
       key: 'ton_kho_nguong', icon: Package, tone: 'amber', label: 'Hàng dưới ngưỡng tồn kho', count: canhBaoTonList.length,
+      nav: { label: '→ Mở Kho hàng › Thống kê nhập', onClick: () => { setActiveTab('kho_hang'); setKhoTab('thong_ke') }, canSee: subVisible('kho_hang', 'thong_ke') },
       detail: (
         <div className="border border-amber-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
@@ -1525,6 +1527,7 @@ export default function AdminDashboard() {
     },
     {
       key: 'unfinished', icon: AlertTriangle, tone: 'red', label: 'Phiếu ngày trước chưa Hoàn thành', count: unfinishedPastJobs.length,
+      nav: { label: '→ Mở Sổ công tác', onClick: () => { setActiveTab('cong_viec') }, canSee: tabVisible('cong_viec') },
       detail: (
         <div className="border border-rose-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
@@ -1544,6 +1547,7 @@ export default function AdminDashboard() {
     },
     {
       key: 'future', icon: Clock, tone: 'blue', label: 'Phiếu đặt trước cho ngày tới', count: futureJobs.length,
+      nav: { label: '→ Xem & sắp xếp trong Sổ công tác', canSee: tabVisible('cong_viec'), onClick: () => { const t = new Date(Date.parse(new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10) + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10); setActiveTab('cong_viec'); setJobFilters(f => ({ ...f, tuNgay: t, denNgay: '' })) } },
       detail: (
         <div className="space-y-1.5">
           <div className="border border-blue-100 rounded-lg overflow-hidden">
@@ -1560,16 +1564,12 @@ export default function AdminDashboard() {
               </tbody>
             </table>
           </div>
-          <button
-            onClick={() => { const t = new Date(Date.parse(new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10) + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10); setActiveTab('cong_viec'); setJobFilters(f => ({ ...f, tuNgay: t, denNgay: '' })) }}
-            className="w-full text-center text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-lg py-1.5">
-            → Xem &amp; sắp xếp trong Sổ công tác
-          </button>
         </div>
       ),
     },
     {
       key: 'kanban_c1', icon: ClipboardList, tone: 'amber', label: 'Thẻ chờ lên hóa đơn (Kanban Cột 1)', count: kanbanCounts.col1,
+      nav: { label: '→ Mở Tài chính › Kanban Hóa đơn', onClick: () => { setActiveTab('tai_chinh'); setTaiChinhTab('kanban') }, canSee: subVisible('tai_chinh', 'kanban') },
       detail: (
         <div className="text-xs text-slate-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 leading-relaxed">
           <b>{kanbanCounts.col1}</b> thẻ{kanbanCounts.col1_phieu !== kanbanCounts.col1 ? ` (gồm ${kanbanCounts.col1_phieu} phiếu)` : ''} đang ở Cột 1 (Chờ lên hóa đơn) — mỗi thẻ = 1 hóa đơn. Vào <b>Tài chính → Kanban Hóa đơn</b>: <b>bàn giao kế toán</b> lên hóa đơn, hoặc <b>thu hồi</b> về Công nợ nếu chưa cần.
@@ -1578,6 +1578,7 @@ export default function AdminDashboard() {
     },
     {
       key: 'kanban_c2', icon: ClipboardList, tone: 'amber', label: 'Thẻ chờ kế toán lên hóa đơn (Kanban Cột 2)', count: kanbanCounts.col2,
+      nav: { label: '→ Mở Tài chính › Kanban Hóa đơn', onClick: () => { setActiveTab('tai_chinh'); setTaiChinhTab('kanban') }, canSee: subVisible('tai_chinh', 'kanban') },
       detail: (
         <div className="text-xs text-slate-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 leading-relaxed">
           <b>{kanbanCounts.col2}</b> thẻ{kanbanCounts.col2_phieu !== kanbanCounts.col2 ? ` (gồm ${kanbanCounts.col2_phieu} phiếu — một số khách gộp nhiều phiếu vào 1 hóa đơn)` : ''} đã bàn giao, đang chờ <b>kế toán (KT-HC) lên hóa đơn</b> (Cột 2). Mỗi thẻ = 1 hóa đơn. Nhắc kế toán xử lý.
@@ -1586,6 +1587,7 @@ export default function AdminDashboard() {
     },
     {
       key: 'hdbt', icon: ClipboardCheck, tone: 'amber', label: `HĐBT/thuê sắp hết hạn (${hdbtCanhBaoThang} tháng)`, count: hdbtExpiring.length,
+      nav: { label: '→ Mở Theo dõi máy › Bảo trì', onClick: () => { setActiveTab('theo_doi_may'); setMonitorTab('bao_tri') }, canSee: subVisible('theo_doi_may', 'bao_tri') },
       detail: (
         <div className="border border-amber-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
@@ -1608,6 +1610,7 @@ export default function AdminDashboard() {
     },
     {
       key: 'counter', icon: Clock, tone: 'amber', label: 'Máy thuê/CPC đến hạn lấy counter', count: counterDueList.length,
+      nav: { label: '→ Mở Thuê/CPC › Nhập counter', onClick: () => { setActiveTab('tai_chinh'); setTaiChinhTab('thue_cpc') }, canSee: subVisible('tai_chinh', 'thue_cpc') },
       detail: (
         <div className="border border-amber-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
@@ -1632,6 +1635,7 @@ export default function AdminDashboard() {
     },
     {
       key: 'leave', icon: Palmtree, tone: 'blue', label: 'Nghỉ hôm nay', count: leaveToday.length,
+      nav: { label: '→ Mở Quản lý › Nghỉ phép', onClick: () => { setActiveTab('quan_ly'); setQuanLyTab('nghi_phep') }, canSee: subVisible('quan_ly', 'nghi_phep') },
       detail: (
         <div className="flex flex-wrap gap-1.5 px-1 py-1">
           {leaveToday.map((d: any) => {
@@ -1650,6 +1654,7 @@ export default function AdminDashboard() {
     // Nhắc dữ liệu máy thuê còn thiếu — CHỈ admin (rentalMays rỗng với role khác nên count=0, tự ẩn).
     {
       key: 'chua_map_muc', icon: Droplets, tone: 'amber', label: 'Model máy thuê chưa map mực', count: modelsChuaMapMuc.length,
+      nav: { label: '→ Mở Kho hàng › Kho máy thuê', onClick: () => { setActiveTab('kho_hang'); setKhoTab('may_thue') }, canSee: subVisible('kho_hang', 'may_thue') },
       detail: (
         <div className="px-1 py-1 space-y-1">
           <p className="text-[11px] text-slate-500 px-1">Chưa map mực → không cảnh báo được tồn. Vào Tài chính › Kho máy thuê để gán.</p>
@@ -1661,6 +1666,7 @@ export default function AdminDashboard() {
     },
     {
       key: 'vat_tu_chua_dinh_luong', icon: Droplets, tone: 'amber', label: 'Vật tư máy thuê chưa có định lượng', count: vatTuChuaDinhLuong.length,
+      nav: { label: '→ Mở Kho hàng › Kho máy thuê', onClick: () => { setActiveTab('kho_hang'); setKhoTab('may_thue') }, canSee: subVisible('kho_hang', 'may_thue') },
       detail: (
         <div className="border border-amber-100 rounded-lg overflow-hidden">
           <p className="text-[11px] text-slate-500 px-2 py-1 bg-amber-50/50">Chưa nhập định lượng → KHÔNG cảnh báo được sắp cần thay. Vào Kho hàng › Kho máy thuê › Vật tư tiêu hao để nhập.</p>
@@ -1682,6 +1688,7 @@ export default function AdminDashboard() {
     },
     {
       key: 'chua_vi_tri', icon: MapPin, tone: 'amber', label: 'Máy thuê chưa có Nơi đặt máy', count: mayChuaViTri.length,
+      nav: { label: '→ Mở Quản lý › Khách hàng', onClick: () => { setActiveTab('quan_ly'); setQuanLyTab('khach_hang') }, canSee: subVisible('quan_ly', 'khach_hang') },
       detail: (
         <div className="px-1 py-1 space-y-1">
           <p className="text-[11px] text-slate-500 px-1">Thiếu nơi đặt máy → KTV thấy địa chỉ hóa đơn, dễ đi nhầm. Điền ở Danh sách khách hàng.</p>
@@ -1701,6 +1708,7 @@ export default function AdminDashboard() {
     // Điểm máy có công nợ nhưng CHƯA gán khách cụm — CHỈ admin (count=0 với role khác nên tự ẩn).
     {
       key: 'cong_no_chua_cum', icon: Users, tone: 'amber', label: 'Công nợ chưa gán khách cụm', count: currentUserRole === 'admin' ? congNoChuaCum.length : 0,
+      nav: { label: '→ Mở Quản lý › Khách hàng cụm', onClick: () => { setActiveTab('quan_ly'); setQuanLyTab('khach_cum') }, canSee: subVisible('quan_ly', 'khach_cum') },
       detail: (
         <div className="px-1 py-1 space-y-1">
           <p className="text-[11px] text-slate-500 px-1">Điểm máy đang có công nợ nhưng chưa thuộc khách cụm → công nợ bị tính lẻ. Vào <b>Quản lý › Khách hàng cụm</b> để gán cho gom đúng.</p>
@@ -4556,7 +4564,7 @@ function BbbgExportButton({ jobId, bbbgLuc, onExported, showNotification }: {
 
 // Chuông thông báo: gom mọi cảnh báo/nhắc việc (mực máy thuê, phiếu chưa hoàn, HĐBT, counter,
 // nghỉ phép) vào 1 icon ở header (theo suốt mọi tab). Bấm mở bảng, mỗi nhóm bung ra chi tiết.
-type AlertSection = { key: string; icon: any; label: string; count: number; tone: 'red' | 'amber' | 'blue'; detail: React.ReactNode }
+type AlertSection = { key: string; icon: any; label: string; count: number; tone: 'red' | 'amber' | 'blue'; detail: React.ReactNode; nav?: { label: string; onClick: () => void; canSee: boolean } }
 
 function NotificationCenter({ sections }: { sections: AlertSection[] }) {
   const [open, setOpen] = useState(false)
@@ -4602,7 +4610,17 @@ function NotificationCenter({ sections }: { sections: AlertSection[] }) {
                         <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-white text-[11px] font-bold flex items-center justify-center ${dotTone(s.tone)}`}>{s.count}</span>
                         <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                       </button>
-                      {isOpen && <div className="px-1 pb-2">{s.detail}</div>}
+                      {isOpen && (
+                        <div className="px-1 pb-2 space-y-1.5">
+                          {s.detail}
+                          {s.nav && s.nav.canSee && (
+                            <button type="button" onClick={() => { s.nav!.onClick(); setOpen(false) }}
+                              className={`w-full text-center text-[11px] font-semibold rounded-lg border py-1.5 ${s.tone === 'red' ? 'text-red-700 bg-red-50 hover:bg-red-100 border-red-100' : s.tone === 'amber' ? 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-100' : 'text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-100'}`}>
+                              {s.nav.label}
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
