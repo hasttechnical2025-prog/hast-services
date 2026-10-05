@@ -74,6 +74,14 @@ export async function GET(request: Request) {
 
     // counter theo loại: mau->so_mau, tong->so_bw+so_mau, bw->so_bw. Dùng chung cho mọi máy.
     const counterOf = (h: any, loai: string) => loai === 'mau' ? Number(h.so_mau) : loai === 'tong' ? (Number(h.so_bw) || 0) + (Number(h.so_mau) || 0) : Number(h.so_bw)
+    // Counter nội suy tại 1 ngày phiếu = kỳ counter gần nhất CÓ thang_nam <= tháng của ngày đó. hist đã sort tăng dần.
+    const counterAtDate = (hist: any[], ngay: string, loai: string): number => {
+      const ym = String(ngay || '').slice(0, 7)
+      let best: any = null
+      for (const h of hist) { if (String(h.thang_nam) <= ym) best = h }
+      return best ? counterOf(best, loai) : NaN
+    }
+    const median = (a: number[]): number | null => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); const n = s.length; return n % 2 ? s[(n - 1) / 2] : Math.round((s[n / 2 - 1] + s[n / 2]) / 2) }
 
     const nowVN = Date.now() + 7 * 3600 * 1000
     const alerts: any[] = []
@@ -100,31 +108,43 @@ export async function GET(request: Request) {
         const mucInThang = prev ? Math.max(0, Cchot - counterOf(prev, mc.loai)) : 0
         const mucInNgay = mucInThang / 26
         const C = Math.round(Cchot + mucInNgay * daysSince) // dùng counter DỰ ĐOÁN cho mọi tính toán
-        // Kế toán hộp CÓ tính hộp theo máy (factory) nhỏ hơn: hộp 1 = D0 (vd Fuji ~9K), hộp sau = Y.
-        // D0 để trống -> = Y -> rút gọn về công thức cũ (không ảnh hưởng máy khác).
-        const D0 = Number(mc.dinh_luong_dau) > 0 ? Number(mc.dinh_luong_dau) : Y
-        let soHop: number, daIn: number, conLai: number, dinhLuongHop: number
-        if (C <= D0) { soHop = 0; daIn = C; conLai = D0 - C; dinhLuongHop = D0 }
-        else { const rem = C - D0; const k = Math.floor(rem / Y); soHop = 1 + k; daIn = rem % Y; conLai = Y - daIn; dinhLuongHop = Y }
-        // (b) NGƯỠNG ĐỘNG: cảnh báo khi còn ≤ max(ngưỡng cố định, mức in ~1 tháng gần nhất).
-        const nguongHieuLuc = Math.max(nguong, mucInThang)
-        // (a) CÂN ĐỐI TỒN HỘP: máy lắp sẵn 1 hộp (factory) + TỔNG số hộp đã giao/thay theo phiếu
-        //     so với số hộp đã "mở" (soHop + 1, tính cả hộp đang dùng). Còn ≥ 1 hộp dự phòng -> KHÔNG nhắc.
+        // Phiếu thay/giao ĐÚNG mã này (mực: "Giao mực"; trống: "Thay vật tư"), sắp theo ngày tăng dần.
         const giaoList = giaoByMay.get(String(may.ma_may || '').trim()) || []
         const need = (mc.nhom === 'trong') ? 'Thay vật tư' : 'Giao mực' // mực: chỉ Giao mực; trống: chỉ Thay vật tư
         const matched = giaoList.filter(g => g.ma_hang === mc.ma_hang && g.loai_cv === need)
         const tongGiao = matched.reduce((s, g) => s + g.so_luong, 0)
-        const duPhong = (1 + tongGiao) - (soHop + 1) // 1 = hộp theo máy lúc lắp (factory)
+        const evSorted = matched.slice().sort((a, b) => String(a.ngay).localeCompare(String(b.ngay)))
+        const countersAtThay = evSorted.map(g => counterAtDate(hist, g.ngay, mc.loai)).filter(c => Number.isFinite(c) && c > 0) as number[]
+        // HỌC DUNG LƯỢNG THỰC:
+        //  - Hộp FACTORY (hộp đầu): admin khai (dinh_luong_dau) > học từ counter lúc thay LẦN ĐẦU > = định lượng khai.
+        //    (counter lúc thay lần đầu = số trang hộp factory đã in tới khi phải thay lần đầu.)
+        //  - Hộp THAY: chỉ học khi có ≥2 Δ (≥3 lần thay) -> tránh bẫy "giao mực dự phòng TRƯỚC"
+        //    (khi đó Δ giữa 2 phiếu < dung lượng thật). Học xong chỉ nhận nếu ≤ định lượng khai (an toàn: báo SỚM hơn).
+        const D0admin = Number(mc.dinh_luong_dau) > 0 ? Number(mc.dinh_luong_dau) : 0
+        const D0 = D0admin > 0 ? D0admin : (countersAtThay.length >= 1 ? countersAtThay[0] : Y)
+        const deltas: number[] = []
+        for (let i = 1; i < countersAtThay.length; i++) { const d = countersAtThay[i] - countersAtThay[i - 1]; if (d > 0) deltas.push(d) }
+        const Ylearn = deltas.length >= 2 ? median(deltas) : null
+        const Yrep = (Ylearn != null && Ylearn > 0) ? Math.min(Ylearn, Y) : Y
+        // Kế toán hộp: hộp 1 = D0 (factory), các hộp sau = Yrep.
+        let soHop: number, daIn: number, conLai: number, dinhLuongHop: number
+        if (C <= D0) { soHop = 0; daIn = C; conLai = D0 - C; dinhLuongHop = D0 }
+        else { const rem = C - D0; const k = Math.floor(rem / Yrep); soHop = 1 + k; daIn = rem % Yrep; conLai = Yrep - daIn; dinhLuongHop = Yrep }
+        // (b) NGƯỠNG ĐỘNG: cảnh báo khi còn ≤ max(ngưỡng cố định, mức in ~1 tháng gần nhất).
+        const nguongHieuLuc = Math.max(nguong, mucInThang)
+        // (a) CÂN ĐỐI TỒN HỘP: 1 hộp factory + tổng hộp đã giao/thay so với số hộp đã "mở" (soHop+1).
+        const duPhong = (1 + tongGiao) - (soHop + 1)
         const isAck = ackSet.has(`${may.ma_may}|${mc.ma_hang}|${soHop}`)
         // Trạng thái: da_gui (office đã bấm) > du_phong (còn hộp) > canh_bao (cần liên hệ) > on (còn nhiều)
         const trang_thai = isAck ? 'da_gui' : duPhong >= 1 ? 'du_phong' : conLai <= nguongHieuLuc ? 'canh_bao' : 'on'
         if (!showAll && trang_thai !== 'canh_bao') continue // mặc định chỉ trả máy cần cảnh báo
         // Phiếu giao/thay gần nhất của mã này (để office đối chiếu).
-        const gn = matched.slice().sort((a, b) => String(b.ngay).localeCompare(String(a.ngay)))[0]
+        const gn = evSorted[evSorted.length - 1]
         alerts.push({
           ma_may: may.ma_may, ten_khach_hang: may.ten_khach_hang, model: may.model,
           ma_muc: mc.ma_hang, loai: mc.loai, nhom: mc.nhom || 'muc', dinh_luong: Y,
-          dinh_luong_hop: dinhLuongHop, dinh_luong_dau: D0 < Y ? D0 : null, // hộp hiện tại dùng dung lượng nào + hộp factory (nếu có khai)
+          dinh_luong_hop: dinhLuongHop, dinh_luong_dau: D0 < Y ? D0 : null, // dung lượng hộp hiện tại + hộp factory (admin khai/tự học)
+          yrep: Yrep < Y ? Yrep : null, // dung lượng hộp thay TỰ HỌC (nếu khác khai)
           counter: C, counter_chot: Cchot, muc_in_ngay: Math.round(mucInNgay), days_since: daysSince,
           da_in: daIn, con_lai: conLai, so_hop: soHop, thang_nam: latest.thang_nam,
           du_phong: duPhong, trang_thai,
@@ -132,21 +152,8 @@ export async function GET(request: Request) {
         })
       }
     }
-    // Gom các vật tư cùng (máy, nhóm, counter, chu kỳ) khi có NHIỀU mã (bộ màu C/M/Y) -> 1 dòng; còn lại = min.
-    // ma_muc_list dùng cho ack nhiều mã cùng lúc.
-    const groups = new Map<string, any[]>()
-    for (const a of alerts) {
-      const k = `${a.ma_may}|${a.nhom}|${a.loai}|${a.so_hop}`
-      if (!groups.has(k)) groups.set(k, [])
-      groups.get(k)!.push(a)
-    }
-    const out: any[] = []
-    for (const arr of groups.values()) {
-      if (arr.length === 1) { out.push({ ...arr[0], ma_muc_list: [arr[0].ma_muc] }); continue }
-      const codes = [...new Set(arr.map(x => x.ma_muc))]
-      const rep = arr.reduce((m, x) => (x.con_lai < m.con_lai ? x : m), arr[0])
-      out.push({ ...rep, is_group: true, ma_muc: codes.join(', '), ma_muc_list: codes, con_lai: Math.min(...arr.map(x => x.con_lai)) })
-    }
+    // MỖI MÃ 1 DÒNG (KHÔNG gộp bộ màu C/M/Y nữa — các màu mòn lệch nhau nên hiển thị riêng từng mã).
+    const out = alerts.map(a => ({ ...a, ma_muc_list: [a.ma_muc] }))
     out.sort((a, b) => a.con_lai - b.con_lai)
     const count = out.filter((x: any) => x.trang_thai === 'canh_bao').length
     return NextResponse.json({ data: out, count, nguong })
