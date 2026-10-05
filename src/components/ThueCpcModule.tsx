@@ -36,11 +36,16 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
     setLoading(true); setErr('')
     fetch('/api/admin/muc-sap-het' + (xemTatCa ? '?all=1' : '')).then(async r => {
       const j = await r.json().catch(() => ({}))
-      if (!r.ok) { setErr(j.error || `Lỗi tải (${r.status})`); setRows([]); onCount?.(0); return }
-      setRows(j.data || []); if (j.nguong) setNguong(j.nguong); onCount?.(j.count || 0)
+      if (!r.ok) { setErr(j.error || `Lỗi tải (${r.status})`); setRows([]); return }
+      setRows(j.data || []); if (j.nguong) setNguong(j.nguong)
     }).catch(() => setErr('Lỗi kết nối')).finally(() => setLoading(false))
-  }, [onCount, xemTatCa])
+  }, [xemTatCa])
   useEffect(() => { load() }, [load, refreshVer]) // refreshVer tăng khi có thay đổi counter (realtime) -> tự nạp lại
+  // Badge = số mục CẢNH BÁO khớp bộ lọc nhóm đang chọn (theo đúng danh sách admin đang xem).
+  useEffect(() => {
+    const n = rows.filter(r => r.trang_thai === 'canh_bao' && (nhomFilter === 'all' || (r.nhom || 'muc') === nhomFilter)).length
+    onCount?.(n)
+  }, [rows, nhomFilter, onCount])
   const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
   const fmtDMY = (s: any) => { const p = String(s || '').slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : '' }
   const filtered = useMemo(() => {
@@ -261,8 +266,14 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
     ['counter', 'Nhập counter', canS('counter') || canS('bang_ke')],
     ['canh_bao_muc', 'Cảnh báo vật tư', canS('canh_bao_muc')],
   ]
-  // Badge số máy sắp hết mực (cho tab)
-  useEffect(() => { fetch('/api/admin/muc-sap-het').then(r => r.ok ? r.json() : { count: 0 }).then(j => setMucCount(j.count || 0)).catch(() => {}) }, [badgeVer])
+  // Badge số vật tư cần cảnh báo (cho tab) — ĐẾM THEO BỘ LỌC nhóm admin đã lưu (Tất cả/Mực/Trống).
+  useEffect(() => {
+    let nhom = 'all'; try { nhom = localStorage.getItem('soct_cbvt_nhom') || 'all' } catch { }
+    fetch('/api/admin/muc-sap-het').then(r => r.ok ? r.json() : { data: [] }).then(j => {
+      const n = (j.data || []).filter((r: any) => (r.trang_thai ? r.trang_thai === 'canh_bao' : true) && (nhom === 'all' || (r.nhom || 'muc') === nhom)).length
+      setMucCount(n)
+    }).catch(() => { })
+  }, [badgeVer])
   const tabs = allTabs.filter(([, , ok]) => ok)
   const active = tabs.some(([k]) => k === sub) ? sub : (tabs[0]?.[0] ?? sub)
   // Đếm máy cần lấy counter cho KỲ ĐANG CHỌN để gắn badge lên tab
