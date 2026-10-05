@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     // Map model -> mực (chỉ mực có định lượng)
     const maps = await selectAll<any>((from, to) => supabaseAdmin
       .from('soct_muc_may_thue')
-      .select('model_may, ma_hang, dinh_luong, loai, nhom').range(from, to))
+      .select('model_may, ma_hang, dinh_luong, dinh_luong_dau, loai, nhom').range(from, to))
     const mapByModel = new Map<string, any[]>()
     for (const m of maps || []) {
       if (!m.dinh_luong || m.dinh_luong <= 0) continue
@@ -100,9 +100,12 @@ export async function GET(request: Request) {
         const mucInThang = prev ? Math.max(0, Cchot - counterOf(prev, mc.loai)) : 0
         const mucInNgay = mucInThang / 26
         const C = Math.round(Cchot + mucInNgay * daysSince) // dùng counter DỰ ĐOÁN cho mọi tính toán
-        const soHop = Math.floor(C / Y)
-        const daIn = C % Y
-        const conLai = Y - daIn
+        // Kế toán hộp CÓ tính hộp theo máy (factory) nhỏ hơn: hộp 1 = D0 (vd Fuji ~9K), hộp sau = Y.
+        // D0 để trống -> = Y -> rút gọn về công thức cũ (không ảnh hưởng máy khác).
+        const D0 = Number(mc.dinh_luong_dau) > 0 ? Number(mc.dinh_luong_dau) : Y
+        let soHop: number, daIn: number, conLai: number, dinhLuongHop: number
+        if (C <= D0) { soHop = 0; daIn = C; conLai = D0 - C; dinhLuongHop = D0 }
+        else { const rem = C - D0; const k = Math.floor(rem / Y); soHop = 1 + k; daIn = rem % Y; conLai = Y - daIn; dinhLuongHop = Y }
         // (b) NGƯỠNG ĐỘNG: cảnh báo khi còn ≤ max(ngưỡng cố định, mức in ~1 tháng gần nhất).
         const nguongHieuLuc = Math.max(nguong, mucInThang)
         // (a) CÂN ĐỐI TỒN HỘP: máy lắp sẵn 1 hộp (factory) + TỔNG số hộp đã giao/thay theo phiếu
@@ -121,6 +124,7 @@ export async function GET(request: Request) {
         alerts.push({
           ma_may: may.ma_may, ten_khach_hang: may.ten_khach_hang, model: may.model,
           ma_muc: mc.ma_hang, loai: mc.loai, nhom: mc.nhom || 'muc', dinh_luong: Y,
+          dinh_luong_hop: dinhLuongHop, dinh_luong_dau: D0 < Y ? D0 : null, // hộp hiện tại dùng dung lượng nào + hộp factory (nếu có khai)
           counter: C, counter_chot: Cchot, muc_in_ngay: Math.round(mucInNgay), days_since: daysSince,
           da_in: daIn, con_lai: conLai, so_hop: soHop, thang_nam: latest.thang_nam,
           du_phong: duPhong, trang_thai,

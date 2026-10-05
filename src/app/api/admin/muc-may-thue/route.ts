@@ -15,7 +15,7 @@ export async function GET() {
 
     const data = await selectAll<any>((from, to) => supabaseAdmin
       .from('soct_muc_may_thue')
-      .select('id, model_may, ma_hang, dinh_luong, loai, nhom')
+      .select('id, model_may, ma_hang, dinh_luong, dinh_luong_dau, loai, nhom')
       .order('model_may')
       .range(from, to))
     return NextResponse.json({ data })
@@ -35,12 +35,13 @@ export async function POST(request: Request) {
     const ma_hang = String(body.ma_hang || '').trim()
     if (!model_may || !ma_hang) return NextResponse.json({ error: 'Thiếu model máy hoặc mã mực' }, { status: 400 })
     const dinh_luong = body.dinh_luong === '' || body.dinh_luong == null ? null : (parseInt(String(body.dinh_luong).replace(/\D/g, '')) || null)
+    const dinh_luong_dau = body.dinh_luong_dau === '' || body.dinh_luong_dau == null ? null : (parseInt(String(body.dinh_luong_dau).replace(/\D/g, '')) || null)
     const loai = ['mau', 'tong'].includes(String(body.loai || 'bw').trim()) ? String(body.loai).trim() : 'bw'
     const nhom = String(body.nhom || 'muc').trim() === 'trong' ? 'trong' : 'muc'
 
     const { error } = await supabaseAdmin
       .from('soct_muc_may_thue')
-      .upsert({ model_may, ma_hang, dinh_luong, loai, nhom }, { onConflict: 'model_may,ma_hang' })
+      .upsert({ model_may, ma_hang, dinh_luong, dinh_luong_dau, loai, nhom }, { onConflict: 'model_may,ma_hang' })
     // Mã mực chưa có trong kho -> vi phạm FK
     if (error?.code === '23503') return NextResponse.json({ error: `Mã mực "${ma_hang}" chưa có trong kho.` }, { status: 400 })
     if (error) throw error
@@ -61,9 +62,10 @@ export async function PUT(request: Request) {
     const body = await request.json()
     if (!body.id) return NextResponse.json({ error: 'Thiếu id' }, { status: 400 })
     const dinh_luong = body.dinh_luong === '' || body.dinh_luong == null ? null : (parseInt(String(body.dinh_luong).replace(/\D/g, '')) || null)
+    const dinh_luong_dau = body.dinh_luong_dau === '' || body.dinh_luong_dau == null ? null : (parseInt(String(body.dinh_luong_dau).replace(/\D/g, '')) || null)
     const loai = ['mau', 'tong'].includes(String(body.loai || 'bw').trim()) ? String(body.loai).trim() : 'bw'
     const nhom = String(body.nhom || 'muc').trim() === 'trong' ? 'trong' : 'muc'
-    const { error } = await supabaseAdmin.from('soct_muc_may_thue').update({ dinh_luong, loai, nhom }).eq('id', body.id)
+    const { error } = await supabaseAdmin.from('soct_muc_may_thue').update({ dinh_luong, dinh_luong_dau, loai, nhom }).eq('id', body.id)
     if (error) throw error
     await logAudit(session, 'Sửa định lượng mực máy thuê', `id ${body.id}`)
     return NextResponse.json({ success: true })

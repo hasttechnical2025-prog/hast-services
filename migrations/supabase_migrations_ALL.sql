@@ -1540,3 +1540,10 @@ ON CONFLICT (khoa) DO NOTHING;
 
 ALTER TABLE public.soct_muc_may_thue
   ADD COLUMN IF NOT EXISTS nhom TEXT NOT NULL DEFAULT 'muc';  -- muc | trong
+
+
+-- MIGRATION 90: Dung lượng HỘP THEO MÁY (factory) cho mực/vật tư máy thuê.
+-- Hộp factory (lắp lúc lắp máy) thường nhỏ hơn hộp thay (vd Fuji ~9.000 vs ~24.000).
+-- NULL = dùng như dinh_luong (công thức rút gọn về cũ). Engine: hộp 1 = dinh_luong_dau, hộp sau = dinh_luong.
+ALTER TABLE public.soct_muc_may_thue
+  ADD COLUMN IF NOT EXISTS dinh_luong_dau NUMERIC;

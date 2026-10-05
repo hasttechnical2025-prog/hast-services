@@ -4314,12 +4314,13 @@ function UserManagementTool({ users, onUpdateSuccess, showNotification, confirmD
 // 1 dòng vật tư trong map: hiện "Có sẵn" (khả dụng kho) + Nhóm + ĐỊNH LƯỢNG + counter theo (BW/Màu/Tổng).
 function MucRow({ r, inv, kd, busy, onSave, onRemove }: {
   r: any; inv: any; kd: number; busy: boolean
-  onSave: (id: string, dinh_luong: string, loai: string, nhom: string) => void; onRemove: (id: string) => void
+  onSave: (id: string, dinh_luong: string, loai: string, nhom: string, dinh_luong_dau: string) => void; onRemove: (id: string) => void
 }) {
   const [dl, setDl] = useState<string>(r.dinh_luong != null ? String(r.dinh_luong) : '')
+  const [dlDau, setDlDau] = useState<string>(r.dinh_luong_dau != null ? String(r.dinh_luong_dau) : '')
   const [loai, setLoai] = useState<string>(r.loai || 'bw')
   const [nhom, setNhom] = useState<string>(r.nhom || 'muc')
-  const dirty = (dl !== (r.dinh_luong != null ? String(r.dinh_luong) : '')) || (loai !== (r.loai || 'bw')) || (nhom !== (r.nhom || 'muc'))
+  const dirty = (dl !== (r.dinh_luong != null ? String(r.dinh_luong) : '')) || (dlDau !== (r.dinh_luong_dau != null ? String(r.dinh_luong_dau) : '')) || (loai !== (r.loai || 'bw')) || (nhom !== (r.nhom || 'muc'))
   return (
     <div className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 text-xs ${kd <= 0 ? 'bg-red-50/60 border-red-200' : nhom === 'trong' ? 'bg-violet-100 border-violet-300' : 'bg-slate-50 border-slate-200'}`}>
       <span className="font-mono font-semibold text-slate-700 shrink-0">{r.ma_hang}</span>
@@ -4330,13 +4331,14 @@ function MucRow({ r, inv, kd, busy, onSave, onRemove }: {
           <option value="muc">Mực</option>
           <option value="trong">Trống</option>
         </select>
-        <Input value={dl ? Number(dl).toLocaleString('vi-VN') : ''} onChange={(e) => setDl(e.target.value.replace(/\D/g, ''))} placeholder="Định lượng" title="Số trang/hộp (nhà SX)" className="h-7 w-24 text-right bg-white" inputMode="numeric" />
+        <Input value={dl ? Number(dl).toLocaleString('vi-VN') : ''} onChange={(e) => setDl(e.target.value.replace(/\D/g, ''))} placeholder="Định lượng" title="Số trang/hộp mực thay (nhà SX)" className="h-7 w-24 text-right bg-white" inputMode="numeric" />
+        <Input value={dlDau ? Number(dlDau).toLocaleString('vi-VN') : ''} onChange={(e) => setDlDau(e.target.value.replace(/\D/g, ''))} placeholder="Hộp theo máy" title="Dung lượng HỘP THEO MÁY lắp lúc lắp máy (factory) — thường nhỏ hơn, vd Fuji ~9.000. Để trống = dùng như Định lượng." className="h-7 w-24 text-right bg-amber-50/60 border-amber-200" inputMode="numeric" />
         <select value={loai} onChange={(e) => setLoai(e.target.value)} title="Counter tính theo" className="h-7 rounded-md border border-slate-200 bg-white px-1.5 text-xs">
           <option value="bw">BW</option>
           <option value="mau">Màu</option>
           <option value="tong">Tổng</option>
         </select>
-        {dirty && <button type="button" disabled={busy} onClick={() => onSave(r.id, dl, loai, nhom)} className="h-7 px-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold">Lưu</button>}
+        {dirty && <button type="button" disabled={busy} onClick={() => onSave(r.id, dl, loai, nhom, dlDau)} className="h-7 px-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold">Lưu</button>}
         <button type="button" disabled={busy} onClick={() => onRemove(r.id)} className="hover:bg-red-100 rounded p-1 text-slate-400 hover:text-red-600" title="Bỏ vật tư"><X className="w-3.5 h-3.5" /></button>
       </span>
     </div>
@@ -4382,10 +4384,10 @@ function MucMayThueTool({ customers, inventory, committed, mucMap, onUpdate, sho
       if (res.ok) { onUpdate() } else showNotification('error', 'Không xóa được')
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setBusy(false) }
   }
-  const saveYield = async (id: string, dinh_luong: string, loai: string, nhom: string) => {
+  const saveYield = async (id: string, dinh_luong: string, loai: string, nhom: string, dinh_luong_dau: string) => {
     setBusy(true)
     try {
-      const res = await fetch('/api/admin/muc-may-thue', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, dinh_luong, loai, nhom }) })
+      const res = await fetch('/api/admin/muc-may-thue', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, dinh_luong, loai, nhom, dinh_luong_dau }) })
       if (res.ok) { showNotification('success', 'Đã lưu định lượng vật tư.'); onUpdate() } else { const j = await res.json(); showNotification('error', j.error || 'Lỗi lưu') }
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setBusy(false) }
   }
