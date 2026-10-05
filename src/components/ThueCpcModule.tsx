@@ -23,6 +23,11 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
   const [xemTatCa, setXemTatCa] = useState(false) // tra cứu MỌI máy (kể cả chưa cảnh báo)
   const [sortField, setSortField] = useState<string>('khach')
   const [sortAsc, setSortAsc] = useState<boolean>(true) // mặc định: gom theo khách, trong khách còn ít nhất lên trước
+  // Lọc theo nhóm vật tư (nhớ lựa chọn): tất cả | chỉ mực | chỉ trống.
+  const [nhomFilter, setNhomFilter] = useState<'all' | 'muc' | 'trong'>(() => {
+    try { const v = localStorage.getItem('soct_cbvt_nhom'); return v === 'muc' || v === 'trong' ? v : 'all' } catch { return 'all' }
+  })
+  const setNhom = (v: 'all' | 'muc' | 'trong') => { setNhomFilter(v); try { localStorage.setItem('soct_cbvt_nhom', v) } catch { } }
   const handleSort = (field: string) => {
     if (sortField === field) setSortAsc(p => !p)
     else { setSortField(field); setSortAsc(true) }
@@ -40,9 +45,12 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
   const fmtDMY = (s: any) => { const p = String(s || '').slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : '' }
   const filtered = useMemo(() => {
     const kw = norm(q).trim()
-    if (!kw) return rows
-    return rows.filter(r => norm([r.ten_khach_hang, r.ma_may, r.model, r.ma_muc].join(' ')).includes(kw))
-  }, [rows, q])
+    return rows.filter(r => {
+      if (nhomFilter !== 'all' && (r.nhom || 'muc') !== nhomFilter) return false
+      if (kw && !norm([r.ten_khach_hang, r.ma_may, r.model, r.ma_muc].join(' ')).includes(kw)) return false
+      return true
+    })
+  }, [rows, q, nhomFilter])
   const list = useMemo(() => {
     const cmpStr = (a: any, b: any) => String(a ?? '').localeCompare(String(b ?? ''), 'vi', { numeric: true, sensitivity: 'base' })
     const arr = [...filtered]
@@ -89,8 +97,16 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
     <div className="space-y-3">
       <div className="space-y-2">
         <p className="text-xs text-slate-500 leading-relaxed">Ước lượng theo <b>counter DỰ ĐOÁN hôm nay</b> (= counter chốt + mức in/ngày × số ngày đã qua) ÷ định lượng — cảnh báo khi còn <b>≤ {nguong.toLocaleString('vi-VN')}</b> trang <b>hoặc ≤ ~1 tháng in</b>, gồm <b>Mực</b> &amp; <b>Trống</b>. Tự tắt khi <b>còn hộp dự phòng</b> (1 hộp theo máy + đã giao − đã mở) hoặc bấm <b>Đã gửi</b>. Chỉ là ước lượng.</p>
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 max-w-xs"><Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" /><Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm khách / máy / mực…" className="h-9 pl-9 bg-white w-full" /></div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[180px] max-w-xs"><Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" /><Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm khách / máy / mực…" className="h-9 pl-9 bg-white w-full" /></div>
+          <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden shrink-0 text-xs">
+            {([['all', 'Tất cả'], ['muc', 'Mực'], ['trong', 'Trống']] as const).map(([v, label]) => (
+              <button key={v} type="button" onClick={() => setNhom(v)}
+                className={`px-3 h-9 font-semibold transition border-l first:border-l-0 border-slate-200 ${nhomFilter === v ? (v === 'trong' ? 'bg-violet-600 text-white' : v === 'muc' ? 'bg-sky-600 text-white' : 'bg-slate-700 text-white') : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
           <label className="inline-flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none whitespace-nowrap"><input type="checkbox" checked={xemTatCa} onChange={e => setXemTatCa(e.target.checked)} className="w-4 h-4 accent-blue-600" /> Xem tất cả máy</label>
           <Button variant="outline" onClick={load} className="h-9 w-9 p-0 shrink-0" title="Làm mới"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /></Button>
         </div>
