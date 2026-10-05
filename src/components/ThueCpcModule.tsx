@@ -25,9 +25,9 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
   const [sortAsc, setSortAsc] = useState<boolean>(true) // mặc định: gom theo khách, trong khách còn ít nhất lên trước
   // Lọc theo nhóm vật tư (nhớ lựa chọn): tất cả | chỉ mực | chỉ trống.
   const [nhomFilter, setNhomFilter] = useState<'all' | 'muc' | 'trong'>(() => {
-    try { const v = localStorage.getItem('soct_cbvt_nhom'); return v === 'muc' || v === 'trong' ? v : 'all' } catch { return 'all' }
+    try { const v = localStorage.getItem('soct_cbvt_nhom2'); return v === 'all' || v === 'trong' ? v : 'muc' } catch { return 'muc' } // MẶC ĐỊNH: Mực
   })
-  const setNhom = (v: 'all' | 'muc' | 'trong') => { setNhomFilter(v); try { localStorage.setItem('soct_cbvt_nhom', v) } catch { } }
+  const setNhom = (v: 'all' | 'muc' | 'trong') => { setNhomFilter(v); try { localStorage.setItem('soct_cbvt_nhom2', v) } catch { } }
   const handleSort = (field: string) => {
     if (sortField === field) setSortAsc(p => !p)
     else { setSortField(field); setSortAsc(true) }
@@ -268,7 +268,7 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
   ]
   // Badge số vật tư cần cảnh báo (cho tab) — ĐẾM THEO BỘ LỌC nhóm admin đã lưu (Tất cả/Mực/Trống).
   useEffect(() => {
-    let nhom = 'all'; try { nhom = localStorage.getItem('soct_cbvt_nhom') || 'all' } catch { }
+    let nhom = 'muc'; try { nhom = localStorage.getItem('soct_cbvt_nhom2') || 'muc' } catch { }
     fetch('/api/admin/muc-sap-het').then(r => r.ok ? r.json() : { data: [] }).then(j => {
       const n = (j.data || []).filter((r: any) => (r.trang_thai ? r.trang_thai === 'canh_bao' : true) && (nhom === 'all' || (r.nhom || 'muc') === nhom)).length
       setMucCount(n)
