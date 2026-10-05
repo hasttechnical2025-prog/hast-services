@@ -9285,6 +9285,16 @@ function DoiChieuMinvoiceModal({ onClose, showNotification, isAdmin }: { onClose
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setBusy(false) }
   }
   const srcBadge = (s: string) => <span className={`text-[9px] font-semibold px-1 py-0.5 rounded ${s === 'KT' ? 'bg-sky-50 text-sky-700' : 'bg-violet-50 text-violet-700'}`}>{s}</span>
+  // Sắp xếp 2 bảng kết quả bằng cách bấm tiêu đề cột (giữ nguyên tham chiếu object -> nút Áp vẫn khớp).
+  const cmpTxt = (a: any, b: any) => String(a ?? '').localeCompare(String(b ?? ''), 'vi', { numeric: true, sensitivity: 'base' })
+  const [sl, setSl] = useState('source'); const [sla, setSla] = useState(true)
+  const [st, setSt] = useState('ten'); const [sta, setSta] = useState(true)
+  const sortByL = (f: string) => { sl === f ? setSla(p => !p) : (setSl(f), setSla(true)) }
+  const sortByT = (f: string) => { st === f ? setSta(p => !p) : (setSt(f), setSta(true)) }
+  const lechSorted = res ? [...res.lech].sort((a: any, b: any) => { let c = 0; if (sl === 'ten') c = cmpTxt(a.ten_mv, b.ten_mv); else if (sl === 'dia_chi') c = cmpTxt(a.dia_chi_mv, b.dia_chi_mv); else c = cmpTxt(a.source, b.source) || cmpTxt(a.mst, b.mst); if (c === 0) c = cmpTxt(a.ten_mv, b.ten_mv); return sla ? c : -c }) : []
+  const thieuSorted = res ? [...res.thieu].sort((a: any, b: any) => { let c = 0; if (st === 'mst') c = cmpTxt(a.mst, b.mst); else if (st === 'dia_chi') c = cmpTxt(a.dia_chi, b.dia_chi); else c = cmpTxt(a.ten, b.ten); if (c === 0) c = cmpTxt(a.ten, b.ten); return sta ? c : -c }) : []
+  const thL = (f: string, label: string) => <th onClick={() => sortByL(f)} className={`px-2 py-1.5 cursor-pointer select-none transition-colors hover:bg-amber-100 ${sl === f ? 'text-blue-700' : ''}`}><span className="inline-flex items-center gap-1">{label}{sl === f && (sla ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</span></th>
+  const thT = (f: string, label: string) => <th onClick={() => sortByT(f)} className={`px-2 py-1.5 cursor-pointer select-none transition-colors hover:bg-rose-100 ${st === f ? 'text-blue-700' : ''}`}><span className="inline-flex items-center gap-1">{label}{st === f && (sta ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</span></th>
   return (
     <div className="fixed inset-0 bg-slate-900/60 z-[70] flex items-center justify-center p-3 overflow-y-auto" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl my-6 flex flex-col max-h-[92vh] overflow-hidden border border-slate-200" onClick={e => e.stopPropagation()}>
@@ -9318,9 +9328,9 @@ function DoiChieuMinvoiceModal({ onClose, showNotification, isAdmin }: { onClose
                   <p className="text-[11px] font-semibold text-amber-700 mb-1">Lệch thông tin (minVoice ≠ app)</p>
                   <div className="border border-amber-200 rounded-lg overflow-hidden max-h-64 overflow-y-auto">
                     <table className="w-full text-left text-[11px] text-slate-600">
-                      <thead className="bg-amber-50 text-amber-800 sticky top-0"><tr><th className="px-2 py-1.5">Nguồn · MST</th><th className="px-2 py-1.5">Tên</th><th className="px-2 py-1.5">Địa chỉ</th><th className="px-2 py-1.5">Email thiếu</th></tr></thead>
+                      <thead className="bg-amber-50 text-amber-800 sticky top-0 select-none"><tr>{thL('source', 'Nguồn · MST')}{thL('ten', 'Tên')}{thL('dia_chi', 'Địa chỉ')}<th className="px-2 py-1.5">Email thiếu</th></tr></thead>
                       <tbody className="divide-y divide-slate-100">
-                        {res.lech.map((x: any, i: number) => (
+                        {lechSorted.map((x: any, i: number) => (
                           <tr key={i} className="align-top">
                             <td className="px-2 py-1.5 whitespace-nowrap">{srcBadge(x.source)} <span className="font-mono">{x.mst || '—'}</span>{x.mst_lech && <div className="text-rose-600 font-mono">app: {x.mst_app || '(trống)'}<ApBtn x={x} field="mst" value={x.mst} /></div>}</td>
                             <td className="px-2 py-1.5">{x.ten_lech ? <div><span className="text-slate-800">{x.ten_mv}</span><div className="text-rose-600">app: {x.ten_app || '(trống)'}</div><ApBtn x={x} field="ten" value={x.ten_mv} /></div> : <span className="text-slate-500">{x.ten_mv}</span>}</td>
@@ -9339,9 +9349,9 @@ function DoiChieuMinvoiceModal({ onClose, showNotification, isAdmin }: { onClose
                   <p className="text-[11px] font-semibold text-rose-700 mb-1">Chưa có trong app (cần tạo/gán MST)</p>
                   <div className="border border-rose-200 rounded-lg overflow-hidden max-h-64 overflow-y-auto">
                     <table className="w-full text-left text-[11px] text-slate-600">
-                      <thead className="bg-rose-50 text-rose-800 sticky top-0"><tr><th className="px-2 py-1.5">Tên</th><th className="px-2 py-1.5">MST</th><th className="px-2 py-1.5">Địa chỉ</th></tr></thead>
+                      <thead className="bg-rose-50 text-rose-800 sticky top-0 select-none"><tr>{thT('ten', 'Tên')}{thT('mst', 'MST')}{thT('dia_chi', 'Địa chỉ')}</tr></thead>
                       <tbody className="divide-y divide-slate-100">
-                        {res.thieu.map((x: any, i: number) => (
+                        {thieuSorted.map((x: any, i: number) => (
                           <tr key={i}><td className="px-2 py-1.5">{x.ten}</td><td className="px-2 py-1.5 font-mono">{x.mst || '—'}</td><td className="px-2 py-1.5 text-slate-500 truncate max-w-[280px]">{x.dia_chi || '—'}</td></tr>
                         ))}
                       </tbody>

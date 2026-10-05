@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import DateField from "@/components/DateField"
 import ThuTienPanel from "@/components/ThuTienPanel"
 import { supabase } from "@/lib/supabase"
-import { Plus, FileText, PenSquare, Trash2, X, Save, RefreshCw, LogOut, Package, Boxes, Send, List, LayoutGrid, Clock, FileDown, Users, KeyRound, Monitor, Search, Download } from "lucide-react"
+import { Plus, FileText, PenSquare, Trash2, X, Save, RefreshCw, LogOut, Package, Boxes, Send, List, LayoutGrid, Clock, FileDown, Users, KeyRound, Monitor, Search, Download, ChevronUp, ChevronDown } from "lucide-react"
 
 // Bỏ dấu + gộp khoảng trắng + lowercase (tìm kiếm kiểu Google: không dấu, không phân biệt hoa/thường).
 const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/\s+/g, ' ').trim()
@@ -133,11 +133,34 @@ function CatalogManager({ catalog, setCatalog, isManager, hangOptions, onClose, 
   type PRow = { ma_hang: string; ten_hang: string; dvt: string; don_gia_niem_yet: number; status: 'ok' | 'err' | 'overwrite'; note: string }
   const [preview, setPreview] = useState<PRow[] | null>(null)
   const setBulk = (v: string) => { setBulkText(v); setPreview(null) }   // sửa nội dung -> phải kiểm tra lại
-  const list = useMemo(() => {
+  const [sortField, setSortField] = useState('ma_hang')
+  const [sortAsc, setSortAsc] = useState(true)
+  const handleSort = (f: string) => { if (sortField === f) setSortAsc(p => !p); else { setSortField(f); setSortAsc(true) } }
+  const filtered = useMemo(() => {
     const kw = q.trim().toLowerCase()
     if (!kw) return catalog
     return catalog.filter(c => [c.ma_hang, c.ten_hang, c.hang, c.model].filter(Boolean).join(' ').toLowerCase().includes(kw))
   }, [catalog, q])
+  const list = useMemo(() => {
+    const cmp = (a: any, b: any) => String(a ?? '').localeCompare(String(b ?? ''), 'vi', { numeric: true, sensitivity: 'base' })
+    const arr = [...filtered]
+    arr.sort((a, b) => {
+      let c = 0
+      if (sortField === 'don_gia_niem_yet') c = (Number(a.don_gia_niem_yet) || 0) - (Number(b.don_gia_niem_yet) || 0)
+      else if (sortField === 'ten_hang') c = cmp(a.ten_hang, b.ten_hang)
+      else if (sortField === 'dvt') c = cmp(a.dvt, b.dvt)
+      else if (sortField === 'hang') c = cmp(a.hang, b.hang)
+      else c = cmp(a.ma_hang, b.ma_hang)
+      if (c === 0) c = cmp(a.ma_hang, b.ma_hang)
+      return sortAsc ? c : -c
+    })
+    return arr
+  }, [filtered, sortField, sortAsc])
+  const sortTh = (field: string, label: string, extra = '') => (
+    <th onClick={() => handleSort(field)} className={`px-2.5 py-2 cursor-pointer select-none transition-colors hover:bg-slate-100 ${extra} ${sortField === field ? 'text-blue-600 bg-blue-50/60' : ''}`}>
+      <span className={`inline-flex items-center gap-1 ${extra.includes('text-right') ? 'justify-end' : extra.includes('text-center') ? 'justify-center' : ''}`}>{label}{sortField === field && (sortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</span>
+    </th>
+  )
   const reset = () => { setF(emptyF); setEditing(false) }
   const pick = (c: HangHoa) => { setEditing(true); setF({ ma_hang: c.ma_hang, ten_hang: c.ten_hang, dvt: c.dvt || 'Cái', don_gia_niem_yet: c.don_gia_niem_yet != null ? String(c.don_gia_niem_yet) : '', hang: c.hang || '' }) }
   const fmtGia = (s: string) => { const d = String(s).replace(/\D/g, ''); return d ? Number(d).toLocaleString('vi-VN') : '' }
@@ -296,7 +319,7 @@ function CatalogManager({ catalog, setCatalog, isManager, hangOptions, onClose, 
           <div className="border border-slate-200 rounded-lg overflow-hidden">
             <table className="w-full text-left text-xs text-slate-600">
               <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase border-b border-slate-200">
-                <tr><th className="px-2.5 py-2">Mã</th><th className="px-2.5 py-2">Tên</th><th className="px-2.5 py-2 text-center">ĐVT</th><th className="px-2.5 py-2 text-right">Đơn giá niêm yết</th><th className="px-2.5 py-2">Hãng</th>{isManager && <th className="px-2.5 py-2 text-center">Thao tác</th>}</tr>
+                <tr>{sortTh('ma_hang', 'Mã')}{sortTh('ten_hang', 'Tên')}{sortTh('dvt', 'ĐVT', 'text-center')}{sortTh('don_gia_niem_yet', 'Đơn giá niêm yết', 'text-right')}{sortTh('hang', 'Hãng')}{isManager && <th className="px-2.5 py-2 text-center">Thao tác</th>}</tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {list.length === 0 ? (
@@ -548,7 +571,30 @@ function KhachManager({ khList, caps, notify, onReload }: { khList: KhachKD[]; c
   const emptyF = { ten_khach_hang: '', dia_chi: '', ma_so_thue: '', email_nhan_hd: '', so_hop_dong: '', ghi_chu: '' }
   const [f, setF] = useState(emptyF)
   const reset = () => { setF(emptyF); setEditing(null) }
-  const list = useMemo(() => filterKhach(khList, q), [khList, q])
+  const [sortField, setSortField] = useState('ten')
+  const [sortAsc, setSortAsc] = useState(true)
+  const handleSort = (f: string) => { if (sortField === f) setSortAsc(p => !p); else { setSortField(f); setSortAsc(true) } }
+  const filtered = useMemo(() => filterKhach(khList, q), [khList, q])
+  const list = useMemo(() => {
+    const cmp = (a: any, b: any) => String(a ?? '').localeCompare(String(b ?? ''), 'vi', { numeric: true, sensitivity: 'base' })
+    const arr = [...filtered]
+    arr.sort((a, b) => {
+      let c = 0
+      if (sortField === 'ten') c = cmp(a.ten_khach_hang, b.ten_khach_hang)
+      else if (sortField === 'mst') c = cmp(a.ma_so_thue, b.ma_so_thue)
+      else if (sortField === 'dia_chi') c = cmp(a.dia_chi, b.dia_chi)
+      else if (sortField === 'email') c = cmp(a.email_nhan_hd, b.email_nhan_hd)
+      else if (sortField === 'nv') c = cmp(a.nguoi_tao?.full_name, b.nguoi_tao?.full_name)
+      if (c === 0) c = cmp(a.ten_khach_hang, b.ten_khach_hang)
+      return sortAsc ? c : -c
+    })
+    return arr
+  }, [filtered, sortField, sortAsc])
+  const sortTh = (field: string, label: string, extra = '') => (
+    <th onClick={() => handleSort(field)} className={`px-2.5 py-2 cursor-pointer select-none transition-colors hover:bg-slate-100 ${extra} ${sortField === field ? 'text-blue-600 bg-blue-50/60' : ''}`}>
+      <span className="inline-flex items-center gap-1">{label}{sortField === field && (sortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</span>
+    </th>
+  )
   const pick = (k: KhachKD) => { setEditing(k.id); setF({ ten_khach_hang: k.ten_khach_hang, dia_chi: k.dia_chi || '', ma_so_thue: k.ma_so_thue || '', email_nhan_hd: k.email_nhan_hd || '', so_hop_dong: k.so_hop_dong || '', ghi_chu: k.ghi_chu || '' }) }
   const save = async () => {
     if (!f.ten_khach_hang.trim()) { notify('error', 'Nhập tên khách'); return }
@@ -596,7 +642,7 @@ function KhachManager({ khList, caps, notify, onReload }: { khList: KhachKD[]; c
       </div>
       <div className="border border-slate-200 rounded-lg overflow-hidden">
         <table className="w-full text-left text-xs text-slate-600">
-          <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase border-b border-slate-200"><tr><th className="px-2.5 py-2">Tên khách</th><th className="px-2.5 py-2">MST</th><th className="px-2.5 py-2">Địa chỉ</th><th className="px-2.5 py-2">Email</th>{caps?.isManager && <th className="px-2.5 py-2">NV tạo</th>}<th className="px-2.5 py-2 text-center">Thao tác</th></tr></thead>
+          <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase border-b border-slate-200"><tr>{sortTh('ten', 'Tên khách')}{sortTh('mst', 'MST')}{sortTh('dia_chi', 'Địa chỉ')}{sortTh('email', 'Email')}{caps?.isManager && sortTh('nv', 'NV tạo')}<th className="px-2.5 py-2 text-center">Thao tác</th></tr></thead>
           <tbody className="divide-y divide-slate-100">
             {list.length === 0 ? <tr><td colSpan={caps?.isManager ? 6 : 5} className="px-4 py-6 text-center text-slate-400">Chưa có khách nào.</td></tr>
               : list.map(k => (

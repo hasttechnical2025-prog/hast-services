@@ -21,6 +21,12 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState('')
   const [xemTatCa, setXemTatCa] = useState(false) // tra cứu MỌI máy (kể cả chưa cảnh báo)
+  const [sortField, setSortField] = useState<string>('con_lai')
+  const [sortAsc, setSortAsc] = useState<boolean>(true) // còn lại ít nhất lên đầu (cấp bách)
+  const handleSort = (field: string) => {
+    if (sortField === field) setSortAsc(p => !p)
+    else { setSortField(field); setSortAsc(true) }
+  }
   const load = useCallback(() => {
     setLoading(true); setErr('')
     fetch('/api/admin/muc-sap-het' + (xemTatCa ? '?all=1' : '')).then(async r => {
@@ -32,11 +38,28 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
   useEffect(() => { load() }, [load, refreshVer]) // refreshVer tăng khi có thay đổi counter (realtime) -> tự nạp lại
   const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
   const fmtDMY = (s: any) => { const p = String(s || '').slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : '' }
-  const list = useMemo(() => {
+  const filtered = useMemo(() => {
     const kw = norm(q).trim()
     if (!kw) return rows
     return rows.filter(r => norm([r.ten_khach_hang, r.ma_may, r.model, r.ma_muc].join(' ')).includes(kw))
   }, [rows, q])
+  const list = useMemo(() => {
+    const cmpStr = (a: any, b: any) => String(a ?? '').localeCompare(String(b ?? ''), 'vi', { numeric: true, sensitivity: 'base' })
+    const arr = [...filtered]
+    arr.sort((a, b) => {
+      let c = 0
+      if (sortField === 'khach') c = cmpStr(a.ten_khach_hang, b.ten_khach_hang)
+      else if (sortField === 'muc') c = cmpStr(a.ma_muc, b.ma_muc)
+      else if (sortField === 'loai') c = cmpStr(a.loai, b.loai)
+      else if (sortField === 'counter') c = (Number(a.counter) || 0) - (Number(b.counter) || 0)
+      else if (sortField === 'da_in') c = (Number(a.da_in) || 0) - (Number(b.da_in) || 0)
+      else if (sortField === 'con_lai') c = (Number(a.con_lai) || 0) - (Number(b.con_lai) || 0)
+      else if (sortField === 'giao') c = cmpStr(a.giao_gan_nhat?.ngay, b.giao_gan_nhat?.ngay)
+      if (c === 0) c = cmpStr(a.ma_may, b.ma_may) || cmpStr(a.ma_muc, b.ma_muc)
+      return sortAsc ? c : -c
+    })
+    return arr
+  }, [filtered, sortField, sortAsc])
   const daGui = async (r: any) => {
     setBusy(`${r.ma_may}|${r.ma_muc}|${r.so_hop}`)
     try {
@@ -57,8 +80,17 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
       </div>
       <div className="border border-slate-200 rounded-lg overflow-hidden">
         <table className="w-full text-left text-xs text-slate-600">
-          <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase border-b border-slate-200">
-            <tr><th className="px-2.5 py-2">Khách / máy</th><th className="px-2.5 py-2">Mực</th><th className="px-2.5 py-2 text-center">Loại</th><th className="px-2.5 py-2 text-right">Counter hôm nay</th><th className="px-2.5 py-2 text-right">Đã in / Định lượng</th><th className="px-2.5 py-2 text-right">Còn lại</th><th className="px-2.5 py-2">Giao gần nhất</th><th className="px-2.5 py-2 text-center">Thao tác</th></tr>
+          <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase border-b border-slate-200 select-none">
+            <tr>
+              <th onClick={() => handleSort('khach')} className={`px-2.5 py-2 cursor-pointer transition-colors hover:bg-slate-100 ${sortField === 'khach' ? 'text-blue-600 bg-blue-50/60' : ''}`}><span className="inline-flex items-center gap-1">Khách / máy {sortField === 'khach' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}</span></th>
+              <th onClick={() => handleSort('muc')} className={`px-2.5 py-2 cursor-pointer transition-colors hover:bg-slate-100 ${sortField === 'muc' ? 'text-blue-600 bg-blue-50/60' : ''}`}><span className="inline-flex items-center gap-1">Mực {sortField === 'muc' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}</span></th>
+              <th onClick={() => handleSort('loai')} className={`px-2.5 py-2 text-center cursor-pointer transition-colors hover:bg-slate-100 ${sortField === 'loai' ? 'text-blue-600 bg-blue-50/60' : ''}`}><span className="inline-flex items-center gap-1 justify-center">Loại {sortField === 'loai' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}</span></th>
+              <th onClick={() => handleSort('counter')} className={`px-2.5 py-2 text-right cursor-pointer transition-colors hover:bg-slate-100 ${sortField === 'counter' ? 'text-blue-600 bg-blue-50/60' : ''}`}><span className="inline-flex items-center gap-1 justify-end">Counter hôm nay {sortField === 'counter' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}</span></th>
+              <th onClick={() => handleSort('da_in')} className={`px-2.5 py-2 text-right cursor-pointer transition-colors hover:bg-slate-100 ${sortField === 'da_in' ? 'text-blue-600 bg-blue-50/60' : ''}`}><span className="inline-flex items-center gap-1 justify-end">Đã in / Định lượng {sortField === 'da_in' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}</span></th>
+              <th onClick={() => handleSort('con_lai')} className={`px-2.5 py-2 text-right cursor-pointer transition-colors hover:bg-slate-100 ${sortField === 'con_lai' ? 'text-blue-600 bg-blue-50/60' : ''}`}><span className="inline-flex items-center gap-1 justify-end">Còn lại {sortField === 'con_lai' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}</span></th>
+              <th onClick={() => handleSort('giao')} className={`px-2.5 py-2 cursor-pointer transition-colors hover:bg-slate-100 ${sortField === 'giao' ? 'text-blue-600 bg-blue-50/60' : ''}`}><span className="inline-flex items-center gap-1">Giao gần nhất {sortField === 'giao' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}</span></th>
+              <th className="px-2.5 py-2 text-center">Thao tác</th>
+            </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải…</td></tr>
