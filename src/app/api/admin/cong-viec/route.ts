@@ -513,6 +513,21 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
     }
 
+    // REVERT "Đang làm" -> "Đã nhận" (CHỈ admin). Vd KTV bấm nhầm Đang làm phiếu tương lai.
+    // Xóa mốc bắt đầu (bat_dau_luc) + reset nhắc -> lead-time coi như chưa bắt đầu. Giữ nguyên KTV.
+    if (body.revertDangLam === true) {
+      if (session.role !== 'admin') return NextResponse.json({ error: 'Chỉ admin được đưa phiếu về "Đã nhận".' }, { status: 403 })
+      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('ket_qua, report, ma_may').eq('id', id).single()
+      if (!cur) return NextResponse.json({ error: 'Không tìm thấy phiếu' }, { status: 404 })
+      if (cur.ket_qua !== 'Đang làm') return NextResponse.json({ error: 'Chỉ đưa về "Đã nhận" khi phiếu đang ở trạng thái "Đang làm".' }, { status: 409 })
+      const { error } = await supabaseAdmin.from('soct_cong_viec')
+        .update({ ket_qua: 'Đã nhận', bat_dau_luc: null, nhac_luc: null }).eq('id', id)
+      if (error) throw error
+      await broadcastJobsChanged()
+      await logAudit(session, 'Đưa phiếu về Đã nhận', `phiếu ${cur.report || id}${cur.ma_may ? ` — máy ${cur.ma_may}` : ''}`)
+      return NextResponse.json({ success: true })
+    }
+
     // SỬA TOÀN PHẦN phiếu (admin/tech_admin/staff) — chỉ khi KTV chưa nhận (ket_qua = 'Chờ nhận')
     if (edit) {
       if (!['admin', 'tech_admin', 'staff'].includes(session.role)) {

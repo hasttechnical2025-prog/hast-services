@@ -665,6 +665,18 @@ export default function AdminDashboard() {
     })
   }
 
+  // Đưa phiếu "Đang làm" về "Đã nhận" (CHỈ admin) — vd KTV bấm nhầm Đang làm phiếu tương lai.
+  const revertToDaNhan = async (job: any) => {
+    if (!window.confirm(`Đưa phiếu ${job.report || ''}${job.ma_may ? ` (máy ${job.ma_may})` : ''} về "Đã nhận"?\nMốc bắt đầu sẽ bị xoá, thời gian xử lý tính lại từ đầu.`)) return
+    try {
+      const res = await fetch('/api/admin/cong-viec', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: job.id, revertDangLam: true }) })
+      const j = await res.json()
+      if (!res.ok) { showNotification('error', j.error || 'Lỗi'); return }
+      showNotification('success', 'Đã đưa phiếu về "Đã nhận".')
+      fetchData()
+    } catch { showNotification('error', 'Lỗi kết nối!') }
+  }
+
   // Mở modal sửa phiếu. Admin sửa được mọi trạng thái (kể cả đã Hoàn thành);
   // vai trò khác chỉ sửa khi KTV chưa nhận việc.
   const handleEditJob = (job: any) => {
@@ -2064,6 +2076,11 @@ export default function AdminDashboard() {
                           {(['Chờ nhận', 'Đã nhận'].includes(job.ket_qua) || currentUserRole === 'admin') && (
                             <button onClick={() => handleEditJob(job)} title={['Chờ nhận', 'Đã nhận'].includes(job.ket_qua) ? 'Sửa phiếu' : 'Sửa phiếu (admin)'} className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 transition">
                               <PenSquare className="w-4 h-4" />
+                            </button>
+                          )}
+                          {currentUserRole === 'admin' && job.ket_qua === 'Đang làm' && (
+                            <button onClick={() => revertToDaNhan(job)} title={'Đưa về "Đã nhận" (KTV bấm nhầm Đang làm)'} className="text-amber-600 hover:text-amber-700 p-1 rounded hover:bg-amber-50 transition ml-1">
+                              <ChevronLeft className="w-4 h-4" />
                             </button>
                           )}
                           {currentUserRole !== 'staff' && job.ket_qua === 'Hoàn thành' && (job.soct_chi_tiet_vat_tu || []).length > 0 && (
