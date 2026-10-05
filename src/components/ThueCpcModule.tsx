@@ -21,8 +21,8 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState('')
   const [xemTatCa, setXemTatCa] = useState(false) // tra cứu MỌI máy (kể cả chưa cảnh báo)
-  const [sortField, setSortField] = useState<string>('con_lai')
-  const [sortAsc, setSortAsc] = useState<boolean>(true) // còn lại ít nhất lên đầu (cấp bách)
+  const [sortField, setSortField] = useState<string>('khach')
+  const [sortAsc, setSortAsc] = useState<boolean>(true) // mặc định: gom theo khách, trong khách còn ít nhất lên trước
   const handleSort = (field: string) => {
     if (sortField === field) setSortAsc(p => !p)
     else { setSortField(field); setSortAsc(true) }
@@ -47,9 +47,14 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
     const cmpStr = (a: any, b: any) => String(a ?? '').localeCompare(String(b ?? ''), 'vi', { numeric: true, sensitivity: 'base' })
     const arr = [...filtered]
     arr.sort((a, b) => {
+      // Gom theo KHÁCH (rồi máy), TRONG mỗi máy luôn "còn ít nhất" lên trước (cấp bách).
+      if (sortField === 'khach') {
+        const kc = cmpStr(a.ten_khach_hang, b.ten_khach_hang) || cmpStr(a.ma_may, b.ma_may)
+        if (kc !== 0) return sortAsc ? kc : -kc
+        return ((Number(a.con_lai) || 0) - (Number(b.con_lai) || 0)) || cmpStr(a.ma_muc, b.ma_muc)
+      }
       let c = 0
-      if (sortField === 'khach') c = cmpStr(a.ten_khach_hang, b.ten_khach_hang)
-      else if (sortField === 'muc') c = cmpStr(a.ma_muc, b.ma_muc)
+      if (sortField === 'muc') c = cmpStr(a.ma_muc, b.ma_muc)
       else if (sortField === 'loai') c = cmpStr(a.loai, b.loai)
       else if (sortField === 'counter') c = (Number(a.counter) || 0) - (Number(b.counter) || 0)
       else if (sortField === 'da_in') c = (Number(a.da_in) || 0) - (Number(b.da_in) || 0)
@@ -60,6 +65,18 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
     })
     return arr
   }, [filtered, sortField, sortAsc])
+  // Nền xen kẽ theo KHỐI KHÁCH (chỉ khi đang gom theo khách) để dễ phân biệt từng khách.
+  const zebra = useMemo(() => {
+    const res: boolean[] = []
+    let idx = 0, prev: string | null = null
+    for (const r of list) {
+      const key = String(r.ten_khach_hang || '')
+      if (prev !== null && key !== prev) idx++
+      prev = key
+      res.push(idx % 2 === 1)
+    }
+    return res
+  }, [list])
   const daGui = async (r: any) => {
     setBusy(`${r.ma_may}|${r.ma_muc}|${r.so_hop}`)
     try {
@@ -97,7 +114,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
               : err ? <tr><td colSpan={8} className="px-4 py-8 text-center text-rose-600">⚠ {err} — bấm Làm mới để thử lại.</td></tr>
               : list.length === 0 ? <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">{xemTatCa ? 'Không có máy khớp tìm kiếm.' : 'Không có máy nào sắp cần thay vật tư. 🎉'}</td></tr>
                 : list.map((r, i) => (
-                  <tr key={i} className="hover:bg-slate-50">
+                  <tr key={i} className={`hover:bg-amber-50/60 ${sortField === 'khach' ? (zebra[i] ? 'bg-sky-50/50' : 'bg-white') : ''}`}>
                     <td className="px-2.5 py-1.5"><div className="font-medium text-slate-800">{r.ten_khach_hang}</div><div className="text-[10px] text-slate-400 font-mono">{r.ma_may || '—'}{r.model ? ` · ${r.model}` : ''}</div></td>
                     <td className="px-2.5 py-1.5 text-[11px]">
                       <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold mr-1.5 ${r.nhom === 'trong' ? 'bg-violet-50 text-violet-700' : 'bg-sky-50 text-sky-700'}`}>{r.nhom === 'trong' ? 'Trống' : 'Mực'}</span>
