@@ -145,6 +145,8 @@ export async function GET(request: Request) {
           ma_muc: mc.ma_hang, loai: mc.loai, nhom: mc.nhom || 'muc', dinh_luong: Y,
           dinh_luong_hop: dinhLuongHop, dinh_luong_dau: D0 < Y ? D0 : null, // dung lượng hộp hiện tại + hộp factory (admin khai/tự học)
           yrep: Yrep < Y ? Yrep : null, // dung lượng hộp thay TỰ HỌC (nếu khác khai)
+          // dl_hoc = dung lượng hộp HIỆN TẠI có phải HỌC (riêng theo điểm máy) hay dùng số KHAI.
+          dl_hoc: soHop === 0 ? (D0admin <= 0 && countersAtThay.length >= 1) : (Ylearn != null),
           counter: C, counter_chot: Cchot, muc_in_ngay: Math.round(mucInNgay), days_since: daysSince,
           da_in: daIn, con_lai: conLai, so_hop: soHop, thang_nam: latest.thang_nam,
           du_phong: duPhong, trang_thai,
