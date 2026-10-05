@@ -10,7 +10,7 @@ export const TAB_TREE: { key: string, label: string, subs: TabSub[], alwaysOn?: 
   { key: 'cong_viec', label: 'Sổ công tác', subs: [{ key: 'hoan_phieu', label: 'Hoàn phiếu' }, { key: 'bao_cao_khach', label: 'Báo cáo sửa chữa' }], alwaysOn: true },
   {
     key: 'theo_doi_may', label: 'Theo dõi máy', subs: [
-      { key: 'bao_tri', label: 'Bảo trì', subs: [['da_bao_tri', 'Đã bảo trì'], ['chua_bao_tri', 'Chưa bảo trì'], ['tam_dung', 'Tạm dừng'], ['doi_chieu', 'Đối chiếu năm']] },
+      { key: 'bao_tri', label: 'Bảo trì', subs: [['da_bao_tri', 'Đã bảo trì'], ['chua_bao_tri', 'Chưa bảo trì'], ['tam_dung', 'Tạm dừng'], ['doi_chieu', 'Đối chiếu năm'], ['thong_ke', 'Thống kê']] },
       { key: 'giam_dinh', label: 'Giám định' },
     ]
   },

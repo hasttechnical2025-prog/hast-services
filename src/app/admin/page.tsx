@@ -9898,9 +9898,9 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
   const [records, setRecords] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [subTab, setSubTab] = useState<'da_bao_tri' | 'chua_bao_tri' | 'tam_dung' | 'doi_chieu'>('da_bao_tri')
+  const [subTab, setSubTab] = useState<'da_bao_tri' | 'chua_bao_tri' | 'tam_dung' | 'doi_chieu' | 'thong_ke'>('da_bao_tri')
   // Tab đang xem thực tế: nếu tab cháu đang chọn bị ẩn quyền -> nhảy về cháu hiện đầu tiên
-  const active = (canS(subTab) ? subTab : ((['da_bao_tri', 'chua_bao_tri', 'tam_dung', 'doi_chieu'] as const).find(canS) ?? subTab))
+  const active = (canS(subTab) ? subTab : ((['da_bao_tri', 'chua_bao_tri', 'tam_dung', 'doi_chieu', 'thong_ke'] as const).find(canS) ?? subTab))
   // Đối chiếu cuối năm: mỗi máy x 12 tháng + số lần theo HĐ / đã làm / thiếu
   const [dcNam, setDcNam] = useState(String(new Date().getFullYear()))
   const [dcRecords, setDcRecords] = useState<any[]>([])
@@ -10063,6 +10063,46 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
     })
     return list
   }, [tamDung, tdSortField, tdSortAsc])
+
+  // ===== Thống kê: số máy HĐ bảo trì theo KHÁCH CỤM (máy chưa gán cụm -> gộp theo tên khách = máy lẻ) =====
+  const [tkSortField, setTkSortField] = useState<'ten' | 'so_may'>('so_may')
+  const [tkSortAsc, setTkSortAsc] = useState<boolean>(false) // mặc định nhiều máy nhất lên đầu
+  const [tkQ, setTkQ] = useState("")
+  const handleTkSort = (field: 'ten' | 'so_may') => {
+    if (tkSortField === field) setTkSortAsc(p => !p)
+    else { setTkSortField(field); setTkSortAsc(field === 'so_may' ? false : true) }
+  }
+  const tkStrip = (s: any) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd')
+  const thongKeRows = useMemo(() => {
+    const g = new Map<string, { key: string, ten: string, so_may: number, la_cum: boolean }>()
+    for (const c of customers) {
+      if (!c.ma_may || !LOAI_HD_BAO_TRI.includes(String(c.loai_hd || '').trim())) continue
+      const laCum = !!(c.ma_khach_cum && c.soct_khach_cum)
+      const key = laCum ? `cum:${c.ma_khach_cum}` : `le:${String(c.ten_khach_hang || '').trim().toLowerCase()}`
+      const ten = laCum ? (c.soct_khach_cum.ten_khach_hang || c.ma_khach_cum) : (String(c.ten_khach_hang || '').trim() || '(không tên)')
+      const cur = g.get(key)
+      if (cur) cur.so_may++
+      else g.set(key, { key, ten, so_may: 1, la_cum: laCum })
+    }
+    return [...g.values()]
+  }, [customers])
+  const thongKeFiltered = useMemo(() => {
+    const kw = tkStrip(tkQ).trim()
+    const arr = kw ? thongKeRows.filter(r => tkStrip(r.ten).includes(kw)) : [...thongKeRows]
+    arr.sort((a, b) => {
+      let cmp = tkSortField === 'so_may' ? a.so_may - b.so_may : a.ten.localeCompare(b.ten, 'vi', { numeric: true, sensitivity: 'base' })
+      if (cmp === 0) cmp = a.ten.localeCompare(b.ten, 'vi')
+      return tkSortAsc ? cmp : -cmp
+    })
+    return arr
+  }, [thongKeRows, tkQ, tkSortField, tkSortAsc]) // eslint-disable-line react-hooks/exhaustive-deps
+  const thongKeTongMay = useMemo(() => thongKeFiltered.reduce((s, r) => s + r.so_may, 0), [thongKeFiltered])
+  const exportThongKe = () => {
+    const rows = [['Khách hàng', 'Số lượng máy', 'Phân loại'], ...thongKeFiltered.map(r => [r.ten, String(r.so_may), r.la_cum ? 'Cụm' : 'Máy lẻ'])]
+    const csv = '﻿' + rows.map(row => row.map(cell => { const s = String(cell ?? ''); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s }).join(',')).join('\r\n')
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+    const a = document.createElement('a'); a.href = url; a.download = 'thong-ke-bao-tri-theo-cum.csv'; a.click(); URL.revokeObjectURL(url)
+  }
 
   useEffect(() => { fetchRecords(thangNam) }, [thangNam])
   // Realtime "tự lành": ghi nhận bảo trì từ máy khác -> danh sách tháng đang xem tự cập nhật
@@ -10454,9 +10494,56 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
           >
             Đối chiếu năm
           </button>}
+          {canS('thong_ke') && <button
+            onClick={() => setSubTab('thong_ke')}
+            className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${active === 'thong_ke' ? 'border-indigo-600 text-indigo-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+          >
+            Thống kê
+          </button>}
         </div>
 
-        {active === 'doi_chieu' ? (
+        {active === 'thong_ke' ? (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="text-sm text-slate-600">
+                <b className="text-indigo-700">{thongKeFiltered.length}</b> khách · <b className="text-indigo-700">{thongKeTongMay.toLocaleString('vi-VN')}</b> máy HĐ bảo trì
+              </div>
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input placeholder="Tìm tên khách / cụm…" className="pl-9 pr-7 bg-white h-9" value={tkQ} onChange={e => setTkQ(e.target.value)} />
+                {tkQ && <button type="button" onClick={() => setTkQ('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa">✕</button>}
+              </div>
+              <Button onClick={exportThongKe} disabled={thongKeFiltered.length === 0} title={`Xuất CSV (${thongKeFiltered.length} khách)`} variant="outline" className="h-9 w-9 p-0 ml-auto shrink-0">
+                <Download className="w-4 h-4" />
+              </Button>
+            </div>
+            <p className="text-[11px] text-slate-400">Chỉ tính máy thuộc HĐ bảo trì ({LOAI_HD_BAO_TRI.join(', ')}), gộp theo <b>khách cụm</b>; máy chưa gán cụm gộp theo tên khách và gắn nhãn <b>máy lẻ</b>.</p>
+            <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <table className="w-full text-left text-sm text-slate-600">
+                <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200 select-none">
+                  <tr>
+                    <th onClick={() => handleTkSort('ten')} className={`px-3 py-2 cursor-pointer transition-colors hover:bg-slate-100 ${tkSortField === 'ten' ? 'text-blue-600 bg-blue-50/60' : ''}`}>
+                      <span className="inline-flex items-center gap-1">Khách hàng {tkSortField === 'ten' && (tkSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}</span>
+                    </th>
+                    <th onClick={() => handleTkSort('so_may')} className={`px-3 py-2 text-right w-32 cursor-pointer transition-colors hover:bg-slate-100 ${tkSortField === 'so_may' ? 'text-blue-600 bg-blue-50/60' : ''}`}>
+                      <span className="inline-flex items-center gap-1 justify-end">Số lượng {tkSortField === 'so_may' && (tkSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {thongKeFiltered.length === 0 ? (
+                    <tr><td colSpan={2} className="px-4 py-8 text-center text-slate-400">{thongKeRows.length === 0 ? 'Chưa có máy HĐ bảo trì nào.' : 'Không có khách khớp tìm kiếm.'}</td></tr>
+                  ) : thongKeFiltered.map(r => (
+                    <tr key={r.key} className="hover:bg-slate-50">
+                      <td className="px-3 py-1.5 font-medium text-slate-800">{r.ten}{!r.la_cum && <span className="ml-1.5 text-[9px] font-semibold px-1 py-0.5 rounded bg-slate-100 text-slate-500 align-middle">máy lẻ</span>}</td>
+                      <td className="px-3 py-1.5 text-right font-semibold tabular-nums">{r.so_may.toLocaleString('vi-VN')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : active === 'doi_chieu' ? (
           <div className="space-y-3">
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1">
