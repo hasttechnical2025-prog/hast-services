@@ -38,7 +38,7 @@ export default function KhoThuePage() {
   const [rows, setRows] = useState<Insp[]>([])
   const [loading, setLoading] = useState(false)
   const [q, setQ] = useState("")
-  const [onlyReRented, setOnlyReRented] = useState(false)
+  const [chuaChoThue, setChuaChoThue] = useState(false) // chỉ máy CHƯA cho thuê (khách đang thuê HAST trống)
   const [sortField, setSortField] = useState<string>("model")
   const [sortAsc, setSortAsc] = useState<boolean>(true)
   const [detail, setDetail] = useState<Insp | null>(null)
@@ -77,16 +77,16 @@ export default function KhoThuePage() {
 
   const logout = async () => { try { await fetch('/api/auth/logout', { method: 'POST' }) } catch {} setUser(null); setRows([]) }
 
-  const reRentedCount = useMemo(() => rows.filter(r => r.da_thue_lai).length, [rows])
+  const chuaThueCount = useMemo(() => rows.filter(r => !String(r.khach_hien_tai || '').trim()).length, [rows])
   const filtered = useMemo(() => {
     const toks = norm(q.trim()).split(/\s+/).filter(Boolean)
     return rows.filter(r => {
-      if (onlyReRented && !r.da_thue_lai) return false
+      if (chuaChoThue && String(r.khach_hien_tai || '').trim() !== '') return false // chỉ giữ máy CHƯA cho thuê
       if (!toks.length) return true
       const hay = norm(`${r.serial} ${r.model} ${r.khach_hang} ${r.khach_hien_tai} ${r.dia_chi}`)
       return toks.every(t => hay.includes(t))
     })
-  }, [rows, q, onlyReRented])
+  }, [rows, q, chuaChoThue])
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -190,8 +190,8 @@ export default function KhoThuePage() {
             )}
           </div>
           <label className="flex items-center gap-1.5 text-sm text-slate-700 cursor-pointer select-none">
-            <input type="checkbox" checked={onlyReRented} onChange={e => setOnlyReRented(e.target.checked)} className="w-4 h-4 accent-rose-600" />
-            Chỉ máy đã cho khách khác thuê {reRentedCount > 0 && <span className="text-rose-600 font-semibold">({reRentedCount})</span>}
+            <input type="checkbox" checked={chuaChoThue} onChange={e => setChuaChoThue(e.target.checked)} className="w-4 h-4 accent-amber-600" />
+            Chỉ máy chưa cho thuê {chuaThueCount > 0 && <span className="text-amber-600 font-semibold">({chuaThueCount})</span>}
           </label>
           <span className="text-sm text-slate-500 ml-auto">{filtered.length} máy</span>
         </div>

@@ -40,7 +40,7 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
   const [rows, setRows] = useState<Insp[]>([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState("")
-  const [onlyReRented, setOnlyReRented] = useState(false)
+  const [chuaChoThue, setChuaChoThue] = useState(false) // chỉ máy CHƯA cho thuê (khách đang thuê HAST trống)
   const [sortField, setSortField] = useState<string>("model")
   const [sortAsc, setSortAsc] = useState<boolean>(true)
   const [editing, setEditing] = useState<Insp | null>(null)
@@ -70,18 +70,18 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
 
   useEffect(() => { fetchList() }, [fetchList])
 
-  // Tìm không dấu (serial + model + khách + khách đang thuê + KTV) + lọc "đã cho khách khác thuê".
+  // Tìm không dấu (serial + model + khách + khách đang thuê + KTV) + lọc "chưa cho thuê".
   const filtered = useMemo(() => {
     const toks = norm(q.trim()).split(/\s+/).filter(Boolean)
     return rows.filter(r => {
-      if (onlyReRented && !r.da_thue_lai) return false
+      if (chuaChoThue && String(r.khach_hien_tai || '').trim() !== '') return false // chỉ giữ máy CHƯA cho thuê
       if (!toks.length) return true
       const hay = norm(`${r.serial} ${r.model} ${r.khach_hang} ${r.khach_hien_tai} ${r.dia_chi} ${r.ktv}`)
       return toks.every(t => hay.includes(t))
     })
-  }, [rows, q, onlyReRented])
+  }, [rows, q, chuaChoThue])
 
-  const reRentedCount = useMemo(() => rows.filter(r => r.da_thue_lai).length, [rows])
+  const chuaThueCount = useMemo(() => rows.filter(r => !String(r.khach_hien_tai || '').trim()).length, [rows])
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -165,8 +165,8 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
           )}
         </div>
         <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
-          <input type="checkbox" checked={onlyReRented} onChange={e => setOnlyReRented(e.target.checked)} className="w-4 h-4 accent-rose-600" />
-          Chỉ máy đã cho khách khác thuê {reRentedCount > 0 && <span className="text-rose-600 font-semibold">({reRentedCount})</span>}
+          <input type="checkbox" checked={chuaChoThue} onChange={e => setChuaChoThue(e.target.checked)} className="w-4 h-4 accent-amber-600" />
+          Chỉ máy chưa cho thuê {chuaThueCount > 0 && <span className="text-amber-600 font-semibold">({chuaThueCount})</span>}
         </label>
         <Button variant="outline" onClick={fetchList} disabled={loading} className="gap-1 h-9 text-xs px-3">
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Làm mới
