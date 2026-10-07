@@ -4904,9 +4904,15 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
   const cust = form.ma_may.trim() ? customers.find(c => c.ma_may && c.ma_may.toLowerCase() === form.ma_may.trim().toLowerCase()) : undefined
   const filteredInventory = onlyModel && cust?.model ? inventory.filter(i => matchModelGD(i.model, cust.model)) : inventory
 
+  const gdNorm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()
   const filteredRecords = records.filter(r => {
     const f = gdFilters
-    if (f.maMay && !(r.ma_may || '').toLowerCase().includes(f.maMay.trim().toLowerCase())) return false
+    if (f.maMay) {
+      // Tìm không dấu, đa từ khóa: mã máy + tên khách + địa chỉ + model + KTV + tình trạng.
+      const toks = gdNorm(f.maMay).trim().split(/\s+/).filter(Boolean)
+      const hay = gdNorm(`${r.ma_may || ''} ${r.soct_khach_hang?.ten_khach_hang || ''} ${r.soct_khach_hang?.dia_chi || ''} ${r.soct_khach_hang?.model || ''} ${r.ktv_giam_dinh || ''} ${r.tinh_trang_may || ''}`)
+      if (!toks.every(t => hay.includes(t))) return false
+    }
     if (f.trangThai === 'cho_thay' && r.da_thay) return false
     if (f.trangThai === 'da_thay' && !r.da_thay) return false
     if (f.baoGia === 'co' && !r.da_bao_gia) return false
@@ -5123,7 +5129,7 @@ function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOptions, show
         <div className="flex flex-wrap items-center gap-2 px-1">
           <div className="relative w-full sm:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Lọc theo mã máy..." className="pl-9 pr-7 bg-white h-9 text-xs" value={gdFilters.maMay} onChange={(e) => setGdFilters({ ...gdFilters, maMay: e.target.value })} />
+            <Input placeholder="Lọc theo mã máy / khách / địa chỉ..." className="pl-9 pr-7 bg-white h-9 text-xs" value={gdFilters.maMay} onChange={(e) => setGdFilters({ ...gdFilters, maMay: e.target.value })} />
             {gdFilters.maMay && (
               <button
                 type="button"
