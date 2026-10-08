@@ -6098,7 +6098,8 @@ function DatHangTool({
   const [saving, setSaving] = useState(false)
   const [receiving, setReceiving] = useState<{ ctId: string, ngay_nhan: string, so_luong_nhan: string, ma_dat: string, ma_hang: string } | null>(null)
   const [delId, setDelId] = useState<string | null>(null)
-  const [orderFilters, setOrderFilters] = useState({ maHang: "", ncc: "", conThieu: true, hvTu: "", hvDen: "" })
+  // trangThai: con_thieu (mặc định) | all | nhap | da_dat | hoan_thanh
+  const [orderFilters, setOrderFilters] = useState({ maHang: "", ncc: "", trangThai: "con_thieu", hvTu: "", hvDen: "" })
 
   // State phục vụ rà soát tồn kho & nhặt giỏ hàng bên trái
   const [leftSearch, setLeftSearch] = useState("")
@@ -6218,7 +6219,11 @@ function DatHangTool({
 
   const filteredOrders = orders.filter(o => {
     const of = orderFilters
-    if (of.conThieu && o.hoan_thanh) return false
+    // Lọc theo trạng thái đơn (gộp "còn thiếu" vào đây).
+    if (of.trangThai === 'con_thieu' && o.hoan_thanh) return false       // chưa nhận đủ = Nháp + Đã đặt đang về
+    else if (of.trangThai === 'nhap' && o.da_dat) return false            // chỉ Nháp
+    else if (of.trangThai === 'da_dat' && (!o.da_dat || o.hoan_thanh)) return false // Đã đặt & chưa nhận đủ
+    else if (of.trangThai === 'hoan_thanh' && !o.hoan_thanh) return false // đã nhận đủ
     if (of.ncc && o.nha_cung_cap !== of.ncc) return false
     if (of.maHang) {
       const q = of.maHang.trim().toLowerCase()
@@ -6918,18 +6923,21 @@ function DatHangTool({
             <option value="">NCC: Tất cả</option>
             {nhaCungCapOptions.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
-          <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none h-9">
-            <input type="checkbox" checked={orderFilters.conThieu} onChange={(e) => setOrderFilters({ ...orderFilters, conThieu: e.target.checked })} className="w-4 h-4 accent-blue-600" />
-            Chỉ đơn còn thiếu
-          </label>
+          <select value={orderFilters.trangThai} onChange={(e) => setOrderFilters({ ...orderFilters, trangThai: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-xs bg-white outline-none">
+            <option value="con_thieu">Còn thiếu</option>
+            <option value="all">Tất cả trạng thái</option>
+            <option value="nhap">Nháp</option>
+            <option value="da_dat">Đã đặt (đang về)</option>
+            <option value="hoan_thanh">Đã nhận đủ</option>
+          </select>
           <div className="flex items-center gap-1.5 text-xs text-slate-500">
             <span>Hàng về</span>
             <DateField value={orderFilters.hvTu} onChange={(v) => setOrderFilters({ ...orderFilters, hvTu: v })} heightClass="h-9" className="w-36" />
             <span>–</span>
             <DateField value={orderFilters.hvDen} onChange={(v) => setOrderFilters({ ...orderFilters, hvDen: v })} heightClass="h-9" className="w-36" />
           </div>
-          {(orderFilters.maHang || orderFilters.ncc || !orderFilters.conThieu || orderFilters.hvTu || orderFilters.hvDen) && (
-            <button onClick={() => setOrderFilters({ maHang: "", ncc: "", conThieu: true, hvTu: "", hvDen: "" })} className="text-xs text-red-600 hover:underline font-medium">Bỏ lọc</button>
+          {(orderFilters.maHang || orderFilters.ncc || orderFilters.trangThai !== 'con_thieu' || orderFilters.hvTu || orderFilters.hvDen) && (
+            <button onClick={() => setOrderFilters({ maHang: "", ncc: "", trangThai: "con_thieu", hvTu: "", hvDen: "" })} className="text-xs text-red-600 hover:underline font-medium">Bỏ lọc</button>
           )}
         </div>
         {loading ? <p className="text-sm text-slate-400 text-center py-8">Đang tải...</p>
