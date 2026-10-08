@@ -87,8 +87,9 @@ export async function GET(request: Request) {
     }
     const buf = render(tpl.file, data)
 
-    // Badge "đã xuất BBBG"
+    // Badge "đã xuất chứng từ" + ghi nhật ký xuất chứng từ (để hiện ✓ mẫu + lịch sử trong menu).
     await supabaseAdmin.from('soct_cong_viec').update({ bbbg_luc: new Date().toISOString() }).eq('id', id)
+    await supabaseAdmin.from('soct_chung_tu_log').insert({ job_id: id, loai: 'BBBG', mau, mau_label: tpl.label, nguoi_id: session.id, nguoi_ten: session.full_name })
     await logAudit(session, 'Xuất BBBG', `phiếu ${job.report || id} · mẫu ${tpl.label}`)
 
     const fname = `BBBG-${job.report || job.ma_may || 'phieu'}.docx`

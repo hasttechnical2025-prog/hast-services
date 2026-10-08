@@ -1547,3 +1547,13 @@ ALTER TABLE public.soct_muc_may_thue
 -- NULL = dùng như dinh_luong (công thức rút gọn về cũ). Engine: hộp 1 = dinh_luong_dau, hộp sau = dinh_luong.
 ALTER TABLE public.soct_muc_may_thue
   ADD COLUMN IF NOT EXISTS dinh_luong_dau NUMERIC;
+
+
+-- MIGRATION 91: Nhật ký xuất chứng từ theo phiếu (BBBG/BBGĐ).
+CREATE TABLE IF NOT EXISTS public.soct_chung_tu_log (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  job_id UUID NOT NULL REFERENCES public.soct_cong_viec(id) ON DELETE CASCADE,
+  loai TEXT NOT NULL, mau TEXT, mau_label TEXT, nguoi_id UUID, nguoi_ten TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_chung_tu_log_job ON public.soct_chung_tu_log (job_id, created_at DESC);

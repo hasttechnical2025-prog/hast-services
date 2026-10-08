@@ -43,6 +43,9 @@ export async function GET(request: Request) {
     doc.render(data)
     const buf = doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' })
 
+    // Badge "đã xuất chứng từ" + ghi nhật ký xuất chứng từ (✓ + lịch sử trong menu).
+    await supabaseAdmin.from('soct_cong_viec').update({ bbbg_luc: new Date().toISOString() }).eq('id', id)
+    await supabaseAdmin.from('soct_chung_tu_log').insert({ job_id: id, loai: 'BBGD', mau: 'bm26', mau_label: 'BM26 — Biên bản giám định', nguoi_id: session.id, nguoi_ten: session.full_name })
     await logAudit(session, 'Xuất BBGĐ', `phiếu ${job.report || id}`)
 
     const fname = `BBGD-${job.report || job.ma_may || 'phieu'}.docx`
