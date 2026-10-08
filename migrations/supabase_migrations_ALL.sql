@@ -1557,3 +1557,13 @@ CREATE TABLE IF NOT EXISTS public.soct_chung_tu_log (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_chung_tu_log_job ON public.soct_chung_tu_log (job_id, created_at DESC);
+
+
+-- MIGRATION 92: Đăng ký Web Push (thông báo trình duyệt cho kthc).
+CREATE TABLE IF NOT EXISTS public.soct_push_sub (
+  endpoint TEXT PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES public.soct_users(id) ON DELETE CASCADE,
+  p256dh TEXT NOT NULL, auth TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_push_sub_user ON public.soct_push_sub (user_id);

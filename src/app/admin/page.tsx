@@ -13,6 +13,7 @@ import ThueCpcModule from "@/components/ThueCpcModule"
 import PhiBaoTriModule from "@/components/PhiBaoTriModule"
 import KanbanHdTool from "@/components/KanbanHdTool"
 import KhoMayThueTool from "@/components/KhoMayThueTool"
+import PushToggle from "@/components/PushToggle"
 import PhieuDeNghiModule from "@/components/PhieuDeNghiModule"
 import LamTiepBanner from "@/components/LamTiepBanner"
 import MonthField from "@/components/MonthField"
@@ -1820,6 +1821,7 @@ export default function AdminDashboard() {
             {/* Chuông chỉ cho vận hành kỹ thuật. Ẩn với kthc (kế toán) và kinh_doanh — 2 bộ phận
                 này không liên quan các cảnh báo này và không nên thấy chuông. */}
             {['admin', 'tech_admin', 'staff'].includes(currentUserRole) && <NotificationCenter sections={alertSections} />}
+            {currentUserRole === 'kthc' && <PushToggle notify={showNotification} />}
 
             <Button onClick={handleLogout} variant="outline" className="text-slate-600 hover:text-red-600 hover:bg-red-50 gap-1 text-xs px-3 py-1">
               Đăng xuất

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { broadcastJobsChanged } from '@/lib/realtime'
+import { sendPushToKthc } from '@/lib/push'
 
 // GET: Lấy danh sách phiếu phục vụ Kanban Hóa đơn
 export async function GET(request: Request) {
@@ -269,6 +270,17 @@ export async function PUT(request: Request) {
         .update({ ban_giao_kt_luc: new Date(Date.now() + 7 * 3600 * 1000).toISOString() })
         .in('id', targetIds)
         .is('ban_giao_kt_luc', null)
+
+      // Thông báo Web Push cho kthc: "Có hóa đơn cần xuất: {khách}" (office bàn giao, không tự nhắc kthc).
+      if (session.role !== 'kthc') {
+        const { data: khs } = await supabaseAdmin
+          .from('soct_cong_viec')
+          .select('ten_khach_hd, soct_khach_hang ( ten_khach_hang )')
+          .in('id', targetIds)
+        const names = [...new Set((khs || []).map((k: any) => String(k.ten_khach_hd || k.soct_khach_hang?.ten_khach_hang || '').trim()).filter(Boolean))]
+        const body = names.length === 0 ? `${targetIds.length} phiếu` : names.length === 1 ? names[0] : `${names[0]} +${names.length - 1} khách khác`
+        await sendPushToKthc('Có hóa đơn cần xuất', body, '/admin')
+      }
     }
 
     // Nếu là hoàn tất hóa đơn, ta cũng đồng bộ tick cờ hoa_don = true cho tất cả vật tư
