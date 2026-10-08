@@ -1822,6 +1822,20 @@ export default function AdminDashboard() {
                 này không liên quan các cảnh báo này và không nên thấy chuông. */}
             {['admin', 'tech_admin', 'staff'].includes(currentUserRole) && <NotificationCenter sections={alertSections} />}
             {currentUserRole === 'kthc' && <PushToggle notify={showNotification} />}
+            {currentUserRole === 'admin' && (
+              <button type="button" title="Gửi thử thông báo hóa đơn tới các máy kthc đã bật (giả lập bàn giao Kanban)"
+                onClick={async () => {
+                  try {
+                    const r = await fetch('/api/admin/push/test', { method: 'POST' })
+                    const j = await r.json()
+                    if (!r.ok) { showNotification('error', j.error || 'Lỗi gửi thử'); return }
+                    showNotification(j.sent > 0 ? 'success' : 'error', j.sent > 0 ? `Đã gửi thử tới ${j.sent} thiết bị kthc.` : 'Chưa có thiết bị kthc nào bật thông báo (hoặc chưa cấu hình VAPID).')
+                  } catch { showNotification('error', 'Lỗi kết nối') }
+                }}
+                className="h-9 px-3 rounded-full border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1.5">
+                <Send className="w-3.5 h-3.5" /> Gửi thử HĐ
+              </button>
+            )}
 
             <Button onClick={handleLogout} variant="outline" className="text-slate-600 hover:text-red-600 hover:bg-red-50 gap-1 text-xs px-3 py-1">
               Đăng xuất
