@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark, Pencil, Search, Download, Upload, Info, GripVertical } from "lucide-react"
+import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark, Pencil, Search, Download, Upload, Info, GripVertical, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import MonthField from "@/components/MonthField"
@@ -2067,6 +2067,20 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
 
           {/* Hành động dồn phải, cạnh nhau */}
           <div className="flex items-center gap-2">
+            {role === 'admin' && (
+              <Button
+                onClick={async () => {
+                  try {
+                    const r = await fetch('/api/admin/push/test', { method: 'POST' })
+                    const j = await r.json()
+                    if (!r.ok) { showNotification('error', j.error || 'Lỗi gửi thử'); return }
+                    showNotification(j.sent > 0 ? 'success' : 'error', j.sent > 0 ? `Đã gửi thử tới ${j.sent} thiết bị kthc.` : 'Chưa có thiết bị kthc nào bật thông báo (hoặc chưa cấu hình VAPID).')
+                  } catch { showNotification('error', 'Lỗi kết nối') }
+                }}
+                size="sm" variant="outline" title="Gửi thử thông báo hóa đơn tới các máy kthc đã bật (giả lập bàn giao Kanban)" className="h-9 gap-1.5 bg-white text-xs">
+                <Send className="w-3.5 h-3.5" /> Gửi thử HĐ
+              </Button>
+            )}
             <Button onClick={load} disabled={loading} size="sm" variant="outline" title="Tải lại" className="h-9 w-9 p-0 bg-white">
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             </Button>
