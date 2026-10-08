@@ -443,8 +443,10 @@ export default function AdminDashboard() {
   const hdbtExpiring = (() => {
     const today = new Date(); today.setHours(0, 0, 0, 0)
     const limit = new Date(today); limit.setMonth(limit.getMonth() + hdbtCanhBaoThang)
+    // CHỈ cảnh báo máy còn tình trạng HĐ (loai_hd khác rỗng). Xóa loai_hd -> không còn theo dõi hết hạn,
+    // dù ngày hết hạn cũ có thể vẫn lưu trong dữ liệu.
     return customers
-      .filter(c => c.ngay_het_han_hdbt && new Date(c.ngay_het_han_hdbt) <= limit)
+      .filter(c => String(c.loai_hd || '').trim() && c.ngay_het_han_hdbt && new Date(c.ngay_het_han_hdbt) <= limit)
       .sort((a, b) => new Date(a.ngay_het_han_hdbt).getTime() - new Date(b.ngay_het_han_hdbt).getTime())
   })()
 
@@ -11033,7 +11035,8 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
     if (hdFilter === 'all') return true
     if (hdFilter === 'has') return c.loai_hd === 'HĐBT' || c.loai_hd === 'MF'
     if (hdFilter.startsWith('hd:')) return c.loai_hd === hdFilter.slice(3)
-    const exp = c.ngay_het_han_hdbt ? new Date(c.ngay_het_han_hdbt) : null
+    // Hết hạn chỉ tính khi còn tình trạng HĐ (loai_hd khác rỗng) — xóa loai_hd thì không theo dõi nữa.
+    const exp = (c.ngay_het_han_hdbt && String(c.loai_hd || '').trim()) ? new Date(c.ngay_het_han_hdbt) : null
     if (hdFilter === 'expiring') return exp !== null && exp >= today && exp <= limit
     if (hdFilter === 'expired') return exp !== null && exp < today
     return true
@@ -11078,7 +11081,7 @@ function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoTh
     let hasHd = 0, expiring = 0, expired = 0
     for (const c of filtered) {
       if (c.loai_hd === 'HĐBT' || c.loai_hd === 'MF') hasHd++
-      const exp = c.ngay_het_han_hdbt ? new Date(c.ngay_het_han_hdbt) : null
+      const exp = (c.ngay_het_han_hdbt && String(c.loai_hd || '').trim()) ? new Date(c.ngay_het_han_hdbt) : null
       if (exp) { if (exp < today) expired++; else if (exp <= limit) expiring++ }
     }
     return { total: filtered.length, hasHd, expiring, expired }
