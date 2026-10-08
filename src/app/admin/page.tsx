@@ -4532,7 +4532,7 @@ function BbbgExportButton({ jobId, bbbgLuc, onExported, showNotification }: {
   const [log, setLog] = useState<any[]>([])          // lịch sử xuất chứng từ của phiếu
   const [logLoading, setLogLoading] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number; maxH: number } | null>(null)
   const fmtTime = (iso: string) => { const d = new Date(iso); const p = (n: number) => String(n).padStart(2, '0'); return `${p(d.getDate())}/${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}` }
   const lastFor = (loai: string, mau: string) => log.find(l => l.loai === loai && l.mau === mau)?.created_at as string | undefined
   const fetchLog = async () => {
@@ -4543,7 +4543,14 @@ function BbbgExportButton({ jobId, bbbgLuc, onExported, showNotification }: {
     e.stopPropagation()
     if (open) { setOpen(false); return }
     const r = btnRef.current?.getBoundingClientRect()
-    if (r) setPos({ top: r.bottom + 4, left: Math.max(8, r.right - 300) })   // menu w-[300px], canh phải nút
+    if (r) {
+      const left = Math.max(8, r.right - 300)   // menu w-[300px], canh phải nút
+      const spaceBelow = window.innerHeight - r.bottom - 8
+      const spaceAbove = r.top - 8
+      // Gần đáy màn hình + phía trên rộng hơn -> "chòi lên trên"; giới hạn maxHeight theo chỗ trống.
+      if (spaceBelow < 260 && spaceAbove > spaceBelow) setPos({ left, bottom: window.innerHeight - r.top + 4, maxH: spaceAbove })
+      else setPos({ left, top: r.bottom + 4, maxH: spaceBelow })
+    }
     setOpen(true); fetchLog()
   }
   // Tải blob .docx từ 1 URL chứng từ (BBBG theo mẫu, hoặc BBGĐ).
@@ -4573,7 +4580,7 @@ function BbbgExportButton({ jobId, bbbgLuc, onExported, showNotification }: {
       {open && pos && (
         <>
           <div className="fixed inset-0 z-[70]" onClick={(e) => { e.stopPropagation(); setOpen(false) }} />
-          <div className="fixed w-[300px] bg-white border border-slate-200 rounded-lg shadow-lg z-[71] py-1" style={{ top: pos.top, left: pos.left }} onClick={e => e.stopPropagation()}>
+          <div className="fixed w-[300px] bg-white border border-slate-200 rounded-lg shadow-lg z-[71] py-1 overflow-y-auto" style={{ left: pos.left, ...(pos.top != null ? { top: pos.top } : { bottom: pos.bottom }), maxHeight: pos.maxH }} onClick={e => e.stopPropagation()}>
             <div className="px-3 py-1 text-[10px] font-semibold text-slate-400 uppercase">Biên bản bàn giao</div>
             {BBBG_TEMPLATE_LIST.map(t => (
               <button key={t.key} onClick={() => doExportBBBG(t.key)} className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2">
