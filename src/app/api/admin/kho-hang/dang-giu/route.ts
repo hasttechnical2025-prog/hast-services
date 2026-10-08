@@ -24,7 +24,22 @@ export async function GET() {
       map[mh] = (map[mh] || 0) + (Number(r.so_luong) || 0)
     }
 
-    return NextResponse.json({ data: map })
+    // "Chờ về" = SL đã ĐẶT (header da_dat) nhưng CHƯA nhận đủ (dòng chưa hoàn thành), gom theo mã.
+    // Cùng định nghĩa với cảnh báo tồn kho -> hiển thị nhất quán.
+    const cts = await selectAll<any>((from, to) => supabaseAdmin
+      .from('soct_dat_hang_ct')
+      .select('ma_hang, sl_dat, soct_dat_hang!inner ( da_dat ), soct_hang_ve_dot ( so_luong_nhan )')
+      .eq('hoan_thanh', false)
+      .eq('soct_dat_hang.da_dat', true)
+      .range(from, to) as any)
+    const choVe: Record<string, number> = {}
+    for (const c of cts || []) {
+      const daNhan = (c.soct_hang_ve_dot || []).reduce((s: number, h: any) => s + (Number(h.so_luong_nhan) || 0), 0)
+      const conVe = Math.max(0, (Number(c.sl_dat) || 0) - daNhan)
+      if (conVe > 0 && c.ma_hang) choVe[c.ma_hang] = (choVe[c.ma_hang] || 0) + conVe
+    }
+
+    return NextResponse.json({ data: map, choVe })
   } catch (error: any) {
     console.error('Error computing dang_giu:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })

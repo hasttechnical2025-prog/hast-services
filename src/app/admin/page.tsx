@@ -378,6 +378,7 @@ export default function AdminDashboard() {
   const [technicians, setTechnicians] = useState<any[]>([])
   const [inventory, setInventory] = useState<any[]>([]) // Thêm state inventory
   const [committed, setCommitted] = useState<Record<string, number>>({}) // "Đang giữ": SL vật tư của phiếu chưa Hoàn thành
+  const [choVe, setChoVe] = useState<Record<string, number>>({}) // "Chờ về": SL đã đặt chưa nhận đủ, gom theo mã
 
   // State Giỏ đặt hàng nâng lên AdminPage và đồng bộ localStorage (tránh mất khi chuyển tab Kho hàng hoặc F5)
   const [datHangLines, setDatHangLines] = useState<{ ma_hang: string, sl_dat: string }[]>(() => {
@@ -609,7 +610,7 @@ export default function AdminDashboard() {
       const modelArr = [...models]
       const soMay = modelArr.reduce((s, m) => s + (rentalCount.get(normModel(m)) || 0), 0)
       if (soMay === 0) continue // model không còn máy thuê nào -> không cần mực dự phòng -> không cảnh báo
-      out.push({ ma_hang: ma, ten_hang: inv?.ten_hang || ma, ton, giu, kha_dung: khaDung, models: modelArr, so_may: soMay })
+      out.push({ ma_hang: ma, ten_hang: inv?.ten_hang || ma, ton, giu, kha_dung: khaDung, cho_ve: choVe[ma] || 0, models: modelArr, so_may: soMay })
     }
     return out.sort((a, b) => a.kha_dung - b.kha_dung)
   })()
@@ -781,6 +782,7 @@ export default function AdminDashboard() {
       if (danhMucData.data) setDanhMuc(danhMucData.data)
       if (cauHinhData.data) setCauHinh(cauHinhData.data)
       if (dangGiuData.data) setCommitted(dangGiuData.data)
+      setChoVe(dangGiuData.choVe || {})
       if (unfinishedData.data) setUnfinishedPastJobs(unfinishedData.data)
       if (futureData.data) setFutureJobs(futureData.data)
       if (['admin', 'tech_admin'].includes(currentUserRole)) fetchCanhBaoTon()
@@ -1484,12 +1486,13 @@ export default function AdminDashboard() {
       detail: (
         <div className="border border-red-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
-            <thead className="bg-red-50 text-red-800"><tr><th className="px-2.5 py-1.5 font-medium">Mã / tên mực</th><th className="px-2 py-1.5 font-medium text-center">Khả dụng</th><th className="px-2 py-1.5 font-medium text-center">Máy</th></tr></thead>
+            <thead className="bg-red-50 text-red-800"><tr><th className="px-2.5 py-1.5 font-medium">Mã / tên mực</th><th className="px-2 py-1.5 font-medium text-center">Khả dụng</th><th className="px-2 py-1.5 font-medium text-center">Chờ về</th><th className="px-2 py-1.5 font-medium text-center">Máy</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {mucCanhBao.map((m: any) => (
                 <tr key={m.ma_hang}>
                   <td className="px-2.5 py-1.5"><span className="font-mono font-semibold text-slate-700">{m.ma_hang}</span><div className="text-slate-500" title={m.ten_hang}>{m.ten_hang}</div></td>
                   <td className="px-2 py-1.5 text-center font-semibold text-red-600">{m.kha_dung}{m.giu > 0 && <div className="text-[10px] text-slate-400 font-normal">tồn {m.ton} · giữ {m.giu}</div>}</td>
+                  <td className="px-2 py-1.5 text-center">{m.cho_ve > 0 ? <span className="font-semibold text-emerald-600">{m.cho_ve}</span> : <span className="text-slate-300">—</span>}</td>
                   <td className="px-2 py-1.5 text-center">{m.so_may}</td>
                 </tr>
               ))}
