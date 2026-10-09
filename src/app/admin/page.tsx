@@ -6246,11 +6246,13 @@ function DatHangTool({
     for (const o of orders) if (o.so_don_hang?.startsWith(p)) { const n = parseInt(o.so_don_hang.slice(p.length)) || 0; if (n > max) max = n }
     return p + String(max + 1).padStart(3, '0')
   }
-  // Điền số đơn tự động khi trống hoặc đang là mã tự sinh (giữ nguyên nếu người dùng gõ số khác)
+  // Điền số đơn tự động khi trống hoặc đang là mã tự sinh (giữ nguyên nếu người dùng gõ số khác).
+  // ĐANG SỬA đơn có sẵn (editingDraftId) -> GIỮ NGUYÊN số PO của đơn, KHÔNG tự sinh (tránh đổi số PO khi sửa).
   useEffect(() => {
+    if (editingDraftId) return
     setForm(f => (!f.so_don_hang || /^PO-\d{6}-\d{3}$/.test(f.so_don_hang)) ? { ...f, so_don_hang: genSoDon(f.ngay_dat) } : f)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders, form.ngay_dat])
+  }, [orders, form.ngay_dat, editingDraftId])
 
   const filteredOrders = orders.filter(o => {
     const of = orderFilters
