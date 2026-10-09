@@ -19,7 +19,9 @@ const fmtVnd = (x: any) => (Math.round(Number(x) || 0)).toLocaleString('vi-VN')
 
 // Từ dừng (bỏ khi tách từ khóa tìm hàng) — để "mực máy c227i" -> [muc, c227i].
 // Lưu ý: KHÔNG cho "muc" vào đây vì trùng chuẩn hóa với "mực" (toner).
-const KHO_STOP = new Set(['may', 'cua', 'cai', 'chiec', 'hop', 'con', 'bao', 'nhieu', 'la', 'ma', 'nao', 'cho', 'co', 'nhu', 'the', 'gi', 'o', 'va', 'bang', 'muon', 'hoi', 'thi', 'hang'])
+// 'cum' (cụm) + 'bo' (bộ): từ chỉ cụm/bộ, thường là filler ("cụm trống", "bộ mực") mà tên hàng
+// trong kho không nhất thiết có -> bỏ để khớp theo từ khóa còn lại (loại + model). Giống 'hop' (hộp).
+const KHO_STOP = new Set(['may', 'cua', 'cai', 'chiec', 'hop', 'con', 'bao', 'nhieu', 'la', 'ma', 'nao', 'cho', 'co', 'nhu', 'the', 'gi', 'o', 'va', 'bang', 'muon', 'hoi', 'thi', 'hang', 'cum', 'bo'])
 
 // Tìm mặt hàng: theo MÃ chính xác trước; không có thì tách từ khóa và khớp TẤT CẢ
 // trên (mã + tên + model). => "mực c227i", "trống c301i", "cụm sấy 6120" đều ra.
