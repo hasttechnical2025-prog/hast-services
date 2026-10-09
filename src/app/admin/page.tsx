@@ -6507,6 +6507,20 @@ function DatHangTool({
     return filtered
   }, [inventory, leftSearch, leftModel, leftHang, leftLowStock, leftUnderWarn, leftSortField, leftSortAsc, committed, orders, getUnderWarnInfo])
 
+  // Xuất Excel ĐÚNG danh sách đang hiển thị (sau lọc mã/tên, model, hãng, các cờ) — để office đối chiếu.
+  const exportLeftInventory = () => {
+    if (sortedLeftInventory.length === 0) { showNotification('error', 'Không có vật tư nào trong danh sách để xuất.'); return }
+    const headers = ['Mã hàng', 'Tên hàng', 'Model', 'Hãng', 'Tồn kho', 'Có sẵn', 'Chờ về', 'Ngưỡng đặt']
+    const rows = sortedLeftInventory.map((it: any) => {
+      const giu = committed[it.ma_hang] || 0
+      const coSan = (Number(it.ton_kho) || 0) - giu
+      const choVe = getPendingInfo(it.ma_hang).pendingQty
+      return [it.ma_hang, it.ten_hang || '', it.model || '', it.hang || '', Number(it.ton_kho) || 0, coSan, choVe || 0, it.nguong_dat ?? '']
+    })
+    const tag = leftHang ? `-${leftHang}` : ''
+    exportRowsToExcel(`Ra-soat-kho${tag}`, headers, rows)
+  }
+
   const handleAddAllUnderWarnToCart = () => {
     const targets = sortedLeftInventory.filter(item => getUnderWarnInfo(item).isUnder)
     if (targets.length === 0) return
@@ -6541,9 +6555,16 @@ function DatHangTool({
         {/* BÊN TRÁI: RÀ SOÁT TỒN KHO & CHỌN VẬT TƯ (3/5) */}
         <div className="lg:col-span-3 border border-slate-200 rounded-xl bg-white overflow-hidden flex flex-col shadow-sm">
           <div className="bg-slate-50 p-4 border-b border-slate-200 space-y-2.5">
-            <h3 className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
-              <Search className="w-4 h-4 text-slate-500" /> Rà soát kho & Chọn vật tư đặt hàng
-            </h3>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                <Search className="w-4 h-4 text-slate-500" /> Rà soát kho & Chọn vật tư đặt hàng
+              </h3>
+              <button type="button" onClick={exportLeftInventory}
+                title="Xuất Excel đúng danh sách đang hiển thị (sau lọc mã/tên, model, hãng…) để đối chiếu"
+                className="shrink-0 h-8 px-2.5 rounded-md border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold inline-flex items-center gap-1.5">
+                <Download className="w-3.5 h-3.5" /> Xuất Excel ({sortedLeftInventory.length})
+              </button>
+            </div>
 
             {/* Dòng 1: Tìm mã/tên vật tư, tìm model, chọn hãng */}
             <div className="flex flex-wrap gap-2 items-center">
