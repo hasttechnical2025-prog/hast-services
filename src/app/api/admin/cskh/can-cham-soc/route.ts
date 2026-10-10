@@ -25,11 +25,13 @@ export async function GET() {
     const limitHd = (() => { const d = new Date(nowMs); d.setMonth(d.getMonth() + hdbtThang); return d.toISOString().slice(0, 10) })()
     const daysBetween = (iso: string) => Math.floor((nowMs - Date.parse(iso + 'T00:00:00Z')) / 86400000)
 
-    const [clusters, members, repairs, logs] = await Promise.all([
+    const [clusters, members, repairs, logs, phieuCskh] = await Promise.all([
       selectAll<any>((f, t) => supabaseAdmin.from('soct_khach_cum').select('ma_khach_hang, ten_khach_hang').range(f, t)),
       selectAll<any>((f, t) => supabaseAdmin.from('soct_khach_hang').select('id, ma_khach_cum, loai_hd, ngay_het_han_hdbt, ma_may, model, vi_tri_dat_may').not('ma_khach_cum', 'is', null).range(f, t)),
       selectAll<any>((f, t) => supabaseAdmin.from('soct_cong_viec').select('id_khach_hang, ngay').eq('loai_cong_viec', 'Sửa máy').eq('ket_qua', 'Hoàn thành').gte('ngay', d60).range(f, t)),
       selectAll<any>((f, t) => supabaseAdmin.from('soct_cskh_log').select('ma_khach_cum, ngay, ngay_hen').not('ma_khach_cum', 'is', null).range(f, t)),
+      // Phiếu CSKH Hoàn thành -> coi là 1 lần chăm sóc (hiện trường) để cập nhật "lần chăm sóc gần nhất".
+      selectAll<any>((f, t) => supabaseAdmin.from('soct_cong_viec').select('id_khach_hang, ngay').eq('loai_cong_viec', 'CSKH').eq('ket_qua', 'Hoàn thành').range(f, t)),
     ])
 
     const fmtD = (iso: string) => { const p = String(iso || '').slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : '' }
@@ -72,6 +74,13 @@ export async function GET() {
       const a = logAgg.get(l.ma_khach_cum) || { last: null, last_hen: null }
       if (l.ngay && (!a.last || l.ngay >= a.last)) { a.last = l.ngay; a.last_hen = l.ngay_hen || null }
       logAgg.set(l.ma_khach_cum, a)
+    }
+    // Phiếu CSKH Hoàn thành cũng tính là "lần chăm sóc" (không mang hẹn) -> cập nhật last cho cụm.
+    for (const p of phieuCskh || []) {
+      const info = memberInfo.get(p.id_khach_hang); if (!info || !p.ngay) continue
+      const a = logAgg.get(info.cum) || { last: null, last_hen: null }
+      if (!a.last || p.ngay > a.last) a.last = p.ngay
+      logAgg.set(info.cum, a)
     }
 
     const counts: Record<string, number> = { hen: 0, hdbt: 0, moi_sua: 0, hay_hong: 0, lau: 0 }

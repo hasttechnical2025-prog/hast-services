@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import DateField from "@/components/DateField"
-import { Search, Plus, X, Trash2, Clock, ChevronUp, ChevronDown, Phone, Users, RefreshCw } from "lucide-react"
+import { Search, Plus, X, Trash2, Clock, ChevronUp, ChevronDown, Phone, Users, RefreshCw, Target, CalendarClock, TrendingUp, BarChart3 } from "lucide-react"
 import { useConfirm } from "@/components/ConfirmDialog"
 
 type Notify = (type: 'success' | 'error', msg: string) => void
@@ -31,11 +31,13 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
   const [sortAsc, setSortAsc] = useState(true)
   const [sel, setSel] = useState<any | null>(null)
   const [addOpen, setAddOpen] = useState(false)
-  const [view, setView] = useState<'can' | 'ds'>('can')
+  const [view, setView] = useState<'can' | 'ds' | 'pipeline' | 'kpi'>('can')
   const [queue, setQueue] = useState<any[]>([])
   const [qCounts, setQCounts] = useState<Record<string, number>>({})
   const [qLoading, setQLoading] = useState(true)
   const [reasonFilter, setReasonFilter] = useState<string>('all')
+  const [kpi, setKpi] = useState<any | null>(null)
+  const [kpiLoading, setKpiLoading] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -51,7 +53,15 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
       if (r.ok) { setQueue(j.data || []); setQCounts(j.counts || {}) }
     } catch { } finally { setQLoading(false) }
   }, [])
+  const loadKpi = useCallback(async () => {
+    setKpiLoading(true)
+    try {
+      const r = await fetch('/api/admin/cskh/kpi'); const j = await r.json()
+      if (r.ok) setKpi(j.data || null)
+    } catch { } finally { setKpiLoading(false) }
+  }, [])
   useEffect(() => { load(); loadQueue() }, [load, loadQueue])
+  useEffect(() => { if (view === 'kpi' && !kpi) loadKpi() }, [view, kpi, loadKpi])
 
   // Mở hồ sơ 1 khách cụm (từ hàng đợi) — ưu tiên bản ghi đầy đủ trong danh sách (có địa chỉ/email).
   const openCum = (ma: string, ten: string) => {
@@ -92,6 +102,13 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
     return arr
   }, [rows, q, loaiFilter, sortField, sortAsc])
 
+  // Pipeline tiềm năng: gom khách tiềm năng theo trạng thái (dạng cột Kanban).
+  const pipeline = useMemo(() => {
+    const cols: Record<string, any[]> = { moi: [], dang_tiep_can: [], thanh_khach: [], khong_thanh: [] }
+    for (const r of rows) if (r.loai === 'tiem_nang') (cols[r.trang_thai] || cols.moi).push(r)
+    return cols
+  }, [rows])
+
   const sortTh = (field: string, label: string, extra = '') => (
     <th onClick={() => handleSort(field)} className={`px-2.5 py-2 cursor-pointer select-none transition-colors hover:bg-slate-100 ${extra} ${sortField === field ? 'text-blue-600 bg-blue-50/60' : ''}`}>
       <span className={`inline-flex items-center gap-1 ${extra.includes('text-right') ? 'justify-end' : extra.includes('text-center') ? 'justify-center' : ''}`}>{label}{sortField === field && (sortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</span>
@@ -109,10 +126,12 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
         {isAdmin && <Button onClick={() => setAddOpen(true)} className="ml-auto h-9 gap-1.5 text-xs"><Plus className="w-4 h-4" /> Thêm khách tiềm năng</Button>}
       </div>
 
-      {/* Chọn chế độ xem */}
+      {/* Chọn chế độ xem — mini-module: Cần chăm sóc · Danh sách · Pipeline · KPI */}
       <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden text-xs">
         <button onClick={() => setView('can')} className={`px-3.5 h-9 font-semibold inline-flex items-center gap-1.5 ${view === 'can' ? 'bg-amber-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>Cần chăm sóc{queue.length > 0 && <span className={`min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${view === 'can' ? 'bg-white text-amber-600' : 'bg-amber-500 text-white'}`}>{queue.length}</span>}</button>
-        <button onClick={() => setView('ds')} className={`px-3.5 h-9 font-semibold border-l border-slate-200 ${view === 'ds' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>Danh sách khách</button>
+        <button onClick={() => setView('ds')} className={`px-3.5 h-9 font-semibold border-l border-slate-200 inline-flex items-center gap-1.5 ${view === 'ds' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}><Users className="w-3.5 h-3.5" /> Danh sách khách</button>
+        <button onClick={() => setView('pipeline')} className={`px-3.5 h-9 font-semibold border-l border-slate-200 inline-flex items-center gap-1.5 ${view === 'pipeline' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}><TrendingUp className="w-3.5 h-3.5" /> Pipeline tiềm năng</button>
+        <button onClick={() => setView('kpi')} className={`px-3.5 h-9 font-semibold border-l border-slate-200 inline-flex items-center gap-1.5 ${view === 'kpi' ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}><BarChart3 className="w-3.5 h-3.5" /> KPI</button>
       </div>
 
       {view === 'can' && (
@@ -190,7 +209,100 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
       </div>
       </>)}
 
-      {sel && <ProfileModal row={sel} isAdmin={isAdmin} onClose={() => setSel(null)} onChanged={() => { load(); loadQueue() }} showNotification={showNotification} />}
+      {view === 'pipeline' && (
+        <div className="space-y-2">
+          <p className="text-[11px] text-slate-500">Khách tiềm năng theo trạng thái. Bấm một thẻ để mở hồ sơ, ghi chăm sóc hoặc đổi trạng thái.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {(['moi', 'dang_tiep_can', 'thanh_khach', 'khong_thanh'] as const).map(st => {
+              const col = pipeline[st] || []
+              return (
+                <div key={st} className="bg-slate-50/70 border border-slate-200 rounded-lg p-2 min-h-[120px]">
+                  <div className="flex items-center justify-between px-1 pb-2 mb-1 border-b border-slate-200">
+                    <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${TT_TN[st].cls}`}>{TT_TN[st].label}</span>
+                    <span className="text-[11px] font-bold text-slate-400">{col.length}</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {col.length === 0 ? <p className="text-[11px] text-slate-300 text-center py-3">—</p>
+                      : col.map((r: any) => (
+                        <button key={r.key} onClick={() => setSel(r)} className="w-full text-left bg-white border border-slate-200 rounded-md p-2 hover:border-indigo-300 hover:shadow-sm transition">
+                          <div className="font-medium text-slate-800 text-xs break-words">{r.ten_khach_hang}</div>
+                          {(r.nguoi_lien_he || r.dien_thoai) && <div className="text-[10px] text-slate-500 mt-0.5">{[r.nguoi_lien_he, r.dien_thoai].filter(Boolean).join(' · ')}</div>}
+                          <div className="flex items-center gap-1.5 flex-wrap mt-1 text-[10px] text-slate-400">
+                            {r.nguon && <span className="px-1 py-0.5 rounded bg-slate-100 text-slate-500">{r.nguon}</span>}
+                            {r.lan_cham ? <span>CS gần nhất {fmtDate(r.lan_cham)}</span> : <span className="text-slate-300">chưa chăm sóc</span>}
+                            {r.hen && <span className={henCls(r.hen)}>· hẹn {fmtDate(r.hen)}</span>}
+                          </div>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          {isAdmin && <Button variant="outline" onClick={() => setAddOpen(true)} className="h-8 gap-1.5 text-xs"><Plus className="w-3.5 h-3.5" /> Thêm khách tiềm năng</Button>}
+        </div>
+      )}
+
+      {view === 'kpi' && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <p className="text-[11px] text-slate-500 flex-1">Chỉ số theo dõi hiệu quả chăm sóc. Lượt chăm sóc gồm cả nhật ký tay và phiếu giao việc loại CSKH đã hoàn thành.</p>
+            <Button variant="outline" onClick={loadKpi} className="h-8 w-8 p-0" title="Làm mới"><RefreshCw className={`w-4 h-4 ${kpiLoading ? 'animate-spin' : ''}`} /></Button>
+          </div>
+          {kpiLoading && !kpi ? <p className="text-xs text-slate-400 py-6 text-center">Đang tải…</p> : !kpi ? <p className="text-xs text-slate-400 py-6 text-center">Chưa có dữ liệu.</p> : (<>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="border border-slate-200 rounded-xl p-3.5 bg-white">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500"><Clock className="w-3.5 h-3.5 text-blue-500" /> Lượt chăm sóc 30 ngày</div>
+                <div className="text-2xl font-bold text-slate-800 mt-1">{(kpi.luot_30 || 0).toLocaleString('vi-VN')}</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">Tổng cộng: {(kpi.luot_tong || 0).toLocaleString('vi-VN')}</div>
+              </div>
+              <div className="border border-slate-200 rounded-xl p-3.5 bg-white">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500"><Target className="w-3.5 h-3.5 text-emerald-500" /> Độ phủ (90 ngày)</div>
+                <div className="text-2xl font-bold text-slate-800 mt-1">{kpi.do_phu?.pct ?? 0}%</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">{kpi.do_phu?.covered ?? 0}/{kpi.do_phu?.total ?? 0} khách cụm</div>
+              </div>
+              <div className="border border-slate-200 rounded-xl p-3.5 bg-white">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500"><CalendarClock className="w-3.5 h-3.5 text-rose-500" /> Hẹn quá hạn</div>
+                <div className="text-2xl font-bold text-rose-600 mt-1">{kpi.hen_qua_han?.count ?? 0}</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">việc hẹn chưa xử lý</div>
+              </div>
+              <div className="border border-slate-200 rounded-xl p-3.5 bg-white">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500"><TrendingUp className="w-3.5 h-3.5 text-indigo-500" /> Chuyển đổi tiềm năng</div>
+                <div className="text-2xl font-bold text-slate-800 mt-1">{kpi.pipeline?.chuyen_doi_pct ?? 0}%</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">{kpi.pipeline?.thanh_khach ?? 0}/{kpi.pipeline?.total ?? 0} thành khách</div>
+              </div>
+            </div>
+
+            {/* Phân bố pipeline */}
+            <div className="border border-slate-200 rounded-xl p-3.5 bg-white">
+              <div className="text-[11px] font-semibold text-slate-500 uppercase mb-2">Phân bố khách tiềm năng</div>
+              <div className="flex flex-wrap gap-2">
+                {(['moi', 'dang_tiep_can', 'thanh_khach', 'khong_thanh'] as const).map(st => (
+                  <span key={st} className={`text-xs font-semibold px-2.5 py-1 rounded-full ${TT_TN[st].cls}`}>{TT_TN[st].label}: {kpi.pipeline?.[st] ?? 0}</span>
+                ))}
+              </div>
+            </div>
+
+            {/* Danh sách hẹn quá hạn */}
+            {(kpi.hen_qua_han?.list || []).length > 0 && (
+              <div className="border border-rose-200 rounded-xl p-3.5 bg-rose-50/40">
+                <div className="text-[11px] font-semibold text-rose-700 uppercase mb-2 flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5" /> Việc hẹn quá hạn ({kpi.hen_qua_han.count})</div>
+                <div className="space-y-1">
+                  {(kpi.hen_qua_han.list as any[]).slice(0, 20).map((h: any) => (
+                    <div key={h.key} className="flex items-center justify-between gap-2 text-xs bg-white border border-rose-100 rounded-md px-2.5 py-1.5">
+                      <span className="text-slate-700 truncate">{h.ten}</span>
+                      <span className="text-rose-600 font-semibold shrink-0">Hẹn {fmtDate(h.ngay_hen)}</span>
+                    </div>
+                  ))}
+                  {kpi.hen_qua_han.list.length > 20 && <p className="text-[11px] text-slate-400 pt-1">… và {kpi.hen_qua_han.list.length - 20} khách khác</p>}
+                </div>
+              </div>
+            )}
+          </>)}
+        </div>
+      )}
+
+      {sel && <ProfileModal row={sel} isAdmin={isAdmin} onClose={() => setSel(null)} onChanged={() => { load(); loadQueue(); if (view === 'kpi') loadKpi() }} showNotification={showNotification} />}
       {addOpen && <AddTiemNangModal onClose={() => setAddOpen(false)} onSaved={() => { setAddOpen(false); load() }} showNotification={showNotification} />}
     </div>
   )
@@ -321,15 +433,16 @@ function ProfileModal({ row, isAdmin, onClose, onChanged, showNotification }: { 
               : logs.length === 0 ? <p className="text-xs text-slate-400 py-3">Chưa có lần chăm sóc nào.</p>
                 : <div className="mt-2 space-y-2">
                   {logs.map(l => (
-                    <div key={l.id} className="border border-slate-200 rounded-lg p-2.5 text-xs">
+                    <div key={l.id} className={`border rounded-lg p-2.5 text-xs ${l.tu_phieu ? 'border-indigo-200 bg-indigo-50/40' : 'border-slate-200'}`}>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-slate-700">{fmtDate(l.ngay)}</span>
                         {l.kenh && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">{l.kenh}</span>}
+                        {l.tu_phieu && <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-semibold">Phiếu CSKH{l.so_phieu ? ` ${l.so_phieu}` : ''}{l.ma_may ? ` · ${l.ma_may}` : ''}</span>}
                         <span className="text-slate-400">· {l.nguoi_ten || '—'}</span>
                         {l.ngay_hen && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 ml-1">Hẹn {fmtDate(l.ngay_hen)}</span>}
-                        <button onClick={async () => { if (await confirm('Xóa dòng nhật ký chăm sóc này?')) delLog(l.id) }} className="ml-auto text-slate-300 hover:text-rose-600" title="Xóa"><Trash2 className="w-3.5 h-3.5" /></button>
+                        {!l.tu_phieu && <button onClick={async () => { if (await confirm('Xóa dòng nhật ký chăm sóc này?')) delLog(l.id) }} className="ml-auto text-slate-300 hover:text-rose-600" title="Xóa"><Trash2 className="w-3.5 h-3.5" /></button>}
                       </div>
-                      {l.noi_dung && <div className="mt-1 text-slate-700 whitespace-pre-wrap break-words"><b>Nội dung:</b> {l.noi_dung}</div>}
+                      {l.noi_dung && <div className="mt-1 text-slate-700 whitespace-pre-wrap break-words"><b>{l.tu_phieu ? 'Báo cáo:' : 'Nội dung:'}</b> {l.noi_dung}</div>}
                       {l.ket_qua && <div className="text-slate-600 whitespace-pre-wrap break-words"><b>Kết quả:</b> {l.ket_qua}</div>}
                       {l.viec_tiep && <div className="text-blue-700 whitespace-pre-wrap break-words"><b>Việc tiếp:</b> {l.viec_tiep}</div>}
                     </div>

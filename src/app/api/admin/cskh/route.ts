@@ -15,24 +15,37 @@ export async function GET() {
     const session = await gate()
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
-    const [cum, tn, logs] = await Promise.all([
+    const [cum, tn, logs, members, phieuCskh] = await Promise.all([
       selectAll<any>((f, t) => supabaseAdmin.from('soct_khach_cum').select('ma_khach_hang, ten_khach_hang, dia_chi, ma_so_thue, email_ke_toan').order('ten_khach_hang').range(f, t)),
       selectAll<any>((f, t) => supabaseAdmin.from('soct_cskh_khach').select('*').eq('an', false).range(f, t)),
       selectAll<any>((f, t) => supabaseAdmin.from('soct_cskh_log').select('ma_khach_cum, tiem_nang_id, ngay, ngay_hen').range(f, t)),
+      // Máy -> cụm (để quy phiếu CSKH về cụm)
+      selectAll<any>((f, t) => supabaseAdmin.from('soct_khach_hang').select('id, ma_khach_cum').not('ma_khach_cum', 'is', null).range(f, t)),
+      // Phiếu CSKH đã Hoàn thành (chăm sóc hiện trường) -> coi là 1 lần chăm sóc
+      selectAll<any>((f, t) => supabaseAdmin.from('soct_cong_viec').select('id_khach_hang, ngay').eq('loai_cong_viec', 'CSKH').eq('ket_qua', 'Hoàn thành').range(f, t)),
     ])
 
     const today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
     // Gom log theo khóa: cum:<ma> hoặc tn:<id>
     const agg = new Map<string, { lan_cham: string | null; hen: string | null; so_lan: number }>()
-    for (const l of logs || []) {
-      const key = l.tiem_nang_id != null ? `tn:${l.tiem_nang_id}` : (l.ma_khach_cum ? `cum:${l.ma_khach_cum}` : '')
-      if (!key) continue
+    const bump = (key: string, ngay: string | null, ngay_hen: string | null) => {
+      if (!key) return
       const a = agg.get(key) || { lan_cham: null, hen: null, so_lan: 0 }
       a.so_lan++
-      if (l.ngay && (!a.lan_cham || l.ngay > a.lan_cham)) a.lan_cham = l.ngay
-      // hẹn kế tiếp = ngày hẹn gần nhất CÒN HIỆU LỰC (>= hôm nay)
-      if (l.ngay_hen && l.ngay_hen >= today && (!a.hen || l.ngay_hen < a.hen)) a.hen = l.ngay_hen
+      if (ngay && (!a.lan_cham || ngay > a.lan_cham)) a.lan_cham = ngay
+      if (ngay_hen && ngay_hen >= today && (!a.hen || ngay_hen < a.hen)) a.hen = ngay_hen
       agg.set(key, a)
+    }
+    for (const l of logs || []) {
+      const key = l.tiem_nang_id != null ? `tn:${l.tiem_nang_id}` : (l.ma_khach_cum ? `cum:${l.ma_khach_cum}` : '')
+      bump(key, l.ngay, l.ngay_hen)
+    }
+    // Trộn phiếu CSKH vào "lần chăm sóc" của cụm (không có hẹn).
+    const idToCum = new Map<string, string>()
+    for (const m of (members as any[]) || []) idToCum.set(m.id, m.ma_khach_cum)
+    for (const p of (phieuCskh as any[]) || []) {
+      const cumMa = idToCum.get(p.id_khach_hang)
+      if (cumMa) bump(`cum:${cumMa}`, p.ngay, null)
     }
 
     const rows: any[] = []
