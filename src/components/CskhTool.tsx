@@ -113,7 +113,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
                         ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-sky-50 text-sky-700">Cụm</span>
                         : <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${TT_TN[r.trang_thai]?.cls || 'bg-slate-100 text-slate-600'}`}>{TT_TN[r.trang_thai]?.label || 'Tiềm năng'}</span>}
                     </td>
-                    <td className="px-2.5 py-1.5 text-[11px]">{[r.dien_thoai, r.email].filter(Boolean).join(' · ') || <span className="text-slate-300">—</span>}</td>
+                    <td className="px-2.5 py-1.5 text-[11px] align-top"><div className="max-w-[220px] break-words leading-snug">{[r.dien_thoai, r.email].filter(Boolean).join(' · ') || <span className="text-slate-300">—</span>}</div></td>
                     <td className="px-2.5 py-1.5 text-center">{r.lan_cham ? fmtDate(r.lan_cham) : <span className="text-slate-300">Chưa</span>}</td>
                     <td className={`px-2.5 py-1.5 text-center ${henCls(r.hen)}`}>{r.hen ? fmtDate(r.hen) : <span className="text-slate-300">—</span>}</td>
                     <td className="px-2.5 py-1.5 text-center">{r.so_lan || 0}</td>
@@ -193,7 +193,7 @@ function ProfileModal({ row, isAdmin, onClose, onChanged, showNotification }: { 
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
         </div>
 
-        <div className="p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
+        <div className="p-5 space-y-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0">
           {/* Thông tin khách tiềm năng (sửa được) */}
           {isTN && (
             <section className="bg-slate-50/70 border border-slate-200 rounded-lg p-3 space-y-2.5">
@@ -228,16 +228,16 @@ function ProfileModal({ row, isAdmin, onClose, onChanged, showNotification }: { 
           <section className="border border-blue-200 rounded-lg p-3 space-y-2.5 bg-blue-50/30">
             <span className="text-[11px] font-semibold text-blue-700 uppercase">Ghi nhật ký chăm sóc</span>
             <div className="grid grid-cols-2 sm:grid-cols-12 gap-2.5 text-xs">
-              <div className="sm:col-span-3"><label className="block text-slate-600 font-semibold mb-1">Ngày</label><DateField value={f.ngay} onChange={v => setF({ ...f, ngay: v })} heightClass="h-8" /></div>
+              <div className="sm:col-span-3"><label className="block text-slate-600 font-semibold mb-1">Ngày</label><DateField value={f.ngay} onChange={v => setF({ ...f, ngay: v })} heightClass="h-8" className="w-full" /></div>
               <div className="sm:col-span-3"><label className="block text-slate-600 font-semibold mb-1">Kênh</label>
                 <select value={f.kenh} onChange={e => setF({ ...f, kenh: e.target.value })} className="h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-xs">
                   {KENH.map(k => <option key={k} value={k}>{k}</option>)}
                 </select>
               </div>
               <div className="sm:col-span-6"><label className="block text-slate-600 font-semibold mb-1">Nội dung trao đổi</label><Input value={f.noi_dung} onChange={e => setF({ ...f, noi_dung: e.target.value })} className="h-8 bg-white" /></div>
-              <div className="sm:col-span-6"><label className="block text-slate-600 font-semibold mb-1">Kết quả</label><Input value={f.ket_qua} onChange={e => setF({ ...f, ket_qua: e.target.value })} className="h-8 bg-white" /></div>
+              <div className="sm:col-span-4"><label className="block text-slate-600 font-semibold mb-1">Kết quả</label><Input value={f.ket_qua} onChange={e => setF({ ...f, ket_qua: e.target.value })} className="h-8 bg-white" /></div>
               <div className="sm:col-span-4"><label className="block text-slate-600 font-semibold mb-1">Việc cần làm tiếp</label><Input value={f.viec_tiep} onChange={e => setF({ ...f, viec_tiep: e.target.value })} className="h-8 bg-white" /></div>
-              <div className="sm:col-span-2"><label className="block text-slate-600 font-semibold mb-1">Hẹn ngày</label><DateField value={f.ngay_hen} onChange={v => setF({ ...f, ngay_hen: v })} heightClass="h-8" /></div>
+              <div className="sm:col-span-4"><label className="block text-slate-600 font-semibold mb-1">Hẹn ngày</label><DateField value={f.ngay_hen} onChange={v => setF({ ...f, ngay_hen: v })} heightClass="h-8" className="w-full" /></div>
             </div>
             <div className="flex justify-end"><Button onClick={saveLog} disabled={saving} className="h-8 text-xs">{saving ? 'Đang lưu…' : '+ Ghi chăm sóc'}</Button></div>
           </section>
