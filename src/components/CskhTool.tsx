@@ -238,11 +238,13 @@ function ProfileModal({ row, isAdmin, onClose, onChanged, showNotification }: { 
                 </select>
               </div>
               <div className="hidden sm:block sm:col-span-4" />
-              {/* Dòng 2: Nội dung (rộng) + Kết quả */}
-              <div className="sm:col-span-8"><label className="block text-slate-600 font-semibold mb-1">Nội dung trao đổi</label><Input value={f.noi_dung} onChange={e => setF({ ...f, noi_dung: e.target.value })} className="h-8 bg-white" /></div>
-              <div className="sm:col-span-4"><label className="block text-slate-600 font-semibold mb-1">Kết quả</label><Input value={f.ket_qua} onChange={e => setF({ ...f, ket_qua: e.target.value })} className="h-8 bg-white" /></div>
-              {/* Dòng 3: Việc cần làm tiếp (rộng) + Ngày hẹn (hẹp) */}
-              <div className="sm:col-span-9"><label className="block text-slate-600 font-semibold mb-1">Việc cần làm tiếp</label><Input value={f.viec_tiep} onChange={e => setF({ ...f, viec_tiep: e.target.value })} className="h-8 bg-white" /></div>
+              {/* Dòng 2: Nội dung (rộng, nới được) + Kết quả (hẹp = Ngày hẹn) */}
+              <div className="sm:col-span-9"><label className="block text-slate-600 font-semibold mb-1">Nội dung trao đổi</label>
+                <textarea value={f.noi_dung} onChange={e => setF({ ...f, noi_dung: e.target.value })} rows={2} className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-blue-500 resize-y leading-snug" placeholder="Ghi chi tiết trao đổi…" /></div>
+              <div className="sm:col-span-3"><label className="block text-slate-600 font-semibold mb-1">Kết quả</label><Input value={f.ket_qua} onChange={e => setF({ ...f, ket_qua: e.target.value })} className="h-8 bg-white" /></div>
+              {/* Dòng 3: Việc cần làm tiếp (rộng, nới được) + Ngày hẹn (hẹp) */}
+              <div className="sm:col-span-9"><label className="block text-slate-600 font-semibold mb-1">Việc cần làm tiếp</label>
+                <textarea value={f.viec_tiep} onChange={e => setF({ ...f, viec_tiep: e.target.value })} rows={2} className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-blue-500 resize-y leading-snug" placeholder="Việc cần làm/hẹn lần tới…" /></div>
               <div className="sm:col-span-3"><label className="block text-slate-600 font-semibold mb-1">Ngày hẹn</label><DateField value={f.ngay_hen} onChange={v => setF({ ...f, ngay_hen: v })} heightClass="h-8" className="w-full" /></div>
             </div>
             <div className="flex justify-end"><Button onClick={saveLog} disabled={saving} className="h-8 text-xs">{saving ? 'Đang lưu…' : '+ Ghi chăm sóc'}</Button></div>
@@ -263,9 +265,9 @@ function ProfileModal({ row, isAdmin, onClose, onChanged, showNotification }: { 
                         {l.ngay_hen && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 ml-1">Hẹn {fmtDate(l.ngay_hen)}</span>}
                         <button onClick={() => delLog(l.id)} className="ml-auto text-slate-300 hover:text-rose-600" title="Xóa"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
-                      {l.noi_dung && <div className="mt-1 text-slate-700"><b>Nội dung:</b> {l.noi_dung}</div>}
-                      {l.ket_qua && <div className="text-slate-600"><b>Kết quả:</b> {l.ket_qua}</div>}
-                      {l.viec_tiep && <div className="text-blue-700"><b>Việc tiếp:</b> {l.viec_tiep}</div>}
+                      {l.noi_dung && <div className="mt-1 text-slate-700 whitespace-pre-wrap break-words"><b>Nội dung:</b> {l.noi_dung}</div>}
+                      {l.ket_qua && <div className="text-slate-600 whitespace-pre-wrap break-words"><b>Kết quả:</b> {l.ket_qua}</div>}
+                      {l.viec_tiep && <div className="text-blue-700 whitespace-pre-wrap break-words"><b>Việc tiếp:</b> {l.viec_tiep}</div>}
                     </div>
                   ))}
                 </div>}
