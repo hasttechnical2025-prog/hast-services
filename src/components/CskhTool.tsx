@@ -16,6 +16,8 @@ const TT_TN: Record<string, { label: string, cls: string }> = {
 }
 const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').toLowerCase()
 const fmtDate = (s: any) => { const p = String(s || '').slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : '' }
+// Ẩn email nội bộ @sieuthanh.com.vn khỏi phần HIỂN THỊ (dữ liệu gốc giữ nguyên).
+const cleanEmails = (s: any) => String(s ?? '').split(/[;,]/).map(x => x.trim()).filter(x => x && !/@sieuthanh\.com\.vn$/i.test(x)).join('; ')
 const todayVN = () => new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
 
 export default function CskhTool({ role = 'admin', showNotification }: { role?: string, showNotification: Notify }) {
@@ -113,7 +115,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
                         ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-sky-50 text-sky-700">Cụm</span>
                         : <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${TT_TN[r.trang_thai]?.cls || 'bg-slate-100 text-slate-600'}`}>{TT_TN[r.trang_thai]?.label || 'Tiềm năng'}</span>}
                     </td>
-                    <td className="px-2.5 py-1.5 text-[11px] align-top"><div className="max-w-[220px] break-words leading-snug">{[r.dien_thoai, r.email].filter(Boolean).join(' · ') || <span className="text-slate-300">—</span>}</div></td>
+                    <td className="px-2.5 py-1.5 text-[11px] align-top"><div className="max-w-[220px] break-words leading-snug">{[r.dien_thoai, cleanEmails(r.email)].filter(Boolean).join(' · ') || <span className="text-slate-300">—</span>}</div></td>
                     <td className="px-2.5 py-1.5 text-center">{r.lan_cham ? fmtDate(r.lan_cham) : <span className="text-slate-300">Chưa</span>}</td>
                     <td className={`px-2.5 py-1.5 text-center ${henCls(r.hen)}`}>{r.hen ? fmtDate(r.hen) : <span className="text-slate-300">—</span>}</td>
                     <td className="px-2.5 py-1.5 text-center">{r.so_lan || 0}</td>
@@ -218,9 +220,9 @@ function ProfileModal({ row, isAdmin, onClose, onChanged, showNotification }: { 
               </div>
             </section>
           )}
-          {!isTN && (
+          {!isTN && cleanEmails(row.email) && (
             <section className="text-xs text-slate-600 flex flex-wrap gap-x-5 gap-y-1">
-              {row.email && <span><Phone className="w-3 h-3 inline -mt-0.5 mr-1 text-slate-400" />{row.email}</span>}
+              <span><Phone className="w-3 h-3 inline -mt-0.5 mr-1 text-slate-400" />{cleanEmails(row.email)}</span>
             </section>
           )}
 
