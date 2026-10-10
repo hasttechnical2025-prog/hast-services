@@ -134,7 +134,10 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
                       <div className="flex flex-wrap gap-1 mt-1">
                         {r.reasons.map((x: any, i: number) => (<span key={i} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${REASON[x.type]?.cls || 'bg-slate-100 text-slate-600'}`}>{x.label}</span>))}
                       </div>
-                      <div className="text-[11px] text-slate-400 mt-1">{r.so_may} máy{r.hd_het_han ? ` · HĐ hết hạn ${fmtDate(r.hd_het_han)}` : ''}{r.sua_60 ? ` · sửa ${r.sua_60} lần/60ng` : ''} · {r.lan_cham ? `chăm sóc gần nhất ${fmtDate(r.lan_cham)}` : 'chưa chăm sóc'}</div>
+                      {r.reasons.filter((x: any) => x.detail).map((x: any, i: number) => (
+                        <div key={i} className="text-[11px] text-slate-500 mt-0.5">↳ {x.detail}</div>
+                      ))}
+                      <div className="text-[11px] text-slate-400 mt-1">{r.so_may} máy{r.hd_het_han ? ` · HĐ hết hạn ${fmtDate(r.hd_het_han)}` : ''}{r.sua_60 ? ` · cụm sửa ${r.sua_60} lần/60ng` : ''} · {r.lan_cham ? `chăm sóc gần nhất ${fmtDate(r.lan_cham)}` : 'chưa chăm sóc'}</div>
                     </div>
                     <Button onClick={() => openCum(r.ma_khach_cum, r.ten_khach_hang)} size="sm" className="h-8 text-xs shrink-0">Ghi chăm sóc</Button>
                   </div>

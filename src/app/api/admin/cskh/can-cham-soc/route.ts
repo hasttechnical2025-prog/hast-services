@@ -27,18 +27,20 @@ export async function GET() {
 
     const [clusters, members, repairs, logs] = await Promise.all([
       selectAll<any>((f, t) => supabaseAdmin.from('soct_khach_cum').select('ma_khach_hang, ten_khach_hang').range(f, t)),
-      selectAll<any>((f, t) => supabaseAdmin.from('soct_khach_hang').select('id, ma_khach_cum, loai_hd, ngay_het_han_hdbt').not('ma_khach_cum', 'is', null).range(f, t)),
+      selectAll<any>((f, t) => supabaseAdmin.from('soct_khach_hang').select('id, ma_khach_cum, loai_hd, ngay_het_han_hdbt, ma_may, model, vi_tri_dat_may').not('ma_khach_cum', 'is', null).range(f, t)),
       selectAll<any>((f, t) => supabaseAdmin.from('soct_cong_viec').select('id_khach_hang, ngay').eq('loai_cong_viec', 'Sửa máy').eq('ket_qua', 'Hoàn thành').gte('ngay', d60).range(f, t)),
       selectAll<any>((f, t) => supabaseAdmin.from('soct_cskh_log').select('ma_khach_cum, ngay, ngay_hen').not('ma_khach_cum', 'is', null).range(f, t)),
     ])
 
-    const idToCum = new Map<string, string>()
+    const fmtD = (iso: string) => { const p = String(iso || '').slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : '' }
+    type MInfo = { cum: string; ma_may: string; model: string; vi_tri: string }
+    const memberInfo = new Map<string, MInfo>()  // id_khach_hang -> thông tin máy
     type Cum = { ten: string; so_may: number; loai_set: boolean; hd_near: string | null; hd_earliest: string | null }
     const cums = new Map<string, Cum>()
     for (const c of clusters || []) cums.set(c.ma_khach_hang, { ten: c.ten_khach_hang || c.ma_khach_hang, so_may: 0, loai_set: false, hd_near: null, hd_earliest: null })
     for (const m of members || []) {
       const cum = cums.get(m.ma_khach_cum); if (!cum) continue
-      idToCum.set(m.id, m.ma_khach_cum)
+      memberInfo.set(m.id, { cum: m.ma_khach_cum, ma_may: m.ma_may || '', model: m.model || '', vi_tri: m.vi_tri_dat_may || '' })
       cum.so_may++
       const hasLoai = !!String(m.loai_hd || '').trim()
       if (hasLoai) cum.loai_set = true
@@ -48,14 +50,21 @@ export async function GET() {
       }
     }
 
-    // Sửa máy theo cụm: đếm 60 ngày + lần sửa gần nhất.
-    const sua = new Map<string, { count: number; last: string | null }>()
+    // Sửa máy theo TỪNG MÁY (id_khach_hang): đếm 60 ngày + lần sửa gần nhất -> gom về cụm.
+    type MRep = MInfo & { count: number; last: string | null }
+    const repByMachine = new Map<string, { count: number; last: string | null }>()
     for (const r of repairs || []) {
-      const cum = idToCum.get(r.id_khach_hang); if (!cum || !r.ngay) continue
-      const s = sua.get(cum) || { count: 0, last: null }
+      if (!r.ngay || !memberInfo.has(r.id_khach_hang)) continue
+      const s = repByMachine.get(r.id_khach_hang) || { count: 0, last: null }
       s.count++; if (!s.last || r.ngay > s.last) s.last = r.ngay
-      sua.set(cum, s)
+      repByMachine.set(r.id_khach_hang, s)
     }
+    const cumRep = new Map<string, MRep[]>()  // cụm -> danh sách máy có sửa (kèm số lần/last)
+    for (const [id, s] of repByMachine) {
+      const info = memberInfo.get(id)!; const arr = cumRep.get(info.cum) || []
+      arr.push({ ...info, count: s.count, last: s.last }); cumRep.set(info.cum, arr)
+    }
+    const mayLabel = (m: MRep) => `${m.ma_may || '—'}${m.model ? ` · ${m.model}` : ''}${m.vi_tri ? ` · ${m.vi_tri}` : ''}`
 
     // Log theo cụm: lần chăm gần nhất + hẹn của log mới nhất.
     const logAgg = new Map<string, { last: string | null; last_hen: string | null }>()
@@ -68,13 +77,24 @@ export async function GET() {
     const counts: Record<string, number> = { hen: 0, hdbt: 0, moi_sua: 0, hay_hong: 0, lau: 0 }
     const rows: any[] = []
     for (const [ma, cum] of cums) {
-      const s = sua.get(ma); const lg = logAgg.get(ma)
-      const reasons: { type: string; label: string; level: 'cao' | 'vua' | 'thap' }[] = []
+      const lg = logAgg.get(ma)
+      const mays = cumRep.get(ma) || []
+      const sua60 = mays.reduce((s, m) => s + m.count, 0)
+      // Hay hỏng: TỪNG MÁY ≥3 lần/60 ngày (KHÔNG cộng gộp cả cụm).
+      const hayHong = mays.filter(m => m.count >= HAYHONG_MIN).sort((a, b) => b.count - a.count)
+      // Mới sửa xong: máy vừa sửa ≤3 ngày và chưa chăm sóc sau đó.
+      const moiSua = mays.filter(m => m.last && m.last >= d3 && (!lg?.last || lg.last < m.last)).sort((a, b) => String(b.last).localeCompare(String(a.last)))
+      const reasons: { type: string; label: string; detail?: string; level: 'cao' | 'vua' | 'thap' }[] = []
 
       if (lg?.last_hen && lg.last_hen <= today) { reasons.push({ type: 'hen', label: `Đến hẹn chăm sóc`, level: 'cao' }); counts.hen++ }
       if (cum.hd_near) { reasons.push({ type: 'hdbt', label: `HĐ sắp/đã hết hạn`, level: 'cao' }); counts.hdbt++ }
-      if (s?.last && s.last >= d3 && (!lg?.last || lg.last < s.last)) { reasons.push({ type: 'moi_sua', label: `Mới sửa xong — hỏi thăm`, level: 'vua' }); counts.moi_sua++ }
-      if (s && s.count >= HAYHONG_MIN) { reasons.push({ type: 'hay_hong', label: `Sửa ${s.count} lần/60 ngày`, level: 'vua' }); counts.hay_hong++ }
+      if (moiSua.length) {
+        reasons.push({ type: 'moi_sua', label: `Mới sửa xong — hỏi thăm`, detail: moiSua.map(m => `${mayLabel(m)} (${fmtD(m.last!)})`).join(' · '), level: 'vua' }); counts.moi_sua++
+      }
+      if (hayHong.length) {
+        const label = hayHong.length === 1 ? `Máy ${hayHong[0].ma_may || '—'} hay hỏng (${hayHong[0].count} lần/60 ngày)` : `${hayHong.length} máy hay hỏng (≥${HAYHONG_MIN} lần/60 ngày)`
+        reasons.push({ type: 'hay_hong', label, detail: hayHong.map(m => `${mayLabel(m)}: ${m.count} lần`).join(' · '), level: 'vua' }); counts.hay_hong++
+      }
       if (cum.loai_set && (!lg?.last || daysBetween(lg.last) >= LAU_NGAY)) {
         reasons.push({ type: 'lau', label: lg?.last ? `Lâu chưa liên hệ (${daysBetween(lg.last)} ngày)` : 'Chưa từng chăm sóc', level: 'thap' })
         counts.lau++
@@ -83,7 +103,7 @@ export async function GET() {
       const top = Math.max(...reasons.map(r => LV[r.level]))
       rows.push({
         ma_khach_cum: ma, ten_khach_hang: cum.ten,
-        so_may: cum.so_may, hd_het_han: cum.hd_earliest, sua_60: s?.count || 0, lan_cham: lg?.last || null, hen: lg?.last_hen || null,
+        so_may: cum.so_may, hd_het_han: cum.hd_earliest, sua_60: sua60, lan_cham: lg?.last || null, hen: lg?.last_hen || null,
         reasons, level: top,
       })
     }
