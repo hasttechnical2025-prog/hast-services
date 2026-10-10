@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import DateField from "@/components/DateField"
-import { Search, Plus, X, Trash2, Clock, ChevronUp, ChevronDown, Phone, Users } from "lucide-react"
+import { Search, Plus, X, Trash2, Clock, ChevronUp, ChevronDown, Phone, Users, RefreshCw } from "lucide-react"
 
 type Notify = (type: 'success' | 'error', msg: string) => void
 
@@ -30,6 +30,11 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
   const [sortAsc, setSortAsc] = useState(true)
   const [sel, setSel] = useState<any | null>(null)
   const [addOpen, setAddOpen] = useState(false)
+  const [view, setView] = useState<'can' | 'ds'>('can')
+  const [queue, setQueue] = useState<any[]>([])
+  const [qCounts, setQCounts] = useState<Record<string, number>>({})
+  const [qLoading, setQLoading] = useState(true)
+  const [reasonFilter, setReasonFilter] = useState<string>('all')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -38,7 +43,28 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
       if (r.ok) setRows(j.data || []); else showNotification('error', j.error || 'Lỗi tải danh sách CSKH')
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setLoading(false) }
   }, [showNotification])
-  useEffect(() => { load() }, [load])
+  const loadQueue = useCallback(async () => {
+    setQLoading(true)
+    try {
+      const r = await fetch('/api/admin/cskh/can-cham-soc'); const j = await r.json()
+      if (r.ok) { setQueue(j.data || []); setQCounts(j.counts || {}) }
+    } catch { } finally { setQLoading(false) }
+  }, [])
+  useEffect(() => { load(); loadQueue() }, [load, loadQueue])
+
+  // Mở hồ sơ 1 khách cụm (từ hàng đợi) — ưu tiên bản ghi đầy đủ trong danh sách (có địa chỉ/email).
+  const openCum = (ma: string, ten: string) => {
+    const full = rows.find(r => r.key === `cum:${ma}`)
+    setSel(full || { key: `cum:${ma}`, loai: 'cum', ma_khach_cum: ma, ten_khach_hang: ten, dia_chi: '', email: '' })
+  }
+  const REASON: Record<string, { label: string; cls: string }> = {
+    hen: { label: 'Đến hẹn', cls: 'bg-rose-100 text-rose-700' },
+    hdbt: { label: 'HĐ sắp hết', cls: 'bg-rose-50 text-rose-700' },
+    moi_sua: { label: 'Mới sửa xong', cls: 'bg-amber-100 text-amber-700' },
+    hay_hong: { label: 'Hay hỏng', cls: 'bg-amber-50 text-amber-700' },
+    lau: { label: 'Lâu/chưa liên hệ', cls: 'bg-slate-100 text-slate-600' },
+  }
+  const queueShown = reasonFilter === 'all' ? queue : queue.filter(r => r.reasons.some((x: any) => x.type === reasonFilter))
 
   const today = todayVN()
   const handleSort = (f: string) => { if (sortField === f) setSortAsc(p => !p); else { setSortField(f); setSortAsc(true) } }
@@ -82,6 +108,41 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
         {isAdmin && <Button onClick={() => setAddOpen(true)} className="ml-auto h-9 gap-1.5 text-xs"><Plus className="w-4 h-4" /> Thêm khách tiềm năng</Button>}
       </div>
 
+      {/* Chọn chế độ xem */}
+      <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden text-xs">
+        <button onClick={() => setView('can')} className={`px-3.5 h-9 font-semibold inline-flex items-center gap-1.5 ${view === 'can' ? 'bg-amber-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>Cần chăm sóc{queue.length > 0 && <span className={`min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${view === 'can' ? 'bg-white text-amber-600' : 'bg-amber-500 text-white'}`}>{queue.length}</span>}</button>
+        <button onClick={() => setView('ds')} className={`px-3.5 h-9 font-semibold border-l border-slate-200 ${view === 'ds' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>Danh sách khách</button>
+      </div>
+
+      {view === 'can' && (
+        <div className="space-y-2">
+          <p className="text-[11px] text-slate-500">Tự gom khách cần liên hệ theo tín hiệu. Bấm <b>Ghi chăm sóc</b> để xử lý — xử lý xong tín hiệu tự ẩn.</p>
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {([['all', 'Tất cả', queue.length], ['hen', 'Đến hẹn', qCounts.hen || 0], ['hdbt', 'HĐ sắp hết', qCounts.hdbt || 0], ['moi_sua', 'Mới sửa xong', qCounts.moi_sua || 0], ['hay_hong', 'Hay hỏng', qCounts.hay_hong || 0], ['lau', 'Lâu/chưa liên hệ', qCounts.lau || 0]] as const).map(([k, l, n]) => (
+              <button key={k} onClick={() => setReasonFilter(k)} className={`text-xs px-2.5 h-8 rounded-full border font-semibold ${reasonFilter === k ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>{l} ({n})</button>
+            ))}
+            <Button variant="outline" onClick={loadQueue} className="h-8 w-8 p-0 ml-auto" title="Làm mới"><RefreshCw className={`w-4 h-4 ${qLoading ? 'animate-spin' : ''}`} /></Button>
+          </div>
+          <div className="space-y-2">
+            {qLoading ? <p className="text-xs text-slate-400 py-6 text-center">Đang tải…</p>
+              : queueShown.length === 0 ? <p className="text-xs text-slate-400 py-6 text-center">Không có khách cần chăm sóc trong nhóm này. 🎉</p>
+                : queueShown.map(r => (
+                  <div key={r.ma_khach_cum} className="border border-slate-200 rounded-lg p-3 flex items-start gap-3 hover:bg-slate-50">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-slate-800">{r.ten_khach_hang}</div>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {r.reasons.map((x: any, i: number) => (<span key={i} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${REASON[x.type]?.cls || 'bg-slate-100 text-slate-600'}`}>{x.label}</span>))}
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-1">{r.so_may} máy{r.hd_het_han ? ` · HĐ hết hạn ${fmtDate(r.hd_het_han)}` : ''}{r.sua_60 ? ` · sửa ${r.sua_60} lần/60ng` : ''} · {r.lan_cham ? `chăm sóc gần nhất ${fmtDate(r.lan_cham)}` : 'chưa chăm sóc'}</div>
+                    </div>
+                    <Button onClick={() => openCum(r.ma_khach_cum, r.ten_khach_hang)} size="sm" className="h-8 text-xs shrink-0">Ghi chăm sóc</Button>
+                  </div>
+                ))}
+          </div>
+        </div>
+      )}
+
+      {view === 'ds' && (<>
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[180px] max-w-xs"><Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" /><Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm tên / SĐT / địa chỉ…" className="h-9 pl-9 bg-white" /></div>
         <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden text-xs">
@@ -124,8 +185,9 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
           </tbody>
         </table>
       </div>
+      </>)}
 
-      {sel && <ProfileModal row={sel} isAdmin={isAdmin} onClose={() => setSel(null)} onChanged={load} showNotification={showNotification} />}
+      {sel && <ProfileModal row={sel} isAdmin={isAdmin} onClose={() => setSel(null)} onChanged={() => { load(); loadQueue() }} showNotification={showNotification} />}
       {addOpen && <AddTiemNangModal onClose={() => setAddOpen(false)} onSaved={() => { setAddOpen(false); load() }} showNotification={showNotification} />}
     </div>
   )
