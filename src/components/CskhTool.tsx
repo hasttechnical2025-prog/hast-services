@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import DateField from "@/components/DateField"
 import { Search, Plus, X, Trash2, Clock, ChevronUp, ChevronDown, Phone, Users, RefreshCw } from "lucide-react"
+import { useConfirm } from "@/components/ConfirmDialog"
 
 type Notify = (type: 'success' | 'error', msg: string) => void
 
@@ -227,7 +228,7 @@ function ProfileModal({ row, isAdmin, onClose, onChanged, showNotification }: { 
       setF(emptyLog); fetchLogs(); onChanged()
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setSaving(false) }
   }
-  const [confirm, setConfirm] = useState<{ message: string; confirmLabel?: string; onYes: () => void } | null>(null)
+  const { confirm, confirmNode } = useConfirm()
   const delLog = async (id: number) => {
     try { const r = await fetch(`/api/admin/cskh/log?id=${id}`, { method: 'DELETE' }); if (r.ok) { fetchLogs(); onChanged() } } catch { }
   }
@@ -262,7 +263,7 @@ function ProfileModal({ row, isAdmin, onClose, onChanged, showNotification }: { 
             <section className="bg-slate-50/70 border border-slate-200 rounded-lg p-3 space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase">Thông tin khách tiềm năng</span>
-                {isAdmin && <button onClick={() => setConfirm({ message: `Ẩn khách tiềm năng "${row.ten_khach_hang}" khỏi danh sách?`, confirmLabel: 'Ẩn khách', onYes: delTN })} className="text-rose-600 hover:text-rose-700 text-xs inline-flex items-center gap-1"><Trash2 className="w-3.5 h-3.5" /> Ẩn khách</button>}
+                {isAdmin && <button onClick={async () => { if (await confirm(`Ẩn khách tiềm năng "${row.ten_khach_hang}" khỏi danh sách?`, { confirmLabel: 'Ẩn khách' })) delTN() }} className="text-rose-600 hover:text-rose-700 text-xs inline-flex items-center gap-1"><Trash2 className="w-3.5 h-3.5" /> Ẩn khách</button>}
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-12 gap-2.5 text-xs">
                 <div className="sm:col-span-5"><label className="block text-slate-600 font-semibold mb-1">Tên khách *</label><Input value={edit.ten_khach_hang} onChange={e => setEdit({ ...edit, ten_khach_hang: e.target.value })} className="h-8 bg-white" /></div>
@@ -324,7 +325,7 @@ function ProfileModal({ row, isAdmin, onClose, onChanged, showNotification }: { 
                         {l.kenh && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">{l.kenh}</span>}
                         <span className="text-slate-400">· {l.nguoi_ten || '—'}</span>
                         {l.ngay_hen && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 ml-1">Hẹn {fmtDate(l.ngay_hen)}</span>}
-                        <button onClick={() => setConfirm({ message: 'Xóa dòng nhật ký chăm sóc này?', onYes: () => delLog(l.id) })} className="ml-auto text-slate-300 hover:text-rose-600" title="Xóa"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={async () => { if (await confirm('Xóa dòng nhật ký chăm sóc này?')) delLog(l.id) }} className="ml-auto text-slate-300 hover:text-rose-600" title="Xóa"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                       {l.noi_dung && <div className="mt-1 text-slate-700 whitespace-pre-wrap break-words"><b>Nội dung:</b> {l.noi_dung}</div>}
                       {l.ket_qua && <div className="text-slate-600 whitespace-pre-wrap break-words"><b>Kết quả:</b> {l.ket_qua}</div>}
@@ -335,22 +336,7 @@ function ProfileModal({ row, isAdmin, onClose, onChanged, showNotification }: { 
           </section>
         </div>
       </div>
-      {confirm && <ConfirmBox message={confirm.message} confirmLabel={confirm.confirmLabel} onYes={() => { const fn = confirm.onYes; setConfirm(null); fn() }} onNo={() => setConfirm(null)} />}
-    </div>
-  )
-}
-
-// Hộp xác nhận trong app (thay window.confirm).
-function ConfirmBox({ message, confirmLabel = 'Xóa', onYes, onNo }: { message: string, confirmLabel?: string, onYes: () => void, onNo: () => void }) {
-  return (
-    <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={onNo}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
-        <p className="text-sm text-slate-700 whitespace-pre-wrap">{message}</p>
-        <div className="mt-4 flex justify-end gap-2">
-          <Button variant="outline" onClick={onNo} className="h-9 text-xs">Hủy</Button>
-          <Button onClick={onYes} className="h-9 text-xs bg-rose-600 hover:bg-rose-700 text-white">{confirmLabel}</Button>
-        </div>
-      </div>
+      {confirmNode}
     </div>
   )
 }
