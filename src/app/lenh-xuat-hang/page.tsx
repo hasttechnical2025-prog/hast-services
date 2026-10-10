@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import DateField from "@/components/DateField"
+import { useConfirm } from "@/components/ConfirmDialog"
 import ThuTienPanel from "@/components/ThuTienPanel"
 import { supabase } from "@/lib/supabase"
 import { Plus, FileText, PenSquare, Trash2, X, Save, RefreshCw, LogOut, Package, Boxes, Send, List, LayoutGrid, Clock, FileDown, Users, KeyRound, Monitor, Search, Download, ChevronUp, ChevronDown } from "lucide-react"
@@ -121,6 +122,7 @@ function CatalogManager({ catalog, setCatalog, isManager, hangOptions, onClose, 
   catalog: HangHoa[]; setCatalog: React.Dispatch<React.SetStateAction<HangHoa[]>>; isManager: boolean; hangOptions: string[]; onClose?: () => void; onChanged: () => void
   notify: (t: 'success' | 'error', m: string) => void; inline?: boolean
 }) {
+  const { confirm, confirmNode } = useConfirm()
   const [q, setQ] = useState('')
   const [editing, setEditing] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -216,7 +218,7 @@ function CatalogManager({ catalog, setCatalog, isManager, hangOptions, onClose, 
     } catch { notify('error', 'Lỗi kết nối') } finally { setBusy(false) }
   }
   const del = async (ma: string) => {
-    if (!window.confirm(`Xóa mã ${ma} khỏi danh mục?`)) return
+    if (!(await confirm(`Xóa mã ${ma} khỏi danh mục?`))) return
     try {
       const res = await fetch(`/api/admin/hang-hoa?ma=${encodeURIComponent(ma)}`, { method: 'DELETE' })
       const j = await res.json()
@@ -342,6 +344,7 @@ function CatalogManager({ catalog, setCatalog, isManager, hangOptions, onClose, 
           </div>
           {!isManager && <p className="text-[11px] text-slate-400">Chỉ quản lý kinh doanh được thêm/sửa danh mục.</p>}
         </div>
+      {confirmNode}
     </>
   )
   if (inline) return body
@@ -564,6 +567,7 @@ function KhachPicker({ khList, caps, notify, onReload, onPick, onClose }: {
 
 // Tab Danh mục › Khách hàng: quản lý CRUD + soft-delete + lấy từ kỹ thuật (prefill để duyệt rồi lưu).
 function KhachManager({ khList, caps, notify, onReload }: { khList: KhachKD[]; caps: KhachCaps | null; notify: (t: 'success' | 'error', m: string) => void; onReload: () => void }) {
+  const { confirm, confirmNode } = useConfirm()
   const [q, setQ] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -607,7 +611,7 @@ function KhachManager({ khList, caps, notify, onReload }: { khList: KhachKD[]; c
     } catch { notify('error', 'Lỗi kết nối') } finally { setBusy(false) }
   }
   const hide = async (k: KhachKD) => {
-    if (!window.confirm(`Ẩn khách "${k.ten_khach_hang}" khỏi danh mục? (lệnh cũ vẫn giữ thông tin)`)) return
+    if (!(await confirm(`Ẩn khách "${k.ten_khach_hang}" khỏi danh mục? (lệnh cũ vẫn giữ thông tin)`, { confirmLabel: 'Ẩn khách' }))) return
     try {
       const r = await fetch(`/api/admin/kh-kinh-doanh?id=${k.id}`, { method: 'DELETE' })
       const j = await r.json()
@@ -667,6 +671,7 @@ function KhachManager({ khList, caps, notify, onReload }: { khList: KhachKD[]; c
       </div>
       {!caps?.canCreate && <p className="text-[11px] text-slate-400">Chỉ quản lý kinh doanh được thêm/sửa khách. Bạn vẫn chọn được khách khi tạo lệnh.</p>}
       {showCum && <CumModal notify={notify} onClose={() => setShowCum(false)} onPick={(c) => { setShowCum(false); setEditing(null); setF({ ten_khach_hang: c.ten_khach_hang, dia_chi: c.dia_chi || '', ma_so_thue: c.ma_so_thue || '', email_nhan_hd: c.email_ke_toan || '', so_hop_dong: '', ghi_chu: '' }); notify('success', 'Đã điền từ khách kỹ thuật — kiểm tra rồi bấm Thêm khách.') }} />}
+      {confirmNode}
     </div>
   )
 }

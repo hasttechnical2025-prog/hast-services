@@ -15,6 +15,7 @@ import KanbanHdTool from "@/components/KanbanHdTool"
 import KhoMayThueTool from "@/components/KhoMayThueTool"
 import PushToggle from "@/components/PushToggle"
 import CskhTool from "@/components/CskhTool"
+import { useConfirm } from "@/components/ConfirmDialog"
 import PhieuDeNghiModule from "@/components/PhieuDeNghiModule"
 import LamTiepBanner from "@/components/LamTiepBanner"
 import MonthField from "@/components/MonthField"
@@ -221,6 +222,7 @@ const LOAI_CV_FALLBACK = ['Lắp máy', 'Sửa máy', 'Giao mực', 'Thay vật 
 const LOAI_CV_CAN_VAT_TU = ['Giao mực', 'Thay vật tư']
 
 export default function AdminDashboard() {
+  const { confirm, confirmNode } = useConfirm()
   const [currentAdmin, setCurrentAdmin] = useState<{ id: string, full_name: string, role: string } | null>(null)
   const [loginForm, setLoginForm] = useState({ username: "", password: "" })
   const [loginLoading, setLoginLoading] = useState(false)
@@ -672,7 +674,7 @@ export default function AdminDashboard() {
 
   // Đưa phiếu "Đang làm" về "Đã nhận" (CHỈ admin) — vd KTV bấm nhầm Đang làm phiếu tương lai.
   const revertToDaNhan = async (job: any) => {
-    if (!window.confirm(`Đưa phiếu ${job.report || ''}${job.ma_may ? ` (máy ${job.ma_may})` : ''} về "Đã nhận"?\nMốc bắt đầu sẽ bị xoá, thời gian xử lý tính lại từ đầu.`)) return
+    if (!(await confirm(`Đưa phiếu ${job.report || ''}${job.ma_may ? ` (máy ${job.ma_may})` : ''} về "Đã nhận"?\nMốc bắt đầu sẽ bị xoá, thời gian xử lý tính lại từ đầu.`, { confirmLabel: 'Về Đã nhận', danger: false }))) return
     try {
       const res = await fetch('/api/admin/cong-viec', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: job.id, revertDangLam: true }) })
       const j = await res.json()
@@ -1752,6 +1754,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-6" style={{ ['--head-h' as any]: `${headH}px` }}>
+      {confirmNode}
       {tabVisible('tro_ly') && <TroLyAI />}
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
@@ -6135,6 +6138,7 @@ function DatHangTool({
   setLines: React.Dispatch<React.SetStateAction<{ ma_hang: string, sl_dat: string }[]>>
   canhBao?: any[]
 }) {
+  const { confirm, confirmNode } = useConfirm()
   const [form, setForm] = useState({ ngay_dat: new Date().toISOString().split('T')[0], nha_cung_cap: "", so_don_hang: "", da_dat: false })
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -6439,7 +6443,7 @@ function DatHangTool({
   const deleteReceipt = async (id: string, qty?: number, maHang?: string) => {
     // Xác nhận rõ tác động tồn: xóa đợt hàng về sẽ TRỪ số đã nhận khỏi tồn kho
     if (qty && qty > 0) {
-      if (!window.confirm(`Xóa đợt hàng về này sẽ TRỪ ${qty}${maHang ? ` (${maHang})` : ''} khỏi tồn kho.\nChỉ làm khi ghi NHẦM (hàng thực chưa về). Tiếp tục?`)) return
+      if (!(await confirm(`Xóa đợt hàng về này sẽ TRỪ ${qty}${maHang ? ` (${maHang})` : ''} khỏi tồn kho.\nChỉ làm khi ghi NHẦM (hàng thực chưa về). Tiếp tục?`, { confirmLabel: 'Tiếp tục' }))) return
     }
     const res = await fetch(`/api/admin/hang-ve?id=${id}`, { method: 'DELETE' })
     if (res.ok) { showNotification('success', 'Đã xóa đợt hàng về (trừ tồn tương ứng).'); onUpdateSuccess(); fetchOrders() } else showNotification('error', "Xóa đợt hàng về không thành công")
@@ -6557,6 +6561,7 @@ function DatHangTool({
         { label: 'Đủ hàng', value: orderStats.done.toLocaleString('vi-VN'), sub: 'đã nhận đủ', icon: Package, tint: 'text-emerald-600 bg-emerald-50 ring-emerald-100' },
         { label: 'Còn thiếu', value: orderStats.thieu.toLocaleString('vi-VN'), sub: 'đơn vị chưa về', icon: AlertTriangle, tint: 'text-amber-600 bg-amber-50 ring-amber-100' },
       ]} />
+      {confirmNode}
       {/* FORM TẠO ĐƠN - SHOPPING CART UX */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
@@ -7047,9 +7052,9 @@ function DatHangTool({
                     /* Đơn đã nhận hàng: tech_admin bị ẩn nút xóa (chỉ admin, kèm cảnh báo trừ tồn) */
                     !(orderReceived(o) > 0 && currentUserRole !== 'admin') && (
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           const recv = orderReceived(o)
-                          if (recv > 0 && !window.confirm(`Đơn này đã nhận tổng ${recv}. Xóa đơn sẽ TRỪ ${recv} khỏi tồn kho. Chỉ làm khi hàng chưa thực về / nhập nhầm. Tiếp tục?`)) return
+                          if (recv > 0 && !(await confirm(`Đơn này đã nhận tổng ${recv}. Xóa đơn sẽ TRỪ ${recv} khỏi tồn kho. Chỉ làm khi hàng chưa thực về / nhập nhầm. Tiếp tục?`, { confirmLabel: 'Tiếp tục' }))) return
                           setDelId(o.id)
                         }}
                         className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 hover:bg-red-100 rounded-md" title="Xóa đơn"
@@ -7109,8 +7114,8 @@ function DatHangTool({
                               {/* Có hàng về: tech_admin bị ẩn (chỉ admin xóa được, kèm cảnh báo trừ tồn) */}
                               {!(nhan > 0 && currentUserRole !== 'admin') && (
                                 <button
-                                  onClick={() => {
-                                    if (nhan > 0 && !window.confirm(`Mục "${line.ma_hang}" đã nhận ${nhan}. Xóa sẽ TRỪ ${nhan} khỏi tồn kho. Chỉ làm khi hàng chưa thực về / ghi nhầm. Tiếp tục?`)) return
+                                  onClick={async () => {
+                                    if (nhan > 0 && !(await confirm(`Mục "${line.ma_hang}" đã nhận ${nhan}. Xóa sẽ TRỪ ${nhan} khỏi tồn kho. Chỉ làm khi hàng chưa thực về / ghi nhầm. Tiếp tục?`, { confirmLabel: 'Tiếp tục' }))) return
                                     confirmDelete(line.id, 'dat_hang_ct')
                                   }}
                                   className="text-red-500 hover:text-red-700 p-1 bg-red-50 hover:bg-red-100 rounded-md transition"
@@ -9492,6 +9497,7 @@ function DoiChieuMinvoiceModal({ onClose, showNotification, isAdmin }: { onClose
 
 // Khách hàng cụm: một khách (mã số) gom nhiều điểm máy. Chỉ admin. Gán/gỡ máy thủ công.
 function KhachCumTool({ customers, onUpdateSuccess, showNotification, currentUserRole }: { customers: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, currentUserRole: string }) {
+  const { confirm, confirmNode } = useConfirm()
   const [clusters, setClusters] = useState<{ ma_khach_hang: string, ten_khach_hang: string, dia_chi: string, ma_so_thue?: string | null, email_ke_toan?: string | null, so_may: number, members: { id: string, ma_may: string, ten_khach_hang: string }[] }[]>([])
   const [assignedIds, setAssignedIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -9553,7 +9559,7 @@ function KhachCumTool({ customers, onUpdateSuccess, showNotification, currentUse
     }
   }
   const delCluster = async (ma: string) => {
-    if (!window.confirm(`Xóa cụm ${ma}? Các máy trong cụm sẽ trở về "lẻ" (không mất máy, không mất phiếu).`)) return
+    if (!(await confirm(`Xóa cụm ${ma}? Các máy trong cụm sẽ trở về "lẻ" (không mất máy, không mất phiếu).`, { confirmLabel: 'Xóa cụm' }))) return
     if (await call('DELETE', undefined, `?ma=${encodeURIComponent(ma)}`)) {
       showNotification('success', 'Đã xóa cụm.'); if (selMa === ma) setSelMa(null); await fetchClusters(); onUpdateSuccess()
     }
@@ -9574,6 +9580,7 @@ function KhachCumTool({ customers, onUpdateSuccess, showNotification, currentUse
 
   return (
     <div className="space-y-6">
+      {confirmNode}
       <div className="flex justify-end">
         <Button variant="outline" onClick={() => setDoiChieuOpen(true)} className="gap-1.5 h-9 text-xs"><FileSpreadsheet className="w-4 h-4" /> Đối chiếu minVoice</Button>
       </div>

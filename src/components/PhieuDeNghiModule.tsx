@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import DateField from "@/components/DateField"
+import { useConfirm } from "@/components/ConfirmDialog"
 import {
   FileText, Search, Plus, Printer, PenSquare, Trash2,
   RefreshCw, X, Save, ArrowUpDown, ChevronUp, ChevronDown
@@ -453,6 +454,7 @@ export default function PhieuDeNghiModule({
   inventory?: any[]
   khoMayOptions?: string[]
 }) {
+  const { confirm, confirmNode } = useConfirm()
   const [rows, setRows] = useState<PhieuDeNghi[]>([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
@@ -870,13 +872,13 @@ export default function PhieuDeNghiModule({
       if (row.tac_dong_ton !== false) {
         const aff = ct.filter(c => c.tinh_ton && c.ma_hang)
         if (aff.length === 0) {
-          if (!window.confirm(`Xác nhận THỰC HIỆN phiếu ${row.so_phieu}?\n\nKhông có dòng nào tick cột "Tồn" → tồn kho KHÔNG đổi, chỉ chuyển trạng thái "Đã thực hiện".`)) return
+          if (!(await confirm(`Xác nhận THỰC HIỆN phiếu ${row.so_phieu}?\n\nKhông có dòng nào tick cột "Tồn" → tồn kho KHÔNG đổi, chỉ chuyển trạng thái "Đã thực hiện".`, { confirmLabel: 'Thực hiện', danger: false }))) return
         } else {
           const dsTxt = aff.map(c => `  ${c.loai_hang === 'xuat_ra' ? '−' : '+'}${c.so_luong} ${c.ma_hang}`).join('\n')
-          if (!window.confirm(`Xác nhận THỰC HIỆN phiếu ${row.so_phieu}?\n\nTỒN KHO sẽ thay đổi:\n${dsTxt}\n\n(− giảm khi xuất · + tăng khi nhập). Có thể Hoàn tác lại sau.`)) return
+          if (!(await confirm(`Xác nhận THỰC HIỆN phiếu ${row.so_phieu}?\n\nTỒN KHO sẽ thay đổi:\n${dsTxt}\n\n(− giảm khi xuất · + tăng khi nhập). Có thể Hoàn tác lại sau.`, { confirmLabel: 'Thực hiện', danger: false }))) return
         }
       } else {
-        if (!window.confirm(`Xác nhận THỰC HIỆN phiếu ${row.so_phieu}?\n\nPhiếu KHÔNG tác động tồn kho — chỉ chuyển trạng thái "Đã thực hiện".`)) return
+        if (!(await confirm(`Xác nhận THỰC HIỆN phiếu ${row.so_phieu}?\n\nPhiếu KHÔNG tác động tồn kho — chỉ chuyển trạng thái "Đã thực hiện".`, { confirmLabel: 'Thực hiện', danger: false }))) return
       }
     }
     setActingId(row.id)
@@ -894,7 +896,7 @@ export default function PhieuDeNghiModule({
       }
       if (res.status === 409 && j.error === 'missing_kho' && Array.isArray(j.missing)) {
         const list = j.missing.map((m: any) => `• ${m.ma_hang}${m.ten_hang ? ' — ' + m.ten_hang : ''}`).join('\n')
-        if (window.confirm(`Các mã sau CHƯA có trong kho:\n\n${list}\n\nTạo nhanh (tồn = 0) rồi thực hiện phiếu?`)) {
+        if (await confirm(`Các mã sau CHƯA có trong kho:\n\n${list}\n\nTạo nhanh (tồn = 0) rồi thực hiện phiếu?`, { confirmLabel: 'Tạo & thực hiện', danger: false })) {
           await doExecute(row, true)
         }
         return
@@ -909,7 +911,7 @@ export default function PhieuDeNghiModule({
 
   // Hoàn tác thực hiện (đảo tồn)
   const doUndo = async (row: PhieuDeNghi) => {
-    if (!window.confirm(`Hoàn tác thực hiện phiếu số ${row.so_phieu}? Tồn kho sẽ được trả về như trước.`)) return
+    if (!(await confirm(`Hoàn tác thực hiện phiếu số ${row.so_phieu}? Tồn kho sẽ được trả về như trước.`, { confirmLabel: 'Hoàn tác', danger: false }))) return
     setActingId(row.id)
     try {
       const res = await fetch('/api/admin/phieu-de-nghi', {
@@ -1708,6 +1710,7 @@ export default function PhieuDeNghiModule({
           </div>
         </div>
       )}
+      {confirmNode}
     </div>
   )
 }

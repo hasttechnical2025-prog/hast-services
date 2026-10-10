@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import AccountSettings from "@/components/AccountSettings"
 import NghiPhepDangKy from "@/components/NghiPhepDangKy"
 import DateField from "@/components/DateField"
+import { useConfirm } from "@/components/ConfirmDialog"
 import { initClockOffset, startQueueSync, enqueueStatus, nowISO, onPendingChange } from "@/lib/status-queue"
 import { phutGiua, lamTronPhut, fmtThoiLuong } from "@/lib/thoi-gian"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
@@ -65,6 +66,7 @@ type LastCall = {
 }
 
 export default function KtvMobileWeb() {
+  const { confirm, confirmNode } = useConfirm()
   const [currentKtv, setCurrentKtv] = useState<User | null>(null)
 
   const [jobs, setJobs] = useState<Job[]>([])
@@ -343,7 +345,7 @@ export default function KtvMobileWeb() {
 
   // Mở lại báo cáo ngày (chuyển da_nop về false để sửa đổi)
   const handleOpenDailyReport = async () => {
-    if (!confirm("Bạn có chắc chắn muốn mở lại báo cáo ngày này để bổ sung/chỉnh sửa tiếp?")) return
+    if (!(await confirm("Bạn có chắc chắn muốn mở lại báo cáo ngày này để bổ sung/chỉnh sửa tiếp?", { confirmLabel: 'Mở lại', danger: false }))) return
     try {
       const res = await fetch('/api/ktv/bao-cao', {
         method: 'POST',
@@ -1329,6 +1331,7 @@ export default function KtvMobileWeb() {
       </main>
 
       {showSettings && <AccountSettings notify={(m, ok) => showNotification(ok ? 'success' : 'error', m)} onClose={() => setShowSettings(false)} />}
+      {confirmNode}
 
       {/* OVERLAY: Công việc chung của phòng (read-only, realtime) */}
       {showTeam && (

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { startRegistration, startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser"
+import { useConfirm } from "@/components/ConfirmDialog"
 
 // Quản lý sinh trắc học (dùng khi ĐÃ đăng nhập, trong Cài đặt của app mobile):
 // hiện trạng thái Đã bật ✓ / Chưa bật + nút Thêm thiết bị / Gỡ.
@@ -9,6 +10,7 @@ export function PasskeyManager({ onResult }: { onResult?: (msg: string, ok: bool
   const [supported, setSupported] = useState(false)
   const [count, setCount] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
+  const { confirm, confirmNode } = useConfirm()
 
   useEffect(() => { setSupported(browserSupportsWebAuthn()) }, [])
   const load = async () => {
@@ -39,7 +41,7 @@ export function PasskeyManager({ onResult }: { onResult?: (msg: string, ok: bool
   }
 
   const removeAll = async () => {
-    if (!window.confirm('Gỡ đăng nhập sinh trắc học cho tài khoản này? Sau đó phải đăng nhập bằng mật khẩu.')) return
+    if (!(await confirm('Gỡ đăng nhập sinh trắc học cho tài khoản này? Sau đó phải đăng nhập bằng mật khẩu.', { confirmLabel: 'Gỡ' }))) return
     setBusy(true)
     try {
       const r = await fetch('/api/auth/webauthn/credentials', { method: 'DELETE' })
@@ -64,6 +66,7 @@ export function PasskeyManager({ onResult }: { onResult?: (msg: string, ok: bool
           <button type="button" onClick={removeAll} disabled={busy} className="h-10 px-4 border border-red-200 text-red-600 hover:bg-red-50 rounded-md text-sm font-medium disabled:opacity-60">Gỡ</button>
         )}
       </div>
+      {confirmNode}
     </div>
   )
 }
