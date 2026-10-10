@@ -20,6 +20,16 @@ const fmtDate = (s: any) => { const p = String(s || '').slice(0, 10).split('-');
 // Ẩn email nội bộ @sieuthanh.com.vn khỏi phần HIỂN THỊ (dữ liệu gốc giữ nguyên).
 const cleanEmails = (s: any) => String(s ?? '').split(/[;,]/).map(x => x.trim()).filter(x => x && !/@sieuthanh\.com\.vn$/i.test(x)).join('; ')
 const todayVN = () => new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
+// Mốc đếm "số lần" / "chăm sóc gần nhất". '' = tất cả.
+const PERIODS: [string, string][] = [['1m', '1 tháng'], ['3m', '3 tháng'], ['6m', '6 tháng'], ['12m', '12 tháng'], ['ytd', 'Từ đầu năm'], ['all', 'Tất cả']]
+const periodFloor = (p: string) => {
+  const now = new Date(Date.now() + 7 * 3600 * 1000)
+  if (p === 'all') return ''
+  if (p === 'ytd') return `${now.getUTCFullYear()}-01-01`
+  const m: Record<string, number> = { '1m': 1, '3m': 3, '6m': 6, '12m': 12 }
+  const d = new Date(now); d.setUTCMonth(d.getUTCMonth() - (m[p] || 0))
+  return d.toISOString().slice(0, 10)
+}
 
 export default function CskhTool({ role = 'admin', showNotification }: { role?: string, showNotification: Notify }) {
   const isAdmin = role === 'admin'
@@ -38,14 +48,16 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
   const [reasonFilter, setReasonFilter] = useState<string>('all')
   const [kpi, setKpi] = useState<any | null>(null)
   const [kpiLoading, setKpiLoading] = useState(false)
+  const [period, setPeriod] = useState('ytd')  // mốc đếm số lần / chăm sóc gần nhất; mặc định từ đầu năm
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const r = await fetch('/api/admin/cskh'); const j = await r.json()
+      const tu = periodFloor(period)
+      const r = await fetch('/api/admin/cskh' + (tu ? `?tu=${tu}` : '')); const j = await r.json()
       if (r.ok) setRows(j.data || []); else showNotification('error', j.error || 'Lỗi tải danh sách CSKH')
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setLoading(false) }
-  }, [showNotification])
+  }, [showNotification, period])
   const loadQueue = useCallback(async () => {
     setQLoading(true)
     try {
@@ -172,7 +184,13 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
             <button key={v} onClick={() => setLoaiFilter(v)} className={`px-3 h-9 font-semibold border-l first:border-l-0 border-slate-200 ${loaiFilter === v ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>{l}</button>
           ))}
         </div>
-        <span className="text-xs text-slate-500 ml-auto">{list.length} khách</span>
+        <div className="inline-flex items-center gap-1.5 ml-auto">
+          <span className="text-[11px] text-slate-500 whitespace-nowrap">Tính từ:</span>
+          <select value={period} onChange={e => setPeriod(e.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700" title="Mốc đếm Số lần & Chăm sóc gần nhất">
+            {PERIODS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </div>
+        <span className="text-xs text-slate-500">{list.length} khách</span>
       </div>
 
       <div className="border border-slate-200 rounded-lg overflow-hidden">

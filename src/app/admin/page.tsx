@@ -562,6 +562,21 @@ export default function AdminDashboard() {
     fetchCongNoChuaCum()
   }, [currentAdmin, currentUserRole, fetchCongNoChuaCum])
 
+  // Khách có việc hẹn chăm sóc ĐẾN HẠN (chưa xử lý) -> chuông. Endpoint gate = cong_viec.cham_soc_kh
+  // (admin-only mặc định) nên role khác nhận 401 -> danh sách rỗng -> chuông tự ẩn mục này.
+  const [henCskh, setHenCskh] = useState<any[]>([])
+  const fetchHenCskh = useCallback(() => {
+    fetch('/api/admin/cskh/hen')
+      .then(r => r.ok ? r.json() : { data: [] })
+      .then(j => setHenCskh(j.data || []))
+      .catch(() => { })
+  }, [])
+  useEffect(() => {
+    if (!currentAdmin) return
+    if (!['admin', 'tech_admin', 'staff'].includes(currentUserRole)) { setHenCskh([]); return }
+    fetchHenCskh()
+  }, [currentAdmin, currentUserRole, fetchHenCskh])
+
   // Đếm phiếu Kanban Cột 1 (Chờ lên HĐ) & Cột 2 (KT-HC lên HĐ) cho chuông — nhắc office bàn giao/lên HĐ.
   // Chỉ office thấy chuông (admin/tech_admin/staff); refresh định kỳ.
   useEffect(() => {
@@ -1585,6 +1600,27 @@ export default function AdminDashboard() {
               </tbody>
             </table>
           </div>
+        </div>
+      ),
+    },
+    {
+      key: 'cskh_hen', icon: Users, tone: 'amber', label: 'Khách đến hẹn chăm sóc', count: henCskh.length,
+      nav: { label: '→ Mở Sổ công tác › Chăm sóc KH', onClick: () => { setActiveTab('cong_viec'); setCongTacTab('cham_soc_kh') }, canSee: subVisible('cong_viec', 'cham_soc_kh') },
+      detail: (
+        <div className="border border-amber-100 rounded-lg overflow-hidden">
+          <table className="w-full text-left text-xs text-slate-600">
+            <thead className="bg-amber-50 text-amber-800"><tr><th className="px-2.5 py-1.5 font-medium">Khách hàng</th><th className="px-2 py-1.5 font-medium text-center">Loại</th><th className="px-2 py-1.5 font-medium text-center">Hẹn</th></tr></thead>
+            <tbody className="divide-y divide-slate-100">
+              {henCskh.slice(0, 40).map((h: any) => (
+                <tr key={h.key}>
+                  <td className="px-2.5 py-1.5"><div className="font-medium text-slate-800">{h.ten}</div></td>
+                  <td className="px-2 py-1.5 text-center"><span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${h.loai === 'cum' ? 'bg-sky-50 text-sky-700' : 'bg-indigo-50 text-indigo-700'}`}>{h.loai === 'cum' ? 'Cụm' : 'Tiềm năng'}</span></td>
+                  <td className="px-2 py-1.5 text-center whitespace-nowrap"><span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${h.qua_han ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{formatDate(h.ngay_hen)}{h.qua_han ? ' · quá hạn' : ''}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {henCskh.length > 40 && <p className="text-[10px] text-slate-400 px-2 py-1">…và {henCskh.length - 40} khách nữa.</p>}
         </div>
       ),
     },

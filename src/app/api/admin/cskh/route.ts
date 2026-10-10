@@ -10,10 +10,13 @@ const gate = () => requireTab('cong_viec', 'cong_viec.cham_soc_kh')
 
 // GET: danh sách CSKH hợp nhất = khách CỤM (soct_khach_cum) + khách TIỀM NĂNG (soct_cskh_khach),
 // mỗi khách kèm: lần chăm sóc gần nhất, hẹn kế tiếp, số lần chăm sóc. Client tự lọc/sắp.
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await gate()
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
+
+    // Mốc đếm "số lần" / "chăm sóc gần nhất" (ISO YYYY-MM-DD). Rỗng = tất cả. Hẹn kế tiếp KHÔNG bị mốc chặn.
+    const tu = (new URL(request.url).searchParams.get('tu') || '').slice(0, 10)
 
     const [cum, tn, logs, members, phieuCskh] = await Promise.all([
       selectAll<any>((f, t) => supabaseAdmin.from('soct_khach_cum').select('ma_khach_hang, ten_khach_hang, dia_chi, ma_so_thue, email_ke_toan').order('ten_khach_hang').range(f, t)),
@@ -31,8 +34,12 @@ export async function GET() {
     const bump = (key: string, ngay: string | null, ngay_hen: string | null) => {
       if (!key) return
       const a = agg.get(key) || { lan_cham: null, hen: null, so_lan: 0 }
-      a.so_lan++
-      if (ngay && (!a.lan_cham || ngay > a.lan_cham)) a.lan_cham = ngay
+      // "số lần" + "chăm sóc gần nhất" chỉ tính lượt từ mốc `tu` trở đi (rỗng = tất cả).
+      if (ngay && (!tu || ngay >= tu)) {
+        a.so_lan++
+        if (!a.lan_cham || ngay > a.lan_cham) a.lan_cham = ngay
+      }
+      // Hẹn kế tiếp = hẹn gần nhất còn ở tương lai (>= hôm nay), độc lập với mốc đếm.
       if (ngay_hen && ngay_hen >= today && (!a.hen || ngay_hen < a.hen)) a.hen = ngay_hen
       agg.set(key, a)
     }
