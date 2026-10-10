@@ -117,7 +117,6 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
 
       {view === 'can' && (
         <div className="space-y-2">
-          <p className="text-[11px] text-slate-500">Tự gom khách cần liên hệ theo tín hiệu. Bấm <b>Ghi chăm sóc</b> để xử lý — xử lý xong tín hiệu tự ẩn.</p>
           <div className="flex flex-wrap gap-1.5 items-center">
             {([['all', 'Tất cả', queue.length], ['hen', 'Đến hẹn', qCounts.hen || 0], ['hdbt', 'HĐ sắp hết', qCounts.hdbt || 0], ['moi_sua', 'Mới sửa xong', qCounts.moi_sua || 0], ['hay_hong', 'Hay hỏng', qCounts.hay_hong || 0], ['lau', 'Lâu/chưa liên hệ', qCounts.lau || 0]] as const).map(([k, l, n]) => (
               <button key={k} onClick={() => setReasonFilter(k)} className={`text-xs px-2.5 h-8 rounded-full border font-semibold ${reasonFilter === k ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>{l} ({n})</button>
