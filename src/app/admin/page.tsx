@@ -14,6 +14,7 @@ import PhiBaoTriModule from "@/components/PhiBaoTriModule"
 import KanbanHdTool from "@/components/KanbanHdTool"
 import KhoMayThueTool from "@/components/KhoMayThueTool"
 import PushToggle from "@/components/PushToggle"
+import CskhTool from "@/components/CskhTool"
 import PhieuDeNghiModule from "@/components/PhieuDeNghiModule"
 import LamTiepBanner from "@/components/LamTiepBanner"
 import MonthField from "@/components/MonthField"
@@ -277,7 +278,7 @@ export default function AdminDashboard() {
   // Tab con bên trong "Quản lý"
   const [quanLyTab, setQuanLyTab] = useState<"nhat_ky" | "khach_hang" | "khach_cum" | "bao_cao" | "nghi_phep">("nhat_ky")
   // Tab con bên trong "Sổ công tác" (Giao việc / Hoàn phiếu)
-  const [congTacTab, setCongTacTab] = useState<"giao_viec" | "hoan_phieu" | "bao_cao_khach">("giao_viec")
+  const [congTacTab, setCongTacTab] = useState<"giao_viec" | "hoan_phieu" | "bao_cao_khach" | "cham_soc_kh">("giao_viec")
   const [bckCount, setBckCount] = useState(0) // badge: số báo cáo gửi khách CHỜ GỬI
   // Tab con bên trong "Tài chính" (Công nợ / Thuê-CPC)
   const [taiChinhTab, setTaiChinhTab] = useState<"cong_no" | "thue_cpc" | "kanban" | "phi_bao_tri">("cong_no")
@@ -318,7 +319,7 @@ export default function AdminDashboard() {
   const effectiveKhoTab = firstVisibleSub('kho_hang', ['ton_kho', 'dat_hang', 'thong_ke', 'gia_niem_yet', 'may_thue', 'phieu_de_nghi'], khoTab) as "ton_kho" | "dat_hang" | "thong_ke" | "gia_niem_yet" | "may_thue" | "phieu_de_nghi"
   const effectiveMonitorTab = firstVisibleSub('theo_doi_may', ['bao_tri', 'giam_dinh'], monitorTab) as "bao_tri" | "giam_dinh"
   const effectiveQuanLyTab = firstVisibleSub('quan_ly', ['nhat_ky', 'khach_hang', 'khach_cum', 'bao_cao', 'nghi_phep'], quanLyTab) as "nhat_ky" | "khach_hang" | "khach_cum" | "bao_cao" | "nghi_phep"
-  const effectiveCongTacTab = firstVisibleSub('cong_viec', ['giao_viec', 'hoan_phieu', 'bao_cao_khach'], congTacTab) as "giao_viec" | "hoan_phieu" | "bao_cao_khach"
+  const effectiveCongTacTab = firstVisibleSub('cong_viec', ['giao_viec', 'hoan_phieu', 'bao_cao_khach', 'cham_soc_kh'], congTacTab) as "giao_viec" | "hoan_phieu" | "bao_cao_khach" | "cham_soc_kh"
   const effectiveTaiChinhTab = firstVisibleSub('tai_chinh', ['cong_no', 'thue_cpc', 'phi_bao_tri', 'kanban'], taiChinhTab) as "cong_no" | "thue_cpc" | "kanban" | "phi_bao_tri"
   const repeatNgay = parseInt(cauHinh.repeat_ngay || '30') || 30
   const nguongTonThap = parseInt(cauHinh.nguong_ton_thap || '0') || 0
@@ -1830,7 +1831,7 @@ export default function AdminDashboard() {
         </header>
 
         {/* Thanh tab con của Sổ công tác (hiện khi có ≥1 tab con được bật cho role) */}
-        {activeTab === "cong_viec" && (subVisible('cong_viec', 'hoan_phieu') || subVisible('cong_viec', 'bao_cao_khach')) && (
+        {activeTab === "cong_viec" && (subVisible('cong_viec', 'hoan_phieu') || subVisible('cong_viec', 'bao_cao_khach') || subVisible('cong_viec', 'cham_soc_kh')) && (
           <div className="sticky top-[var(--head-h)] z-20 flex gap-1 bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto mb-4">
             <button onClick={() => setCongTacTab("giao_viec")} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${effectiveCongTacTab === 'giao_viec' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>Giao việc</button>
             {subVisible('cong_viec', 'hoan_phieu') && (
@@ -1844,6 +1845,9 @@ export default function AdminDashboard() {
                 Báo cáo sửa chữa
                 {bckCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{bckCount}</span>}
               </button>
+            )}
+            {subVisible('cong_viec', 'cham_soc_kh') && (
+              <button onClick={() => setCongTacTab("cham_soc_kh")} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap ${effectiveCongTacTab === 'cham_soc_kh' ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>Chăm sóc KH</button>
             )}
           </div>
         )}
@@ -2211,6 +2215,10 @@ export default function AdminDashboard() {
         {/* Báo cáo gửi khách — tab con của Sổ công tác (office copy gửi Zalo/Email) */}
         {activeTab === "cong_viec" && effectiveCongTacTab === "bao_cao_khach" && subVisible('cong_viec', 'bao_cao_khach') && (
           <BaoCaoKhachTool showNotification={showNotification} onChanged={refetchBckCount} />
+        )}
+
+        {activeTab === "cong_viec" && effectiveCongTacTab === "cham_soc_kh" && subVisible('cong_viec', 'cham_soc_kh') && (
+          <CskhTool role={currentUserRole} showNotification={showNotification} />
         )}
 
         {/* Hoàn phiếu — tab con của Sổ công tác */}
