@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import DateField from "@/components/DateField"
-import { Search, Plus, X, Trash2, Clock, ChevronUp, ChevronDown, Phone, Users, RefreshCw, Target, CalendarClock, TrendingUp, BarChart3 } from "lucide-react"
+import { Search, Plus, X, Trash2, Clock, ChevronUp, ChevronDown, Phone, Users, RefreshCw, Target, CalendarClock, TrendingUp, BarChart3, Filter } from "lucide-react"
 import { useConfirm } from "@/components/ConfirmDialog"
 
 type Notify = (type: 'success' | 'error', msg: string) => void
@@ -88,6 +88,9 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
     lau: { label: 'Lâu/chưa liên hệ', cls: 'bg-slate-100 text-slate-600' },
   }
   const queueShown = reasonFilter === 'all' ? queue : queue.filter(r => r.reasons.some((x: any) => x.type === reasonFilter))
+  // Badge "Cần chăm sóc" = số việc CẦN LÀM NGAY (đến hẹn + HĐ sắp hết + mới sửa xong).
+  // KHÔNG gộp "lâu/chưa liên hệ" (backlog nền) để con số có ý nghĩa, tránh đỏ thường trực.
+  const urgentCount = (qCounts.hen || 0) + (qCounts.hdbt || 0) + (qCounts.moi_sua || 0)
 
   const today = todayVN()
   const handleSort = (f: string) => { if (sortField === f) setSortAsc(p => !p); else { setSortField(f); setSortAsc(true) } }
@@ -138,21 +141,25 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
         {isAdmin && <Button onClick={() => setAddOpen(true)} className="ml-auto h-9 gap-1.5 text-xs"><Plus className="w-4 h-4" /> Thêm khách tiềm năng</Button>}
       </div>
 
-      {/* Chọn chế độ xem — mini-module: Cần chăm sóc · Danh sách · Pipeline · KPI */}
-      <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden text-xs">
-        <button onClick={() => setView('can')} className={`px-3.5 h-9 font-semibold inline-flex items-center gap-1.5 ${view === 'can' ? 'bg-amber-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>Cần chăm sóc{queue.length > 0 && <span className={`min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${view === 'can' ? 'bg-white text-amber-600' : 'bg-amber-500 text-white'}`}>{queue.length}</span>}</button>
-        <button onClick={() => setView('ds')} className={`px-3.5 h-9 font-semibold border-l border-slate-200 inline-flex items-center gap-1.5 ${view === 'ds' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}><Users className="w-3.5 h-3.5" /> Danh sách khách</button>
-        <button onClick={() => setView('pipeline')} className={`px-3.5 h-9 font-semibold border-l border-slate-200 inline-flex items-center gap-1.5 ${view === 'pipeline' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}><TrendingUp className="w-3.5 h-3.5" /> Pipeline tiềm năng</button>
-        <button onClick={() => setView('kpi')} className={`px-3.5 h-9 font-semibold border-l border-slate-200 inline-flex items-center gap-1.5 ${view === 'kpi' ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}><BarChart3 className="w-3.5 h-3.5" /> KPI</button>
+      {/* Menu cháu — đồng bộ style tab con/Thuê-CPC: pill trung tính, mục active = trắng + ring xanh. */}
+      <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit overflow-x-auto">
+        {([['can', 'Cần chăm sóc', null], ['ds', 'Danh sách khách', Users], ['pipeline', 'Pipeline tiềm năng', TrendingUp], ['kpi', 'KPI', BarChart3]] as const).map(([k, l, Icon]) => (
+          <button key={k} onClick={() => setView(k)} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${view === k ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>
+            {Icon && <Icon className="w-3.5 h-3.5" />}
+            {l}
+            {k === 'can' && urgentCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{urgentCount}</span>}
+          </button>
+        ))}
       </div>
 
       {view === 'can' && (
         <div className="space-y-2">
           <div className="flex flex-wrap gap-1.5 items-center">
+            <span className="text-[11px] font-semibold text-slate-400 uppercase inline-flex items-center gap-1 mr-0.5"><Filter className="w-3 h-3" /> Lọc</span>
             {([['all', 'Tất cả', queue.length], ['hen', 'Đến hẹn', qCounts.hen || 0], ['hdbt', 'HĐ sắp hết', qCounts.hdbt || 0], ['moi_sua', 'Mới sửa xong', qCounts.moi_sua || 0], ['hay_hong', 'Hay hỏng', qCounts.hay_hong || 0], ['lau', 'Lâu/chưa liên hệ', qCounts.lau || 0]] as const).map(([k, l, n]) => (
-              <button key={k} onClick={() => setReasonFilter(k)} className={`text-xs px-2.5 h-8 rounded-full border font-semibold ${reasonFilter === k ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>{l} ({n})</button>
+              <button key={k} onClick={() => setReasonFilter(k)} className={`text-[11px] px-2.5 h-7 rounded-full border font-medium transition ${reasonFilter === k ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>{l} ({n})</button>
             ))}
-            <Button variant="outline" onClick={loadQueue} className="h-8 w-8 p-0 ml-auto" title="Làm mới"><RefreshCw className={`w-4 h-4 ${qLoading ? 'animate-spin' : ''}`} /></Button>
+            <Button variant="outline" onClick={loadQueue} className="h-7 w-7 p-0 ml-auto" title="Làm mới"><RefreshCw className={`w-3.5 h-3.5 ${qLoading ? 'animate-spin' : ''}`} /></Button>
           </div>
           <div className="space-y-2">
             {qLoading ? <p className="text-xs text-slate-400 py-6 text-center">Đang tải…</p>
