@@ -44,8 +44,9 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
   const [view, setView] = useState<'can' | 'ds' | 'pipeline' | 'kpi'>('can')
   const [queue, setQueue] = useState<any[]>([])
   const [qCounts, setQCounts] = useState<Record<string, number>>({})
+  const [qCanLam, setQCanLam] = useState(0)  // số khách CẦN LÀM (loại trừ backlog "lâu") -> badge
   const [qLoading, setQLoading] = useState(true)
-  const [reasonFilter, setReasonFilter] = useState<string>('all')
+  const [reasonFilter, setReasonFilter] = useState<string>('moi_lap')  // mặc định: Mới lắp (ưu tiên cao nhất)
   const [kpi, setKpi] = useState<any | null>(null)
   const [kpiLoading, setKpiLoading] = useState(false)
   const [period, setPeriod] = useState('ytd')  // mốc đếm số lần / chăm sóc gần nhất; mặc định từ đầu năm
@@ -62,7 +63,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
     setQLoading(true)
     try {
       const r = await fetch('/api/admin/cskh/can-cham-soc'); const j = await r.json()
-      if (r.ok) { setQueue(j.data || []); setQCounts(j.counts || {}) }
+      if (r.ok) { setQueue(j.data || []); setQCounts(j.counts || {}); setQCanLam(j.can_lam || 0) }
     } catch { } finally { setQLoading(false) }
   }, [])
   const loadKpi = useCallback(async () => {
@@ -80,17 +81,21 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
     const full = rows.find(r => r.key === `cum:${ma}`)
     setSel(full || { key: `cum:${ma}`, loai: 'cum', ma_khach_cum: ma, ten_khach_hang: ten, dia_chi: '', email: '' })
   }
-  const REASON: Record<string, { label: string; cls: string }> = {
-    hen: { label: 'Đến hẹn', cls: 'bg-rose-100 text-rose-700' },
-    hdbt: { label: 'HĐ sắp hết', cls: 'bg-rose-50 text-rose-700' },
-    moi_sua: { label: 'Mới sửa xong', cls: 'bg-amber-100 text-amber-700' },
-    hay_hong: { label: 'Hay hỏng', cls: 'bg-amber-50 text-amber-700' },
-    lau: { label: 'Lâu/chưa liên hệ', cls: 'bg-slate-100 text-slate-600' },
+  // Cấu hình tín hiệu theo THỨ TỰ ƯU TIÊN (cao → thấp) + màu theo tier để office thấy ngay mức quan trọng.
+  //  badge = nền huy hiệu ở thẻ hàng đợi; dot = chấm màu trên chip lọc; active = nền chip khi đang chọn.
+  const REASON: Record<string, { label: string; chip: string; badge: string; dot: string; active: string }> = {
+    moi_lap: { label: 'Mới lắp', chip: 'Mới lắp', badge: 'bg-rose-600 text-white', dot: 'bg-rose-600', active: 'bg-rose-600 text-white border-rose-600' },
+    moi_sua: { label: 'Mới sửa xong', chip: 'Mới sửa', badge: 'bg-rose-100 text-rose-700', dot: 'bg-rose-400', active: 'bg-rose-500 text-white border-rose-500' },
+    hdbt: { label: 'HĐ sắp hết', chip: 'HĐ sắp hết', badge: 'bg-amber-100 text-amber-700', dot: 'bg-amber-500', active: 'bg-amber-600 text-white border-amber-600' },
+    hay_hong: { label: 'Hay hỏng', chip: 'Hay hỏng', badge: 'bg-amber-50 text-amber-700', dot: 'bg-amber-400', active: 'bg-amber-500 text-white border-amber-500' },
+    hen: { label: 'Đến hẹn', chip: 'Đến hẹn', badge: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500', active: 'bg-blue-600 text-white border-blue-600' },
+    lau: { label: 'Lâu/chưa liên hệ', chip: 'Lâu/chưa liên hệ', badge: 'bg-slate-100 text-slate-600', dot: 'bg-slate-400', active: 'bg-slate-600 text-white border-slate-600' },
   }
+  // Thứ tự chip (ưu tiên) + "Tất cả" ở cuối.
+  const REASON_ORDER = ['moi_lap', 'moi_sua', 'hdbt', 'hay_hong', 'hen', 'lau'] as const
   const queueShown = reasonFilter === 'all' ? queue : queue.filter(r => r.reasons.some((x: any) => x.type === reasonFilter))
-  // Badge "Cần chăm sóc" = số việc CẦN LÀM NGAY (đến hẹn + HĐ sắp hết + mới sửa xong).
-  // KHÔNG gộp "lâu/chưa liên hệ" (backlog nền) để con số có ý nghĩa, tránh đỏ thường trực.
-  const urgentCount = (qCounts.hen || 0) + (qCounts.hdbt || 0) + (qCounts.moi_sua || 0)
+  // Badge "Cần chăm sóc" = số KHÁCH cần làm (mọi tín hiệu trừ backlog "lâu"), tính distinct ở server.
+  const urgentCount = qCanLam
 
   const today = todayVN()
   const handleSort = (f: string) => { if (sortField === f) setSortAsc(p => !p); else { setSortField(f); setSortAsc(true) } }
@@ -152,20 +157,24 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
         <div className="space-y-2">
           <div className="flex flex-wrap gap-1.5 items-center">
             <span className="text-[11px] font-semibold text-slate-400 uppercase inline-flex items-center gap-1 mr-0.5"><Filter className="w-3 h-3" /> Lọc</span>
-            {([['all', 'Tất cả', queue.length], ['hen', 'Đến hẹn', qCounts.hen || 0], ['hdbt', 'HĐ sắp hết', qCounts.hdbt || 0], ['moi_sua', 'Mới sửa xong', qCounts.moi_sua || 0], ['hay_hong', 'Hay hỏng', qCounts.hay_hong || 0], ['lau', 'Lâu/chưa liên hệ', qCounts.lau || 0]] as const).map(([k, l, n]) => (
-              <button key={k} onClick={() => setReasonFilter(k)} className={`text-[11px] px-2.5 h-7 rounded-full border font-medium transition ${reasonFilter === k ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>{l} ({n})</button>
+            {REASON_ORDER.map(k => (
+              <button key={k} onClick={() => setReasonFilter(k)} className={`text-[11px] px-2.5 h-7 rounded-full border font-medium transition inline-flex items-center gap-1.5 ${reasonFilter === k ? REASON[k].active : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${reasonFilter === k ? 'bg-white/80' : REASON[k].dot}`} />
+                {REASON[k].chip} ({qCounts[k] || 0})
+              </button>
             ))}
+            <button onClick={() => setReasonFilter('all')} className={`text-[11px] px-2.5 h-7 rounded-full border font-medium transition ${reasonFilter === 'all' ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>Tất cả ({queue.length})</button>
             <Button variant="outline" onClick={loadQueue} className="h-7 w-7 p-0 ml-auto" title="Làm mới"><RefreshCw className={`w-3.5 h-3.5 ${qLoading ? 'animate-spin' : ''}`} /></Button>
           </div>
           <div className="space-y-2">
             {qLoading ? <p className="text-xs text-slate-400 py-6 text-center">Đang tải…</p>
-              : queueShown.length === 0 ? <p className="text-xs text-slate-400 py-6 text-center">Không có khách cần chăm sóc trong nhóm này. 🎉</p>
+              : queueShown.length === 0 ? <p className="text-xs text-slate-400 py-6 text-center">Không có khách trong nhóm <b>{reasonFilter === 'all' ? 'nào' : (REASON[reasonFilter]?.label || '')}</b>. Bấm nhóm khác ở trên để xem.</p>
                 : queueShown.map(r => (
                   <div key={r.ma_khach_cum} className="border border-slate-200 rounded-lg p-3 flex items-start gap-3 hover:bg-slate-50">
                     <div className="min-w-0 flex-1">
                       <div className="font-medium text-slate-800">{r.ten_khach_hang}</div>
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {r.reasons.map((x: any, i: number) => (<span key={i} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${REASON[x.type]?.cls || 'bg-slate-100 text-slate-600'}`}>{x.label}</span>))}
+                        {r.reasons.map((x: any, i: number) => (<span key={i} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${REASON[x.type]?.badge || 'bg-slate-100 text-slate-600'}`}>{x.label}</span>))}
                       </div>
                       {r.reasons.filter((x: any) => x.detail).map((x: any, i: number) => (
                         <div key={i} className="text-[11px] text-slate-500 mt-0.5">↳ {x.detail}</div>

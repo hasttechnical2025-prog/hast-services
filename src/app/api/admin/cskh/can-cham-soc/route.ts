@@ -7,7 +7,8 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const gate = () => requireTab('cong_viec', 'cong_viec.cham_soc_kh')
-const LV = { cao: 3, vua: 2, thap: 1 } as const
+// Mức ưu tiên tín hiệu (cao = cần chăm sóc trước). Dùng để sắp xếp hàng đợi + gắn tier màu ở UI.
+const PRI: Record<string, number> = { moi_lap: 6, moi_sua: 5, hdbt: 4, hay_hong: 3, hen: 2, lau: 1 }
 
 // GET: hàng đợi "Cần chăm sóc" tự sinh từ tín hiệu, theo KHÁCH CỤM. Mỗi khách kèm lý do + chỉ số sức khỏe.
 export async function GET() {
@@ -17,18 +18,21 @@ export async function GET() {
 
     const cfg = await getCauHinh()
     const hdbtThang = parseInt(cfg.hdbt_canh_bao_thang || '2') || 2
-    const LAU_NGAY = 90, FOLLOWUP_NGAY = 3, HAYHONG_CUA_SO = 60, HAYHONG_MIN = 3
+    const LAU_NGAY = 90, FOLLOWUP_NGAY = 3, MOILAP_NGAY = 7, HAYHONG_CUA_SO = 60, HAYHONG_MIN = 3
     const nowMs = Date.now() + 7 * 3600 * 1000
     const today = new Date(nowMs).toISOString().slice(0, 10)
     const d60 = new Date(nowMs - HAYHONG_CUA_SO * 86400000).toISOString().slice(0, 10)
     const d3 = new Date(nowMs - FOLLOWUP_NGAY * 86400000).toISOString().slice(0, 10)
+    const dLap = new Date(nowMs - MOILAP_NGAY * 86400000).toISOString().slice(0, 10)  // cửa sổ "mới lắp"
     const limitHd = (() => { const d = new Date(nowMs); d.setMonth(d.getMonth() + hdbtThang); return d.toISOString().slice(0, 10) })()
     const daysBetween = (iso: string) => Math.floor((nowMs - Date.parse(iso + 'T00:00:00Z')) / 86400000)
 
-    const [clusters, members, repairs, logs, phieuCskh] = await Promise.all([
+    const [clusters, members, repairs, installs, logs, phieuCskh] = await Promise.all([
       selectAll<any>((f, t) => supabaseAdmin.from('soct_khach_cum').select('ma_khach_hang, ten_khach_hang').range(f, t)),
       selectAll<any>((f, t) => supabaseAdmin.from('soct_khach_hang').select('id, ma_khach_cum, loai_hd, ngay_het_han_hdbt, ma_may, model, vi_tri_dat_may').not('ma_khach_cum', 'is', null).range(f, t)),
       selectAll<any>((f, t) => supabaseAdmin.from('soct_cong_viec').select('id_khach_hang, ngay').eq('loai_cong_viec', 'Sửa máy').eq('ket_qua', 'Hoàn thành').gte('ngay', d60).range(f, t)),
+      // Máy MỚI LẮP: phiếu "Lắp máy" Hoàn thành trong cửa sổ MOILAP_NGAY -> hỏi thăm sau lắp.
+      selectAll<any>((f, t) => supabaseAdmin.from('soct_cong_viec').select('id_khach_hang, ngay').eq('loai_cong_viec', 'Lắp máy').eq('ket_qua', 'Hoàn thành').gte('ngay', dLap).range(f, t)),
       selectAll<any>((f, t) => supabaseAdmin.from('soct_cskh_log').select('ma_khach_cum, ngay, ngay_hen').not('ma_khach_cum', 'is', null).range(f, t)),
       // Phiếu CSKH Hoàn thành -> coi là 1 lần chăm sóc (hiện trường) để cập nhật "lần chăm sóc gần nhất".
       selectAll<any>((f, t) => supabaseAdmin.from('soct_cong_viec').select('id_khach_hang, ngay').eq('loai_cong_viec', 'CSKH').eq('ket_qua', 'Hoàn thành').range(f, t)),
@@ -66,7 +70,21 @@ export async function GET() {
       const info = memberInfo.get(id)!; const arr = cumRep.get(info.cum) || []
       arr.push({ ...info, count: s.count, last: s.last }); cumRep.set(info.cum, arr)
     }
-    const mayLabel = (m: MRep) => `${m.ma_may || '—'}${m.model ? ` · ${m.model}` : ''}${m.vi_tri ? ` · ${m.vi_tri}` : ''}`
+    const mayLabel = (m: MInfo) => `${m.ma_may || '—'}${m.model ? ` · ${m.model}` : ''}${m.vi_tri ? ` · ${m.vi_tri}` : ''}`
+
+    // Mới lắp theo TỪNG MÁY: lần lắp gần nhất (trong cửa sổ) -> gom về cụm.
+    type MIns = MInfo & { last: string }
+    const installByMachine = new Map<string, string>()
+    for (const r of installs || []) {
+      if (!r.ngay || !memberInfo.has(r.id_khach_hang)) continue
+      const cur = installByMachine.get(r.id_khach_hang)
+      if (!cur || r.ngay > cur) installByMachine.set(r.id_khach_hang, r.ngay)
+    }
+    const cumInstall = new Map<string, MIns[]>()
+    for (const [id, last] of installByMachine) {
+      const info = memberInfo.get(id)!; const arr = cumInstall.get(info.cum) || []
+      arr.push({ ...info, last }); cumInstall.set(info.cum, arr)
+    }
 
     // Log theo cụm: lần chăm gần nhất + hẹn của log mới nhất.
     const logAgg = new Map<string, { last: string | null; last_hen: string | null }>()
@@ -83,33 +101,39 @@ export async function GET() {
       logAgg.set(info.cum, a)
     }
 
-    const counts: Record<string, number> = { hen: 0, hdbt: 0, moi_sua: 0, hay_hong: 0, lau: 0 }
+    const counts: Record<string, number> = { moi_lap: 0, moi_sua: 0, hdbt: 0, hay_hong: 0, hen: 0, lau: 0 }
     const rows: any[] = []
     for (const [ma, cum] of cums) {
       const lg = logAgg.get(ma)
       const mays = cumRep.get(ma) || []
       const sua60 = mays.reduce((s, m) => s + m.count, 0)
+      // Mới lắp: máy vừa lắp trong cửa sổ và chưa chăm sóc sau đó -> ưu tiên cao nhất.
+      const moiLap = (cumInstall.get(ma) || []).filter(m => !lg?.last || lg.last < m.last).sort((a, b) => String(b.last).localeCompare(String(a.last)))
       // Hay hỏng: TỪNG MÁY ≥3 lần/60 ngày (KHÔNG cộng gộp cả cụm).
       const hayHong = mays.filter(m => m.count >= HAYHONG_MIN).sort((a, b) => b.count - a.count)
       // Mới sửa xong: máy vừa sửa ≤3 ngày và chưa chăm sóc sau đó.
       const moiSua = mays.filter(m => m.last && m.last >= d3 && (!lg?.last || lg.last < m.last)).sort((a, b) => String(b.last).localeCompare(String(a.last)))
-      const reasons: { type: string; label: string; detail?: string; level: 'cao' | 'vua' | 'thap' }[] = []
+      // Đẩy theo thứ tự ưu tiên: Mới lắp > Mới sửa > HĐ sắp hết > Hay hỏng > Đến hẹn > Lâu.
+      const reasons: { type: string; label: string; detail?: string }[] = []
 
-      if (lg?.last_hen && lg.last_hen <= today) { reasons.push({ type: 'hen', label: `Đến hẹn chăm sóc`, level: 'cao' }); counts.hen++ }
-      if (cum.hd_near) { reasons.push({ type: 'hdbt', label: `HĐ sắp/đã hết hạn`, level: 'cao' }); counts.hdbt++ }
-      if (moiSua.length) {
-        reasons.push({ type: 'moi_sua', label: `Mới sửa xong — hỏi thăm`, detail: moiSua.map(m => `${mayLabel(m)} (${fmtD(m.last!)})`).join(' · '), level: 'vua' }); counts.moi_sua++
+      if (moiLap.length) {
+        reasons.push({ type: 'moi_lap', label: `Máy mới lắp — hỏi thăm`, detail: moiLap.map(m => `${mayLabel(m)} (${fmtD(m.last)})`).join(' · ') }); counts.moi_lap++
       }
+      if (moiSua.length) {
+        reasons.push({ type: 'moi_sua', label: `Mới sửa xong — hỏi thăm`, detail: moiSua.map(m => `${mayLabel(m)} (${fmtD(m.last!)})`).join(' · ') }); counts.moi_sua++
+      }
+      if (cum.hd_near) { reasons.push({ type: 'hdbt', label: `HĐ sắp/đã hết hạn` }); counts.hdbt++ }
       if (hayHong.length) {
         const label = hayHong.length === 1 ? `Máy ${hayHong[0].ma_may || '—'} hay hỏng (${hayHong[0].count} lần/60 ngày)` : `${hayHong.length} máy hay hỏng (≥${HAYHONG_MIN} lần/60 ngày)`
-        reasons.push({ type: 'hay_hong', label, detail: hayHong.map(m => `${mayLabel(m)}: ${m.count} lần`).join(' · '), level: 'vua' }); counts.hay_hong++
+        reasons.push({ type: 'hay_hong', label, detail: hayHong.map(m => `${mayLabel(m)}: ${m.count} lần`).join(' · ') }); counts.hay_hong++
       }
+      if (lg?.last_hen && lg.last_hen <= today) { reasons.push({ type: 'hen', label: `Đến hẹn chăm sóc` }); counts.hen++ }
       if (cum.loai_set && (!lg?.last || daysBetween(lg.last) >= LAU_NGAY)) {
-        reasons.push({ type: 'lau', label: lg?.last ? `Lâu chưa liên hệ (${daysBetween(lg.last)} ngày)` : 'Chưa từng chăm sóc', level: 'thap' })
+        reasons.push({ type: 'lau', label: lg?.last ? `Lâu chưa liên hệ (${daysBetween(lg.last)} ngày)` : 'Chưa từng chăm sóc' })
         counts.lau++
       }
       if (reasons.length === 0) continue
-      const top = Math.max(...reasons.map(r => LV[r.level]))
+      const top = Math.max(...reasons.map(r => PRI[r.type] || 0))
       rows.push({
         ma_khach_cum: ma, ten_khach_hang: cum.ten,
         so_may: cum.so_may, hd_het_han: cum.hd_earliest, sua_60: sua60, lan_cham: lg?.last || null, hen: lg?.last_hen || null,
@@ -117,7 +141,9 @@ export async function GET() {
       })
     }
     rows.sort((a, b) => b.level - a.level || (b.sua_60 - a.sua_60) || String(a.hd_het_han || '9999').localeCompare(String(b.hd_het_han || '9999')))
-    return NextResponse.json({ data: rows, counts, tong: rows.length })
+    // "Cần làm" = số KHÁCH (distinct) có ≥1 tín hiệu KHÁC "lâu" (backlog nền) -> dùng cho badge.
+    const can_lam = rows.filter(r => r.reasons.some((x: any) => x.type !== 'lau')).length
+    return NextResponse.json({ data: rows, counts, tong: rows.length, can_lam })
   } catch (error: any) {
     console.error('Error GET cskh/can-cham-soc:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
