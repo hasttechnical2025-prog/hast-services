@@ -54,7 +54,14 @@ Danh sách này là **điểm dễ vỡ** — khi port UI phải giữ đúng:
 - **Chỉ sáng, KHÔNG dark mode**; accent xanh; mẫu thẻ KPI StatCards.
 - **pdfjs trên Vercel**: 2 gotcha khi bóc phiếu PDF (xem memory `nhap-phieu-pdf`).
 
-> Khi khảo sát code ở session mới, bổ sung thêm luật ẩn phát hiện được vào đây.
+**Bổ sung sau khảo sát code (2026-10-11):**
+- **Điều hướng KHÔNG tập trung**: mỗi tab cha có `useState` riêng (`congTacTab`, `monitorTab`, `khoTab`, `taiChinhTab`, `quanLyTab`, `systemTab`) trong `admin/page.tsx` — không có router dùng chung. Port sang route phải gom hết về URL (xem [02 §0](./02-modules-va-route.md#0-state-điều-hướng-thực-tế-adminpagetsx)).
+- **ThueCpc: UI ≠ key quyền.** UI gộp 5 key quyền (`don_gia/counter/khung/bang_ke/canh_bao_muc`) thành **3 tab** (`danh_sach` = đơn giá+khung; `counter` = counter+bảng kê; `canh_bao_muc`). Giữ 5 key để guard, nhưng vẽ 3 tab. Đừng tạo route theo 5 key.
+- **Hệ thống có 6 tab con** (`cai_dat/tai_khoan/danh_muc/audit/tro_ly_log/doi_mat_khau`) — không khai trong `tabs.ts`; `doi_mat_khau` hiện cho MỌI role (kể cả không phải admin).
+- **Báo cáo sửa chữa** có 2 view nội bộ (`cho_gui/da_gui`); **CSKH** 4 view (`can/ds/pipeline/kpi`); **Khách cụm** có `scope` (both/cum/kd) + đối chiếu minVoice. Đây là cấp 3/4 phải giữ khi port.
+- **Không có cổng tra cứu public no-auth**: mọi trang standalone (`/kho-thue`, `/lenh-xuat-hang`, `/admin/scan`…) đều qua đăng nhập.
+
+> Khi khảo sát sâu từng module lúc port, bổ sung tiếp luật ẩn phát hiện được vào đây.
 
 ## 7. Lộ trình (không ép mốc năm — cutover theo parity)
 - **GĐ0 — Nền tảng**: Design System (token + component) + vỏ route (`app/v2/layout.tsx`: auth guard + header + chuông + provider + realtime) + 1 màn demo.

@@ -1,0 +1,10 @@
+// Design System 2027 — barrel. Component ui/* THUẦN (không fetch), đóng khung luật hiển thị.
+export * from './format'
+export { Money, Percent } from './Money'
+export { DateText } from './DateText'
+export { Badge, KET_QUA_TONE, type BadgeTone } from './Badge'
+export { StatCard, StatRow, type StatTone } from './StatCard'
+export { SearchInput } from './SearchInput'
+export { SegTabs } from './SegTabs'
+export { DataTable, type Column } from './DataTable'
+export { Card, Toolbar } from './Card'

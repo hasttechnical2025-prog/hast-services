@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup vỏ route — Rebuild UI 2027</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  /* thanh cuộn mảnh cho khối demo */
+  .thin::-webkit-scrollbar { width: 8px; height: 8px; }
+  .thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  .nav-link.active { background:#eff6ff; color:#1d4ed8; }
+  .nav-link.active .nav-ic { color:#2563eb; }
+  .seg.active { background:#fff; color:#1d4ed8; box-shadow:0 1px 2px rgba(0,0,0,.06); border-color:#bfdbfe; }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased p-3 md:p-5 min-h-screen">
+<div class="max-w-[1180px] mx-auto space-y-4">
+
+  <!-- Nhãn: đây là mockup, chưa phải code app -->
+  <div class="flex items-center gap-2 flex-wrap">
+    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+      <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Mockup "vỏ route" — Rebuild UI 2027 (CHƯA áp vào code)
+    </span>
+    <span class="text-xs text-slate-500">Bấm module bên trái / tab cháu để thấy URL + breadcrumb đổi theo route.</span>
+  </div>
+
+  <!-- KHUNG TRÌNH DUYỆT GIẢ (cho thấy mỗi module là 1 URL) -->
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <!-- tab trình duyệt + address bar -->
+    <div class="bg-slate-100/80 border-b border-slate-200 px-3 pt-2">
+      <div class="flex items-end gap-1.5">
+        <div class="flex items-center gap-2 bg-white border border-slate-200 border-b-white rounded-t-lg px-3 py-1.5 text-xs text-slate-700 max-w-[260px]">
+          <i data-lucide="book-marked" class="w-3.5 h-3.5 text-blue-600 shrink-0"></i>
+          <span id="tabtitle" class="truncate font-medium">Giao việc · Sổ công tác</span>
+          <i data-lucide="x" class="w-3 h-3 text-slate-400 shrink-0"></i>
+        </div>
+        <div class="flex items-center gap-1 text-slate-400 pb-1.5 pl-1">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 px-3 py-2 border-b border-slate-200 bg-white">
+      <i data-lucide="arrow-left" class="w-4 h-4 text-slate-400"></i>
+      <i data-lucide="arrow-right" class="w-4 h-4 text-slate-300"></i>
+      <i data-lucide="rotate-cw" class="w-3.5 h-3.5 text-slate-400"></i>
+      <div class="flex-1 flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-md px-3 py-1.5">
+        <i data-lucide="lock" class="w-3 h-3 text-emerald-600"></i>
+        <span class="mono text-xs text-slate-600">socongtac.app<span id="url" class="text-slate-900">/v2/so-cong-tac/giao-viec</span></span>
+      </div>
+      <span class="text-[11px] text-slate-400 hidden md:inline">↑ mỗi module 1 URL → chuột phải mở tab mới / bookmark</span>
+    </div>
+
+    <!-- ===== APP SHELL ===== -->
+    <div class="flex h-[560px]">
+
+      <!-- SIDEBAR TRÁI: cây route -->
+      <aside class="w-56 shrink-0 border-r border-slate-200 bg-slate-50/60 flex flex-col">
+        <div class="px-3 py-3 border-b border-slate-200 flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm">S</div>
+          <div class="leading-tight">
+            <div class="text-xs font-bold text-slate-800">Sổ công tác</div>
+            <div class="text-[10px] text-slate-400">HSTC · phiên bản 2027</div>
+          </div>
+        </div>
+        <nav class="flex-1 overflow-y-auto thin px-2 py-2 space-y-0.5 text-sm" id="nav"></nav>
+        <div class="px-3 py-2 border-t border-slate-200 flex items-center gap-2">
+          <div class="w-7 h-7 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-semibold">AD</div>
+          <div class="leading-tight flex-1 min-w-0">
+            <div class="text-xs font-semibold text-slate-700 truncate">Admin</div>
+            <div class="text-[10px] text-slate-400">Toàn quyền</div>
+          </div>
+          <i data-lucide="log-out" class="w-4 h-4 text-slate-400"></i>
+        </div>
+      </aside>
+
+      <!-- CỘT PHẢI: header + content -->
+      <section class="flex-1 min-w-0 flex flex-col bg-white">
+        <!-- TOP BAR: breadcrumb + search + chuông -->
+        <header class="h-12 shrink-0 border-b border-slate-200 flex items-center gap-3 px-4">
+          <div class="flex items-center gap-1.5 text-sm min-w-0">
+            <span class="text-slate-400" id="bc-root">Sổ công tác</span>
+            <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-300"></i>
+            <span class="font-semibold text-slate-800 truncate" id="bc-leaf">Giao việc</span>
+          </div>
+          <div class="flex-1"></div>
+          <div class="hidden md:flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-md px-2.5 py-1.5 w-56">
+            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400"></i>
+            <span class="text-xs text-slate-400">Tìm nhanh (Ctrl K)…</span>
+          </div>
+          <button class="relative w-8 h-8 rounded-md hover:bg-slate-100 flex items-center justify-center">
+            <i data-lucide="bell" class="w-4 h-4 text-slate-500"></i>
+            <span class="absolute top-1 right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center">5</span>
+          </button>
+        </header>
+
+        <!-- VÙNG NỘI DUNG (đổi theo route) -->
+        <div class="flex-1 overflow-y-auto thin p-4" id="content"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- GHI CHÚ dưới mockup -->
+  <div class="grid md:grid-cols-3 gap-3 text-xs">
+    <div class="bg-white rounded-lg border border-slate-200 p-3">
+      <div class="font-semibold text-slate-800 mb-1 flex items-center gap-1.5"><i data-lucide="route" class="w-3.5 h-3.5 text-blue-600"></i> Khác biệt lớn nhất</div>
+      <p class="text-slate-500 leading-relaxed">Không còn 1 trang 11k dòng với pill ngang. Mỗi module là 1 <b>URL</b> trong vỏ chung: điều hướng trái cố định, breadcrumb, tab cháu = segment URL → bookmark / mở tab mới / back-forward đúng.</p>
+    </div>
+    <div class="bg-white rounded-lg border border-slate-200 p-3">
+      <div class="font-semibold text-slate-800 mb-1 flex items-center gap-1.5"><i data-lucide="layout-grid" class="w-3.5 h-3.5 text-blue-600"></i> Giữ "cơ bắp" nghiệp vụ</div>
+      <p class="text-slate-500 leading-relaxed">Vẫn <b>bảng dày</b>, KPI, bộ lọc, sort cột, tiền <code>#.###</code>, ngày <code>DD/MM/YYYY</code> — office quen tay. Không làm thưa kiểu app tiêu dùng.</p>
+    </div>
+    <div class="bg-white rounded-lg border border-slate-200 p-3">
+      <div class="font-semibold text-slate-800 mb-1 flex items-center gap-1.5"><i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-emerald-600"></i> Đồng nhất bằng cấu trúc</div>
+      <p class="text-slate-500 leading-relaxed">Mọi màn ghép từ cùng bộ component (DataTable, FilterBar, Money, DateField…) → luật hiển thị "đóng khung" sẵn, không "nhớ làm đúng" từng màn.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- Cây route (rút gọn từ docs 02) ----
+const TREE = [
+  { k:'so-cong-tac', label:'Sổ công tác', ic:'clipboard-list', children:[
+    { k:'giao-viec', label:'Giao việc' },
+    { k:'hoan-phieu', label:'Hoàn phiếu' },
+    { k:'bao-cao-sua-chua', label:'Báo cáo sửa chữa' },
+    { k:'cham-soc-kh', label:'Chăm sóc KH' },
+  ]},
+  { k:'theo-doi-may', label:'Theo dõi máy', ic:'printer', children:[
+    { k:'bao-tri', label:'Bảo trì' },
+    { k:'giam-dinh', label:'Giám định' },
+  ]},
+  { k:'kho-hang', label:'Kho hàng', ic:'boxes', children:[
+    { k:'ton-kho', label:'Tồn kho' },
+    { k:'dat-hang', label:'Đặt hàng' },
+    { k:'thong-ke', label:'Thống kê nhập' },
+    { k:'gia-niem-yet', label:'Giá niêm yết' },
+    { k:'may-thue', label:'Kho máy thuê' },
+    { k:'phieu-de-nghi', label:'Phiếu đề nghị' },
+  ]},
+  { k:'tai-chinh', label:'Tài chính', ic:'wallet', children:[
+    { k:'cong-no', label:'Công nợ' },
+    { k:'thue-cpc', label:'Thuê / CPC' },
+    { k:'phi-bao-tri', label:'Phí bảo trì' },
+    { k:'kanban', label:'Kanban Hóa đơn' },
+  ]},
+  { k:'quan-ly', label:'Quản lý', ic:'users', children:[
+    { k:'bao-cao-ktv', label:'Báo cáo KTV' },
+    { k:'khach-hang', label:'Danh sách khách hàng' },
+    { k:'khach-cum', label:'Khách hàng cụm' },
+    { k:'bao-cao-thang', label:'Báo cáo tháng' },
+    { k:'nghi-phep', label:'Nghỉ phép' },
+  ]},
+  { k:'he-thong', label:'Hệ thống', ic:'settings', children:[
+    { k:'tai-khoan', label:'Tài khoản' },
+    { k:'cai-dat', label:'Cài đặt' },
+    { k:'danh-muc', label:'Danh mục' },
+  ]},
+];
+// tab cháu (cấp 3) cho vài module demo
+const SUBTABS = {
+  'theo-doi-may/bao-tri': [['da-bao-tri','Đã bảo trì'],['chua-bao-tri','Chưa bảo trì'],['tam-dung','Tạm dừng'],['doi-chieu','Đối chiếu năm'],['thong-ke','Thống kê']],
+  'tai-chinh/thue-cpc': [['danh-sach','Danh sách máy'],['counter','Nhập counter'],['canh-bao-vat-tu','Cảnh báo vật tư']],
+  'so-cong-tac/cham-soc-kh': [['can','Cần chăm sóc'],['ds','Danh sách'],['pipeline','Pipeline'],['kpi','KPI']],
+};
+
+// ---- Nội dung demo: Giao việc (bảng dày) + Kho tồn ----
+const KPI = {
+  'so-cong-tac/giao-viec': [
+    ['Chờ nhận','3','amber','clock','phiếu chưa ai nhận'],
+    ['Đã giao','5','blue','send','chờ KTV tới nơi'],
+    ['Đang làm','4','indigo','wrench','KTV đang xử lý'],
+    ['Hoàn thành','18','emerald','check-circle-2','trong hôm nay'],
+  ],
+  'kho-hang/ton-kho': [
+    ['Mã hàng','1.284','blue','boxes','đang theo dõi'],
+    ['Sắp hết','7','amber','alert-triangle','≤ ngưỡng đặt'],
+    ['Hết hàng','2','rose','x-octagon','tồn = 0'],
+    ['Giá trị tồn','412,5tr','emerald','wallet','ước tính'],
+  ],
+};
+const TINT = { amber:'text-amber-600 bg-amber-50', blue:'text-blue-600 bg-blue-50', indigo:'text-indigo-600 bg-indigo-50', emerald:'text-emerald-700 bg-emerald-50', rose:'text-rose-600 bg-rose-50' };
+
+const JOBS = [
+  ['#958102','Bệnh viện TW Quân đội 108','Khoa Dược (36051)','Sửa chữa','rose','Tuấn KTV','Đang làm','indigo'],
+  ['#958099','Công ty CP Vĩnh Hưng','Phòng kế toán','Bảo trì','blue','Dũng KTV','Đã giao','amber'],
+  ['#958097','Trường ĐH Bách Khoa','Thư viện tầng 2','Lắp đặt','violet','—','Chờ nhận','slate'],
+  ['#958095','Ngân hàng MB — CN Cầu Giấy','Quầy giao dịch','Sửa chữa','rose','Nam KTV','Hoàn thành','emerald'],
+  ['#958090','Sở Y tế Hà Nội','Văn thư','Giao mực','teal','Tuấn KTV','Hoàn thành','emerald'],
+];
+const INV = [
+  ['TK-1240','Mực Kyocera TK-1170','Hộp','Kyocera','4','10','thiếu'],
+  ['DR-1150','Trống Brother DR-1150','Cái','Brother','0','4','het'],
+  ['CF-226X','Mực HP CF226X','Hộp','HP','28','8','ok'],
+  ['MX-315','Mực từ Sharp MX-315','Hộp','Sharp','6','6','thiếu'],
+  ['WT-860','Hộp mực thải Ricoh','Cái','Ricoh','15','5','ok'],
+];
+
+function badge(txt,c){ const m={rose:'bg-rose-50 text-rose-700 border-rose-200',blue:'bg-blue-50 text-blue-700 border-blue-200',violet:'bg-violet-50 text-violet-700 border-violet-200',teal:'bg-teal-50 text-teal-700 border-teal-200',amber:'bg-amber-50 text-amber-700 border-amber-200',indigo:'bg-indigo-50 text-indigo-700 border-indigo-200',emerald:'bg-emerald-50 text-emerald-700 border-emerald-200',slate:'bg-slate-100 text-slate-600 border-slate-200'};
+  return `<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border ${m[c]||m.slate}">${txt}</span>`; }
+
+function kpiRow(key){ const arr=KPI[key]; if(!arr) return '';
+  return `<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">`+arr.map(([lab,val,c,ic,sub])=>`
+    <div class="bg-white p-3 rounded-lg border border-slate-200/80 flex items-center justify-between shadow-xs">
+      <div><div class="text-[11px] font-medium text-slate-500 uppercase tracking-wide">${lab}</div>
+      <div class="text-xl font-bold ${TINT[c].split(' ')[0]} tracking-tight mt-0.5">${val}</div>
+      <div class="text-[10px] text-slate-400">${sub}</div></div>
+      <div class="w-8 h-8 rounded-md ${TINT[c]} flex items-center justify-center"><i data-lucide="${ic}" class="w-4 h-4"></i></div>
+    </div>`).join('')+`</div>`; }
+
+function toolbar(placeholder, cta){
+  return `<div class="p-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="relative w-56"><i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2"></i>
+      <input type="text" placeholder="${placeholder}" class="w-full h-8 pl-8 pr-2.5 text-xs rounded-md border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-blue-500 outline-none"/></div>
+      <select class="h-8 px-2.5 text-xs rounded-md border border-slate-200 bg-slate-50/50 outline-none"><option>Bộ lọc…</option></select>
+    </div>
+    <div class="flex items-center gap-2">
+      <button class="h-8 px-3 rounded-md border border-slate-200 text-slate-600 text-xs font-medium flex items-center gap-1.5 hover:bg-slate-50"><i data-lucide="download" class="w-3.5 h-3.5"></i> Xuất CSV</button>
+      <button class="h-8 px-3 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium flex items-center gap-1.5 shadow-xs">${cta}</button>
+    </div></div>`; }
+
+function th(t,extra=''){ return `<th class="px-3.5 py-2 ${extra}"><span class="inline-flex items-center gap-1 cursor-pointer hover:text-slate-700">${t}<i data-lucide="chevrons-up-down" class="w-3 h-3 text-slate-300"></i></span></th>`; }
+
+function jobsTable(){
+  return `<div class="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
+  ${toolbar('Tìm số phiếu, khách, máy…','<i data-lucide=\'plus\' class=\'w-3.5 h-3.5\'></i> Tạo phiếu')}
+  <div class="overflow-x-auto"><table class="w-full text-left text-xs text-slate-600">
+    <thead class="bg-slate-50/80 text-slate-500 text-[11px] font-semibold uppercase tracking-wide border-b border-slate-200/70"><tr>
+      ${th('Số phiếu')}${th('Khách hàng / Điểm máy')}${th('Loại việc')}${th('KTV')}${th('Trạng thái','text-center')}${th('Thao tác','text-right')}
+    </tr></thead><tbody class="divide-y divide-slate-100">`+
+    JOBS.map(([sp,kh,dm,lv,lc,ktv,st,sc])=>`<tr class="hover:bg-slate-50/70">
+      <td class="px-3.5 py-2.5 mono font-bold text-slate-900">${sp}</td>
+      <td class="px-3.5 py-2.5"><div class="font-medium text-slate-900">${kh}</div><div class="text-[11px] text-slate-400">${dm}</div></td>
+      <td class="px-3.5 py-2.5">${badge(lv,lc)}</td>
+      <td class="px-3.5 py-2.5 ${ktv==='—'?'text-slate-400 italic':'text-slate-700'}">${ktv}</td>
+      <td class="px-3.5 py-2.5 text-center">${badge(st,sc)}</td>
+      <td class="px-3.5 py-2.5 text-right"><div class="inline-flex gap-1">
+        <button class="w-7 h-7 rounded border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center"><i data-lucide="eye" class="w-3.5 h-3.5"></i></button>
+        <button class="w-7 h-7 rounded border border-blue-200 text-blue-600 hover:bg-blue-50 flex items-center justify-center"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
+      </div></td></tr>`).join('')+
+    `</tbody></table></div></div>`; }
+
+function invTable(){
+  return `<div class="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
+  ${toolbar('Tìm mã / tên hàng / model…','<i data-lucide=\'plus\' class=\'w-3.5 h-3.5\'></i> Thêm mã')}
+  <div class="overflow-x-auto"><table class="w-full text-left text-xs text-slate-600">
+    <thead class="bg-slate-50/80 text-slate-500 text-[11px] font-semibold uppercase tracking-wide border-b border-slate-200/70"><tr>
+      ${th('Mã hàng')}${th('Tên hàng')}${th('Hãng')}${th('Tồn','text-right')}${th('Ngưỡng','text-right')}${th('Tình trạng','text-center')}
+    </tr></thead><tbody class="divide-y divide-slate-100">`+
+    INV.map(([ma,ten,dvt,hang,ton,ng,tt])=>{ const b=tt==='het'?badge('Hết hàng','rose'):tt==='thieu'?badge('Sắp hết','amber'):badge('Đủ','emerald');
+      return `<tr class="hover:bg-slate-50/70">
+      <td class="px-3.5 py-2.5 mono font-semibold text-slate-900">${ma}</td>
+      <td class="px-3.5 py-2.5 font-medium text-slate-800">${ten}</td>
+      <td class="px-3.5 py-2.5 text-slate-500">${hang}</td>
+      <td class="px-3.5 py-2.5 text-right mono ${tt==='het'?'text-rose-600 font-bold':tt==='thieu'?'text-amber-600 font-semibold':'text-slate-700'}">${ton}</td>
+      <td class="px-3.5 py-2.5 text-right mono text-slate-400">${ng}</td>
+      <td class="px-3.5 py-2.5 text-center">${b}</td></tr>`; }).join('')+
+    `</tbody></table></div></div>`; }
+
+function genericPanel(label){
+  return `<div class="bg-white rounded-lg border border-slate-200/80 shadow-xs p-10 text-center">
+    <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-3"><i data-lucide="layout-template" class="w-6 h-6"></i></div>
+    <div class="font-semibold text-slate-700">Module "${label}"</div>
+    <p class="text-xs text-slate-400 mt-1 max-w-sm mx-auto">Khi port: trang mỏng này chỉ ghép component <code>features/${label}</code> — gọi lại đúng API cũ, giữ nguyên nghiệp vụ.</p>
+  </div>`; }
+
+// ---- state + render ----
+let cur = { parent:'so-cong-tac', child:'giao-viec', sub:null };
+
+function renderNav(){
+  const el = document.getElementById('nav');
+  el.innerHTML = TREE.map(p=>{
+    const open = p.k===cur.parent;
+    const head = `<div class="flex items-center gap-2 px-2.5 py-1.5 rounded-md ${open?'text-slate-800':'text-slate-500'} font-semibold text-[13px]">
+      <i data-lucide="${p.ic}" class="w-4 h-4 nav-ic ${open?'text-blue-600':'text-slate-400'}"></i>${p.label}</div>`;
+    const kids = open ? `<div class="ml-3 pl-2 border-l border-slate-200 space-y-0.5 mb-1">`+p.children.map(c=>{
+      const active = c.k===cur.child;
+      return `<a onclick="go('${p.k}','${c.k}')" class="nav-link ${active?'active':''} flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] text-slate-600 hover:bg-slate-100 cursor-pointer">
+        <span class="w-1 h-1 rounded-full ${active?'bg-blue-500':'bg-slate-300'}"></span>${c.label}</a>`;
+    }).join('')+`</div>` : '';
+    return `<div onclick="${open?'':`go('${p.k}','${p.children[0].k}')`}" class="${open?'':'cursor-pointer'}">${head}</div>${kids}`;
+  }).join('');
+  lucide.createIcons();
+}
+
+function subBar(){
+  const key = cur.parent+'/'+cur.child;
+  const subs = SUBTABS[key];
+  if(!subs) return '';
+  const curSub = cur.sub || subs[0][0];
+  return `<div class="inline-flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 mb-4">`+
+    subs.map(([k,lab])=>`<button onclick="goSub('${k}')" class="seg ${k===curSub?'active':''} px-3 py-1.5 rounded-md text-xs font-semibold border border-transparent transition text-slate-600 hover:text-slate-900">${lab}</button>`).join('')+
+    `</div>`; }
+
+function renderContent(){
+  const key = cur.parent+'/'+cur.child;
+  let body='';
+  if(key==='so-cong-tac/giao-viec') body = kpiRow(key)+jobsTable();
+  else if(key==='kho-hang/ton-kho') body = kpiRow(key)+invTable();
+  else { const lab = flatLabel(); body = subBar()+genericPanel(lab); }
+  // nếu có subbar mà là trang có bảng thì vẫn gắn subbar lên đầu
+  if(SUBTABS[key] && (key==='so-cong-tac/giao-viec'||key==='kho-hang/ton-kho')) body = subBar()+body;
+  document.getElementById('content').innerHTML = body;
+  lucide.createIcons();
+}
+
+function flatLabel(){ const p=TREE.find(x=>x.k===cur.parent); const c=p.children.find(x=>x.k===cur.child); return c?c.label:''; }
+
+function syncChrome(){
+  const p=TREE.find(x=>x.k===cur.parent); const c=p.children.find(x=>x.k===cur.child);
+  let url = `/v2/${cur.parent}/${cur.child}`;
+  const subs=SUBTABS[cur.parent+'/'+cur.child];
+  if(subs){ url += `/${cur.sub||subs[0][0]}`; }
+  document.getElementById('url').textContent = url;
+  document.getElementById('bc-root').textContent = p.label;
+  document.getElementById('bc-leaf').textContent = c.label;
+  document.getElementById('tabtitle').textContent = `${c.label} · ${p.label}`;
+}
+
+function go(parent,child){ cur={parent,child,sub:null}; renderNav(); syncChrome(); renderContent(); }
+function goSub(k){ cur.sub=k; syncChrome(); renderContent(); }
+window.go=go; window.goSub=goSub;
+
+renderNav(); syncChrome(); renderContent();
+lucide.createIcons();
+</script>
+</body>
+</html>

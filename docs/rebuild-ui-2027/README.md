@@ -21,6 +21,7 @@ Tài liệu nằm trong repo nên session mới mở tại thư mục dự án n
 
 ## Trạng thái
 - [x] Khung kế hoạch (3 tài liệu) — bản nháp đầu, **chờ chủ dự án duyệt**.
-- [ ] Hoàn thiện kiểm kê module cấp 3 bằng khảo sát code (session mới).
-- [ ] Chốt cây route + tên URL.
-- [ ] Bắt đầu Giai đoạn 0: Design System + vỏ route (nhánh `feat/ui-2027`).
+- [x] Hoàn thiện kiểm kê module cấp 3/4 bằng khảo sát code (2026-10-11) — xem [02 §0–§1](./02-modules-va-route.md).
+- [x] Chốt cây route + quy ước URL (path segment `[tab]`, mã hoá theo UI thực tế) — xem [02 §2](./02-modules-va-route.md#2-cây-route-chốt-base-v2-path-segment-tab-mã-hoá-theo-ui-thực-tế).
+- [~] Giai đoạn 0 ĐANG LÀM (nhánh `feat/ui-2027`): Design System `src/ui/*` + `SessionProvider` + vỏ `app/v2/layout.tsx` (sidebar + breadcrumb) + trang demo `/v2/so-cong-tac/giao-viec` (read-only, realtime). Còn lại GĐ0: tách `SharedDataProvider`/`RealtimeProvider`, chuông thật, bắt đầu port module.
+- Mockup hướng vỏ route (đã duyệt 2026-10-11): [03-mockup-vo-route.html](./03-mockup-vo-route.html).
