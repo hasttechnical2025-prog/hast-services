@@ -132,24 +132,20 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
   const henCls = (hen: string | null) => !hen ? '' : hen < today ? 'text-rose-600 font-semibold' : hen === today ? 'text-amber-600 font-semibold' : 'text-slate-600'
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-start gap-2 flex-wrap">
-        <div>
-          <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5"><Users className="w-4 h-4 text-blue-600" /> Chăm sóc khách hàng</h3>
-          <p className="text-[11px] text-slate-500">Khách cụm kỹ thuật + khách tiềm năng. Ghi nhật ký chăm sóc, đặt việc hẹn để không bỏ sót.</p>
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6 space-y-3">
+      {/* Menu cháu trong vùng bảng (như Thuê/CPC): pill trung tính, mục active = trắng + ring xanh.
+          Nút "Thêm khách tiềm năng" đẩy về phải cùng hàng. */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit overflow-x-auto">
+          {([['can', 'Cần chăm sóc', null], ['ds', 'Danh sách khách', Users], ['pipeline', 'Pipeline tiềm năng', TrendingUp], ['kpi', 'KPI', BarChart3]] as const).map(([k, l, Icon]) => (
+            <button key={k} onClick={() => setView(k)} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${view === k ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>
+              {Icon && <Icon className="w-3.5 h-3.5" />}
+              {l}
+              {k === 'can' && urgentCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{urgentCount}</span>}
+            </button>
+          ))}
         </div>
         {isAdmin && <Button onClick={() => setAddOpen(true)} className="ml-auto h-9 gap-1.5 text-xs"><Plus className="w-4 h-4" /> Thêm khách tiềm năng</Button>}
-      </div>
-
-      {/* Menu cháu — đồng bộ style tab con/Thuê-CPC: pill trung tính, mục active = trắng + ring xanh. */}
-      <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit overflow-x-auto">
-        {([['can', 'Cần chăm sóc', null], ['ds', 'Danh sách khách', Users], ['pipeline', 'Pipeline tiềm năng', TrendingUp], ['kpi', 'KPI', BarChart3]] as const).map(([k, l, Icon]) => (
-          <button key={k} onClick={() => setView(k)} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${view === k ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>
-            {Icon && <Icon className="w-3.5 h-3.5" />}
-            {l}
-            {k === 'can' && urgentCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{urgentCount}</span>}
-          </button>
-        ))}
       </div>
 
       {view === 'can' && (
@@ -264,7 +260,6 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
               )
             })}
           </div>
-          {isAdmin && <Button variant="outline" onClick={() => setAddOpen(true)} className="h-8 gap-1.5 text-xs"><Plus className="w-3.5 h-3.5" /> Thêm khách tiềm năng</Button>}
         </div>
       )}
 
