@@ -3,10 +3,11 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useMemo } from 'react'
 import * as Icons from 'lucide-react'
-import { Bell, Search, LogOut, ChevronRight, type LucideIcon } from 'lucide-react'
+import { Search, LogOut, ChevronRight, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { V2_NAV, findParent } from '@/lib/v2-nav'
 import { useSession } from './SessionProvider'
+import { NotificationCenter } from './NotificationCenter'
 
 // Vỏ ứng dụng /v2: sidebar trái (cây route) + top bar (breadcrumb + chuông) + nội dung.
 // Điều hướng client-side (<Link>) nên provider/realtime giữ mount khi đổi module.
@@ -115,9 +116,7 @@ function TopBar({ parent, child }: { parent?: string; child?: string }) {
       <div className="hidden md:flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-md px-2.5 py-1.5 w-56 text-slate-400">
         <Search className="w-3.5 h-3.5" /><span className="text-xs">Tìm nhanh…</span>
       </div>
-      <button className="relative w-8 h-8 rounded-md hover:bg-slate-100 flex items-center justify-center" aria-label="Thông báo">
-        <Bell className="w-4 h-4 text-slate-500" />
-      </button>
+      <NotificationCenter />
     </header>
   )
 }
