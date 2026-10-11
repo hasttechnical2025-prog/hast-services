@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireTab } from '@/lib/session'
+import { broadcastCskhChanged } from '@/lib/realtime'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
       nguoi_id: session.id, nguoi_ten: session.full_name,
     })
     if (error) throw error
+    await broadcastCskhChanged()
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error POST cskh/log:', error)
@@ -82,6 +84,7 @@ export async function DELETE(request: Request) {
     if (!id) return NextResponse.json({ error: 'Thiếu id' }, { status: 400 })
     const { error } = await supabaseAdmin.from('soct_cskh_log').delete().eq('id', id)
     if (error) throw error
+    await broadcastCskhChanged()
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error DELETE cskh/log:', error)

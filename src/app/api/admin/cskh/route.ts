@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireTab } from '@/lib/session'
 import { logAudit } from '@/lib/audit'
+import { broadcastCskhChanged } from '@/lib/realtime'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -98,6 +99,7 @@ export async function POST(request: Request) {
     }).select('id').single()
     if (error) throw error
     await logAudit(session, 'Thêm khách tiềm năng (CSKH)', ten)
+    await broadcastCskhChanged()
     return NextResponse.json({ success: true, id: data?.id })
   } catch (error: any) {
     console.error('Error POST cskh:', error)
@@ -119,6 +121,7 @@ export async function PUT(request: Request) {
     if (b.trang_thai !== undefined && ['moi', 'dang_tiep_can', 'thanh_khach', 'khong_thanh'].includes(b.trang_thai)) up.trang_thai = b.trang_thai
     const { error } = await supabaseAdmin.from('soct_cskh_khach').update(up).eq('id', b.id)
     if (error) throw error
+    await broadcastCskhChanged()
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error PUT cskh:', error)
@@ -135,6 +138,7 @@ export async function DELETE(request: Request) {
     if (!id) return NextResponse.json({ error: 'Thiếu id' }, { status: 400 })
     const { error } = await supabaseAdmin.from('soct_cskh_khach').update({ an: true }).eq('id', id)
     if (error) throw error
+    await broadcastCskhChanged()
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error DELETE cskh:', error)

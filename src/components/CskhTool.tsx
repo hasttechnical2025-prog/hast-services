@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input"
 import DateField from "@/components/DateField"
 import { Search, Plus, X, Trash2, Clock, ChevronUp, ChevronDown, Phone, Users, RefreshCw, Target, CalendarClock, TrendingUp, BarChart3, Filter } from "lucide-react"
 import { useConfirm } from "@/components/ConfirmDialog"
+import { useRealtimeRefetch } from "@/lib/useRealtime"
+import { CSKH_TOPIC, JOBS_TOPIC, DATA_EVENT } from "@/lib/realtime"
 
 type Notify = (type: 'success' | 'error', msg: string) => void
 
@@ -51,30 +53,37 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
   const [kpiLoading, setKpiLoading] = useState(false)
   const [period, setPeriod] = useState('ytd')  // mốc đếm số lần / chăm sóc gần nhất; mặc định từ đầu năm
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  // silent = refetch nền (realtime/poll): KHÔNG bật spinner, KHÔNG báo lỗi -> không gây cảm giác reload.
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const tu = periodFloor(period)
       const r = await fetch('/api/admin/cskh' + (tu ? `?tu=${tu}` : '')); const j = await r.json()
-      if (r.ok) setRows(j.data || []); else showNotification('error', j.error || 'Lỗi tải danh sách CSKH')
-    } catch { showNotification('error', 'Lỗi kết nối') } finally { setLoading(false) }
+      if (r.ok) setRows(j.data || []); else if (!silent) showNotification('error', j.error || 'Lỗi tải danh sách CSKH')
+    } catch { if (!silent) showNotification('error', 'Lỗi kết nối') } finally { if (!silent) setLoading(false) }
   }, [showNotification, period])
-  const loadQueue = useCallback(async () => {
-    setQLoading(true)
+  const loadQueue = useCallback(async (silent = false) => {
+    if (!silent) setQLoading(true)
     try {
       const r = await fetch('/api/admin/cskh/can-cham-soc'); const j = await r.json()
       if (r.ok) { setQueue(j.data || []); setQCounts(j.counts || {}); setQCanLam(j.can_lam || 0) }
-    } catch { } finally { setQLoading(false) }
+    } catch { } finally { if (!silent) setQLoading(false) }
   }, [])
-  const loadKpi = useCallback(async () => {
-    setKpiLoading(true)
+  const loadKpi = useCallback(async (silent = false) => {
+    if (!silent) setKpiLoading(true)
     try {
       const r = await fetch('/api/admin/cskh/kpi'); const j = await r.json()
       if (r.ok) setKpi(j.data || null)
-    } catch { } finally { setKpiLoading(false) }
+    } catch { } finally { if (!silent) setKpiLoading(false) }
   }, [])
   useEffect(() => { load(); loadQueue() }, [load, loadQueue])
   useEffect(() => { if (view === 'kpi' && !kpi) loadKpi() }, [view, kpi, loadKpi])
+
+  // Realtime "tự lành": ghi chăm sóc / đặt hẹn / đổi tiềm năng ở máy khác (CSKH_TOPIC) -> cập nhật ngay;
+  // phiếu Lắp/Sửa/CSKH đổi (JOBS_TOPIC) tác động hàng đợi -> cũng refetch. Poll 60s nền dự phòng.
+  // Tất cả refetch NGẦM (silent) để không nhấp nháy spinner.
+  const refetchAll = useCallback(() => { load(true); loadQueue(true); if (view === 'kpi') loadKpi(true) }, [load, loadQueue, loadKpi, view])
+  useRealtimeRefetch([CSKH_TOPIC, JOBS_TOPIC], DATA_EVENT, refetchAll, true, 60000)
 
   // Mở hồ sơ 1 khách cụm (từ hàng đợi) — ưu tiên bản ghi đầy đủ trong danh sách (có địa chỉ/email).
   const openCum = (ma: string, ten: string) => {
@@ -164,7 +173,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
               </button>
             ))}
             <button onClick={() => setReasonFilter('all')} className={`text-[11px] px-2.5 h-7 rounded-full border font-medium transition ${reasonFilter === 'all' ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>Tất cả ({queue.length})</button>
-            <Button variant="outline" onClick={loadQueue} className="h-7 w-7 p-0 ml-auto" title="Làm mới"><RefreshCw className={`w-3.5 h-3.5 ${qLoading ? 'animate-spin' : ''}`} /></Button>
+            <Button variant="outline" onClick={() => loadQueue()} className="h-7 w-7 p-0 ml-auto" title="Làm mới"><RefreshCw className={`w-3.5 h-3.5 ${qLoading ? 'animate-spin' : ''}`} /></Button>
           </div>
           <div className="space-y-2">
             {qLoading ? <p className="text-xs text-slate-400 py-6 text-center">Đang tải…</p>
@@ -276,7 +285,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <p className="text-[11px] text-slate-500 flex-1">Chỉ số theo dõi hiệu quả chăm sóc. Lượt chăm sóc gồm cả nhật ký tay và phiếu giao việc loại CSKH đã hoàn thành.</p>
-            <Button variant="outline" onClick={loadKpi} className="h-8 w-8 p-0" title="Làm mới"><RefreshCw className={`w-4 h-4 ${kpiLoading ? 'animate-spin' : ''}`} /></Button>
+            <Button variant="outline" onClick={() => loadKpi()} className="h-8 w-8 p-0" title="Làm mới"><RefreshCw className={`w-4 h-4 ${kpiLoading ? 'animate-spin' : ''}`} /></Button>
           </div>
           {kpiLoading && !kpi ? <p className="text-xs text-slate-400 py-6 text-center">Đang tải…</p> : !kpi ? <p className="text-xs text-slate-400 py-6 text-center">Chưa có dữ liệu.</p> : (<>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

@@ -41,6 +41,7 @@ const CONGNO_TOPIC = "soct_congno"
 const GIAMDINH_TOPIC = "soct_giamdinh"
 const DATHANG_TOPIC = "soct_dathang"
 const BAOTRI_TOPIC = "soct_baotri"
+const CSKH_TOPIC = "soct_cskh"
 const DATA_EVENT = "changed"
 
 // "Hôm nay" theo giờ VN (UTC+7), trả về YYYY-MM-DD. Dùng cho ngày mặc định của form
@@ -878,6 +879,13 @@ export default function AdminDashboard() {
   useRealtimeRefetch('soct_thuecpc', DATA_EVENT, () => {
     if (['admin', 'tech_admin', 'staff'].includes(currentUserRole)) fetchMucSapHet()
   }, !!currentAdmin)
+
+  // Realtime chuông "đến hẹn chăm sóc": cập nhật ngay khi có ghi chăm sóc / đặt hẹn (CSKH_TOPIC);
+  // poll nhẹ 5' để bắt ca hẹn tới hạn theo NGÀY (không có mutation kích hoạt).
+  useRealtimeRefetch(CSKH_TOPIC, DATA_EVENT,
+    () => { if (['admin', 'tech_admin', 'staff'].includes(currentUserRole)) fetchHenCskh() },
+    !!currentAdmin, 300000,
+    () => { if (['admin', 'tech_admin', 'staff'].includes(currentUserRole)) fetchHenCskh() })
 
   // Tìm kiếm theo mã máy để điền tự động
   const handleMaMayChange = (val: string) => {
