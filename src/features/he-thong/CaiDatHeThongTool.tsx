@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -49,6 +49,23 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
   })
   const [saving, setSaving] = useState(false)
   const toggleTab = (role: string, tab: string) => setTabVis(p => ({ ...p, [role]: { ...p[role], [tab]: !p[role][tab] } }))
+
+  // v2: Kanban đã tách thành MENU CẤP 1 (không còn là tab con Tài chính). Nên trong ma trận
+  // phân quyền cũng nhấc nó ra làm 1 DÒNG CẤP 1 riêng (ngay sau Tài chính), nhưng VẪN ghi/đọc
+  // đúng key 'tai_chinh.kanban' (không migrate DB). Dòng cấp 1 có key = 'tai_chinh.kanban',
+  // không subs → ô tick độc lập với bật/tắt Tài chính, khớp cách v2 gating Kanban.
+  const matrixTree = useMemo(() => {
+    const out: typeof TAB_TREE = []
+    for (const t of TAB_TREE) {
+      if (t.key === 'tai_chinh') {
+        out.push({ ...t, subs: t.subs.filter(s => s.key !== 'kanban') })
+        out.push({ key: 'tai_chinh.kanban', label: 'Kanban Hóa đơn', subs: [] })
+      } else {
+        out.push(t)
+      }
+    }
+    return out
+  }, [])
 
   const [ngayNghiList, setNgayNghiList] = useState<{ ngay: string, ghi_chu: string }[]>([])
   const [newNgayNghi, setNewNgayNghi] = useState("")
@@ -338,7 +355,7 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {TAB_TREE.flatMap(t => [
+              {matrixTree.flatMap(t => [
                 <tr key={t.key}>
                   <td className="px-4 py-2 font-semibold text-slate-800">{t.label}{t.alwaysOn && <span className="ml-1 text-[10px] font-normal text-slate-400">(luôn hiện)</span>}</td>
                   {TAB_ROLES.map(([role]) => (
