@@ -112,9 +112,9 @@ export function HoanPhieuModule({ notify }: { notify: (type: 'success' | 'error'
           <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none"><input type="checkbox" checked={fChuaNop} onChange={e => setFChuaNop(e.target.checked)} className="w-4 h-4 accent-blue-600" /> Chỉ chưa nộp</label>
           <span className="text-xs text-slate-500 ml-auto whitespace-nowrap">{filtered.length} phiếu</span>
           {role === 'admin' && (
-            <button onClick={submitAll} disabled={busy === 'all' || chuaNop.length === 0} title="Nộp toàn bộ phiếu chưa nộp" className="h-9 w-9 p-0 rounded-md border border-emerald-300 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 flex items-center justify-center">{busy === 'all' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ClipboardCheck className="w-4 h-4" />}</button>
+            <button onClick={submitAll} disabled={busy === 'all' || chuaNop.length === 0} title="Nộp toàn bộ phiếu chưa nộp" className="h-9 px-3 rounded-md border border-emerald-300 text-emerald-700 text-xs font-medium hover:bg-emerald-50 disabled:opacity-50 flex items-center gap-1.5">{busy === 'all' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ClipboardCheck className="w-4 h-4" />} Nộp toàn bộ</button>
           )}
-          <button onClick={remind} disabled={busy === 'remind' || chuaNop.length === 0} title="Nhắc KTV nộp phiếu qua Telegram" className="h-9 w-9 p-0 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 flex items-center justify-center">{busy === 'remind' ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}</button>
+          <button onClick={remind} disabled={busy === 'remind' || chuaNop.length === 0} title="Nhắc KTV nộp phiếu qua Telegram" className="h-9 px-3 rounded-md border border-slate-200 text-slate-600 text-xs font-medium hover:bg-slate-50 disabled:opacity-50 flex items-center gap-1.5">{busy === 'remind' ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Nhắc KTV</button>
         </div>
         <DataTable columns={columns} rows={filtered} rowKey={r => r.id} loading={loading} defaultSort={{ key: 'ngay', asc: false }} empty="Không có phiếu." />
       </Card>
