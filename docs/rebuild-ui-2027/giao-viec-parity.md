@@ -51,13 +51,13 @@
 - [x] ✅ Khai khách mới (Tên/Địa chỉ/Model/Nơi đặt máy) → tạo khách trước khi tạo phiếu
 - [x] ✅ Ngày · KTV chính · KTV kèm · Loại việc · SL · Số phiếu · KM
 - [x] ✅ Hình thức xuất (Có phí / Miễn phí; máy Thuê/CPC auto MF)
-- [x] ✅ Editor vật tư (mã hàng datalist + tên/model, SL, Đơn giá #.###, VAT%, Thành tiền tự tính, HĐ, xóa; cảnh báo mã lạ)
+- [x] ✅ Editor vật tư (**MaterialCombobox** tìm mã/tên/model + gợi ý mã thay thế, SL, Đơn giá #.###, VAT%, Thành tiền tự tính, HĐ, xóa) + dòng **Tồn / Đang giữ / Khả dụng / Model** + cảnh báo thiếu + cảnh báo mã lạ
 - [x] ✅ Ghi chú (bắt buộc với "Khác")
 - [x] ✅ Validation mirror server; autofill km
-- [ ] 🔸 **Panel giám định** — máy có BBGĐ chờ thay: badge + nút "Thêm vật tư giám định" + checkbox "Đóng giám định khi lưu" (cần `/api/admin/may-status` + `giam-dinh` PUT)
-- [ ] 🔸 **Nhập phiếu từ PDF** — nút ở đầu form, bóc tách điền sẵn (cần `/api/admin/phieu-pdf`; 2 gotcha pdfjs)
-- [ ] 🔸 **Modal admin thêm mã hàng lạ vào kho** khi lưu (hiện v2 chặn + báo lỗi)
-- [ ] ⬜ KM auto-tính khi lưu = 0 (hint "Hệ thống sẽ tự tính KM")
+- [x] ✅ **Panel giám định** — máy có BBGĐ chờ thay: badge bảo trì tháng/HĐ + "Đưa vào ca" (modal chọn vật tư) + checkbox "Đóng giám định khi lưu" + hỏi xác nhận khi lưu (`may-status` + `giam-dinh` PUT)
+- [x] ✅ **Nhập phiếu từ PDF** — nút đầu form, bóc tách điền sẵn + cảnh báo (trùng số phiếu/mã lạ) (`phieu-pdf`)
+- [x] ✅ **Modal admin thêm mã hàng lạ vào kho** khi lưu (tên prefill từ PDF; thêm xong nạp lại kho)
+- [ ] ⬜ KM auto-tính khi lưu = 0 (hint "Hệ thống sẽ tự tính KM" — server tự tính; hint phụ)
 
 ## G. Hành vi nền (đã có hoặc cần giữ)
 - [x] ✅ Gọi lại ĐÚNG API cũ (`/api/admin/cong-viec` POST/PUT edit/DELETE, `tra-vat-tu`, `bbbg`/`bbgd`, `dedupe`, cron `cuon-ngay-phieu`)
@@ -68,7 +68,7 @@
 
 ---
 ### Còn thiếu gộp lại (thứ tự đề xuất làm tiếp)
-1. **Form**: panel giám định + nhập PDF + modal thêm mã lạ vào kho.
+1. ~~Form: giám định + nhập PDF + thêm mã lạ~~ ✅ XONG.
 2. **Banner**: LamTiepBanner (quan trọng — nhắc làm tiếp), đặt trước/quá hạn/nghỉ hôm nay.
 3. **Chuông**: bổ sung các nhóm cảnh báo còn lại.
 4. **Bảng**: phân trang + ẩn/hiện cột (khi cần).

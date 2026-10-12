@@ -62,6 +62,36 @@ export async function saveJob(form: JobForm, finalCustomerId: string, editingId:
   if (!res.ok) throw new Error(j.error || 'Lỗi lưu phiếu')
 }
 
+// Bóc tách phiếu PDF (server) -> dữ liệu tiền-điền form.
+export async function importPdf(file: File): Promise<any> {
+  const fd = new FormData(); fd.append('file', file)
+  const res = await fetch('/api/admin/phieu-pdf', { method: 'POST', body: fd })
+  const j = await res.json()
+  if (!res.ok) throw new Error(j.error || 'Không đọc được phiếu')
+  return j.data
+}
+
+// Trạng thái máy (bảo trì tháng + giám định chờ thay) theo mã máy.
+export async function fetchMayStatus(ma_may: string): Promise<any | null> {
+  try {
+    const res = await fetch(`/api/admin/may-status?ma_may=${encodeURIComponent(ma_may)}`)
+    if (!res.ok) return null
+    const j = await res.json()
+    return j.data
+  } catch { return null }
+}
+
+// Thêm mã hàng lạ vào kho (admin) — tồn khởi tạo 0.
+export async function addKhoItem(ma_hang: string, ten_hang: string): Promise<void> {
+  const res = await fetch('/api/admin/kho-hang', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ma_hang, ten_hang, ton_kho: 0 }) })
+  if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || `Lỗi thêm mã ${ma_hang}`) }
+}
+
+// Đóng (đã thay) 1 biên bản giám định khi lưu việc — dùng số phiếu của việc.
+export async function closeGiamDinh(id: string, ngay_thay: string, so_report: string): Promise<void> {
+  await fetch('/api/admin/giam-dinh', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, da_thay: true, ngay_thay, so_report }) })
+}
+
 export async function deleteJob(id: string): Promise<void> {
   const res = await fetch(`/api/admin/cong-viec?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
   const j = await res.json().catch(() => ({}))

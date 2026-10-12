@@ -32,7 +32,7 @@ function statusCls(k: string): string {
 }
 
 export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error', msg: string) => void }) {
-  const { customers, inventory, users, dmOptions } = useShared()
+  const { customers, inventory, users, committed, dmOptions, refetchInventory } = useShared()
   const { user } = useSession()
   const role = user?.role || ''
   const canCreate = ['admin', 'tech_admin', 'staff'].includes(role)
@@ -332,8 +332,8 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
           onClose={() => setFormOpen(false)}
           onSaved={(msg) => { setFormOpen(false); notify('success', msg); load(true) }}
           notify={notify}
-          customers={customers} inventory={inventory} users={users} loaiOptions={loaiOptions}
-          canEdit={!editing || canEditJob(editing)}
+          customers={customers} inventory={inventory} committed={committed} users={users} loaiOptions={loaiOptions}
+          canEdit={!editing || canEditJob(editing)} role={role} refetchInventory={refetchInventory}
         />
       )}
       {traJob && <TraKhoModal job={traJob} onClose={() => setTraJobId(null)} onChanged={() => load(true)} notify={notify} />}

@@ -15,6 +15,8 @@ type Ctx = {
   inventory: any[]
   users: any[]
   danhMuc: DanhMucItem[]
+  /** "Đang giữ": SL vật tư của phiếu CHƯA hoàn thành, gom theo mã hàng (tồn khả dụng = tồn − giữ). */
+  committed: Record<string, number>
   loading: boolean
   refetchAll: () => void
   refetchInventory: () => void
@@ -46,21 +48,26 @@ export function SharedDataProvider({ children }: { children: React.ReactNode }) 
   const [inventory, setInventory] = useState<any[]>([])
   const [users, setUsers] = useState<any[]>([])
   const [danhMuc, setDanhMuc] = useState<DanhMucItem[]>([])
+  const [committed, setCommitted] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
 
-  const refetchInventory = useCallback(() => { getJson('/api/admin/kho-hang').then(setInventory) }, [])
+  const refetchInventory = useCallback(() => {
+    getJson('/api/admin/kho-hang').then(setInventory)
+    // "Đang giữ" trả object {ma_hang: SL}, không phải mảng -> lấy .data riêng.
+    fetch('/api/admin/kho-hang/dang-giu').then(r => r.ok ? r.json() : { data: {} }).then(j => setCommitted(j.data || {})).catch(() => {})
+  }, [])
   const refetchCustomers = useCallback(() => { getJson('/api/admin/khach-hang').then(setCustomers) }, [])
 
   const refetchAll = useCallback(() => {
+    refetchInventory()
     Promise.all([
       getJson('/api/admin/khach-hang'),
-      getJson('/api/admin/kho-hang'),
       getJson('/api/admin/users'),
       getJson('/api/admin/danh-muc'),
-    ]).then(([c, inv, u, dm]) => {
-      setCustomers(c); setInventory(inv); setUsers(u); setDanhMuc(dm as DanhMucItem[])
+    ]).then(([c, u, dm]) => {
+      setCustomers(c); setUsers(u); setDanhMuc(dm as DanhMucItem[])
     }).finally(() => setLoading(false))
-  }, [])
+  }, [refetchInventory])
 
   // Chỉ fetch khi đã biết user (sau khi SessionProvider xác thực xong) — tránh gọi lúc chưa login.
   useEffect(() => { if (user) refetchAll() }, [user, refetchAll])
@@ -75,7 +82,7 @@ export function SharedDataProvider({ children }: { children: React.ReactNode }) 
   }, [danhMuc])
 
   return (
-    <SharedCtx.Provider value={{ customers, inventory, users, danhMuc, loading, refetchAll, refetchInventory, refetchCustomers, dmOptions }}>
+    <SharedCtx.Provider value={{ customers, inventory, users, danhMuc, committed, loading, refetchAll, refetchInventory, refetchCustomers, dmOptions }}>
       {children}
     </SharedCtx.Provider>
   )
