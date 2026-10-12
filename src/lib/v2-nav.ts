@@ -76,8 +76,9 @@ export const V2_NAV: V2Parent[] = [
     slug: 'quan-ly', label: 'Quản lý', icon: 'users', permKey: 'quan_ly',
     children: [
       { slug: 'bao-cao-ktv', label: 'Báo cáo KTV', permParent: 'quan_ly', permSub: 'nhat_ky' },
-      { slug: 'khach-hang', label: 'Danh sách khách hàng', permParent: 'quan_ly', permSub: 'khach_hang' },
-      { slug: 'khach-cum', label: 'Khách hàng cụm', permParent: 'quan_ly', permSub: 'khach_cum' },
+      // Gộp "Danh sách khách hàng" + "Khách hàng cụm" thành 1 mục, 2 tab con nội bộ (Điểm máy · Khách cụm).
+      // Gate theo khach_hang; bên trong mỗi tab tự gate khach_hang / khach_cum (2026-10-12).
+      { slug: 'khach-hang', label: 'Khách hàng', permParent: 'quan_ly', permSub: 'khach_hang' },
       { slug: 'bao-cao-thang', label: 'Báo cáo tháng', permParent: 'quan_ly', permSub: 'bao_cao' },
       { slug: 'nghi-phep', label: 'Nghỉ phép', permParent: 'quan_ly', permSub: 'nghi_phep' },
     ],
