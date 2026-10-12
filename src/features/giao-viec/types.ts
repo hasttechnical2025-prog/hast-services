@@ -41,10 +41,19 @@ export type Job = {
   bat_dau_luc: string | null
   hoan_thanh_luc: string | null
   so_phut_xu_ly: number | null
+  created_at?: string | null
+  so_lan_cuon?: number | null
   soct_khach_hang?: { ten_khach_hang?: string; dia_chi?: string; model?: string; vi_tri_dat_may?: string } | null
   soct_users?: { full_name?: string } | null
   ktv2?: { full_name?: string } | null
-  soct_chi_tiet_vat_tu?: { id: string; ma_hang: string; so_luong: number; don_gia: number; vat: number; hoa_don: boolean; da_tra: boolean; soct_kho_hang?: { ten_hang?: string } | null }[]
+  soct_chi_tiet_vat_tu?: { id: string; ma_hang: string; so_luong: number; don_gia: number; vat: number; thanh_tien?: number; hoa_don: boolean; da_tra: boolean; ten_hang_hd?: string | null; soct_kho_hang?: { ten_hang?: string } | null }[]
+}
+
+// Tiền phát sinh của 1 phiếu (bỏ vật tư đã trả kho; cộng VAT khi có HĐ). Khớp jobTien ở admin.
+export function jobTien(job: Job): { tong: number; coHD: boolean } {
+  const vt = (job.soct_chi_tiet_vat_tu || []).filter(v => !v.da_tra)
+  const tong = vt.reduce((s, v) => s + (Number(v.thanh_tien) || 0) + (v.hoa_don ? (Number(v.thanh_tien) || 0) * (Number(v.vat) || 0) / 100 : 0), 0)
+  return { tong: Math.round(tong), coHD: vt.some(v => v.hoa_don) }
 }
 
 export const LOAI_CV_CAN_VAT_TU = ['Giao mực', 'Thay vật tư']
