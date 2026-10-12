@@ -204,11 +204,11 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
     },
     {
       key: 'khach', header: 'Khách hàng', sortValue: j => j.soct_khach_hang?.ten_khach_hang || '',
-      // Ghì rộng cột (div cố định) để tên dài không kéo giãn cột, dồn các cột khác xuống nhiều dòng.
+      // Ghì rộng cột (260px) để tên dài không kéo giãn cột; WRAP (xuống dòng) để hiện đủ, không cắt mất.
       render: j => (
         <div className="w-[260px] max-w-[260px]">
-          <div className="font-medium text-slate-800 truncate">{j.soct_khach_hang?.ten_khach_hang || '—'}</div>
-          <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5"><MapPin className="w-3 h-3 shrink-0" /><span className="truncate">{j.soct_khach_hang?.vi_tri_dat_may || j.soct_khach_hang?.dia_chi || ''}</span></div>
+          <div className="font-medium text-slate-800 break-words">{j.soct_khach_hang?.ten_khach_hang || '—'}</div>
+          <div className="text-[11px] text-slate-500 flex items-start gap-1 mt-0.5"><MapPin className="w-3 h-3 shrink-0 mt-0.5" /><span className="break-words">{j.soct_khach_hang?.vi_tri_dat_may || j.soct_khach_hang?.dia_chi || ''}</span></div>
         </div>
       ),
     },
