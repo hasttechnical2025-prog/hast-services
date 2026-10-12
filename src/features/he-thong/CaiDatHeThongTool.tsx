@@ -1,10 +1,11 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import DateField from '@/components/DateField'
-import { TAB_ROLES, TAB_TREE, DEFAULT_TAB_VIS } from '@/lib/tabs'
+import { TAB_ROLES, DEFAULT_TAB_VIS } from '@/lib/tabs'
+import { V2_PERM_ROWS } from '@/lib/v2-nav'
 
 // Port NGUYÊN CaiDatHeThongTool từ admin (y hệt): cấu hình hệ thống + ma trận PHÂN QUYỀN tab
 // (role × tab/tab con/tab cháu). Gọi lại /api/admin/cau-hinh, /api/admin/ngay-nghi.
@@ -48,24 +49,10 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
     return merged
   })
   const [saving, setSaving] = useState(false)
-  const toggleTab = (role: string, tab: string) => setTabVis(p => ({ ...p, [role]: { ...p[role], [tab]: !p[role][tab] } }))
-
-  // v2: Kanban đã tách thành MENU CẤP 1 (không còn là tab con Tài chính). Nên trong ma trận
-  // phân quyền cũng nhấc nó ra làm 1 DÒNG CẤP 1 riêng (ngay sau Tài chính), nhưng VẪN ghi/đọc
-  // đúng key 'tai_chinh.kanban' (không migrate DB). Dòng cấp 1 có key = 'tai_chinh.kanban',
-  // không subs → ô tick độc lập với bật/tắt Tài chính, khớp cách v2 gating Kanban.
-  const matrixTree = useMemo(() => {
-    const out: typeof TAB_TREE = []
-    for (const t of TAB_TREE) {
-      if (t.key === 'tai_chinh') {
-        out.push({ ...t, subs: t.subs.filter(s => s.key !== 'kanban') })
-        out.push({ key: 'tai_chinh.kanban', label: 'Kanban Hóa đơn', subs: [] })
-      } else {
-        out.push(t)
-      }
-    }
-    return out
-  }, [])
+  // Giá trị hiệu lực 1 key cho role (mặc định HIỆN nếu chưa cấu hình). Dòng enabled khi mọi dep bật.
+  const eff = (role: string, key: string) => tabVis[role]?.[key] ?? true
+  const rowEnabled = (role: string, deps?: string[]) => (deps || []).every(d => eff(role, d))
+  const setKey = (role: string, key: string, val: boolean) => setTabVis(p => ({ ...p, [role]: { ...p[role], [key]: val } }))
 
   const [ngayNghiList, setNgayNghiList] = useState<{ ngay: string, ghi_chu: string }[]>([])
   const [newNgayNghi, setNewNgayNghi] = useState("")
@@ -355,43 +342,26 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {matrixTree.flatMap(t => [
-                <tr key={t.key}>
-                  <td className="px-4 py-2 font-semibold text-slate-800">{t.label}{t.alwaysOn && <span className="ml-1 text-[10px] font-normal text-slate-400">(luôn hiện)</span>}</td>
-                  {TAB_ROLES.map(([role]) => (
-                    <td key={role} className="px-6 py-2 text-center">
-                      <input type="checkbox" disabled={t.alwaysOn} checked={t.alwaysOn ? true : !!tabVis[role]?.[t.key]} onChange={() => toggleTab(role, t.key)} className="w-4 h-4 accent-blue-600 disabled:opacity-40 disabled:cursor-not-allowed" />
-                    </td>
-                  ))}
-                </tr>,
-                ...t.subs.flatMap(s => [
-                  <tr key={`${t.key}.${s.key}`} className="bg-slate-50/40">
-                    <td className="pl-10 pr-4 py-2 text-slate-600">↳ {s.label}</td>
+              {V2_PERM_ROWS.map((row, i) => {
+                const indent = row.level === 1 ? 'px-4 font-semibold text-slate-800' : row.level === 2 ? 'pl-10 pr-4 text-slate-600' : 'pl-16 pr-4 text-slate-500 text-xs'
+                const rowBg = row.level === 1 ? '' : row.level === 2 ? 'bg-slate-50/40' : 'bg-slate-50/70'
+                const isGroupHeader = !row.key && !row.alwaysOn // vd nhóm "Khách hàng" — không có ô tick
+                return (
+                  <tr key={row.key || `h-${i}`} className={rowBg}>
+                    <td className={`py-2 ${indent}`}>{row.level >= 2 ? '↳ ' : ''}{row.label}{row.alwaysOn && <span className="ml-1 text-[10px] font-normal text-slate-400">(luôn hiện)</span>}</td>
                     {TAB_ROLES.map(([role]) => {
-                      const parentOn = t.alwaysOn ? true : !!tabVis[role]?.[t.key]
+                      if (isGroupHeader) return <td key={role} className="px-6 py-2" />
+                      const enabled = row.alwaysOn ? true : rowEnabled(role, row.deps)
+                      const checked = row.alwaysOn ? true : (enabled && eff(role, row.key!))
                       return (
                         <td key={role} className="px-6 py-2 text-center">
-                          <input type="checkbox" disabled={!parentOn} checked={parentOn && (tabVis[role]?.[`${t.key}.${s.key}`] ?? true)} onChange={() => toggleTab(role, `${t.key}.${s.key}`)} className="w-4 h-4 accent-blue-600 disabled:opacity-40 disabled:cursor-not-allowed" />
+                          <input type="checkbox" disabled={row.alwaysOn || !enabled} checked={checked} onChange={() => setKey(role, row.key!, !eff(role, row.key!))} className="w-4 h-4 accent-blue-600 disabled:opacity-40 disabled:cursor-not-allowed" />
                         </td>
                       )
                     })}
-                  </tr>,
-                  ...(s.subs || []).map(([g, gLabel]) => (
-                    <tr key={`${t.key}.${s.key}.${g}`} className="bg-slate-50/70">
-                      <td className="pl-16 pr-4 py-2 text-slate-500 text-xs">↳ {gLabel}</td>
-                      {TAB_ROLES.map(([role]) => {
-                        const parentOn = t.alwaysOn ? true : !!tabVis[role]?.[t.key]
-                        const subOn = parentOn && (tabVis[role]?.[`${t.key}.${s.key}`] ?? true)
-                        return (
-                          <td key={role} className="px-6 py-2 text-center">
-                            <input type="checkbox" disabled={!subOn} checked={subOn && (tabVis[role]?.[`${t.key}.${s.key}.${g}`] ?? true)} onChange={() => toggleTab(role, `${t.key}.${s.key}.${g}`)} className="w-4 h-4 accent-blue-600 disabled:opacity-40 disabled:cursor-not-allowed" />
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  )),
-                ]),
-              ])}
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

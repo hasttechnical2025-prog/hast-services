@@ -14,6 +14,9 @@ export type V2Child = {
   permSub?: string         // key tab con "cha.con"; bỏ trống = luôn hiện (vd Giao việc)
   icon?: string            // tên icon lucide (dấu chấm nhỏ nếu bỏ trống)
   adminOnly?: boolean      // chỉ admin thấy (vd các tab quản trị trong Hệ thống)
+  // Mục GỘP nhiều tab con (vd Khách hàng = Điểm máy + Khách cụm): hiện/cho vào nếu BẤT KỲ
+  // key con nào trong danh sách được phép (mỗi key dạng tên con dưới permParent).
+  permAnyOf?: string[]
 }
 
 export type V2Parent = {
@@ -78,8 +81,8 @@ export const V2_NAV: V2Parent[] = [
     children: [
       { slug: 'bao-cao-ktv', label: 'Báo cáo KTV', permParent: 'quan_ly', permSub: 'nhat_ky' },
       // Gộp "Danh sách khách hàng" + "Khách hàng cụm" thành 1 mục, 2 tab con nội bộ (Điểm máy · Khách cụm).
-      // Gate theo khach_hang; bên trong mỗi tab tự gate khach_hang / khach_cum (2026-10-12).
-      { slug: 'khach-hang', label: 'Khách hàng', permParent: 'quan_ly', permSub: 'khach_hang' },
+      // Hiện/cho vào nếu CÓ 1 trong 2 quyền khach_hang / khach_cum; bên trong mỗi tab tự gate.
+      { slug: 'khach-hang', label: 'Khách hàng', permParent: 'quan_ly', permAnyOf: ['khach_hang', 'khach_cum'] },
       { slug: 'bao-cao-thang', label: 'Báo cáo tháng', permParent: 'quan_ly', permSub: 'bao_cao' },
       { slug: 'nghi-phep', label: 'Nghỉ phép', permParent: 'quan_ly', permSub: 'nghi_phep' },
     ],
@@ -136,3 +139,62 @@ export function defaultModuleFor(role: string): string {
 export function findParent(slug: string): V2Parent | undefined {
   return V2_NAV.find(p => p.slug === slug)
 }
+
+// ───────────────────────────────────────────────────────────────────────────
+// MA TRẬN PHÂN QUYỀN v2 — mô tả ĐÚNG cây hiển thị trong /v2 (cha/con/cháu), mỗi dòng gắn
+// KEY quyền trong tabs.ts (tab_visibility). Dùng cho bảng Phân quyền (Cài đặt hệ thống) VÀ
+// route guard (chặn truy cập theo quyền). Giữ key gốc để không migrate DB.
+//  - level 1 = tab cha · 2 = tab con · 3 = tab cháu
+//  - key: key tab_visibility (bỏ trống = dòng gộp/hiển thị, không có ô tick; vd nhóm "Khách hàng")
+//  - deps: các key tổ tiên phải BẬT thì dòng này mới hiệu lực (ô tick enabled)
+//  - alwaysOn: luôn bật (khóa ô tick) — Sổ công tác + Giao việc
+export type V2PermRow = { label: string; key?: string; level: 1 | 2 | 3; deps?: string[]; alwaysOn?: boolean }
+
+export const V2_PERM_ROWS: V2PermRow[] = [
+  { label: 'Sổ công tác', key: 'cong_viec', level: 1, alwaysOn: true },
+  { label: 'Giao việc', level: 2, alwaysOn: true },
+  { label: 'Hoàn phiếu', key: 'cong_viec.hoan_phieu', level: 2, deps: ['cong_viec'] },
+  { label: 'Báo cáo sửa chữa', key: 'cong_viec.bao_cao_khach', level: 2, deps: ['cong_viec'] },
+  { label: 'Chăm sóc KH', key: 'cong_viec.cham_soc_kh', level: 2, deps: ['cong_viec'] },
+
+  { label: 'Theo dõi máy', key: 'theo_doi_may', level: 1 },
+  { label: 'Bảo trì', key: 'theo_doi_may.bao_tri', level: 2, deps: ['theo_doi_may'] },
+  { label: 'Đã bảo trì', key: 'theo_doi_may.bao_tri.da_bao_tri', level: 3, deps: ['theo_doi_may', 'theo_doi_may.bao_tri'] },
+  { label: 'Chưa bảo trì', key: 'theo_doi_may.bao_tri.chua_bao_tri', level: 3, deps: ['theo_doi_may', 'theo_doi_may.bao_tri'] },
+  { label: 'Tạm dừng', key: 'theo_doi_may.bao_tri.tam_dung', level: 3, deps: ['theo_doi_may', 'theo_doi_may.bao_tri'] },
+  { label: 'Đối chiếu năm', key: 'theo_doi_may.bao_tri.doi_chieu', level: 3, deps: ['theo_doi_may', 'theo_doi_may.bao_tri'] },
+  { label: 'Thống kê', key: 'theo_doi_may.bao_tri.thong_ke', level: 3, deps: ['theo_doi_may', 'theo_doi_may.bao_tri'] },
+  { label: 'Giám định', key: 'theo_doi_may.giam_dinh', level: 2, deps: ['theo_doi_may'] },
+
+  { label: 'Kho hàng', key: 'kho_hang', level: 1 },
+  { label: 'Tồn kho', key: 'kho_hang.ton_kho', level: 2, deps: ['kho_hang'] },
+  { label: 'Đặt hàng', key: 'kho_hang.dat_hang', level: 2, deps: ['kho_hang'] },
+  { label: 'Thống kê nhập', key: 'kho_hang.thong_ke', level: 2, deps: ['kho_hang'] },
+  { label: 'Giá niêm yết', key: 'kho_hang.gia_niem_yet', level: 2, deps: ['kho_hang'] },
+  { label: 'Kho máy thuê', key: 'kho_hang.may_thue', level: 2, deps: ['kho_hang'] },
+  { label: 'Phiếu đề nghị', key: 'kho_hang.phieu_de_nghi', level: 2, deps: ['kho_hang'] },
+
+  { label: 'Tài chính', key: 'tai_chinh', level: 1 },
+  { label: 'Công nợ', key: 'tai_chinh.cong_no', level: 2, deps: ['tai_chinh'] },
+  { label: 'Thuê / CPC', key: 'tai_chinh.thue_cpc', level: 2, deps: ['tai_chinh'] },
+  { label: 'Đơn giá HĐ', key: 'tai_chinh.thue_cpc.don_gia', level: 3, deps: ['tai_chinh', 'tai_chinh.thue_cpc'] },
+  { label: 'Nhập counter', key: 'tai_chinh.thue_cpc.counter', level: 3, deps: ['tai_chinh', 'tai_chinh.thue_cpc'] },
+  { label: 'Hợp đồng khung', key: 'tai_chinh.thue_cpc.khung', level: 3, deps: ['tai_chinh', 'tai_chinh.thue_cpc'] },
+  { label: 'Bảng kê', key: 'tai_chinh.thue_cpc.bang_ke', level: 3, deps: ['tai_chinh', 'tai_chinh.thue_cpc'] },
+  { label: 'Cảnh báo vật tư', key: 'tai_chinh.thue_cpc.canh_bao_muc', level: 3, deps: ['tai_chinh', 'tai_chinh.thue_cpc'] },
+  { label: 'Phí bảo trì', key: 'tai_chinh.phi_bao_tri', level: 2, deps: ['tai_chinh'] },
+
+  // Kanban đã tách MENU CẤP 1 ở v2 → dòng cấp 1 riêng, ĐỘC LẬP với Tài chính (vẫn key tai_chinh.kanban).
+  { label: 'Kanban Hóa đơn', key: 'tai_chinh.kanban', level: 1 },
+
+  { label: 'Quản lý', key: 'quan_ly', level: 1 },
+  { label: 'Báo cáo KTV', key: 'quan_ly.nhat_ky', level: 2, deps: ['quan_ly'] },
+  // "Khách hàng" = nhóm GỘP (không có ô tick), 2 cháu gắn trực tiếp key con khach_hang / khach_cum.
+  { label: 'Khách hàng', level: 2 },
+  { label: 'Điểm máy', key: 'quan_ly.khach_hang', level: 3, deps: ['quan_ly'] },
+  { label: 'Khách cụm', key: 'quan_ly.khach_cum', level: 3, deps: ['quan_ly'] },
+  { label: 'Báo cáo tháng', key: 'quan_ly.bao_cao', level: 2, deps: ['quan_ly'] },
+  { label: 'Nghỉ phép', key: 'quan_ly.nghi_phep', level: 2, deps: ['quan_ly'] },
+
+  { label: 'Trợ lý AI', key: 'tro_ly', level: 1 },
+]

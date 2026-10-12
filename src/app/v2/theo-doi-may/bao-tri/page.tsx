@@ -8,11 +8,11 @@ import { BaoTriTool } from '@/features/bao-tri/BaoTriTool'
 // Gọi lại API cũ /api/admin/bao-tri.
 export default function BaoTriPage() {
   const { customers } = useShared()
-  const { user } = useSession()
+  const { user, subSubVisible } = useSession()
   const { notify, toastNode } = useToast()
   return (
     <>
-      <BaoTriTool customers={customers} role={user?.role} showNotification={notify} />
+      <BaoTriTool customers={customers} role={user?.role} showNotification={notify} canSub={(g) => subSubVisible('theo_doi_may', 'bao_tri', g)} />
       {toastNode}
     </>
   )

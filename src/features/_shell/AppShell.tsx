@@ -5,9 +5,33 @@ import { useMemo } from 'react'
 import * as Icons from 'lucide-react'
 import { Search, LogOut, ChevronRight, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { V2_NAV, findParent } from '@/lib/v2-nav'
+import { ShieldAlert } from 'lucide-react'
+import { V2_NAV, findParent, type V2Child } from '@/lib/v2-nav'
 import { useSession } from './SessionProvider'
 import { NotificationCenter } from './NotificationCenter'
+
+type Gate = { isAdmin: boolean; tabVisible: (p: string) => boolean; subVisible: (p: string, s: string) => boolean }
+
+// Role có được xem 1 MỤC CON (nav child)? Dùng CHUNG cho sidebar (ẩn) và route guard (chặn link).
+function childAllowed(c: V2Child, g: Gate): boolean {
+  if (c.adminOnly && !g.isAdmin) return false
+  if (c.permAnyOf) return c.permAnyOf.some(k => g.subVisible(c.permParent, k))
+  if (c.permSub) return g.subVisible(c.permParent, c.permSub)
+  return true
+}
+
+// Role có được TRUY CẬP route /v2/<parentSlug>/<childSlug>? (chặn cả khi gõ thẳng link)
+function canAccessRoute(parentSlug: string | undefined, childSlug: string | undefined, g: Gate): boolean {
+  if (!parentSlug) return true // trang gốc /v2 (server tự redirect theo role)
+  const p = V2_NAV.find(x => x.slug === parentSlug)
+  if (!p) return true // route lạ → để Next trả 404, không chặn ở đây
+  if (p.leaf) return p.permSub ? g.subVisible(p.permKey, p.permSub) : g.tabVisible(p.permKey)
+  if (!g.tabVisible(p.permKey)) return false
+  if (!childSlug) return true // vào thẳng trang cha (hiếm) → cho qua, sidebar sẽ dẫn tới con hợp lệ
+  const c = p.children.find(x => x.slug === childSlug)
+  if (!c) return true // con lạ → 404 tự nhiên
+  return childAllowed(c, g)
+}
 
 // Vỏ ứng dụng /v2: sidebar trái (cây route) + top bar (breadcrumb + chuông) + nội dung.
 // Điều hướng client-side (<Link>) nên provider/realtime giữ mount khi đổi module.
@@ -29,15 +53,16 @@ function Sidebar({ parent, child }: { parent?: string; child?: string }) {
   const isAdmin = user?.role === 'admin'
   // Tính con hiển thị + ẩn cha không còn con nào. Cha "lá" (leaf) gate theo permSub.
   // Con adminOnly (vd tab quản trị Hệ thống) chỉ hiện với admin.
+  const gate: Gate = { isAdmin, tabVisible, subVisible }
   const parents = useMemo(() => V2_NAV
     .map(p => ({
       p,
-      kids: p.children.filter(c => (c.adminOnly ? isAdmin : true) && (c.permSub ? subVisible(c.permParent, c.permSub) : true)),
+      kids: p.children.filter(c => childAllowed(c, gate)),
     }))
     .filter(({ p, kids }) => {
       if (p.leaf) return p.permSub ? subVisible(p.permKey, p.permSub) : tabVisible(p.permKey)
       return tabVisible(p.permKey) && kids.length > 0
-    }), [tabVisible, subVisible, isAdmin])
+    }), [tabVisible, subVisible, isAdmin]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <aside className="w-56 shrink-0 border-r border-slate-200 bg-slate-50/60 flex flex-col">
@@ -133,16 +158,30 @@ function TopBar({ parent, child }: { parent?: string; child?: string }) {
   )
 }
 
+function AccessDenied({ role }: { role?: string }) {
+  return (
+    <div className="max-w-md mx-auto mt-10 border border-slate-200 rounded-xl p-8 text-center bg-slate-50/50 space-y-3">
+      <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto"><ShieldAlert className="w-6 h-6" /></div>
+      <div className="font-semibold text-slate-700">Bạn không có quyền truy cập mục này</div>
+      <p className="text-xs text-slate-400">Tài khoản của bạn (<b>{role || '—'}</b>) chưa được cấp quyền. Liên hệ Admin nếu cần mở quyền.</p>
+      <Link href="/v2" className="inline-block text-sm font-semibold text-blue-700 hover:underline">→ Về trang chính</Link>
+    </div>
+  )
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || ''
   const { parent, child } = parseRoute(pathname)
-  const { loading, user } = useSession()
+  const { loading, user, tabVisible, subVisible } = useSession()
 
   if (loading || !user) {
     return (
       <div className="h-[100dvh] flex items-center justify-center text-slate-400 text-sm">Đang tải…</div>
     )
   }
+
+  // Chặn truy cập route theo quyền (kể cả khi gõ thẳng link): không render nội dung nếu không có quyền.
+  const allowed = canAccessRoute(parent, child, { isAdmin: user.role === 'admin', tabVisible, subVisible })
 
   // Khung cao ĐÚNG màn hình + overflow-hidden: sidebar trái cố định (footer role luôn đáy),
   // CHỈ vùng phải cuộn khi danh sách dài. min-h-0 cho phép con overflow đúng.
@@ -157,7 +196,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             top-[calc(var(--head-h)+2.5rem)]. Admin có header+tab-cha (--head-h+2.5rem); ở v2 TopBar
             nằm NGOÀI vùng cuộn nên offset đúng = 0 → đặt -2.5rem để calc ra 0 (tab con sticky sát mép). */}
         <div className="flex-1 overflow-y-auto bg-slate-50/40" style={{ ['--head-h' as string]: '-2.5rem' } as React.CSSProperties}>
-          <div className="p-4">{children}</div>
+          <div className="p-4">{allowed ? children : <AccessDenied role={user.role} />}</div>
         </div>
       </section>
     </div>
