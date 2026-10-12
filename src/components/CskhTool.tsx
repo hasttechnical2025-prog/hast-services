@@ -176,7 +176,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
             <Button variant="outline" onClick={() => loadQueue()} className="h-7 w-7 p-0 ml-auto" title="Làm mới"><RefreshCw className={`w-3.5 h-3.5 ${qLoading ? 'animate-spin' : ''}`} /></Button>
           </div>
           <div className="space-y-2">
-            {qLoading ? <p className="text-xs text-slate-400 py-6 text-center">Đang tải…</p>
+            {qLoading ? <div className="py-6 text-center text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải...</div>
               : queueShown.length === 0 ? <p className="text-xs text-slate-400 py-6 text-center">Không có khách trong nhóm <b>{reasonFilter === 'all' ? 'nào' : (REASON[reasonFilter]?.label || '')}</b>. Bấm nhóm khác ở trên để xem.</p>
                 : queueShown.map(r => (
                   <div key={r.ma_khach_cum} className="border border-slate-200 rounded-lg p-3 flex items-start gap-3 hover:bg-slate-50">
@@ -227,7 +227,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {loading ? <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Đang tải…</td></tr>
+            {loading ? <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải...</td></tr>
               : list.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Không có khách khớp.</td></tr>
                 : list.map(r => (
                   <tr key={r.key} onClick={() => setSel(r)} className="hover:bg-blue-50/50 cursor-pointer">
@@ -287,7 +287,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
             <p className="text-[11px] text-slate-500 flex-1">Chỉ số theo dõi hiệu quả chăm sóc. Lượt chăm sóc gồm cả nhật ký tay và phiếu giao việc loại CSKH đã hoàn thành.</p>
             <Button variant="outline" onClick={() => loadKpi()} className="h-8 w-8 p-0" title="Làm mới"><RefreshCw className={`w-4 h-4 ${kpiLoading ? 'animate-spin' : ''}`} /></Button>
           </div>
-          {kpiLoading && !kpi ? <p className="text-xs text-slate-400 py-6 text-center">Đang tải…</p> : !kpi ? <p className="text-xs text-slate-400 py-6 text-center">Chưa có dữ liệu.</p> : (<>
+          {kpiLoading && !kpi ? <div className="py-6 text-center text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải...</div> : !kpi ? <p className="text-xs text-slate-400 py-6 text-center">Chưa có dữ liệu.</p> : (<>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="border border-slate-200 rounded-xl p-3.5 bg-white">
                 <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500"><Clock className="w-3.5 h-3.5 text-blue-500" /> Lượt chăm sóc 30 ngày</div>
@@ -467,7 +467,7 @@ function ProfileModal({ row, isAdmin, onClose, onChanged, showNotification }: { 
           {/* Lịch sử chăm sóc */}
           <section>
             <span className="text-[11px] font-semibold text-slate-500 uppercase flex items-center gap-1"><Clock className="w-3 h-3" /> Lịch sử chăm sóc ({logs.length})</span>
-            {loadingLog ? <p className="text-xs text-slate-400 py-3">Đang tải…</p>
+            {loadingLog ? <div className="py-3 text-center text-slate-400"><RefreshCw className="w-4 h-4 animate-spin mx-auto mb-1 text-blue-600" />Đang tải...</div>
               : logs.length === 0 ? <p className="text-xs text-slate-400 py-3">Chưa có lần chăm sóc nào.</p>
                 : <div className="mt-2 space-y-2">
                   {logs.map(l => (

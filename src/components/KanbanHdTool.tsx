@@ -2117,8 +2117,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
       </div>
 
       {loading && tickets.length === 0 ? (
-        <div className="text-center py-24 text-slate-400 text-sm italic bg-white border border-slate-200 rounded-xl shadow-sm">
-          Đang tải bảng Kanban...
+        <div className="text-center py-24 text-slate-400 bg-white border border-slate-200 rounded-xl shadow-sm">
+          <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600" />Đang tải bảng Kanban...
         </div>
       ) : (
         <div className={`grid grid-cols-1 gap-5 ${role === 'kthc' ? 'md:grid-cols-3' : 'md:grid-cols-4'}`}>

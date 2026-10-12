@@ -1,6 +1,6 @@
 'use client'
 import { useMemo, useState, useRef, useLayoutEffect } from 'react'
-import { ChevronUp, ChevronDown, ChevronsUpDown, Filter, X } from 'lucide-react'
+import { ChevronUp, ChevronDown, ChevronsUpDown, Filter, X, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { compareVi } from './format'
 
@@ -150,7 +150,7 @@ export function DataTable<T>({ columns, rows, rowKey, loading, empty = 'Không c
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? (
-              <tr><td colSpan={columns.length} className="px-3.5 py-10 text-center text-slate-400 italic">Đang tải…</td></tr>
+              <tr><td colSpan={columns.length} className="px-3.5 py-10 text-center text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải...</td></tr>
             ) : sorted.length === 0 ? (
               <tr><td colSpan={columns.length} className="px-3.5 py-10 text-center text-slate-400 italic">{empty}</td></tr>
             ) : sorted.map((row, i) => (

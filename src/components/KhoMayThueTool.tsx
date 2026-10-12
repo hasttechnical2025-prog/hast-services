@@ -227,7 +227,7 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} className="text-center text-slate-400 py-8">Đang tải...</td></tr>
+              <tr><td colSpan={8} className="text-center text-slate-400 py-8"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải...</td></tr>
             ) : sortedRows.length === 0 ? (
               <tr><td colSpan={8} className="text-center text-slate-400 py-8">Không có biên bản nào.</td></tr>
             ) : sortedRows.map(r => (
