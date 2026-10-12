@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup lọc tại cột — Giao việc</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  body{font-family:'Inter',sans-serif} .mono{font-family:'JetBrains Mono',monospace}
+  th .fnl{opacity:.45} th.on .fnl{opacity:1}
+</style>
+</head>
+<body class="bg-slate-100 text-slate-800 p-4 md:p-6">
+<div class="max-w-[1200px] mx-auto space-y-4">
+
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+        <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Mockup lọc tại cột (CHƯA code) — Giao việc
+      </span>
+      <p class="text-xs text-slate-500 mt-1">Bấm icon phễu ⏷ trên tiêu đề (kiểu B) hoặc gõ/chọn ở hàng lọc (kiểu A). Bộ lọc hoạt động thật trên dữ liệu mẫu.</p>
+    </div>
+    <div class="flex items-center bg-white border border-slate-200 rounded-lg p-1 shadow-sm">
+      <button onclick="setMode('B')" id="mb-B" class="px-3 py-1.5 rounded-md text-xs font-semibold bg-blue-600 text-white">B · Phễu Excel (khuyến nghị)</button>
+      <button onclick="setMode('A')" id="mb-A" class="px-3 py-1.5 rounded-md text-xs font-semibold text-slate-600 hover:bg-slate-100">A · Hàng lọc</button>
+    </div>
+  </div>
+
+  <!-- KPI gọn (để thấy ngữ cảnh) -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div class="bg-white p-3 rounded-lg border border-slate-200/80 shadow-xs"><div class="text-[11px] text-slate-500 uppercase">Tổng việc</div><div class="text-xl font-bold text-blue-600" id="kpi-total">4</div><div class="text-[10px] text-slate-400">trên 4 tất cả</div></div>
+    <div class="bg-white p-3 rounded-lg border border-slate-200/80 shadow-xs"><div class="text-[11px] text-slate-500 uppercase">Hoàn thành</div><div class="text-xl font-bold text-emerald-700" id="kpi-done">1</div></div>
+    <div class="bg-white p-3 rounded-lg border border-slate-200/80 shadow-xs"><div class="text-[11px] text-slate-500 uppercase">Đang làm / Chờ</div><div class="text-xl font-bold text-amber-600" id="kpi-doing">3</div></div>
+    <div class="bg-white p-3 rounded-lg border border-slate-200/80 shadow-xs"><div class="text-[11px] text-slate-500 uppercase">Phát sinh tiền</div><div class="text-xl font-bold text-indigo-600">2.150.000 đ</div></div>
+  </div>
+
+  <div class="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-visible">
+    <!-- THANH CÔNG CỤ MẢNH: tìm chung + số phiếu (dòng 1) · nút hành động (dòng 2) -->
+    <div class="p-3 border-b border-slate-100 space-y-2.5">
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="relative w-60"><i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2"></i>
+          <input id="gsearch" oninput="applyFilters()" placeholder="Tìm mã máy, tên khách…" class="w-full h-8 pl-8 pr-2.5 text-xs rounded-md border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-blue-500 outline-none"/></div>
+        <input id="greport" oninput="applyFilters()" placeholder="Số phiếu (tìm toàn cục)…" class="h-8 px-2.5 text-xs rounded-md border border-slate-200 bg-slate-50/50 w-40 outline-none"/>
+        <span class="text-[11px] text-slate-400" id="cnt">4/4 việc</span>
+      </div>
+      <!-- DÒNG 2: Giao việc mới bên TRÁI · nhóm nút bên PHẢI (mục #1 & #2) -->
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <button class="h-8 px-3 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium flex items-center gap-1.5 shadow-xs"><i data-lucide="plus" class="w-3.5 h-3.5"></i> Giao việc mới</button>
+        <div class="flex flex-wrap items-center gap-2">
+          <button class="h-8 px-3 rounded-md border border-slate-200 text-slate-600 text-xs font-medium flex items-center gap-1.5 hover:bg-slate-50"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Tải lại</button>
+          <button class="h-8 px-3 rounded-md border border-emerald-200 text-emerald-700 text-xs font-medium flex items-center gap-1.5 hover:bg-emerald-50"><i data-lucide="file-down" class="w-3.5 h-3.5"></i> Xuất Excel</button>
+          <button class="h-8 px-3 rounded-md border border-slate-200 text-slate-600 text-xs font-medium flex items-center gap-1.5 hover:bg-slate-50"><i data-lucide="copy-x" class="w-3.5 h-3.5"></i> Xóa phiếu trùng</button>
+          <button class="h-8 px-3 rounded-md border border-slate-200 text-slate-600 text-xs font-medium flex items-center gap-1.5 hover:bg-slate-50"><i data-lucide="calendar-arrow-down" class="w-3.5 h-3.5"></i> Cuốn ngày</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHIP bộ lọc đang bật (giải quyết "lọc ẩn dễ quên" của kiểu B) -->
+    <div id="chips" class="px-3 py-2 border-b border-slate-100 flex items-center gap-2 flex-wrap text-xs hidden">
+      <span class="text-slate-400">Đang lọc:</span>
+      <span id="chip-list" class="flex items-center gap-1.5 flex-wrap"></span>
+      <button onclick="clearAll()" class="text-rose-600 hover:underline ml-1">Bỏ lọc</button>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs text-slate-600">
+        <thead class="bg-slate-50/80 text-slate-500 text-[11px] font-semibold uppercase tracking-wide border-b border-slate-200/70">
+          <tr id="hrow">
+            <!-- render theo mode -->
+          </tr>
+          <tr id="frow" class="bg-white"><!-- hàng lọc (chỉ mode A) --></tr>
+        </thead>
+        <tbody id="tbody" class="divide-y divide-slate-100"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Giải thích ngắn -->
+  <div class="grid md:grid-cols-2 gap-3 text-xs">
+    <div class="bg-white rounded-lg border border-slate-200 p-3">
+      <div class="font-semibold text-slate-800 mb-1">B · Phễu Excel <span class="text-blue-600">(khuyến nghị)</span></div>
+      <p class="text-slate-500 leading-relaxed">Mỗi cột lọc được có <b>icon phễu</b> cạnh tên cột; bấm chữ = <b>sắp xếp</b>, bấm phễu = <b>lọc</b>. Không tốn hàng, gọn; phễu <b>sáng xanh</b> + chip "Đang lọc" để không quên. Quen tay như AutoFilter Excel.</p>
+    </div>
+    <div class="bg-white rounded-lg border border-slate-200 p-3">
+      <div class="font-semibold text-slate-800 mb-1">A · Hàng lọc</div>
+      <p class="text-slate-500 leading-relaxed">Một <b>hàng ô lọc luôn hiện</b> dưới tiêu đề — nhìn phát thấy hết, không cần bấm. Đổi lại <b>tốn 1 hàng</b>; cột KM / TG xử lý trống (không có gì để lọc).</p>
+    </div>
+  </div>
+</div>
+
+<!-- popover phễu (mode B) -->
+<div id="pop" class="fixed z-50 hidden w-52 bg-white rounded-lg border border-slate-200 shadow-lg p-2.5"></div>
+
+<script>
+const ROWS = [
+  { ngay:'12/10/2026', chip:'Soạn 09/10', khach:'Công ty TNHH Kỹ thuật Taikisha Việt Nam', diachi:'Lô T5-6-7 KCN Thăng Long 2, Hưng Yên', ma:'36270', model:'Apeos C3061', loai:'Lắp máy', mf:true, ktv:'', km:'40 km', tg:'—', report:'', hd:'', tt:'Chờ nhận' },
+  { ngay:'12/10/2026', chip:'Chưa làm 1 ngày', khach:'Công ty CP Đầu tư Kinh doanh & Thương mại HANEL', diachi:'2 Chùa Bộc, Hà Nội', ma:'35975', model:'bizhub 266i', loai:'Bảo trì', mf:false, ktv:'Nguyễn Hoài Nam', km:'3 km', tg:'—', report:'', hd:'', tt:'Đã nhận' },
+  { ngay:'11/10/2026', chip:'', khach:'Bệnh viện TW Quân đội 108', diachi:'Khoa Dược', ma:'36051', model:'TASKalfa 2553ci', loai:'Giao mực', mf:false, ktv:'Nguyễn Hoài Nam', km:'8 km', tg:'35 phút', report:'958102', hd:'co', tt:'Hoàn thành' },
+  { ngay:'12/10/2026', chip:'Sáng · 08:15', khach:'Ngân hàng MB — CN Cầu Giấy', diachi:'Quầy giao dịch', ma:'34110', model:'bizhub C258', loai:'Sửa chữa', mf:false, ktv:'', km:'5 km', tg:'—', report:'958090', hd:'khong', tt:'Chờ nhận' },
+];
+const LOAI = ['Lắp máy','Bảo trì','Giao mực','Sửa chữa'];
+const KTV = ['Nguyễn Hoài Nam'];
+const TT = ['Chờ nhận','Đã nhận','Đang làm','Hoàn thành','Chưa hoàn thành'];
+// cột: key, label, lọc? (type)
+const COLS = [
+  { k:'ngay', label:'Ngày', filter:'date' },
+  { k:'khach', label:'Khách hàng', filter:null },
+  { k:'ma', label:'Mã máy', filter:null },
+  { k:'loai', label:'Loại việc', filter:'select', opts:LOAI },
+  { k:'ktv', label:'KTV', filter:'select', opts:KTV },
+  { k:'km', label:'KM', filter:null, align:'center' },
+  { k:'tg', label:'TG xử lý', filter:null, align:'center' },
+  { k:'hd', label:'Báo cáo HĐ', filter:'hd' },
+  { k:'tt', label:'Trạng thái', filter:'select', opts:TT },
+  { k:'act', label:'Thao tác', filter:null, align:'right' },
+];
+let mode='B';
+const F = { loai:'', ktv:'', hd:'', tt:'' }; // trạng thái lọc cột
+
+const ttCls = t => t==='Hoàn thành'?'bg-emerald-50 text-emerald-700 border-emerald-200':t==='Đang làm'?'bg-blue-50 text-blue-700 border-blue-200':t==='Chưa hoàn thành'?'bg-amber-50 text-amber-700 border-amber-200':t==='Đã nhận'?'bg-violet-50 text-violet-700 border-violet-200':'bg-slate-100 text-slate-700 border-slate-200';
+
+function setMode(m){ mode=m;
+  document.getElementById('mb-B').className = m==='B'?'px-3 py-1.5 rounded-md text-xs font-semibold bg-blue-600 text-white':'px-3 py-1.5 rounded-md text-xs font-semibold text-slate-600 hover:bg-slate-100';
+  document.getElementById('mb-A').className = m==='A'?'px-3 py-1.5 rounded-md text-xs font-semibold bg-blue-600 text-white':'px-3 py-1.5 rounded-md text-xs font-semibold text-slate-600 hover:bg-slate-100';
+  hidePop(); renderHead(); applyFilters();
+}
+
+function renderHead(){
+  const hrow=document.getElementById('hrow'); const frow=document.getElementById('frow');
+  const alignH = a => a==='right'?'text-right':a==='center'?'text-center':'text-left';
+  hrow.innerHTML = COLS.map(c=>{
+    const act = c.filter && F[c.k] ? 'on text-blue-600' : '';
+    const sortIc = `<i data-lucide="chevrons-up-down" class="w-3 h-3 text-slate-300 inline"></i>`;
+    const fnl = (mode==='B' && c.filter) ? `<button onclick="openPop(event,'${c.k}','${c.filter}')" class="fnl ml-1 align-middle"><i data-lucide="filter" class="w-3 h-3 ${F[c.k]?'text-blue-600':'text-slate-400'}"></i></button>` : '';
+    return `<th class="px-3 py-2 ${alignH(c.align)} ${act}"><span class="inline-flex items-center gap-1 cursor-pointer hover:text-slate-700">${c.label} ${sortIc}</span>${fnl}</th>`;
+  }).join('');
+  // hàng lọc chỉ cho mode A
+  if(mode==='A'){
+    frow.classList.remove('hidden');
+    frow.innerHTML = COLS.map(c=>{
+      if(c.k==='khach') return `<td class="px-3 py-1.5"><input placeholder="Lọc khách / mã máy" oninput="setF('khach',this.value)" value="${F.khach||''}" class="w-full h-7 px-2 text-[11px] rounded border border-slate-200 bg-slate-50/50 outline-none focus:border-blue-500"/></td>`;
+      if(c.filter==='date') return `<td class="px-3 py-1.5"><div class="h-7 px-2 text-[11px] rounded border border-slate-200 bg-slate-50/50 flex items-center text-slate-400">Khoảng ngày…</div></td>`;
+      if(c.filter==='select') return `<td class="px-3 py-1.5">${selHtml(c.k,c.opts)}</td>`;
+      if(c.filter==='hd') return `<td class="px-3 py-1.5">${hdSel(c.k)}</td>`;
+      return `<td class="px-3 py-1.5"></td>`;
+    }).join('');
+  } else { frow.classList.add('hidden'); frow.innerHTML=''; }
+  lucide.createIcons();
+}
+function selHtml(k,opts){ return `<select onchange="setF('${k}',this.value)" class="w-full h-7 px-1.5 text-[11px] rounded border border-slate-200 bg-slate-50/50 outline-none"><option value="">Tất cả</option>${opts.map(o=>`<option ${F[k]===o?'selected':''}>${o}</option>`).join('')}</select>`; }
+function hdSel(k){ return `<select onchange="setF('${k}',this.value)" class="w-full h-7 px-1.5 text-[11px] rounded border border-slate-200 bg-slate-50/50 outline-none"><option value="">Tất cả</option><option value="co" ${F[k]==='co'?'selected':''}>Có HĐ</option><option value="khong" ${F[k]==='khong'?'selected':''}>Chưa HĐ</option></select>`; }
+
+let khachQ=''; // ô lọc khách của mode A
+function setF(k,v){ if(k==='khach'){khachQ=v;} else F[k]=v; applyFilters(); hidePop(); if(mode==='A'&&k!=='khach'){} else renderChips(); if(mode==='B')renderHead(); }
+
+// popover phễu (mode B)
+function openPop(e,k,type){ e.stopPropagation();
+  const pop=document.getElementById('pop'); const r=e.currentTarget.getBoundingClientRect();
+  let inner='';
+  if(type==='date') inner=`<div class="text-[11px] text-slate-500 mb-1">Khoảng ngày</div><div class="flex items-center gap-1"><input type="date" class="h-7 text-[11px] border border-slate-200 rounded px-1 flex-1"/><span>–</span><input type="date" class="h-7 text-[11px] border border-slate-200 rounded px-1 flex-1"/></div>`;
+  else if(type==='select'){ const c=COLS.find(x=>x.k===k); inner=selHtml(k,c.opts); }
+  else if(type==='hd') inner=hdSel(k);
+  pop.innerHTML = inner + `<div class="flex justify-between mt-2 pt-2 border-t border-slate-100"><button onclick="setF('${k}','')" class="text-[11px] text-slate-500 hover:underline">Xóa</button><button onclick="hidePop()" class="text-[11px] text-blue-600 font-medium">Xong</button></div>`;
+  pop.style.top=(r.bottom+4)+'px'; pop.style.left=Math.min(r.left, innerWidth-220)+'px'; pop.classList.remove('hidden');
+  lucide.createIcons();
+}
+function hidePop(){ document.getElementById('pop').classList.add('hidden'); }
+document.addEventListener('click', e=>{ if(!e.target.closest('#pop') && !e.target.closest('.fnl')) hidePop(); });
+
+function renderChips(){
+  const active=[];
+  if(F.loai) active.push(['Loại: '+F.loai,'loai']);
+  if(F.ktv) active.push(['KTV: '+F.ktv,'ktv']);
+  if(F.hd) active.push([(F.hd==='co'?'Có HĐ':'Chưa HĐ'),'hd']);
+  if(F.tt) active.push(['Trạng thái: '+F.tt,'tt']);
+  const box=document.getElementById('chips'); const list=document.getElementById('chip-list');
+  if(active.length===0 || mode==='A'){ box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  list.innerHTML = active.map(([lab,k])=>`<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">${lab}<button onclick="setF('${k}','')" class="hover:text-blue-900">✕</button></span>`).join('');
+}
+
+function clearAll(){ F.loai='';F.ktv='';F.hd='';F.tt='';khachQ=''; document.getElementById('gsearch').value='';document.getElementById('greport').value=''; renderHead(); applyFilters(); }
+
+const norm=s=>String(s||'').toLowerCase();
+function applyFilters(){
+  const g=norm(document.getElementById('gsearch').value); const rep=norm(document.getElementById('greport').value);
+  const rows=ROWS.filter(r=>{
+    if(rep) return norm(r.report).includes(rep);
+    if(g && !(norm(r.khach).includes(g)||norm(r.ma).includes(g))) return false;
+    if(khachQ && !(norm(r.khach).includes(norm(khachQ))||norm(r.ma).includes(norm(khachQ)))) return false;
+    if(F.loai && r.loai!==F.loai) return false;
+    if(F.ktv && r.ktv!==F.ktv) return false;
+    if(F.hd && r.hd!==F.hd) return false;
+    if(F.tt && r.tt!==F.tt) return false;
+    return true;
+  });
+  const tb=document.getElementById('tbody');
+  tb.innerHTML = rows.length? rows.map(r=>`<tr class="hover:bg-slate-50/70">
+    <td class="px-3 py-2.5 whitespace-nowrap">${r.ngay}${r.chip?`<div class="mt-0.5 w-fit text-[8px] font-medium border rounded px-1 py-px bg-slate-100 text-slate-500 border-slate-200">${r.chip}</div>`:''}</td>
+    <td class="px-3 py-2.5"><div class="font-medium text-slate-800">${r.khach}</div><div class="text-[11px] text-slate-500">📍 ${r.diachi}</div></td>
+    <td class="px-3 py-2.5"><div class="mono">${r.ma}</div><div class="text-[11px] text-slate-400">${r.model}</div></td>
+    <td class="px-3 py-2.5">${r.loai} ${r.mf?'<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border bg-violet-50 text-violet-700 border-violet-200">MF</span>':''}</td>
+    <td class="px-3 py-2.5">${r.ktv?`<span class="font-medium text-slate-800">${r.ktv}</span>`:'<span class="text-amber-600 italic">Chưa giao</span>'}</td>
+    <td class="px-3 py-2.5 text-center">${r.km}</td>
+    <td class="px-3 py-2.5 text-center text-slate-500">${r.tg}</td>
+    <td class="px-3 py-2.5">${r.report?`<div class="text-slate-700">Phiếu: ${r.report}</div>`:''}${r.hd==='co'?'<div class="text-emerald-600">Có HĐ: 1.250.000 đ</div>':r.hd==='khong'?'<div class="text-amber-600">Chưa HĐ: 900.000 đ</div>':''}</td>
+    <td class="px-3 py-2.5"><span class="inline-block px-2.5 py-1 rounded-full text-xs font-medium border ${ttCls(r.tt)}">${r.tt}</span></td>
+    <td class="px-3 py-2.5 text-right"><span class="inline-flex gap-1"><span class="w-7 h-7 rounded border border-blue-200 text-blue-600 inline-flex items-center justify-center"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></span><span class="w-7 h-7 rounded border border-rose-200 text-rose-600 inline-flex items-center justify-center"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></span></span></td>
+  </tr>`).join('') : `<tr><td colspan="10" class="px-3 py-10 text-center text-slate-400 italic">Không có việc khớp bộ lọc.</td></tr>`;
+  document.getElementById('cnt').textContent = `${rows.length}/${ROWS.length} việc`;
+  renderChips();
+  lucide.createIcons();
+}
+
+renderHead(); applyFilters();
+lucide.createIcons();
+</script>
+</body>
+</html>

@@ -1,15 +1,30 @@
 // Lớp gọi API Giao việc — tái dùng ĐÚNG route handler cũ (/api/admin/cong-viec, khach-hang).
 import type { Job, JobForm } from './types'
 
-export type JobQuery = { tuNgay?: string; denNgay?: string; date?: string; report?: string; ket_qua?: string }
+export type JobQuery = { tuNgay?: string; denNgay?: string; date?: string; report?: string; ket_qua?: string; q?: string }
 
-export function buildJobsUrl(q: JobQuery): string {
+export function buildJobsUrl(query: JobQuery): string {
   const p = new URLSearchParams()
-  if (q.report?.trim()) p.set('report', q.report.trim())
-  else if (q.date) p.set('date', q.date)
-  else { if (q.tuNgay) p.set('tuNgay', q.tuNgay); if (q.denNgay) p.set('denNgay', q.denNgay) }
-  if (q.ket_qua) p.set('ket_qua', q.ket_qua)
+  if (query.report?.trim()) p.set('report', query.report.trim())
+  else if (query.date) p.set('date', query.date)
+  else { if (query.tuNgay) p.set('tuNgay', query.tuNgay); if (query.denNgay) p.set('denNgay', query.denNgay) }
+  if (query.ket_qua) p.set('ket_qua', query.ket_qua)
+  if (query.q?.trim()) p.set('q', query.q.trim())   // tìm toàn cục (server)
   return `/api/admin/cong-viec?${p.toString()}`
+}
+
+export type DedupeInfo = { groups: number; extras: number }
+export async function dedupeInfo(): Promise<DedupeInfo> {
+  const res = await fetch('/api/admin/cong-viec/dedupe')
+  const j = await res.json()
+  if (!res.ok) throw new Error(j.error || 'Lỗi quét phiếu trùng')
+  return { groups: j.groups, extras: j.extras }
+}
+export async function dedupeRun(): Promise<{ removed: number; groups: number }> {
+  const res = await fetch('/api/admin/cong-viec/dedupe', { method: 'POST' })
+  const j = await res.json()
+  if (!res.ok) throw new Error(j.error || 'Lỗi dọn phiếu trùng')
+  return { removed: j.removed, groups: j.groups }
 }
 
 export async function listJobs(q: JobQuery): Promise<Job[]> {

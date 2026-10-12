@@ -270,6 +270,23 @@ export async function GET(request: Request) {
     const tuNgay = searchParams.get('tuNgay') || ''   // lọc từ ngày (YYYY-MM-DD)
     const denNgay = searchParams.get('denNgay') || '' // lọc đến ngày
     const ketQuaList = searchParams.get('ket_qua') || '' // lọc theo trạng thái
+    // Tìm toàn cục (mã máy + tên/địa chỉ/vị trí khách) — server-side để tìm được cả phiếu ngoài trang đã tải.
+    // Chỉ UI 2027 gửi `q`; các client cũ không gửi nên không ảnh hưởng.
+    const q = (searchParams.get('q') || '').trim()
+    // Lọc ký tự phá cú pháp PostgREST .or()/.in() rồi mới nội suy.
+    const qSafe = q.replace(/[,()]/g, ' ').trim()
+
+    // q có giá trị -> tìm trước các khách khớp tên/địa chỉ (embed không OR được với bảng gốc),
+    // rồi lọc cong_viec theo (mã máy ilike q) HOẶC (id_khach_hang thuộc danh sách khách khớp).
+    let khIdsForQ: string[] = []
+    if (qSafe) {
+      const { data: khs } = await supabaseAdmin
+        .from('soct_khach_hang')
+        .select('id')
+        .or(`ten_khach_hang.ilike.%${qSafe}%,dia_chi.ilike.%${qSafe}%,vi_tri_dat_may.ilike.%${qSafe}%`)
+        .limit(2000)
+      khIdsForQ = (khs || []).map((k: any) => k.id)
+    }
 
     const data = await selectAll((from, to) => {
       let query = supabaseAdmin
@@ -334,6 +351,12 @@ export async function GET(request: Request) {
       }
       if (ketQuaList) {
         query = query.in('ket_qua', ketQuaList.split(','))
+      }
+      // Tìm toàn cục: mã máy khớp HOẶC thuộc khách khớp tên/địa chỉ (áp CÙNG khoảng ngày ở trên).
+      if (qSafe) {
+        const ors = [`ma_may.ilike.%${qSafe}%`]
+        if (khIdsForQ.length > 0) ors.push(`id_khach_hang.in.(${khIdsForQ.join(',')})`)
+        query = query.or(ors.join(','))
       }
       return query
     })

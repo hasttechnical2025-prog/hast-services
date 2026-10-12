@@ -1,26 +1,26 @@
 'use client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ClipboardList, CheckCircle2, Clock, Wallet, RefreshCw, Plus, Pencil, Trash2, MapPin, Send, Hand } from 'lucide-react'
+import { ClipboardList, CheckCircle2, Clock, Wallet, RefreshCw, Plus, Pencil, Trash2, MapPin, Send, Hand, Search, Hash, Server, FileDown, CalendarArrowDown, CopyX } from 'lucide-react'
 import DateField from '@/components/DateField'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { fmtThoiLuong } from '@/lib/thoi-gian'
 import { phieuTaoChip, buoiGio, PHIEU_TAO_TONE } from '@/lib/phieu-tao'
+import { exportRowsToExcel } from '@/lib/excel'
 import { JOBS_TOPIC, JOBS_EVENT } from '@/lib/realtime'
 import { useRealtimeRefetch } from '@/lib/useRealtime'
 import { useShared } from '@/features/_shell/SharedDataProvider'
 import { useSession } from '@/features/_shell/SessionProvider'
 import {
-  StatCard, StatRow, DataTable, type Column, SearchInput, Card, Toolbar,
-  Badge, DateText, fmtMoney, normVi,
+  StatCard, StatRow, DataTable, type Column, type ColumnFilter, Card,
+  DateText, fmtMoney, fmtDate,
 } from '@/ui'
-import { listJobs, deleteJob } from './api'
+import { listJobs, deleteJob, dedupeInfo, dedupeRun } from './api'
 import { JobFormModal } from './JobForm'
 import { LoaiViecCell } from './LoaiViecCell'
 import { todayVN, jobTien, LOAI_CV_FALLBACK, type Job } from './types'
 
 const STATUSES = ['Chờ nhận', 'Đã nhận', 'Đang làm', 'Hoàn thành', 'Chưa hoàn thành']
 
-// Badge trạng thái — màu khớp bản admin hiện tại (Đã nhận = tím, Đang làm = xanh dương…).
 function statusCls(k: string): string {
   if (k === 'Hoàn thành') return 'bg-emerald-50 text-emerald-700 border-emerald-200'
   if (k === 'Đang làm') return 'bg-blue-50 text-blue-700 border-blue-200'
@@ -34,53 +34,76 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
   const { user } = useSession()
   const role = user?.role || ''
   const canCreate = ['admin', 'tech_admin', 'staff'].includes(role)
-  const canDelete = role !== 'staff'   // admin/tech_admin (parity: non-staff)
+  const canDelete = role !== 'staff'                 // admin/tech_admin
+  const canAdminTools = ['admin', 'tech_admin'].includes(role)  // Cuốn ngày
+  const isAdmin = role === 'admin'                    // Xóa phiếu trùng
   const { confirm, confirmNode } = useConfirm()
 
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
+  // 3 bộ lọc SERVER (dòng 1)
   const [tuNgay, setTuNgay] = useState(todayVN())
   const [denNgay, setDenNgay] = useState(todayVN())
-  const [q, setQ] = useState('')
-  const [report, setReport] = useState('')
-  const [ktvId, setKtvId] = useState('')
-  const [status, setStatus] = useState('')
-  const [hoaDon, setHoaDon] = useState('')     // '', 'co', 'khong'
-  const [loaiViec, setLoaiViec] = useState('')
+  const [q, setQ] = useState('')          // tìm mã máy / tên khách (toàn cục)
+  const [report, setReport] = useState('') // số phiếu (toàn cục, bỏ qua ngày)
+  // 4 bộ lọc CLIENT (trong cột, dạng phễu)
+  const [colFilters, setColFilters] = useState<Record<string, string>>({})
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Job | null>(null)
+  const [busyTool, setBusyTool] = useState(false)
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true)
     try {
-      // report có giá trị -> tìm TOÀN CỤC theo số phiếu (bỏ khoảng ngày); ngược lại lọc theo khoảng ngày.
-      const data = await listJobs(report.trim() ? { report, ket_qua: status || undefined } : { tuNgay, denNgay, ket_qua: status || undefined })
+      const data = await listJobs({ tuNgay, denNgay, q, report })
       setJobs(data)
     } catch (e: any) {
       if (e?.message !== 'UNAUTH') notify('error', e?.message || 'Lỗi tải danh sách')
     } finally { setLoading(false) }
-  }, [tuNgay, denNgay, status, report, notify])
+  }, [tuNgay, denNgay, q, report, notify])
 
-  useEffect(() => { load() }, [load])
+  // Đổi bộ lọc server -> debounce nạp lại dữ liệu.
+  useEffect(() => { const t = setTimeout(() => load(), 300); return () => clearTimeout(t) }, [load])
   useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => load(true), true, 30000)
 
   const loaiOptions = dmOptions('loai_cong_viec', LOAI_CV_FALLBACK)
 
-  // Lọc client (kết hợp AND) — khớp filteredJobs admin.
-  const filtered = useMemo(() => {
-    let out = jobs
-    if (ktvId) out = out.filter(j => j.ktv_id === ktvId || j.ktv2_id === ktvId)
-    if (loaiViec) out = out.filter(j => j.loai_cong_viec === loaiViec)
-    if (hoaDon) out = out.filter(j => jobTien(j).coHD === (hoaDon === 'co'))
-    const nq = normVi(q)
-    if (nq) out = out.filter(j => normVi([j.soct_khach_hang?.ten_khach_hang, j.soct_khach_hang?.dia_chi, j.soct_khach_hang?.vi_tri_dat_may, j.ma_may].join(' ')).includes(nq))
-    return out
-  }, [jobs, ktvId, loaiViec, hoaDon, q])
+  // Định nghĩa phễu lọc cột (option + test). Dùng cho CẢ việc lọc (module) và vẽ phễu (DataTable).
+  const filterDefs = useMemo(() => {
+    const defs: Record<string, ColumnFilter<Job>> = {
+      loai: { title: 'Loại việc', options: loaiOptions.map(o => ({ value: o, label: o, test: (j: Job) => j.loai_cong_viec === o })) },
+      ktv: {
+        title: 'KTV', options: [
+          { value: 'none', label: 'Chưa giao', test: (j: Job) => !j.ktv_id },
+          ...users.filter(u => u.role === 'ktv').map(u => ({ value: u.id, label: u.full_name, test: (j: Job) => j.ktv_id === u.id })),
+        ],
+      },
+      hd: {
+        title: 'HĐ', options: [
+          { value: 'co', label: 'Có hóa đơn', test: (j: Job) => jobTien(j).coHD },
+          { value: 'chua', label: 'Chưa hóa đơn', test: (j: Job) => { const { tong, coHD } = jobTien(j); return !coHD && tong > 0 } },
+          { value: 'cotien', label: 'Có phát sinh tiền', test: (j: Job) => jobTien(j).tong > 0 },
+        ],
+      },
+      tt: { title: 'Trạng thái', options: STATUSES.map(s => ({ value: s, label: s, test: (j: Job) => j.ket_qua === s })) },
+    }
+    return defs
+  }, [loaiOptions, users])
 
-  // KPI — khớp jobStats admin (tính trên danh sách ĐÃ lọc).
+  // Áp phễu cột (client) -> danh sách đang hiển thị (dùng cho KPI + Xuất Excel + DataTable).
+  const visibleRows = useMemo(() => {
+    let out = jobs
+    for (const [key, val] of Object.entries(colFilters)) {
+      if (!val) continue
+      const opt = filterDefs[key]?.options.find(o => o.value === val)
+      if (opt) out = out.filter(opt.test)
+    }
+    return out
+  }, [jobs, colFilters, filterDefs])
+
   const stats = useMemo(() => {
     let done = 0, doing = 0, waiting = 0, unassigned = 0, revenue = 0, revenueHD = 0
-    for (const j of filtered) {
+    for (const j of visibleRows) {
       if (j.ket_qua === 'Hoàn thành') done++
       else if (j.ket_qua === 'Đang làm' || j.ket_qua === 'Đã nhận') doing++
       else if (j.ket_qua === 'Chờ nhận') waiting++
@@ -89,8 +112,8 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
       revenue += tong
       if (coHD) revenueHD += tong
     }
-    return { total: filtered.length, done, doing, waiting, unassigned, revenue, revenueHD }
-  }, [filtered])
+    return { total: visibleRows.length, done, doing, waiting, unassigned, revenue, revenueHD }
+  }, [visibleRows])
 
   const canEditJob = (j: Job) => ['Chờ nhận', 'Đã nhận'].includes(j.ket_qua) || role === 'admin'
   const openCreate = () => { setEditing(null); setFormOpen(true) }
@@ -105,38 +128,72 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
     catch (e: any) { notify('error', e?.message || 'Lỗi xóa phiếu') }
   }
 
-  const clearFilters = () => { setQ(''); setReport(''); setKtvId(''); setStatus(''); setHoaDon(''); setLoaiViec(''); setTuNgay(todayVN()); setDenNgay(todayVN()) }
-  const filterActive = !!(q || report || ktvId || status || hoaDon || loaiViec)
+  // Xuất Excel — CHỈ danh sách đang lọc (visibleRows), 14 cột khớp bản admin.
+  const exportExcel = async () => {
+    const headers = ['Ngày', 'Số phiếu', 'Khách hàng', 'Địa chỉ', 'Mã máy', 'Model', 'SL', 'Loại việc', 'Mã hàng', 'Tên hàng', 'KTV', 'KM', 'Trạng thái', 'Ghi chú']
+    const rows = visibleRows.map(j => {
+      const vt = j.soct_chi_tiet_vat_tu || []
+      return [
+        fmtDate(j.ngay), j.report || '', j.soct_khach_hang?.ten_khach_hang || '',
+        j.soct_khach_hang?.vi_tri_dat_may || j.soct_khach_hang?.dia_chi || '', j.ma_may || '',
+        j.soct_khach_hang?.model || '', j.so_luong || 1, j.loai_cong_viec,
+        vt.map(v => v.ma_hang).filter(Boolean).join(', '),
+        vt.map(v => v.soct_kho_hang?.ten_hang || v.ma_hang).filter(Boolean).join(', '),
+        j.soct_users?.full_name || 'Chưa giao', j.km, j.ket_qua, j.ghi_chu || '',
+      ]
+    })
+    try { await exportRowsToExcel('so-cong-tac', headers, rows) }
+    catch { notify('error', 'Lỗi xuất Excel') }
+  }
+
+  // Cuốn ngày (admin/tech_admin) — chuyển phiếu chưa làm sang ngày làm việc kế tiếp.
+  const cuonNgay = async () => {
+    if (!(await confirm('Cuốn phiếu chưa hoàn thành sang hôm nay?\n(Phiếu chưa làm sẽ được đẩy ngày + tăng số lần cuốn.)', { confirmLabel: 'Cuốn ngày', danger: false }))) return
+    setBusyTool(true)
+    try {
+      const res = await fetch('/api/cron/cuon-ngay-phieu?force=1')
+      const j = await res.json()
+      if (!res.ok) throw new Error(j.error || 'Lỗi')
+      notify('success', `Đã cuốn ${j.cuon ?? 0} phiếu.`)
+      load(true)
+    } catch (e: any) { notify('error', e?.message || 'Lỗi cuốn ngày') }
+    finally { setBusyTool(false) }
+  }
+
+  // Xóa phiếu trùng (admin) — giữ 1 phiếu/số phiếu (bản sớm nhất).
+  const xoaTrung = async () => {
+    setBusyTool(true)
+    try {
+      const info = await dedupeInfo()
+      if (info.extras === 0) { notify('success', 'Không có phiếu trùng số phiếu. 👍'); return }
+      const ok = await confirm(`Tìm thấy ${info.groups} số phiếu trùng → sẽ xóa ${info.extras} phiếu thừa (giữ bản tạo sớm nhất; vật tư phiếu thừa bị xóa theo).\nKhông thể hoàn tác.`, { confirmLabel: `Xóa ${info.extras} phiếu thừa`, danger: true })
+      if (!ok) return
+      const r = await dedupeRun()
+      notify('success', `Đã xóa ${r.removed} phiếu trùng (${r.groups} số phiếu).`)
+      load(true)
+    } catch (e: any) { notify('error', e?.message || 'Lỗi dọn phiếu trùng') }
+    finally { setBusyTool(false) }
+  }
 
   const columns: Column<Job>[] = [
     {
       key: 'ngay', header: 'Ngày', sortValue: j => j.ngay,
       render: j => {
         const chip = phieuTaoChip(j.created_at, j.ngay, j.so_lan_cuon, j.ket_qua)
-        return (
-          <div className="whitespace-nowrap">
-            <DateText value={j.ngay} />
-            {chip && <div className={`mt-0.5 block w-fit text-[8px] leading-tight font-medium border rounded px-1 py-px ${PHIEU_TAO_TONE[chip.tone]}`} title={chip.title}>{chip.label}</div>}
-          </div>
-        )
+        return <div className="whitespace-nowrap"><DateText value={j.ngay} />{chip && <div className={`mt-0.5 block w-fit text-[8px] leading-tight font-medium border rounded px-1 py-px ${PHIEU_TAO_TONE[chip.tone]}`} title={chip.title}>{chip.label}</div>}</div>
       },
     },
     {
       key: 'khach', header: 'Khách hàng', sortValue: j => j.soct_khach_hang?.ten_khach_hang || '',
-      render: j => (
-        <div className="min-w-0">
-          <div className="font-medium text-slate-800 truncate">{j.soct_khach_hang?.ten_khach_hang || '—'}</div>
-          <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5 truncate"><MapPin className="w-3 h-3 shrink-0" />{j.soct_khach_hang?.vi_tri_dat_may || j.soct_khach_hang?.dia_chi || ''}</div>
-        </div>
-      ),
+      render: j => <div className="min-w-0"><div className="font-medium text-slate-800 truncate">{j.soct_khach_hang?.ten_khach_hang || '—'}</div><div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5 truncate"><MapPin className="w-3 h-3 shrink-0" />{j.soct_khach_hang?.vi_tri_dat_may || j.soct_khach_hang?.dia_chi || ''}</div></div>,
     },
     {
       key: 'ma_may', header: 'Mã máy', sortValue: j => j.ma_may || '',
       render: j => <div><div className="font-mono text-xs">{j.ma_may || '-'}</div>{j.soct_khach_hang?.model && <div className="text-[11px] text-slate-400 mt-0.5">{j.soct_khach_hang.model}</div>}</div>,
     },
-    { key: 'loai', header: 'Loại việc', sortValue: j => j.loai_cong_viec, render: j => <span className="flex items-center gap-1"><LoaiViecCell job={j} />{j.mien_phi && <Badge tone="violet">MF</Badge>}</span> },
+    { key: 'loai', header: 'Loại việc', sortValue: j => j.loai_cong_viec, filter: filterDefs.loai, render: j => <LoaiViecCell job={j} /> },
     {
-      key: 'ktv', header: 'KTV', sortValue: j => j.soct_users?.full_name || '',
+      key: 'ktv', header: 'KTV', sortValue: j => j.soct_users?.full_name || '', filter: filterDefs.ktv,
       render: j => j.soct_users?.full_name
         ? <div><div className="font-medium text-slate-800">{j.soct_users.full_name}</div>{j.ktv2?.full_name && <div className="text-[11px] text-slate-500 mt-0.5">+ {j.ktv2.full_name} <span className="text-[10px] text-slate-400 italic">(kèm)</span></div>}</div>
         : <span className="text-amber-600 italic">Chưa giao</span>,
@@ -144,23 +201,17 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
     { key: 'km', header: 'KM', align: 'center', sortValue: j => Number(j.km) || 0, render: j => <span className="text-xs">{j.km ? `${Number(j.km).toLocaleString('vi-VN')} km` : '0 km'}</span> },
     { key: 'tg', header: 'TG xử lý', align: 'center', sortValue: j => Number(j.so_phut_xu_ly) || 0, render: j => <span className="text-xs text-slate-500">{fmtThoiLuong(j.so_phut_xu_ly)}</span> },
     {
-      key: 'bao_cao', header: 'Báo cáo HĐ', sortValue: j => jobTien(j).tong,
+      key: 'bao_cao', header: 'Báo cáo HĐ', sortValue: j => jobTien(j).tong, filter: filterDefs.hd,
       render: j => {
         const allVt = j.soct_chi_tiet_vat_tu || []
         const active = allVt.filter(v => !v.da_tra)
         const returned = allVt.length - active.length
         const { tong, coHD } = jobTien(j)
-        return (
-          <div className="text-xs">
-            {j.report && <div className="text-slate-700">Phiếu: {j.report}</div>}
-            {active.length > 0 && <div className={coHD ? 'text-emerald-600' : 'text-amber-600'}>{coHD ? 'Có HĐ' : 'Chưa HĐ'}: {fmtMoney(tong)} đ</div>}
-            {returned > 0 && <div className="text-indigo-600 text-[11px] font-medium">↩ Đã trả kho {returned}/{allVt.length}</div>}
-          </div>
-        )
+        return <div className="text-xs">{j.report && <div className="text-slate-700">Phiếu: {j.report}</div>}{active.length > 0 && <div className={coHD ? 'text-emerald-600' : 'text-amber-600'}>{coHD ? 'Có HĐ' : 'Chưa HĐ'}: {fmtMoney(tong)} đ</div>}{returned > 0 && <div className="text-indigo-600 text-[11px] font-medium">↩ Đã trả kho {returned}/{allVt.length}</div>}</div>
       },
     },
     {
-      key: 'ket_qua', header: 'Trạng thái', sortValue: j => j.ket_qua,
+      key: 'tt', header: 'Trạng thái', sortValue: j => j.ket_qua, filter: filterDefs.tt,
       render: j => {
         const chip = j.ket_qua === 'Hoàn thành' ? buoiGio(j.hoan_thanh_luc) : null
         return (
@@ -188,7 +239,8 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
     },
   ]
 
-  const selCls = 'h-8 px-2.5 text-xs rounded-md border border-slate-200 bg-slate-50/50 focus:bg-white outline-none'
+  const fieldCls = 'h-9 px-2.5 text-xs rounded-md border border-slate-200 bg-white outline-none focus:border-blue-500'
+  const btnOutline = 'h-9 px-3 rounded-md border border-slate-200 text-slate-600 text-xs font-medium flex items-center gap-1.5 hover:bg-slate-50 disabled:opacity-50'
 
   return (
     <div className="space-y-4">
@@ -200,42 +252,42 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
       </StatRow>
 
       <Card>
-        <Toolbar
-          left={<>
-            <SearchInput value={q} onChange={setQ} placeholder="Tìm mã máy, tên khách…" className="w-52" />
-            <input value={report} onChange={e => setReport(e.target.value)} placeholder="Số phiếu…" className={`${selCls} w-28`} />
-            <DateField value={tuNgay} onChange={setTuNgay} className="w-32" />
-            <span className="text-slate-400 text-xs">→</span>
-            <DateField value={denNgay} onChange={setDenNgay} className="w-32" />
-            <select className={selCls} value={loaiViec} onChange={e => setLoaiViec(e.target.value)}>
-              <option value="">Loại việc: Tất cả</option>
-              {loaiOptions.map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-            <select className={selCls} value={ktvId} onChange={e => setKtvId(e.target.value)}>
-              <option value="">KTV: Tất cả</option>
-              {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
-            </select>
-            <select className={selCls} value={hoaDon} onChange={e => setHoaDon(e.target.value)}>
-              <option value="">HĐ: Tất cả</option>
-              <option value="co">Có HĐ</option>
-              <option value="khong">Chưa HĐ</option>
-            </select>
-            <select className={selCls} value={status} onChange={e => setStatus(e.target.value)}>
-              <option value="">Trạng thái: Tất cả</option>
-              {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-            {filterActive && <button onClick={clearFilters} className="text-xs text-rose-600 hover:underline">Bỏ lọc</button>}
-            <span className="text-[11px] text-slate-400">{filtered.length}/{jobs.length} việc</span>
-          </>}
-          right={<>
-            <button onClick={() => load()} className="h-8 px-3 rounded-md border border-slate-200 text-slate-600 text-xs font-medium flex items-center gap-1.5 hover:bg-slate-50"><RefreshCw className="w-3.5 h-3.5" /> Tải lại</button>
-            {canCreate && <button onClick={openCreate} className="h-8 px-3 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium flex items-center gap-1.5 shadow-xs"><Plus className="w-3.5 h-3.5" /> Giao việc mới</button>}
-          </>}
-        />
+        {/* TOOLBAR */}
+        <div className="p-3 border-b border-slate-100 space-y-2.5">
+          {/* Dòng 1 — 3 bộ lọc SERVER */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs text-slate-500">
+              <span>Ngày</span>
+              <DateField value={tuNgay} onChange={v => setTuNgay(v)} heightClass="h-9" className="w-36" />
+              <span>–</span>
+              <DateField value={denNgay} onChange={v => setDenNgay(v)} heightClass="h-9" className="w-36" />
+            </div>
+            <div className="relative w-60"><Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã máy, tên khách hàng…" className={`${fieldCls} w-full pl-9`} /></div>
+            <div className="relative w-44"><Hash className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" /><input value={report} onChange={e => setReport(e.target.value)} placeholder="Số phiếu…" className={`${fieldCls} w-full pl-9`} /></div>
+            <span className="text-[11px] text-slate-400 inline-flex items-center gap-1"><Server className="w-3 h-3" /> 3 bộ lọc trên nạp lại dữ liệu từ máy chủ</span>
+            <span className="text-[11px] text-slate-400 ml-auto">{visibleRows.length}/{jobs.length} việc</span>
+          </div>
+          {/* Dòng 2 — Giao việc mới (trái) · nhóm nút (phải) */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {canCreate
+              ? <button onClick={openCreate} className="h-9 px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold flex items-center gap-1.5 shadow-xs"><Plus className="w-4 h-4" /> Giao việc mới</button>
+              : <span />}
+            <div className="flex flex-wrap items-center gap-2">
+              <button onClick={exportExcel} className="h-9 px-3 rounded-md border border-emerald-200 text-emerald-700 text-xs font-medium flex items-center gap-1.5 hover:bg-emerald-50"><FileDown className="w-3.5 h-3.5" /> Xuất Excel <span className="text-[10px] text-emerald-500">(đang lọc)</span></button>
+              {canAdminTools && <button onClick={cuonNgay} disabled={busyTool} className={btnOutline}><CalendarArrowDown className="w-3.5 h-3.5" /> Cuốn ngày</button>}
+              {isAdmin && <button onClick={xoaTrung} disabled={busyTool} className="h-9 px-3 rounded-md border border-amber-300 text-amber-700 text-xs font-medium flex items-center gap-1.5 hover:bg-amber-50 disabled:opacity-50"><CopyX className="w-3.5 h-3.5" /> Xóa phiếu trùng</button>}
+              <button onClick={() => load()} className={btnOutline}><RefreshCw className="w-3.5 h-3.5" /> Tải lại</button>
+            </div>
+          </div>
+        </div>
+
         <DataTable
-          columns={columns} rows={filtered} rowKey={(j) => j.id} loading={loading}
+          columns={columns} rows={visibleRows} rowKey={(j) => j.id} loading={loading}
           defaultSort={{ key: 'ngay', asc: false }}
-          empty={filterActive ? 'Không có việc khớp bộ lọc.' : 'Chưa có công việc nào.'}
+          filters={colFilters}
+          onFilterChange={(k, v) => setColFilters(f => ({ ...f, [k]: v }))}
+          onClearFilters={() => setColFilters({})}
+          empty={(q || report || Object.values(colFilters).some(Boolean)) ? 'Không có việc khớp bộ lọc.' : 'Chưa có công việc nào.'}
         />
       </Card>
 
