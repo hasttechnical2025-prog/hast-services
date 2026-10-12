@@ -11,6 +11,8 @@ export type SessionUser = { id: string; full_name: string; role: string }
 type Ctx = {
   user: SessionUser | null
   loading: boolean
+  /** Cấu hình hệ thống (soct_cau_hinh) dạng {khoa: gia_tri} — best-effort. */
+  config: Record<string, string>
   /** Role có được xem tab cha? (admin luôn true) */
   tabVisible: (parent: string) => boolean
   /** Role có được xem tab con "cha.con"? (mặc định hiện nếu chưa cấu hình) */
@@ -30,6 +32,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [tabVisCfg, setTabVisCfg] = useState<Record<string, Record<string, boolean>>>({})
+  const [config, setConfig] = useState<Record<string, string>>({})
 
   useEffect(() => {
     let alive = true
@@ -49,6 +52,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
             const cRes = await fetch('/api/admin/cau-hinh')
             if (cRes.ok) {
               const cJson = await cRes.json()
+              if (alive) setConfig(cJson?.data || {})
               const vis = JSON.parse(cJson?.data?.tab_visibility || '{}')
               if (alive) setTabVisCfg(vis || {})
             }
@@ -83,7 +87,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [user, roleVis])
 
   return (
-    <SessionCtx.Provider value={{ user, loading, tabVisible, subVisible }}>
+    <SessionCtx.Provider value={{ user, loading, config, tabVisible, subVisible }}>
       {children}
     </SessionCtx.Provider>
   )
