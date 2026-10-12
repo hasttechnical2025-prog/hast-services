@@ -13,6 +13,7 @@ export type V2Child = {
   permParent: string      // key tab cha trong tabs.ts
   permSub?: string         // key tab con "cha.con"; bỏ trống = luôn hiện (vd Giao việc)
   icon?: string            // tên icon lucide (dấu chấm nhỏ nếu bỏ trống)
+  adminOnly?: boolean      // chỉ admin thấy (vd các tab quản trị trong Hệ thống)
 }
 
 export type V2Parent = {
@@ -88,11 +89,12 @@ export const V2_NAV: V2Parent[] = [
     // Đổi mật khẩu mở cho mọi role). Ở đây để permKey he_thong cho tabVisible luôn true.
     slug: 'he-thong', label: 'Hệ thống', icon: 'settings', permKey: 'he_thong',
     children: [
-      { slug: 'tai-khoan', label: 'Tài khoản', permParent: 'he_thong' },
-      { slug: 'cai-dat', label: 'Cài đặt', permParent: 'he_thong' },
-      { slug: 'danh-muc', label: 'Danh mục', permParent: 'he_thong' },
-      { slug: 'audit', label: 'Audit', permParent: 'he_thong' },
-      { slug: 'tro-ly-log', label: 'Nhật ký Trợ lý', permParent: 'he_thong' },
+      // Thứ tự & nhãn y hệt admin. 5 tab đầu CHỈ admin; Đổi mật khẩu mọi role.
+      { slug: 'cai-dat', label: 'Cài đặt hệ thống', permParent: 'he_thong', adminOnly: true },
+      { slug: 'tai-khoan', label: 'Tài khoản', permParent: 'he_thong', adminOnly: true },
+      { slug: 'danh-muc', label: 'Danh mục', permParent: 'he_thong', adminOnly: true },
+      { slug: 'audit', label: 'Audit Logs', permParent: 'he_thong', adminOnly: true },
+      { slug: 'tro-ly-log', label: 'Nhật ký AI', permParent: 'he_thong', adminOnly: true },
       { slug: 'doi-mat-khau', label: 'Đổi mật khẩu', permParent: 'he_thong' },
     ],
   },

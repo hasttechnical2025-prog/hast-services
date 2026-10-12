@@ -25,17 +25,19 @@ function parseRoute(pathname: string): { parent?: string; child?: string } {
 }
 
 function Sidebar({ parent, child }: { parent?: string; child?: string }) {
-  const { tabVisible, subVisible } = useSession()
+  const { tabVisible, subVisible, user } = useSession()
+  const isAdmin = user?.role === 'admin'
   // Tính con hiển thị + ẩn cha không còn con nào. Cha "lá" (leaf) gate theo permSub.
+  // Con adminOnly (vd tab quản trị Hệ thống) chỉ hiện với admin.
   const parents = useMemo(() => V2_NAV
     .map(p => ({
       p,
-      kids: p.children.filter(c => c.permSub ? subVisible(c.permParent, c.permSub) : true),
+      kids: p.children.filter(c => (c.adminOnly ? isAdmin : true) && (c.permSub ? subVisible(c.permParent, c.permSub) : true)),
     }))
     .filter(({ p, kids }) => {
       if (p.leaf) return p.permSub ? subVisible(p.permKey, p.permSub) : tabVisible(p.permKey)
       return tabVisible(p.permKey) && kids.length > 0
-    }), [tabVisible, subVisible])
+    }), [tabVisible, subVisible, isAdmin])
 
   return (
     <aside className="w-56 shrink-0 border-r border-slate-200 bg-slate-50/60 flex flex-col">

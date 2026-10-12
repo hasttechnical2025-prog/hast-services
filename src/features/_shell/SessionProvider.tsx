@@ -13,6 +13,8 @@ type Ctx = {
   loading: boolean
   /** Cấu hình hệ thống (soct_cau_hinh) dạng {khoa: gia_tri} — best-effort. */
   config: Record<string, string>
+  /** Tải lại cấu hình + phân quyền tab (sau khi lưu ở Cài đặt hệ thống). */
+  refetchConfig: () => void
   /** Role có được xem tab cha? (admin luôn true) */
   tabVisible: (parent: string) => boolean
   /** Role có được xem tab con "cha.con"? (mặc định hiện nếu chưa cấu hình) */
@@ -35,6 +37,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [tabVisCfg, setTabVisCfg] = useState<Record<string, Record<string, boolean>>>({})
   const [config, setConfig] = useState<Record<string, string>>({})
+
+  // Tải cấu hình + phân quyền tab (gọi lúc đăng nhập xong và sau khi lưu ở Cài đặt hệ thống).
+  const refetchConfig = useCallback(() => {
+    fetch('/api/admin/cau-hinh')
+      .then(r => r.ok ? r.json() : null)
+      .then(cJson => {
+        if (!cJson) return
+        setConfig(cJson?.data || {})
+        try { setTabVisCfg(JSON.parse(cJson?.data?.tab_visibility || '{}') || {}) } catch { /* giữ cũ */ }
+      })
+      .catch(() => { /* dùng mặc định */ })
+  }, [])
 
   useEffect(() => {
     let alive = true
@@ -96,7 +110,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [user, roleVis])
 
   return (
-    <SessionCtx.Provider value={{ user, loading, config, tabVisible, subVisible, subSubVisible }}>
+    <SessionCtx.Provider value={{ user, loading, config, refetchConfig, tabVisible, subVisible, subSubVisible }}>
       {children}
     </SessionCtx.Provider>
   )
