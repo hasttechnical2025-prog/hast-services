@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ClipboardList, CheckCircle2, Clock, Wallet, RefreshCw, Plus, Pencil, Trash2, MapPin, Send, Hand, Search, Hash, Server, FileDown, CalendarArrowDown, CopyX } from 'lucide-react'
+import { ClipboardList, CheckCircle2, Clock, Wallet, RefreshCw, Plus, Pencil, Trash2, MapPin, Send, Hand, Search, Hash, FileDown, CalendarArrowDown, CopyX } from 'lucide-react'
 import DateField from '@/components/DateField'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { fmtThoiLuong } from '@/lib/thoi-gian'
@@ -115,6 +115,11 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
     return { total: visibleRows.length, done, doing, waiting, unassigned, revenue, revenueHD }
   }, [visibleRows])
 
+  // Bỏ lọc: về khoảng ngày HÔM NAY + xóa Tìm/Số phiếu + xóa phễu cột.
+  const today = todayVN()
+  const anyFilterActive = !!(q || report || tuNgay !== today || denNgay !== today || Object.values(colFilters).some(Boolean))
+  const clearAll = () => { setTuNgay(today); setDenNgay(today); setQ(''); setReport(''); setColFilters({}) }
+
   const canEditJob = (j: Job) => ['Chờ nhận', 'Đã nhận'].includes(j.ket_qua) || role === 'admin'
   const openCreate = () => { setEditing(null); setFormOpen(true) }
   const openEdit = (j: Job) => {
@@ -185,15 +190,21 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
     },
     {
       key: 'khach', header: 'Khách hàng', sortValue: j => j.soct_khach_hang?.ten_khach_hang || '',
-      render: j => <div className="min-w-0"><div className="font-medium text-slate-800 truncate">{j.soct_khach_hang?.ten_khach_hang || '—'}</div><div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5 truncate"><MapPin className="w-3 h-3 shrink-0" />{j.soct_khach_hang?.vi_tri_dat_may || j.soct_khach_hang?.dia_chi || ''}</div></div>,
+      // Ghì rộng cột (div cố định) để tên dài không kéo giãn cột, dồn các cột khác xuống nhiều dòng.
+      render: j => (
+        <div className="w-[260px] max-w-[260px]">
+          <div className="font-medium text-slate-800 truncate">{j.soct_khach_hang?.ten_khach_hang || '—'}</div>
+          <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5"><MapPin className="w-3 h-3 shrink-0" /><span className="truncate">{j.soct_khach_hang?.vi_tri_dat_may || j.soct_khach_hang?.dia_chi || ''}</span></div>
+        </div>
+      ),
     },
     {
       key: 'ma_may', header: 'Mã máy', sortValue: j => j.ma_may || '',
       render: j => <div><div className="font-mono text-xs">{j.ma_may || '-'}</div>{j.soct_khach_hang?.model && <div className="text-[11px] text-slate-400 mt-0.5">{j.soct_khach_hang.model}</div>}</div>,
     },
-    { key: 'loai', header: 'Loại việc', sortValue: j => j.loai_cong_viec, filter: filterDefs.loai, render: j => <LoaiViecCell job={j} /> },
+    { key: 'loai', header: 'Loại việc', sortValue: j => j.loai_cong_viec, filter: filterDefs.loai, tdClassName: 'whitespace-nowrap', render: j => <LoaiViecCell job={j} /> },
     {
-      key: 'ktv', header: 'KTV', sortValue: j => j.soct_users?.full_name || '', filter: filterDefs.ktv,
+      key: 'ktv', header: 'KTV', sortValue: j => j.soct_users?.full_name || '', filter: filterDefs.ktv, tdClassName: 'whitespace-nowrap',
       render: j => j.soct_users?.full_name
         ? <div><div className="font-medium text-slate-800">{j.soct_users.full_name}</div>{j.ktv2?.full_name && <div className="text-[11px] text-slate-500 mt-0.5">+ {j.ktv2.full_name} <span className="text-[10px] text-slate-400 italic">(kèm)</span></div>}</div>
         : <span className="text-amber-600 italic">Chưa giao</span>,
@@ -264,7 +275,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
             </div>
             <div className="relative w-60"><Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã máy, tên khách hàng…" className={`${fieldCls} w-full pl-9`} /></div>
             <div className="relative w-44"><Hash className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" /><input value={report} onChange={e => setReport(e.target.value)} placeholder="Số phiếu…" className={`${fieldCls} w-full pl-9`} /></div>
-            <span className="text-[11px] text-slate-400 inline-flex items-center gap-1"><Server className="w-3 h-3" /> 3 bộ lọc trên nạp lại dữ liệu từ máy chủ</span>
+            {anyFilterActive && <button onClick={clearAll} className="text-xs text-rose-600 hover:underline font-medium px-1">Bỏ lọc</button>}
             <span className="text-[11px] text-slate-400 ml-auto">{visibleRows.length}/{jobs.length} việc</span>
           </div>
           {/* Dòng 2 — Giao việc mới (trái) · nhóm nút (phải) */}
