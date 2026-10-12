@@ -7,7 +7,7 @@
 - [x] ✅ **Phiếu đề nghị** (`phieu-de-nghi`) — tái dùng nguyên `@/components/PhieuDeNghiModule` (BM38).
 - [x] ✅ **Giá niêm yết** (`gia-niem-yet`) — port nguyên GiaNiemYetTool (3 mức giá role-aware, nhập giá hàng loạt, tìm/lọc).
 - [x] ✅ **Tồn kho** (`ton-kho`) — port nguyên InventoryManagementTool: CRUD mã hàng + lọc (tất cả/đang dùng/ngưng) + tìm + sort bấm header + mã tương đương + Nhập/Xuất Excel (ExcelTool). `confirmDelete`→useConfirm nội bộ (DELETE `?ma_hang=`/`?all=1`); `lowStock`=`config.nguong_ton_thap`.
-- [ ] ⬜ **Thống kê nhập** (`thong-ke`) — NhapHangThangTool (~715): thống kê nhập theo tháng + panel **Cảnh báo tồn** + Hàng về. Cần `canhBao`/refetch + cart.
+- [x] ✅ **Thống kê nhập** (`thong-ke`) — port nguyên NhapHangThangTool: panel **Cảnh báo tồn** (ngưỡng per-item, thêm mã cũ gợi ý portal, nhặt giỏ) + thống kê nhập theo tháng (tìm/lọc tháng/sort header). `canhBao` fetch tại page; cart qua `useDatHangCart` (localStorage dùng chung Đặt hàng), điều hướng router→`/v2/kho-hang/dat-hang`.
 - [ ] ⬜ **Đặt hàng** (`dat-hang`) — DatHangTool (~1078, LỚN NHẤT): đơn nháp/hàng về/tồn khả dụng/xuất Excel/lọc hãng. Cần **cart** (datHangLines localStorage) + `canhBao` + `confirmDelete(dat_hang_ct)`.
 
 ### Phụ thuộc chung cần giải khi port 3 tool còn lại
