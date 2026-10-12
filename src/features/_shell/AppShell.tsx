@@ -128,14 +128,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (loading || !user) {
     return (
-      <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">Đang tải…</div>
+      <div className="h-[100dvh] flex items-center justify-center text-slate-400 text-sm">Đang tải…</div>
     )
   }
 
+  // Khung cao ĐÚNG màn hình + overflow-hidden: sidebar trái cố định (footer role luôn đáy),
+  // CHỈ vùng phải cuộn khi danh sách dài. min-h-0 cho phép con overflow đúng.
   return (
-    <div className="flex-1 flex min-h-0">
+    <div className="h-[100dvh] flex overflow-hidden">
       <Sidebar parent={parent} child={child} />
-      <section className="flex-1 min-w-0 flex flex-col bg-white">
+      <section className="flex-1 min-w-0 flex flex-col bg-white min-h-0">
         <TopBar parent={parent} child={child} />
         <div className="flex-1 overflow-y-auto p-4 bg-slate-50/40">{children}</div>
       </section>
