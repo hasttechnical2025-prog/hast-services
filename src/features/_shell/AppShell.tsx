@@ -56,9 +56,11 @@ function Sidebar({ parent, child }: { parent?: string; child?: string }) {
               <Link
                 href={headHref}
                 className={cn('flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] font-semibold',
-                  open ? (p.leaf ? 'bg-blue-50 text-blue-700' : 'text-slate-800') : 'text-slate-500 hover:bg-slate-100')}
+                  p.tone === 'rose'
+                    ? (open ? 'bg-rose-50 text-rose-700' : 'text-rose-600 hover:bg-rose-50')
+                    : open ? (p.leaf ? 'bg-blue-50 text-blue-700' : 'text-slate-800') : 'text-slate-500 hover:bg-slate-100')}
               >
-                <Ic className={cn('w-4 h-4', open ? 'text-blue-600' : 'text-slate-400')} />
+                <Ic className={cn('w-4 h-4', p.tone === 'rose' ? 'text-rose-500' : open ? 'text-blue-600' : 'text-slate-400')} />
                 {p.label}
               </Link>
               {open && !p.leaf && (

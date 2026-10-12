@@ -17,6 +17,8 @@ type Ctx = {
   tabVisible: (parent: string) => boolean
   /** Role có được xem tab con "cha.con"? (mặc định hiện nếu chưa cấu hình) */
   subVisible: (parent: string, sub: string) => boolean
+  /** Role có được xem tab cháu "cha.con.cháu"? (vd nhóm trong Thuê/CPC) */
+  subSubVisible: (parent: string, sub: string, subsub: string) => boolean
 }
 
 const SessionCtx = createContext<Ctx | null>(null)
@@ -86,8 +88,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     return v === undefined ? true : !!v
   }, [user, roleVis])
 
+  const subSubVisible = useCallback((parent: string, sub: string, subsub: string) => {
+    if (!user) return false
+    if (user.role === 'admin') return true
+    const v = roleVis(user.role)[`${parent}.${sub}.${subsub}`]
+    return v === undefined ? true : !!v
+  }, [user, roleVis])
+
   return (
-    <SessionCtx.Provider value={{ user, loading, config, tabVisible, subVisible }}>
+    <SessionCtx.Provider value={{ user, loading, config, tabVisible, subVisible, subSubVisible }}>
       {children}
     </SessionCtx.Provider>
   )

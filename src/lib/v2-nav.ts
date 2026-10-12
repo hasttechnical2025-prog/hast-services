@@ -26,6 +26,8 @@ export type V2Parent = {
   // Với cha lá, gate hiển thị theo key tab con "cha.con" (vd 'tai_chinh.kanban') để admin
   // vẫn bật/tắt per-role như cũ. Bỏ trống = gate theo permKey.
   permSub?: string
+  // Tô màu nhãn nổi bật (vd Kanban = đỏ cho kế toán dễ thấy). Bỏ trống = màu mặc định.
+  tone?: 'rose'
 }
 
 export const V2_NAV: V2Parent[] = [
@@ -67,7 +69,7 @@ export const V2_NAV: V2Parent[] = [
   {
     // Kanban Hóa đơn: menu cha "lá" (tách khỏi Tài chính, 2026-10-12). Gate theo quyền
     // 'tai_chinh.kanban' sẵn có (mọi role vào /v2 đều bật) → admin vẫn chỉnh per-role được.
-    slug: 'kanban', label: 'Kanban Hóa đơn', icon: 'kanban-square', permKey: 'tai_chinh', permSub: 'kanban', leaf: true,
+    slug: 'kanban', label: 'Kanban Hóa đơn', icon: 'kanban-square', permKey: 'tai_chinh', permSub: 'kanban', leaf: true, tone: 'rose',
     children: [],
   },
   {
