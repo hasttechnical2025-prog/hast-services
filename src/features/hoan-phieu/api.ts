@@ -1,7 +1,9 @@
 // API Hoàn phiếu (kiểm soát nộp phiếu cứng) — tái dùng route cũ /api/admin/phieu-cung.
 
-export async function listPhieuCung(): Promise<any[]> {
-  const res = await fetch('/api/admin/phieu-cung')
+// report có giá trị -> tìm số phiếu TOÀN CỤC (server, cả đã nộp).
+export async function listPhieuCung(report?: string): Promise<any[]> {
+  const url = report?.trim() ? `/api/admin/phieu-cung?report=${encodeURIComponent(report.trim())}` : '/api/admin/phieu-cung'
+  const res = await fetch(url)
   if (res.status === 401) throw new Error('UNAUTH')
   const j = await res.json()
   if (!res.ok) throw new Error(j.error || 'Lỗi tải danh sách')

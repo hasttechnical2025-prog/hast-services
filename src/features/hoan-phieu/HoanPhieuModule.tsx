@@ -32,12 +32,13 @@ export function HoanPhieuModule({ notify }: { notify: (type: 'success' | 'error'
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true)
-    try { setList(await listPhieuCung()) }
+    try { setList(await listPhieuCung(search)) }   // search có giá trị -> tìm số phiếu TOÀN CỤC (server)
     catch (e: any) { if (e?.message !== 'UNAUTH') notify('error', e?.message || 'Lỗi tải danh sách') }
     finally { setLoading(false) }
-  }, [notify])
+  }, [notify, search])
 
-  useEffect(() => { load() }, [load])
+  // Đổi ô tìm -> debounce nạp lại từ server.
+  useEffect(() => { const t = setTimeout(() => load(), 300); return () => clearTimeout(t) }, [load])
   useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => load(true), true, 0)
 
   const ktvs = useMemo(() => Array.from(new Map(list.filter(r => r.ktv_id).map(r => [r.ktv_id!, r.soct_users?.full_name || '—'])).entries()), [list])
@@ -45,13 +46,14 @@ export function HoanPhieuModule({ notify }: { notify: (type: 'success' | 'error'
   const quaHan = useMemo(() => chuaNop.filter(r => daysOf(r.ngay) >= nguongNgay), [chuaNop, nguongNgay])
   const ktvNo = useMemo(() => new Set(chuaNop.filter(r => r.ktv_id).map(r => r.ktv_id)).size, [chuaNop])
 
+  // Đang tìm số phiếu -> BỎ QUA "chỉ chưa nộp" để tra ra cả phiếu đã nộp. Server đã lọc theo số phiếu.
+  const searching = !!search.trim()
   const filtered = useMemo(() => list.filter(r => {
-    if (fChuaNop && r.da_nop_phieu) return false
+    if (fChuaNop && !searching && r.da_nop_phieu) return false
     if (fKtv === 'none' && r.ktv_id) return false
     if (fKtv && fKtv !== 'none' && r.ktv_id !== fKtv) return false
-    if (search && !(r.report || '').toLowerCase().includes(search.trim().toLowerCase())) return false
     return true
-  }), [list, fChuaNop, fKtv, search])
+  }), [list, fChuaNop, fKtv, searching])
 
   const toggle = async (r: Row) => {
     try { await togglePhieu(r.id, !r.da_nop_phieu); load(true) }

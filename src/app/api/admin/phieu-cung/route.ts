@@ -26,17 +26,23 @@ export async function GET(request: Request) {
       return NextResponse.json({ count: count ?? 0 })
     }
 
-    const data = await selectAll((from, to) => supabaseAdmin
-      .from('soct_cong_viec')
-      .select(`id, ngay, report, loai_cong_viec, ket_qua, da_nop_phieu, ngay_nop_phieu, ktv_id,
-        soct_khach_hang ( ten_khach_hang ),
-        soct_users!ktv_id ( full_name )`)
-      .not('report', 'is', null)
-      .neq('report', '')
-      .eq('ket_qua', 'Hoàn thành')
-      .is('nguon', null) // chỉ phiếu KTV thật (ẩn 'thue_cpc' + 'tach_hd')
-      .order('ngay', { ascending: true })
-      .range(from, to))
+    // Tìm theo SỐ PHIẾU = tìm TOÀN CỤC (mọi phiếu Hoàn thành có số phiếu, kể cả ĐÃ nộp) để
+    // luôn tra ra; UI 2027 gửi `report`. Client cũ không gửi -> hành vi cũ không đổi.
+    const report = (searchParams.get('report') || '').trim()
+
+    const data = await selectAll((from, to) => {
+      let qy = supabaseAdmin
+        .from('soct_cong_viec')
+        .select(`id, ngay, report, loai_cong_viec, ket_qua, da_nop_phieu, ngay_nop_phieu, ktv_id,
+          soct_khach_hang ( ten_khach_hang ),
+          soct_users!ktv_id ( full_name )`)
+        .not('report', 'is', null)
+        .neq('report', '')
+        .eq('ket_qua', 'Hoàn thành')
+        .is('nguon', null) // chỉ phiếu KTV thật (ẩn 'thue_cpc' + 'tach_hd')
+      if (report) qy = qy.ilike('report', `%${report}%`)
+      return qy.order('ngay', { ascending: true }).range(from, to)
+    })
 
     return NextResponse.json({ data })
   } catch (error: any) {
