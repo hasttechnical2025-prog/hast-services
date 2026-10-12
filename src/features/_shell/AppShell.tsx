@@ -151,7 +151,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <TopBar parent={parent} child={child} />
         {/* Vùng cuộn KHÔNG padding (padding ở wrapper trong) -> thanh tab con sticky top-0 dính SÁT
             mép trên, không để lộ content ở khe padding. */}
-        <div className="flex-1 overflow-y-auto bg-slate-50/40">
+        {/* --head-h = -2.5rem: component dùng chung từ admin (ThueCpcModule) ghim tab con tại
+            top-[calc(var(--head-h)+2.5rem)]. Admin có header+tab-cha (--head-h+2.5rem); ở v2 TopBar
+            nằm NGOÀI vùng cuộn nên offset đúng = 0 → đặt -2.5rem để calc ra 0 (tab con sticky sát mép). */}
+        <div className="flex-1 overflow-y-auto bg-slate-50/40" style={{ ['--head-h' as string]: '-2.5rem' } as React.CSSProperties}>
           <div className="p-4">{children}</div>
         </div>
       </section>
