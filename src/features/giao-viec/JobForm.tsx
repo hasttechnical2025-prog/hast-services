@@ -5,7 +5,7 @@ import DateField from '@/components/DateField'
 import { Button } from '@/components/ui/button'
 import { loaiHdBadge } from '@/lib/hd-status'
 import { LOAI_HD_BAO_TRI, dangTamDung, coBaoTriThang, moTaLichBaoTri, fmtThang } from '@/lib/bao-tri'
-import { CustomerPicker } from './CustomerPicker'
+import { CustomerCombobox } from './CustomerCombobox'
 import { MaterialCombobox } from './MaterialCombobox'
 import { createCustomer, saveJob, importPdf, fetchMayStatus, addKhoItem, closeGiamDinh } from './api'
 import { emptyForm, emptyVatTu, todayVN, LOAI_CV_CAN_VAT_TU, RENTAL_LOAI_HD, type Job, type JobForm as JForm } from './types'
@@ -211,16 +211,16 @@ export function JobFormModal({ editingJob, onClose, onSaved, notify, customers, 
   const ghiChuBatBuoc = form.loai_cong_viec.trim() === 'Khác'
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[60] flex items-start justify-center p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl my-6" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
           <h2 className="text-xl font-bold text-slate-800">{editing ? 'Sửa công việc' : 'Giao công việc mới'}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-6 h-6" /></button>
         </div>
 
         {editing && !canEdit && <div className="mx-5 mt-3 px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-[11px] text-amber-800">KTV đã bắt đầu việc — chỉ admin mới sửa được phiếu này.</div>}
 
-        <div className="p-5 space-y-4">
+        <div className="p-6 space-y-6">
           {/* Nhập từ PDF (chỉ tạo mới) */}
           {!editing && (
             <div className="rounded-lg border border-blue-200 bg-blue-50/60 px-4 py-3">
@@ -255,7 +255,7 @@ export function JobFormModal({ editingJob, onClose, onSaved, notify, customers, 
               <label className={lbl}>Khách hàng <span className="text-red-500">*</span>{lockedCustomer && <span className="text-slate-400 font-normal text-xs italic ml-1">(khóa theo mã máy)</span>}</label>
               {lockedCustomer
                 ? <div className="w-full h-10 px-3 rounded-md border border-slate-200 bg-slate-100 text-slate-600 text-sm flex items-center cursor-not-allowed" title="Khách hàng được xác định theo mã máy. Sửa/xóa mã máy để chọn khách khác."><span className="truncate">{lockedCustomer.ten_khach_hang}{lockedCustomer.ma_may ? ` — ${lockedCustomer.ma_may}` : ''}</span></div>
-                : <CustomerPicker customers={customers} value={form.id_khach_hang} onChange={v => set('id_khach_hang', v)} />}
+                : <CustomerCombobox customers={customers} value={form.id_khach_hang === 'NEW' ? '' : form.id_khach_hang} onPick={id => set('id_khach_hang', id)} onCreateNew={() => set('id_khach_hang', 'NEW')} />}
               {selected && (selected.model || selected.vi_tri_dat_may || selected.dia_chi) && (
                 <div className="flex flex-wrap gap-2 text-xs pt-1">
                   {selected.model && <span className="text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100">Model: <b>{selected.model}</b></span>}
@@ -386,7 +386,7 @@ export function JobFormModal({ editingJob, onClose, onSaved, notify, customers, 
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-3 px-5 py-3 border-t border-slate-100">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100">
           <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>Hủy</Button>
           <Button onClick={save} disabled={submitting || (editing && !canEdit)} className="bg-blue-600 hover:bg-blue-700 text-white">
             {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />}{editing ? 'Cập nhật công việc' : 'Lưu công việc & Báo KTV'}
