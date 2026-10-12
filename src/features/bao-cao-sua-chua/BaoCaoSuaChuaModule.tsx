@@ -90,7 +90,7 @@ export function BaoCaoSuaChuaModule({ notify }: { notify: (type: 'success' | 'er
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap sticky top-0 z-20 bg-slate-50/95 backdrop-blur-sm py-1 -mt-1">
         {pill('cho_gui', 'Chờ gửi')}
         {pill('da_gui', 'Đã gửi')}
         <div className="relative flex-1 min-w-[220px]">

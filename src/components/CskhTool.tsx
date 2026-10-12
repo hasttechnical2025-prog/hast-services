@@ -149,7 +149,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6 space-y-3">
       {/* Menu cháu trong vùng bảng (như Thuê/CPC): pill trung tính, mục active = trắng + ring xanh.
           Nút "Thêm khách tiềm năng" đẩy về phải cùng hàng. */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap sticky top-0 z-20 bg-white py-1 -mt-1">
         <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit overflow-x-auto">
           {([['can', 'Cần chăm sóc', null], ['ds', 'Danh sách khách', Users], ['pipeline', 'Pipeline tiềm năng', TrendingUp], ['kpi', 'KPI', BarChart3]] as const).map(([k, l, Icon]) => (
             <button key={k} onClick={() => setView(k)} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${view === k ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>
