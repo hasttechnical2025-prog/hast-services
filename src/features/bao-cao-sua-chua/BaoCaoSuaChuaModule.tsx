@@ -107,7 +107,7 @@ export function BaoCaoSuaChuaModule({ notify }: { notify: (type: 'success' | 'er
         </div>
       )}
 
-      {loading ? <BoxLoading />
+      {loading ? <BoxLoading label="Đang tải báo cáo..." />
         : shown.length === 0 ? <p className="text-xs text-slate-400 text-center py-10 italic">{list.length === 0 ? (tab === 'cho_gui' ? 'Không có báo cáo nào chờ gửi.' : 'Chưa có báo cáo đã gửi.') : 'Không khớp tìm kiếm.'}</p>
           : (
             <div className="space-y-2">

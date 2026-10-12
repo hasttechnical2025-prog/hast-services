@@ -131,7 +131,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {loading ? <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải…</td></tr>
+            {loading ? <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải cảnh báo vật tư...</td></tr>
               : err ? <tr><td colSpan={8} className="px-4 py-8 text-center text-rose-600">⚠ {err} — bấm Làm mới để thử lại.</td></tr>
               : list.length === 0 ? <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">{xemTatCa ? 'Không có máy khớp tìm kiếm.' : 'Không có máy nào sắp cần thay vật tư. 🎉'}</td></tr>
                 : list.map((r, i) => (
@@ -438,7 +438,7 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
         </div>
       </div>
 
-      {loading ? <div className="text-slate-400 py-8 text-center"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải...</div> : (
+      {loading ? <div className="text-sm text-slate-400 py-8 text-center"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải danh sách...</div> : (
         <div className="overflow-x-auto border border-slate-100 rounded-lg">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
@@ -1045,7 +1045,7 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
       )}
       {!loading && nvFilter !== 'all' && <p className="text-[11px] text-slate-400 -mt-2">Tổng chỉ tính máy LẺ; máy thuộc Hợp đồng khung tính ở phần Bảng kê bên dưới.</p>}
 
-      {loading ? <div className="text-slate-400 py-8 text-center"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải...</div> : (
+      {loading ? <div className="text-sm text-slate-400 py-8 text-center"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải danh sách...</div> : (
         <div className="overflow-x-auto border border-slate-100 rounded-lg">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
@@ -1345,7 +1345,7 @@ function KhungTab({ showNotification }: { showNotification: Notify }) {
         </div>
       </div>
 
-      {loading ? <div className="text-slate-400 py-6 text-center"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải...</div> : (
+      {loading ? <div className="text-sm text-slate-400 py-6 text-center"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải danh sách...</div> : (
         <div className="space-y-3">
           {list.length === 0 && <div className="text-sm text-slate-400 text-center py-4">Chưa có hợp đồng khung nào.</div>}
           {list.map(k => (
@@ -1528,7 +1528,7 @@ function BangKeTab({ showNotification, thang: thangProp, refreshVer = 0 }: { sho
           <input type="checkbox" checked={chanTrang} onChange={e => setChanTrang(e.target.checked)} /> Hiện phần chữ ký khi xuất Word
         </label>
       </div>
-      {loading ? <div className="text-slate-400 py-6 text-center"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải...</div> : (
+      {loading ? <div className="text-sm text-slate-400 py-6 text-center"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải danh sách...</div> : (
         <div className="overflow-x-auto border border-slate-100 rounded-lg">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
@@ -1644,7 +1644,7 @@ function BangKeDetail({ id, onClose, showNotification, onChanged }: { id: string
           <h3 className="font-bold text-slate-800">Chi tiết bảng kê {bk?.thang_nam}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
         </div>
-        {!bk ? <div className="p-6 text-center text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải...</div> : (
+        {!bk ? <div className="p-6 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải bảng kê...</div> : (
           <div className="p-5 space-y-4">
             <div className="text-sm text-slate-600">
               Đối tượng: <b>{bk.loai === 'gop' ? bk.soct_thue_cpc_hop_dong_khung?.ten_hop_dong : bk.soct_khach_hang?.ten_khach_hang}</b> · Loại: {bk.loai === 'gop' ? 'Gộp' : 'Riêng'}

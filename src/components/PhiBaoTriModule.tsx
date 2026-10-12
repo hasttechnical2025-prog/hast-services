@@ -398,7 +398,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Đang tải…</td></tr>
+                <tr><td colSpan={8} className="px-4 py-6 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải phí bảo trì...</td></tr>
               ) : sortedMays.length === 0 ? (
                 <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Không có máy HĐBT/MF.</td></tr>
               ) : sortedMays.map(m => {

@@ -69,7 +69,7 @@ export function AuditLogsTool({ showNotification }: { showNotification: (type: '
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? (
-              <TableLoading colSpan={4} />
+              <TableLoading colSpan={4} label="Đang tải audit..." />
             ) : logs.length === 0 ? (
               <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Chưa có log nào.</td></tr>
             ) : paged.pageItems.map(l => (

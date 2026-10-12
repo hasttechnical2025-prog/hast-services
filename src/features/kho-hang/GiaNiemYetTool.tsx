@@ -203,7 +203,7 @@ export function GiaNiemYetTool({ showNotification, hangOptions }: { showNotifica
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <TableLoading colSpan={9} />
+                <TableLoading colSpan={9} label="Đang tải giá niêm yết..." />
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400">Không có vật tư nào.</td></tr>
               ) : filtered.map(r => {

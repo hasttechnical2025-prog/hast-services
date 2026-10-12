@@ -130,7 +130,7 @@ export function HoanPhieuModule({ notify }: { notify: (type: 'success' | 'error'
           )}
           <button onClick={remind} disabled={busy === 'remind' || chuaNop.length === 0} title="Nhắc KTV nộp phiếu qua Telegram" className="h-9 px-3 rounded-md border border-slate-200 text-slate-600 text-xs font-medium hover:bg-slate-50 disabled:opacity-50 flex items-center gap-1.5">{busy === 'remind' ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Nhắc KTV</button>
         </div>
-        <DataTable columns={columns} rows={filtered} rowKey={r => r.id} loading={loading} defaultSort={{ key: 'ngay', asc: false }} empty="Không có phiếu." />
+        <DataTable columns={columns} rows={filtered} rowKey={r => r.id} loading={loading} loadingText="Đang tải phiếu..." defaultSort={{ key: 'ngay', asc: false }} empty="Không có phiếu." />
       </Card>
       {confirmNode}
     </div>

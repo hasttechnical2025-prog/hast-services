@@ -839,7 +839,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {loading ? (
-                    <TableLoading colSpan={4} />
+                    <TableLoading colSpan={4} label="Đang tải danh sách..." />
                   ) : records.length === 0 ? (
                     <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Chưa có máy nào được đánh dấu bảo trì tháng này.</td></tr>
                   ) : paged.pageItems.map((r) => {

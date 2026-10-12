@@ -344,7 +344,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
         </div>
 
         <DataTable
-          columns={columns} rows={visibleRows} rowKey={(j) => j.id} loading={loading}
+          columns={columns} rows={visibleRows} rowKey={(j) => j.id} loading={loading} loadingText="Đang tải công việc..."
           defaultSort={{ key: 'ngay', asc: false }}
           filters={colFilters}
           onFilterChange={(k, v) => setColFilters(f => ({ ...f, [k]: v }))}

@@ -265,7 +265,7 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
           </div>
 
           <div className="bg-white rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-[420px] overflow-y-auto">
-            {loading ? <BoxLoading className="py-6" />
+            {loading ? <BoxLoading label="Đang tải khách cụm..." className="py-6" />
               : cumList.length === 0 ? <p className="text-sm text-slate-400 text-center py-6">Chưa có cụm nào. Tạo ở trên.</p>
                 : cumList.map(c => (
                   <button key={c.ma_khach_hang} onClick={() => { setSelMa(c.ma_khach_hang); setEditing(false); setPickIds([]); setMaySearch('') }}

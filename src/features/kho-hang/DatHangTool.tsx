@@ -564,7 +564,7 @@ export function DatHangTool({
             <button onClick={() => setOrderFilters({ maHang: "", ncc: "", trangThai: "con_thieu", hvTu: "", hvDen: "" })} className="text-xs text-red-600 hover:underline font-medium">Bỏ lọc</button>
           )}
         </div>
-        {loading ? <BoxLoading />
+        {loading ? <BoxLoading label="Đang tải đơn đặt hàng..." />
           : orders.length === 0 ? <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">Chưa có đơn đặt hàng nào.</div>
           : filteredOrders.length === 0 ? <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">Không có đơn khớp bộ lọc.</div>
           : dhPaged.pageItems.map(o => (

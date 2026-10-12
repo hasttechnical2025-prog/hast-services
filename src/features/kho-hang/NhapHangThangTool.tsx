@@ -491,7 +491,7 @@ export function NhapHangThangTool({
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <TableLoading colSpan={4} />
+                <TableLoading colSpan={4} label="Đang tải thống kê nhập..." />
               ) : filteredRows.length === 0 ? (
                 <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">{q.trim() ? `Không có mặt hàng khớp "${q.trim()}".` : 'Chưa có dữ liệu nhập.'}</td></tr>
               ) : filteredRows.map(r => (

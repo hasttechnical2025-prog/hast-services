@@ -27,11 +27,13 @@ export type Column<T> = {
   tdClassName?: string
 }
 
-export function DataTable<T>({ columns, rows, rowKey, loading, empty = 'Không có dữ liệu.', defaultSort, onRowClick, className, filters: filtersProp, onFilterChange, onClearFilters }: {
+export function DataTable<T>({ columns, rows, rowKey, loading, loadingText = 'Đang tải...', empty = 'Không có dữ liệu.', defaultSort, onRowClick, className, filters: filtersProp, onFilterChange, onClearFilters }: {
   columns: Column<T>[]
   rows: T[]
   rowKey: (row: T, i: number) => string
   loading?: boolean
+  /** Nhãn loading cụ thể "Đang tải <cái gì>...". */
+  loadingText?: string
   empty?: React.ReactNode
   defaultSort?: { key: string; asc: boolean }
   onRowClick?: (row: T) => void
@@ -150,7 +152,7 @@ export function DataTable<T>({ columns, rows, rowKey, loading, empty = 'Không c
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? (
-              <tr><td colSpan={columns.length} className="px-3.5 py-10 text-center text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải...</td></tr>
+              <tr><td colSpan={columns.length} className="px-3.5 py-10 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />{loadingText}</td></tr>
             ) : sorted.length === 0 ? (
               <tr><td colSpan={columns.length} className="px-3.5 py-10 text-center text-slate-400 italic">{empty}</td></tr>
             ) : sorted.map((row, i) => (

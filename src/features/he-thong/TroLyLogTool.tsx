@@ -57,7 +57,7 @@ export function TroLyLogTool({ showNotification }: { showNotification: (type: 's
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? (
-              <TableLoading colSpan={5} />
+              <TableLoading colSpan={5} label="Đang tải nhật ký Trợ lý..." />
             ) : rows.length === 0 ? (
               <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Chưa có câu hỏi nào.</td></tr>
             ) : rows.map(r => {

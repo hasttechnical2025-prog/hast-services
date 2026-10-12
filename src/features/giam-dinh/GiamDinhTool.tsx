@@ -270,7 +270,7 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
           {gdFilterActive && <button onClick={() => setGdFilters({ maMay: "", trangThai: "", baoGia: "" })} className="text-xs text-red-600 hover:underline font-medium">Bỏ lọc</button>}
         </div>
         {loading ? (
-          <BoxLoading />
+          <BoxLoading label="Đang tải giám định..." />
         ) : records.length === 0 ? (
           <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">Chưa có biên bản giám định nào.</div>
         ) : filteredRecords.length === 0 ? (
