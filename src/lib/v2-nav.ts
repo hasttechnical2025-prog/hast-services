@@ -21,6 +21,11 @@ export type V2Parent = {
   icon: string             // tên icon lucide
   permKey: string          // key tab cha trong tabs.ts (để tabVisible)
   children: V2Child[]
+  // Cha "lá": không có mục con, bấm vào mở thẳng trang /v2/<slug> (vd Kanban Hóa đơn).
+  leaf?: boolean
+  // Với cha lá, gate hiển thị theo key tab con "cha.con" (vd 'tai_chinh.kanban') để admin
+  // vẫn bật/tắt per-role như cũ. Bỏ trống = gate theo permKey.
+  permSub?: string
 }
 
 export const V2_NAV: V2Parent[] = [
@@ -57,8 +62,13 @@ export const V2_NAV: V2Parent[] = [
       { slug: 'cong-no', label: 'Công nợ', permParent: 'tai_chinh', permSub: 'cong_no' },
       { slug: 'thue-cpc', label: 'Thuê / CPC', permParent: 'tai_chinh', permSub: 'thue_cpc' },
       { slug: 'phi-bao-tri', label: 'Phí bảo trì', permParent: 'tai_chinh', permSub: 'phi_bao_tri' },
-      { slug: 'kanban', label: 'Kanban Hóa đơn', permParent: 'tai_chinh', permSub: 'kanban' },
     ],
+  },
+  {
+    // Kanban Hóa đơn: menu cha "lá" (tách khỏi Tài chính, 2026-10-12). Gate theo quyền
+    // 'tai_chinh.kanban' sẵn có (mọi role vào /v2 đều bật) → admin vẫn chỉnh per-role được.
+    slug: 'kanban', label: 'Kanban Hóa đơn', icon: 'kanban-square', permKey: 'tai_chinh', permSub: 'kanban', leaf: true,
+    children: [],
   },
   {
     slug: 'quan-ly', label: 'Quản lý', icon: 'users', permKey: 'quan_ly',
@@ -114,7 +124,7 @@ export const V2_SUBTABS: Record<string, { slug: string; label: string }[]> = {
 
 // Module mặc định khi vào /v2 (redirect theo role).
 export function defaultModuleFor(role: string): string {
-  if (role === 'kthc') return '/v2/tai-chinh/kanban'
+  if (role === 'kthc') return '/v2/kanban'
   return '/v2/so-cong-tac/giao-viec'
 }
 

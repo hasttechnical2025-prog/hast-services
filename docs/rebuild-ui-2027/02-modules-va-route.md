@@ -77,7 +77,7 @@ Mỗi tab cha có 1 biến state riêng (không phải 1 router trung tâm) — 
     cong-no
     thue-cpc/[tab]                    (danh-sach | counter | canh-bao-vat-tu)   ← 3 tab theo UI
     phi-bao-tri
-    kanban
+/v2/kanban                            ← TÁCH RIÊNG thành menu cha "lá" (2026-10-12), gate quyền 'tai_chinh.kanban'
 /v2/quan-ly/[tab]                     (bao-cao-ktv | khach-hang | khach-cum | bao-cao-thang | nghi-phep)
 /v2/he-thong/[tab]                    (cai-dat | tai-khoan | danh-muc | audit | tro-ly-log | doi-mat-khau)
 ```

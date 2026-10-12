@@ -26,7 +26,16 @@ function parseRoute(pathname: string): { parent?: string; child?: string } {
 
 function Sidebar({ parent, child }: { parent?: string; child?: string }) {
   const { tabVisible, subVisible } = useSession()
-  const parents = useMemo(() => V2_NAV.filter(p => tabVisible(p.permKey)), [tabVisible])
+  // Tính con hiển thị + ẩn cha không còn con nào. Cha "lá" (leaf) gate theo permSub.
+  const parents = useMemo(() => V2_NAV
+    .map(p => ({
+      p,
+      kids: p.children.filter(c => c.permSub ? subVisible(c.permParent, c.permSub) : true),
+    }))
+    .filter(({ p, kids }) => {
+      if (p.leaf) return p.permSub ? subVisible(p.permKey, p.permSub) : tabVisible(p.permKey)
+      return tabVisible(p.permKey) && kids.length > 0
+    }), [tabVisible, subVisible])
 
   return (
     <aside className="w-56 shrink-0 border-r border-slate-200 bg-slate-50/60 flex flex-col">
@@ -38,22 +47,21 @@ function Sidebar({ parent, child }: { parent?: string; child?: string }) {
         </div>
       </div>
       <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
-        {parents.map(p => {
+        {parents.map(({ p, kids }) => {
           const open = p.slug === parent
           const Ic = iconOf(p.icon)
-          const kids = p.children.filter(c => c.permSub ? subVisible(c.permParent, c.permSub) : true)
-          const headHref = `/v2/${p.slug}/${(kids[0] || p.children[0]).slug}`
+          const headHref = p.leaf ? `/v2/${p.slug}` : `/v2/${p.slug}/${(kids[0] || p.children[0]).slug}`
           return (
             <div key={p.slug}>
               <Link
                 href={headHref}
                 className={cn('flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] font-semibold',
-                  open ? 'text-slate-800' : 'text-slate-500 hover:bg-slate-100')}
+                  open ? (p.leaf ? 'bg-blue-50 text-blue-700' : 'text-slate-800') : 'text-slate-500 hover:bg-slate-100')}
               >
                 <Ic className={cn('w-4 h-4', open ? 'text-blue-600' : 'text-slate-400')} />
                 {p.label}
               </Link>
-              {open && (
+              {open && !p.leaf && (
                 <div className="ml-3 pl-2 border-l border-slate-200 space-y-0.5 mb-1 mt-0.5">
                   {kids.map(c => {
                     const active = c.slug === child
