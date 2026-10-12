@@ -1,5 +1,5 @@
 'use client'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ClipboardList, AlertTriangle, Users, Search, X, Send, ClipboardCheck, Loader2, RefreshCw } from 'lucide-react'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { JOBS_TOPIC, JOBS_EVENT } from '@/lib/realtime'
@@ -37,8 +37,14 @@ export function HoanPhieuModule({ notify }: { notify: (type: 'success' | 'error'
     finally { setLoading(false) }
   }, [notify, search])
 
-  // Đổi ô tìm -> debounce nạp lại từ server.
-  useEffect(() => { const t = setTimeout(() => load(), 300); return () => clearTimeout(t) }, [load])
+  // Lần đầu tải có spinner; đổi ô tìm -> nạp lại NGẦM (không chớp "Đang tải", giữ danh sách cũ
+  // tới khi có dữ liệu mới) + debounce -> danh sách không "nhảy".
+  const firstRef = useRef(true)
+  useEffect(() => {
+    const first = firstRef.current
+    const t = setTimeout(() => { load(!first); firstRef.current = false }, first ? 0 : 300)
+    return () => clearTimeout(t)
+  }, [load])
   useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => load(true), true, 0)
 
   const ktvs = useMemo(() => Array.from(new Map(list.filter(r => r.ktv_id).map(r => [r.ktv_id!, r.soct_users?.full_name || '—'])).entries()), [list])
@@ -54,6 +60,9 @@ export function HoanPhieuModule({ notify }: { notify: (type: 'success' | 'error'
     if (fKtv && fKtv !== 'none' && r.ktv_id !== fKtv) return false
     return true
   }), [list, fChuaNop, fKtv, searching])
+
+  const filterActive = searching || !!fKtv || !fChuaNop
+  const clearAll = () => { setSearch(''); setFKtv(''); setFChuaNop(true) }
 
   const toggle = async (r: Row) => {
     try { await togglePhieu(r.id, !r.da_nop_phieu); load(true) }
@@ -111,7 +120,10 @@ export function HoanPhieuModule({ notify }: { notify: (type: 'success' | 'error'
             <option value="none">Chưa giao</option>
             {ktvs.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
           </select>
-          <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none"><input type="checkbox" checked={fChuaNop} onChange={e => setFChuaNop(e.target.checked)} className="w-4 h-4 accent-blue-600" /> Chỉ chưa nộp</label>
+          <label className={`flex items-center gap-1.5 text-xs select-none ${searching ? 'text-slate-400 cursor-not-allowed' : 'text-slate-600 cursor-pointer'}`} title={searching ? 'Đang tìm số phiếu nên bỏ qua bộ lọc này' : ''}>
+            <input type="checkbox" checked={fChuaNop && !searching} disabled={searching} onChange={e => setFChuaNop(e.target.checked)} className="w-4 h-4 accent-blue-600 disabled:opacity-50" /> Chỉ chưa nộp
+          </label>
+          {filterActive && <button onClick={clearAll} className="text-xs text-rose-600 hover:underline font-medium">Bỏ lọc</button>}
           <span className="text-xs text-slate-500 ml-auto whitespace-nowrap">{filtered.length} phiếu</span>
           {role === 'admin' && (
             <button onClick={submitAll} disabled={busy === 'all' || chuaNop.length === 0} title="Nộp toàn bộ phiếu chưa nộp" className="h-9 px-3 rounded-md border border-emerald-300 text-emerald-700 text-xs font-medium hover:bg-emerald-50 disabled:opacity-50 flex items-center gap-1.5">{busy === 'all' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ClipboardCheck className="w-4 h-4" />} Nộp toàn bộ</button>
