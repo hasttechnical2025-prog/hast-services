@@ -43,6 +43,7 @@ export type Job = {
   so_phut_xu_ly: number | null
   created_at?: string | null
   so_lan_cuon?: number | null
+  bbbg_luc?: string | null
   soct_khach_hang?: { ten_khach_hang?: string; dia_chi?: string; model?: string; vi_tri_dat_may?: string } | null
   soct_users?: { full_name?: string } | null
   ktv2?: { full_name?: string } | null

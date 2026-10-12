@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ClipboardList, CheckCircle2, Clock, Wallet, RefreshCw, Plus, Pencil, Trash2, MapPin, Send, Hand, Search, Hash, FileDown, CalendarArrowDown, CopyX } from 'lucide-react'
+import { ClipboardList, CheckCircle2, Clock, Wallet, RefreshCw, Plus, Pencil, Trash2, MapPin, Send, Hand, Search, Hash, FileDown, CalendarArrowDown, CopyX, Boxes, ChevronLeft } from 'lucide-react'
 import DateField from '@/components/DateField'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { fmtThoiLuong } from '@/lib/thoi-gian'
@@ -17,6 +17,8 @@ import {
 import { listJobs, deleteJob, dedupeInfo, dedupeRun } from './api'
 import { JobFormModal } from './JobForm'
 import { LoaiViecCell } from './LoaiViecCell'
+import { ChungTuButton } from './ChungTuButton'
+import { TraKhoModal } from './TraKhoModal'
 import { todayVN, jobTien, LOAI_CV_FALLBACK, type Job } from './types'
 
 const STATUSES = ['Chờ nhận', 'Đã nhận', 'Đang làm', 'Hoàn thành', 'Chưa hoàn thành']
@@ -51,6 +53,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Job | null>(null)
   const [busyTool, setBusyTool] = useState(false)
+  const [traJobId, setTraJobId] = useState<string | null>(null)
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true)
@@ -132,6 +135,17 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
     try { await deleteJob(j.id); notify('success', 'Đã xóa phiếu.'); load(true) }
     catch (e: any) { notify('error', e?.message || 'Lỗi xóa phiếu') }
   }
+  // Đưa "Đang làm" về "Đã nhận" (admin) — KTV bấm nhầm Đang làm. Xóa mốc bắt đầu.
+  const revertDaNhan = async (j: Job) => {
+    if (!(await confirm(`Đưa phiếu ${j.report || ''}${j.ma_may ? ` (máy ${j.ma_may})` : ''} về "Đã nhận"?\nMốc bắt đầu sẽ bị xóa, thời gian xử lý tính lại từ đầu.`, { confirmLabel: 'Về Đã nhận', danger: false }))) return
+    try {
+      const res = await fetch('/api/admin/cong-viec', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: j.id, revertDangLam: true }) })
+      const jr = await res.json().catch(() => ({}))
+      if (!res.ok) { notify('error', jr.error || 'Lỗi'); return }
+      notify('success', 'Đã đưa phiếu về "Đã nhận".'); load(true)
+    } catch { notify('error', 'Lỗi kết nối!') }
+  }
+  const traJob = traJobId ? jobs.find(j => j.id === traJobId) || null : null
 
   // Xuất Excel — CHỈ danh sách đang lọc (visibleRows), 14 cột khớp bản admin.
   const exportExcel = async () => {
@@ -238,15 +252,25 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
       },
     },
     {
-      key: 'actions', header: 'Thao tác', align: 'right',
-      render: j => (
-        <div className="inline-flex gap-1">
-          {(['Chờ nhận', 'Đã nhận'].includes(j.ket_qua) || role === 'admin') && (
-            <button onClick={() => openEdit(j)} title={['Chờ nhận', 'Đã nhận'].includes(j.ket_qua) ? 'Sửa phiếu' : 'Sửa phiếu (admin)'} className="w-7 h-7 rounded border border-blue-200 text-blue-600 hover:bg-blue-50 flex items-center justify-center"><Pencil className="w-3.5 h-3.5" /></button>
-          )}
-          {canDelete && <button onClick={() => onDelete(j)} title="Xóa phiếu" className="w-7 h-7 rounded border border-rose-200 text-rose-600 hover:bg-rose-50 flex items-center justify-center"><Trash2 className="w-3.5 h-3.5" /></button>}
-        </div>
-      ),
+      key: 'actions', header: 'Thao tác', align: 'right', tdClassName: 'whitespace-nowrap',
+      render: j => {
+        const hasVt = (j.soct_chi_tiet_vat_tu || []).length > 0
+        return (
+          <div className="inline-flex gap-1 items-center">
+            {hasVt && <ChungTuButton jobId={j.id} bbbgLuc={j.bbbg_luc} onExported={() => load(true)} notify={notify} />}
+            {(['Chờ nhận', 'Đã nhận'].includes(j.ket_qua) || role === 'admin') && (
+              <button onClick={() => openEdit(j)} title={['Chờ nhận', 'Đã nhận'].includes(j.ket_qua) ? 'Sửa phiếu' : 'Sửa phiếu (admin)'} className="w-7 h-7 rounded border border-blue-200 text-blue-600 hover:bg-blue-50 flex items-center justify-center"><Pencil className="w-3.5 h-3.5" /></button>
+            )}
+            {role === 'admin' && j.ket_qua === 'Đang làm' && (
+              <button onClick={() => revertDaNhan(j)} title='Đưa về "Đã nhận" (KTV bấm nhầm Đang làm)' className="w-7 h-7 rounded border border-amber-200 text-amber-600 hover:bg-amber-50 flex items-center justify-center"><ChevronLeft className="w-3.5 h-3.5" /></button>
+            )}
+            {canDelete && j.ket_qua === 'Hoàn thành' && hasVt && (
+              <button onClick={() => setTraJobId(j.id)} title="Vật tư / Trả về kho" className="w-7 h-7 rounded border border-indigo-200 text-indigo-600 hover:bg-indigo-50 flex items-center justify-center"><Boxes className="w-3.5 h-3.5" /></button>
+            )}
+            {canDelete && <button onClick={() => onDelete(j)} title="Xóa phiếu" className="w-7 h-7 rounded border border-rose-200 text-rose-600 hover:bg-rose-50 flex items-center justify-center"><Trash2 className="w-3.5 h-3.5" /></button>}
+          </div>
+        )
+      },
     },
   ]
 
@@ -312,6 +336,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
           canEdit={!editing || canEditJob(editing)}
         />
       )}
+      {traJob && <TraKhoModal job={traJob} onClose={() => setTraJobId(null)} onChanged={() => load(true)} notify={notify} />}
       {confirmNode}
     </div>
   )
