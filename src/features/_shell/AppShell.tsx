@@ -3,13 +3,14 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useMemo } from 'react'
 import * as Icons from 'lucide-react'
-import { Search, LogOut, ChevronRight, type LucideIcon } from 'lucide-react'
+import { LogOut, ChevronRight, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ShieldAlert } from 'lucide-react'
 import { V2_NAV, findParent, type V2Child } from '@/lib/v2-nav'
 import { useSession } from './SessionProvider'
 import { useBadges } from './BadgeProvider'
 import { NotificationCenter } from './NotificationCenter'
+import TroLyAI from '@/components/TroLyAI'
 
 // Badge đỏ đếm (như bản cũ) bám phải trong mục sidebar.
 function CountPill({ n }: { n: number }) {
@@ -167,9 +168,6 @@ function TopBar({ parent, child }: { parent?: string; child?: string }) {
         </>}
       </div>
       <div className="flex-1" />
-      <div className="hidden md:flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-md px-2.5 py-1.5 w-56 text-slate-400">
-        <Search className="w-3.5 h-3.5" /><span className="text-xs">Tìm nhanh…</span>
-      </div>
       <NotificationCenter />
     </header>
   )
@@ -216,6 +214,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="p-4">{allowed ? children : <AccessDenied role={user.role} />}</div>
         </div>
       </section>
+      {/* Trợ lý AI — nút nổi góc dưới phải (không chiếm chỗ bảng/dữ liệu), gate quyền tro_ly. */}
+      {tabVisible('tro_ly') && <TroLyAI />}
     </div>
   )
 }
