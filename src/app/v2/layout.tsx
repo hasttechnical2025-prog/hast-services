@@ -1,5 +1,6 @@
 import { SessionProvider } from '@/features/_shell/SessionProvider'
 import { SharedDataProvider } from '@/features/_shell/SharedDataProvider'
+import { BadgeProvider } from '@/features/_shell/BadgeProvider'
 import { AppShell } from '@/features/_shell/AppShell'
 
 // Vỏ route /v2 (UI 2027). Nằm TRONG root layout (đã có html/body + guard bảo trì),
@@ -10,7 +11,9 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <SharedDataProvider>
-        <AppShell>{children}</AppShell>
+        <BadgeProvider>
+          <AppShell>{children}</AppShell>
+        </BadgeProvider>
       </SharedDataProvider>
     </SessionProvider>
   )

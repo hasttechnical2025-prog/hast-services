@@ -8,7 +8,18 @@ import { cn } from '@/lib/utils'
 import { ShieldAlert } from 'lucide-react'
 import { V2_NAV, findParent, type V2Child } from '@/lib/v2-nav'
 import { useSession } from './SessionProvider'
+import { useBadges } from './BadgeProvider'
 import { NotificationCenter } from './NotificationCenter'
+
+// Badge đỏ đếm (như bản cũ) bám phải trong mục sidebar.
+function CountPill({ n }: { n: number }) {
+  if (!n) return null
+  return <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold shrink-0">{n}</span>
+}
+// Key badge của 1 mục con = "cha.con" (vd cong_viec.hoan_phieu). Bỏ trống nếu không có permSub.
+function childBadgeKey(c: V2Child): string | null {
+  return c.permSub ? `${c.permParent}.${c.permSub}` : null
+}
 
 type Gate = { isAdmin: boolean; tabVisible: (p: string) => boolean; subVisible: (p: string, s: string) => boolean }
 
@@ -50,6 +61,7 @@ function parseRoute(pathname: string): { parent?: string; child?: string } {
 
 function Sidebar({ parent, child }: { parent?: string; child?: string }) {
   const { tabVisible, subVisible, user } = useSession()
+  const { counts } = useBadges()
   const isAdmin = user?.role === 'admin'
   // Tính con hiển thị + ẩn cha không còn con nào. Cha "lá" (leaf) gate theo permSub.
   // Con adminOnly (vd tab quản trị Hệ thống) chỉ hiện với admin.
@@ -78,6 +90,8 @@ function Sidebar({ parent, child }: { parent?: string; child?: string }) {
           const open = p.slug === parent
           const Ic = iconOf(p.icon)
           const headHref = p.leaf ? `/v2/${p.slug}` : `/v2/${p.slug}/${(kids[0] || p.children[0]).slug}`
+          // Tổng badge các mục con — hiện trên tab CHA khi đang THU GỌN (chưa mở), để không mất tín hiệu.
+          const parentSum = kids.reduce((s, c) => { const k = childBadgeKey(c); return s + (k ? (counts[k] || 0) : 0) }, 0)
           return (
             <div key={p.slug}>
               <Link
@@ -87,13 +101,15 @@ function Sidebar({ parent, child }: { parent?: string; child?: string }) {
                     ? (open ? 'bg-rose-50 text-rose-700' : 'text-rose-600 hover:bg-rose-50')
                     : open ? (p.leaf ? 'bg-blue-50 text-blue-700' : 'text-slate-800') : 'text-slate-500 hover:bg-slate-100')}
               >
-                <Ic className={cn('w-4 h-4', p.tone === 'rose' ? 'text-rose-500' : open ? 'text-blue-600' : 'text-slate-400')} />
-                {p.label}
+                <Ic className={cn('w-4 h-4 shrink-0', p.tone === 'rose' ? 'text-rose-500' : open ? 'text-blue-600' : 'text-slate-400')} />
+                <span className="flex-1 truncate">{p.label}</span>
+                {!open && <CountPill n={parentSum} />}
               </Link>
               {open && !p.leaf && (
                 <div className="ml-3 pl-2 border-l border-slate-200 space-y-0.5 mb-1 mt-0.5">
                   {kids.map(c => {
                     const active = c.slug === child
+                    const bk = childBadgeKey(c)
                     return (
                       <Link
                         key={c.slug}
@@ -101,8 +117,9 @@ function Sidebar({ parent, child }: { parent?: string; child?: string }) {
                         className={cn('flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] cursor-pointer',
                           active ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-100')}
                       >
-                        <span className={cn('w-1 h-1 rounded-full', active ? 'bg-blue-500' : 'bg-slate-300')} />
-                        {c.label}
+                        <span className={cn('w-1 h-1 rounded-full shrink-0', active ? 'bg-blue-500' : 'bg-slate-300')} />
+                        <span className="flex-1 truncate">{c.label}</span>
+                        <CountPill n={bk ? (counts[bk] || 0) : 0} />
                       </Link>
                     )
                   })}
