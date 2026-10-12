@@ -30,9 +30,11 @@
 ### Gating
 - [ ] ⬜ Ẩn/hiện tab cháu theo quyền (`canSub` → `subVisible` v2); tab bị ẩn tự nhảy về tab hiện đầu tiên
 
-## B. Giám định (`theo_doi_may.giam_dinh`) — chưa khảo sát chi tiết
-- [ ] ⬜ Danh sách BBGĐ + lọc (Chờ thay / Đã/Chưa báo giá) + KPI
-- [ ] ⬜ "Làm báo giá" (1 BBGĐ = 1 báo giá) qua `BaoGiaEditor` (dùng chung) · tick "đã báo giá"
-- [ ] ⬜ Xuất .docx BBGĐ
+## B. Giám định (`theo_doi_may.giam_dinh`) — ✅ ĐẠT PARITY (port nguyên GiamDinhTool)
+- [x] ✅ Nhập biên bản (CollapsibleTools): mã máy→tra khách, KTV/vị trí/số đếm/tình trạng (datalist), vật tư đề xuất (MaterialCombobox + lọc hợp model), đã báo giá, Lưu
+- [x] ✅ KPI: Biên bản · Chờ thay · Đã thay · Đã báo giá
+- [x] ✅ Danh sách BBGĐ (thẻ) + lọc (tìm đa trường, Trạng thái Chờ/Đã thay, Báo giá) + Bỏ lọc + phân trang + realtime
+- [x] ✅ "Làm báo giá" (1 BBGĐ = 1 báo giá) qua `BaoGiaEditor` dùng chung, giá gợi ý gần nhất, xuất xong tự tick "đã báo giá"
+- [x] ✅ Đóng biên bản (đã thay, nhập số phiếu + ngày) · toggle đã báo giá · xóa
 
 > Thứ tự port: A0+A1 (lõi dán counter + Đã bảo trì) → A2/A3 → A4 (đối chiếu + in sổ) → A5 → B (Giám định).
