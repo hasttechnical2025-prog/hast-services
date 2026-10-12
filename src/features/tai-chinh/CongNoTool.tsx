@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import BaoGiaEditor, { type BaoGiaRow } from '@/components/BaoGiaEditor'
 import { useRealtimeRefetch } from '@/lib/useRealtime'
 import { CONGNO_TOPIC, JOBS_TOPIC, DATA_EVENT } from '@/lib/realtime'
-import { StatCard, StatRow } from '@/ui'
+import { StatCard, StatRow, BoxLoading } from '@/ui'
 
 // Port NGUYÊN CongNoTool từ admin (y hệt): gom phiếu theo khách/cụm → báo giá (BaoGiaEditor)
 // → đánh dấu / đẩy Kanban / tách hóa đơn / xuất-nhập Excel. Gọi lại /api/admin/cong-no.
@@ -318,7 +318,7 @@ export function CongNoTool({ showNotification }: { showNotification: (type: 'suc
       </div>
 
       {loading ? (
-        <p className="text-sm text-slate-400 text-center py-6">Đang tải công nợ...</p>
+        <BoxLoading label="Đang tải công nợ..." className="py-6" />
       ) : selCusts.length === 0 ? (
         <p className="text-sm text-slate-400 text-center py-6">Lựa chọn khách hàng để xuất công nợ hoặc lập báo giá</p>
       ) : (

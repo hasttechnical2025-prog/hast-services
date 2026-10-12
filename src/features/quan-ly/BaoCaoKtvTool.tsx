@@ -4,6 +4,7 @@ import { RefreshCw, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import DateField from '@/components/DateField'
 import { fmtThoiLuong } from '@/lib/thoi-gian'
+import { BoxLoading } from '@/ui'
 
 // Port NGUYÊN BaoCaoKtvTool từ admin (y hệt). Gọi lại /api/admin/bao-cao-ktv.
 export function BaoCaoKtvTool({ technicians, showNotification }: { technicians: any[], showNotification: (type: 'success' | 'error', msg: string) => void }) {
@@ -154,7 +155,7 @@ export function BaoCaoKtvTool({ technicians, showNotification }: { technicians: 
       </div>
 
       {loading ? (
-        <p className="text-sm text-slate-400 text-center py-8">Đang tải nhật ký...</p>
+        <BoxLoading label="Đang tải nhật ký..." />
       ) : reportDays.length === 0 ? (
         <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">
           Không có dữ liệu nhật ký báo cáo trong khoảng thời gian này.

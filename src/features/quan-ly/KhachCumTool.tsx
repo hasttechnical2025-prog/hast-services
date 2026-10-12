@@ -4,7 +4,7 @@ import { Users, Boxes, Package, Plus, Search, PenSquare, Trash2, X, FileSpreadsh
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useConfirm } from '@/components/ConfirmDialog'
-import { StatCard, StatRow } from '@/ui'
+import { StatCard, StatRow, BoxLoading } from '@/ui'
 
 // Port NGUYÊN KhachCumTool + DoiChieuMinvoiceModal từ admin (y hệt). Gọi lại /api/admin/khach-cum,
 // /api/admin/doi-chieu-khach.
@@ -265,7 +265,7 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
           </div>
 
           <div className="bg-white rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-[420px] overflow-y-auto">
-            {loading ? <p className="text-sm text-slate-400 text-center py-6">Đang tải...</p>
+            {loading ? <BoxLoading className="py-6" />
               : cumList.length === 0 ? <p className="text-sm text-slate-400 text-center py-6">Chưa có cụm nào. Tạo ở trên.</p>
                 : cumList.map(c => (
                   <button key={c.ma_khach_hang} onClick={() => { setSelMa(c.ma_khach_hang); setEditing(false); setPickIds([]); setMaySearch('') }}

@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { usePaged, Pagination, useColView, ColumnMenu, type ColDef } from '@/ui'
+import { usePaged, Pagination, useColView, ColumnMenu, TableLoading, type ColDef } from '@/ui'
 
 // Port NGUYÊN AuditLogsTool từ admin (y hệt). Gọi lại /api/admin/audit-logs.
 const AUDIT_COLS: ColDef[] = [
@@ -69,7 +69,7 @@ export function AuditLogsTool({ showNotification }: { showNotification: (type: '
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Đang tải...</td></tr>
+              <TableLoading colSpan={4} />
             ) : logs.length === 0 ? (
               <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Chưa có log nào.</td></tr>
             ) : paged.pageItems.map(l => (

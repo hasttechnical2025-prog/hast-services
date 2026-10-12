@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { TableLoading } from '@/ui'
 
 // Port NGUYÊN TroLyLogTool từ admin (y hệt). Gọi lại /api/admin/tro-ly.
 const TROLY_TOOL_LABEL: Record<string, string> = {
@@ -56,7 +57,7 @@ export function TroLyLogTool({ showNotification }: { showNotification: (type: 's
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Đang tải...</td></tr>
+              <TableLoading colSpan={5} />
             ) : rows.length === 0 ? (
               <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Chưa có câu hỏi nào.</td></tr>
             ) : rows.map(r => {

@@ -11,7 +11,7 @@ import { useRealtimeRefetch } from '@/lib/useRealtime'
 import { BAOTRI_TOPIC, DATA_EVENT } from '@/lib/realtime'
 import { exportRowsToExcel } from '@/lib/excel'
 import { LOAI_HD_BAO_TRI, canBaoTriThang, dangTamDung, moTaLichBaoTri, doiChieuNam, thangDaToi, fmtThang, CELL_DA_LAM, CELL_THIEU, CELL_CHUA_TOI } from '@/lib/bao-tri'
-import { usePaged, Pagination, useColView, ColumnMenu, type ColDef } from '@/ui'
+import { usePaged, Pagination, useColView, ColumnMenu, TableLoading, type ColDef } from '@/ui'
 
 // Port NGUYÊN BaoTriTool từ admin/page.tsx (y hệt giao diện + nghiệp vụ). Chỉ đổi import sang
 // helper dùng chung + thay ClearAllButton bằng xác nhận useConfirm.
@@ -717,7 +717,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {dcLoading ? (
-                      <tr><td colSpan={19} className="px-4 py-8 text-center text-slate-400">Đang tải dữ liệu năm {dcNam}...</td></tr>
+                      <TableLoading colSpan={19} label={`Đang tải dữ liệu năm ${dcNam}...`} />
                     ) : dcFiltered.length === 0 ? (
                       <tr><td colSpan={19} className="px-4 py-8 text-center text-slate-400">Không có máy HĐBT/MF nào khớp.</td></tr>
                     ) : dcPaged.pageItems.map((r) => (
@@ -839,7 +839,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {loading ? (
-                    <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Đang tải...</td></tr>
+                    <TableLoading colSpan={4} />
                   ) : records.length === 0 ? (
                     <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Chưa có máy nào được đánh dấu bảo trì tháng này.</td></tr>
                   ) : paged.pageItems.map((r) => {

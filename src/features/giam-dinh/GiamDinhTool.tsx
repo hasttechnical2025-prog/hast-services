@@ -9,7 +9,7 @@ import BaoGiaEditor, { type BaoGiaRow } from '@/components/BaoGiaEditor'
 import { MaterialCombobox } from '@/features/giao-viec/MaterialCombobox'
 import { useRealtimeRefetch } from '@/lib/useRealtime'
 import { GIAMDINH_TOPIC, DATA_EVENT } from '@/lib/realtime'
-import { usePaged, Pagination, StatCard, StatRow } from '@/ui'
+import { usePaged, Pagination, StatCard, StatRow, BoxLoading } from '@/ui'
 
 // Port NGUYÊN GiamDinhTool từ admin/page.tsx (y hệt), gọi lại /api/admin/giam-dinh + /api/admin/bao-gia.
 function modelNumber(model: string) { const m = (model || '').match(/\d+/); return m ? m[0] : '' }
@@ -270,7 +270,7 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
           {gdFilterActive && <button onClick={() => setGdFilters({ maMay: "", trangThai: "", baoGia: "" })} className="text-xs text-red-600 hover:underline font-medium">Bỏ lọc</button>}
         </div>
         {loading ? (
-          <p className="text-sm text-slate-400 text-center py-8">Đang tải...</p>
+          <BoxLoading />
         ) : records.length === 0 ? (
           <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">Chưa có biên bản giám định nào.</div>
         ) : filteredRecords.length === 0 ? (

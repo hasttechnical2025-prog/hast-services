@@ -5,6 +5,7 @@ import { Package, Boxes, Search, ShoppingCart, ChevronUp, ChevronDown } from 'lu
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import MonthField from '@/components/MonthField'
+import { TableLoading } from '@/ui'
 
 // Port NGUYÊN NhapHangThangTool từ admin (y hệt): panel Cảnh báo tồn + Thống kê nhập theo tháng.
 // Gọi lại /api/admin/nhap-hang-thang và /api/admin/canh-bao-ton.
@@ -490,7 +491,7 @@ export function NhapHangThangTool({
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Đang tải...</td></tr>
+                <TableLoading colSpan={4} />
               ) : filteredRows.length === 0 ? (
                 <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">{q.trim() ? `Không có mặt hàng khớp "${q.trim()}".` : 'Chưa có dữ liệu nhập.'}</td></tr>
               ) : filteredRows.map(r => (

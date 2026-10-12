@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Upload, RefreshCw, Save, ChevronUp, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { TableLoading } from '@/ui'
 
 // Port NGUYÊN GiaNiemYetTool từ admin (y hệt), gọi lại /api/admin/gia-niem-yet.
 export function GiaNiemYetTool({ showNotification, hangOptions }: { showNotification: (t: 'success' | 'error', m: string) => void, hangOptions: string[] }) {
@@ -202,7 +203,7 @@ export function GiaNiemYetTool({ showNotification, hangOptions }: { showNotifica
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải...</td></tr>
+                <TableLoading colSpan={9} />
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400">Không có vật tư nào.</td></tr>
               ) : filtered.map(r => {
