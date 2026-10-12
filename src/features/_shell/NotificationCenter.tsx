@@ -239,9 +239,9 @@ export function NotificationCenter() {
   return (
     <div className="relative">
       <button type="button" onClick={() => setOpen(o => !o)} title="Cảnh báo & nhắc việc"
-        className={`relative w-11 h-11 rounded-full border flex items-center justify-center transition ${btnCls}`}>
-        <Bell className="w-[22px] h-[22px]" />
-        {total > 0 && <span className={`absolute -top-1 -right-1 min-w-[20px] h-[20px] px-1 rounded-full text-white text-[11px] font-bold flex items-center justify-center ring-2 ring-white ${badgeCls}`}>{total}</span>}
+        className={`relative w-9 h-9 rounded-full border flex items-center justify-center transition ${btnCls}`}>
+        <Bell className="w-[18px] h-[18px]" />
+        {total > 0 && <span className={`absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white ${badgeCls}`}>{total}</span>}
       </button>
       {open && (
         <>
