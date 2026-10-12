@@ -586,7 +586,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
       </CollapsibleTools>
 
       <div>
-        <div className="flex gap-1 border-b border-slate-200 mb-4 overflow-x-auto w-full max-w-full sticky top-0 z-20 bg-slate-50/95 backdrop-blur-sm">
+        <div className="flex gap-1 border-b border-slate-200 mb-4 overflow-x-auto w-full max-w-full sticky top-0 z-20 bg-slate-50 pt-1">
           {canS('da_bao_tri') && <button onClick={() => setSubTab('da_bao_tri')} className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${active === 'da_bao_tri' ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
             Đã bảo trì tháng {thangNam.split('-').reverse().join('/')} ({records.length} máy)
           </button>}

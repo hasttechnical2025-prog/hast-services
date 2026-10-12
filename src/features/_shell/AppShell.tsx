@@ -139,7 +139,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar parent={parent} child={child} />
       <section className="flex-1 min-w-0 flex flex-col bg-white min-h-0">
         <TopBar parent={parent} child={child} />
-        <div className="flex-1 overflow-y-auto p-4 bg-slate-50/40">{children}</div>
+        {/* Vùng cuộn KHÔNG padding (padding ở wrapper trong) -> thanh tab con sticky top-0 dính SÁT
+            mép trên, không để lộ content ở khe padding. */}
+        <div className="flex-1 overflow-y-auto bg-slate-50/40">
+          <div className="p-4">{children}</div>
+        </div>
       </section>
     </div>
   )
