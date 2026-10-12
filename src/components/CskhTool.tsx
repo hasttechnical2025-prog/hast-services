@@ -181,7 +181,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
                 : queueShown.map(r => (
                   <div key={r.ma_khach_cum} className="border border-slate-200 rounded-lg p-3 flex items-start gap-3 hover:bg-slate-50">
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium text-slate-800">{r.ten_khach_hang}</div>
+                      <div className="text-xs font-medium text-slate-800">{r.ten_khach_hang}</div>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {r.reasons.map((x: any, i: number) => (<span key={i} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${REASON[x.type]?.badge || 'bg-slate-100 text-slate-600'}`}>{x.label}</span>))}
                       </div>
