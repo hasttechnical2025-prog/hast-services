@@ -8,6 +8,7 @@ import { phieuTaoChip, buoiGio, PHIEU_TAO_TONE } from '@/lib/phieu-tao'
 import { exportRowsToExcel } from '@/lib/excel'
 import { JOBS_TOPIC, JOBS_EVENT } from '@/lib/realtime'
 import { useRealtimeRefetch } from '@/lib/useRealtime'
+import LamTiepBanner from '@/components/LamTiepBanner'
 import { useShared } from '@/features/_shell/SharedDataProvider'
 import { useSession } from '@/features/_shell/SessionProvider'
 import {
@@ -54,6 +55,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
   const [editing, setEditing] = useState<Job | null>(null)
   const [busyTool, setBusyTool] = useState(false)
   const [traJobId, setTraJobId] = useState<string | null>(null)
+  const [futureJobs, setFutureJobs] = useState<Job[]>([])   // phiếu đặt trước (ngay >= ngày mai), chưa hoàn thành
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true)
@@ -67,7 +69,15 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
 
   // Đổi bộ lọc server -> debounce nạp lại dữ liệu.
   useEffect(() => { const t = setTimeout(() => load(), 300); return () => clearTimeout(t) }, [load])
-  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => load(true), true, 30000)
+
+  // Phiếu đặt trước (ngày mai trở đi, chưa hoàn thành) — độc lập bộ lọc ngày để luôn nhắc.
+  const tomorrow = useMemo(() => new Date(Date.parse(todayVN() + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10), [])
+  const loadFuture = useCallback(() => {
+    listJobs({ tuNgay: tomorrow, ket_qua: 'Chờ nhận,Đã nhận,Đang làm,Chưa hoàn thành' }).then(setFutureJobs).catch(() => {})
+  }, [tomorrow])
+  useEffect(() => { loadFuture() }, [loadFuture])
+
+  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => { load(true); loadFuture() }, true, 30000)
 
   const loaiOptions = dmOptions('loai_cong_viec', LOAI_CV_FALLBACK)
 
@@ -277,8 +287,25 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
   const fieldCls = 'h-9 px-2.5 text-xs rounded-md border border-slate-200 bg-white outline-none focus:border-blue-500'
   const btnOutline = 'h-9 px-3 rounded-md border border-slate-200 text-slate-600 text-xs font-medium flex items-center gap-1.5 hover:bg-slate-50 disabled:opacity-50'
 
+  const daXemFuture = tuNgay === tomorrow && denNgay === ''
+  const ganNhat = futureJobs.length ? futureJobs.reduce((m, j) => (m && m <= j.ngay ? m : j.ngay), futureJobs[0].ngay) : ''
+
   return (
     <div className="space-y-4">
+      {/* Nhắc làm tiếp (phiếu Chưa hoàn thành đến hẹn) */}
+      <LamTiepBanner showNotification={notify} onCreated={() => { load(true); loadFuture() }} />
+
+      {/* Phiếu đặt trước cho ngày tới */}
+      {futureJobs.length > 0 && (
+        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs">
+          <Clock className="w-4 h-4 text-blue-600 shrink-0" />
+          <span className="text-blue-800"><b>{futureJobs.length}</b> phiếu đặt trước cho ngày tới (gần nhất <b>{fmtDate(ganNhat)}</b>)</span>
+          {daXemFuture
+            ? <button onClick={() => { setTuNgay(today); setDenNgay(today) }} className="ml-auto shrink-0 font-semibold text-slate-500 hover:underline">← Về hôm nay</button>
+            : <button onClick={() => { setTuNgay(tomorrow); setDenNgay('') }} className="ml-auto shrink-0 font-semibold text-blue-700 hover:underline">Xem →</button>}
+        </div>
+      )}
+
       <StatRow>
         <StatCard label="Tổng việc" value={stats.total.toLocaleString('vi-VN')} sub={`trên ${jobs.length.toLocaleString('vi-VN')} tất cả`} tone="blue" icon={ClipboardList} />
         <StatCard label="Hoàn thành" value={stats.done.toLocaleString('vi-VN')} tone="emerald" icon={CheckCircle2} />

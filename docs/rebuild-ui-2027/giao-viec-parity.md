@@ -40,11 +40,11 @@
 - [ ] 🔸 Nhập phiếu từ PDF (admin, nút ở toolbar — nằm trong form, xem F)
 
 ## E. Banner & nhắc việc (phía trên bảng)
-- [ ] 🔸 **LamTiepBanner** — phiếu "Chưa hoàn thành" `ngay_hen<=hôm nay` chưa có con → "Tạo phiếu tiếp" / "Không làm tiếp"
-- [ ] 🔸 Banner **phiếu đặt trước** (tương lai) — "Xem →" / "Về hôm nay"
-- [ ] 🔸 Banner **phiếu quá hạn chưa hoàn** (unfinished past)
-- [ ] 🔸 Banner **ai nghỉ hôm nay** (leaveToday)
-- [ ] 🔸 Chuông cảnh báo tổng hợp — đã có khung (`NotificationCenter` v2) nhưng mới có cảnh báo tồn kho; còn: mực máy thuê, counter đến hạn, HĐBT sắp hết, nghỉ phép
+- [x] ✅ **LamTiepBanner** — phiếu "Chưa hoàn thành" đến hẹn → "Tạo phiếu tiếp" / "Không làm tiếp" (tái dùng component `@/components/LamTiepBanner`)
+- [x] ✅ Banner **phiếu đặt trước** (tương lai) — "Xem →" / "← Về hôm nay"
+- [ ] 🔸 **Phiếu quá hạn chưa hoàn** (unfinished past) — ở bản cũ là mục CHUÔNG (không phải banner) → gộp vào nhóm Chuông
+- [ ] 🔸 **Ai nghỉ hôm nay** (leaveToday) — ở bản cũ là mục CHUÔNG → gộp vào nhóm Chuông
+- [ ] 🔸 Chuông cảnh báo tổng hợp — khung `NotificationCenter` v2 mới có cảnh báo tồn kho; còn: phiếu quá hạn, nghỉ hôm nay, mực máy thuê, counter đến hạn, HĐBT sắp hết
 
 ## F. Form Giao việc mới / Sửa
 - [x] ✅ Mã-máy-first (gõ mã khớp → khóa khách; không khớp → chọn/khai khách mới)
