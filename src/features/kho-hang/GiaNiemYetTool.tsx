@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Upload, RefreshCw, Save } from 'lucide-react'
+import { Upload, RefreshCw, Save, ChevronUp, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -63,15 +63,41 @@ export function GiaNiemYetTool({ showNotification, hangOptions }: { showNotifica
 
   const fmt = (s: string) => { const d = String(s).replace(/\D/g, ''); return d ? Number(d).toLocaleString('vi-VN') : '' }
   const fmtNum = (n: any) => n == null ? '—' : Number(n).toLocaleString('vi-VN')
+  // Sắp xếp cột (quy tắc: mọi bảng bấm tiêu đề để sort).
+  const [sortField, setSortField] = useState<string>('ma_hang')
+  const [sortAsc, setSortAsc] = useState<boolean>(true)
+  const handleSort = (f: string) => { if (sortField === f) setSortAsc(p => !p); else { setSortField(f); setSortAsc(true) } }
   const filtered = useMemo(() => {
     const kw = q.trim().toLowerCase(), km = qModel.trim().toLowerCase()
-    return rows.filter(r => {
+    const base = rows.filter(r => {
       if (kw && !`${r.ma_hang} ${r.ten_hang}`.toLowerCase().includes(kw)) return false
       if (km && !String(r.model || '').toLowerCase().includes(km)) return false
       if (fHang && String(r.hang || '') !== fHang) return false
       return true
     })
-  }, [rows, q, qModel, fHang])
+    const txt = (a: any, b: any) => String(a ?? '').localeCompare(String(b ?? ''), 'vi', { numeric: true, sensitivity: 'base' })
+    const num = (a: any, b: any) => (Number(a) || 0) - (Number(b) || 0)
+    base.sort((a, b) => {
+      let c = 0
+      if (sortField === 'ma_hang') c = txt(a.ma_hang, b.ma_hang)
+      else if (sortField === 'ten_hang') c = txt(a.ten_hang, b.ten_hang)
+      else if (sortField === 'model') c = txt(a.model, b.model)
+      else if (sortField === 'hang') c = txt(a.hang, b.hang)
+      else if (sortField === 'ton_kho') c = num(a.ton_kho, b.ton_kho)
+      else if (sortField === 'gia_niem_yet') c = num(a.gia_niem_yet, b.gia_niem_yet)
+      else if (sortField === 'gia_nhan_vien') c = num(a.gia_nhan_vien, b.gia_nhan_vien)
+      else if (sortField === 'gia_quan_ly') c = num(a.gia_quan_ly, b.gia_quan_ly)
+      if (c === 0) c = txt(a.ma_hang, b.ma_hang)
+      return sortAsc ? c : -c
+    })
+    return base
+  }, [rows, q, qModel, fHang, sortField, sortAsc])
+
+  const SortTh = ({ f, label, align = 'left' }: { f: string, label: string, align?: 'left' | 'center' | 'right' }) => (
+    <th onClick={() => handleSort(f)} className={`px-2 py-2.5 cursor-pointer select-none transition-colors hover:bg-slate-100 ${align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left'} ${sortField === f ? 'text-blue-600 bg-blue-50/60' : ''}`}>
+      <span className={`inline-flex items-center gap-1 ${align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : ''}`}>{label}{sortField === f && (sortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</span>
+    </th>
+  )
 
   const setE = (ma: string, k: string, v: string) => setEdits(p => ({ ...p, [ma]: { ...p[ma], [k]: v.replace(/\D/g, '') } }))
   const saveRow = async (ma: string) => {
@@ -163,14 +189,14 @@ export function GiaNiemYetTool({ showNotification, hangOptions }: { showNotifica
           <table className="w-full text-xs text-slate-600">
             <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase border-b border-slate-200">
               <tr>
-                <th className="px-2 py-2.5 text-left">Mã hàng</th>
-                <th className="px-2 py-2.5 text-left">Tên vật tư</th>
-                <th className="px-2 py-2.5 text-left">Model</th>
-                <th className="px-2 py-2.5 text-left">Hãng</th>
-                <th className="px-2 py-2.5 text-center">Tồn</th>
-                {cols.niem_yet && <th className="px-2 py-2.5 text-right">Giá niêm yết</th>}
-                {cols.nhan_vien && <th className="px-2 py-2.5 text-right">Giá NV</th>}
-                {cols.quan_ly && <th className="px-2 py-2.5 text-right">Giá QL</th>}
+                <SortTh f="ma_hang" label="Mã hàng" />
+                <SortTh f="ten_hang" label="Tên vật tư" />
+                <SortTh f="model" label="Model" />
+                <SortTh f="hang" label="Hãng" />
+                <SortTh f="ton_kho" label="Tồn" align="center" />
+                {cols.niem_yet && <SortTh f="gia_niem_yet" label="Giá niêm yết" align="right" />}
+                {cols.nhan_vien && <SortTh f="gia_nhan_vien" label="Giá NV" align="right" />}
+                {cols.quan_ly && <SortTh f="gia_quan_ly" label="Giá QL" align="right" />}
                 {canEdit && <th className="px-2 py-2.5 text-center w-9"></th>}
               </tr>
             </thead>
