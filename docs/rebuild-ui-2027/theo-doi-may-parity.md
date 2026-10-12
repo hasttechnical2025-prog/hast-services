@@ -3,7 +3,9 @@
 > v2 = đổi giao diện + tách route, GIỮ NGUYÊN tính năng. Nguồn: `admin/page.tsx` → `BaoTriTool` (~1060 dòng) + `GiamDinhTool` + `/api/admin/bao-tri`, `/api/admin/giam-dinh`.
 > ✅ đã có · 🔸 hoãn · ⬜ chưa. Giữ cỡ chữ text-xs; form max-w-6xl nếu có.
 
-## A. Bảo trì (`theo_doi_may.bao_tri`) — 5 tab cháu
+## A. Bảo trì (`theo_doi_may.bao_tri`) — ✅ ĐẠT PARITY (port nguyên, commit ↓)
+> Đã port đủ: dán counter + preview/lưu · tra cứu lịch sử · 5 tab cháu (Đã/Chưa/Tạm dừng/Đối chiếu năm/Thống kê) · Xuất Excel/CSV · In Sổ theo dõi (per máy + batch) · phân trang · ẩn/hiện cột. CÒN: gating cấp-3 theo quyền (v2 chưa có subSubVisible → mặc định HIỆN, nhỏ).
+
 ### A0. Dán counter + lưu bảo trì (đầu tab)
 - [ ] ⬜ Chọn THÁNG (`MonthField`, giữ MM/YYYY) + ô dán "mã máy TAB counter" / "mã - counter" (nhiều mã; khoảng trắng/phẩy = tách)
 - [ ] ⬜ Preview đối chiếu (mã khớp khách, loại trừ, counter trước, cảnh báo lùi/nhảy số) → **Lưu** (POST /api/admin/bao-tri)
