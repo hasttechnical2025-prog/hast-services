@@ -209,7 +209,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
       key: 'ngay', header: 'Ngày', sortValue: j => j.ngay,
       render: j => {
         const chip = phieuTaoChip(j.created_at, j.ngay, j.so_lan_cuon, j.ket_qua)
-        return <div className="whitespace-nowrap"><DateText value={j.ngay} />{chip && <div className={`mt-0.5 block w-fit text-[8px] leading-tight font-medium border rounded px-1 py-px ${PHIEU_TAO_TONE[chip.tone]}`} title={chip.title}>{chip.label}</div>}</div>
+        return <div className="t1 whitespace-nowrap"><DateText value={j.ngay} />{chip && <div className={`mt-0.5 block w-fit t3 leading-tight font-medium border rounded px-1 py-px ${PHIEU_TAO_TONE[chip.tone]}`} title={chip.title}>{chip.label}</div>}</div>
       },
     },
     {
@@ -217,24 +217,24 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
       // Ghì rộng cột (260px) để tên dài không kéo giãn cột; WRAP (xuống dòng) để hiện đủ, không cắt mất.
       render: j => (
         <div className="w-[260px] max-w-[260px]">
-          <div className="font-medium text-slate-800 break-words">{j.soct_khach_hang?.ten_khach_hang || '—'}</div>
-          <div className="text-[11px] text-slate-500 flex items-start gap-1 mt-0.5"><MapPin className="w-3 h-3 shrink-0 mt-0.5" /><span className="break-words">{j.soct_khach_hang?.vi_tri_dat_may || j.soct_khach_hang?.dia_chi || ''}</span></div>
+          <div className="t1 font-medium text-slate-800 break-words">{j.soct_khach_hang?.ten_khach_hang || '—'}</div>
+          <div className="t2 text-slate-500 flex items-start gap-1 mt-0.5"><MapPin className="w-3 h-3 shrink-0 mt-0.5" /><span className="break-words">{j.soct_khach_hang?.vi_tri_dat_may || j.soct_khach_hang?.dia_chi || ''}</span></div>
         </div>
       ),
     },
     {
       key: 'ma_may', header: 'Mã máy', sortValue: j => j.ma_may || '',
-      render: j => <div><div className="font-mono text-xs">{j.ma_may || '-'}</div>{j.soct_khach_hang?.model && <div className="text-[11px] text-slate-400 mt-0.5">{j.soct_khach_hang.model}</div>}</div>,
+      render: j => <div>{j.soct_khach_hang?.model && <div className="t1 font-medium text-slate-800">{j.soct_khach_hang.model}</div>}<div className="t2 font-mono text-slate-500 mt-0.5">{j.ma_may || '-'}</div></div>,
     },
     { key: 'loai', header: 'Loại việc', sortValue: j => j.loai_cong_viec, filter: filterDefs.loai, tdClassName: 'whitespace-nowrap', render: j => <LoaiViecCell job={j} /> },
     {
       key: 'ktv', header: 'KTV', sortValue: j => j.soct_users?.full_name || '', filter: filterDefs.ktv, tdClassName: 'whitespace-nowrap',
       render: j => j.soct_users?.full_name
-        ? <div><div className="font-medium text-slate-800">{j.soct_users.full_name}</div>{j.ktv2?.full_name && <div className="text-[11px] text-slate-500 mt-0.5">+ {j.ktv2.full_name} <span className="text-[10px] text-slate-400 italic">(kèm)</span></div>}</div>
+        ? <div><div className="t1 font-medium text-slate-800">{j.soct_users.full_name}</div>{j.ktv2?.full_name && <div className="t3 text-slate-500 mt-0.5">+ {j.ktv2.full_name} <span className="text-slate-400 italic">(kèm)</span></div>}</div>
         : <span className="text-amber-600 italic">Chưa giao</span>,
     },
-    { key: 'km', header: 'KM', align: 'center', sortValue: j => Number(j.km) || 0, render: j => <span className="text-xs">{j.km ? `${Number(j.km).toLocaleString('vi-VN')} km` : '0 km'}</span> },
-    { key: 'tg', header: 'TG xử lý', align: 'center', sortValue: j => Number(j.so_phut_xu_ly) || 0, render: j => <span className="text-xs text-slate-500">{fmtThoiLuong(j.so_phut_xu_ly)}</span> },
+    { key: 'km', header: 'KM', align: 'center', sortValue: j => Number(j.km) || 0, render: j => <span className="t2">{j.km ? `${Number(j.km).toLocaleString('vi-VN')} km` : '0 km'}</span> },
+    { key: 'tg', header: 'TG xử lý', align: 'center', sortValue: j => Number(j.so_phut_xu_ly) || 0, render: j => <span className="t2 text-slate-500">{fmtThoiLuong(j.so_phut_xu_ly)}</span> },
     {
       key: 'bao_cao', header: 'Báo cáo HĐ', sortValue: j => jobTien(j).tong, filter: filterDefs.hd,
       render: j => {
@@ -242,7 +242,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
         const active = allVt.filter(v => !v.da_tra)
         const returned = allVt.length - active.length
         const { tong, coHD } = jobTien(j)
-        return <div className="text-xs">{j.report && <div className="text-slate-700">Phiếu: {j.report}</div>}{active.length > 0 && <div className={coHD ? 'text-emerald-600' : 'text-amber-600'}>{coHD ? 'Có HĐ' : 'Chưa HĐ'}: {fmtMoney(tong)} đ</div>}{returned > 0 && <div className="text-indigo-600 text-[11px] font-medium">↩ Đã trả kho {returned}/{allVt.length}</div>}</div>
+        return <div>{j.report && <div className="t2 text-slate-600">Phiếu: {j.report}</div>}{active.length > 0 && <div className={`t1 font-medium ${coHD ? 'text-emerald-600' : 'text-amber-600'}`}>{coHD ? 'Có HĐ' : 'Chưa HĐ'}: {fmtMoney(tong)} đ</div>}{returned > 0 && <div className="t3 text-indigo-600 font-medium mt-0.5">↩ Đã trả kho {returned}/{allVt.length}</div>}</div>
       },
     },
     {
@@ -252,8 +252,8 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
         return (
           <div className="flex items-start gap-1.5 whitespace-nowrap">
             <div className="inline-flex flex-col items-center gap-0.5">
-              <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium border ${statusCls(j.ket_qua)}`}>{j.ket_qua}</span>
-              {chip && <span className={`text-[8px] leading-tight font-medium border rounded px-1 py-px ${PHIEU_TAO_TONE[chip.tone]}`} title={`Hoàn thành ${chip.title}`}>{chip.label}</span>}
+              <span className={`inline-block px-2.5 py-1 rounded-full t2 font-medium border ${statusCls(j.ket_qua)}`}>{j.ket_qua}</span>
+              {chip && <span className={`t3 leading-tight font-medium border rounded px-1 py-px ${PHIEU_TAO_TONE[chip.tone]}`} title={`Hoàn thành ${chip.title}`}>{chip.label}</span>}
             </div>
             {j.nguon_nhan === 'giao' && <span title="Giao trực tiếp cho KTV" className="inline-flex text-indigo-500 mt-1"><Send className="w-3.5 h-3.5" /></span>}
             {j.nguon_nhan === 'tu_nhan' && <span title="KTV tự nhận trên app" className="inline-flex text-emerald-500 mt-1"><Hand className="w-3.5 h-3.5" /></span>}

@@ -36,6 +36,14 @@ body {
 /* Bảng Rà soát kho (Đặt hàng) là bảng dày đặc dữ liệu — thu nhỏ riêng: thân 12px · tiêu đề 11px. */
 .v2-shell table.dh-rasoat tbody td { font-size: 12px; }
 .v2-shell table.dh-rasoat thead th { font-size: 11px; }
+
+/* ── Token cỡ chữ NỘI DUNG danh sách/bảng (áp theo VAI TRÒ dữ liệu, không theo cột) ──
+   t1 = Nhấn/chính (tên, Model, loại việc, tiền) · t2 = Phụ (mã máy, địa chỉ, km, tg)
+   · t3 = Nền/meta + badge thời gian. Đổi 1 chỗ ở đây là đổi toàn app v2.
+   (specificity 2 class > quy tắc bảng 1 class nên thắng cả khi gắn thẳng vào td.) */
+.v2-shell .t1 { font-size: 13px; }
+.v2-shell .t2 { font-size: 11px; }
+.v2-shell .t3 { font-size: 10px; }
 /* Tương phản: ô nhập / ô lọc / select / textarea viền rõ hơn (slate-300) trên nền thẻ trắng,
    giúp dễ nhận diện vùng nhập liệu khi nền canvas đã là slate-100. */
 .v2-shell input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
