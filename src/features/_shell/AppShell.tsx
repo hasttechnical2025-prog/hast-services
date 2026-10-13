@@ -61,9 +61,10 @@ function parseRoute(pathname: string): { parent?: string; child?: string } {
 }
 
 function Sidebar({ parent, child }: { parent?: string; child?: string }) {
-  const { tabVisible, subVisible, user } = useSession()
+  const { tabVisible, subVisible, user, config } = useSession()
   const { counts } = useBadges()
   const isAdmin = user?.role === 'admin'
+  const appName = config?.app_ten?.trim() || 'Sổ công tác'
   // Tính con hiển thị + ẩn cha không còn con nào. Cha "lá" (leaf) gate theo permSub.
   // Con adminOnly (vd tab quản trị Hệ thống) chỉ hiện với admin.
   const gate: Gate = { isAdmin, tabVisible, subVisible }
@@ -80,10 +81,12 @@ function Sidebar({ parent, child }: { parent?: string; child?: string }) {
   return (
     <aside className="w-56 shrink-0 border-r border-slate-200 bg-slate-50/60 flex flex-col">
       <div className="h-12 px-3 border-b border-slate-200 flex items-center gap-2 shrink-0">
-        <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm">S</div>
-        <div className="leading-tight">
-          <div className="text-xs font-bold text-slate-800">Sổ công tác</div>
-          <div className="text-[10px] text-slate-400">HSTC · phiên bản 2027</div>
+        {/* Logo + tên app lấy từ hệ thống (public/logo.png + Cài đặt › app_ten). */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="Logo" className="h-7 w-auto max-w-[32px] object-contain rounded-md shrink-0" />
+        <div className="leading-tight min-w-0">
+          <div className="text-xs font-bold text-slate-800 truncate" title={appName}>{appName}</div>
+          <div className="text-[10px] text-slate-400">Phiên bản 2027</div>
         </div>
       </div>
       <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
