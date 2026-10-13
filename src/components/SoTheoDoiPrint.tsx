@@ -32,12 +32,12 @@ const dmy = (s: string) => { if (!s) return ''; const [y, m, d] = s.split('-'); 
 const box = (label: string, checked = false) =>
   `<span class="cb"><span class="bx">${checked ? '✔' : ''}</span>${esc(label)}</span>`
 
-type ManFields = { nguoiLienHe: string; soDienThoai: string; hdTu: string; hdDen: string; soSerial: string; hinhThuc: string }
+type ManFields = { tenKhach: string; diaChi: string; nguoiLienHe: string; soDienThoai: string; hdTu: string; hdDen: string; soSerial: string; hinhThuc: string }
 
 // Dựng 2 trang (trang 1 + trang 2) cho MỘT máy — KHÔNG kèm <head>/<style> (để wrapDoc bọc chung).
 function pagesFor(may: MayInfo, man: ManFields, qr: string): string {
-  const khName = (may.ten_khach_hang || may.soct_khach_cum?.ten_khach_hang || '').toUpperCase()
-  const diaChi = may.dia_chi || ''
+  const khName = String(man.tenKhach || '').toUpperCase()
+  const diaChi = man.diaChi || ''
   const maMay = may.ma_may || ''
   const loaiMay = may.model || ''
   const isMF = String(man.hinhThuc || '').trim().toUpperCase() === 'MF'
@@ -192,6 +192,8 @@ function autoMan(may: MayInfo): ManFields {
   let hdTu = '', hdDen = ''
   if (base) { hdTu = base; const d = new Date(base); if (!isNaN(d.getTime())) { d.setFullYear(d.getFullYear() + 1); hdDen = d.toISOString().slice(0, 10) } }
   return {
+    tenKhach: may.ten_khach_hang || may.soct_khach_cum?.ten_khach_hang || '',
+    diaChi: may.dia_chi || may.soct_khach_cum?.dia_chi || '',
     nguoiLienHe: '', soDienThoai: '', hdTu, hdDen,
     soSerial: may.serial ? String(may.serial) : '',
     hinhThuc: String(may.loai_hd || '').trim().toUpperCase() === 'MF' ? 'MF' : 'HĐBT',
@@ -223,7 +225,7 @@ export default function SoTheoDoiPrintButton({ may, showNotification }: {
 }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [f, setF] = useState({ nguoiLienHe: '', soDienThoai: '', hdTu: '', hdDen: '', soSerial: '', hinhThuc: 'HĐBT' })
+  const [f, setF] = useState({ tenKhach: '', diaChi: '', nguoiLienHe: '', soDienThoai: '', hdTu: '', hdDen: '', soSerial: '', hinhThuc: 'HĐBT' })
 
   // Mở modal + tự điền KỲ KẾ TIẾP: in sổ mới khi hết hạn -> Từ = ngày hết hạn HĐ hiện tại
   // (ngay_het_han_hdbt), đến = Từ + 1 năm. Số serial ← may.serial. User sửa tay được.
@@ -235,7 +237,9 @@ export default function SoTheoDoiPrintButton({ may, showNotification }: {
       const d = new Date(base); if (!isNaN(d.getTime())) { d.setFullYear(d.getFullYear() + 1); den = d.toISOString().slice(0, 10) }
     }
     const hinhThuc = String(may.loai_hd || '').trim().toUpperCase() === 'MF' ? 'MF' : 'HĐBT'
-    setF({ nguoiLienHe: '', soDienThoai: '', hdTu: tu, hdDen: den, soSerial: may.serial ? String(may.serial) : '', hinhThuc })
+    const tenKhach = may.ten_khach_hang || may.soct_khach_cum?.ten_khach_hang || ''
+    const diaChi = may.dia_chi || may.soct_khach_cum?.dia_chi || ''
+    setF({ tenKhach, diaChi, nguoiLienHe: '', soDienThoai: '', hdTu: tu, hdDen: den, soSerial: may.serial ? String(may.serial) : '', hinhThuc })
     setOpen(true)
   }
 
@@ -266,8 +270,12 @@ export default function SoTheoDoiPrintButton({ may, showNotification }: {
               <h3 className="text-base font-bold text-slate-800">In Sổ theo dõi máy — {may.ma_may}</h3>
               <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
             </div>
-            <p className="text-xs text-slate-500">Các trường nhập tay (để trống nếu để KTV viết tay). Còn lại tự lấy theo máy.</p>
+            <p className="text-xs text-slate-500">Các trường nhập tay (để trống nếu để KTV viết tay). Còn lại tự lấy theo máy. Tên &amp; địa chỉ đã điền sẵn — sửa/rút gọn nếu cần (nhất là khách cụm).</p>
             <div className="space-y-2.5">
+              <div className="space-y-1"><label className="text-xs font-semibold text-slate-600">Tên khách hàng</label>
+                <Input value={f.tenKhach} onChange={e => setF({ ...f, tenKhach: e.target.value })} placeholder="Tên in trên sổ" className="bg-white h-9" /></div>
+              <div className="space-y-1"><label className="text-xs font-semibold text-slate-600">Địa chỉ</label>
+                <textarea value={f.diaChi} onChange={e => setF({ ...f, diaChi: e.target.value })} rows={2} placeholder="Địa chỉ in trên sổ (rút gọn nếu quá dài)" className="w-full bg-white rounded-md border border-slate-200 px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none" /></div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Hình thức hợp đồng</label>
                 <div className="flex gap-2">
