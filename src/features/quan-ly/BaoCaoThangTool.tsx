@@ -88,21 +88,9 @@ export function BaoCaoThangTool({ showNotification }: { showNotification: (type:
 
   return (
     <div className="space-y-6">
-      <div className="border border-slate-200 rounded-lg p-4 bg-slate-50/50 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-slate-600">Tháng báo cáo</label>
-          <MonthField value={thang} onChange={setThang} className="h-9 px-3 text-xs w-44" />
-          <p className="text-xs text-slate-400 max-w-md">Số liệu Mục 1–5 tự tính theo tháng. Mục 3 (máy thuê/CPC, tỉ lệ, lũy kế) và Mục 6–8 nhập tay bên dưới. Báo cáo chỉ để in & nộp, không lưu.</p>
-        </div>
-        <Button onClick={exportDocx} disabled={exporting || loading || !preview} className="gap-2 h-9 text-sm font-semibold shrink-0">
-          <Download className="w-4 h-4" /> {exporting ? 'Đang xuất...' : 'Xuất báo cáo (.docx)'}
-        </Button>
-      </div>
-
       {loading && <p className="text-sm text-slate-400 text-center py-6">Đang tính số liệu tháng...</p>}
 
       {preview && (
-        <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col justify-center shadow-sm">
               <div className="text-[10px] font-bold text-blue-600 uppercase mb-1 tracking-wider">Hóa đơn đã xuất</div>
@@ -121,7 +109,20 @@ export function BaoCaoThangTool({ showNotification }: { showNotification: (type:
               <div className="text-xl font-black text-indigo-900">{preview.ketoan_sau_vat} <span className="text-sm font-medium text-indigo-700">đ</span></div>
             </div>
           </div>
+      )}
 
+      <div className="border border-slate-200 rounded-lg p-4 bg-slate-50/50 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-slate-600">Tháng báo cáo</label>
+          <MonthField value={thang} onChange={setThang} className="h-9 px-3 text-xs w-44" />
+        </div>
+        <Button onClick={exportDocx} disabled={exporting || loading || !preview} className="gap-2 h-9 text-sm font-semibold shrink-0">
+          <Download className="w-4 h-4" /> {exporting ? 'Đang xuất...' : 'Xuất báo cáo (.docx)'}
+        </Button>
+      </div>
+
+      {preview && (
+        <>
           {/* MỤC 1 */}
           <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
             <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200"><h4 className="text-sm font-bold text-slate-700">1. Dịch vụ kỹ thuật</h4></div>

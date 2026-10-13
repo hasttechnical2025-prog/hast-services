@@ -70,8 +70,6 @@ export default function KhachHangPage() {
       {active === 'diem-may' && canDiemMay && (
         <div className="space-y-6">
           <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
-            <h3 className="text-lg font-semibold text-slate-700 mb-2">Danh sách Khách hàng (Điểm máy)</h3>
-            <p className="text-sm text-slate-500 mb-4">Toàn bộ khách hàng / điểm máy hiện có trong hệ thống.</p>
             <CustomerListTool customers={customers} loaiHdOptions={loaiHdOptions} hangOptions={hangOptions} hdbtCanhBaoThang={hdbtCanhBaoThang} onUpdateSuccess={refetchAll} showNotification={notify} />
           </div>
           <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">

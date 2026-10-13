@@ -212,7 +212,7 @@ export function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCa
             {(q || hdFilter !== 'all') ? `${filtered.length} / ${customers.length}` : `Tổng: ${customers.length}`} khách hàng
           </span>
           <Button onClick={() => setEditing({ ten_khach_hang: "", ma_may: "", serial: "", model: "", hang: "", dia_chi: "", km_mac_dinh: "", loai_hd: "", ngay_het_han_hdbt: "", thang_bao_tri: "", bat_dau_tu_thang: "", tam_dung_tu_thang: "", ghi_chu_bao_tri: "", ma_so_thue: "", email_ke_toan: "" })} className="gap-1 bg-blue-600 hover:bg-blue-700 h-9 px-3 text-xs font-semibold whitespace-nowrap">
-            <Plus className="w-4 h-4" /> Mới
+            <Plus className="w-4 h-4" /> Thêm mới
           </Button>
           <ColumnMenu view={col} />
         </div>

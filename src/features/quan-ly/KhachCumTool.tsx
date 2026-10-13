@@ -227,15 +227,16 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
   return (
     <div className="space-y-6">
       {confirmNode}
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => setDoiChieuOpen(true)} className="gap-1.5 h-9 text-xs"><FileSpreadsheet className="w-4 h-4" /> Đối chiếu minVoice</Button>
-      </div>
       {doiChieuOpen && <DoiChieuMinvoiceModal onClose={() => setDoiChieuOpen(false)} showNotification={showNotification} isAdmin={currentUserRole === 'admin'} />}
       <StatRow>
         <StatCard label="Khách cụm" value={clusters.length.toLocaleString('vi-VN')} sub="một khách · nhiều máy" icon={Users} tone="blue" />
         <StatCard label="Máy đã gán cụm" value={assignedCount.toLocaleString('vi-VN')} sub="thuộc một cụm" icon={Boxes} tone="emerald" />
         <StatCard label="Máy chưa gán (lẻ)" value={unassigned.length.toLocaleString('vi-VN')} sub="coi như 1 khách - 1 máy" icon={Package} tone="amber" />
       </StatRow>
+
+      <div className="flex justify-end">
+        <Button variant="outline" onClick={() => setDoiChieuOpen(true)} className="gap-1.5 h-9 text-xs"><FileSpreadsheet className="w-4 h-4" /> Đối chiếu minVoice</Button>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* CỘT TRÁI: danh sách cụm + tạo cụm */}
