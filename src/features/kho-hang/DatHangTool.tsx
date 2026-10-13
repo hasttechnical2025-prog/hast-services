@@ -79,6 +79,7 @@ export function DatHangTool({
 
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null)
   const [excelSuccessModal, setExcelSuccessModal] = useState<{ isOpen: boolean, order: any } | null>(null)
+  const [tab, setTab] = useState<'tao_don' | 'danh_sach'>('tao_don')
 
   const getPendingInfo = (ma_hang: string) => {
     let pendingQty = 0
@@ -207,7 +208,7 @@ export function DatHangTool({
         setLines([])
         setEditingDraftId(null)
         fetchOrders()
-        if (isDaDat) setExcelSuccessModal({ isOpen: true, order: createdOrder })
+        setExcelSuccessModal({ isOpen: true, order: createdOrder })
       } else { const err = await res.json(); showNotification('error', err.error) }
     } catch { showNotification('error', "Lỗi kết nối!") } finally { setSaving(false) }
   }
@@ -337,6 +338,24 @@ export function DatHangTool({
         <StatCard label="Còn thiếu" value={orderStats.thieu.toLocaleString('vi-VN')} sub="đơn vị chưa về" icon={AlertTriangle} tone="amber" />
       </StatRow>
       {confirmNode}
+
+      {/* Thanh tab: Tạo đơn hàng · Danh sách đơn hàng (underline chuẩn v2) */}
+      <div className="flex gap-1 border-b border-slate-200">
+        {([['tao_don', 'Tạo đơn hàng'], ['danh_sach', 'Danh sách đơn hàng']] as const).map(([k, label]) => {
+          const on = tab === k
+          const draftCount = k === 'danh_sach' ? orders.filter(o => !o.da_dat).length : 0
+          return (
+            <button key={k} onClick={() => setTab(k)}
+              className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 inline-flex items-center gap-1.5 ${on ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+              {label}
+              {draftCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold" title={`${draftCount} đơn còn ở trạng thái Nháp`}>{draftCount}</span>}
+            </button>
+          )
+        })}
+      </div>
+
+      {tab === 'tao_don' && (
+      <>
       {/* FORM TẠO ĐƠN - SHOPPING CART UX */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* BÊN TRÁI: RÀ SOÁT TỒN KHO & CHỌN VẬT TƯ (3/5) */}
@@ -523,7 +542,11 @@ export function DatHangTool({
           </div>
         </div>
       </div>
+      </>
+      )}
 
+      {tab === 'danh_sach' && (
+      <>
       {/* Gợi ý MÃ THỰC NHẬN khi ghi hàng về giao thay thế */}
       <datalist id="dathang-ma-thuc">
         {inventory.map((it: any) => <option key={it.ma_hang} value={it.ma_hang}>{it.ten_hang || ''}</option>)}
@@ -659,6 +682,8 @@ export function DatHangTool({
           <Pagination page={dhPaged.page} pageCount={dhPaged.pageCount} total={dhPaged.total} perPage={dhPaged.perPage} onPage={dhPaged.setPage} />
         )}
       </div>
+      </>
+      )}
 
       {excelSuccessModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
@@ -672,6 +697,7 @@ export function DatHangTool({
             </div>
             <div className="bg-slate-50 p-4 flex flex-col gap-2 border-t border-slate-100">
               <Button onClick={() => { exportSingleOrderExcel(excelSuccessModal.order); setExcelSuccessModal(null) }} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2"><Download className="w-4 h-4" /> Xuất Excel đơn này ngay</Button>
+              <Button variant="outline" onClick={() => { setTab('danh_sach'); setExcelSuccessModal(null) }} className="w-full border-blue-200 text-blue-700 hover:bg-blue-50 gap-2"><ShoppingCart className="w-4 h-4" /> Danh sách đơn hàng</Button>
               <Button variant="outline" onClick={() => setExcelSuccessModal(null)} className="w-full text-slate-500 hover:text-slate-700">Đóng</Button>
             </div>
           </div>
