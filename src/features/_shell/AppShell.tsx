@@ -79,7 +79,7 @@ function Sidebar({ parent, child }: { parent?: string; child?: string }) {
 
   return (
     <aside className="w-56 shrink-0 border-r border-slate-200 bg-slate-50/60 flex flex-col">
-      <div className="px-3 py-3 border-b border-slate-200 flex items-center gap-2">
+      <div className="h-12 px-3 border-b border-slate-200 flex items-center gap-2 shrink-0">
         <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm">S</div>
         <div className="leading-tight">
           <div className="text-xs font-bold text-slate-800">Sổ công tác</div>
