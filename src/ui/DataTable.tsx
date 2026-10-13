@@ -123,8 +123,8 @@ export function DataTable<T>({ columns, rows, rowKey, loading, loadingText = 'Đ
         </div>
       )}
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs text-slate-600">
-          <thead className="bg-slate-50/80 text-slate-500 text-[11px] font-semibold uppercase tracking-wide border-b border-slate-200/70">
+        <table className="w-full text-left text-sm text-slate-600">
+          <thead className="bg-slate-50/80 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200/70">
             <tr>
               {columns.map(col => {
                 const activeSort = sortKey === col.key

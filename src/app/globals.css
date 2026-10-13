@@ -27,3 +27,14 @@ body {
   touch-action: pan-x pan-y;
   -webkit-text-size-adjust: 100%;
 }
+
+/* ───── UI 2027 (/v2) — scope riêng, KHÔNG ảnh hưởng /admin ───── */
+/* Thang cỡ chữ bảng đã duyệt: thân bảng 14px · tiêu đề cột 12px.
+   (root html=14px nên đặt px tuyệt đối cho chắc; áp mọi bảng trong /v2.) */
+.v2-shell table tbody td { font-size: 14px; }
+.v2-shell table thead th { font-size: 12px; }
+/* Tương phản: ô nhập / ô lọc / select / textarea viền rõ hơn (slate-300) trên nền thẻ trắng,
+   giúp dễ nhận diện vùng nhập liệu khi nền canvas đã là slate-100. */
+.v2-shell input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.v2-shell select,
+.v2-shell textarea { border-color: #cbd5e1; }

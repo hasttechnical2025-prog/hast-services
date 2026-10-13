@@ -201,7 +201,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Khung cao ĐÚNG màn hình + overflow-hidden: sidebar trái cố định (footer role luôn đáy),
   // CHỈ vùng phải cuộn khi danh sách dài. min-h-0 cho phép con overflow đúng.
   return (
-    <div className="h-[100dvh] flex overflow-hidden">
+    <div className="v2-shell h-[100dvh] flex overflow-hidden">
       <Sidebar parent={parent} child={child} />
       <section className="flex-1 min-w-0 flex flex-col bg-white min-h-0">
         <TopBar parent={parent} child={child} />
@@ -210,7 +210,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* --head-h = -2.5rem: component dùng chung từ admin (ThueCpcModule) ghim tab con tại
             top-[calc(var(--head-h)+2.5rem)]. Admin có header+tab-cha (--head-h+2.5rem); ở v2 TopBar
             nằm NGOÀI vùng cuộn nên offset đúng = 0 → đặt -2.5rem để calc ra 0 (tab con sticky sát mép). */}
-        <div className="flex-1 overflow-y-auto bg-slate-50/40" style={{ ['--head-h' as string]: '-2.5rem' } as React.CSSProperties}>
+        <div className="flex-1 overflow-y-auto bg-slate-100" style={{ ['--head-h' as string]: '-2.5rem' } as React.CSSProperties}>
           <div className="p-4">{allowed ? children : <AccessDenied role={user.role} />}</div>
         </div>
       </section>
