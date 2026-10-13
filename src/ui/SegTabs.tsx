@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
-// Tab cháu (cấp 3) dạng pill — ROUTE-BASED (dùng <Link> để chuột phải mở tab mới / bookmark).
-// active = nền trắng + ring xanh (chuẩn Thuê/CPC & CSKH).
+// Tab cháu (cấp 3) kiểu UNDERLINE — chuẩn chung v2. ROUTE-BASED (dùng <Link> để chuột phải mở tab mới / bookmark).
+// active = gạch chân xanh + chữ xanh đậm.
 export function SegTabs({ items, active, hrefFor, className }: {
   items: { slug: string; label: string; badge?: number }[]
   active: string
@@ -10,7 +10,7 @@ export function SegTabs({ items, active, hrefFor, className }: {
   className?: string
 }) {
   return (
-    <div className={cn('inline-flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200', className)}>
+    <div className={cn('flex gap-1 border-b border-slate-200 overflow-x-auto', className)}>
       {items.map((it) => {
         const on = it.slug === active
         return (
@@ -18,8 +18,8 @@ export function SegTabs({ items, active, hrefFor, className }: {
             key={it.slug}
             href={hrefFor(it.slug)}
             className={cn(
-              'px-3 py-1.5 rounded-md text-xs font-semibold border border-transparent transition flex items-center gap-1.5',
-              on ? 'bg-white text-blue-700 shadow-sm border-blue-200' : 'text-slate-600 hover:text-slate-900'
+              'px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 flex items-center gap-1.5',
+              on ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'
             )}
           >
             {it.label}

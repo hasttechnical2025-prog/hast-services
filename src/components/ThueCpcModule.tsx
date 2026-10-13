@@ -303,9 +303,9 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
           ngang card (-mx bù padding p-4/md:p-6) để nội dung cuộn không lú ra bên cạnh thanh pill.
           z-10 < tab con (z-20) < header (z-30) -> chồng lớp đúng, không chờm. */}
       <div className="sticky top-[calc(var(--head-h)+2.5rem)] z-10 -mx-4 md:-mx-6 px-4 md:px-6 pt-1 pb-3 mb-4 bg-white">
-        <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit overflow-x-auto">
+        <div className="flex gap-1 border-b border-slate-200 w-full overflow-x-auto">
           {tabs.map(([k, l]) => (
-            <button key={k} onClick={() => setSub(k)} className={`px-4 py-2 rounded-md text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 ${active === k ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>
+            <button key={k} onClick={() => setSub(k)} className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 border-b-2 ${active === k ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
               {l}
               {k === 'counter' && dueCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{dueCount}</span>}
               {k === 'canh_bao_muc' && mucCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{mucCount}</span>}

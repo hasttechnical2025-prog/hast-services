@@ -50,15 +50,15 @@ export default function KhachHangPage() {
 
   return (
     <div className="space-y-4">
-      {/* Thanh tab con STICKY — ghim sát dưới TopBar khi cuộn. Tab nội bộ (state), style giống SegTabs. */}
+      {/* Thanh tab con STICKY kiểu UNDERLINE (chuẩn chung v2). */}
       {tabs.length > 1 && (
-        <div className="sticky top-0 z-20 -mx-4 px-4 pt-1 pb-2 bg-slate-50/95 backdrop-blur border-b border-slate-200">
-          <div className="inline-flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
+        <div className="sticky top-0 z-20 -mx-4 px-4 pt-1 bg-slate-100/95 backdrop-blur">
+          <div className="flex gap-1 border-b border-slate-200">
             {tabs.map(t => {
               const on = t.slug === active
               return (
                 <button key={t.slug} onClick={() => setTab(t.slug)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition ${on ? 'bg-white text-blue-700 shadow-sm border-blue-200' : 'text-slate-600 hover:text-slate-900 border-transparent'}`}>
+                  className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${on ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
                   {t.label}
                 </button>
               )

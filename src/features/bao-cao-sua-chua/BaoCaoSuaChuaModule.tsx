@@ -84,15 +84,18 @@ export function BaoCaoSuaChuaModule({ notify }: { notify: (type: 'success' | 'er
     })
   }, [list, search])
 
+  // Tab con kiểu UNDERLINE (chuẩn chung v2).
   const pill = (k: 'cho_gui' | 'da_gui', label: string) => (
-    <button onClick={() => setTab(k)} className={`h-9 px-3 rounded-lg text-sm font-semibold border ${tab === k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200'}`}>{label}</button>
+    <button onClick={() => setTab(k)} className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${tab === k ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>{label}</button>
   )
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 flex-wrap sticky top-0 z-20 bg-slate-50 pt-2 pb-2">
-        {pill('cho_gui', 'Chờ gửi')}
-        {pill('da_gui', 'Đã gửi')}
+      <div className="flex items-end gap-3 flex-wrap sticky top-0 z-20 bg-slate-100 pt-2 pb-2">
+        <div className="flex gap-1 border-b border-slate-200">
+          {pill('cho_gui', 'Chờ gửi')}
+          {pill('da_gui', 'Đã gửi')}
+        </div>
         <div className="relative flex-1 min-w-[220px]">
           <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm tên khách / mã máy / model / KTV…" className="w-full pl-9 h-9 text-xs rounded-md border border-slate-200 bg-white outline-none focus:border-blue-500" />
