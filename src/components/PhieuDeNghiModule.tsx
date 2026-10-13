@@ -446,6 +446,7 @@ export default function PhieuDeNghiModule({
   currentUserName = '',
   inventory = [],
   khoMayOptions = [],
+  v2Layout = false,
 }: {
   showNotification: (t: 'success' | 'error', m: string) => void
   currentUserRole?: string
@@ -453,6 +454,8 @@ export default function PhieuDeNghiModule({
   customers?: any[]
   inventory?: any[]
   khoMayOptions?: string[]
+  /** v2: bỏ header card (tiêu đề + mô tả), dời nút Tạo phiếu / Tải lại xuống hàng lọc. Admin giữ nguyên. */
+  v2Layout?: boolean
 }) {
   const { confirm, confirmNode } = useConfirm()
   const [rows, setRows] = useState<PhieuDeNghi[]>([])
@@ -950,7 +953,8 @@ export default function PhieuDeNghiModule({
 
   return (
     <div className="space-y-4">
-      {/* Header card */}
+      {/* Header card — chỉ admin; v2 bỏ tiêu đề, dời nút xuống hàng lọc */}
+      {!v2Layout && (
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 shrink-0">
@@ -981,12 +985,13 @@ export default function PhieuDeNghiModule({
             onClick={load}
             disabled={loading}
             title="Tải lại danh sách"
-            className="h-9 w-9 p-0"
+            className="h-9 px-3 gap-1.5 text-xs font-medium"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-600' : 'text-slate-600'}`} />
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-600' : 'text-slate-600'}`} /> Tải lại
           </Button>
         </div>
       </div>
+      )}
 
       {/* Filter toolbar */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3.5 flex flex-wrap items-center gap-2.5">
@@ -1028,6 +1033,13 @@ export default function PhieuDeNghiModule({
           >
             Bỏ lọc
           </Button>
+        )}
+        {v2Layout && (
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-xs text-slate-400 whitespace-nowrap">{sortedRows.length} phiếu</span>
+            <Button onClick={openCreateModal} className="h-9 px-4 text-xs font-semibold gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"><Plus className="w-4 h-4" /> Tạo phiếu mới</Button>
+            <Button variant="outline" onClick={load} disabled={loading} title="Tải lại danh sách" className="h-9 px-3 gap-1.5 text-xs font-medium"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-600' : 'text-slate-600'}`} /> Tải lại</Button>
+          </div>
         )}
       </div>
 

@@ -129,7 +129,7 @@ export default function NghiPhepDuyet({ notify, onPending }: {
         <h3 className="text-sm font-bold text-slate-700">Đơn chờ duyệt {pending.length > 0 && <span className="ml-1 text-rose-600">({pending.length})</span>}</h3>
         <div className="flex items-center gap-1.5">
           <button onClick={doSync} disabled={syncing} className="h-9 w-9 p-0 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-40" title="Đồng bộ nghỉ phép đã duyệt sang app Chấm công (tự chấm P)"><UploadCloud className={`w-4 h-4 ${syncing ? 'animate-pulse' : ''}`} /></button>
-          <button onClick={fetchData} className="h-9 w-9 p-0 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600" title="Làm mới"><RefreshCw className="w-4 h-4" /></button>
+          <button onClick={fetchData} className="h-9 px-3 gap-1.5 text-xs font-medium inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600" title="Tải lại"><RefreshCw className="w-4 h-4" /> Tải lại</button>
         </div>
       </div>
 

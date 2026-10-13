@@ -172,7 +172,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
               </button>
             ))}
             <button onClick={() => setReasonFilter('all')} className={`text-[11px] px-2.5 h-7 rounded-full border font-medium transition ${reasonFilter === 'all' ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>Tất cả ({queue.length})</button>
-            <Button variant="outline" onClick={() => loadQueue()} className="h-7 w-7 p-0 ml-auto" title="Làm mới"><RefreshCw className={`w-3.5 h-3.5 ${qLoading ? 'animate-spin' : ''}`} /></Button>
+            <Button variant="outline" onClick={() => loadQueue()} className="h-7 px-2.5 gap-1.5 text-xs ml-auto" title="Tải lại"><RefreshCw className={`w-3.5 h-3.5 ${qLoading ? 'animate-spin' : ''}`} /> Tải lại</Button>
           </div>
           <div className="space-y-2">
             {qLoading ? <div className="py-6 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải...</div>
@@ -284,7 +284,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <p className="text-[11px] text-slate-500 flex-1">Chỉ số theo dõi hiệu quả chăm sóc. Lượt chăm sóc gồm cả nhật ký tay và phiếu giao việc loại CSKH đã hoàn thành.</p>
-            <Button variant="outline" onClick={() => loadKpi()} className="h-8 w-8 p-0" title="Làm mới"><RefreshCw className={`w-4 h-4 ${kpiLoading ? 'animate-spin' : ''}`} /></Button>
+            <Button variant="outline" onClick={() => loadKpi()} className="h-8 px-2.5 gap-1.5 text-xs" title="Tải lại"><RefreshCw className={`w-4 h-4 ${kpiLoading ? 'animate-spin' : ''}`} /> Tải lại</Button>
           </div>
           {kpiLoading && !kpi ? <div className="py-6 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải...</div> : !kpi ? <p className="text-xs text-slate-400 py-6 text-center">Chưa có dữ liệu.</p> : (<>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

@@ -118,11 +118,17 @@ export function GiaNiemYetTool({ showNotification, hangOptions }: { showNotifica
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="text-xl font-bold text-slate-800">Giá niêm yết vật tư {!canEdit && <span className="text-xs font-normal text-slate-400">(chỉ tra cứu)</span>}</h2>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap gap-2.5 items-center">
+        <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã / tên vật tư..." className="h-9 w-56" />
+        <Input value={qModel} onChange={e => setQModel(e.target.value)} placeholder="Tìm model..." className="h-9 w-44" />
+        <select value={fHang} onChange={e => setFHang(e.target.value)} className="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-700">
+          <option value="">Tất cả hãng</option>
+          {hangOptions.map(h => <option key={h} value={h}>{h}</option>)}
+        </select>
+        <span className="self-center text-xs text-slate-400">{filtered.length} vật tư{!canEdit && ' · chỉ tra cứu'}</span>
+        <div className="ml-auto flex items-center gap-2">
           {canEdit && <Button variant="outline" onClick={() => setBulkOpen(v => !v)} className="h-9 gap-1.5 text-sm"><Upload className="w-4 h-4" /> Nhập giá hàng loạt</Button>}
-          <Button variant="outline" onClick={load} className="h-9 gap-1.5 text-sm"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Làm mới</Button>
+          <Button variant="outline" onClick={load} className="h-9 gap-1.5 text-sm"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>
         </div>
       </div>
 
@@ -176,15 +182,6 @@ export function GiaNiemYetTool({ showNotification, hangOptions }: { showNotifica
           })()}
         </div>
       )}
-      <div className="flex flex-wrap gap-2.5">
-        <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã / tên vật tư..." className="h-9 w-56" />
-        <Input value={qModel} onChange={e => setQModel(e.target.value)} placeholder="Tìm model..." className="h-9 w-44" />
-        <select value={fHang} onChange={e => setFHang(e.target.value)} className="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-700">
-          <option value="">Tất cả hãng</option>
-          {hangOptions.map(h => <option key={h} value={h}>{h}</option>)}
-        </select>
-        <span className="ml-auto self-center text-xs text-slate-400">{filtered.length} vật tư</span>
-      </div>
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-slate-600">

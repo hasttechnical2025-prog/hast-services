@@ -225,7 +225,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
           <h2 className="text-base font-bold text-slate-800">Phí bảo trì (phí dịch vụ kỹ thuật/năm theo HĐ)</h2>
           <p className="text-xs text-slate-500">Nhập cấu hình theo máy → gom theo <b>Số HĐDV</b> → tạo hóa đơn đẩy Kanban. Chỉ máy HĐBT/MF.</p>
         </div>
-        <Button variant="outline" onClick={load} disabled={loading} title="Tải lại" className="h-9 w-9 p-0"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /></Button>
+        <Button variant="outline" onClick={load} disabled={loading} title="Tải lại" className="h-9 px-3 gap-1.5 text-xs font-medium"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>
       </div>
 
       {/* ===== Danh sách hóa đơn theo HĐDV — thu gọn được, mặc định GẬP cho mọi role ===== */}

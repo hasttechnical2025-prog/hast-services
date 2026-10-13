@@ -113,7 +113,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
             ))}
           </div>
           <label className="inline-flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none whitespace-nowrap"><input type="checkbox" checked={xemTatCa} onChange={e => setXemTatCa(e.target.checked)} className="w-4 h-4 accent-blue-600" /> Xem tất cả máy</label>
-          <Button variant="outline" onClick={load} className="h-9 w-9 p-0 shrink-0" title="Làm mới"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /></Button>
+          <Button variant="outline" onClick={load} className="h-9 px-3 gap-1.5 text-xs font-medium shrink-0" title="Tải lại"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>
         </div>
       </div>
       <div className="border border-slate-200 rounded-lg overflow-hidden">
@@ -132,7 +132,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải cảnh báo vật tư...</td></tr>
-              : err ? <tr><td colSpan={8} className="px-4 py-8 text-center text-rose-600">⚠ {err} — bấm Làm mới để thử lại.</td></tr>
+              : err ? <tr><td colSpan={8} className="px-4 py-8 text-center text-rose-600">⚠ {err} — bấm Tải lại để thử lại.</td></tr>
               : list.length === 0 ? <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">{xemTatCa ? 'Không có máy khớp tìm kiếm.' : 'Không có máy nào sắp cần thay vật tư. 🎉'}</td></tr>
                 : list.map((r, i) => (
                   <tr key={i} className={`hover:bg-amber-50/60 ${sortField === 'khach' ? (zebra[i] ? 'bg-sky-50/50' : 'bg-white') : ''}`}>

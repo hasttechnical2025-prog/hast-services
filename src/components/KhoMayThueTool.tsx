@@ -169,7 +169,7 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
           Chỉ máy chưa cho thuê {chuaThueCount > 0 && <span className="text-amber-600 font-semibold">({chuaThueCount})</span>}
         </label>
         <Button variant="outline" onClick={fetchList} disabled={loading} className="gap-1 h-9 text-xs px-3">
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Làm mới
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Tải lại
         </Button>
         <span className="text-xs text-slate-500 ml-auto">{filtered.length} máy</span>
       </div>

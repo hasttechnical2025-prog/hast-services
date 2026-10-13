@@ -20,6 +20,7 @@ export default function PhieuDeNghiPage() {
         customers={customers}
         inventory={inventory}
         khoMayOptions={khoMayOptions}
+        v2Layout
       />
       {toastNode}
     </>
