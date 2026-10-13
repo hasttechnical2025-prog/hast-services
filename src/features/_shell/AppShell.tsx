@@ -210,7 +210,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* --head-h = -2.5rem: component dùng chung từ admin (ThueCpcModule) ghim tab con tại
             top-[calc(var(--head-h)+2.5rem)]. Admin có header+tab-cha (--head-h+2.5rem); ở v2 TopBar
             nằm NGOÀI vùng cuộn nên offset đúng = 0 → đặt -2.5rem để calc ra 0 (tab con sticky sát mép). */}
-        <div className="flex-1 overflow-y-auto bg-slate-100" style={{ ['--head-h' as string]: '-2.5rem' } as React.CSSProperties}>
+        <div className="flex-1 overflow-y-auto bg-slate-200" style={{ ['--head-h' as string]: '-2.5rem' } as React.CSSProperties}>
           <div className="p-4">{allowed ? children : <AccessDenied role={user.role} />}</div>
         </div>
       </section>

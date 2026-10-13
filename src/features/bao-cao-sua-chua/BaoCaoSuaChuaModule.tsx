@@ -91,7 +91,7 @@ export function BaoCaoSuaChuaModule({ notify }: { notify: (type: 'success' | 'er
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end gap-3 flex-wrap sticky top-0 z-20 bg-slate-100 pt-2 pb-2">
+      <div className="flex items-end gap-3 flex-wrap sticky top-0 z-20 bg-slate-200 pt-2 pb-2">
         <div className="flex gap-1 border-b border-slate-200">
           {pill('cho_gui', 'Chờ gửi')}
           {pill('da_gui', 'Đã gửi')}
