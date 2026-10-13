@@ -75,10 +75,9 @@ export default function KhachHangPage() {
           <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50">
             <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập / Xuất khách hàng (Excel)</h3>
             <p className="text-sm text-slate-500 mb-4">
-              Quy trình: <b>Xuất Excel</b> để lấy đúng cấu trúc cột → sửa/thêm dữ liệu vào file .xlsx → <b>Nhập từ Excel</b>. Import <b>cập nhật theo Mã máy</b> (trùng thì sửa, mới thì thêm) — <b>không xóa</b> khách cũ, giữ nguyên lịch sử phiếu. Máy nghỉ dùng cột <b>Tạm dừng từ tháng</b>.<br />
-              <b>Cột:</b> Mã máy | Tên khách hàng | Địa chỉ | Model | Hãng | Km | Loại HĐ | Ngày hết hạn HĐBT (DD/MM/YYYY) | Tháng bảo trì | Bắt đầu từ tháng (MM/YYYY) | Tạm dừng từ tháng (MM/YYYY) | Ghi chú bảo trì. Trùng Mã máy sẽ được cập nhật.<br />
-              <span className="text-xs text-slate-400"><b>Tháng bảo trì</b>: các tháng phải bảo trì, VD <b>2,4,6,8,10,12</b> — để <b>trống = hằng tháng</b>. <b>Bắt đầu từ tháng</b>: máy lắp giữa năm → tháng trước đó không tính bảo trì. <b>Tạm dừng từ tháng</b>: máy khách đã bỏ nhưng còn trong HĐ → không bị đòi bảo trì từ tháng đó, vẫn giữ trong danh sách.</span><br />
-              <span className="text-xs text-slate-400">Để trống cột <b>Km</b> → hệ thống tự tính tọa độ &amp; KM từ địa chỉ (chạy tuần tự ~1s/dòng, danh sách lớn sẽ hơi lâu). Dòng đã có Km giữ nguyên.</span>
+              Import <b>cập nhật theo Mã máy</b> — không xóa khách cũ, giữ nguyên lịch sử.<br />
+              <b>Cột:</b> Mã máy | Tên khách hàng | Địa chỉ | Model | Hãng | Km | Loại HĐ | Ngày hết hạn HĐBT (DD/MM/YYYY) | Tháng bảo trì | Bắt đầu từ tháng (MM/YYYY) | Tạm dừng từ tháng (MM/YYYY) | Ghi chú bảo trì.<br />
+              <span className="text-xs text-slate-400"><b>Tháng bảo trì</b>: VD <b>2,4,6,8,10,12</b> — <b>trống = hằng tháng</b>. <b>Bắt đầu từ tháng</b>: máy lắp giữa năm → tháng trước không tính. <b>Tạm dừng từ tháng</b>: còn trong HĐ nhưng không đòi bảo trì từ tháng đó. <b>Km</b> trống = tự tính từ địa chỉ.</span>
             </p>
             <ExcelTool rows={customers} filename="khach-hang" endpoint="/api/admin/khach-hang/bulk" payloadKey="customers" unit="khách hàng" requiredKeys={['ma_may', 'ten_khach_hang', 'dia_chi']} columns={excelCols} onSuccess={refetchAll} showNotification={notify} />
           </div>

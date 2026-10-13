@@ -619,7 +619,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                 <Download className="w-4 h-4" />
               </Button>
             </div>
-            <p className="text-[11px] text-slate-400">Chỉ tính máy thuộc HĐ bảo trì ({LOAI_HD_BAO_TRI.join(', ')}), gộp theo <b>khách cụm</b>; máy chưa gán cụm gộp theo tên khách và gắn nhãn <b>máy lẻ</b>.</p>
+            <p className="text-[11px] text-slate-400">Gộp theo <b>khách cụm</b>; máy chưa gán cụm = <b>máy lẻ</b>. Chỉ tính HĐ bảo trì ({LOAI_HD_BAO_TRI.join(', ')}).</p>
             <div className="border border-slate-200 rounded-lg overflow-hidden">
               <table className="w-full text-left text-sm text-slate-600">
                 <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200 select-none">

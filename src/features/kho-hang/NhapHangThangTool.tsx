@@ -340,7 +340,6 @@ export function NhapHangThangTool({
           <button type="button" onClick={doFindAll} disabled={finding || !findKw.trim()} className="text-xs font-semibold px-3 py-2 rounded border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 transition" title="Thêm TẤT CẢ mặt hàng khớp mã/tên vào danh sách để đặt ngưỡng">
             {finding ? 'Đang tra…' : 'Thêm tất cả khớp'}
           </button>
-          <span className="text-[11px] text-slate-400">Gõ để xem gợi ý từ toàn kho → chọn mã, nhập ngưỡng rồi bấm <b>Lưu</b>.</span>
         </div>
 
         {showSug && sugRect && findKw.trim().length >= 2 && typeof document !== 'undefined' && createPortal(
@@ -452,7 +451,6 @@ export function NhapHangThangTool({
               <h3 className="text-sm font-bold text-slate-800">
                 Thống kê nhập hàng theo tháng {rows.length > 0 && <span className="text-slate-500 font-normal">({q.trim() ? `${filteredRows.length}/${rows.length}` : rows.length} lượt nhập{thang ? ` · Tháng ${thang.split('-').reverse().join('/')}` : ''})</span>}
               </h3>
-              <p className="text-[11px] text-slate-500">Tổng hợp chi tiết số lượng vật tư, linh kiện đã nhập kho theo từng tháng.</p>
             </div>
           </div>
           <div className="flex items-end gap-2 flex-wrap">

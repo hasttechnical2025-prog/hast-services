@@ -26,8 +26,7 @@ export default function TonKhoPage() {
         <InventoryManagementTool inventory={inventory} lowStock={lowStock} danhMuc={danhMuc} onUpdateSuccess={refetchInventory} showNotification={notify} />
       </div>
       <div className="bg-white rounded-lg border border-slate-200 p-5">
-        <h3 className="text-base font-bold text-slate-800 mb-1">Nhập / Xuất kho hàng (Excel)</h3>
-        <p className="text-xs text-slate-500 mb-4">Xuất toàn bộ kho ra Excel, hoặc nhập hàng loạt từ file Excel (các cột: Mã hàng, Tên vật tư, Model, Hãng, Tồn kho).</p>
+        <h3 className="text-base font-bold text-slate-800 mb-3">Nhập / Xuất kho hàng (Excel)</h3>
         <ExcelTool columns={EXCEL_COLS} rows={inventory} filename="kho-hang" endpoint="/api/admin/kho-hang/bulk" payloadKey="items" requiredKeys={['ma_hang', 'ten_hang']} unit="vật tư" onSuccess={refetchInventory} showNotification={notify} />
       </div>
       {toastNode}
