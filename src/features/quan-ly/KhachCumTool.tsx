@@ -234,14 +234,13 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
         <StatCard label="Máy chưa gán (lẻ)" value={unassigned.length.toLocaleString('vi-VN')} sub="coi như 1 khách - 1 máy" icon={Package} tone="amber" />
       </StatRow>
 
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => setDoiChieuOpen(true)} className="gap-1.5 h-9 text-xs"><FileSpreadsheet className="w-4 h-4" /> Đối chiếu minVoice</Button>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* CỘT TRÁI: danh sách cụm + tạo cụm */}
         <div className="border border-slate-200 rounded-lg p-5 bg-slate-50/50 space-y-4">
-          <h3 className="text-base font-semibold text-slate-700">Danh sách khách cụm</h3>
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-base font-semibold text-slate-700">Danh sách khách cụm</h3>
+            <Button variant="outline" onClick={() => setDoiChieuOpen(true)} className="gap-1.5 h-9 text-xs shrink-0"><FileSpreadsheet className="w-4 h-4" /> Đối chiếu minVoice</Button>
+          </div>
           <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Tạo cụm mới</p>
             <div className="flex gap-2">
