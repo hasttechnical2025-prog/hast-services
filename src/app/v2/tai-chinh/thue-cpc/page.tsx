@@ -1,7 +1,7 @@
 'use client'
 import { useToast } from '@/ui'
 import { useSession } from '@/features/_shell/SessionProvider'
-import ThueCpcModule from '@/components/ThueCpcModule'
+import ThueCpcModule from '@/features/tai-chinh/ThueCpcModule'
 
 // Tài chính › Thuê / CPC — tái dùng nguyên ThueCpcModule (tự quản 3 tab cháu nội bộ).
 export default function ThueCpcPage() {

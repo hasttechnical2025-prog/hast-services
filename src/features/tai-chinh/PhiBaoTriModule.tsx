@@ -1,0 +1,473 @@
+"use client"
+
+import { useState, useEffect, useMemo, useCallback } from "react"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import DateField from "@/components/DateField"
+import CollapsibleTools from "@/components/CollapsibleTools"
+import { Landmark, Search, Send, X, RefreshCw, Save, ChevronUp, ChevronDown } from "lucide-react"
+
+type May = {
+  id: string
+  ten_khach_hang: string
+  ma_may: string | null
+  model: string | null
+  loai_hd: string | null
+  ma_khach_cum: string | null
+  vi_tri_dat_may?: string | null
+  ngay_het_han_hdbt: string | null
+  so_hddv: string | null
+  ngay_ky_hddv: string | null
+  don_gia_bt: number | null
+  soct_khach_cum?: { ma_khach_hang?: string; ten_khach_hang?: string } | null
+}
+type Group = { so_hddv: string; mays: May[]; donGias: Set<number>; ngayKy: string | null; hetHan: string | null }
+
+const fmtVnd = (x: any) => (Math.round(Number(x) || 0)).toLocaleString('vi-VN')
+const fmtDate = (s?: string | null) => { if (!s) return ''; const p = String(s).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : '' }
+const digits = (s: string) => s.replace(/[^\d]/g, '')
+const sanitize = (s: string) => String(s || '').replace(/[^A-Za-z0-9]+/g, '').slice(0, 40)
+
+export default function PhiBaoTriModule({ showNotification, v2Layout = false }: { showNotification: (t: 'success' | 'error', m: string) => void, v2Layout?: boolean }) {
+  const [rows, setRows] = useState<May[]>([])
+  const [billed, setBilled] = useState<Set<string>>(new Set())
+  const [loading, setLoading] = useState(true)
+  const [q, setQ] = useState('')
+  const [nam, setNam] = useState(String(new Date().getFullYear()))
+  const [bill, setBill] = useState<{ so_hddv: string; ten_dong: string; soMay: number; donGia: number; khach: string; diaChi: string } | null>(null)
+  const [pushing, setPushing] = useState(false)
+  const [dirty, setDirty] = useState<Set<string>>(new Set())
+  const [saving, setSaving] = useState(false)
+  const [sortFieldGroup, setSortFieldGroup] = useState<string>("so_hddv")
+  const [sortAscGroup, setSortAscGroup] = useState<boolean>(true)
+  const [sortFieldMay, setSortFieldMay] = useState<string>("ngay_het_han")
+  const [sortAscMay, setSortAscMay] = useState<boolean>(true)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/phi-bao-tri'); const j = await res.json()
+      if (res.ok) { setRows(j.data || []); setBilled(new Set(j.billed || [])) }
+      else showNotification('error', j.error || 'Lỗi tải dữ liệu')
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setLoading(false) }
+  }, [showNotification])
+  useEffect(() => { load() }, [load])
+
+  const khName = (m: May) => m.soct_khach_cum?.ten_khach_hang || m.ten_khach_hang || '—'
+  const setLocal = (id: string, field: keyof May, value: any) => {
+    setRows(rs => rs.map(r => r.id === id ? { ...r, [field]: value } : r))
+    setDirty(d => { const n = new Set(d); n.add(id); return n })
+  }
+
+  // LƯU HÀNG LOẠT các dòng đang sửa (nút "Lưu" tường minh).
+  const doSave = async () => {
+    if (dirty.size === 0) return
+    setSaving(true)
+    try {
+      const items = ([...dirty].map(id => rows.find(r => r.id === id)).filter(Boolean) as May[])
+        .map(r => ({ id: r.id, so_hddv: r.so_hddv, ngay_ky_hddv: r.ngay_ky_hddv, don_gia_bt: r.don_gia_bt }))
+      const res = await fetch('/api/admin/phi-bao-tri', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }) })
+      const j = await res.json()
+      if (res.ok) { setDirty(new Set()); showNotification('success', `Đã lưu ${j.saved} dòng cấu hình.`) }
+      else showNotification('error', j.error || 'Lỗi lưu')
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setSaving(false) }
+  }
+
+
+  const filtered = useMemo(() => {
+    const s = q.trim().toLowerCase()
+    const base = s ? rows.filter(m => `${khName(m)} ${m.ma_may || ''} ${m.model || ''} ${m.so_hddv || ''}`.toLowerCase().includes(s)) : rows
+    // Xếp: (1) SẮP HẾT HẠN HĐBT gần nhất lên đầu (ngay_het_han_hdbt tăng dần, trống xuống cuối)
+    //      → (2) cụm/khách → (3) mã máy. Ưu tiên nhập liệu cho máy sắp hết hạn.
+    const exp = (m: May) => String(m.ngay_het_han_hdbt || '').slice(0, 10)
+    return [...base].sort((a, b) => {
+      const ea = exp(a), eb = exp(b)
+      if (ea !== eb) { if (!ea) return 1; if (!eb) return -1; return ea.localeCompare(eb) }
+      return khName(a).localeCompare(khName(b), 'vi') || String(a.ma_may || '').localeCompare(String(b.ma_may || ''), 'vi')
+    })
+  }, [rows, q]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Gom theo Số HĐDV (chỉ HĐ có đơn giá > 0) cho phần hóa đơn.
+  const groups = useMemo<Group[]>(() => {
+    const m = new Map<string, Group>()
+    for (const r of rows) {
+      const hd = (r.so_hddv || '').trim()
+      if (!hd || !(Number(r.don_gia_bt) > 0)) continue
+      if (!m.has(hd)) m.set(hd, { so_hddv: hd, mays: [], donGias: new Set(), ngayKy: r.ngay_ky_hddv, hetHan: r.ngay_het_han_hdbt })
+      const g = m.get(hd)!
+      g.mays.push(r); g.donGias.add(Number(r.don_gia_bt))
+      if (r.ngay_ky_hddv && !g.ngayKy) g.ngayKy = r.ngay_ky_hddv
+      if (r.ngay_het_han_hdbt && !g.hetHan) g.hetHan = r.ngay_het_han_hdbt
+    }
+    return [...m.values()]
+  }, [rows])
+
+  const handleSortGroup = (field: string) => {
+    if (sortFieldGroup === field) {
+      setSortAscGroup(prev => !prev)
+    } else {
+      setSortFieldGroup(field)
+      setSortAscGroup(field === 'so_may' || field === 'don_gia' || field === 'thanh_tien' ? false : true)
+    }
+  }
+
+  const sortedGroups = useMemo(() => {
+    const list = [...groups]
+    list.sort((a, b) => {
+      let cmp = 0
+      const donGiaA = [...a.donGias][0] || 0
+      const donGiaB = [...b.donGias][0] || 0
+      const thanhTienA = a.mays.length * donGiaA
+      const thanhTienB = b.mays.length * donGiaB
+      const khachA = khName(a.mays[0])
+      const khachB = khName(b.mays[0])
+
+      if (sortFieldGroup === 'so_hddv') {
+        cmp = a.so_hddv.localeCompare(b.so_hddv, 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortFieldGroup === 'khach') {
+        cmp = khachA.localeCompare(khachB, 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortFieldGroup === 'so_may') {
+        cmp = a.mays.length - b.mays.length
+      } else if (sortFieldGroup === 'don_gia') {
+        cmp = donGiaA - donGiaB
+      } else if (sortFieldGroup === 'thanh_tien') {
+        cmp = thanhTienA - thanhTienB
+      } else if (sortFieldGroup === 'ky_hd') {
+        const kyA = a.hetHan || a.ngayKy || ''
+        const kyB = b.hetHan || b.ngayKy || ''
+        cmp = kyA.localeCompare(kyB)
+      }
+      if (cmp === 0) cmp = a.so_hddv.localeCompare(b.so_hddv, 'vi', { numeric: true, sensitivity: 'base' })
+      return sortAscGroup ? cmp : -cmp
+    })
+    return list
+  }, [groups, sortFieldGroup, sortAscGroup])
+
+  const handleSortMay = (field: string) => {
+    if (sortFieldMay === field) {
+      setSortAscMay(prev => !prev)
+    } else {
+      setSortFieldMay(field)
+      setSortAscMay(field === 'don_gia_bt' || field === 'ngay_het_han' || field === 'ngay_ky' ? false : true)
+    }
+  }
+
+  const sortedMays = useMemo(() => {
+    const s = q.trim().toLowerCase()
+    const base = s ? rows.filter(m => `${khName(m)} ${m.ma_may || ''} ${m.model || ''} ${m.so_hddv || ''}`.toLowerCase().includes(s)) : rows
+    const list = [...base]
+    list.sort((a, b) => {
+      let cmp = 0
+      if (sortFieldMay === 'khach') {
+        cmp = khName(a).localeCompare(khName(b), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortFieldMay === 'ma_may') {
+        cmp = String(a.ma_may || '').localeCompare(String(b.ma_may || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortFieldMay === 'model') {
+        cmp = String(a.model || '').localeCompare(String(b.model || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortFieldMay === 'loai_hd') {
+        cmp = String(a.loai_hd || '').localeCompare(String(b.loai_hd || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortFieldMay === 'ngay_het_han') {
+        const ea = String(a.ngay_het_han_hdbt || '').slice(0, 10)
+        const eb = String(b.ngay_het_han_hdbt || '').slice(0, 10)
+        if (ea !== eb) {
+          if (!ea) return 1
+          if (!eb) return -1
+          cmp = ea.localeCompare(eb)
+        }
+      } else if (sortFieldMay === 'so_hddv') {
+        cmp = String(a.so_hddv || '').localeCompare(String(b.so_hddv || ''), 'vi', { numeric: true, sensitivity: 'base' })
+      } else if (sortFieldMay === 'ngay_ky') {
+        const ka = String(a.ngay_ky_hddv || '').slice(0, 10)
+        const kb = String(b.ngay_ky_hddv || '').slice(0, 10)
+        cmp = ka.localeCompare(kb)
+      } else if (sortFieldMay === 'don_gia_bt') {
+        cmp = (Number(a.don_gia_bt) || 0) - (Number(b.don_gia_bt) || 0)
+      }
+      if (cmp === 0) cmp = khName(a).localeCompare(khName(b), 'vi') || String(a.ma_may || '').localeCompare(String(b.ma_may || ''), 'vi')
+      if (cmp === 0) cmp = String(a.id).localeCompare(String(b.id))
+      return sortAscMay ? cmp : -cmp
+    })
+    return list
+  }, [rows, q, sortFieldMay, sortAscMay])
+
+  // Kỳ thanh toán = TỪ ngày ký HĐ ĐẾN ngày hết hạn HĐ (dịch vụ đã thực hiện xong mới thu — không phải
+  // thu trước cho kỳ mới). Lấy trực tiếp từ dữ liệu máy, không tự cuốn năm.
+  const kyOf = (g: Group) => ({ tu: fmtDate(g.ngayKy), den: fmtDate(g.hetHan) })
+  const defaultTenDong = (g: Group) => {
+    const { tu, den } = kyOf(g)
+    const kyTxt = (tu && den) ? ` từ ${tu} đến ${den}` : ''
+    const kyKy = g.ngayKy ? ` ký ngày ${fmtDate(g.ngayKy)}` : ''
+    return `Phí dịch vụ kỹ thuật tổng hợp máy photocopy${kyTxt} theo hợp đồng số ${g.so_hddv}${kyKy}`
+  }
+  const reportOf = (hd: string) => `PBT-${nam}-${sanitize(hd)}`
+
+  const openBill = (g: Group) => {
+    const addrs = [...new Set(g.mays.map(m => (m.vi_tri_dat_may || '').trim()).filter(Boolean))]
+    const diaChi = addrs.length === 0 ? '' : addrs.length === 1 ? addrs[0] : `${addrs.length} vị trí máy`
+    setBill({ so_hddv: g.so_hddv, ten_dong: defaultTenDong(g), soMay: g.mays.length, donGia: [...g.donGias][0], khach: khName(g.mays[0]), diaChi })
+  }
+  const doPush = async () => {
+    if (!bill) return
+    setPushing(true)
+    try {
+      const res = await fetch('/api/admin/phi-bao-tri/day-kanban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ so_hddv: bill.so_hddv, nam, ten_dong: bill.ten_dong }) })
+      const j = await res.json()
+      if (res.ok) { showNotification('success', `Đã tạo phí BT HĐ ${bill.so_hddv} (${j.so_may} máy) → Kanban "Chờ xuất HĐ".`); setBill(null); load() }
+      else showNotification('error', j.error || 'Lỗi tạo phí bảo trì')
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setPushing(false) }
+  }
+
+  return (
+    <div className="space-y-5">
+      {!v2Layout && (
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex items-center gap-3">
+        <Landmark className="w-6 h-6 text-blue-600 shrink-0" />
+        <div className="flex-1">
+          <h2 className="text-base font-bold text-slate-800">Phí bảo trì (phí dịch vụ kỹ thuật/năm theo HĐ)</h2>
+          <p className="text-xs text-slate-500">Nhập cấu hình theo máy → gom theo <b>Số HĐDV</b> → tạo hóa đơn đẩy Kanban. Chỉ máy HĐBT/MF.</p>
+        </div>
+        <Button variant="outline" onClick={load} disabled={loading} title="Tải lại" className="h-9 px-3 gap-1.5 text-xs font-medium"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>
+      </div>
+      )}
+
+      {/* ===== Danh sách hóa đơn theo HĐDV — thu gọn được, mặc định GẬP cho mọi role ===== */}
+      <CollapsibleTools title={`Hóa đơn phí bảo trì theo hợp đồng (${groups.length})`} storageKey="phibaotri_hoadon_open" defaultOpen={false} icon={<Landmark className="w-4 h-4 text-blue-600 shrink-0" />}>
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
+        <div className="flex flex-wrap items-end gap-3 justify-end">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Năm lập HĐ</label>
+            <Input value={nam} onChange={e => setNam(digits(e.target.value).slice(0, 4))} className="bg-white w-24 h-9 text-xs" />
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-slate-600">
+            <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase border-b border-slate-200">
+              <tr>
+                <th onClick={() => handleSortGroup('so_hddv')} className={`px-3 py-2 text-left whitespace-nowrap cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldGroup === 'so_hddv' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Số HĐDV
+                    {sortFieldGroup === 'so_hddv' && (sortAscGroup ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortGroup('khach')} className={`px-3 py-2 text-left cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldGroup === 'khach' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Khách hàng
+                    {sortFieldGroup === 'khach' && (sortAscGroup ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortGroup('so_may')} className={`px-2 py-2 text-center cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldGroup === 'so_may' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center justify-center gap-1">
+                    Số máy
+                    {sortFieldGroup === 'so_may' && (sortAscGroup ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortGroup('don_gia')} className={`px-3 py-2 text-right cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldGroup === 'don_gia' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center justify-end gap-1">
+                    Đơn giá
+                    {sortFieldGroup === 'don_gia' && (sortAscGroup ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortGroup('thanh_tien')} className={`px-3 py-2 text-right cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldGroup === 'thanh_tien' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center justify-end gap-1">
+                    Thành tiền (chưa VAT)
+                    {sortFieldGroup === 'thanh_tien' && (sortAscGroup ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortGroup('ky_hd')} className={`px-3 py-2 text-center cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldGroup === 'ky_hd' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center justify-center gap-1">
+                    Kỳ HĐ (ký → hết hạn)
+                    {sortFieldGroup === 'ky_hd' && (sortAscGroup ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th className="px-2 py-2 text-center">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {sortedGroups.length === 0 ? (
+                <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">Chưa có hợp đồng nào đủ điều kiện (cần Số HĐDV + đơn giá &gt; 0). Nhập ở bảng cấu hình bên dưới.</td></tr>
+              ) : sortedGroups.map(g => {
+                const donGia = [...g.donGias][0]
+                const lech = g.donGias.size > 1
+                const daLap = billed.has(reportOf(g.so_hddv))
+                const { tu, den } = kyOf(g)
+                return (
+                  <tr key={g.so_hddv} className="hover:bg-slate-50">
+                    <td className="px-3 py-2 font-mono font-semibold text-slate-700 whitespace-nowrap">{g.so_hddv}</td>
+                    <td className="px-3 py-2">{khName(g.mays[0])}</td>
+                    <td className="px-2 py-2 text-center font-semibold">{g.mays.length}</td>
+                    <td className="px-3 py-2 text-right">{lech ? <span className="text-rose-600 text-xs font-semibold" title="Đơn giá không đồng nhất giữa các máy cùng HĐ">lệch giá</span> : fmtVnd(donGia)}</td>
+                    <td className="px-3 py-2 text-right font-semibold text-slate-800">{lech ? '—' : fmtVnd(g.mays.length * donGia)}</td>
+                    <td className="px-3 py-2 text-center text-xs whitespace-nowrap">{tu && den ? `${tu} → ${den}` : <span className="text-slate-400">—</span>}</td>
+                    <td className="px-2 py-2 text-center">
+                      {daLap ? (
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">✓ Đã lập {nam}</span>
+                      ) : (
+                        <Button onClick={() => openBill(g)} disabled={lech || dirty.size > 0} className="h-8 gap-1.5"
+                          title={lech ? 'Sửa đơn giá cho đồng nhất trước' : dirty.size > 0 ? 'Lưu cấu hình trước khi tạo hóa đơn' : 'Tạo hóa đơn phí BT → đẩy Kanban'}>
+                          <Send className="w-3.5 h-3.5" /> Đẩy Kanban
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      </CollapsibleTools>
+
+      {/* ===== Bảng cấu hình phí BT theo máy (inline edit) ===== */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
+        <h3 className="text-sm font-bold text-slate-700">Cấu hình theo máy (HĐBT/MF) — {sortedMays.length} máy</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input placeholder="Tìm khách / mã máy / số HĐ..." className="pl-9 pr-7 bg-white h-9 text-xs" value={q} onChange={e => setQ(e.target.value)} />
+            {q && (
+              <button
+                type="button"
+                onClick={() => setQ('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+                title="Xóa tìm kiếm"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <Button onClick={doSave} disabled={saving || dirty.size === 0} className="h-9 text-xs font-semibold px-4 gap-1.5 ml-auto">
+            <Save className="w-4 h-4" /> {saving ? 'Đang lưu…' : dirty.size > 0 ? `Lưu (${dirty.size})` : 'Đã lưu'}
+          </Button>
+          {v2Layout && <Button variant="outline" onClick={load} disabled={loading} title="Tải lại" className="h-9 px-3 gap-1.5 text-xs font-medium"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>}
+        </div>
+        {dirty.size > 0 && (
+          <div className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">
+            ⚠ Còn <b>{dirty.size}</b> dòng chưa lưu (nền xanh) — bấm <b>Lưu</b>. Reload/rời trang khi chưa lưu sẽ mất thay đổi.
+          </div>
+        )}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-slate-600">
+            <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase border-b border-slate-200">
+              <tr>
+                <th onClick={() => handleSortMay('khach')} className={`px-3 py-2 text-left cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldMay === 'khach' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Khách hàng
+                    {sortFieldMay === 'khach' && (sortAscMay ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortMay('ma_may')} className={`px-2 py-2 text-left cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldMay === 'ma_may' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Mã máy
+                    {sortFieldMay === 'ma_may' && (sortAscMay ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortMay('model')} className={`px-2 py-2 text-left cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldMay === 'model' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Model
+                    {sortFieldMay === 'model' && (sortAscMay ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortMay('loai_hd')} className={`px-2 py-2 text-center cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldMay === 'loai_hd' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center justify-center gap-1">
+                    Loại HĐ
+                    {sortFieldMay === 'loai_hd' && (sortAscMay ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortMay('ngay_het_han')} className={`px-2 py-2 text-center cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldMay === 'ngay_het_han' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center justify-center gap-1">
+                    Hết hạn HĐBT
+                    {sortFieldMay === 'ngay_het_han' && (sortAscMay ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortMay('so_hddv')} className={`px-3 py-2 text-left w-40 cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldMay === 'so_hddv' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Số HĐDV
+                    {sortFieldMay === 'so_hddv' && (sortAscMay ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortMay('ngay_ky')} className={`px-3 py-2 text-left w-36 cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldMay === 'ngay_ky' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    Ngày ký HĐ
+                    {sortFieldMay === 'ngay_ky' && (sortAscMay ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+                <th onClick={() => handleSortMay('don_gia_bt')} className={`px-3 py-2 text-right w-32 cursor-pointer select-none transition-colors hover:bg-slate-100 ${sortFieldMay === 'don_gia_bt' ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+                  <div className="flex items-center justify-end gap-1">
+                    Đơn giá phí BT
+                    {sortFieldMay === 'don_gia_bt' && (sortAscMay ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
+                <tr><td colSpan={8} className="px-4 py-6 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải phí bảo trì...</td></tr>
+              ) : sortedMays.length === 0 ? (
+                <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Không có máy HĐBT/MF.</td></tr>
+              ) : sortedMays.map(m => {
+                // Máy MF (miễn phí) — kỳ này khách KHÔNG phải thanh toán: khóa 3 ô cấu hình + tô màu.
+                const isMF = String(m.loai_hd || '').trim().toUpperCase() === 'MF'
+                return (
+                <tr key={m.id} className={isMF ? 'bg-amber-50' : (dirty.has(m.id) ? 'bg-blue-50/70' : 'hover:bg-slate-50')}>
+                  <td className="px-3 py-1.5">{khName(m)}{m.soct_khach_cum ? <span className="ml-1 text-[10px] text-violet-600">(cụm)</span> : ''}</td>
+                  <td className="px-2 py-1.5 font-mono text-xs">{m.ma_may}</td>
+                  <td className="px-2 py-1.5 text-xs">{m.model}</td>
+                  <td className="px-2 py-1.5 text-center text-xs">
+                    <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold border ${isMF ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>{m.loai_hd}</span>
+                  </td>
+                  <td className="px-2 py-1.5 text-center text-xs whitespace-nowrap">{fmtDate(m.ngay_het_han_hdbt) || '—'}</td>
+                  {isMF ? (
+                    <td colSpan={3} className="px-3 py-1.5 text-center text-xs font-medium text-amber-700 italic">MF - không thu phí bảo trì</td>
+                  ) : (<>
+                    <td className="px-3 py-1.5">
+                      <Input value={m.so_hddv || ''} onChange={e => setLocal(m.id, 'so_hddv', e.target.value)}
+                        className="h-8 bg-white" placeholder="VD: 310325/HĐDV-ST" />
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <DateField value={m.ngay_ky_hddv ? String(m.ngay_ky_hddv).slice(0, 10) : ''} heightClass="h-8" className="w-36"
+                        onChange={v => setLocal(m.id, 'ngay_ky_hddv', v)} />
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <Input value={m.don_gia_bt != null ? fmtVnd(m.don_gia_bt) : ''} onChange={e => setLocal(m.id, 'don_gia_bt', digits(e.target.value) ? Number(digits(e.target.value)) : null)}
+                        className="h-8 bg-white text-right" placeholder="0" />
+                    </td>
+                  </>)}
+                </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ===== Modal tạo hóa đơn phí BT ===== */}
+      {bill && (
+        <div className="fixed inset-0 bg-slate-900/50 z-[80] flex items-center justify-center p-4" onClick={() => !pushing && setBill(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-5 space-y-3" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-800">Tạo phí bảo trì — HĐ {bill.so_hddv}</h3>
+              <button onClick={() => setBill(null)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="text-sm bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+              <div className="font-semibold text-slate-800">{bill.khach}</div>
+              {bill.diaChi && <div className="text-xs text-slate-500 mt-0.5">📍 {bill.diaChi}</div>}
+            </div>
+            <div className="text-sm text-slate-600 bg-slate-50 rounded-lg p-3">
+              <span className="font-semibold">{bill.soMay}</span> máy × <span className="font-semibold">{fmtVnd(bill.donGia)}</span> đ
+              &nbsp;=&nbsp; <b className="text-slate-800">{fmtVnd(bill.soMay * bill.donGia)}</b> đ (chưa VAT) · VAT 8% → <b className="text-slate-800">{fmtVnd(Math.round(bill.soMay * bill.donGia * 1.08))}</b> đ · Năm lập: <b>{nam}</b>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">Nội dung dòng dịch vụ (sửa tự do)</label>
+              <textarea value={bill.ten_dong} onChange={e => setBill({ ...bill, ten_dong: e.target.value })} rows={3}
+                className="w-full p-2.5 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-400 outline-none" />
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="outline" onClick={() => setBill(null)} disabled={pushing} className="h-9">Hủy</Button>
+              <Button onClick={doPush} disabled={pushing || !bill.ten_dong.trim()} className="h-9 gap-1.5"><Send className="w-4 h-4" /> {pushing ? 'Đang đẩy…' : 'Đẩy Kanban'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

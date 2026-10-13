@@ -1,0 +1,3235 @@
+"use client"
+
+import { useState, useEffect, useCallback } from "react"
+import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark, Pencil, Search, Download, Upload, Info, GripVertical, Send } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import MonthField from "@/components/MonthField"
+import DateField from "@/components/DateField"
+import ThuTienPanel from "@/components/ThuTienPanel"
+import { supabase } from "@/lib/supabase"
+import { docSoTien } from "@/lib/report/bao-gia"
+
+// Thông tin NGƯỜI BÁN mặc định trên hóa đơn (dùng khi admin chưa nhập config hd_ban_*).
+// Lấy từ mẫu hóa đơn M-invoice (CTCP Siêu Thanh Hà Nội). Admin sửa ở Cài đặt hệ thống.
+const HD_BAN_DEFAULT = {
+  ten: 'CÔNG TY CỔ PHẦN SIÊU THANH HÀ NỘI',
+  mst: '0100233103',
+  dia_chi: 'Số 5, phố Nguyễn Ngọc Vũ, Phường Thanh Xuân, Thành phố Hà Nội, Việt Nam',
+  dien_thoai: '02438223888',
+  email: 'sieuthanh@sieuthanh.com.vn',
+  stk1: '0671100009007 - Ngân hàng TMCP Quân Đội - Chi nhánh Hoàn Kiếm',
+  stk2: '0011000025298 - Ngân hàng TMCP Ngoại thương Việt Nam – Chi nhánh SGD',
+}
+
+type VatTu = {
+  id: string
+  ma_hang: string
+  so_luong: number
+  don_gia: number
+  vat: number
+  thanh_tien: number
+  hoa_don: boolean
+  da_tra: boolean
+  ten_hang_hd?: string | null // tên ghi đè cho riêng dòng phiếu
+  ten_hd?: string             // tên hiển thị đã giải quyết ưu tiên (server tính)
+  thu_tu?: number             // thứ tự dòng (kéo-thả sắp xếp ở cột "Chờ lên hóa đơn")
+  don_vi_tinh?: string | null // ĐVT (Tháng/Bản/Chiếc… cho phiếu Thuê/CPC; mặc định "Cái")
+  soct_kho_hang: { ten_hang: string } | null
+}
+
+type Customer = {
+  id: string
+  ten_khach_hang: string
+  loai_hd?: string | null
+  dia_chi: string
+  ma_so_thue: string | null
+  email_ke_toan: string | null
+  ma_khach_cum: string | null
+  soct_khach_cum?: {
+    ten_khach_hang: string
+    dia_chi: string | null
+    ma_so_thue: string | null
+    email_ke_toan: string | null
+  } | null
+}
+
+type Ticket = {
+  id: string
+  ngay: string
+  ma_may: string
+  id_khach_hang: string
+  loai_cong_viec: string
+  km: number
+  ket_qua: string
+  report: string | null
+  ghi_chu: string
+  mien_phi?: boolean // phiếu xuất MIỄN PHÍ (MF) — vật tư máy thuê/CPC
+  ktv_id: string | null
+  ktv2_id: string | null
+  so_luong: number
+  created_by: string
+  da_nop_phieu: boolean
+  trang_thai_hd: 'Chờ xuất HĐ' | 'Đang xử lý HĐ' | 'Đã lên hóa đơn' | 'Đã thanh toán'
+  so_hoa_don: string | null
+  ngay_xuat_hd?: string | null
+  thanh_toan_luc?: string | null // mốc NGÀY THU (chuyển sang 'Đã thanh toán') — kỳ Cột 4 dựa vào đây
+  ban_giao_kt_luc?: string | null // mốc office bàn giao kế toán (vào cột 2)
+  so_tien_da_thu?: number // đã thu theo số hóa đơn (công nợ phải thu)
+  dntt_luc?: string | null // lần xuất ĐNTT gần nhất (thời điểm)
+  so_dntt?: string | null
+  dntt_lan?: number // số lần đã xuất ĐNTT
+  lam_tron?: number // khoản làm tròn tổng sau thuế (đồng, cho phép âm)
+  tach_rieng?: boolean // (cũ) đẩy LẺ sang kế toán — thay bằng hd_lo; giữ để không vỡ phiếu cũ
+  hd_lo?: string | null // "lô đẩy Kanban": các phiếu cùng 1 lần đẩy từ Công nợ -> 1 thẻ = 1 hóa đơn
+  ten_khach_hd?: string | null // tên người mua ghi đè trên hóa đơn (bảng kê gộp Thuê/CPC = tên hợp đồng)
+  nguon?: string | null // 'thue_cpc' = phiếu sinh từ bảng kê Thuê/CPC (mỗi phiếu = 1 thẻ riêng)
+  ly_do_tra?: string | null // lý do kế toán trả phiếu về Cột 1 (thiếu/sai thông tin lên HĐ)
+  minvoice_luc?: string | null // lần xuất M-invoice gần nhất (NULL = chưa xuất) — chống xuất trùng
+  minvoice_lan?: number // số lần đã xuất M-invoice
+  nguoi_xuat?: { full_name: string } | null // người lập hóa đơn (kế toán bấm Hoàn tất)
+  _co_mau?: boolean // khách có mẫu tên/giá đã lưu (để hiện nút "Áp mẫu khách")
+  soct_khach_hang: Customer | null
+  soct_users: { full_name: string } | null
+  soct_chi_tiet_vat_tu: VatTu[]
+}
+
+type GroupedCard = {
+  id: string // khachHangId
+  customer: Customer | null
+  tickets: Ticket[]
+  trang_thai_hd: string
+}
+
+// Thẻ nguồn KINH DOANH (lệnh xuất hàng) — shape SẠCH RIÊNG từ /api/admin/lenh-xuat?kanban=1.
+// KHÔNG trộn vào Ticket kỹ thuật; component vẽ nhánh render riêng để không đụng path kỹ thuật.
+type KdLine = { stt: number; ma_hang: string | null; ten_hang: string | null; ten_hang_hd: string | null; dvt: string | null; so_luong: number; don_gia: number; vat: number; thanh_tien: number }
+type KdTicket = {
+  id: string; nguon: 'lenh_xuat'
+  so_lenh: string | null; ngay: string; so_hop_dong: string | null
+  ten_khach_hang: string; dia_chi: string | null; ma_so_thue: string | null; email_nhan_hd?: string | null
+  nguoi_kinh_doanh_id: string | null; nguoi_kd_ten: string
+  trang_thai_hd: string; so_hoa_don: string | null; ngay_xuat_hd: string | null; ly_do_tra: string | null
+  ban_giao_kt_luc: string | null; thanh_toan_luc: string | null
+  tach_rieng: boolean; lam_tron: number | null; ten_khach_hd: string | null
+  minvoice_luc: string | null; minvoice_lan: number
+  dntt_luc: string | null; so_dntt: string | null; dntt_lan: number
+  lines: KdLine[]; tong_truoc_vat: number; tong_sau_vat: number
+  da_thu: number; cho_duyet: number
+}
+
+const fmtDate = (s: string) => {
+  if (!s) return ''
+  const d = new Date(s)
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+}
+
+const fmtVnd = (x: number) => Math.round(x || 0).toLocaleString('vi-VN')
+const parseMoney = (s: any) => Number(String(s ?? '').replace(/\D/g, '')) || 0
+const fmtMoneyInput = (s: any) => { const n = String(s ?? '').replace(/\D/g, ''); return n ? Number(n).toLocaleString('vi-VN') : '' }
+const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()
+// Số ngày kể từ ngày xuất hóa đơn (tính tuổi nợ đọng ở cột Chờ thanh toán).
+const daysSince = (d: any): number | null => { if (!d) return null; const t = new Date(d).getTime(); return isNaN(t) ? null : Math.max(0, Math.floor((Date.now() - t) / 86400000)) }
+// Tổng khoản làm tròn của một nhóm phiếu (đồng, cho phép âm) — cộng vào tổng sau thuế.
+const cardLamTron = (tickets: Ticket[]) => tickets.reduce((s, t) => s + (Number(t.lam_tron) || 0), 0)
+// Thẻ ĐÃ XUẤT M-invoice = mọi phiếu trong thẻ đều có dấu minvoice_luc (xuất theo cả thẻ).
+const cardMinvoiceExported = (tickets: Ticket[]) => tickets.length > 0 && tickets.every(t => !!t.minvoice_luc)
+// Thẻ CHỜ ĐỐI CHIẾU = đã xuất file nhưng CHƯA có số HĐ thật -> nuôi banner đếm + badge cảnh báo.
+const cardMinvoicePending = (tickets: Ticket[]) => cardMinvoiceExported(tickets) && !tickets.some(t => t.so_hoa_don)
+
+// Gộp vật tư theo (mã hàng + đơn giá), bỏ dòng đã trả về kho, SẮP theo thu_tu. Dùng cho export M-invoice.
+// ghepMa = dòng có bản ghi kho (vật tư thật) VÀ chưa đặt tên riêng (ten_hang_hd rỗng) -> tự ghép mã.
+function aggVatTu(vtList: VatTu[]) {
+  const map: Record<string, { ma_hang: string; ten_hang: string; so_luong: number; don_gia: number; vat: number; dvt: string; ghepMa: boolean; _ord: number }> = {}
+  vtList.filter(v => !v.da_tra).forEach(v => {
+    const k = `${v.ma_hang}_${Number(v.don_gia) || 0}`
+    if (!map[k]) map[k] = { ma_hang: v.ma_hang, ten_hang: v.ten_hd || v.soct_kho_hang?.ten_hang || v.ma_hang, so_luong: 0, don_gia: v.don_gia, vat: v.vat, dvt: v.don_vi_tinh || '', ghepMa: !!v.soct_kho_hang && !(v.ten_hang_hd && String(v.ten_hang_hd).trim()), _ord: Number.POSITIVE_INFINITY }
+    map[k].so_luong += v.so_luong
+    map[k]._ord = Math.min(map[k]._ord, Number(v.thu_tu ?? 1e9))
+  })
+  return Object.values(map).sort((a, b) => a._ord - b._ord)
+}
+
+// Tên hàng cho KẾ TOÁN: kế toán yêu cầu mã hàng hiện TRÊN TÊN hóa đơn (cột Tên hàng in ra HĐĐT,
+// cột Mã hàng thường không in) -> ghép "Tên - Mã". CHỈ tự ghép cho dòng dùng TÊN KHO gốc (ghepMa),
+// tức chưa ai sửa tên. Tên TỰ ĐẶT / ÁP MẪU KHÁCH (đã ghi ten_hang_hd) và dòng DỊCH VỤ Thuê/CPC
+// (không có kho) -> GIỮ NGUYÊN, để user tự quyết trường hợp không muốn mã. Chống NHÂN ĐÔI: nếu tên
+// đã chứa mã ở BẤT KỲ dạng nào (ngoặc "Trục lăn (9J07330102)", gạch, hay trần) thì không thêm —
+// so khớp sau khi bỏ hết ký tự không phải chữ/số và viết hoa.
+function tenHangKeToan(ten: string, ma: string, ghepMa: boolean): string {
+  const t = String(ten || '').trim()
+  const m = String(ma || '').trim()
+  if (!ghepMa || !m) return t
+  const norm = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const nm = norm(m)
+  if (nm && norm(t).includes(nm)) return t
+  return `${t} - ${m}`
+}
+
+// 32 cột đúng mẫu import M-invoice (Sheet1). GIỮ NGUYÊN thứ tự & chữ (kể cả lỗi chính tả gốc).
+const MINV_HEADERS = ['Ký hiệu(*)', 'Số đơn hàng(*)', 'Ngày hoá đơn(*)', 'Đơn vị tiền tệ(*)', 'Tên người mua', 'Mã Người mua', 'Tên đơn vị mua', 'Mã số thuê', 'Địa chỉ(*)', 'HTTT(*)', 'Email', 'Tỷ giá(*)', 'STK Người mua', 'Ngân hàng Người mua', 'Tính chất(*)', 'Số thứ tự(*)', 'Mã hàng', 'Tên hàng(*)', 'Đơn vị tính', 'Số lượng', 'Đơn giá', 'Thành tiền trước thuế(*)', 'PT chiết khấu', 'Tiền CK', 'Thuế(*)', 'Tiền thuế(*)', 'Tổng tiền(*)', 'Căn cước công dân', 'Mã đơn vị quan thệ ngân sách', 'Số hộ chiếu', 'Mã cửa hàng', 'Tên cửa hàng']
+
+// Dựng các dòng M-invoice cho MỘT hóa đơn (1 nhóm phiếu). Thông tin khách + ngày chỉ ở dòng đầu;
+// Ký hiệu + Số đơn hàng ở mọi dòng (khóa gom). KHÔNG áp làm tròn (M-invoice tự tính, kthc sửa tay).
+function buildMinvoiceRows(tickets: Ticket[], kyHieu: string, ngayHD: Date, soDonHang: string): any[][] {
+  const kh = tickets[0]?.soct_khach_hang
+  const cum = kh?.soct_khach_cum
+  // Tên người mua: ghi đè (ten_khach_hd, VD bảng kê gộp Thuê/CPC) > cụm > khách lẻ.
+  const tenDonVi = tickets[0]?.ten_khach_hd || (cum ? (cum.ten_khach_hang || '') : (kh?.ten_khach_hang || ''))
+  const mst = (cum ? cum.ma_so_thue : kh?.ma_so_thue) || ''
+  const diaChi = (cum ? cum.dia_chi : kh?.dia_chi) || ''
+  const email = (cum ? cum.email_ke_toan : kh?.email_ke_toan) || ''
+  const items = aggVatTu(tickets.flatMap(t => t.soct_chi_tiet_vat_tu || []))
+  return items.map((it, idx) => {
+    const thanhTien = Math.round(it.so_luong * it.don_gia)
+    const tienThue = Math.round(it.so_luong * it.don_gia * (Number(it.vat) || 0) / 100)
+    const row = new Array(32).fill('')
+    // Mọi dòng: Ký hiệu, Số đơn hàng, Ngày HĐ, HTTT (M-invoice BẮT BUỘC Ngày + HTTT ở MỌI dòng).
+    row[0] = kyHieu; row[1] = soDonHang; row[2] = ngayHD; row[9] = 'TM/CK'
+    if (idx === 0) {                                // chỉ dòng đầu: các trường đầu HĐ + khách còn lại
+      row[3] = 'VND'; row[11] = 1
+      // Tên đơn vị mua IN HOA (chuẩn hóa đơn); địa chỉ giữ chữ thường như nhập.
+      row[6] = tenDonVi.toUpperCase(); row[7] = mst; row[8] = diaChi; row[10] = email
+    }
+    row[14] = 1; row[15] = idx + 1                  // Tính chất=hàng hoá; STT
+    row[16] = it.ma_hang; row[17] = tenHangKeToan(it.ten_hang, it.ma_hang, it.ghepMa); row[18] = it.dvt || 'Cái'
+    row[19] = it.so_luong; row[20] = it.don_gia
+    row[21] = thanhTien; row[22] = 0; row[23] = 0
+    row[24] = Number(it.vat) || 0; row[25] = tienThue; row[26] = thanhTien + tienThue
+    return row
+  })
+}
+
+// ===== Bản xem trước HÓA ĐƠN dùng CHUNG (kỹ thuật + KD/lệnh xuất) =====
+// Dựng tờ HĐ GTGT theo mẫu M-invoice. Nhận shape đã chuẩn hóa: tên hàng đã giải quyết sẵn
+// (kỹ thuật ghép "Tên - Mã"; KD dùng tên kinh doanh). 1 nguồn chân lý cho giao diện hóa đơn.
+type InvSeller = { ten: string; mst: string; dia_chi: string; dien_thoai: string; email: string; stk1: string; stk2: string }
+type InvBuyer = { ten: string; dia_chi: string; mst: string }
+type InvItem = { ten: string; dvt: string; so_luong: number; don_gia: number; vat: number }
+function InvoiceSheet({ seller, buyer, items, kyHieu, lamTron = 0 }: { seller: InvSeller; buyer: InvBuyer; items: InvItem[]; kyHieu: string; lamTron?: number }) {
+  const Dash = ({ w = 120 }: { w?: number }) => <span style={{ display: 'inline-block', width: w, borderBottom: '1px dotted #94a3b8', height: '0.85em', verticalAlign: 'middle' }} />
+  const truocVat = items.reduce((s, it) => s + (Number(it.so_luong) || 0) * (Number(it.don_gia) || 0), 0)
+  const tienVat = items.reduce((s, it) => s + (Number(it.so_luong) || 0) * (Number(it.don_gia) || 0) * (Number(it.vat) || 0) / 100, 0)
+  const congTien = Math.round(truocVat)
+  const tienThue = Math.round(tienVat)
+  const tong = Math.round(truocVat + tienVat) + (Number(lamTron) || 0)
+  const vatRates = [...new Set(items.filter(it => (Number(it.don_gia) || 0) > 0).map(it => Number(it.vat) || 0))]
+  const multiVat = vatRates.length > 1
+  const thueSuat = vatRates.length ? vatRates[0] : 0
+  const bTen = String(buyer.ten || '').trim().toUpperCase()
+  const bDC = String(buyer.dia_chi || '').trim()
+  const bMST = String(buyer.mst || '').trim()
+  return (
+    <div className="mx-auto bg-white border-[3px] border-double border-[#2f6db5] shadow-sm" style={{ maxWidth: 760, fontFamily: '"Times New Roman", Times, serif', color: '#0f172a' }}>
+      <div className="p-5 space-y-2 text-[12.5px] leading-relaxed">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="w-1/4" />
+          <div className="flex-1 text-center">
+            <div className="text-[#c0122b] font-bold text-lg leading-tight">HÓA ĐƠN GIÁ TRỊ GIA TĂNG</div>
+            <div className="italic text-[11px] text-slate-500">(Bản thể hiện của hóa đơn điện tử)</div>
+            <div className="text-[12px] mt-0.5">Ngày <Dash w={34} /> tháng <Dash w={34} /> năm <Dash w={40} /></div>
+            <div className="text-[12px]"><span className="text-[#2f6db5] font-semibold">Mã của cơ quan thuế:</span> <Dash w={130} /></div>
+          </div>
+          <div className="w-1/4 text-[12px] text-right">
+            <div>Ký hiệu: <b>{kyHieu ? kyHieu.toUpperCase() : <Dash w={60} />}</b></div>
+            <div>Số: <Dash w={50} /></div>
+          </div>
+        </div>
+        {/* Người bán */}
+        <div className="border-t border-dashed border-slate-300 pt-2">
+          <div><span className="text-[#2f6db5] font-bold">Đơn vị bán hàng: </span><b>{seller.ten}</b></div>
+          <div><span className="text-[#2f6db5] font-semibold">Mã số thuế: </span><b>{seller.mst}</b></div>
+          <div><span className="text-slate-600">Địa chỉ: </span>{seller.dia_chi}</div>
+          <div><span className="text-slate-600">Điện thoại: </span>{seller.dien_thoai}<span className="ml-6 text-slate-600">Email: </span>{seller.email}</div>
+          {seller.stk1 && <div><span className="text-slate-600">Số tài khoản: </span>{seller.stk1}</div>}
+          {seller.stk2 && <div><span className="text-slate-600">Số tài khoản: </span>{seller.stk2}</div>}
+        </div>
+        {/* Người mua */}
+        <div className="border-t border-dashed border-slate-300 pt-2">
+          <div><span className="text-slate-600">Họ và tên người mua hàng: </span><Dash w={150} /></div>
+          <div><span className="text-[#2f6db5] font-semibold">Tên đơn vị: </span>{bTen ? <b>{bTen}</b> : <span className="text-rose-600 font-bold">⚠ Thiếu tên đơn vị</span>}</div>
+          <div><span className="text-slate-600">Địa chỉ: </span>{bDC || <span className="text-rose-600 font-bold">⚠ Thiếu địa chỉ</span>}</div>
+          <div><span className="text-slate-600">Số tài khoản: </span><Dash w={90} /><span className="ml-6 text-slate-600">Tại: </span><Dash w={90} /></div>
+          <div><span className="text-slate-600">Hình thức thanh toán: </span>TM/CK<span className="ml-6 text-[#2f6db5] font-semibold">Mã số thuế: </span>{bMST ? <b>{bMST}</b> : <span className="text-rose-600 font-bold">⚠ Thiếu MST</span>}</div>
+        </div>
+        {/* Bảng hàng hóa */}
+        <table className="w-full border-collapse text-[12px] mt-1">
+          <thead>
+            <tr className="bg-[#eaf1fb] text-[#2f6db5] [&>th]:border [&>th]:border-[#9fbfe4] [&>th]:px-1.5 [&>th]:py-1 [&>th]:font-semibold">
+              <th className="w-8">STT</th><th>Tên hàng hóa, dịch vụ</th><th className="w-14">ĐVT</th><th className="w-16">Số lượng</th><th className="w-24">Đơn giá</th><th className="w-28">Thành tiền</th>
+            </tr>
+          </thead>
+          <tbody className="[&>tr>td]:border [&>tr>td]:border-[#9fbfe4] [&>tr>td]:px-1.5 [&>tr>td]:py-1 align-top">
+            {items.map((it, i) => {
+              const tt = (Number(it.so_luong) || 0) * (Number(it.don_gia) || 0)
+              const dvt0 = !String(it.dvt || '').trim(), gia0 = (Number(it.don_gia) || 0) === 0, sl0 = (Number(it.so_luong) || 0) === 0
+              return (
+                <tr key={i}>
+                  <td className="text-center">{i + 1}</td>
+                  <td>{it.ten}</td>
+                  <td className={`text-center ${dvt0 ? 'text-rose-600 font-semibold' : ''}`}>{String(it.dvt || '').trim() || '(trống)'}</td>
+                  <td className={`text-center ${sl0 ? 'text-rose-600 font-semibold' : ''}`}>{it.so_luong}</td>
+                  <td className={`text-right ${gia0 ? 'text-rose-600 font-semibold' : ''}`}>{fmtVnd(it.don_gia)}</td>
+                  <td className="text-right">{fmtVnd(tt)}</td>
+                </tr>
+              )
+            })}
+            {items.length === 0 && <tr><td colSpan={6} className="text-center text-slate-400 italic py-3">Thẻ không có dòng hàng.</td></tr>}
+          </tbody>
+        </table>
+        {/* Tổng */}
+        <table className="w-full border-collapse text-[12px] border border-t-0 border-[#9fbfe4]">
+          <tbody className="[&>tr>td]:border [&>tr>td]:border-[#9fbfe4] [&>tr>td]:px-2 [&>tr>td]:py-1">
+            <tr>
+              <td colSpan={2}><div className="flex justify-end items-center gap-8"><span className="font-semibold">Cộng tiền hàng hóa, dịch vụ:</span><b className="w-32 text-right">{fmtVnd(congTien)}</b></div></td>
+            </tr>
+            <tr>
+              <td className="w-[45%]">Thuế suất GTGT: <b>{multiVat ? '(nhiều — phải tách HĐ)' : thueSuat + '%'}</b></td>
+              <td><div className="flex justify-end items-center gap-8"><span>Tiền thuế GTGT:</span><b className="w-32 text-right">{fmtVnd(tienThue)}</b></div></td>
+            </tr>
+            <tr>
+              <td colSpan={2}><div className="flex justify-end items-center gap-8"><span className="font-semibold">Tổng tiền thanh toán:</span><b className="w-32 text-right text-[#c0122b]">{fmtVnd(tong)}</b></div></td>
+            </tr>
+          </tbody>
+        </table>
+        {(Number(lamTron) || 0) !== 0 && <div className="text-[11px] text-amber-700 italic mt-0.5">⚠ Đã làm tròn {lamTron > 0 ? '+' : ''}{fmtVnd(lamTron)} đ vào tổng — nhắc kế toán kiểm tra.</div>}
+        <div className="text-[12.5px]"><b>Số tiền bằng chữ:</b> <i>{docSoTien(tong).replace(/\s*\.\/\.\s*$/, '')}</i></div>
+        {/* Chữ ký */}
+        <div className="flex justify-between text-center pt-3 text-[12px]">
+          <div className="w-1/2"><div className="font-semibold">Người mua hàng</div><div className="italic text-[11px] text-slate-500">(Chữ ký điện tử, Chữ ký số)</div></div>
+          <div className="w-1/2"><div className="font-semibold">Người bán hàng</div><div className="italic text-[11px] text-slate-500">(Chữ ký điện tử, Chữ ký số)</div></div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Tính khối người bán từ config (dùng chung 2 luồng).
+function sellerFromCfg(cfg: Record<string, string>): InvSeller {
+  return {
+    ten: cfg.hd_ban_ten || HD_BAN_DEFAULT.ten,
+    mst: cfg.hd_ban_mst || HD_BAN_DEFAULT.mst,
+    dia_chi: cfg.hd_ban_dia_chi || HD_BAN_DEFAULT.dia_chi,
+    dien_thoai: cfg.hd_ban_dien_thoai || HD_BAN_DEFAULT.dien_thoai,
+    email: cfg.hd_ban_email || HD_BAN_DEFAULT.email,
+    stk1: cfg.hd_ban_stk1 || HD_BAN_DEFAULT.stk1,
+    stk2: (cfg.hd_ban_stk2 ?? HD_BAN_DEFAULT.stk2),
+  }
+}
+
+export default function KanbanHdTool({ role = 'staff', showNotification, v2Layout = false }: { role?: string, showNotification: (type: 'success' | 'error', msg: string) => void, v2Layout?: boolean }) {
+  const [tickets, setTickets] = useState<Ticket[]>([])
+  const [kdTickets, setKdTickets] = useState<KdTicket[]>([]) // nguồn kinh doanh (lệnh xuất) — chỉ admin/kthc
+  const [kdActive, setKdActive] = useState<KdTicket | null>(null) // modal xem thẻ KD
+  const [kdInvoice, setKdInvoice] = useState<{ id: string; so_hoa_don: string; ten: string } | null>(null) // modal nhập số HĐ khi lên HĐ lệnh KD (2->3)
+  const [kdReturn, setKdReturn] = useState<{ id: string; reason: string; ten: string } | null>(null) // modal kế toán trả lại lệnh KD (2->1)
+  const [kdBusy, setKdBusy] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState("") // tìm khách / số phiếu / số hóa đơn
+  const [col3ChiKyNay, setCol3ChiKyNay] = useState(false) // cột Chờ thanh toán: lọc theo kỳ hay lũy kế
+  const [importingReport, setImportingReport] = useState(false) // đang import báo cáo M-invoice
+  const [importResult, setImportResult] = useState<{ ok: number; total: number; skipped: { soHD: string; ten: string; reason: string }[]; failed: { soHD: string; reason: string }[] } | null>(null)
+  const [payModal, setPayModal] = useState<{ soHd: string; ticketIds: string[]; tong: number; daThu: number; tenKh: string; soPhieu: string[] } | null>(null)
+  const [payInput, setPayInput] = useState("")
+  const [paying, setPaying] = useState(false)
+  const [grouped, setGrouped] = useState(false) // Mặc định KHÔNG gom (tránh gộp nhầm HĐ); office tick khi thực sự muốn gom
+  const [activeCard, setActiveCard] = useState<{ type: 'single' | 'group', tickets: Ticket[] } | null>(null)
+  const [invoiceNum, setInvoiceNum] = useState("")
+  const [completing, setCompleting] = useState(false)
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  // Sửa tên + đơn giá + ĐVT trong modal. Giữ kèm giá trị GỐC (ten0/gia0/dvt0) để khi Lưu chỉ ghi
+  // trường THỰC SỰ đổi — tránh vô tình ghi ten_hang_hd (làm rớt phần ghép "Tên - Mã") khi chỉ sửa ĐVT.
+  const [editName, setEditName] = useState<{ ma_hang: string; ten: string; gia: string; dvt: string; ten0: string; gia0: string; dvt0: string } | null>(null)
+  const [savingName, setSavingName] = useState(false)
+  // Import thanh toán FAST (đối ứng công nợ Cột 3)
+  const [payImporting, setPayImporting] = useState(false)
+  const [payResult, setPayResult] = useState<any>(null)
+  // Đối chiếu sao kê ngân hàng (MB/VCB) -> bù trừ công nợ Cột 3
+  const [dcImporting, setDcImporting] = useState(false)
+  const [dcResult, setDcResult] = useState<any>(null) // { bank, matches:[{kind,tx,...,pick}], none, skipped, daDoiChieu }
+  const [dcApplying, setDcApplying] = useState(false)
+  const [dcNeedBank, setDcNeedBank] = useState<File | null>(null) // tự nhận diện trượt -> chọn tay
+  // Bộ lọc Cột 3 (kthc/admin theo dõi công nợ)
+  const [col3Pay, setCol3Pay] = useState<'all' | 'chua' | 'phan' | 'du'>('all')
+  const [col3Age, setCol3Age] = useState<'all' | 'd30' | 'd15' | 'd0'>('all')
+  const [dragVtIdx, setDragVtIdx] = useState<number | null>(null) // kéo-thả sắp xếp dòng vật tư
+  // Kế toán TRẢ LẠI phiếu về Cột 1 kèm lý do (cho tech_admin/staff sửa).
+  const [returnTarget, setReturnTarget] = useState<{ ids: string[]; reason: string } | null>(null)
+  const [returning, setReturning] = useState(false)
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string
+    message: string
+    onConfirm: () => Promise<void>
+  } | null>(null)
+  // Chốt chặn REVIEW trước khi bàn giao kế toán (cột 1 -> 2): office soi Tên hàng/SL/ĐVT read-only.
+  const [giaoReview, setGiaoReview] = useState<{ tickets: Ticket[]; onConfirm: () => void } | null>(null)
+  const [kdReview, setKdReview] = useState<{ ticket: KdTicket; onConfirm: () => void } | null>(null) // chốt chặn xem trước HĐ cho lệnh KD
+  const [cfg, setCfg] = useState<Record<string, string>>({}) // cấu hình hệ thống (khối người bán hóa đơn...)
+  const [thang, setThang] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
+
+  // Xuất Excel công nợ (dữ liệu thô cho kthc pivot) — 2 sheet: chưa thu / đã thanh toán.
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [expPhongBan, setExpPhongBan] = useState<'tat_ca' | 'ky_thuat' | 'kinh_doanh'>('tat_ca')
+  const [expCutoff, setExpCutoff] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })
+  const [expTu, setExpTu] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01` })
+  const [expDen, setExpDen] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })
+
+  // Đặt tổng sau thuế mục tiêu (làm tròn) trong modal.
+  const [roundOpen, setRoundOpen] = useState(false)
+  const [roundVal, setRoundVal] = useState("")
+  const [savingRound, setSavingRound] = useState(false)
+  // Ký hiệu HĐ M-invoice — kế toán tự sửa ngay trên Bảng điều phối (không phụ thuộc admin).
+  const [kyHieuMinvoice, setKyHieuMinvoice] = useState("")
+  const [kyHieuEdit, setKyHieuEdit] = useState("")
+  const [savingKyHieu, setSavingKyHieu] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/admin/kanban-hd?thang_nam=${thang}`)
+      const j = await res.json()
+      if (res.ok) {
+        const fresh: Ticket[] = j.data || []
+        setTickets(fresh)
+        // Modal đang mở -> ánh xạ lại thẻ theo dữ liệu mới để tên/tiền cập nhật ngay.
+        setActiveCard(prev => {
+          if (!prev) return prev
+          const byId = new Map(fresh.map(t => [t.id, t]))
+          const remapped = prev.tickets.map(t => byId.get(t.id)).filter(Boolean) as Ticket[]
+          return remapped.length ? { ...prev, tickets: remapped } : null
+        })
+      } else {
+        showNotification('error', j.error || 'Lỗi tải danh sách Kanban')
+      }
+    } catch {
+      showNotification('error', 'Lỗi kết nối hệ thống')
+    } finally {
+      setLoading(false)
+    }
+  }, [thang, showNotification])
+
+  // Lấy cấu hình (ký hiệu M-invoice + khối người bán hóa đơn...) 1 lần.
+  useEffect(() => {
+    fetch('/api/admin/cau-hinh').then(r => r.json()).then(j => { if (j?.data) { setCfg(j.data); const k = j.data.minvoice_ky_hieu || ''; setKyHieuMinvoice(k); setKyHieuEdit(k) } }).catch(() => {})
+  }, [])
+
+  // Kế toán lưu ký hiệu M-invoice (endpoint riêng cho admin/kthc).
+  const saveKyHieu = async () => {
+    setSavingKyHieu(true)
+    try {
+      const res = await fetch('/api/admin/minvoice-kyhieu', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ gia_tri: kyHieuEdit }) })
+      if (res.ok) { const j = await res.json(); const k = j.gia_tri ?? kyHieuEdit.trim(); setKyHieuMinvoice(k); setKyHieuEdit(k); showNotification('success', 'Đã lưu ký hiệu M-invoice.') }
+      else { const e = await res.json(); showNotification('error', e.error || 'Lỗi lưu ký hiệu') }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setSavingKyHieu(false) }
+  }
+
+  useEffect(() => {
+    load()
+    // Đăng ký kênh Realtime lắng nghe thay đổi phiếu
+    const ch = supabase
+      .channel("soct_jobs")
+      .on('broadcast', { event: "changed" }, () => { load() })
+      .subscribe()
+    return () => {
+      supabase.removeChannel(ch)
+    }
+  }, [load])
+
+  // Nguồn KINH DOANH (lệnh xuất): CHỈ kế toán (admin/kthc) thấy trên bàn này. tech_admin/staff = trống.
+  const canSeeKd = role === 'admin' || role === 'kthc'
+  const loadKd = useCallback(async () => {
+    if (!canSeeKd) { setKdTickets([]); return }
+    try {
+      const res = await fetch(`/api/admin/lenh-xuat?kanban=1&thang_nam=${thang}`)
+      const j = await res.json()
+      if (res.ok) {
+        const fresh: KdTicket[] = j.data || []
+        setKdTickets(fresh)
+        setKdActive(prev => prev ? (fresh.find(t => t.id === prev.id) || null) : prev)
+      }
+    } catch { /* im lặng — nguồn phụ, không chặn bàn kỹ thuật */ }
+  }, [canSeeKd, thang])
+
+  useEffect(() => {
+    loadKd()
+    // Topic RIÊNG soct_lenhxuat -> không refetch chéo với Kanban kỹ thuật.
+    const ch = supabase
+      .channel("soct_lenhxuat")
+      .on('broadcast', { event: "changed" }, () => { loadKd() })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [loadKd])
+
+  // ===== Chuyển trạng thái thẻ KINH DOANH (lệnh xuất) — PUT /api/admin/lenh-xuat?kanban=1 =====
+  // Endpoint RIÊNG (không đụng kanban-hd kỹ thuật). Server gate lại quyền theo role+cột; đây chỉ là UX.
+  const kdMove = async (id: string, targetState: string, extra: Record<string, any> = {}) => {
+    setKdBusy(true)
+    try {
+      const res = await fetch('/api/admin/lenh-xuat?kanban=1', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, trang_thai_hd: targetState, ...extra }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (res.ok) { showNotification('success', 'Đã chuyển trạng thái lệnh KD.'); loadKd(); return true }
+      showNotification('error', j.error || 'Lỗi chuyển trạng thái'); return false
+    } catch { showNotification('error', 'Lỗi kết nối'); return false }
+    finally { setKdBusy(false) }
+  }
+
+  // Thu hồi lệnh KD về Nháp (gỡ khỏi Kanban). CHỈ admin dùng ở bàn /admin (sale_admin thu hồi ở trang KD).
+  const kdRecall = async (id: string) => {
+    setKdBusy(true)
+    try {
+      const res = await fetch('/api/admin/lenh-xuat?recall=1', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (res.ok) { showNotification('success', 'Đã thu hồi lệnh về Nháp (trang Kinh doanh).'); setKdActive(null); loadKd() }
+      else showNotification('error', j.error || 'Lỗi thu hồi')
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setKdBusy(false) }
+  }
+
+  // Bảng chuyển hợp lệ cho thẻ KD trên BÀN KẾ TOÁN (admin/kthc). Handover 1->2 do sale_admin làm ở trang KD;
+  // ở đây admin vẫn kéo được 1->2 (server cho admin). Trả về 2->1 đi qua modal lý do.
+  const KD_TRANS: Record<string, string[]> = {
+    'Chờ xuất HĐ': ['Đang xử lý HĐ'],
+    'Đang xử lý HĐ': ['Đã lên hóa đơn', 'Chờ xuất HĐ'],
+    'Đã lên hóa đơn': ['Đã thanh toán', 'Đang xử lý HĐ'],
+    'Đã thanh toán': ['Đã lên hóa đơn'],
+  }
+  // Điều phối 1 thao tác kéo/nút cho thẻ KD (mở modal khi cần nhập thêm).
+  const handleKdMove = (t: KdTicket, targetState: string): boolean => {
+    if (!(KD_TRANS[t.trang_thai_hd] || []).includes(targetState)) {
+      showNotification('error', 'Chuyển trạng thái không hợp lệ cho lệnh KD.'); return false
+    }
+    const ten = (t.ten_khach_hd || t.ten_khach_hang || 'Khách lẻ')
+    if (t.trang_thai_hd === 'Đang xử lý HĐ' && targetState === 'Đã lên hóa đơn') {
+      setKdInvoice({ id: t.id, so_hoa_don: t.so_hoa_don || '', ten }); return true // cần số HĐ
+    }
+    if (t.trang_thai_hd === 'Đang xử lý HĐ' && targetState === 'Chờ xuất HĐ') {
+      setKdReturn({ id: t.id, reason: '', ten }); return true // cần lý do trả lại
+    }
+    // Bàn giao kế toán (cột 1 -> 2): LUÔN mở chốt chặn xem trước hóa đơn — khóa sửa sau đó (đồng bộ luồng kỹ thuật).
+    if (t.trang_thai_hd === 'Chờ xuất HĐ' && targetState === 'Đang xử lý HĐ') {
+      setKdReview({ ticket: t, onConfirm: () => kdMove(t.id, targetState) }); return true
+    }
+    kdMove(t.id, targetState); return true
+  }
+
+  // Đóng modal -> bỏ trạng thái đang sửa tên (tránh sót khi mở thẻ khác)
+  useEffect(() => { if (!activeCard) { setEditName(null); setRoundOpen(false) } }, [activeCard])
+
+  // Tính tổng tiền cho 1 mảng vật tư của các phiếu
+  const getVatTuStats = (vtList: VatTu[]) => {
+    const activeVt = vtList.filter(v => !v.da_tra)
+    const truocVat = activeVt.reduce((s, v) => s + v.so_luong * v.don_gia, 0)
+    const tienVat = activeVt.reduce((s, v) => s + (v.so_luong * v.don_gia * v.vat) / 100, 0)
+    const sauVat = truocVat + tienVat
+    return { truocVat, tienVat, sauVat, activeVt }
+  }
+
+  // Copy nhanh text vào clipboard
+  const handleCopy = (text: string, key: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedKey(key)
+    setTimeout(() => setCopiedKey(null), 2000)
+    showNotification('success', 'Đã copy vào bộ nhớ đệm')
+  }
+
+  // Kéo thẻ (Drag Start)
+  const handleDragStart = (e: React.DragEvent, cardData: { id?: string, ids?: string[], currentState: string }) => {
+    e.dataTransfer.setData("text/plain", JSON.stringify(cardData))
+  }
+
+  // Xuất Đề nghị thanh toán (.docx) cho 1 số hóa đơn. Tải file + cập nhật badge (load lại).
+  const exportDntt = async (so_hd: string) => {
+    try {
+      const res = await fetch(`/api/admin/dntt?so_hd=${encodeURIComponent(so_hd)}`)
+      if (!res.ok) { const j = await res.json().catch(() => ({})); showNotification('error', j.error || 'Lỗi xuất ĐNTT'); return }
+      const blob = await res.blob()
+      const cd = res.headers.get('Content-Disposition') || ''
+      const fname = decodeURIComponent((cd.match(/filename="?([^"]+)"?/) || [])[1] || 'DNTT.docx')
+      const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = fname; a.click(); URL.revokeObjectURL(url)
+      showNotification('success', 'Đã xuất Đề nghị thanh toán.'); load()
+    } catch { showNotification('error', 'Lỗi kết nối') }
+  }
+
+  // Đếm dòng hàng còn ĐƠN GIÁ 0đ (chưa trả về kho). Dùng để cảnh báo trước khi bàn giao kế
+  // toán — sau bàn giao KHÔNG sửa được giá nữa, dễ để lọt giá 0 vào hóa đơn.
+  // Thả thẻ (Drop)
+  const handleDrop = async (e: React.DragEvent, targetState: 'Chờ xuất HĐ' | 'Đang xử lý HĐ' | 'Đã lên hóa đơn' | 'Đã thanh toán') => {
+    e.preventDefault()
+    try {
+      const raw = e.dataTransfer.getData("text/plain")
+      if (!raw) return
+      const cardData = JSON.parse(raw)
+
+      // Nhánh SỚM cho thẻ KINH DOANH (lệnh xuất) — đi endpoint riêng, KHÔNG đụng path kỹ thuật bên dưới.
+      if (cardData.kind === 'kd') {
+        if (cardData.currentState === targetState) return
+        const t = kdTickets.find(k => k.id === cardData.id)
+        if (t) handleKdMove(t, targetState)
+        return
+      }
+
+      const targetIds = cardData.ids || [cardData.id]
+      const sourceState = cardData.currentState
+
+      // 1. Kiểm tra phân quyền kéo/thả
+      if (role !== 'admin') {
+        if (role === 'tech_admin' || role === 'staff') {
+          // Tech_admin & Staff: chỉ kéo Cột 1 -> Cột 2 (bàn giao Kế toán) + thu hồi về Công nợ.
+          if (!(sourceState === 'Chờ xuất HĐ' && targetState === 'Đang xử lý HĐ')) {
+            return showNotification('error', 'Bạn chỉ có quyền kéo thẻ từ Cột 1 (Chờ xuất HĐ) sang Cột 2 để bàn giao cho Kế toán.')
+          }
+        } else if (role === 'kthc') {
+          // Kế toán (kthc): Chỉ được làm việc với Cột 2, 3, 4
+          const isAllowedTransition =
+            (sourceState === 'Đang xử lý HĐ' && targetState === 'Đã lên hóa đơn') ||
+            (sourceState === 'Đã lên hóa đơn' && targetState === 'Đã thanh toán') ||
+            (sourceState === 'Đã thanh toán' && targetState === 'Đã lên hóa đơn') ||
+            (sourceState === 'Đã lên hóa đơn' && targetState === 'Đang xử lý HĐ')
+
+          if (!isAllowedTransition) {
+            return showNotification('error', 'Quyền kéo thả không hợp lệ đối với Kế toán.')
+          }
+        }
+      }
+
+      // 2. Thực hiện chuyển trạng thái
+      if (targetState === 'Đã lên hóa đơn') {
+        const matchedTickets = tickets.filter(t => targetIds.includes(t.id))
+        if (sourceState === 'Đang xử lý HĐ') {
+          // Cột 2 -> Cột 3: mở Modal để nhập Số hóa đơn lần đầu
+          setInvoiceNum(matchedTickets[0].so_hoa_don || "")
+          setActiveCard({ type: cardData.ids ? 'group' : 'single', tickets: matchedTickets })
+        } else {
+          // Cột 4 -> Cột 3 (bỏ đánh dấu đã thanh toán): giữ nguyên số HĐ + ngày xuất, chuyển thẳng.
+          const res = await fetch('/api/admin/kanban-hd', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: targetIds, trang_thai_hd: 'Đã lên hóa đơn', so_hoa_don: matchedTickets[0].so_hoa_don, ngay_xuat_hd: matchedTickets[0].ngay_xuat_hd })
+          })
+          if (res.ok) { showNotification('success', 'Đã chuyển về "Chờ thanh toán".'); load() }
+          else { const err = await res.json(); showNotification('error', err.error || 'Lỗi chuyển trạng thái') }
+        }
+      } else if (sourceState === 'Đã lên hóa đơn' && targetState === 'Đang xử lý HĐ') {
+        // Kéo ngược Cột 3 -> Cột 2 để sửa. GIỮ số HĐ (hệ thống nhớ lại) -> khi hoàn tất lại
+        // khỏi gõ số HĐ. Chỉ gỡ ngày xuất + cờ hóa đơn (ra khỏi "chờ thanh toán").
+        setConfirmDialog({
+          title: "Trả về xử lý hóa đơn",
+          message: "Trả phiếu này về cột 'KT-HC lên hóa đơn' để sửa?\nSố hóa đơn được GIỮ LẠI (khi hoàn tất lại sẽ điền sẵn).",
+          onConfirm: async () => {
+            const res = await fetch('/api/admin/kanban-hd', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ids: targetIds, trang_thai_hd: 'Đang xử lý HĐ' })
+            })
+            if (res.ok) {
+              showNotification('success', 'Đã trả thẻ về xử lý hóa đơn (giữ số HĐ).')
+              load()
+            } else {
+              const err = await res.json()
+              showNotification('error', err.error || 'Lỗi chuyển trạng thái')
+            }
+          }
+        })
+      } else if (sourceState === 'Đã lên hóa đơn' && targetState === 'Đã thanh toán') {
+        // Cột 3 -> Cột 4: KHÔNG chuyển thẳng — mở modal Thu tiền (ghi số tiền khách trả theo HĐ).
+        openPayModal(targetIds)
+      } else {
+        // Cập nhật trạng thái trực tiếp (Ví dụ: 1 -> 2, 4 -> 3)
+        const doMove = async () => {
+          const moveBody: any = { ids: targetIds, trang_thai_hd: targetState }
+          // Bàn giao kế toán (cột 1 -> 2): ghi ý định gom/lẻ theo cờ hiển thị hiện tại -> đi theo phiếu.
+          if (sourceState === 'Chờ xuất HĐ' && targetState === 'Đang xử lý HĐ') moveBody.tach_rieng = !grouped
+          const res = await fetch('/api/admin/kanban-hd', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(moveBody)
+          })
+          if (res.ok) {
+            showNotification('success', 'Đã chuyển trạng thái thẻ thành công.')
+            load()
+          } else {
+            const err = await res.json()
+            showNotification('error', err.error || 'Lỗi chuyển trạng thái')
+          }
+        }
+        // Bàn giao kế toán (Cột 1 -> 2): LUÔN mở chốt review (soi Tên hàng/SL/ĐVT) trước khi đẩy — khóa sửa sau đó.
+        if (sourceState === 'Chờ xuất HĐ' && targetState === 'Đang xử lý HĐ') {
+          setGiaoReview({ tickets: tickets.filter(t => targetIds.includes(t.id)), onConfirm: doMove })
+          return
+        }
+        await doMove()
+      }
+    } catch {
+      showNotification('error', 'Lỗi kéo thả thẻ')
+    }
+  }
+
+  // Hoàn tất xuất hóa đơn (Modal Submit). Có cảnh báo số HĐ trùng của KHÁCH KHÁC (chống gõ nhầm).
+  const handleCompleteInvoice = async () => {
+    if (!activeCard) return
+    const cleanedInvoice = invoiceNum.trim()
+    if (!cleanedInvoice) return showNotification('error', 'Vui lòng nhập Số hóa đơn!')
+
+    const currentIds = new Set(activeCard.tickets.map(t => t.id))
+    const curKh = activeCard.tickets[0]?.id_khach_hang
+    const dup = tickets.find(t => !currentIds.has(t.id) && (t.so_hoa_don || '').trim().toUpperCase() === cleanedInvoice.toUpperCase() && t.id_khach_hang !== curKh)
+    if (dup) {
+      const dupKh = dup.soct_khach_hang?.soct_khach_cum?.ten_khach_hang || dup.soct_khach_hang?.ten_khach_hang || 'khách khác'
+      setConfirmDialog({
+        title: 'Số hóa đơn có thể trùng',
+        message: `Số hóa đơn "${cleanedInvoice}" đã dùng cho phiếu của "${dupKh}".\nBạn có chắc muốn dùng lại số này?`,
+        onConfirm: async () => { await doCompleteInvoice(cleanedInvoice) },
+      })
+      return
+    }
+    await doCompleteInvoice(cleanedInvoice)
+  }
+
+  const doCompleteInvoice = async (cleanedInvoice: string) => {
+    if (!activeCard) return
+    setCompleting(true)
+    try {
+      const targetIds = activeCard.tickets.map(t => t.id)
+      const res = await fetch('/api/admin/kanban-hd', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: targetIds, trang_thai_hd: 'Đã lên hóa đơn', so_hoa_don: cleanedInvoice })
+      })
+      if (res.ok) {
+        showNotification('success', `Đã xuất hóa đơn ${cleanedInvoice} thành công!`)
+        setActiveCard(null)
+        load()
+      } else {
+        const err = await res.json()
+        showNotification('error', err.error || 'Lỗi lưu hóa đơn')
+      }
+    } catch {
+      showNotification('error', 'Lỗi kết nối')
+    } finally {
+      setCompleting(false)
+    }
+  }
+
+  // Chuyển trạng thái trực tiếp từ NÚT trong modal (thay cho kéo thả — dùng được trên mobile).
+  const moveStatus = async (targetState: string, keepInvoice = false) => {
+    if (!activeCard) return
+    // Bàn giao kế toán (Cột 1 -> 2): LUÔN mở chốt review (soi Tên hàng/SL/ĐVT) trước khi đẩy.
+    if (targetState === 'Đang xử lý HĐ' && activeCard.tickets[0]?.trang_thai_hd === 'Chờ xuất HĐ') {
+      setGiaoReview({ tickets: activeCard.tickets, onConfirm: () => doMoveStatus(targetState, keepInvoice) })
+      return
+    }
+    await doMoveStatus(targetState, keepInvoice)
+  }
+  const doMoveStatus = async (targetState: string, keepInvoice = false) => {
+    if (!activeCard) return
+    setCompleting(true)
+    try {
+      const targetIds = activeCard.tickets.map(t => t.id)
+      const body: any = { ids: targetIds, trang_thai_hd: targetState }
+      if (keepInvoice) { body.so_hoa_don = activeCard.tickets[0]?.so_hoa_don; body.ngay_xuat_hd = activeCard.tickets[0]?.ngay_xuat_hd }
+      // Bàn giao kế toán từ nút modal (cột 1 -> 2): ghi ý định gom/lẻ theo cờ hiển thị -> đi theo phiếu.
+      if (targetState === 'Đang xử lý HĐ' && activeCard.tickets[0]?.trang_thai_hd === 'Chờ xuất HĐ') body.tach_rieng = !grouped
+      const res = await fetch('/api/admin/kanban-hd', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      if (res.ok) { showNotification('success', 'Đã chuyển trạng thái.'); setActiveCard(null); load() }
+      else { const err = await res.json(); showNotification('error', err.error || 'Lỗi chuyển trạng thái') }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setCompleting(false) }
+  }
+
+  // scope_key của khách đang mở modal (khớp cách gom: cụm nếu có, else điểm máy).
+  // Mở modal Thu tiền cho một HÓA ĐƠN (theo danh sách phiếu cùng số HĐ).
+  const openPayModal = (ticketIds: string[]) => {
+    const ts = tickets.filter(t => ticketIds.includes(t.id))
+    if (ts.length === 0) return
+    const soHd = ts[0].so_hoa_don || ''
+    const tong = Math.round(getVatTuStats(ts.flatMap(t => t.soct_chi_tiet_vat_tu || [])).sauVat) + cardLamTron(ts)
+    const daThu = Number(ts[0].so_tien_da_thu) || 0
+    const cum = ts[0].soct_khach_hang?.soct_khach_cum
+    const tenKh = ts[0].ten_khach_hd || (cum ? (cum.ten_khach_hang || '') : (ts[0].soct_khach_hang?.ten_khach_hang || 'Khách lẻ'))
+    setPayInput("")
+    setPayModal({ soHd, ticketIds, tong, daThu, tenKh, soPhieu: ts.map(t => t.report || '—') })
+  }
+
+  // Gọi API ghi thu tiền (cộng dồn); chuyen=true thì chuyển cả hóa đơn sang Đã thanh toán.
+  const doPay = async (them: number, chuyen: boolean) => {
+    if (!payModal) return
+    setPaying(true)
+    try {
+      const res = await fetch('/api/admin/hd-thu', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ so_hoa_don: payModal.soHd, so_tien_them: them, chuyen }),
+      })
+      if (res.ok) {
+        showNotification('success', chuyen ? 'Đã thu đủ — chuyển sang Đã thanh toán.' : 'Đã ghi nhận thanh toán.')
+        setPayModal(null); load()
+      } else { const e = await res.json(); showNotification('error', e.error || 'Lỗi ghi thu') }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setPaying(false) }
+  }
+
+  // Bấm Xác nhận trong modal Thu tiền -> phân nhánh thiếu / đủ / dư.
+  const submitPay = () => {
+    if (!payModal) return
+    const them = parseMoney(payInput)
+    if (them <= 0) return showNotification('error', 'Nhập số tiền khách thanh toán.')
+    const moi = payModal.daThu + them
+    const con = payModal.tong - moi
+    if (con > 0) {
+      // Còn thiếu -> ghi nhận, thẻ ở lại Chờ thanh toán.
+      doPay(them, false)
+    } else if (con === 0) {
+      setConfirmDialog({
+        title: 'Đã thu đủ',
+        message: `Hóa đơn ${payModal.soHd} đã thu đủ ${fmtVnd(payModal.tong)} đ.\nChuyển sang "Đã thanh toán"?`,
+        onConfirm: async () => { await doPay(them, true) },
+      })
+    } else {
+      setConfirmDialog({
+        title: 'Khách trả DƯ',
+        message: `Tổng hóa đơn ${fmtVnd(payModal.tong)} đ, nhưng đã thu ${fmtVnd(moi)} đ (dư ${fmtVnd(-con)} đ).\nVẫn ghi nhận và chuyển sang "Đã thanh toán"?`,
+        onConfirm: async () => { await doPay(them, true) },
+      })
+    }
+  }
+
+  // Admin đặt lại số đã thu của hóa đơn (cứu khi gõ nhầm).
+  const resetThu = () => {
+    if (!payModal) return
+    setConfirmDialog({
+      title: 'Đặt lại số đã thu',
+      message: `Đặt lại "đã thu" của hóa đơn ${payModal.soHd} về 0?`,
+      onConfirm: async () => {
+        setPaying(true)
+        try {
+          const res = await fetch('/api/admin/hd-thu', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ so_hoa_don: payModal.soHd, reset: true }) })
+          if (res.ok) { showNotification('success', 'Đã đặt lại số đã thu.'); setPayModal(null); load() }
+          else { const e = await res.json(); showNotification('error', e.error || 'Lỗi đặt lại') }
+        } catch { showNotification('error', 'Lỗi kết nối') } finally { setPaying(false) }
+      },
+    })
+  }
+
+  const modalScopeKey = (() => {
+    const t0 = activeCard?.tickets[0]
+    if (!t0) return ''
+    return t0.soct_khach_hang?.ma_khach_cum ? `cum:${t0.soct_khach_hang.ma_khach_cum}` : `may:${t0.id_khach_hang}`
+  })()
+
+  // Lưu tên + đơn giá: 'hoa_don' (ghi thẳng dòng phiếu này) hoặc 'khach' (lưu MẪU cho khách).
+  const saveName = async (pham_vi: 'hoa_don' | 'khach') => {
+    if (!editName || !activeCard) return
+    setSavingName(true)
+    try {
+      // CHỈ gửi trường THỰC SỰ đổi (so với giá trị gốc). Không đổi tên -> KHÔNG gửi ten_hang -> API
+      // giữ ten_hang_hd cũ (null) -> phần ghép "Tên - Mã" vẫn còn. Tránh sửa ĐVT làm rớt mã.
+      const trim = (s: string) => String(s ?? '').trim()
+      const res = await fetch('/api/admin/ten-hang-rieng', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pham_vi, ma_hang: editName.ma_hang,
+          ...(trim(editName.ten) !== trim(editName.ten0) ? { ten_hang: editName.ten } : {}),
+          ...(trim(editName.gia) !== trim(editName.gia0) ? { don_gia: editName.gia } : {}),
+          ...(trim(editName.dvt) !== trim(editName.dvt0) ? { don_vi_tinh: editName.dvt } : {}),
+          // Lưu mẫu khách: gửi kèm ticket_ids để áp NGAY vào dòng phiếu đang mở (không chỉ nhớ kỳ sau).
+          ticket_ids: activeCard.tickets.map(t => t.id),
+          ...(pham_vi === 'khach' ? { scope_key: modalScopeKey } : {}),
+        }),
+      })
+      if (res.ok) {
+        showNotification('success', pham_vi === 'khach' ? 'Đã đổi trên hóa đơn này và lưu mẫu cho khách (kỳ sau tự dùng).' : 'Đã cập nhật hóa đơn này.')
+        setEditName(null)
+        load()
+      } else { const e = await res.json(); showNotification('error', e.error || 'Lỗi lưu') }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setSavingName(false) }
+  }
+
+  // RESET 1 mã hàng: xóa MẪU đã lưu cho khách/cụm + đưa dòng vật tư kho về tên kho.
+  // Dòng DỊCH VỤ (không có bản ghi kho: DVTM/DVCR…) giữ nguyên tên hiện tại để không hiện mã trơ.
+  const resetName = async () => {
+    if (!editName || !activeCard) return
+    setSavingName(true)
+    try {
+      const res = await fetch('/api/admin/ten-hang-rieng', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pham_vi: 'reset', ma_hang: editName.ma_hang, scope_key: modalScopeKey,
+          ticket_ids: activeCard.tickets.map(t => t.id),
+        }),
+      })
+      if (res.ok) {
+        const j = await res.json().catch(() => ({}))
+        showNotification('success', j.reverted
+          ? 'Đã xóa mẫu khách và đưa dòng về tên kho.'
+          : 'Đã xóa mẫu khách. Dòng dịch vụ giữ tên hiện tại — sửa bằng "Chỉ hóa đơn này" nếu cần.')
+        setEditName(null)
+        load()
+      } else { const e = await res.json(); showNotification('error', e.error || 'Lỗi reset') }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setSavingName(false) }
+  }
+
+  // Áp MẪU tên/giá đã lưu của khách vào các dòng của phiếu này (bấm nút -> ghi vào dòng).
+  const applyTemplate = async () => {
+    if (!activeCard) return
+    setSavingName(true)
+    try {
+      const res = await fetch('/api/admin/ten-hang-rieng', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pham_vi: 'ap_khach', scope_key: modalScopeKey, ticket_ids: activeCard.tickets.map(t => t.id) }),
+      })
+      if (res.ok) { showNotification('success', 'Đã áp mẫu tên/giá của khách. Vui lòng kiểm tra lại.'); load() }
+      else { const e = await res.json(); showNotification('error', e.error || 'Lỗi áp mẫu') }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setSavingName(false) }
+  }
+
+  // Đặt tổng sau thuế mục tiêu -> lưu CHÊNH LỆCH LÀM TRÒN (delta = mục tiêu − tổng tự tính).
+  const saveLamTron = async () => {
+    if (!activeCard) return
+    const target = parseMoney(roundVal)
+    const rawTong = Math.round(getVatTuStats(activeCard.tickets.flatMap(t => t.soct_chi_tiet_vat_tu || [])).sauVat)
+    const delta = target - rawTong
+    if (Math.abs(delta) > 1000) { showNotification('error', 'Chênh lệch làm tròn vượt ±1.000đ — kiểm tra lại số nhập.'); return }
+    setSavingRound(true)
+    try {
+      const res = await fetch('/api/admin/lam-tron', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticket_ids: activeCard.tickets.map(t => t.id), lam_tron: delta }),
+      })
+      if (res.ok) {
+        showNotification('success', delta === 0 ? 'Đã bỏ làm tròn.' : `Đã đặt tổng ${fmtVnd(target)}đ (làm tròn ${delta > 0 ? '+' : ''}${fmtVnd(delta)}).`)
+        setRoundOpen(false); load()
+      } else { const e = await res.json(); showNotification('error', e.error || 'Lỗi lưu làm tròn') }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setSavingRound(false) }
+  }
+
+  // Xuất Excel danh sách vật tư (Mã hàng · Tên · SL · Đơn giá · VAT · Thành tiền) để sửa hàng loạt.
+  const exportExcel = async () => {
+    if (!activeCard) return
+    const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
+    const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('HangHoa')
+    ws.addRow(['Mã hàng', 'Tên hàng', 'SL', 'ĐVT', 'Đơn giá', 'VAT (%)', 'Thành tiền (chưa VAT)'])
+    for (const v of modalDisplayRows) ws.addRow([v.ma_hang, v.ten_hang, v.so_luong, v.dvt || 'Cái', v.don_gia, v.vat, v.so_luong * v.don_gia])
+    ws.getRow(1).font = { bold: true }
+    // Tô nền vàng nhạt cột Tên hàng (B) & ĐVT (D) — office focus kiểm tra/điều chỉnh theo khách.
+    const HL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } } as const
+    for (let rN = 1; rN <= ws.rowCount; rN++) { ws.getCell(rN, 2).fill = HL as any; ws.getCell(rN, 4).fill = HL as any }
+    ws.getColumn(2).width = 42; ws.getColumn(4).width = 10
+    const buf = await wb.xlsx.writeBuffer()
+    const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+    const a = document.createElement('a')
+    a.href = url; a.download = `hanghoa-${activeCard.tickets[0]?.so_hoa_don || activeCard.tickets[0]?.report || 'phieu'}.xlsx`; a.click(); URL.revokeObjectURL(url)
+  }
+
+  // ── XUẤT EXCEL CÔNG NỢ (dữ liệu thô cho kthc pivot) ─────────────────────────────
+  // 2 sheet: "Cong no chua thu" (cột 3, lũy kế đến cutoff) + "Da thanh toan" (cột 4, range).
+  // Bảng phẳng: 1 dòng = 1 số HĐ, AutoFilter + freeze header, KHÔNG subtotal/tổng.
+  const buildCongNoSheet = (ws: any, list: Ticket[], isChuaThu: boolean, kdRows: any[] = []) => {
+    const headers = ['STT', 'Phòng ban', 'NV kinh doanh', 'Số HĐ', 'Ngày HĐ', 'Khách hàng', 'MST', 'Địa chỉ', 'Số phiếu', 'SL phiếu', 'Trước VAT', 'VAT (%)', 'Tiền VAT', 'Tổng sau VAT', 'Đã thu']
+    if (isChuaThu) headers.push('Còn nợ', 'Tuổi nợ')
+    headers.push('Người lập HĐ', 'Số ĐNTT', 'MF', 'Ghi chú')
+    ws.addRow(headers)
+
+    const cards = groupByHd(list, isChuaThu ? 'Đã lên hóa đơn' : 'Đã thanh toán')
+    const khName = (c: any) => { const cum = c.customer?.soct_khach_cum; return norm(cum ? (cum.ten_khach_hang || '') : (c.customer?.ten_khach_hang || '')) }
+    cards.sort((a: any, b: any) => {
+      const ka = khName(a), kb = khName(b)
+      if (ka !== kb) return ka < kb ? -1 : 1
+      const da = a.tickets[0]?.ngay_xuat_hd || '', db = b.tickets[0]?.ngay_xuat_hd || ''
+      return da < db ? -1 : da > db ? 1 : 0
+    })
+    const toDate = (s?: string | null) => { if (!s) return null; const [y, m, d] = String(s).split('-').map(Number); return (y && m && d) ? new Date(y, m - 1, d) : null }
+
+    cards.forEach((card: any, i: number) => {
+      const t0 = card.tickets[0]
+      const allVt = card.tickets.flatMap((t: any) => t.soct_chi_tiet_vat_tu || [])
+      const { truocVat, sauVat, activeVt } = getVatTuStats(allVt)
+      // Mức VAT hiển thị: đồng nhất -> số (VD 8); trộn nhiều mức -> 'mix'; không có -> ''.
+      const rates = [...new Set(activeVt.map((v: any) => Number(v.vat) || 0))]
+      const vatRate: number | string = rates.length === 0 ? '' : rates.length === 1 ? rates[0] : 'mix'
+      const cum = card.customer?.soct_khach_cum
+      const tenKh = card.tickets[0]?.ten_khach_hd || (cum ? (cum.ten_khach_hang || '') : (card.customer?.ten_khach_hang || 'Khách hàng lẻ'))
+      const mst = (cum ? cum.ma_so_thue : card.customer?.ma_so_thue) || ''
+      const diaChi = (cum ? cum.dia_chi : card.customer?.dia_chi) || ''
+      const soPhieu = card.tickets.map((t: any) => t.report || '—').join(', ')
+      const truoc = Math.round(truocVat)
+      const tong = Math.round(sauVat) + cardLamTron(card.tickets) // cộng làm tròn
+      const daThu = Math.round(Number(t0.so_tien_da_thu) || 0)
+      const conNo = Math.max(0, tong - daThu)
+      const du = daThu - tong
+      const mf = card.tickets.every((t: any) => t.mien_phi) ? 'x' : card.tickets.some((t: any) => t.mien_phi) ? 'một phần' : ''
+      const soDntt = card.tickets.find((t: any) => t.so_dntt)?.so_dntt || ''
+      const tuoiNo = daysSince(t0.ngay_xuat_hd)
+
+      const row: any[] = [
+        i + 1, 'Kỹ thuật', '', t0.so_hoa_don || '', toDate(t0.ngay_xuat_hd),
+        tenKh, mst, diaChi, soPhieu, card.tickets.length,
+        truoc, vatRate, tong - truoc, tong, daThu,
+      ]
+      if (isChuaThu) row.push(conNo, tuoiNo == null ? '' : tuoiNo)
+      row.push(t0.nguoi_xuat?.full_name || '', soDntt, mf, du > 0 ? `(dư ${fmtVnd(du)})` : '')
+      ws.addRow(row)
+    })
+
+    // Nguồn KINH DOANH (lệnh xuất) — server đã dựng sẵn dòng phẳng; chỉ việc append (Phòng ban=Kinh doanh).
+    kdRows.forEach((k: any, j: number) => {
+      const tong = Math.round(Number(k.tong_sau_vat) || 0)
+      const daThu = Math.round(Number(k.da_thu) || 0)
+      const kRow: any[] = [
+        cards.length + j + 1, 'Kinh doanh', k.nv_kinh_doanh || '', k.so_hoa_don || '', toDate(k.ngay_xuat_hd),
+        k.ten_khach || '', k.mst || '', k.dia_chi || '', k.so_lenh || '', 1,
+        Math.round(Number(k.truoc_vat) || 0), k.vat_rate, Math.round(Number(k.tien_vat) || 0), tong, daThu,
+      ]
+      if (isChuaThu) { const tuoi = daysSince(k.ngay_xuat_hd); kRow.push(Math.max(0, tong - daThu), tuoi == null ? '' : tuoi) }
+      kRow.push(k.nguoi_lap || '', k.so_dntt || '', '', '')
+      ws.addRow(kRow)
+    })
+
+    ws.getRow(1).font = { bold: true }
+    ws.views = [{ state: 'frozen', ySplit: 1 }]
+    const lastCol = ws.getColumn(headers.length).letter
+    ws.autoFilter = `A1:${lastCol}${Math.max(1, ws.rowCount)}`
+    const moneyCols = isChuaThu ? [11, 13, 14, 15, 16] : [11, 13, 14, 15]
+    moneyCols.forEach(c => { ws.getColumn(c).numFmt = '#,##0' })
+    ws.getColumn(12).numFmt = '0"%"' // VAT (%): giá trị số, hiện "8%"
+    ws.getColumn(5).numFmt = 'dd/mm/yyyy'
+    const widths = isChuaThu
+      ? [5, 10, 16, 10, 12, 32, 14, 32, 24, 8, 14, 8, 12, 14, 14, 14, 8, 16, 12, 6, 14]
+      : [5, 10, 16, 10, 12, 32, 14, 32, 24, 8, 14, 8, 12, 14, 14, 16, 12, 6, 14]
+    widths.forEach((w, idx) => { ws.getColumn(idx + 1).width = w })
+  }
+
+  const runExportCongNo = async () => {
+    setExporting(true)
+    try {
+      const params = new URLSearchParams({ phong_ban: expPhongBan })
+      if (expCutoff) params.set('cutoff', expCutoff)
+      if (expTu) params.set('tu', expTu)
+      if (expDen) params.set('den', expDen)
+      const res = await fetch(`/api/admin/kanban-hd/export?${params.toString()}`)
+      const j = await res.json()
+      if (!res.ok) { showNotification('error', j.error || 'Lỗi tải dữ liệu xuất'); return }
+      const chuaThu: Ticket[] = (j.chua_thu || []).filter(matchSearch)
+      const daThanhToan: Ticket[] = (j.da_thanh_toan || []).filter(matchSearch)
+      // Nguồn KD (dòng phẳng): lọc theo ô Tìm trên các trường khách/số lệnh/số HĐ.
+      const kw = search.trim().toLowerCase()
+      const kdMatch = (k: any) => !kw || [k.ten_khach, k.so_lenh, k.so_hoa_don, k.nv_kinh_doanh].filter(Boolean).join(' ').toLowerCase().includes(kw)
+      const kdChuaThu: any[] = (j.kd_chua_thu || []).filter(kdMatch)
+      const kdDaThanhToan: any[] = (j.kd_da_thanh_toan || []).filter(kdMatch)
+      if (chuaThu.length === 0 && daThanhToan.length === 0 && kdChuaThu.length === 0 && kdDaThanhToan.length === 0) {
+        showNotification('error', 'Không có dữ liệu công nợ khớp bộ lọc.')
+        return
+      }
+      const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
+      const wb = new ExcelJS.Workbook()
+      buildCongNoSheet(wb.addWorksheet('Cong no chua thu'), chuaThu, true, kdChuaThu)
+      buildCongNoSheet(wb.addWorksheet('Da thanh toan'), daThanhToan, false, kdDaThanhToan)
+      const buf = await wb.xlsx.writeBuffer()
+      const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+      const a = document.createElement('a')
+      const stamp = fmtDate(new Date().toISOString()).replace(/\//g, '-')
+      a.href = url; a.download = `cong-no_${stamp}.xlsx`; a.click(); URL.revokeObjectURL(url)
+      showNotification('success', 'Đã xuất file công nợ.')
+      setExportOpen(false)
+    } catch {
+      showNotification('error', 'Lỗi xuất Excel')
+    } finally { setExporting(false) }
+  }
+
+  // Kéo-thả đổi thứ tự dòng vật tư (chỉ cột "Chờ lên hóa đơn"). from/to = chỉ số trong modalDisplayRows.
+  const moveVatTu = async (from: number, to: number) => {
+    if (!activeCard || from === to) return
+    const keys = modalDisplayRows.map(v => `${v.ma_hang}_${Number(v.don_gia) || 0}`)
+    if (from < 0 || from >= keys.length || to < 0 || to >= keys.length) return
+    const [moved] = keys.splice(from, 1)
+    keys.splice(to, 0, moved)
+    setSavingName(true)
+    try {
+      const res = await fetch('/api/admin/vat-tu-thu-tu', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticket_ids: activeCard.tickets.map(t => t.id), order: keys }),
+      })
+      if (res.ok) { load() }
+      else { const e = await res.json(); showNotification('error', e.error || 'Lỗi đổi thứ tự') }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setSavingName(false) }
+  }
+
+  // Kế toán TRẢ LẠI phiếu (Cột 2 -> Cột 1) kèm lý do -> tech_admin/staff sửa thông tin.
+  const doReturn = async () => {
+    if (!returnTarget) return
+    const reason = returnTarget.reason.trim()
+    if (!reason) { showNotification('error', 'Nhập lý do trả lại để tech_admin biết cần sửa gì.'); return }
+    setReturning(true)
+    try {
+      const res = await fetch('/api/admin/kanban-hd', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: returnTarget.ids, trang_thai_hd: 'Chờ xuất HĐ', ly_do_tra: reason }),
+      })
+      if (res.ok) { showNotification('success', 'Đã trả phiếu về "Chờ lên hóa đơn" (kèm lý do).'); setReturnTarget(null); setActiveCard(null); load() }
+      else { const e = await res.json(); showNotification('error', e.error || 'Lỗi trả phiếu') }
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setReturning(false) }
+  }
+
+  // Số đơn hàng (khóa gom M-invoice) cho 1 thẻ = số phiếu ĐẦU (nhiều phiếu vẫn 1 khóa chung).
+  const soDonHangCard = (ts: Ticket[]) => ts[0]?.report || ts[0]?.id?.slice(0, 8) || ''
+
+  // Xuất Excel ĐÚNG MẪU M-invoice (import qua "Tạo hóa đơn từ file excel"). invoices: mỗi phần tử = 1 HĐ.
+  const exportMinvoice = async (invoices: { tickets: Ticket[]; soDonHang: string }[], filename: string) => {
+    if (!kyHieuMinvoice.trim()) { showNotification('error', 'Chưa khai "Ký hiệu HĐ M-invoice" ở Hệ thống → Cấu hình.'); return }
+    const valid = invoices.filter(inv => aggVatTu(inv.tickets.flatMap(t => t.soct_chi_tiet_vat_tu || [])).length > 0)
+    if (valid.length === 0) { showNotification('error', 'Không có dòng hàng để xuất.'); return }
+    try {
+      const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
+      const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Sheet1')
+      ws.addRow(MINV_HEADERS); ws.getRow(1).font = { bold: true }
+      // UTC-midnight để exceljs lưu ĐÚNG ngày lịch (local-midnight bị lùi 1 ngày khi ghi UTC).
+      const d = new Date(); const ngayHD = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+      for (const inv of valid) for (const row of buildMinvoiceRows(inv.tickets, kyHieuMinvoice.trim().toUpperCase(), ngayHD, inv.soDonHang)) ws.addRow(row)
+      ws.getColumn(3).numFmt = 'dd/mm/yyyy'
+      const buf = await wb.xlsx.writeBuffer()
+      const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+      const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url)
+      // Đóng dấu "đã xuất M-invoice" cho mọi phiếu vừa xuất -> chống xuất trùng + nuôi banner đếm.
+      const ids = Array.from(new Set(valid.flatMap(inv => inv.tickets.map(t => t.id))))
+      try {
+        const r = await fetch('/api/admin/minvoice-xuat', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticket_ids: ids }) })
+        if (!r.ok) { const e = await r.json(); showNotification('error', e.error || 'Đã tải file nhưng chưa đóng dấu được — kiểm tra lại.') }
+      } catch { showNotification('error', 'Đã tải file nhưng chưa đóng dấu được (lỗi mạng).') }
+      await load()
+      showNotification('success', `Đã xuất ${valid.length} hóa đơn cho M-invoice.`)
+    } catch { showNotification('error', 'Lỗi xuất Excel M-invoice') }
+  }
+
+  // Nhập lại Excel -> cập nhật ĐƠN GIÁ (thật) + TÊN (ghi đè hóa đơn) cho dòng của phiếu này, khớp mã hàng.
+  const importExcel = async (file: File) => {
+    if (!activeCard) return
+    setSavingName(true)
+    try {
+      const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
+      const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer())
+      const ws = wb.worksheets[0]
+      const cell = (v: any) => (v && typeof v === 'object' && 'result' in v) ? v.result : v
+      // Cột: 1=Mã hàng, 2=Tên hàng, 3=SL, 4=ĐVT, 5=Đơn giá, 6=VAT, 7=Thành tiền.
+      const items: { ma_hang: string; ten_hang: string; don_gia: any; don_vi_tinh: string; thu_tu: number }[] = []
+      ws.eachRow({ includeEmpty: false }, (row: any, idx: number) => {
+        if (idx === 1) return // bỏ dòng tiêu đề
+        const vals = row.values as any[]
+        const ma = String(cell(vals[1]) ?? '').trim()
+        if (!ma) return
+        // thu_tu = VỊ TRÍ DÒNG trong Excel -> nhập lại thì thứ tự hiển thị/đẩy Kanban đi theo Excel.
+        items.push({ ma_hang: ma, ten_hang: String(cell(vals[2]) ?? ''), don_vi_tinh: String(cell(vals[4]) ?? '').trim(), don_gia: cell(vals[5]), thu_tu: items.length })
+      })
+      if (items.length === 0) { showNotification('error', 'File không có dòng hợp lệ.'); return }
+      const res = await fetch('/api/admin/ten-hang-rieng', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        // scope_key -> lưu luôn tên/giá/ĐVT thành MẪU cho khách (kỳ sau tự áp).
+        body: JSON.stringify({ pham_vi: 'hoa_don', ticket_ids: activeCard.tickets.map(t => t.id), items, scope_key: modalScopeKey }),
+      })
+      if (res.ok) { showNotification('success', `Đã cập nhật ${items.length} mặt hàng từ Excel.`); load() }
+      else { const e = await res.json(); showNotification('error', e.error || 'Lỗi nhập Excel') }
+    } catch { showNotification('error', 'Lỗi đọc file Excel') } finally { setSavingName(false) }
+  }
+
+  // Tìm kiếm: khách hàng (cụm/lẻ) + số phiếu (report) + số hóa đơn. Áp cho CẢ 4 cột ->
+  // gõ vào là thấy phiếu đang nằm cột nào = trạng thái hóa đơn/thanh toán.
+  const sTokens = norm(search.trim()).split(/\s+/).filter(Boolean)
+  const matchSearch = (t: Ticket) => {
+    if (!sTokens.length) return true
+    const kh = t.soct_khach_hang; const cum = kh?.soct_khach_cum
+    const ten = cum ? (cum.ten_khach_hang || '') : (kh?.ten_khach_hang || '')
+    const hay = norm(`${ten} ${t.report || ''} ${t.so_hoa_don || ''}`)
+    return sTokens.every(tok => hay.includes(tok))
+  }
+  const shown = tickets.filter(matchSearch)
+
+  // Phân bổ thẻ lên các cột
+  const col1Tickets = shown.filter(t => t.trang_thai_hd === 'Chờ xuất HĐ')
+  const col2Tickets = shown.filter(t => t.trang_thai_hd === 'Đang xử lý HĐ')
+  const col3Tickets = shown.filter(t => t.trang_thai_hd === 'Đã lên hóa đơn'
+    && (!col3ChiKyNay || String(t.ngay_xuat_hd || '').startsWith(thang)))
+  const col4Tickets = shown.filter(t => t.trang_thai_hd === 'Đã thanh toán')
+
+  // ===== Nguồn KINH DOANH (lệnh xuất) — thẻ RIÊNG, 1 lệnh = 1 thẻ (không gom cụm). =====
+  const kdMatch = (t: KdTicket) => {
+    if (!sTokens.length) return true
+    const hay = norm(`${t.ten_khach_hang || ''} ${t.so_lenh || ''} ${t.so_hoa_don || ''} ${t.so_hop_dong || ''} ${t.nguoi_kd_ten || ''}`)
+    return sTokens.every(tok => hay.includes(tok))
+  }
+  const kdShown = kdTickets.filter(kdMatch)
+  const kdCol1 = kdShown.filter(t => t.trang_thai_hd === 'Chờ xuất HĐ').sort((a, b) => String(b.ngay).localeCompare(String(a.ngay)))
+  const kdCol2 = kdShown.filter(t => t.trang_thai_hd === 'Đang xử lý HĐ').sort((a, b) => String(b.ban_giao_kt_luc || b.ngay).localeCompare(String(a.ban_giao_kt_luc || a.ngay)))
+  const kdCol3 = kdShown.filter(t => t.trang_thai_hd === 'Đã lên hóa đơn' && (!col3ChiKyNay || String(t.ngay_xuat_hd || '').startsWith(thang))).sort((a, b) => String(b.ngay_xuat_hd || '').localeCompare(String(a.ngay_xuat_hd || '')))
+  const kdCol4 = kdShown.filter(t => t.trang_thai_hd === 'Đã thanh toán').sort((a, b) => String(b.thanh_toan_luc || '').localeCompare(String(a.thanh_toan_luc || '')))
+
+  // Khóa gom nhóm 1 phiếu. `respectTachRieng`: cột 2 tôn trọng ý định ĐẨY LẺ đã lưu (tach_rieng)
+  // -> phiếu đẩy lẻ thành thẻ riêng; còn lại gom theo cụm. Phiếu Thuê/CPC & Phí BT luôn 1 thẻ/phiếu.
+  const groupKeyOf = (t: Ticket, respectTachRieng: boolean) => {
+    if (t.nguon === 'thue_cpc' || t.nguon === 'phi_bao_tri') return `tc:${t.id}`
+    if (respectTachRieng && t.tach_rieng) return `le:${t.id}`
+    const cumId = t.soct_khach_hang?.ma_khach_cum
+    return cumId ? `cum:${cumId}` : `may:${t.id_khach_hang}`
+  }
+  // Khóa gom theo LÔ ĐẨY (mặc định) / theo KHÁCH (khi tick "gom nhóm"):
+  //  - Thuê/CPC & Phí BT: LUÔN 1 thẻ/phiếu.
+  //  - grouped (tick): gom theo cụm/khách (ghi đè).
+  //  - có hd_lo: gom theo lô đẩy (mỗi lần đẩy = 1 thẻ = 1 HĐ) — đúng nghiệp vụ.
+  //  - phiếu CŨ chưa có hd_lo: giữ hành vi cũ (cột 1 lẻ; cột 2 theo cụm+tach_rieng) -> không phải thu hồi.
+  const groupKeyLo = (t: Ticket, state: string) => {
+    if (t.nguon === 'thue_cpc' || t.nguon === 'phi_bao_tri') return `tc:${t.id}`
+    if (grouped) { const cumId = t.soct_khach_hang?.ma_khach_cum; return cumId ? `cum:${cumId}` : `may:${t.id_khach_hang}` }
+    if (t.hd_lo) return `lo:${t.hd_lo}`
+    return state === 'Chờ xuất HĐ' ? `solo:${t.id}` : groupKeyOf(t, true)
+  }
+  // Cột 1 & 2: gom theo LÔ (hoặc theo khách khi tick). Phiếu cũ NULL lô -> hành vi cũ.
+  const getColumnCards = (colTickets: Ticket[], state: string) => {
+    const map = new Map<string, GroupedCard>()
+    colTickets.forEach(t => {
+      const k = groupKeyLo(t, state)
+      if (!map.has(k)) map.set(k, { id: k, customer: t.soct_khach_hang, tickets: [], trang_thai_hd: state })
+      map.get(k)!.tickets.push(t)
+    })
+    return [...map.values()]
+  }
+
+  // SẮP XẾP THẺ: mọi cột "mới nhất lên đầu". Cột 1 theo NGÀY PHIẾU; cột 2 theo NGÀY BÀN GIAO
+  // (khớp mốc ↥ hiển thị trên thẻ — thẻ mới đẩy lên đầu); cột 3/4 theo NGÀY XUẤT HĐ / NGÀY THU.
+  // Lấy ngày lớn nhất trong thẻ.
+  const cardNgay = (c: any) => (c.tickets || []).reduce((m: string, t: any) => (String(t.ngay || '') > m ? String(t.ngay || '') : m), '')
+  // Cột 2: sắp theo NGÀY BÀN GIAO KT (ban_giao_kt_luc, mốc ↥) — thẻ cũ chưa có mốc thì fallback ngày phiếu.
+  const cardBanGiao = (c: any) => (c.tickets || []).reduce((m: string, t: any) => { const d = String(t.ban_giao_kt_luc || t.ngay || ''); return d > m ? d : m }, '')
+  const cardXuat = (c: any) => (c.tickets || []).reduce((m: string, t: any) => { const d = String(t.ngay_xuat_hd || t.ngay || ''); return d > m ? d : m }, '')
+  // Cột 4 sắp theo NGÀY THU (mới thu nhất lên đầu) — khớp tiêu chí lọc kỳ của cột này.
+  const cardThu = (c: any) => (c.tickets || []).reduce((m: string, t: any) => { const d = String(t.thanh_toan_luc || t.ngay_xuat_hd || ''); return d > m ? d : m }, '')
+
+  const cardsCol1 = getColumnCards(col1Tickets, 'Chờ xuất HĐ').sort((a, b) => cardNgay(b).localeCompare(cardNgay(a)))
+  // Cột 2: gom theo LÔ ĐẨY (giữ nguyên qua bàn giao, không phụ thuộc cờ `grouped` per-viewer).
+  const cardsCol2 = getColumnCards(col2Tickets, 'Đang xử lý HĐ').sort((a, b) => cardBanGiao(b).localeCompare(cardBanGiao(a)))
+  // M-invoice: thẻ CHƯA xuất (nút hàng loạt chỉ đụng các thẻ này) & số thẻ đã xuất nhưng CHƯA có số HĐ.
+  const cardsCol2ChuaXuat = cardsCol2.filter((c: any) => !cardMinvoiceExported(c.tickets))
+  const col2PendingCount = cardsCol2.filter((c: any) => cardMinvoicePending(c.tickets)).length
+
+  // Cột 3 & Cột 4: GOM THEO SỐ HÓA ĐƠN (1 thẻ = 1 hóa đơn = đơn vị thu tiền). Thẻ liệt kê
+  // các số phiếu bên trong -> kế toán thu theo HĐ, tech_admin vẫn thấy từng số phiếu.
+  const groupByHd = (list: Ticket[], state: string) => {
+    const m = new Map<string, any>()
+    for (const t of list) {
+      const key = t.so_hoa_don || `noHD:${t.id}`
+      if (!m.has(key)) m.set(key, { id: `hd:${key}`, customer: t.soct_khach_hang, tickets: [], trang_thai_hd: state })
+      m.get(key).tickets.push(t)
+    }
+    return [...m.values()]
+  }
+  const cardsCol3 = groupByHd(col3Tickets, 'Đã lên hóa đơn').sort((a, b) => cardXuat(b).localeCompare(cardXuat(a)))
+  const cardsCol4 = groupByHd(col4Tickets, 'Đã thanh toán').sort((a, b) => cardThu(b).localeCompare(cardThu(a)))
+
+  // Thông tin thu của 1 thẻ Cột 3: tổng HĐ, đã thu, còn nợ, tuổi, trạng thái thu.
+  const cardTong = (c: any) => Math.round(getVatTuStats(c.tickets.flatMap((t: any) => t.soct_chi_tiet_vat_tu || [])).sauVat) + cardLamTron(c.tickets)
+  const cardPay = (c: any) => {
+    const tong = cardTong(c); const daThu = Number(c.tickets[0].so_tien_da_thu) || 0
+    const con = tong - daThu
+    const pay = daThu <= 0 ? 'chua' : daThu > tong ? 'du' : daThu < tong ? 'phan' : 'du_dung'
+    return { tong, daThu, con, pay, days: daysSince(c.tickets[0].ngay_xuat_hd) }
+  }
+  // Cột 3 sau bộ lọc trạng thái thu + tuổi nợ (kthc/admin). Banner giữ nguyên tổng (toàn cột).
+  const cardsCol3Shown = cardsCol3.filter((c: any) => {
+    const info = cardPay(c)
+    if (col3Pay !== 'all' && info.pay !== col3Pay) return false
+    if (col3Age !== 'all') {
+      if (info.con <= 0 || info.days == null) return false
+      if (col3Age === 'd30' && !(info.days > 30)) return false
+      if (col3Age === 'd15' && !(info.days >= 15 && info.days <= 30)) return false
+      if (col3Age === 'd0' && !(info.days < 15)) return false
+    }
+    return true
+  })
+
+  // IMPORT THANH TOÁN (FAST): đọc "Sổ chi tiết TK 112" — cột "Diễn giải" = số HĐ, "Phát sinh nợ" =
+  // tiền khách trả. Gộp tiền theo số HĐ -> ĐẶT số đã thu (ghi đè). THU = TỔNG HĐ (khớp chính xác) ->
+  // tự chuyển Cột 4; các trường hợp khác giữ Cột 3 để đối soát. Khoản gộp "Thu tiền hàng" (F là chữ)
+  // -> gộp theo khách để hỗ trợ đối chiếu tay. Chỉ kthc/admin.
+  const importThanhToanFast = async (file: File) => {
+    setPayImporting(true)
+    try {
+      const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
+      const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer())
+      const ws = wb.worksheets[0]
+      const cell = (v: any) => { let x = v; if (x && typeof x === 'object' && 'result' in x) x = x.result; if (x && typeof x === 'object' && 'text' in x) x = x.text; if (x && typeof x === 'object' && 'richText' in x) x = x.richText.map((r: any) => r.text).join(''); return x }
+      const norm2 = (s: any) => String(s ?? '').replace(/\s+/g, ' ').trim()
+      // Tìm dòng tiêu đề + vị trí cột (theo tên; fallback F=6 diễn giải, H=8 phát sinh nợ).
+      let headRow = -1, colF = 6, colH = 8, colKhach = 5, colNgay = 1
+      for (let r = 1; r <= Math.min(ws.rowCount, 15); r++) {
+        const row = ws.getRow(r); let hit = false
+        for (let c = 1; c <= Math.min(ws.columnCount, 20); c++) {
+          const t = norm2(cell(row.getCell(c).value))
+          if (t === 'Diễn giải') { colF = c; hit = true }
+          else if (t === 'Phát sinh nợ') colH = c
+          else if (t === 'Tên khách hàng') colKhach = c
+          else if (t === 'Ngày ct') colNgay = c
+        }
+        if (hit) { headRow = r; break }
+      }
+      if (headRow < 0) { showNotification('error', 'Không nhận diện được file FAST (thiếu cột "Diễn giải" / "Phát sinh nợ").'); return }
+
+      // Chuẩn hóa tên khách: bỏ dấu + bỏ từ pháp lý (Công ty/CP/TNHH/…) để khớp FAST ⇄ app.
+      const custKey = (s: any) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[đĐ]/g, 'd').toLowerCase()
+        .replace(/cong ty|co phan|trach nhiem huu han|tnhh|mot thanh vien|mtv/g, ' ')
+        .replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim()
+      const custMatch = (a: string, b: string) => !!a && !!b && (a === b || a.includes(b) || b.includes(a))
+
+      // Thu theo (số HĐ) KÈM KHÁCH — số HĐ ở FAST là chứng từ nội bộ, TRÙNG giữa các khách, nên PHẢI
+      // khớp đúng khách để không gán nhầm tiền của khách khác. Khoản "Thu tiền hàng" (F chữ) -> giữ theo
+      // khách KÈM NGÀY (để tách khoản trả TRƯỚC/ SAU ngày xuất HĐ khi đối chiếu tay).
+      const pays: { hd: string; kkey: string; h: number }[] = []
+      const lumpRows: { khach: string; kk: string; h: number; ngay: string }[] = []
+      for (let r = headRow + 1; r <= ws.rowCount; r++) {
+        const row = ws.getRow(r)
+        const h = Number(cell(row.getCell(colH).value)) || 0
+        if (h <= 0) continue // chỉ lấy tiền THU VÀO (phát sinh nợ TK 112)
+        const f = norm2(cell(row.getCell(colF).value))
+        const khach = norm2(cell(row.getCell(colKhach).value))
+        if (/^\d{1,7}$/.test(f)) { pays.push({ hd: f, kkey: custKey(khach), h }); continue }
+        if (!khach) continue
+        const ngayRaw = cell(row.getCell(colNgay).value)
+        let ngay = ''
+        if (ngayRaw instanceof Date) ngay = new Date(ngayRaw.getTime()).toISOString().slice(0, 10)
+        else if (typeof ngayRaw === 'string') ngay = ngayRaw.slice(0, 10)
+        lumpRows.push({ khach, kk: custKey(khach), h, ngay })
+      }
+
+      // Bản đồ số HĐ -> thẻ Cột 3.
+      const col3ByHd = new Map<string, any>()
+      for (const c of cardsCol3) { const hd = String(c.tickets[0].so_hoa_don || '').trim(); if (hd) col3ByHd.set(hd, c) }
+
+      const moved: { hd: string; tien: number }[] = []          // thu = tổng -> chuyển Cột 4
+      const partial: { hd: string; daThu: number; tong: number }[] = [] // ghi nhận, ở lại Cột 3
+      const over: { hd: string; daThu: number; tong: number }[] = []    // thu dư -> ở lại đối soát
+      const failed: { hd: string; reason: string }[] = []
+      const applied = new Set<any>()
+      // CHỈ duyệt theo HĐ đang ở Cột 3; chỉ nhận khoản thu KHỚP CẢ số HĐ + đúng khách.
+      for (const [hd, card] of col3ByHd) {
+        const ck = custKey(card.customer?.soct_khach_cum?.ten_khach_hang || card.customer?.ten_khach_hang || '')
+        const matched = pays.filter(p => p.hd === hd && custMatch(p.kkey, ck))
+        if (matched.length === 0) continue // FAST không có khoản thu cho HĐ này của đúng khách -> chưa thanh toán
+        matched.forEach(p => applied.add(p))
+        const sum = matched.reduce((s, p) => s + p.h, 0)
+        const tong = cardTong(card)
+        const exact = sum === tong
+        try {
+          const res = await fetch('/api/admin/hd-thu', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ so_hoa_don: hd, set_to: sum, chuyen: exact }),
+          })
+          if (!res.ok) { const e = await res.json(); failed.push({ hd, reason: e.error || 'Lỗi ghi nhận' }); continue }
+          if (exact) moved.push({ hd, tien: sum })
+          else if (sum > tong) over.push({ hd, daThu: sum, tong })
+          else partial.push({ hd, daThu: sum, tong })
+        } catch { failed.push({ hd, reason: 'Lỗi kết nối' }) }
+      }
+      // Số khoản thu (theo số HĐ) trong file KHÔNG đối ứng được vào Cột 3 -> chỉ đếm.
+      const khacCount = pays.filter(p => !applied.has(p)).length
+
+      // Khoản gộp theo khách — CHỈ hiện khách CÓ HĐ đang ở Cột 3. TÁCH theo mốc = ngày xuất HĐ SỚM NHẤT
+      // của khách đó: khoản chuyển TRƯỚC mốc không thể là trả cho HĐ đang chờ -> để riêng, không tính vào
+      // "có thể đối ứng" (tránh kế toán bị chi phối bởi tiền khách chuyển trước khi có HĐ).
+      const lumpMap = new Map<string, { khach: string; rows: { h: number; ngay: string }[] }>()
+      for (const lr of lumpRows) {
+        const g = lumpMap.get(lr.kk) || { khach: lr.khach, rows: [] }
+        g.rows.push({ h: lr.h, ngay: lr.ngay })
+        lumpMap.set(lr.kk, g)
+      }
+      const lumps = [...lumpMap.entries()].map(([kk, g]) => {
+        const hds = cardsCol3
+          .filter((c: any) => custMatch(custKey(c.customer?.soct_khach_cum?.ten_khach_hang || c.customer?.ten_khach_hang || ''), kk))
+          .map((c: any) => ({ hd: c.tickets[0].so_hoa_don, ngayXuat: c.tickets[0].ngay_xuat_hd || '', con: Math.max(0, cardPay(c).con) }))
+        if (hds.length === 0) return null
+        const moc = hds.map((h: any) => h.ngayXuat).filter(Boolean).sort()[0] || '' // ngày xuất HĐ sớm nhất
+        if (!moc) return null // không xác định được mốc ngày xuất -> bỏ (tránh tính bừa tiền cũ)
+        // CHỈ tính tiền khách chuyển KỂ TỪ ngày xuất HĐ; tiền chuyển trước = trả HĐ cũ -> bỏ hẳn.
+        let tienSau = 0, tuNgay = '', denNgay = ''
+        for (const r of g.rows) {
+          if (!r.ngay || r.ngay < moc) continue
+          tienSau += r.h
+          if (!tuNgay || r.ngay < tuNgay) tuNgay = r.ngay
+          if (r.ngay > denNgay) denNgay = r.ngay
+        }
+        if (tienSau <= 0) return null // không có khoản chuyển nào sau ngày xuất HĐ -> ẩn khách này
+        const tongCon = hds.reduce((s: number, h: any) => s + h.con, 0)
+        return { khach: g.khach, tienSau, hds, tongCon, tuNgay, denNgay }
+      }).filter((l): l is NonNullable<typeof l> => !!l).sort((a, b) => b.tienSau - a.tienSau)
+
+      await load()
+      setPayResult({ moved, partial, over, khacCount, failed, lumps })
+    } catch (e: any) { showNotification('error', 'Lỗi đọc file FAST: ' + (e?.message || '')) }
+    finally { setPayImporting(false) }
+  }
+
+  // ===== ĐỐI CHIẾU SAO KÊ NGÂN HÀNG (MB / VCB) =====
+  // Upload sao kê -> tự nhận diện ngân hàng theo CHỮ KÝ CỘT tiêu đề (không theo tên file) -> chuẩn hóa
+  // {ngày, số tiền, người chuyển, nội dung, ref} -> khớp số HĐ + số tiền với thẻ Cột 3. KHÔNG ghi gì
+  // cho tới khi kế toán bấm "Ghi nhận" trong modal duyệt. Bản 1: chỉ 1-1, khớp đủ.
+  const doiChieuNH = async (file: File, forced?: 'MB' | 'VCB') => {
+    setDcImporting(true)
+    try {
+      const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
+      const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer())
+      const ws = wb.worksheets[0]
+      const cell = (v: any) => { let x = v; if (x && typeof x === 'object' && 'result' in x) x = x.result; if (x && typeof x === 'object' && 'text' in x) x = x.text; if (x && typeof x === 'object' && 'richText' in x) x = x.richText.map((r: any) => r.text).join(''); return x }
+      const norm2 = (s: any) => String(s ?? '').replace(/\s+/g, ' ').trim()
+      const up = (s: any) => norm2(s).toUpperCase()
+
+      // --- Nhận diện ngân hàng + vị trí cột (dò header trong 15 dòng đầu) ---
+      let bank: 'MB' | 'VCB' | '' = forced || ''
+      let headRow = -1, colNgay = -1, colTien = -1, colNguoi = -1, colND = -1, colRef = -1
+      for (let r = 1; r <= Math.min(ws.rowCount, 15); r++) {
+        const row = ws.getRow(r)
+        let ngay = -1, tien = -1, nguoi = -1, nd = -1, ref = -1, isVCB = false, isMB = false
+        for (let c = 1; c <= Math.min(ws.columnCount, 20); c++) {
+          const t = up(row.getCell(c).value)
+          if (!t) continue
+          // VCB: "Số tiền ghi có" / "Mô tả" / "Số tham chiếu" / "Ngày giao dịch"
+          if (t === 'SỐ TIỀN GHI CÓ') { isVCB = true; tien = c }
+          else if (t === 'MÔ TẢ') nd = c
+          else if (t === 'SỐ THAM CHIẾU') ref = c
+          // MB: "PHÁT SINH CÓ" / "ĐƠN VỊ THỤ HƯỞNG/ĐƠN VỊ CHUYỂN" / "NỘI DUNG"
+          else if (t === 'PHÁT SINH CÓ') { isMB = true; if (tien < 0) tien = c }
+          else if (t.startsWith('ĐƠN VỊ THỤ HƯỞNG')) nguoi = c
+          else if (t === 'NỘI DUNG' && nd < 0) nd = c
+          else if (t === 'NGÀY GIAO DỊCH' && ngay < 0) ngay = c
+        }
+        const detected = forced || (isVCB ? 'VCB' : isMB ? 'MB' : '')
+        if (detected && (tien > 0)) {
+          bank = detected; headRow = r; colNgay = ngay; colTien = tien; colNguoi = nguoi; colND = nd; colRef = ref
+          break
+        }
+      }
+      if (!bank || headRow < 0 || colTien < 0 || colND < 0) {
+        // Không tự nhận diện được -> mời chọn tay MB/VCB.
+        setDcNeedBank(file)
+        return
+      }
+      setDcNeedBank(null)
+
+      // --- Đọc + chuẩn hóa từng dòng ---
+      const parseAmt = (v: any) => Number(String(v ?? '').replace(/[^\d]/g, '')) || 0
+      const parseNgay = (v: any) => {
+        if (v instanceof Date) { const d = v; return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+        const s = norm2(v)
+        const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/) // dd/mm/yyyy (MB)
+        if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
+        const iso = s.match(/(\d{4})-(\d{2})-(\d{2})/); if (iso) return iso[0]
+        return ''
+      }
+      // Số HĐ: thử cả bản gộp-space và bỏ-space (MB chèn khoảng trắng giữa từ).
+      const extractHd = (nd: string) => {
+        for (const s of [norm2(nd), norm2(nd).replace(/\s+/g, '')]) {
+          const m = s.match(/(H[ĐD]|HOA\s*DON|SO\s*HD|HOADON|SOHD)[^0-9]{0,4}(\d{2,7})/i)
+          if (m) return m[2].replace(/^0+/, '')
+        }
+        return ''
+      }
+      // Tên đơn vị chuyển: cột riêng (MB) hoặc bóc từ "BO:" / đầu mô tả (VCB).
+      const extractNguoi = (row: any, nd: string) => {
+        if (colNguoi > 0) { const v = norm2(cell(row.getCell(colNguoi).value)); if (v) return v }
+        const bo = norm2(nd).match(/BO:\s*([^.]+?)(?:\.|Remark|DD:|$)/i)
+        if (bo) return bo[1].trim()
+        return ''
+      }
+      const custKey = (s: any) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[đĐ]/g, 'd').toLowerCase()
+        .replace(/cong ty|co phan|trach nhiem huu han|tnhh|mot thanh vien|mtv|cty|ctcp|\bcp\b|chi nhanh/g, ' ')
+        .replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim()
+      const custMatch = (a: string, b: string) => !!a && !!b && a.length >= 4 && b.length >= 4 && (a === b || a.includes(b) || b.includes(a))
+
+      type Tx = { ngay: string; so_tien: number; nguoi: string; nkey: string; nd: string; ref: string; soHD: string; tx_key: string }
+      const rows: Tx[] = []
+      for (let r = headRow + 1; r <= ws.rowCount; r++) {
+        const row = ws.getRow(r)
+        const so_tien = parseAmt(cell(row.getCell(colTien).value))
+        if (so_tien <= 0) continue
+        const nd = norm2(cell(row.getCell(colND).value))
+        if (!nd && colNguoi < 0) continue
+        const ngay = colNgay > 0 ? parseNgay(cell(row.getCell(colNgay).value)) : ''
+        const ref = colRef > 0 ? norm2(cell(row.getCell(colRef).value)) : ''
+        const nguoi = extractNguoi(row, nd)
+        const soHD = extractHd(nd)
+        const tx_key = `${bank}|${ngay}|${so_tien}|${ref}|${nd.slice(0, 50)}`
+        rows.push({ ngay, so_tien, nguoi, nkey: custKey(nguoi), nd, ref, soHD, tx_key })
+      }
+      if (rows.length === 0) { showNotification('error', `Sao kê ${bank}: không đọc được giao dịch Có nào.`); return }
+
+      // Bỏ giao dịch đã đối chiếu trước đó (chống thu đúp).
+      let doneKeys = new Set<string>()
+      try { const res = await fetch('/api/admin/doi-chieu-nh'); const j = await res.json(); if (res.ok) doneKeys = new Set(j.keys || []) } catch { /* vẫn chạy được, chỉ mất chống-trùng phía client */ }
+      const fresh = rows.filter(t => !doneKeys.has(t.tx_key))
+      const daDoiChieu = rows.length - fresh.length
+
+      // --- Khớp với Cột 3 (1-1) ---
+      const normHd = (s: any) => String(s ?? '').replace(/\D/g, '').replace(/^0+/, '')
+      const col3 = cardsCol3.map((c: any) => ({
+        c, hd: normHd(c.tickets[0].so_hoa_don || ''), tong: cardTong(c),
+        name: custKey(c.customer?.soct_khach_cum?.ten_khach_hang || c.customer?.ten_khach_hang || ''),
+        khach: c.customer?.soct_khach_cum?.ten_khach_hang || c.customer?.ten_khach_hang || '—',
+        soHdRaw: c.tickets[0].so_hoa_don || '', id: c.tickets[0].id,
+        xuat: String(c.tickets[0].ngay_xuat_hd || '').slice(0, 10), // ngày xuất HĐ (để chặn theo ngày)
+      }))
+      const TOL = 1000
+      // ĐIỀU KIỆN NGÀY: khách trả KHI/SAU khi có HĐ -> ngày GD >= ngày xuất HĐ − 5 ngày (trừ hao kế toán
+      // gửi HĐ nhưng quên kéo sang Cột 3 đúng hôm đó). GD trước mốc đó gần như chắc KHÔNG phải trả cho HĐ
+      // này (thường là HĐ TRÙNG SỐ của năm trước) -> không auto-tick, hạ xuống "gợi ý" kèm cảnh báo.
+      const DAY_SLACK = 5
+      const dGap = (txNgay: string, xuat: string) => (txNgay && xuat) ? Math.round((Date.parse(txNgay) - Date.parse(xuat)) / 86400000) : null
+      const dateOk = (txNgay: string, xuat: string) => { const g = dGap(txNgay, xuat); return g == null || g >= -DAY_SLACK }
+      const usedCard = new Set<string>(); const usedTx = new Set<number>()
+      const matches: any[] = []
+      const pack = (x: any, tx: Tx, kind: string, reason: string, pick: boolean) => ({
+        kind, reason, pick, tx, khach: x.khach, so_hoa_don: x.soHdRaw, id_cong_viec: x.id, tong: x.tong,
+        con: Math.max(0, x.tong - (Number(x.c.tickets[0].so_tien_da_thu) || 0)), xuat: x.xuat, gap: dGap(tx.ngay, x.xuat),
+      })
+      // Pass 1: KHỚP CHẮC = số HĐ + số tiền + NGÀY hợp lệ (auto-tick).
+      fresh.forEach((tx, i) => {
+        if (!tx.soHD) return
+        const cand = col3.find((x: any) => !usedCard.has(x.c.id) && x.hd && x.hd === tx.soHD && Math.abs(x.tong - tx.so_tien) <= TOL && dateOk(tx.ngay, x.xuat))
+        if (cand) { usedTx.add(i); usedCard.add(cand.c.id); matches.push(pack(cand, tx, 'exact', 'Số HĐ + số tiền + ngày khớp', true)) }
+      })
+      // Pass 2: GỢI Ý = số HĐ khớp nhưng LỆCH tiền hoặc SAI ngày (chờ duyệt, nêu rõ lý do).
+      fresh.forEach((tx, i) => {
+        if (usedTx.has(i) || !tx.soHD) return
+        const cand = col3.find((x: any) => !usedCard.has(x.c.id) && x.hd && x.hd === tx.soHD)
+        if (cand) {
+          const tienLech = Math.abs(cand.tong - tx.so_tien) > TOL
+          const gap = dGap(tx.ngay, cand.xuat)
+          const reason = tienLech && !dateOk(tx.ngay, cand.xuat)
+            ? 'Số HĐ khớp nhưng tiền LỆCH và ngày GD trước ngày HĐ'
+            : tienLech ? 'Số HĐ khớp, số tiền lệch'
+              : `Số HĐ + tiền khớp nhưng NGÀY GD trước ngày HĐ ${gap != null ? Math.abs(gap) : '?'} ngày (kiểm HĐ trùng số năm trước)`
+          usedTx.add(i); usedCard.add(cand.c.id); matches.push(pack(cand, tx, 'suggest', reason, false))
+        }
+      })
+      // Pass 3: GỢI Ý = tên khách + số tiền + NGÀY hợp lệ (không bắt được số HĐ).
+      fresh.forEach((tx, i) => {
+        if (usedTx.has(i) || !tx.nkey) return
+        const cand = col3.find((x: any) => !usedCard.has(x.c.id) && x.name && custMatch(x.name, tx.nkey) && Math.abs(x.tong - tx.so_tien) <= TOL && dateOk(tx.ngay, x.xuat))
+        if (cand) { usedTx.add(i); usedCard.add(cand.c.id); matches.push(pack(cand, tx, 'suggest', 'Tên khách + số tiền + ngày khớp (không có số HĐ)', false)) }
+      })
+      // Giao dịch có số HĐ nhưng không thấy ở Cột 3 -> liệt kê để kế toán biết (có thể đã thanh toán / kỳ khác).
+      const none = fresh.filter((tx, i) => !usedTx.has(i) && tx.soHD).map(tx => ({ tx }))
+      const skipped = fresh.length - usedTx.size - none.length
+
+      setDcResult({ bank, matches, none, skipped, daDoiChieu, total: rows.length })
+    } catch (e: any) {
+      showNotification('error', 'Lỗi đọc sao kê: ' + (e?.message || ''))
+    } finally { setDcImporting(false) }
+  }
+
+  // Ghi nhận các cặp đã tick trong modal duyệt -> gọi API đối chiếu.
+  const applyDoiChieu = async () => {
+    if (!dcResult) return
+    const picked = dcResult.matches.filter((m: any) => m.pick)
+    if (picked.length === 0) return showNotification('error', 'Chưa chọn cặp nào để ghi nhận.')
+    setDcApplying(true)
+    try {
+      const items = picked.map((m: any) => ({
+        tx_key: m.tx.tx_key, ngan_hang: dcResult.bank, ref: m.tx.ref, ngay: m.tx.ngay,
+        so_tien: m.tx.so_tien, nguoi_chuyen: m.tx.nguoi, noi_dung: m.tx.nd,
+        so_hoa_don: m.so_hoa_don, id_cong_viec: m.id_cong_viec, tong: m.tong,
+      }))
+      const res = await fetch('/api/admin/doi-chieu-nh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }) })
+      const j = await res.json()
+      if (res.ok) {
+        showNotification('success', `Đã ghi thu ${j.thu} HĐ, chuyển "Đã thanh toán" ${j.chuyen}.${(j.failed || []).length ? ` ${j.failed.length} lỗi.` : ''}`)
+        setDcResult(null); await load()
+      } else showNotification('error', j.error || 'Lỗi ghi nhận')
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setDcApplying(false) }
+  }
+
+  // IMPORT BÁO CÁO M-INVOICE: đọc file "Báo cáo tổng hợp doanh thu hóa đơn", TỰ ĐỘNG điền Số HĐ +
+  // chuyển thẻ từ cột "KT-HC lên hóa đơn" (Đang xử lý HĐ) sang "Chờ thanh toán" (Đã lên hóa đơn).
+  // AN TOÀN: chỉ áp dòng KHỚP CHẮC CHẮN (Số đơn hàng = report thẻ) VÀ khớp tổng tiền (±1.000đ do làm
+  // tròn). Dòng thiếu Số đơn hàng / không thấy thẻ / lệch tiền / HĐ âm (điều chỉnh) -> liệt kê làm tay.
+  const importMinvoiceReport = async (file: File) => {
+    setImportingReport(true)
+    try {
+      const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
+      const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer())
+      const ws = wb.worksheets[0]
+      const cell = (v: any) => { let x = v; if (x && typeof x === 'object' && 'result' in x) x = x.result; if (x && typeof x === 'object' && 'text' in x) x = x.text; return x }
+      const norm2 = (s: any) => String(s ?? '').replace(/\s+/g, ' ').trim()
+      // Tìm dòng tiêu đề (ô = 'Số HĐ') + vị trí các cột cần dùng.
+      let headRow = -1, colHD = -1, colDH = -1, colTong = -1, colNgay = -1, colTen = -1
+      for (let r = 1; r <= Math.min(ws.rowCount, 15); r++) {
+        const row = ws.getRow(r)
+        for (let c = 1; c <= ws.columnCount; c++) {
+          const t = norm2(cell(row.getCell(c).value))
+          if (t === 'Số HĐ') { headRow = r; colHD = c }
+          if (headRow === r) {
+            if (t === 'Số đơn hàng') colDH = c
+            else if (t === 'Tổng tiền sau thuế') colTong = c
+            else if (t === 'Ngày hóa đơn') colNgay = c
+            else if (t === 'Tên đơn vị bên mua') colTen = c
+          }
+        }
+        if (headRow === r) break
+      }
+      if (headRow < 0 || colHD < 0 || colDH < 0 || colTong < 0) {
+        showNotification('error', 'Không nhận diện được file báo cáo M-invoice (thiếu cột Số HĐ / Số đơn hàng / Tổng tiền sau thuế).')
+        return
+      }
+      // Đọc dòng dữ liệu.
+      const dataRows: { soHD: string; soDH: string; tong: number; ngay: string; ten: string }[] = []
+      for (let r = headRow + 1; r <= ws.rowCount; r++) {
+        const row = ws.getRow(r)
+        const soHDraw = cell(row.getCell(colHD).value)
+        const soHD = soHDraw == null ? '' : String(soHDraw).trim()
+        if (!soHD) continue // dòng trống / tổng cộng
+        const soDH = norm2(cell(row.getCell(colDH).value))
+        const tong = Number(cell(row.getCell(colTong).value)) || 0
+        const ten = colTen > 0 ? norm2(cell(row.getCell(colTen).value)) : ''
+        const ngayRaw = colNgay > 0 ? cell(row.getCell(colNgay).value) : null
+        let ngay = ''
+        if (ngayRaw instanceof Date) ngay = new Date(ngayRaw.getTime()).toISOString().slice(0, 10)
+        else if (typeof ngayRaw === 'string' && ngayRaw) ngay = ngayRaw.slice(0, 10)
+        dataRows.push({ soHD, soDH, tong, ngay, ten })
+      }
+      if (dataRows.length === 0) { showNotification('error', 'File không có dòng hóa đơn nào.'); return }
+
+      // Khớp từng dòng với thẻ ở cột 2.
+      const matched: { card: any; soHD: string; ngay: string }[] = []
+      const skipped: { soHD: string; ten: string; reason: string }[] = []
+      const usedCards = new Set<string>()
+      for (const row of dataRows) {
+        if (row.tong <= 0) { skipped.push({ soHD: row.soHD, ten: row.ten, reason: 'HĐ điều chỉnh/hủy (tổng ≤ 0) — bỏ qua' }); continue }
+        if (!row.soDH) { skipped.push({ soHD: row.soHD, ten: row.ten, reason: 'Thiếu "Số đơn hàng" — HĐ nhập tay, không khớp tự động' }); continue }
+        const card = cardsCol2.find((c: any) => !usedCards.has(c.id) && c.tickets.some((t: any) => String(t.report || '').trim() === row.soDH))
+        if (!card) { skipped.push({ soHD: row.soHD, ten: row.ten, reason: `Không thấy thẻ "KT-HC lên hóa đơn" cho đơn hàng ${row.soDH} (có thể đã xử lý)` }); continue }
+        // Tổng KỲ VỌNG tính GIỐNG hệt lúc xuất M-invoice (làm tròn từng dòng qua aggVatTu) -> khớp
+        // đúng số M-invoice tự cộng. Nếu kthc có thêm làm tròn tổng thì lệch ≤ 1.000đ.
+        const cardTong = aggVatTu(card.tickets.flatMap((t: any) => t.soct_chi_tiet_vat_tu || [])).reduce((s: number, it: any) => {
+          const tt = Math.round((Number(it.so_luong) || 0) * (Number(it.don_gia) || 0))
+          const th = Math.round((Number(it.so_luong) || 0) * (Number(it.don_gia) || 0) * (Number(it.vat) || 0) / 100)
+          return s + tt + th
+        }, 0)
+        const diff = Math.abs(cardTong - row.tong)
+        if (diff > 1000) { skipped.push({ soHD: row.soHD, ten: row.ten, reason: `Lệch tổng tiền: thẻ ${fmtVnd(cardTong)}đ ≠ HĐ ${fmtVnd(row.tong)}đ` }); continue }
+        usedCards.add(card.id)
+        matched.push({ card, soHD: row.soHD, ngay: row.ngay })
+      }
+
+      // Áp các thẻ khớp: điền số HĐ + chuyển sang "Chờ thanh toán".
+      let ok = 0
+      const failed: { soHD: string; reason: string }[] = []
+      for (const m of matched) {
+        try {
+          const res = await fetch('/api/admin/kanban-hd', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: m.card.tickets.map((t: any) => t.id), trang_thai_hd: 'Đã lên hóa đơn', so_hoa_don: m.soHD, ...(m.ngay ? { ngay_xuat_hd: m.ngay } : {}) }),
+          })
+          if (res.ok) ok++
+          else { const e = await res.json(); failed.push({ soHD: m.soHD, reason: e.error || 'Lỗi cập nhật' }) }
+        } catch { failed.push({ soHD: m.soHD, reason: 'Lỗi kết nối' }) }
+      }
+      await load()
+      setImportResult({ ok, total: dataRows.length, skipped, failed })
+    } catch (e: any) { showNotification('error', 'Lỗi đọc file báo cáo: ' + (e?.message || '')) }
+    finally { setImportingReport(false) }
+  }
+
+  // Tổng nợ đọng cột 3 (Chờ thanh toán) theo TUỔI NỢ (ngay_xuat_hd) — 3 mức khớp màu badge thẻ:
+  // <15 ngày (trong hạn) · 15–30 ngày (chớm quá hạn) · >30 ngày (quá hạn). Chỉ tính HĐ còn nợ
+  // (đã thu < tổng). 1 thẻ = 1 hóa đơn. Banner đầu cột cho MỌI role cùng theo dõi.
+  const col3Debt = (() => {
+    const b = { n0: 0, t0: 0, n1: 0, t1: 0, n2: 0, t2: 0, nAll: 0, tAll: 0 }
+    for (const c of cardsCol3) {
+      const { sauVat } = getVatTuStats(c.tickets.flatMap((t: any) => t.soct_chi_tiet_vat_tu || []))
+      const tong = Math.round(sauVat) + cardLamTron(c.tickets)
+      const con = Math.max(0, tong - (Number(c.tickets[0].so_tien_da_thu) || 0))
+      if (con <= 0) continue // đã thu đủ (chưa kịp sang cột 4) -> không phải nợ đọng
+      const d = daysSince(c.tickets[0].ngay_xuat_hd)
+      b.nAll++; b.tAll += con
+      if (d != null && d > 30) { b.n2++; b.t2 += con }
+      else if (d != null && d >= 15) { b.n1++; b.t1 += con }
+      else { b.n0++; b.t0 += con }
+    }
+    return b
+  })()
+
+  // Thẻ KINH DOANH (lệnh xuất) — đọc-thôi (4a). Viền tím để phân biệt phiếu kỹ thuật; click mở modal xem.
+  const renderKdCard = (t: KdTicket) => {
+    const chuaBanGiao = t.trang_thai_hd === 'Chờ xuất HĐ'
+    const con = Math.max(0, t.tong_sau_vat - t.da_thu)
+    // Kéo được nếu cột hiện tại có đích hợp lệ (server vẫn gate quyền theo role).
+    const canDrag = (KD_TRANS[t.trang_thai_hd] || []).length > 0
+    return (
+      <div key={`kd:${t.id}`}
+        draggable={canDrag}
+        onDragStart={e => e.dataTransfer.setData('text/plain', JSON.stringify({ kind: 'kd', id: t.id, currentState: t.trang_thai_hd }))}
+        onClick={() => setKdActive(t)}
+        className="bg-white border rounded-lg p-3 shadow-sm hover:shadow transition cursor-pointer border-violet-200 relative overflow-hidden hover:bg-violet-50/30">
+        <div className="absolute top-0 left-0 bottom-0 w-1 bg-violet-400"></div>
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 uppercase tracking-wide shrink-0">KD{t.so_lenh ? ` · ${t.so_lenh}` : ''}</span>
+          <span className="text-[10px] text-slate-400 shrink-0">{fmtDate(t.ngay)}</span>
+        </div>
+        <div className="text-[13px] font-bold text-slate-800 leading-tight">{(t.ten_khach_hd || t.ten_khach_hang || 'Khách lẻ').toUpperCase()}</div>
+        {t.ma_so_thue && <div className="text-[10px] text-slate-400 font-mono">MST {t.ma_so_thue}</div>}
+        <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-1"><User className="w-3 h-3" /> {t.nguoi_kd_ten || '—'}{t.so_hop_dong ? ` · HĐ ${t.so_hop_dong}` : ''}</div>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <span className="text-[10px] text-slate-400">{t.lines.length} dòng hàng</span>
+          <span className="text-sm font-bold text-slate-800">{fmtVnd(t.tong_sau_vat)} đ</span>
+        </div>
+        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+          {t.ban_giao_kt_luc && <span className="inline-flex items-center gap-0.5 text-[9px] text-slate-400" title="Ngày bàn giao kế toán"><Upload className="w-2.5 h-2.5" />{fmtDate(t.ban_giao_kt_luc)}</span>}
+          {t.so_hoa_don && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-mono font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">HĐ {t.so_hoa_don}</span>}
+          {chuaBanGiao && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-slate-50 text-slate-400 border-slate-200">chưa bàn giao</span>}
+          {chuaBanGiao && t.ly_do_tra && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-rose-50 text-rose-600 border-rose-200" title={t.ly_do_tra}>KT trả lại</span>}
+          {t.da_thu > 0 && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">Đã thu {fmtVnd(t.da_thu)}{con > 0 ? ` · còn ${fmtVnd(con)}` : ''}</span>}
+          {t.cho_duyet > 0 && <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-amber-50 text-amber-700 border-amber-200">Chờ duyệt {fmtVnd(t.cho_duyet)}</span>}
+        </div>
+      </div>
+    )
+  }
+
+  const renderCardList = (cards: any[], state: 'Chờ xuất HĐ' | 'Đang xử lý HĐ' | 'Đã lên hóa đơn' | 'Đã thanh toán', kdCards: KdTicket[] = []) => {
+    return (
+      <div
+        onDragOver={e => e.preventDefault()}
+        onDrop={e => handleDrop(e, state)}
+        className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50 min-h-[500px] max-h-[700px] rounded-b-xl border-t border-slate-100"
+      >
+        {cards.length === 0 && kdCards.length === 0 ? (
+          <div className="text-center py-12 text-xs text-slate-400 italic">
+            Trống
+          </div>
+        ) : (
+          cards.map(card => {
+            const allVt = card.tickets.flatMap((t: any) => t.soct_chi_tiet_vat_tu || [])
+            const { truocVat, sauVat } = getVatTuStats(allVt)
+            const tong = Math.round(sauVat) + cardLamTron(card.tickets) // tổng sau thuế đã cộng làm tròn
+            const count = card.tickets.length
+            const dragData = card.tickets.length > 1
+              ? { ids: card.tickets.map((t: any) => t.id), currentState: state }
+              : { id: card.tickets[0].id, currentState: state }
+
+            return (
+              <div
+                key={card.id}
+                draggable
+                onDragStart={e => handleDragStart(e, dragData)}
+                onClick={() => {
+                  // Mở thẻ ở MỌI cột (kể cả Cột 1 Chờ lên HĐ) để tech_admin sửa tên hàng
+                  // TRƯỚC khi bàn giao kế toán. Modal tự ẩn phần Số HĐ / nút Hoàn tất ở Cột 1.
+                  setInvoiceNum(card.tickets[0].so_hoa_don || "")
+                  setActiveCard({
+                    type: count > 1 ? 'group' : 'single',
+                    tickets: card.tickets
+                  })
+                }}
+                className={`bg-white border rounded-lg p-3 shadow-sm hover:shadow transition cursor-grab active:cursor-grabbing border-slate-200 relative overflow-hidden hover:bg-slate-50/50`}
+              >
+                {/* Đường viền trang trí trạng thái */}
+                <div className={`absolute top-0 left-0 bottom-0 w-1 ${state === 'Chờ xuất HĐ' ? 'bg-blue-400' : state === 'Đang xử lý HĐ' ? 'bg-amber-400' : state === 'Đã lên hóa đơn' ? 'bg-emerald-500' : 'bg-indigo-500'}`}></div>
+
+                {(() => {
+                  const cum = card.customer?.soct_khach_cum
+                  const tenKh = card.tickets[0]?.ten_khach_hd || (cum ? (cum.ten_khach_hang || '') : (card.customer?.ten_khach_hang || 'Khách hàng lẻ'))
+                  const mst = cum ? cum.ma_so_thue : card.customer?.ma_so_thue
+
+                  return (
+                    <div className="pl-1.5 space-y-2">
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-bold text-slate-800 text-[13px] leading-snug line-clamp-2">
+                            {tenKh}
+                          </div>
+                          {state === 'Đang xử lý HĐ' && card.tickets.length > 1 && (
+                            <span className="inline-block mt-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200" title="Lô gộp — kế toán xuất 1 hóa đơn cho cả nhóm phiếu này">Gộp {card.tickets.length} phiếu</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                        {/* Xuất riêng THẺ NÀY ra M-invoice (1 chạm) — chỉ kế toán, chỉ cột KT-HC lên hóa đơn.
+                            Thẻ đã xuất -> nút chuyển "Xuất lại" (cam) + XÁC NHẬN, vì xuất lại = có thể tạo HĐ trùng. */}
+                        {state === 'Đang xử lý HĐ' && isKeToan && (() => {
+                          const daXuat = cardMinvoiceExported(card.tickets)
+                          const doExport = () => exportMinvoice([{ tickets: card.tickets, soDonHang: soDonHangCard(card.tickets) }], `minvoice-${soDonHangCard(card.tickets)}.xlsx`)
+                          return (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (daXuat) {
+                                  setConfirmDialog({
+                                    title: 'Xuất lại M-invoice thẻ này?',
+                                    message: 'Thẻ này ĐÃ xuất M-invoice. Chỉ xuất lại khi đã đối chiếu MISA và chắc chắn hóa đơn CHƯA được tạo (VD lỡ quên import). Nếu MISA đã có hóa đơn, hãy nhập số HĐ thay vì xuất lại (xuất lại có thể gây hóa đơn đúp).',
+                                    onConfirm: doExport,
+                                  })
+                                } else doExport()
+                              }}
+                              title={daXuat ? 'Thẻ đã xuất — bấm để XUẤT LẠI (có xác nhận)' : 'Xuất riêng thẻ này ra file M-invoice'}
+                              className={`p-1 rounded transition border ${daXuat ? 'text-amber-600 hover:text-amber-800 hover:bg-amber-50 border-amber-300' : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50 border-blue-200'}`}
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                          )
+                        })()}
+                        {(state === 'Chờ xuất HĐ' || role === 'admin') && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const laThueCpc = card.tickets.every((t: any) => t.nguon === 'thue_cpc')
+                              const laPhiBT = card.tickets.every((t: any) => t.nguon === 'phi_bao_tri')
+                              const laBilling = laThueCpc || laPhiBT
+                              setConfirmDialog({
+                                title: laThueCpc ? "Gỡ phiếu Thuê/CPC" : laPhiBT ? "Gỡ phiếu Phí bảo trì" : "Thu hồi phiếu",
+                                message: laThueCpc
+                                  ? "Phiếu Thuê/CPC không có Công nợ. Thu hồi = GỠ phiếu này khỏi Kanban (bảng kê sẽ đẩy lại được). Tiếp tục?"
+                                  : laPhiBT
+                                    ? "Phiếu Phí bảo trì không có Công nợ. Thu hồi = GỠ phiếu này khỏi Kanban, xử lý lại ở tab Phí bảo trì (dòng dịch vụ đã sửa tay sẽ nhập lại). Tiếp tục?"
+                                    : "Bạn có chắc chắn muốn thu hồi (các) phiếu này quay lại Công nợ không?",
+                                onConfirm: async () => {
+                                  try {
+                                    const targetIds = card.tickets.map((t: any) => t.id)
+                                    const res = await fetch('/api/admin/kanban-hd', {
+                                      method: 'PUT',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ ids: targetIds, trang_thai_hd: 'Chưa hóa đơn' })
+                                    })
+                                    if (res.ok) {
+                                      showNotification('success', laBilling ? 'Đã gỡ phiếu khỏi Kanban (xử lý lại ở tab nguồn).' : 'Đã thu hồi phiếu quay lại Công nợ.')
+                                      load()
+                                    } else {
+                                      const err = await res.json()
+                                      showNotification('error', err.error || 'Lỗi thu hồi')
+                                    }
+                                  } catch {
+                                    showNotification('error', 'Lỗi kết nối')
+                                  }
+                                }
+                              })
+                            }}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 px-1 py-0.5 rounded transition text-[10px] font-bold shrink-0 border border-red-200"
+                            title="Thu hồi quay lại Công nợ"
+                          >
+                            Thu hồi
+                          </button>
+                        )}
+                        </div>
+                      </div>
+
+                      {mst && (
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          MST: {mst}
+                        </div>
+                      )}
+                      {/* Kế toán TRẢ LẠI: hiện lý do cần sửa (ở Cột 1) */}
+                      {state === 'Chờ xuất HĐ' && card.tickets.find((t: any) => t.ly_do_tra)?.ly_do_tra && (
+                        <div className="text-[10px] bg-rose-50 border border-rose-200 text-rose-700 rounded px-1.5 py-1 leading-snug">
+                          <b>KT trả lại:</b> {card.tickets.find((t: any) => t.ly_do_tra)?.ly_do_tra}
+                        </div>
+                      )}
+                      {/* Badge Miễn phí (MF) — kế toán nhận biết phiếu 0đ máy thuê/CPC. Kèm cảnh báo
+                          nếu đánh dấu MF nhưng vẫn có tiền (dễ là quên bỏ giá / đánh dấu nhầm). */}
+                      {(() => {
+                        const allMF = card.tickets.every((t: any) => t.mien_phi)
+                        const someMF = card.tickets.some((t: any) => t.mien_phi)
+                        if (!someMF) return null
+                        const loai = String(card.customer?.loai_hd || '').trim()
+                        const loaiLbl = loai === 'Máy thuê' ? ' · Thuê' : loai === 'Máy CPC' ? ' · CPC' : ''
+                        return (
+                          <div className="flex flex-wrap gap-1">
+                            {allMF
+                              ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">MF{loaiLbl}</span>
+                              : <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">MF một phần</span>}
+                            {allMF && tong > 0 && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-200" title="Đánh dấu MF nhưng vẫn có tiền — kiểm tra lại">⚠ có tiền</span>}
+                          </div>
+                        )
+                      })()}
+                      {/* Badge M-invoice: thẻ ĐÃ xuất mà CHƯA có số HĐ -> nhắc kthc đối chiếu MISA (chống quên/đúp). */}
+                      {state === 'Đang xử lý HĐ' && cardMinvoicePending(card.tickets) && (() => {
+                        const t = card.tickets.find((x: any) => x.minvoice_luc)
+                        const d = new Date(new Date(t.minvoice_luc).getTime() + 7 * 3600 * 1000)
+                        const label = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+                        const lan = Math.max(0, ...card.tickets.map((x: any) => Number(x.minvoice_lan) || 0))
+                        return (
+                          <div className="text-[10px] bg-amber-50 border border-amber-300 text-amber-800 rounded px-1.5 py-1 leading-snug" title="Đã xuất file M-invoice, chờ nhập số HĐ. Đối chiếu MISA rồi nhập số HĐ để chốt.">
+                            ⚠ Đã xuất M-inv {label}{lan > 1 ? ` (${lan}×)` : ''} — <b>chưa có số HĐ</b>
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  )
+                })()}
+
+                  <div className="flex justify-between items-start gap-2 text-[10px] text-slate-500">
+                    <span className="bg-slate-100 px-2 py-0.5 rounded font-medium leading-relaxed">
+                      {count > 1 ? `${count} phiếu: ${card.tickets.map((t: any) => t.report || '—').join(', ')}` : `Phiếu: ${card.tickets[0].report || '—'}`}
+                    </span>
+                    <span className="font-mono text-slate-400 shrink-0">
+                      {count === 1 ? fmtDate(card.tickets[0].ngay) : ''}
+                    </span>
+                  </div>
+
+                  {/* Timeline chuyển cột: Bàn giao (cột 2) → Lên HĐ (cột 3) → Thu (cột 4). "—" nếu chưa qua. */}
+                  {(() => {
+                    const t0 = card.tickets[0]
+                    const bg = card.tickets.find((t: any) => t.ban_giao_kt_luc)?.ban_giao_kt_luc
+                    const xh = t0.ngay_xuat_hd
+                    const tt = t0.thanh_toan_luc
+                    const dm = (s: any) => { if (!s) return '—'; const p = String(s).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}` : '—' }
+                    const full = (lbl: string, s: any) => `${lbl}: ${s ? fmtDate(String(s).slice(0, 10)) : '#N/A'}`
+                    return (
+                      <div
+                        className="mt-1 flex items-center gap-1 text-[9px] text-slate-400 font-medium"
+                        title={[full('Bàn giao KT', bg), full('Lên hóa đơn', xh), full('Thanh toán', tt)].join('\n')}
+                      >
+                        <span className="inline-flex items-center gap-0.5"><Upload className="w-2.5 h-2.5" />{dm(bg)}</span>
+                        <span className="text-slate-300">›</span>
+                        <span className="inline-flex items-center gap-0.5"><FileText className="w-2.5 h-2.5" />{dm(xh)}</span>
+                        <span className="text-slate-300">›</span>
+                        <span className="inline-flex items-center gap-0.5"><Landmark className="w-2.5 h-2.5" />{dm(tt)}</span>
+                      </div>
+                    )
+                  })()}
+
+                  <div className="pt-1.5 border-t border-dashed border-slate-100 flex justify-between items-end">
+                    <div className="text-[10px] text-slate-400">Thành tiền:</div>
+                    <div className="text-right">
+                      <div className="text-xs font-bold text-slate-800">{fmtVnd(tong)} đ</div>
+                      <div className="text-[9px] text-slate-400 font-mono">Trước VAT: {fmtVnd(truocVat)}</div>
+                    </div>
+                  </div>
+                  {/* Cột 2: dấu hiệu phiếu có làm tròn -> kế toán tự nhập giá sau thuế tay trên MInvoice */}
+                  {state === 'Đang xử lý HĐ' && cardLamTron(card.tickets) !== 0 && (
+                    <div className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-red-600"
+                      title={`Tổng đã làm tròn. Vào MInvoice nhập ĐƠN GIÁ SAU THUẾ tay để tổng khớp ${fmtVnd(tong)}đ (MInvoice tự chia ngược trước thuế + 8%).`}>
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>Làm tròn {cardLamTron(card.tickets) > 0 ? '+' : ''}{fmtVnd(cardLamTron(card.tickets))}đ. Cần kiểm tra.</span>
+                    </div>
+                  )}
+
+                  {(state === 'Đã lên hóa đơn' || state === 'Đã thanh toán') && card.tickets[0].so_hoa_don && (
+                    <div className="mt-2 space-y-1">
+                      <div className={`border rounded px-2 py-1 text-[10px] font-semibold flex items-center gap-1 ${state === 'Đã thanh toán' ? 'bg-indigo-50 text-indigo-800 border-indigo-100' : 'bg-emerald-50 text-emerald-800 border-emerald-100'}`}>
+                        <CheckCircle className="w-3.5 h-3.5" /> HĐ: {card.tickets[0].so_hoa_don}
+                      </div>
+                      {/* Xuất Đề nghị thanh toán (.docx) cho hóa đơn này + badge đã xuất */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); exportDntt(card.tickets[0].so_hoa_don) }}
+                          className="text-[10px] font-semibold px-2 py-0.5 rounded border border-blue-200 text-blue-700 hover:bg-blue-50 inline-flex items-center gap-1"
+                          title="Xuất Đề nghị thanh toán (.docx)"
+                        >
+                          <FileText className="w-3 h-3" /> Xuất ĐNTT
+                        </button>
+                        {(() => {
+                          // Badge = NGÀY xuất gần nhất (dntt_luc, giờ VN) + SỐ LẦN xuất trong ngoặc. VD "đã xuất 24-8 (2)".
+                          const t = card.tickets.find((x: any) => x.dntt_luc)
+                          if (!t) return null
+                          const d = new Date(new Date(t.dntt_luc).getTime() + 7 * 3600 * 1000)
+                          const label = `${d.getUTCDate()}-${d.getUTCMonth() + 1}`
+                          const lan = Math.max(0, ...card.tickets.map((x: any) => Number(x.dntt_lan) || 0))
+                          const soDntt = card.tickets.find((x: any) => x.so_dntt)?.so_dntt || ''
+                          return (
+                            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200" title={`ĐNTT số ${soDntt} · đã xuất ${lan} lần · lần gần nhất ${label}`}>
+                              ✓ đã xuất {label}{lan > 0 ? ` (${lan})` : ''}
+                            </span>
+                          )
+                        })()}
+                      </div>
+                      {(card.tickets[0].nguoi_xuat?.full_name || card.tickets[0].ngay_xuat_hd) && (
+                        <div className="text-[9px] text-slate-400">
+                          {[card.tickets[0].nguoi_xuat?.full_name ? `KT: ${card.tickets[0].nguoi_xuat.full_name}` : '', card.tickets[0].ngay_xuat_hd ? fmtDate(card.tickets[0].ngay_xuat_hd) : ''].filter(Boolean).join(' · ')}
+                        </div>
+                      )}
+                      {state === 'Đã thanh toán' && card.tickets[0].thanh_toan_luc && (
+                        <div className="text-[9px] font-semibold text-indigo-500">Thu: {fmtDate(String(card.tickets[0].thanh_toan_luc).slice(0, 10))}</div>
+                      )}
+                      {state === 'Đã lên hóa đơn' && (() => {
+                        const daThu = Number(card.tickets[0].so_tien_da_thu) || 0
+                        const con = Math.max(0, tong - daThu)
+                        return <div className="flex flex-wrap items-center gap-1.5">
+                          {daThu > 0 && (
+                            <span className="inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold bg-blue-50 text-blue-700 border-blue-200">
+                              Đã thu {fmtVnd(daThu)}{con > 0 ? ` · còn ${fmtVnd(con)}` : daThu > tong ? ` · dư ${fmtVnd(daThu - tong)}` : ' · đủ'}
+                            </span>
+                          )}
+                          {(() => {
+                            const d = daysSince(card.tickets[0].ngay_xuat_hd)
+                            if (d == null) return null
+                            const cls = d > 30 ? 'bg-red-50 text-red-700 border-red-200' : d > 15 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-500 border-slate-200'
+                            return <span className={`inline-block border rounded-full px-2 py-0.5 text-[9px] font-semibold ${cls}`}>Chờ thu {d} ngày</span>
+                          })()}
+                        </div>
+                      })()}
+                    </div>
+                  )}
+              </div>
+            )
+          })
+        )}
+        {kdCards.map(renderKdCard)}
+      </div>
+    )
+  }
+
+  // Thu thập toàn bộ danh sách vật tư gộp để hiển thị trong Modal copy
+  const modalAllVt = activeCard ? activeCard.tickets.flatMap(t => t.soct_chi_tiet_vat_tu || []) : []
+  const modalStats = getVatTuStats(modalAllVt)
+  // Tổng đã cộng khoản làm tròn; VAT = tổng − trước thuế để 3 số luôn khớp nhau.
+  const modalLamTron = activeCard ? cardLamTron(activeCard.tickets) : 0
+  const modalTruoc = Math.round(modalStats.truocVat)
+  const modalTong = Math.round(modalStats.sauVat) + modalLamTron
+  const modalVat = modalTong - modalTruoc
+  const modalKh = activeCard?.tickets[0]?.soct_khach_hang
+
+  // Giải quyết thông tin Khách hàng Cụm nếu có, nếu không lấy của khách lẻ
+  const modalCum = modalKh?.soct_khach_cum
+  const modalTenKh = activeCard?.tickets[0]?.ten_khach_hd || (modalCum ? (modalCum.ten_khach_hang || '') : (modalKh?.ten_khach_hang || 'Khách hàng lẻ'))
+  const modalMst = modalCum ? modalCum.ma_so_thue : modalKh?.ma_so_thue
+  const modalEmail = modalCum ? modalCum.email_ke_toan : modalKh?.email_ke_toan
+  const modalDiaChi = modalCum ? modalCum.dia_chi : modalKh?.dia_chi
+
+  // Gộp các dòng vật tư trùng mã hàng để hóa đơn in gọn gàng
+  const aggregatedVatTu: Record<string, { ma_hang: string; ten_hang: string; so_luong: number; don_gia: number; vat: number; dvt: string; ghepMa: boolean; _ord: number }> = {}
+  modalAllVt.filter(v => !v.da_tra).forEach(v => {
+    const k = `${v.ma_hang}_${Number(v.don_gia) || 0}`
+    if (!aggregatedVatTu[k]) {
+      aggregatedVatTu[k] = {
+        ma_hang: v.ma_hang,
+        ten_hang: v.ten_hd || v.soct_kho_hang?.ten_hang || v.ma_hang,
+        so_luong: 0,
+        don_gia: v.don_gia,
+        vat: v.vat,
+        dvt: (v.don_vi_tinh || '').trim(), // ĐVT (rỗng -> hiển thị "Cái")
+        // Tự ghép mã CHỈ khi dùng tên kho gốc (chưa đặt tên riêng); tên tự đặt/áp mẫu -> giữ nguyên.
+        ghepMa: !!v.soct_kho_hang && !(v.ten_hang_hd && String(v.ten_hang_hd).trim()),
+        _ord: Number.POSITIVE_INFINITY
+      }
+    }
+    aggregatedVatTu[k].so_luong += v.so_luong
+    if (!aggregatedVatTu[k].dvt && (v.don_vi_tinh || '').trim()) aggregatedVatTu[k].dvt = (v.don_vi_tinh || '').trim()
+    aggregatedVatTu[k]._ord = Math.min(aggregatedVatTu[k]._ord, Number(v.thu_tu ?? 1e9))
+  })
+  // Sắp theo thu_tu (kéo-thả). Dòng cùng thứ tự (chưa sắp) giữ nguyên tương đối.
+  const modalDisplayRows = Object.values(aggregatedVatTu).sort((a, b) => a._ord - b._ord)
+  // Chỉ được sửa tên/đơn giá/nhập Excel khi phiếu CÒN Ở "Chờ xuất HĐ" (chưa đưa sang kế toán).
+  // Đã chuyển sang kế toán để lên hóa đơn -> mọi role chỉ COPY, không sửa (khóa để đúng số liệu HĐ).
+  // Cần sửa thì admin kéo thẻ về cột "Chờ lên hóa đơn" trước.
+  const canEditItems = activeCard?.tickets[0]?.trang_thai_hd === 'Chờ xuất HĐ'
+  // Chỉ kế toán (admin/kthc) mới nhập số HĐ + hoàn tất xuất hóa đơn. tech_admin/staff chỉ bàn giao.
+  const isKeToan = role === 'admin' || role === 'kthc'
+
+  return (
+    <div className="space-y-4">
+      {/* Header điều phối */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+        {/* Tiêu đề — ẩn ở v2 (breadcrumb đã có), giữ ở admin */}
+        {!v2Layout && (
+        <div>
+          <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+            <Layers className="w-5 h-5 text-blue-600" /> Bảng điều phối hóa đơn (Kanban)
+          </h2>
+          <p className="text-xs text-slate-400">Tech_admin giao việc {`->`} Kế toán xuất hóa đơn trên MISA/Fast/SAPP và dán Số hóa đơn để hoàn tất.</p>
+        </div>
+        )}
+
+        {/* Hàng 1: LỌC (trái) · HÀNH ĐỘNG (phải) */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm khách / số phiếu / số HĐ..." className="pl-8 pr-7 h-9 w-64 bg-white text-sm" />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+                  title="Xóa tìm kiếm"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <label className="flex items-center gap-1.5 text-xs text-slate-600">
+              Kỳ đối chiếu:
+              <MonthField value={thang} onChange={setThang} className="h-9 px-2 text-xs w-36" />
+              <span className="inline-flex" title="Kỳ đối chiếu = THÁNG THU. Cột 'Đã thanh toán' hiện HĐ thu trong tháng này (theo ngày thu, KHÔNG theo ngày xuất HĐ) → HĐ xuất cuối tháng trước thu đầu tháng này vẫn hiện đúng. Tick 'chỉ kỳ này' bên dưới để áp thêm cột 'Chờ thanh toán'. Cột 1, 2 luôn hiện toàn bộ.">
+                <Info className="w-3.5 h-3.5 text-slate-400 cursor-help shrink-0" aria-label="Trợ giúp" />
+              </span>
+            </label>
+            {/* Ký hiệu HĐ M-invoice — CHỈ kế toán (admin/kthc) thấy + tự sửa (không phụ thuộc admin Cấu hình). */}
+            {isKeToan && (
+              <div className="flex items-center gap-1.5 text-xs text-slate-600" title="Ký hiệu mẫu số hóa đơn (TT78) dùng khi Xuất Excel M-invoice. Kế toán tự khai/đổi.">
+                <span className="font-medium">Ký hiệu HĐ:</span>
+                <Input value={kyHieuEdit} onChange={e => setKyHieuEdit(e.target.value.toUpperCase())} placeholder="1C26TST" className="h-9 w-28 bg-white text-xs font-mono uppercase" />
+                <Button size="sm" variant="outline" onClick={saveKyHieu} disabled={savingKyHieu || kyHieuEdit.trim() === kyHieuMinvoice.trim()} title="Lưu ký hiệu HĐ" className="h-9 w-9 p-0">{savingKyHieu ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}</Button>
+              </div>
+            )}
+          </div>
+
+          {/* Hành động dồn phải, cạnh nhau */}
+          <div className="flex items-center gap-2">
+            {role === 'admin' && (
+              <Button
+                onClick={async () => {
+                  try {
+                    const r = await fetch('/api/admin/push/test', { method: 'POST' })
+                    const j = await r.json()
+                    if (!r.ok) { showNotification('error', j.error || 'Lỗi gửi thử'); return }
+                    showNotification(j.sent > 0 ? 'success' : 'error', j.sent > 0 ? `Đã gửi thử tới ${j.sent} thiết bị kthc.` : 'Chưa có thiết bị kthc nào bật thông báo (hoặc chưa cấu hình VAPID).')
+                  } catch { showNotification('error', 'Lỗi kết nối') }
+                }}
+                size="sm" variant="outline" title="Gửi thử thông báo hóa đơn tới các máy kthc đã bật (giả lập bàn giao Kanban)" className="h-9 gap-1.5 bg-white text-xs">
+                <Send className="w-3.5 h-3.5" /> Gửi thử HĐ
+              </Button>
+            )}
+            <Button onClick={load} disabled={loading} size="sm" variant="outline" title="Tải lại" className="h-9 px-3 gap-1.5 text-xs font-medium bg-white">
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Tải lại
+            </Button>
+            <Button onClick={() => setExportOpen(true)} size="sm" variant="outline" title="Xuất Excel công nợ" className="h-9 w-9 p-0 bg-white">
+              <Download className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Hàng 2: TÙY CHỌN hiển thị (chữ nhỏ, xám) */}
+        <div className="flex items-center gap-5 flex-wrap pt-2.5 border-t border-slate-100">
+          <label className="flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer select-none" title="Bật: cột Chờ thanh toán chỉ hiện HĐ trong kỳ đang chọn. Tắt: lũy kế toàn bộ nợ chưa thu.">
+            <input type="checkbox" checked={col3ChiKyNay} onChange={e => setCol3ChiKyNay(e.target.checked)} className="w-3.5 h-3.5 accent-blue-600" />
+            Chờ thanh toán: chỉ kỳ này
+          </label>
+          {role !== 'kthc' && (
+            <label className="flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer select-none">
+              <input type="checkbox" checked={grouped} onChange={e => {
+                if (e.target.checked) {
+                  // Tick = GOM cả khách cụm -> dễ gộp nhầm khi danh sách dài. Xác nhận trước.
+                  setConfirmDialog({
+                    title: 'Gom nhóm theo khách hàng?',
+                    message: 'Mọi phiếu của cùng một khách (cụm) sẽ được GỘP lại để lên CHUNG 1 hóa đơn — bỏ qua việc gom theo từng lô đẩy. Đồng ý gom?',
+                    onConfirm: async () => { setGrouped(true) },
+                  })
+                } else {
+                  setGrouped(false)
+                }
+              }} className="w-3.5 h-3.5 accent-blue-600" />
+              Tự động gom nhóm theo khách hàng
+            </label>
+          )}
+        </div>
+      </div>
+
+      {loading && tickets.length === 0 ? (
+        <div className="text-center py-24 text-sm text-slate-400 bg-white border border-slate-200 rounded-xl shadow-sm">
+          <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600" />Đang tải bảng Kanban...
+        </div>
+      ) : (
+        <div className={`grid grid-cols-1 gap-5 ${role === 'kthc' ? 'md:grid-cols-3' : 'md:grid-cols-4'}`}>
+          {/* CỘT 1: CHỜ XUẤT HĐ (Chỉ hiện với Admin, Tech_admin, Staff) */}
+          {role !== 'kthc' && (
+            <div className="border border-slate-200 rounded-xl bg-white flex flex-col shadow-sm">
+              <div className="p-3 bg-blue-50/50 rounded-t-xl flex justify-between items-center">
+                <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <Clock className="w-4 h-4" /> 1. Chờ lên hóa đơn ({cardsCol1.length})
+                </h3>
+              </div>
+              {renderCardList(cardsCol1, 'Chờ xuất HĐ', kdCol1)}
+            </div>
+          )}
+
+          {/* CỘT 2: ĐANG XỬ LÝ HĐ */}
+          <div className="border border-slate-200 rounded-xl bg-white flex flex-col shadow-sm">
+            <div className="p-3 bg-amber-50/50 rounded-t-xl flex flex-col items-stretch gap-2">
+              <h3 className="text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
+                <FileText className="w-4 h-4" /> {role === 'kthc' ? '1.' : '2.'} KT-HC lên hóa đơn ({cardsCol2.length})
+              </h3>
+              {isKeToan && (
+                <div className="flex gap-2 flex-wrap">
+                <button
+                  disabled={cardsCol2ChuaXuat.length === 0}
+                  onClick={() => {
+                    const runExport = () => {
+                      const d = new Date(); const stamp = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}`
+                      return exportMinvoice(cardsCol2ChuaXuat.map((c: any) => ({ tickets: c.tickets, soDonHang: soDonHangCard(c.tickets) })), `minvoice-cot2-${stamp}.xlsx`)
+                    }
+                    // Còn phiếu đã xuất mà CHƯA có số HĐ -> nhắc đối chiếu MISA trước khi tạo lô mới (chống đúp).
+                    if (col2PendingCount > 0) {
+                      setConfirmDialog({
+                        title: 'Còn phiếu chưa chốt số HĐ',
+                        message: `Đang có ${col2PendingCount} phiếu ĐÃ xuất M-invoice lần trước nhưng CHƯA nhập số HĐ. Bạn đã đối chiếu (đã lên trên MISA) chưa?\n\nBấm Đồng ý để chỉ xuất ${cardsCol2ChuaXuat.length} phiếu MỚI (chưa xuất). Các phiếu đã xuất sẽ KHÔNG xuất lại (tránh hóa đơn đúp).`,
+                        onConfirm: runExport,
+                      })
+                    } else runExport()
+                  }}
+                  title={cardsCol2ChuaXuat.length === 0 ? 'Mọi thẻ trong cột đã xuất M-invoice' : `Xuất ${cardsCol2ChuaXuat.length} thẻ CHƯA xuất thành 1 file M-invoice`}
+                  className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed">
+                  <Download className="w-3 h-3" /> M-invoice{cardsCol2ChuaXuat.length > 0 ? ` (${cardsCol2ChuaXuat.length} chưa xuất)` : ''}
+                </button>
+                <label title={cardsCol2.length === 0 ? 'Cột trống — không có thẻ nào để đối chiếu' : "Nhập file 'Báo cáo tổng hợp doanh thu hóa đơn' từ M-invoice → tự điền số HĐ + chuyển thẻ khớp sang Chờ thanh toán"}
+                  className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-emerald-200 text-emerald-700 bg-white hover:bg-emerald-50 cursor-pointer ${importingReport || cardsCol2.length === 0 ? 'opacity-40 pointer-events-none' : ''}`}>
+                  <Upload className="w-3 h-3" /> {importingReport ? 'Đang khớp…' : 'Import báo cáo'}
+                  <input type="file" accept=".xlsx" className="hidden" disabled={importingReport || cardsCol2.length === 0}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) importMinvoiceReport(f); e.target.value = '' }} />
+                </label>
+                </div>
+              )}
+            </div>
+            {/* Banner an toàn: đếm phiếu ĐÃ xuất file nhưng CHƯA nhập số HĐ -> nhắc đối chiếu MISA, chống quên. */}
+            {isKeToan && col2PendingCount > 0 && (
+              <div className="mx-3 mt-2 -mb-1 text-[10px] leading-snug bg-amber-50 border border-amber-200 text-amber-800 rounded px-2 py-1.5">
+                ⚠ <b>{col2PendingCount}</b> phiếu đã xuất M-invoice nhưng <b>chưa nhập số HĐ</b>. Hãy đối chiếu đã lên hóa đơn trên MISA chưa — nhập số HĐ để chốt sang <i>Chờ thanh toán</i>. (Nếu thực sự chưa lên: mở thẻ, bấm <b>Xuất lại</b>.)
+              </div>
+            )}
+            {renderCardList(cardsCol2, 'Đang xử lý HĐ', kdCol2)}
+          </div>
+
+          {/* CỘT 3: CHỜ THANH TOÁN (Trạng thái Đã lên hóa đơn) */}
+          <div className="border border-slate-200 rounded-xl bg-white flex flex-col shadow-sm">
+            <div className="p-3 bg-emerald-50/50 rounded-t-xl flex flex-col items-stretch gap-2">
+              <h3 className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+                <CheckCircle className="w-4 h-4" /> {role === 'kthc' ? '2.' : '3.'} Chờ thanh toán ({col3Pay !== 'all' || col3Age !== 'all' ? `${cardsCol3Shown.length}/${cardsCol3.length}` : cardsCol3.length})
+              </h3>
+              {isKeToan && (
+                <div className="flex gap-2 flex-wrap">
+                  <label title="Import thanh toán từ FAST (Sổ chi tiết TK 112) → đối ứng công nợ, thu = tổng HĐ tự chuyển Đã thanh toán"
+                    className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-emerald-200 text-emerald-700 bg-white hover:bg-emerald-50 cursor-pointer ${payImporting ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <Upload className="w-3 h-3" /> {payImporting ? 'Đang đối ứng…' : 'Import Thanh toán'}
+                    <input type="file" accept=".xlsx" className="hidden" disabled={payImporting}
+                      onChange={e => { const f = e.target.files?.[0]; if (f) importThanhToanFast(f); e.target.value = '' }} />
+                  </label>
+                  <label title="Đối chiếu sao kê ngân hàng (MB/VCB) → khớp số HĐ + số tiền với HĐ đang chờ thu; duyệt trước khi ghi"
+                    className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 cursor-pointer ${dcImporting ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <Landmark className="w-3 h-3" /> {dcImporting ? 'Đang đọc…' : 'Đối chiếu ngân hàng'}
+                    <input type="file" accept=".xlsx" className="hidden" disabled={dcImporting}
+                      onChange={e => { const f = e.target.files?.[0]; if (f) doiChieuNH(f); e.target.value = '' }} />
+                  </label>
+                </div>
+              )}
+              {isKeToan && dcNeedBank && (
+                <div className="text-[10px] bg-amber-50 border border-amber-200 text-amber-800 rounded px-2 py-1.5 flex items-center gap-2 flex-wrap">
+                  <span>Không tự nhận diện được ngân hàng. Đây là:</span>
+                  <button onClick={() => { const f = dcNeedBank; setDcNeedBank(null); if (f) doiChieuNH(f, 'MB') }} className="px-2 py-0.5 rounded border border-blue-300 text-blue-700 bg-white font-semibold">MB</button>
+                  <button onClick={() => { const f = dcNeedBank; setDcNeedBank(null); if (f) doiChieuNH(f, 'VCB') }} className="px-2 py-0.5 rounded border border-blue-300 text-blue-700 bg-white font-semibold">VCB</button>
+                  <button onClick={() => setDcNeedBank(null)} className="px-2 py-0.5 rounded border border-slate-300 text-slate-500 bg-white">Bỏ</button>
+                </div>
+              )}
+            </div>
+            {/* Banner NỢ ĐỌNG theo tuổi — bấm 1 mức để LỌC theo tuổi (bấm lại bỏ lọc). */}
+            {col3Debt.nAll > 0 && (
+              <div className="mx-3 mt-2 -mb-1 space-y-1">
+                <div className="text-[10px] text-slate-600">
+                  Còn nợ: <b className="text-slate-800">{fmtVnd(col3Debt.tAll)} đ</b> · {col3Debt.nAll} hóa đơn
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {col3Debt.n2 > 0 && (
+                    <button onClick={() => setCol3Age(col3Age === 'd30' ? 'all' : 'd30')} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-red-50 text-red-700 border-red-200 ${col3Age === 'd30' ? 'ring-2 ring-red-300' : ''}`} title="Lọc: quá hạn >30 ngày">
+                      🔴 &gt;30 ngày: {col3Debt.n2} HĐ · {fmtVnd(col3Debt.t2)}
+                    </button>
+                  )}
+                  {col3Debt.n1 > 0 && (
+                    <button onClick={() => setCol3Age(col3Age === 'd15' ? 'all' : 'd15')} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-amber-50 text-amber-700 border-amber-200 ${col3Age === 'd15' ? 'ring-2 ring-amber-300' : ''}`} title="Lọc: 15–30 ngày">
+                      🟠 15–30 ngày: {col3Debt.n1} HĐ · {fmtVnd(col3Debt.t1)}
+                    </button>
+                  )}
+                  {col3Debt.n0 > 0 && (
+                    <button onClick={() => setCol3Age(col3Age === 'd0' ? 'all' : 'd0')} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-slate-50 text-slate-500 border-slate-200 ${col3Age === 'd0' ? 'ring-2 ring-slate-300' : ''}`} title="Lọc: <15 ngày">
+                      ⚪ &lt;15 ngày: {col3Debt.n0} HĐ · {fmtVnd(col3Debt.t0)}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+            {/* Lọc trạng thái thu (kthc/admin theo dõi công nợ). */}
+            {isKeToan && (
+              <div className="mx-3 mt-2 -mb-1 flex flex-wrap items-center gap-1">
+                {([['all', 'Tất cả'], ['chua', 'Chưa thu'], ['phan', 'Thu một phần'], ['du', 'Thu dư']] as const).map(([k, l]) => (
+                  <button key={k} onClick={() => setCol3Pay(k)} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${col3Pay === k ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-500 border-slate-200'}`}>{l}</button>
+                ))}
+                {(col3Pay !== 'all' || col3Age !== 'all') && (
+                  <button onClick={() => { setCol3Pay('all'); setCol3Age('all') }} className="text-[10px] text-rose-500 hover:text-rose-700 px-1">Bỏ lọc</button>
+                )}
+              </div>
+            )}
+            {renderCardList(cardsCol3Shown, 'Đã lên hóa đơn', kdCol3)}
+          </div>
+
+          {/* CỘT 4: ĐÃ THANH TOÁN */}
+          <div className="border border-slate-200 rounded-xl bg-white flex flex-col shadow-sm">
+            <div className="p-3 bg-indigo-50/50 rounded-t-xl flex justify-between items-center">
+              <h3 className="text-xs font-bold text-indigo-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Landmark className="w-4 h-4" /> {role === 'kthc' ? '3.' : '4.'} Đã thanh toán ({cardsCol4.length})
+              </h3>
+            </div>
+            {renderCardList(cardsCol4, 'Đã thanh toán', kdCol4)}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL XEM THẺ KINH DOANH (lệnh xuất) — đọc-thôi (4a) */}
+      {kdActive && (
+        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-3 overflow-y-auto" onClick={() => setKdActive(null)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl my-6 flex flex-col max-h-[92vh] overflow-hidden border border-slate-200" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-3.5 border-b border-slate-200 bg-violet-50 flex items-center justify-between shrink-0">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 uppercase">KD</span>
+                Lệnh xuất {kdActive.so_lenh || ''}
+              </h3>
+              <button onClick={() => setKdActive(null)} className="text-slate-400 hover:text-slate-600 p-1"><span className="text-xl leading-none">×</span></button>
+            </div>
+            <div className="p-5 overflow-y-auto space-y-3 flex-1 text-xs">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                <div><span className="text-slate-400">Khách hàng: </span><b className="text-slate-800">{kdActive.ten_khach_hd || kdActive.ten_khach_hang}</b></div>
+                <div><span className="text-slate-400">NV kinh doanh: </span><b className="text-slate-700">{kdActive.nguoi_kd_ten || '—'}</b></div>
+                <div><span className="text-slate-400">Ngày lập: </span>{fmtDate(kdActive.ngay)}</div>
+                <div><span className="text-slate-400">Số hợp đồng: </span>{kdActive.so_hop_dong || '—'}</div>
+                {kdActive.ma_so_thue && <div><span className="text-slate-400">MST: </span><span className="font-mono">{kdActive.ma_so_thue}</span></div>}
+                {kdActive.email_nhan_hd && <div><span className="text-slate-400">Email nhận HĐ: </span>{kdActive.email_nhan_hd}</div>}
+                {kdActive.dia_chi && <div className="col-span-2"><span className="text-slate-400">Địa chỉ: </span>{kdActive.dia_chi}</div>}
+                {kdActive.so_hoa_don && <div><span className="text-slate-400">Số HĐ: </span><b className="font-mono text-emerald-700">{kdActive.so_hoa_don}</b></div>}
+                {kdActive.ngay_xuat_hd && <div><span className="text-slate-400">Ngày xuất HĐ: </span>{fmtDate(kdActive.ngay_xuat_hd)}</div>}
+              </div>
+              <div className="overflow-hidden rounded-md border border-slate-200">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 text-[10px] uppercase text-slate-500 [&>th]:px-2 [&>th]:py-1.5 [&>th]:text-left [&>th]:border-b [&>th]:border-slate-200">
+                      <th>Mã</th><th>Tên hàng</th><th className="!text-center">ĐVT</th><th className="!text-center">SL</th><th className="!text-right">Đơn giá</th><th className="!text-center">VAT</th><th className="!text-right">Thành tiền</th>
+                    </tr>
+                  </thead>
+                  <tbody className="[&>tr>td]:px-2 [&>tr>td]:py-1.5 [&>tr>td]:border-t [&>tr>td]:border-slate-100">
+                    {kdActive.lines.map((l, i) => (
+                      <tr key={i}>
+                        <td className="font-mono">{l.ma_hang || ''}</td>
+                        <td>{l.ten_hang_hd || l.ten_hang || ''}</td>
+                        <td className="text-center">{l.dvt || 'Cái'}</td>
+                        <td className="text-center font-semibold">{l.so_luong}</td>
+                        <td className="text-right">{fmtVnd(l.don_gia)}</td>
+                        <td className="text-center">{l.vat}%</td>
+                        <td className="text-right font-semibold">{fmtVnd(l.thanh_tien)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex justify-end gap-6 text-xs pt-1">
+                <div><span className="text-slate-400">Trước VAT: </span><b>{fmtVnd(kdActive.tong_truoc_vat)} đ</b></div>
+                <div><span className="text-slate-400">Tổng sau VAT: </span><b className="text-slate-800 text-sm">{fmtVnd(kdActive.tong_sau_vat)} đ</b></div>
+              </div>
+              {(kdActive.da_thu > 0 || kdActive.cho_duyet > 0) && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {kdActive.da_thu > 0 && <span className="inline-block border rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">Đã thu (đã duyệt): {fmtVnd(kdActive.da_thu)} đ</span>}
+                  {kdActive.cho_duyet > 0 && <span className="inline-block border rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-amber-50 text-amber-700 border-amber-200">Chờ kế toán duyệt: {fmtVnd(kdActive.cho_duyet)} đ</span>}
+                </div>
+              )}
+              {kdActive.trang_thai_hd === 'Chờ xuất HĐ' && kdActive.ly_do_tra && (
+                <div className="rounded-md bg-rose-50 border border-rose-200 px-3 py-2 text-[11px] text-rose-700"><b>⚠ Kế toán trả lại — cần sửa:</b> {kdActive.ly_do_tra}</div>
+              )}
+              {/* Thu tiền + DUYỆT (Lát 5) — từ cột 2 trở đi; kế toán khai & duyệt tại đây. */}
+              {['Đang xử lý HĐ', 'Đã lên hóa đơn', 'Đã thanh toán'].includes(kdActive.trang_thai_hd) && (
+                <ThuTienPanel lenhId={kdActive.id} role={role} canKhai={isKeToan} tongSauVat={kdActive.tong_sau_vat} onChanged={loadKd} notify={showNotification} />
+              )}
+            </div>
+            {/* Footer thao tác thẻ KD (nút thay kéo — dùng được trên điện thoại). Server gate lại theo role. */}
+            {(() => {
+              const st = kdActive.trang_thai_hd
+              const isKt = role === 'admin' || role === 'kthc'
+              const btns: React.ReactNode[] = []
+              if (st === 'Chờ xuất HĐ' && role === 'admin') {
+                btns.push(<Button key="thuhoi" variant="outline" onClick={() => kdRecall(kdActive.id)} disabled={kdBusy} className="h-9 text-xs border-amber-200 text-amber-700 hover:bg-amber-50">← Thu hồi</Button>)
+                btns.push(<Button key="giao" onClick={() => handleKdMove(kdActive, 'Đang xử lý HĐ')} disabled={kdBusy} className="h-9 bg-blue-600 hover:bg-blue-700 text-white text-xs">Xem &amp; Bàn giao Kế toán →</Button>)
+              }
+              if (st === 'Đang xử lý HĐ' && isKt) {
+                btns.push(<Button key="tra" variant="outline" onClick={() => handleKdMove(kdActive, 'Chờ xuất HĐ')} disabled={kdBusy} className="h-9 text-xs border-rose-200 text-rose-700 hover:bg-rose-50">← Trả lại</Button>)
+                btns.push(<Button key="hd" onClick={() => handleKdMove(kdActive, 'Đã lên hóa đơn')} disabled={kdBusy} className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs">Lên hóa đơn →</Button>)
+              }
+              if (st === 'Đã lên hóa đơn' && isKt) {
+                btns.push(<Button key="back" variant="outline" onClick={() => handleKdMove(kdActive, 'Đang xử lý HĐ')} disabled={kdBusy} className="h-9 text-xs">← Trả về xử lý</Button>)
+                btns.push(<Button key="tt" onClick={() => handleKdMove(kdActive, 'Đã thanh toán')} disabled={kdBusy} className="h-9 bg-indigo-600 hover:bg-indigo-700 text-white text-xs">Đánh dấu đã thanh toán →</Button>)
+              }
+              if (st === 'Đã thanh toán' && isKt)
+                btns.push(<Button key="unpaid" variant="outline" onClick={() => handleKdMove(kdActive, 'Đã lên hóa đơn')} disabled={kdBusy} className="h-9 text-xs">← Bỏ đánh dấu thanh toán</Button>)
+              return (
+                <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-end gap-2 shrink-0 flex-wrap">
+                  <Button variant="outline" onClick={() => setKdActive(null)} className="h-9 text-xs">Đóng</Button>
+                  {btns}
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL nhập SỐ HĐ khi lên hóa đơn lệnh KD (2->3) */}
+      {kdInvoice && (
+        <div className="fixed inset-0 bg-black/50 z-[72] flex items-center justify-center p-4" onClick={() => !kdBusy && setKdInvoice(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-4 bg-emerald-50 border-b border-emerald-100">
+              <h3 className="text-base font-bold text-emerald-800">Lên hóa đơn lệnh KD</h3>
+              <p className="text-xs text-emerald-600 mt-0.5">{kdInvoice.ten}</p>
+            </div>
+            <div className="p-5 space-y-1">
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Số hóa đơn <span className="text-red-500">*</span></label>
+              <Input value={kdInvoice.so_hoa_don} onChange={e => setKdInvoice(v => v ? { ...v, so_hoa_don: e.target.value.toUpperCase() } : v)} placeholder="Nhập số hóa đơn đã xuất trên phần mềm" className="h-10 bg-white uppercase font-mono font-bold text-slate-800" />
+              <p className="text-[10px] text-slate-400">Số HĐ phải duy nhất (không trùng lệnh khác / phiếu kỹ thuật).</p>
+            </div>
+            <div className="p-4 border-t border-slate-100 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setKdInvoice(null)} disabled={kdBusy} className="h-9 text-xs">Hủy</Button>
+              <Button onClick={async () => { const ok = await kdMove(kdInvoice.id, 'Đã lên hóa đơn', { so_hoa_don: kdInvoice.so_hoa_don.trim() }); if (ok) setKdInvoice(null) }} disabled={kdBusy || !kdInvoice.so_hoa_don.trim()} className="h-9 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">{kdBusy ? 'Đang lưu…' : 'Hoàn tất lên HĐ'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL kế toán TRẢ LẠI lệnh KD về cột 1 (nhập lý do) */}
+      {kdReturn && (
+        <div className="fixed inset-0 bg-black/50 z-[75] flex items-center justify-center p-4" onClick={() => !kdBusy && setKdReturn(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-4 bg-rose-50 border-b border-rose-100">
+              <h3 className="text-base font-bold text-rose-800">Trả lệnh về phòng Kinh doanh</h3>
+              <p className="text-xs text-rose-600 mt-0.5">{kdReturn.ten} · nêu rõ cần sửa gì.</p>
+            </div>
+            <div className="p-5">
+              <label className="text-xs font-semibold text-slate-600">Lý do trả lại <span className="text-red-500">*</span></label>
+              <textarea value={kdReturn.reason} onChange={e => setKdReturn(r => r ? { ...r, reason: e.target.value } : r)} rows={4} placeholder="VD: Thiếu MST khách; sai đơn giá dòng máy; chưa có số hợp đồng…" className="mt-1 w-full rounded-md border border-slate-200 p-2.5 text-sm outline-none focus:ring-2 focus:ring-rose-300 resize-none" />
+            </div>
+            <div className="p-4 border-t border-slate-100 flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setKdReturn(null)} disabled={kdBusy} className="text-xs">Hủy</Button>
+              <Button size="sm" onClick={async () => { const ok = await kdMove(kdReturn.id, 'Chờ xuất HĐ', { ly_do_tra: kdReturn.reason.trim() }); if (ok) { setKdReturn(null); setKdActive(null) } }} disabled={kdBusy || !kdReturn.reason.trim()} className="text-xs bg-rose-600 hover:bg-rose-700 text-white">{kdBusy ? 'Đang trả…' : 'Trả lại lệnh'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* HỘP THOẠI XUẤT EXCEL CÔNG NỢ (dữ liệu thô) */}
+      {exportOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => !exporting && setExportOpen(false)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-1.5">
+                <Download className="w-5 h-5 text-blue-600" /> Xuất Excel công nợ
+              </h3>
+              <button onClick={() => !exporting && setExportOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+            </div>
+            <div className="p-5 space-y-4 text-sm">
+              <p className="text-[11px] text-slate-500">File dữ liệu thô, 2 sheet (Chưa thu · Đã thanh toán) để tự pivot/tổng hợp báo cáo.</p>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Phòng ban</label>
+                <div className="flex gap-1.5">
+                  {(([['tat_ca', 'Tất cả'], ['ky_thuat', 'Kỹ thuật'], ['kinh_doanh', 'Kinh doanh']]) as [typeof expPhongBan, string][]).map(([v, l]) => (
+                    <button key={v} onClick={() => setExpPhongBan(v)}
+                      className={`px-3 py-1.5 rounded border text-xs font-medium transition ${expPhongBan === v ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>{l}</button>
+                  ))}
+                </div>
+                {expPhongBan === 'kinh_doanh' && <p className="text-[11px] text-slate-500 mt-1.5">Chỉ lệnh xuất hàng (phòng Kinh doanh); &quot;Đã thu&quot; = tổng khoản kế toán ĐÃ DUYỆT.</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">① Công nợ chưa thu — Nợ tính đến ngày</label>
+                <DateField value={expCutoff} onChange={setExpCutoff} heightClass="h-9" className="w-36" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">② Đã thanh toán — theo ngày xuất HĐ</label>
+                <div className="flex items-center gap-2">
+                  <DateField value={expTu} onChange={setExpTu} heightClass="h-9" className="w-36" />
+                  <span className="text-slate-400 text-xs">đến</span>
+                  <DateField value={expDen} onChange={setExpDen} heightClass="h-9" className="w-36" />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">Để trống một đầu = không giới hạn đầu đó.</p>
+              </div>
+              {search.trim() && <div className="text-[11px] text-blue-700 bg-blue-50 border border-blue-100 rounded px-2 py-1.5">Đang áp bộ tìm kiếm: &quot;{search.trim()}&quot;</div>}
+            </div>
+            <div className="p-4 border-t border-slate-100 flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setExportOpen(false)} disabled={exporting} className="text-xs">Hủy</Button>
+              <Button size="sm" onClick={runExportCongNo} disabled={exporting} className="gap-1 text-xs">
+                {exporting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />} Xuất
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL TRỢ THỦ COPY-PASTE CHO KẾ TOÁN */}
+      {activeCard && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setActiveCard(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-1.5">
+                <FileText className="w-5 h-5 text-blue-600" /> Trợ thủ lập Hóa đơn nhanh
+              </h3>
+              <button onClick={() => setActiveCard(null)} className="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+            </div>
+
+            {/* Content (Scrollable) */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+
+              {activeCard.tickets[0].trang_thai_hd === 'Chờ xuất HĐ' && activeCard.tickets.find(t => t.ly_do_tra)?.ly_do_tra && (
+                <div className="text-xs bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 text-rose-800">
+                  <b>⚠ Kế toán trả lại — cần sửa:</b> {activeCard.tickets.find(t => t.ly_do_tra)?.ly_do_tra}
+                </div>
+              )}
+              {activeCard.tickets[0].trang_thai_hd === 'Chờ xuất HĐ' && (
+                <div className="text-xs bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-blue-700">
+                  Bấm <Pencil className="w-3 h-3 inline -mt-0.5" /> cạnh tên hàng để đổi tên hiển thị trên hóa đơn <b>trước khi</b> kéo sang cột kế toán.
+                </div>
+              )}
+
+              {/* Thông tin khách hàng & MST */}
+              <div className="bg-slate-50/70 p-4 rounded-lg border border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase">Tên khách hàng</div>
+                  <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                    {modalTenKh}
+                    <button
+                      onClick={() => handleCopy(modalTenKh, 'ten_kh')}
+                      className={`p-1 bg-white hover:bg-slate-100 border border-slate-200 rounded text-slate-500 transition ${copiedKey === 'ten_kh' ? 'text-emerald-600 border-emerald-200' : ''}`}
+                      title="Copy tên khách hàng"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase">Mã số thuế</div>
+                  <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                    {modalMst || <span className="text-slate-400 italic">Chưa khai báo MST</span>}
+                    {modalMst && (
+                      <button
+                        onClick={() => handleCopy(modalMst, 'mst')}
+                        className={`p-1 bg-white hover:bg-slate-100 border border-slate-200 rounded text-slate-500 transition ${copiedKey === 'mst' ? 'text-emerald-600 border-emerald-200' : ''}`}
+                        title="Copy Mã số thuế"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase">Địa chỉ xuất hóa đơn</div>
+                  <div className="text-sm font-normal text-slate-800 flex items-start gap-1.5">
+                    <span className="min-w-0 break-words">{modalDiaChi || '—'}</span>
+                    {modalDiaChi && (
+                      <button
+                        onClick={() => handleCopy(modalDiaChi, 'dia_chi')}
+                        className={`shrink-0 p-1 bg-white hover:bg-slate-100 border border-slate-200 rounded text-slate-500 transition ${copiedKey === 'dia_chi' ? 'text-emerald-600 border-emerald-200' : ''}`}
+                        title="Copy Địa chỉ"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase">Email nhận hóa đơn</div>
+                  <div className="text-sm font-normal text-slate-800 flex items-start gap-1.5">
+                    {/* Nhiều email M-invoice phân cách bằng ';' -> tách mỗi email 1 dòng cho dễ đọc, chống tràn lề. */}
+                    <div className="min-w-0 break-all leading-snug">
+                      {modalEmail
+                        ? modalEmail.split(';').map((e: string) => e.trim()).filter(Boolean).map((e: string, i: number) => <div key={i}>{e}</div>)
+                        : <span className="text-slate-400 italic">Chưa khai báo Email</span>}
+                    </div>
+                    {modalEmail && (
+                      <button
+                        onClick={() => handleCopy(modalEmail, 'email_kt')}
+                        className={`shrink-0 p-1 bg-white hover:bg-slate-100 border border-slate-200 rounded text-slate-500 transition ${copiedKey === 'email_kt' ? 'text-emerald-600 border-emerald-200' : ''}`}
+                        title="Copy Email nhận HĐ (đầy đủ, có dấu ;)"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Bảng chi tiết sản phẩm / dịch vụ */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Danh sách sản phẩm dịch vụ ({modalDisplayRows.length} mặt hàng){canEditItems && <span className="ml-1.5 normal-case font-normal text-[10px] text-slate-400">· kéo ⠿ để đổi thứ tự</span>}</div>
+                  <div className="flex items-center gap-1.5">
+                    {canEditItems && activeCard.tickets[0]?._co_mau && (
+                      <Button size="sm" variant="outline" onClick={applyTemplate} disabled={savingName} className="h-8 text-xs gap-1 border-amber-300 text-amber-700 hover:bg-amber-50" title="Điền tên + đơn giá đã lưu của khách này (rồi kiểm tra lại)">
+                        <CheckSquare className="w-3.5 h-3.5" /> Áp mẫu khách
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" onClick={exportExcel} className="h-8 text-xs gap-1"><Download className="w-3.5 h-3.5" /> Xuất Excel</Button>
+                    {isKeToan && !canEditItems && (
+                      <Button size="sm" variant="outline" onClick={() => activeCard && exportMinvoice([{ tickets: activeCard.tickets, soDonHang: soDonHangCard(activeCard.tickets) }], `minvoice-${soDonHangCard(activeCard.tickets)}.xlsx`)} className="h-8 text-xs gap-1 border-blue-300 text-blue-700 hover:bg-blue-50" title="Xuất file Excel đúng mẫu M-invoice để import (Tạo hóa đơn từ file excel)"><Download className="w-3.5 h-3.5" /> Xuất M-invoice</Button>
+                    )}
+                    {canEditItems && (
+                      <label className="h-8 px-3 text-xs gap-1 inline-flex items-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer text-slate-700">
+                        <Upload className="w-3.5 h-3.5" /> Nhập Excel
+                        <input type="file" accept=".xlsx" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) importExcel(f); e.target.value = '' }} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-400 -mt-1">Vật tư dùng tên kho sẽ tự ghép <b>mã hàng</b> vào tên khi lên hóa đơn (Tên - Mã). Tên tự đặt / áp mẫu khách và dòng dịch vụ giữ nguyên — muốn bỏ mã thì bấm ✏️ đặt tên riêng.</p>
+                {/* Copy CẢ CỘT (số thô) -> dán xuống 1 cột M-invoice nếu phần mềm cho phép. Chỉ kế toán, không hiện ở cột "Chờ lên hóa đơn". */}
+                {modalDisplayRows.length > 0 && isKeToan && !canEditItems && (
+                  <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-slate-500">
+                    <span className="font-semibold text-slate-600">Copy cả cột:</span>
+                    {([['ten', 'Tên', modalDisplayRows.map(v => tenHangKeToan(v.ten_hang, v.ma_hang, v.ghepMa))], ['sl', 'SL', modalDisplayRows.map(v => String(v.so_luong))], ['gia', 'Đơn giá', modalDisplayRows.map(v => String(v.don_gia))], ['vat', 'VAT', modalDisplayRows.map(v => String(v.vat))]] as [string, string, string[]][]).map(([key, label, vals]) => (
+                      <button key={key} onClick={() => handleCopy(vals.join('\n'), `col_${key}`)}
+                        className={`px-2 py-0.5 rounded border transition ${copiedKey === `col_${key}` ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+                        {copiedKey === `col_${key}` ? '✓ ' : ''}{label}
+                      </button>
+                    ))}
+                    <span className="text-slate-400">(dán xuống 1 cột)</span>
+                  </div>
+                )}
+                <datalist id="dvt-suggest">
+                  {['Cái', 'Hộp', 'Chiếc', 'Bộ', 'Ram', 'Cuộn', 'Chai', 'Lọ', 'Gói', 'Thùng', 'Bình', 'Cây', 'Tờ', 'Kg', 'Mét', 'Tháng', 'Bản'].map(u => <option key={u} value={u} />)}
+                </datalist>
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                  <table className="w-full text-left text-xs text-slate-600">
+                    <thead className="bg-slate-50 text-slate-500 font-semibold uppercase">
+                      <tr>
+                        <th className="px-3 py-2">Tên vật tư / dịch vụ</th>
+                        <th className="px-3 py-2 text-center w-14">SL</th>
+                        <th className="px-3 py-2 text-center w-16">ĐVT</th>
+                        <th className="px-3 py-2 text-right w-24">Đơn giá</th>
+                        <th className="px-3 py-2 text-center w-14">VAT</th>
+                        <th className="px-3 py-2 text-right w-24">Thành tiền</th>
+                        <th className="px-3 py-2 text-center w-16">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white font-medium text-slate-700">
+                      {modalDisplayRows.map((v, i) => {
+                        const tt = v.so_luong * v.don_gia
+                        const copyText = `${tenHangKeToan(v.ten_hang, v.ma_hang, v.ghepMa)}\t${v.so_luong}\t${v.don_gia}\t${v.vat}`
+                        if (canEditItems && editName?.ma_hang === v.ma_hang) {
+                          return (
+                            <tr key={i} className="bg-blue-50/40">
+                              <td colSpan={7} className="px-3 py-2.5">
+                                <div className="flex flex-col gap-2">
+                                  <Input
+                                    value={editName.ten}
+                                    onChange={e => setEditName({ ...editName, ten: e.target.value })}
+                                    placeholder="Tên hàng trên hóa đơn"
+                                    className="h-9 bg-white text-xs"
+                                  />
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <label className="flex flex-col gap-1">
+                                      <span className="text-[10px] text-slate-400">Đơn giá</span>
+                                      <Input
+                                        value={editName.gia}
+                                        onChange={e => setEditName({ ...editName, gia: e.target.value })}
+                                        placeholder="Đơn giá"
+                                        inputMode="numeric"
+                                        className="h-9 bg-white text-xs text-right"
+                                      />
+                                    </label>
+                                    <label className="flex flex-col gap-1">
+                                      <span className="text-[10px] text-slate-400">ĐVT (trống = Cái)</span>
+                                      <Input
+                                        value={editName.dvt}
+                                        onChange={e => setEditName({ ...editName, dvt: e.target.value })}
+                                        placeholder="Cái"
+                                        list="dvt-suggest"
+                                        className="h-9 bg-white text-xs"
+                                      />
+                                    </label>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2 items-center">
+                                    <Button size="sm" onClick={() => saveName('hoa_don')} disabled={savingName} className="h-8 text-xs bg-blue-600 hover:bg-blue-700">Chỉ hóa đơn này</Button>
+                                    <Button size="sm" variant="outline" onClick={() => saveName('khach')} disabled={savingName} className="h-8 text-xs">Lưu mẫu cho khách</Button>
+                                    <button onClick={() => setEditName(null)} className="text-xs text-slate-500 hover:text-slate-700 px-1">Hủy</button>
+                                    <button onClick={resetName} disabled={savingName} title="Xóa mẫu đã lưu cho khách/cụm ở mã hàng này. Dòng vật tư kho về tên kho; dòng dịch vụ giữ tên hiện tại." className="text-xs text-rose-500 hover:text-rose-700 px-1 disabled:opacity-50">↺ Reset mẫu</button>
+                                    <span className="text-[10px] text-slate-400 ml-auto font-mono">Mã: {v.ma_hang}</span>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        }
+                        return (
+                          <tr
+                            key={i}
+                            draggable={!!canEditItems}
+                            onDragStart={canEditItems ? (e => { setDragVtIdx(i); e.dataTransfer.effectAllowed = 'move' }) : undefined}
+                            onDragOver={canEditItems ? (e => e.preventDefault()) : undefined}
+                            onDrop={canEditItems ? (e => { e.preventDefault(); if (dragVtIdx != null) moveVatTu(dragVtIdx, i); setDragVtIdx(null) }) : undefined}
+                            onDragEnd={() => setDragVtIdx(null)}
+                            className={`hover:bg-slate-50/50 ${canEditItems ? 'cursor-move' : ''} ${dragVtIdx === i ? 'opacity-40' : ''}`}
+                          >
+                            <td className="px-3 py-2.5 font-medium">
+                              <div className="flex items-center gap-1.5">
+                                {canEditItems && <GripVertical className="w-3.5 h-3.5 text-slate-300 shrink-0" />}
+                                <span>{tenHangKeToan(v.ten_hang, v.ma_hang, v.ghepMa)}</span>
+                                {canEditItems && (
+                                  <button
+                                    onClick={() => { const ten = v.ten_hang, gia = v.don_gia ? String(v.don_gia) : '', dvt = v.dvt || ''; setEditName({ ma_hang: v.ma_hang, ten, gia, dvt, ten0: ten, gia0: gia, dvt0: dvt }) }}
+                                    title="Đổi tên / đơn giá / ĐVT hiển thị trên hóa đơn"
+                                    className="text-slate-300 hover:text-blue-600 shrink-0"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2.5 text-center">{v.so_luong}</td>
+                            <td className="px-3 py-2.5 text-center text-slate-500">{v.dvt || 'Cái'}</td>
+                            <td className="px-3 py-2.5 text-right font-mono">{fmtVnd(v.don_gia)}</td>
+                            <td className="px-3 py-2.5 text-center font-mono">{v.vat}%</td>
+                            <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-800">{fmtVnd(tt)}</td>
+                            <td className="px-2 py-2.5 text-center">
+                              <button
+                                onClick={() => handleCopy(copyText, `row_${i}`)}
+                                className={`p-1 bg-white hover:bg-slate-100 border border-slate-200 rounded text-slate-500 transition ${copiedKey === `row_${i}` ? 'text-emerald-600 border-emerald-200' : ''}`}
+                                title="Copy nguyên dòng (Tên	SL	Đơn giá	VAT) để dán nhanh Excel/MISA"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Bảng tổng cộng tài chính */}
+              <div className="bg-slate-50/50 p-4 rounded-lg border border-slate-100 flex flex-col gap-2">
+                <div className="flex justify-between items-center text-xs text-slate-500">
+                  <span>Tổng tiền hàng (trước thuế):</span>
+                  <span className="font-mono font-bold text-slate-700">{fmtVnd(modalTruoc)} đ</span>
+                </div>
+                <div className="flex justify-between items-center text-xs text-slate-500">
+                  <span>Tiền thuế VAT:</span>
+                  <span className="font-mono font-bold text-slate-700">{fmtVnd(modalVat)} đ</span>
+                </div>
+                {modalLamTron !== 0 && (
+                  <div className="flex justify-between items-center text-xs text-amber-600">
+                    <span>Chênh lệch làm tròn:</span>
+                    <span className="font-mono font-bold">{modalLamTron > 0 ? '+' : ''}{fmtVnd(modalLamTron)} đ</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center gap-2 text-sm border-t border-dashed border-slate-200 pt-2 font-bold text-slate-800">
+                  <span>TỔNG CỘNG THANH TOÁN (sau thuế):</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-mono text-blue-700 text-base">{fmtVnd(modalTong)} đ</span>
+                    {canEditItems && !roundOpen && (
+                      <button onClick={() => { setRoundVal(fmtMoneyInput(String(modalTong))); setRoundOpen(true) }} title="Đặt tổng sau thuế thành số tròn (chênh lệch lưu vào khoản làm tròn)" className="text-slate-300 hover:text-blue-600">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {canEditItems && roundOpen && (
+                  <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-dashed border-slate-200">
+                    <span className="text-[11px] text-slate-500">Đặt tổng sau thuế:</span>
+                    <Input value={roundVal} onChange={e => setRoundVal(fmtMoneyInput(e.target.value))} inputMode="numeric" className="h-8 w-36 text-right text-xs font-mono bg-white" />
+                    <span className="text-[11px] text-slate-400">đ</span>
+                    <Button size="sm" onClick={saveLamTron} disabled={savingRound} className="h-8 text-xs bg-blue-600 hover:bg-blue-700">Lưu</Button>
+                    <button onClick={() => setRoundVal(fmtMoneyInput(String(Math.round(modalStats.sauVat))))} className="text-[11px] text-slate-500 hover:text-slate-700 px-1" title="Đặt lại về số tự tính (bỏ làm tròn)">Bỏ làm tròn</button>
+                    <button onClick={() => setRoundOpen(false)} className="text-[11px] text-slate-500 hover:text-slate-700 px-1">Hủy</button>
+                  </div>
+                )}
+              </div>
+
+              {/* Số hóa đơn đầu vào (Chỉ hiện khi ở cột 2 hoặc để xem lại cột 3/4) */}
+              {activeCard.tickets[0].trang_thai_hd !== 'Chờ xuất HĐ' && (
+                <div className="space-y-1 bg-blue-50/40 p-4 rounded-lg border border-blue-100">
+                  <label className="text-xs font-bold text-blue-800 uppercase tracking-wider flex items-center gap-1">
+                    <Hash className="w-3.5 h-3.5" /> Số hóa đơn kế toán <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    required
+                    placeholder="Nhập số hóa đơn (MISA/SAPP/Fast) để hoàn tất"
+                    value={invoiceNum}
+                    onChange={e => setInvoiceNum(e.target.value)}
+                    disabled={activeCard.tickets[0].trang_thai_hd !== 'Đang xử lý HĐ' || !isKeToan}
+                    className="h-10 mt-1 bg-white uppercase font-mono font-bold text-slate-800 border-blue-200 focus:ring-blue-500 disabled:bg-slate-100 disabled:text-slate-400"
+                  />
+                  {activeCard.tickets[0].trang_thai_hd === 'Đang xử lý HĐ' && !isKeToan
+                    ? <p className="text-[10px] text-amber-600">Chỉ kế toán (KT-HC) mới nhập số hóa đơn và hoàn tất. Bạn chỉ xem/đối chiếu.</p>
+                    : <p className="text-[10px] text-blue-600">Lưu ý: Bắt buộc điền đúng Số hóa đơn đã xuất trên phần mềm để lưu vết đối chiếu.</p>}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2 shrink-0 flex-wrap">
+              <Button variant="outline" onClick={() => setActiveCard(null)} className="h-10">Đóng</Button>
+              {/* Nút chuyển trạng thái (thay kéo thả — dùng được trên điện thoại), theo vai trò + cột. */}
+              {(() => {
+                const st = activeCard.tickets[0].trang_thai_hd
+                const canGiao = role === 'admin' || role === 'tech_admin' || role === 'staff'
+                const canKt = role === 'admin' || role === 'kthc'
+                return <>
+                  {st === 'Chờ xuất HĐ' && canGiao && (
+                    <Button onClick={() => moveStatus('Đang xử lý HĐ')} disabled={completing} className="h-10">Xem &amp; Bàn giao Kế toán →</Button>
+                  )}
+                  {st === 'Đã lên hóa đơn' && canKt && (
+                    <>
+                      <Button variant="outline" onClick={() => moveStatus('Đang xử lý HĐ')} disabled={completing} className="h-10">← Trả về xử lý</Button>
+                      <Button onClick={() => { const ids = activeCard.tickets.map(t => t.id); setActiveCard(null); openPayModal(ids) }} disabled={completing} className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Thu tiền / Thanh toán →</Button>
+                    </>
+                  )}
+                  {st === 'Đã thanh toán' && canKt && (
+                    <Button variant="outline" onClick={() => moveStatus('Đã lên hóa đơn', true)} disabled={completing} className="h-10">← Bỏ đánh dấu thanh toán</Button>
+                  )}
+                  {st === 'Đang xử lý HĐ' && canKt && (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => setReturnTarget({ ids: activeCard.tickets.map(t => t.id), reason: '' })}
+                        disabled={completing}
+                        className="h-10 border-rose-200 text-rose-700 hover:bg-rose-50"
+                        title="Trả phiếu về 'Chờ lên hóa đơn' cho tech_admin/staff sửa thông tin"
+                      >
+                        ← Trả lại (thiếu thông tin)
+                      </Button>
+                      <Button
+                        onClick={handleCompleteInvoice}
+                        disabled={completing || !invoiceNum.trim()}
+                        className="h-10 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                      >
+                        {completing ? 'Đang xử lý...' : 'Hoàn tất xuất hóa đơn'}
+                      </Button>
+                    </>
+                  )}
+                </>
+              })()}
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* MODAL THU TIỀN (theo số hóa đơn) */}
+      {payModal && (() => {
+        const con = Math.max(0, payModal.tong - payModal.daThu)
+        return (
+          <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4" onClick={() => setPayModal(null)}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                <h3 className="text-base font-bold text-slate-800 flex items-center gap-1.5"><Landmark className="w-5 h-5 text-indigo-600" /> Thu tiền hóa đơn</h3>
+                <button onClick={() => setPayModal(null)} className="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="text-sm">
+                  <div className="font-semibold text-slate-800">{payModal.tenKh}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">Số HĐ: <b className="font-mono">{payModal.soHd || '—'}</b> · {payModal.soPhieu.length} phiếu ({payModal.soPhieu.join(', ')})</div>
+                </div>
+                <div className="bg-slate-50 rounded-lg border border-slate-100 p-3 space-y-1.5 text-sm">
+                  <div className="flex justify-between"><span className="text-slate-500">Tổng hóa đơn (sau VAT):</span><b className="font-mono">{fmtVnd(payModal.tong)} đ</b></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Đã thu trước đó:</span><span className="font-mono">{fmtVnd(payModal.daThu)} đ</span></div>
+                  <div className="flex justify-between border-t border-dashed border-slate-200 pt-1.5"><span className="font-semibold text-slate-700">Còn phải thu:</span><b className="font-mono text-blue-700">{fmtVnd(con)} đ</b></div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Số tiền khách thanh toán (đợt này)</label>
+                  <div className="flex gap-2">
+                    <Input value={payInput} onChange={e => setPayInput(fmtMoneyInput(e.target.value))} inputMode="numeric" placeholder="0" className="h-10 bg-white text-right font-mono font-bold text-slate-800" />
+                    <Button variant="outline" onClick={() => setPayInput(fmtMoneyInput(String(con)))} className="h-10 whitespace-nowrap">Trả đủ</Button>
+                  </div>
+                  <p className="text-[10px] text-slate-400">Trả thiếu → thẻ ở lại &quot;Chờ thanh toán&quot;. Trả đủ/dư → xác nhận rồi chuyển &quot;Đã thanh toán&quot;.</p>
+                </div>
+              </div>
+              <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center gap-2">
+                {role === 'admin'
+                  ? <button onClick={resetThu} disabled={paying} className="text-xs text-slate-400 hover:text-rose-600">Đặt lại đã thu</button>
+                  : <span />}
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setPayModal(null)} disabled={paying} className="h-10">Đóng</Button>
+                  <Button onClick={submitPay} disabled={paying || !parseMoney(payInput)} className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">{paying ? 'Đang ghi...' : 'Ghi nhận'}</Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* MODAL XÁC NHẬN (THAY THẾ WINDOW.CONFIRM) */}
+      {/* HỘP THOẠI KẾ TOÁN TRẢ LẠI PHIẾU (nhập lý do) */}
+      {returnTarget && (
+        <div className="fixed inset-0 bg-black/50 z-[75] flex items-center justify-center p-4" onClick={() => !returning && setReturnTarget(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-4 bg-rose-50 border-b border-rose-100">
+              <h3 className="text-base font-bold text-rose-800">Trả phiếu về &quot;Chờ lên hóa đơn&quot;</h3>
+              <p className="text-xs text-rose-600 mt-0.5">Phiếu quay lại cột 1 cho tech_admin/staff sửa. Nêu rõ cần sửa gì.</p>
+            </div>
+            <div className="p-5">
+              <label className="text-xs font-semibold text-slate-600">Lý do trả lại <span className="text-red-500">*</span></label>
+              <textarea
+                value={returnTarget.reason}
+                onChange={e => setReturnTarget(r => r ? { ...r, reason: e.target.value } : r)}
+                placeholder="VD: Thiếu MST khách; sai đơn giá dòng Mực TN514; chưa có địa chỉ xuất hóa đơn…"
+                rows={4}
+                className="mt-1 w-full rounded-md border border-slate-200 p-2.5 text-sm outline-none focus:ring-2 focus:ring-rose-300 resize-none"
+              />
+            </div>
+            <div className="p-4 border-t border-slate-100 flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setReturnTarget(null)} disabled={returning} className="text-xs">Hủy</Button>
+              <Button size="sm" onClick={doReturn} disabled={returning || !returnTarget.reason.trim()} className="text-xs bg-rose-600 hover:bg-rose-700 text-white">
+                {returning ? 'Đang trả…' : 'Trả lại phiếu'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CHỐT CHẶN: kiểm tra trước khi BÀN GIAO KẾ TOÁN (cột 1 -> 2). Read-only, luôn bật. */}
+      {giaoReview && (() => {
+        const allVt = giaoReview.tickets.flatMap(t => t.soct_chi_tiet_vat_tu || [])
+        const items = aggVatTu(allVt)
+        const tong = Math.round(getVatTuStats(allVt).sauVat) + cardLamTron(giaoReview.tickets)
+        const soPhieu = [...new Set(giaoReview.tickets.map(t => t.report).filter(Boolean))].join(', ')
+        const canhBao = items.reduce((n, it) => n + ((Number(it.don_gia) || 0) === 0 || !String(it.dvt || '').trim() || (Number(it.so_luong) || 0) === 0 ? 1 : 0), 0)
+        // Thuế suất trên hóa đơn: các dòng có đơn giá > 0 (dòng giá 0/KM không tính thuế). 1 HĐ = 1 thuế suất.
+        const vatRates = [...new Set(allVt.filter(v => !v.da_tra && (Number(v.don_gia) || 0) > 0).map(v => Number(v.vat) || 0))]
+        const multiVat = vatRates.length > 1
+        const lt = cardLamTron(giaoReview.tickets) // khoản làm tròn (đồng, có thể âm)
+        // Người mua: ưu tiên cụm (đơn vị xuất HĐ) rồi tới khách của máy; tên có thể bị ghi đè bởi ten_khach_hd.
+        const t0 = giaoReview.tickets[0]
+        const kh = t0?.soct_khach_hang
+        const cum = kh?.soct_khach_cum
+        const muaTen = String(t0?.ten_khach_hd || cum?.ten_khach_hang || kh?.ten_khach_hang || '').trim().toUpperCase()
+        const muaDC = String(cum?.dia_chi || kh?.dia_chi || '').trim()
+        const muaMST = String(cum?.ma_so_thue || kh?.ma_so_thue || '').trim()
+        const S = sellerFromCfg(cfg)
+        return (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => setGiaoReview(null)}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="p-4 bg-amber-50 border-b border-amber-200">
+                <h3 className="text-base font-bold text-amber-800 flex items-center gap-2"><AlertCircle className="w-5 h-5" /> Kiểm tra trước khi bàn giao kế toán</h3>
+                <p className="text-xs text-amber-700 mt-1">Soi kỹ <b>Tên hàng · SL · ĐVT · MST/địa chỉ khách</b> như trên hóa đơn dưới đây. Sau khi bàn giao sẽ <b>KHÓA sửa</b> — kế toán lên hóa đơn ngay.{soPhieu ? ` · Phiếu: ${soPhieu}` : ''}</p>
+                {canhBao > 0 && <p className="text-xs font-semibold text-rose-600 mt-1">⚠ {canhBao} dòng cần xem lại (tô đỏ bên dưới): giá 0đ / ĐVT trống / SL 0.</p>}
+                {multiVat && <p className="text-xs font-semibold text-rose-600 mt-1">⚠ Lô có nhiều thuế suất ({vatRates.map(v => v + '%').join(', ')}) — 1 hóa đơn chỉ 1 thuế suất, phải TÁCH hóa đơn riêng.</p>}
+              </div>
+
+              <div className="overflow-auto flex-1 bg-slate-100 p-4">
+                  <div className="mb-3 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-[11px] px-3 py-2 text-center">
+                    🧾 <b>BẢN XEM TRƯỚC</b> để office đối chiếu — <b>chưa phải hóa đơn hợp lệ</b>. Số HĐ · Ngày · Mã CQ thuế do kế toán phát hành trên M-invoice.
+                  </div>
+                  <InvoiceSheet
+                    seller={S}
+                    buyer={{ ten: muaTen, dia_chi: muaDC, mst: muaMST }}
+                    items={items.map((it: any) => ({ ten: tenHangKeToan(it.ten_hang, it.ma_hang, it.ghepMa), dvt: it.dvt, so_luong: it.so_luong, don_gia: it.don_gia, vat: it.vat }))}
+                    kyHieu={kyHieuMinvoice}
+                    lamTron={lt}
+                  />
+              </div>
+
+              <div className="p-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-2 flex-wrap">
+                <span className="text-xs text-slate-500">Tổng sau VAT: <b className="text-slate-800 text-sm">{fmtVnd(tong)} đ</b></span>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setGiaoReview(null)} className="h-9 text-xs">Hủy</Button>
+                  <Button variant="outline" onClick={() => { const ts = giaoReview.tickets; setGiaoReview(null); setInvoiceNum(ts[0]?.so_hoa_don || ''); setActiveCard({ type: ts.length > 1 ? 'group' : 'single', tickets: ts }) }} className="h-9 text-xs">Mở thẻ để sửa</Button>
+                  <Button onClick={() => { const fn = giaoReview.onConfirm; setGiaoReview(null); fn() }} className="h-9 text-xs bg-blue-600 hover:bg-blue-700 text-white">Bàn giao kế toán →</Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* CHỐT CHẶN xem trước hóa đơn cho LỆNH KD (cột 1 -> 2) — dùng chung InvoiceSheet. */}
+      {kdReview && (() => {
+        const t = kdReview.ticket
+        const kdItems = t.lines.map(l => ({ ten: String(l.ten_hang_hd || l.ten_hang || '').trim(), dvt: l.dvt || 'Cái', so_luong: l.so_luong, don_gia: l.don_gia, vat: l.vat }))
+        const canhBao = kdItems.reduce((n, it) => n + ((Number(it.don_gia) || 0) === 0 || !String(it.dvt || '').trim() || (Number(it.so_luong) || 0) === 0 ? 1 : 0), 0)
+        const vatRates = [...new Set(kdItems.filter(it => (Number(it.don_gia) || 0) > 0).map(it => Number(it.vat) || 0))]
+        const multiVat = vatRates.length > 1
+        const lt = Number(t.lam_tron) || 0
+        const truoc = kdItems.reduce((s, it) => s + it.so_luong * it.don_gia, 0)
+        const vat = kdItems.reduce((s, it) => s + it.so_luong * it.don_gia * it.vat / 100, 0)
+        const tong = Math.round(truoc + vat) + lt
+        return (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => setKdReview(null)}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="p-4 bg-amber-50 border-b border-amber-200">
+                <h3 className="text-base font-bold text-amber-800 flex items-center gap-2"><AlertCircle className="w-5 h-5" /> Kiểm tra trước khi bàn giao kế toán (lệnh KD)</h3>
+                <p className="text-xs text-amber-700 mt-1">Soi kỹ <b>Tên hàng · SL · ĐVT · MST/địa chỉ khách</b> như trên hóa đơn dưới đây. Sau khi bàn giao sẽ <b>KHÓA sửa</b> — kế toán lên hóa đơn ngay.{t.so_lenh ? ` · Lệnh: ${t.so_lenh}` : ''}</p>
+                {canhBao > 0 && <p className="text-xs font-semibold text-rose-600 mt-1">⚠ {canhBao} dòng cần xem lại (tô đỏ bên dưới): giá 0đ / ĐVT trống / SL 0.</p>}
+                {multiVat && <p className="text-xs font-semibold text-rose-600 mt-1">⚠ Lô có nhiều thuế suất ({vatRates.map(v => v + '%').join(', ')}) — 1 hóa đơn chỉ 1 thuế suất, phải TÁCH hóa đơn riêng.</p>}
+              </div>
+              <div className="overflow-auto flex-1 bg-slate-100 p-4">
+                <div className="mb-3 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-[11px] px-3 py-2 text-center">
+                  🧾 <b>BẢN XEM TRƯỚC</b> để office đối chiếu — <b>chưa phải hóa đơn hợp lệ</b>. Số HĐ · Ngày · Mã CQ thuế do kế toán phát hành trên M-invoice.
+                </div>
+                <InvoiceSheet
+                  seller={sellerFromCfg(cfg)}
+                  buyer={{ ten: t.ten_khach_hd || t.ten_khach_hang, dia_chi: t.dia_chi || '', mst: t.ma_so_thue || '' }}
+                  items={kdItems}
+                  kyHieu={kyHieuMinvoice}
+                  lamTron={lt}
+                />
+              </div>
+              <div className="p-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-2 flex-wrap">
+                <span className="text-xs text-slate-500">Tổng sau VAT: <b className="text-slate-800 text-sm">{fmtVnd(tong)} đ</b></span>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setKdReview(null)} className="h-9 text-xs">Hủy</Button>
+                  <Button variant="outline" onClick={() => { setKdReview(null); setKdActive(t) }} className="h-9 text-xs">Mở chi tiết lệnh</Button>
+                  <Button onClick={() => { const fn = kdReview.onConfirm; setKdReview(null); fn() }} className="h-9 text-xs bg-blue-600 hover:bg-blue-700 text-white">Bàn giao kế toán →</Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {confirmDialog && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => setConfirmDialog(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-5 space-y-3">
+              <h3 className="text-lg font-bold text-red-700 flex items-center gap-2">
+                <AlertCircle className="w-5 h-5" /> {confirmDialog.title}
+              </h3>
+              <p className="text-sm text-slate-600 whitespace-pre-wrap">
+                {confirmDialog.message}
+              </p>
+            </div>
+            <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
+              <Button variant="outline" onClick={() => setConfirmDialog(null)} className="h-9">Hủy bỏ</Button>
+              <Button
+                variant="destructive"
+                onClick={async () => {
+                  const act = confirmDialog.onConfirm
+                  setConfirmDialog(null)
+                  await act()
+                }}
+                className="h-9"
+              >
+                Xác nhận
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KẾT QUẢ IMPORT BÁO CÁO M-INVOICE */}
+      {importResult && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => setImportResult(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-slate-100 shrink-0">
+              <h3 className="font-bold text-slate-800">Kết quả import báo cáo M-invoice</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Đã đọc {importResult.total} hóa đơn trong file.</p>
+            </div>
+            <div className="p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
+              <div className="flex flex-wrap gap-3">
+                <div className="flex-1 min-w-[140px] rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+                  <div className="text-2xl font-bold text-emerald-700">{importResult.ok}</div>
+                  <div className="text-xs text-emerald-700">thẻ đã điền số HĐ + chuyển sang <b>Chờ thanh toán</b></div>
+                </div>
+                <div className="flex-1 min-w-[140px] rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                  <div className="text-2xl font-bold text-amber-700">{importResult.skipped.length + importResult.failed.length}</div>
+                  <div className="text-xs text-amber-700">dòng chưa xử lý — cần làm tay</div>
+                </div>
+              </div>
+
+              {importResult.failed.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-red-600 uppercase mb-1.5">Lỗi khi cập nhật ({importResult.failed.length})</p>
+                  <div className="rounded-lg border border-red-100 divide-y divide-red-50">
+                    {importResult.failed.map((f, i) => (
+                      <div key={i} className="px-3 py-2 text-xs flex gap-2"><span className="font-mono font-semibold text-slate-700 shrink-0">HĐ {f.soHD}</span><span className="text-red-600">{f.reason}</span></div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {importResult.skipped.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-amber-600 uppercase mb-1.5">Không khớp — cần xử lý tay ({importResult.skipped.length})</p>
+                  <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-[40vh] overflow-y-auto">
+                    {importResult.skipped.map((s, i) => (
+                      <div key={i} className="px-3 py-2 text-xs">
+                        <div className="flex gap-2 items-baseline"><span className="font-mono font-semibold text-slate-700 shrink-0">HĐ {s.soHD}</span><span className="text-slate-500 truncate">{s.ten}</span></div>
+                        <div className="text-amber-700 mt-0.5">{s.reason}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {importResult.ok === importResult.total && (
+                <div className="rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs px-3 py-2">✓ Tất cả hóa đơn trong file đều đã khớp và xử lý xong.</div>
+              )}
+            </div>
+            <div className="px-5 py-4 border-t border-slate-100 flex justify-end shrink-0">
+              <Button onClick={() => setImportResult(null)} className="h-9 bg-blue-600 hover:bg-blue-700">Đóng</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KẾT QUẢ IMPORT THANH TOÁN (FAST) */}
+      {payResult && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => setPayResult(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-slate-100 shrink-0">
+              <h3 className="font-bold text-slate-800">Kết quả đối ứng thanh toán (FAST)</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Thu = tổng HĐ → tự chuyển "Đã thanh toán". Các trường hợp khác giữ ở "Chờ thanh toán" để đối soát.</p>
+            </div>
+            <div className="p-5 space-y-4 overflow-y-auto flex-1 min-h-0 text-sm">
+              <div className="flex flex-wrap gap-3">
+                <div className="flex-1 min-w-[120px] rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3">
+                  <div className="text-2xl font-bold text-indigo-700">{payResult.moved.length}</div>
+                  <div className="text-xs text-indigo-700">HĐ thu đủ → chuyển <b>Đã thanh toán</b></div>
+                </div>
+                <div className="flex-1 min-w-[120px] rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                  <div className="text-2xl font-bold text-amber-700">{payResult.partial.length + payResult.over.length}</div>
+                  <div className="text-xs text-amber-700">HĐ ghi nhận đã thu (giữ ở Chờ thanh toán)</div>
+                </div>
+                <div className="flex-1 min-w-[120px] rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="text-2xl font-bold text-slate-700">{payResult.lumps.length}</div>
+                  <div className="text-xs text-slate-600">Khoản gộp cần đối chiếu tay</div>
+                </div>
+              </div>
+
+              {payResult.failed.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-red-600 uppercase mb-1.5">Lỗi ghi nhận ({payResult.failed.length})</p>
+                  <div className="rounded-lg border border-red-100 divide-y divide-red-50">
+                    {payResult.failed.map((f: any, i: number) => <div key={i} className="px-3 py-1.5 text-xs flex gap-2"><span className="font-mono font-semibold shrink-0">HĐ {f.hd}</span><span className="text-red-600">{f.reason}</span></div>)}
+                  </div>
+                </div>
+              )}
+
+              {(payResult.partial.length > 0 || payResult.over.length > 0) && (
+                <div>
+                  <p className="text-xs font-semibold text-amber-600 uppercase mb-1.5">Đã ghi nhận — ở lại Chờ thanh toán</p>
+                  <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-[24vh] overflow-y-auto">
+                    {payResult.partial.map((p: any, i: number) => <div key={'p' + i} className="px-3 py-1.5 text-xs flex justify-between gap-2"><span className="font-mono font-semibold">HĐ {p.hd}</span><span className="text-amber-700">đã thu {fmtVnd(p.daThu)} / {fmtVnd(p.tong)} · còn {fmtVnd(p.tong - p.daThu)}</span></div>)}
+                    {payResult.over.map((p: any, i: number) => <div key={'o' + i} className="px-3 py-1.5 text-xs flex justify-between gap-2"><span className="font-mono font-semibold">HĐ {p.hd}</span><span className="text-rose-600">thu DƯ {fmtVnd(p.daThu - p.tong)} (thu {fmtVnd(p.daThu)} / {fmtVnd(p.tong)}) — kiểm tra</span></div>)}
+                  </div>
+                </div>
+              )}
+
+              {payResult.lumps.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-600 uppercase mb-1.5">Khoản gộp "Thu tiền hàng" — đối chiếu tay theo khách</p>
+                  <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-[28vh] overflow-y-auto">
+                    {payResult.lumps.map((l: any, i: number) => (
+                      <div key={i} className="px-3 py-2 text-xs space-y-0.5">
+                        <div className="flex justify-between gap-2">
+                          <span className="font-medium text-slate-800 truncate">{l.khach}</span>
+                          <span className="text-[10px] text-slate-400 shrink-0">chuyển {l.tuNgay ? fmtDate(l.tuNgay) : '?'}{l.denNgay && l.denNgay !== l.tuNgay ? `–${fmtDate(l.denNgay)}` : ''}</span>
+                        </div>
+                        <div className="text-emerald-700 font-semibold">Đã chuyển (sau ngày xuất HĐ): {fmtVnd(l.tienSau)} đ</div>
+                        <div className="text-[11px] text-slate-500">
+                          HĐ chờ (tổng còn nợ <b className="text-slate-700">{fmtVnd(l.tongCon)}</b>): {l.hds.map((h: any) => `${h.hd}${h.ngayXuat ? ` · xuất ${fmtDate(h.ngayXuat)}` : ''} · còn ${fmtVnd(h.con)}`).join('  ·  ')}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">Khoản gộp không ghi số HĐ nên không tự đối ứng — kế toán tự thu tiền cho HĐ tương ứng.</p>
+                </div>
+              )}
+
+              {payResult.khacCount > 0 && (
+                <p className="text-[11px] text-slate-400">Bỏ qua <b>{payResult.khacCount}</b> khoản thu cho HĐ không thuộc "Chờ thanh toán" (đã ở Đã thanh toán / kỳ khác).</p>
+              )}
+            </div>
+            <div className="px-5 py-4 border-t border-slate-100 flex justify-end shrink-0">
+              <Button onClick={() => setPayResult(null)} className="h-9 bg-blue-600 hover:bg-blue-700">Đóng</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DUYỆT ĐỐI CHIẾU SAO KÊ NGÂN HÀNG */}
+      {dcResult && (() => {
+        const exact = dcResult.matches.filter((m: any) => m.kind === 'exact')
+        const suggest = dcResult.matches.filter((m: any) => m.kind === 'suggest')
+        const nPicked = dcResult.matches.filter((m: any) => m.pick).length
+        const toggle = (target: any) => setDcResult((prev: any) => ({ ...prev, matches: prev.matches.map((m: any) => m === target ? { ...m, pick: !m.pick } : m) }))
+        const row = (m: any, idx: number) => (
+          <label key={idx} className={`flex items-start gap-2 px-3 py-2 text-xs cursor-pointer ${m.pick ? 'bg-emerald-50/60' : ''}`}>
+            <input type="checkbox" checked={m.pick} onChange={() => toggle(m)} className="mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between gap-2">
+                <span className="font-semibold text-slate-800 truncate">{m.khach}</span>
+                <span className="font-mono font-semibold text-slate-700 shrink-0">HĐ {m.so_hoa_don}</span>
+              </div>
+              <div className="text-slate-500 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                <span>GD: <b className="text-slate-700">{fmtVnd(m.tx.so_tien)}đ</b>{m.tx.ngay ? ` · ${fmtDate(m.tx.ngay)}` : ''}</span>
+                <span>Tổng HĐ: {fmtVnd(m.tong)}đ{m.xuat ? ` · xuất ${fmtDate(m.xuat)}` : ''}</span>
+                {Math.abs(m.tong - m.tx.so_tien) > 1000 && <span className="text-rose-600">lệch {fmtVnd(Math.abs(m.tong - m.tx.so_tien))}đ</span>}
+                {m.gap != null && m.gap < -5 && <span className="text-rose-600">GD trước HĐ {Math.abs(m.gap)} ngày</span>}
+              </div>
+              {m.tx.nguoi && <div className="text-[10px] text-slate-400 truncate">Người chuyển: {m.tx.nguoi}</div>}
+              {m.kind === 'suggest' && <div className="text-[10px] text-amber-600">⚠ {m.reason}</div>}
+            </div>
+          </label>
+        )
+        return (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => !dcApplying && setDcResult(null)}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="px-5 py-4 border-b border-slate-100 shrink-0">
+                <h3 className="font-bold text-slate-800">Đối chiếu sao kê — <span className="text-blue-700">{dcResult.bank}</span> · {dcResult.total} giao dịch</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Khớp chắc (HĐ + tiền) đã tick sẵn. Gợi ý cần bạn kiểm rồi tick. Chỉ ghi khi bấm <b>Ghi nhận</b>.</p>
+              </div>
+              <div className="p-5 space-y-4 overflow-y-auto flex-1 min-h-0 text-sm">
+                <div className="flex flex-wrap gap-3">
+                  <div className="flex-1 min-w-[110px] rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+                    <div className="text-2xl font-bold text-emerald-700">{exact.length}</div>
+                    <div className="text-xs text-emerald-700">Khớp chắc (HĐ + tiền)</div>
+                  </div>
+                  <div className="flex-1 min-w-[110px] rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                    <div className="text-2xl font-bold text-amber-700">{suggest.length}</div>
+                    <div className="text-xs text-amber-700">Gợi ý (chờ duyệt)</div>
+                  </div>
+                  <div className="flex-1 min-w-[110px] rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                    <div className="text-2xl font-bold text-slate-600">{dcResult.none.length}</div>
+                    <div className="text-xs text-slate-600">Có HĐ, không ở chờ thu</div>
+                  </div>
+                </div>
+
+                {exact.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-emerald-600 uppercase mb-1.5">Khớp chắc — tick sẵn</p>
+                    <div className="rounded-lg border border-emerald-100 divide-y divide-emerald-50 max-h-[30vh] overflow-y-auto">
+                      {exact.map((m: any, i: number) => row(m, i))}
+                    </div>
+                  </div>
+                )}
+
+                {suggest.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-amber-600 uppercase mb-1.5">Gợi ý — kiểm rồi tick</p>
+                    <div className="rounded-lg border border-amber-100 divide-y divide-amber-50 max-h-[26vh] overflow-y-auto">
+                      {suggest.map((m: any, i: number) => row(m, i))}
+                    </div>
+                  </div>
+                )}
+
+                {dcResult.none.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase mb-1.5">Giao dịch có số HĐ nhưng không ở "Chờ thanh toán"</p>
+                    <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-[20vh] overflow-y-auto">
+                      {dcResult.none.map((n: any, i: number) => (
+                        <div key={i} className="px-3 py-1.5 text-xs flex justify-between gap-2">
+                          <span className="font-mono font-semibold shrink-0">HĐ {n.tx.soHD}</span>
+                          <span className="text-slate-500 truncate flex-1">{n.tx.nguoi || n.tx.nd.slice(0, 40)}</span>
+                          <span className="shrink-0">{fmtVnd(n.tx.so_tien)}đ</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">Có thể HĐ đã thanh toán / thuộc kỳ khác / chưa lên HĐ. Bỏ qua.</p>
+                  </div>
+                )}
+
+                <p className="text-[11px] text-slate-400">
+                  Bỏ qua <b>{dcResult.skipped}</b> giao dịch không liên quan (không khớp HĐ/khách nào ở chờ thu).
+                  {dcResult.daDoiChieu > 0 && <> Đã loại <b>{dcResult.daDoiChieu}</b> giao dịch đối chiếu từ lần trước.</>}
+                </p>
+              </div>
+              <div className="px-5 py-4 border-t border-slate-100 flex justify-between items-center shrink-0">
+                <span className="text-xs text-slate-500">Đã chọn <b className="text-slate-800">{nPicked}</b> cặp</span>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setDcResult(null)} disabled={dcApplying} className="h-9">Đóng</Button>
+                  <Button onClick={applyDoiChieu} disabled={dcApplying || nPicked === 0} className="h-9 bg-blue-600 hover:bg-blue-700">{dcApplying ? 'Đang ghi…' : `Ghi nhận (${nPicked})`}</Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+    </div>
+  )
+}

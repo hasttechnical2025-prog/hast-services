@@ -1,7 +1,7 @@
 'use client'
 import { useToast } from '@/ui'
 import { useSession } from '@/features/_shell/SessionProvider'
-import KanbanHdTool from '@/components/KanbanHdTool'
+import KanbanHdTool from '@/features/kanban/KanbanHdTool'
 
 // Kanban Hóa đơn — menu cha "lá" (tách khỏi Tài chính). Tái dùng nguyên KanbanHdTool.
 export default function KanbanPage() {
