@@ -97,7 +97,7 @@ export const V2_NAV: V2Parent[] = [
       { slug: 'tai-khoan', label: 'Tài khoản', permParent: 'he_thong', adminOnly: true },
       { slug: 'danh-muc', label: 'Danh mục', permParent: 'he_thong', adminOnly: true },
       { slug: 'audit', label: 'Audit Logs', permParent: 'he_thong', adminOnly: true },
-      { slug: 'tro-ly-log', label: 'Nhật ký AI', permParent: 'he_thong', adminOnly: true },
+      { slug: 'tro-ly-log', label: 'Trợ lý AI', permParent: 'he_thong', adminOnly: true },
       { slug: 'doi-mat-khau', label: 'Đổi mật khẩu', permParent: 'he_thong' },
     ],
   },
