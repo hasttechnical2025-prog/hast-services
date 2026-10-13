@@ -318,7 +318,7 @@ function sellerFromCfg(cfg: Record<string, string>): InvSeller {
   }
 }
 
-export default function KanbanHdTool({ role = 'staff', showNotification }: { role?: string, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+export default function KanbanHdTool({ role = 'staff', showNotification, v2Layout = false }: { role?: string, showNotification: (type: 'success' | 'error', msg: string) => void, v2Layout?: boolean }) {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [kdTickets, setKdTickets] = useState<KdTicket[]>([]) // nguồn kinh doanh (lệnh xuất) — chỉ admin/kthc
   const [kdActive, setKdActive] = useState<KdTicket | null>(null) // modal xem thẻ KD
@@ -2023,13 +2023,15 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
     <div className="space-y-4">
       {/* Header điều phối */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
-        {/* Tiêu đề */}
+        {/* Tiêu đề — ẩn ở v2 (breadcrumb đã có), giữ ở admin */}
+        {!v2Layout && (
         <div>
           <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
             <Layers className="w-5 h-5 text-blue-600" /> Bảng điều phối hóa đơn (Kanban)
           </h2>
           <p className="text-xs text-slate-400">Tech_admin giao việc {`->`} Kế toán xuất hóa đơn trên MISA/Fast/SAPP và dán Số hóa đơn để hoàn tất.</p>
         </div>
+        )}
 
         {/* Hàng 1: LỌC (trái) · HÀNH ĐỘNG (phải) */}
         <div className="flex items-center justify-between gap-3 flex-wrap">

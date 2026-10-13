@@ -28,7 +28,7 @@ const fmtDate = (s?: string | null) => { if (!s) return ''; const p = String(s).
 const digits = (s: string) => s.replace(/[^\d]/g, '')
 const sanitize = (s: string) => String(s || '').replace(/[^A-Za-z0-9]+/g, '').slice(0, 40)
 
-export default function PhiBaoTriModule({ showNotification }: { showNotification: (t: 'success' | 'error', m: string) => void }) {
+export default function PhiBaoTriModule({ showNotification, v2Layout = false }: { showNotification: (t: 'success' | 'error', m: string) => void, v2Layout?: boolean }) {
   const [rows, setRows] = useState<May[]>([])
   const [billed, setBilled] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -219,6 +219,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
 
   return (
     <div className="space-y-5">
+      {!v2Layout && (
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex items-center gap-3">
         <Landmark className="w-6 h-6 text-blue-600 shrink-0" />
         <div className="flex-1">
@@ -227,6 +228,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
         </div>
         <Button variant="outline" onClick={load} disabled={loading} title="Tải lại" className="h-9 px-3 gap-1.5 text-xs font-medium"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>
       </div>
+      )}
 
       {/* ===== Danh sách hóa đơn theo HĐDV — thu gọn được, mặc định GẬP cho mọi role ===== */}
       <CollapsibleTools title={`Hóa đơn phí bảo trì theo hợp đồng (${groups.length})`} storageKey="phibaotri_hoadon_open" defaultOpen={false} icon={<Landmark className="w-4 h-4 text-blue-600 shrink-0" />}>
@@ -336,6 +338,7 @@ export default function PhiBaoTriModule({ showNotification }: { showNotification
           <Button onClick={doSave} disabled={saving || dirty.size === 0} className="h-9 text-xs font-semibold px-4 gap-1.5 ml-auto">
             <Save className="w-4 h-4" /> {saving ? 'Đang lưu…' : dirty.size > 0 ? `Lưu (${dirty.size})` : 'Đã lưu'}
           </Button>
+          {v2Layout && <Button variant="outline" onClick={load} disabled={loading} title="Tải lại" className="h-9 px-3 gap-1.5 text-xs font-medium"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>}
         </div>
         {dirty.size > 0 && (
           <div className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">

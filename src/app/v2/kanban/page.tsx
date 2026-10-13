@@ -9,7 +9,7 @@ export default function KanbanPage() {
   const { notify, toastNode } = useToast()
   return (
     <>
-      <KanbanHdTool role={user?.role || 'staff'} showNotification={notify} />
+      <KanbanHdTool role={user?.role || 'staff'} showNotification={notify} v2Layout />
       {toastNode}
     </>
   )

@@ -7,7 +7,7 @@ export default function PhiBaoTriPage() {
   const { notify, toastNode } = useToast()
   return (
     <>
-      <PhiBaoTriModule showNotification={notify} />
+      <PhiBaoTriModule showNotification={notify} v2Layout />
       {toastNode}
     </>
   )
