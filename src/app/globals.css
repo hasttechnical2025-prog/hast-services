@@ -29,9 +29,9 @@ body {
 }
 
 /* ───── UI 2027 (/v2) — scope riêng, KHÔNG ảnh hưởng /admin ───── */
-/* Thang cỡ chữ bảng đã duyệt: thân bảng 14px · tiêu đề cột 12px.
+/* Thang cỡ chữ bảng (đã chốt): thân bảng 13px (bằng cỡ chữ sidebar) · tiêu đề cột nhỏ hơn 1px = 12px.
    (root html=14px nên đặt px tuyệt đối cho chắc; áp mọi bảng trong /v2.) */
-.v2-shell table tbody td { font-size: 14px; }
+.v2-shell table tbody td { font-size: 13px; }
 .v2-shell table thead th { font-size: 12px; }
 /* Tương phản: ô nhập / ô lọc / select / textarea viền rõ hơn (slate-300) trên nền thẻ trắng,
    giúp dễ nhận diện vùng nhập liệu khi nền canvas đã là slate-100. */
