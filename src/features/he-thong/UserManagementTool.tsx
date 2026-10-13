@@ -110,20 +110,20 @@ export function UserManagementTool({ users, onUpdateSuccess, showNotification }:
         <StatCard label="KTV" value={userKtv.toLocaleString('vi-VN')} sub="kỹ thuật viên" icon={Wrench} tone="indigo" />
         <StatCard label="Đang hoạt động" value={userActive.toLocaleString('vi-VN')} sub={`${(users.length - userActive).toLocaleString('vi-VN')} ngừng`} icon={CheckCircle2} tone="emerald" />
       </StatRow>
-      <form onSubmit={handleSave} className="bg-white p-4 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="space-y-1">
+      <form onSubmit={handleSave} className="bg-white p-4 rounded-lg border border-slate-200 flex flex-wrap items-end gap-3">
+        <div className="space-y-1 flex-1 min-w-[150px]">
           <label className="text-xs font-semibold text-slate-600">Họ và Tên *</label>
           <Input required value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} placeholder="VD: Nguyễn Văn A" />
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 flex-1 min-w-[140px]">
           <label className="text-xs font-semibold text-slate-600">Tên đăng nhập *</label>
           <Input required value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} placeholder="VD: nguyenva" />
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 flex-1 min-w-[140px]">
           <label className="text-xs font-semibold text-slate-600">{isEditing ? "Mật khẩu mới" : "Mật khẩu *"}</label>
           <Input required={!isEditing} type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder={isEditing ? "(Bỏ trống nếu không đổi)" : "Nhập mật khẩu"} />
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 w-44">
           <label className="text-xs font-semibold text-slate-600">Quyền hạn *</label>
           <select className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500" value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })}>
             <option value="ktv">Kỹ thuật viên (KTV)</option>
@@ -135,7 +135,7 @@ export function UserManagementTool({ users, onUpdateSuccess, showNotification }:
           </select>
         </div>
         {formData.role === 'kinh_doanh' && (
-          <div className="space-y-1">
+          <div className="space-y-1 w-full lg:w-auto">
             <label className="text-xs font-semibold text-slate-600">Vai trò kinh doanh</label>
             <label className="flex items-center gap-2 h-10 px-3 rounded-md border border-slate-200 bg-slate-50/60 cursor-pointer select-none">
               <input type="checkbox" checked={formData.kd_quan_ly} onChange={(e) => setFormData({ ...formData, kd_quan_ly: e.target.checked })} className="w-4 h-4 accent-blue-600" />
@@ -143,9 +143,9 @@ export function UserManagementTool({ users, onUpdateSuccess, showNotification }:
             </label>
           </div>
         )}
-        <div className="lg:col-span-2 flex items-end gap-2">
+        <div className="flex items-end gap-2 shrink-0">
           {isEditing && <Button type="button" variant="outline" onClick={resetForm} className="h-10">Hủy sửa</Button>}
-          <Button type="submit" disabled={loading} className="h-10 w-full sm:w-auto">{loading ? "Đang lưu..." : isEditing ? "Cập nhật tài khoản" : "Tạo tài khoản mới"}</Button>
+          <Button type="submit" disabled={loading} className="h-10 whitespace-nowrap">{loading ? "Đang lưu..." : isEditing ? "Cập nhật tài khoản" : "Tạo tài khoản mới"}</Button>
         </div>
       </form>
 
