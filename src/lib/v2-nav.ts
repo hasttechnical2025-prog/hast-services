@@ -93,7 +93,7 @@ export const V2_NAV: V2Parent[] = [
     slug: 'he-thong', label: 'Hệ thống', icon: 'settings', permKey: 'he_thong',
     children: [
       // Thứ tự & nhãn y hệt admin. 5 tab đầu CHỈ admin; Đổi mật khẩu mọi role.
-      { slug: 'cai-dat', label: 'Cài đặt hệ thống', permParent: 'he_thong', adminOnly: true },
+      { slug: 'cai-dat', label: 'Cài đặt', permParent: 'he_thong', adminOnly: true },
       { slug: 'tai-khoan', label: 'Tài khoản', permParent: 'he_thong', adminOnly: true },
       { slug: 'danh-muc', label: 'Danh mục', permParent: 'he_thong', adminOnly: true },
       { slug: 'audit', label: 'Audit Logs', permParent: 'he_thong', adminOnly: true },

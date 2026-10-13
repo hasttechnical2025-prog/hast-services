@@ -9,7 +9,19 @@ import { V2_PERM_ROWS } from '@/lib/v2-nav'
 
 // Port NGUYÊN CaiDatHeThongTool từ admin (y hệt): cấu hình hệ thống + ma trận PHÂN QUYỀN tab
 // (role × tab/tab con/tab cháu). Gọi lại /api/admin/cau-hinh, /api/admin/ngay-nghi.
+// v2: gom thiết lập theo nghiệp vụ thành các tab cháu để dễ mở rộng.
+const SETTING_TABS = [
+  ['chung', 'Chung'],
+  ['so_cong_tac', 'Sổ công tác'],
+  ['kho', 'Kho & Máy thuê'],
+  ['ke_toan', 'Kế toán — Hóa đơn'],
+  ['kinh_doanh', 'Kinh doanh'],
+  ['bao_mat', 'Bảo mật & Truy cập'],
+] as const
+type SettingTab = typeof SETTING_TABS[number][0]
+
 export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }: { cauHinh: Record<string, string>, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
+  const [tab, setTab] = useState<SettingTab>('chung')
   const [cfg, setCfg] = useState({
     app_ten: cauHinh.app_ten || '',
     vp_lat: cauHinh.vp_lat || '',
@@ -136,38 +148,21 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
 
   return (
     <div className="space-y-6">
-      {/* CHẾ ĐỘ BẢO TRÌ */}
-      <div className={`border rounded-lg p-6 space-y-3 ${cfg.bao_tri ? 'border-red-300 bg-red-50/60' : 'border-slate-200 bg-slate-50/50'}`}>
-        <h3 className="text-lg font-semibold text-slate-700">Chế độ bảo trì</h3>
-        <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer select-none">
-          <input type="checkbox" checked={cfg.bao_tri} onChange={(e) => setCfg({ ...cfg, bao_tri: e.target.checked })} className="w-4 h-4 accent-red-600 mt-0.5" />
-          <span>
-            <b>Khóa app — chỉ Admin vào được</b>
-            <span className="block text-xs text-slate-500 mt-0.5">
-              Bật: mọi KTV / Tech Admin / Staff bị chặn (cả PC lẫn mobile) và thấy màn &quot;Hệ thống đang bảo trì&quot;;
-              đăng nhập cũng bị từ chối; <b>cron nhắc báo cáo và toàn bộ tin Telegram tạm dừng</b>.
-              Nhớ bấm <b>Lưu cấu hình</b>. Có hiệu lực sau vài giây.
-            </span>
-          </span>
-        </label>
-        {cfg.bao_tri && (
-          <p className="text-xs text-red-700 bg-red-100 border border-red-200 rounded px-2 py-1.5">
-            ⚠️ Đang chọn khóa app. Sau khi Lưu, chỉ tài khoản <b>Admin</b> dùng được — bỏ tick rồi Lưu để mở lại.
-          </p>
-        )}
-        <div className="space-y-1 max-w-md pt-1 border-t border-slate-200">
-          <label className="text-xs font-semibold text-slate-600">Khóa vào app khi đang bảo trì</label>
-          <Input value={cfg.bao_tri_key} onChange={(e) => setCfg({ ...cfg, bao_tri_key: e.target.value })} placeholder="VD: mokhoa2026" className="bg-white" />
-          <p className="text-xs text-slate-400">
-            Màn báo bảo trì <b>cố ý không có nút đăng nhập</b> (để không lộ là app bị khóa chủ đích).
-            Nếu Admin lỡ đăng xuất, mở lại app bằng link kín:
-            {' '}<b className="text-slate-600 font-mono">…/?qt={cfg.bao_tri_key.trim() || 'khóa'}</b> rồi đăng nhập như bình thường.
-            Để trống = không có link kín (chỉ vào lại được bằng SQL). Chỉ Admin thấy ô này.
-          </p>
-        </div>
+      {/* Thanh tab cháu (underline chuẩn v2) — gom thiết lập theo nghiệp vụ */}
+      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto sticky top-0 z-20 bg-slate-200/95 backdrop-blur -mx-4 px-4">
+        {SETTING_TABS.map(([k, label]) => {
+          const on = tab === k
+          return (
+            <button key={k} onClick={() => setTab(k)}
+              className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${on ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+              {label}
+            </button>
+          )
+        })}
       </div>
 
-      {/* CHUNG */}
+      {/* ===== CHUNG ===== */}
+      {tab === 'chung' && (
       <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
         <h3 className="text-lg font-semibold text-slate-700">Chung</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -175,12 +170,86 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
             <label className="text-xs font-semibold text-slate-600">Tên ứng dụng (tiêu đề)</label>
             <Input value={cfg.app_ten} onChange={(e) => setCfg({ ...cfg, app_ten: e.target.value })} placeholder="VD: HAST Dashboard" className="bg-white" />
           </div>
-          {numField('Vĩ độ VP (lat)', 'vp_lat', 'Dùng để tính KM tới khách', 'any')}
-          {numField('Kinh độ VP (lng)', 'vp_lng', 'VD: 105.809180', 'any')}
+          {numField('Vĩ độ VP (lat)', 'vp_lat', undefined, 'any')}
+          {numField('Kinh độ VP (lng)', 'vp_lng', undefined, 'any')}
+        </div>
+      </div>
+      )}
+
+      {/* ===== SỔ CÔNG TÁC (KỸ THUẬT) ===== */}
+      {tab === 'so_cong_tac' && (
+      <>
+      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+        <h3 className="text-lg font-semibold text-slate-700">Nghiệp vụ Sổ công tác</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {numField('Cửa sổ "đã sửa gần đây" (ngày)', 'repeat_ngay')}
+          {numField('Cảnh báo HĐBT trước (tháng)', 'hdbt_canh_bao_thang')}
+          {numField('Cảnh báo trễ nộp phiếu (ngày)', 'phieu_cung_canh_bao_ngay')}
+          {numField('KTV nộp báo cáo trễ tối đa (ngày)', 'bao_cao_cho_phep_ngay')}
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Loại việc cần báo cáo khách</label>
+            <Input value={cfg.bao_cao_khach_loai} onChange={(e) => setCfg({ ...cfg, bao_cao_khach_loai: e.target.value })} placeholder="Sửa máy" className="bg-white" />
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-6">
+          <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
+            <input type="checkbox" checked={cfg.mac_dinh_hom_nay} onChange={(e) => setCfg({ ...cfg, mac_dinh_hom_nay: e.target.checked })} className="w-4 h-4 accent-blue-600" />
+            Sổ công tác mặc định lọc việc hôm nay
+          </label>
+          <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
+            <input type="checkbox" checked={cfg.auto_bao_tri} onChange={(e) => setCfg({ ...cfg, auto_bao_tri: e.target.checked })} className="w-4 h-4 accent-blue-600" />
+            Tự đánh dấu bảo trì khi việc &quot;Bảo trì&quot; hoàn thành
+          </label>
+          <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
+            <input type="checkbox" checked={cfg.geocode_import} onChange={(e) => setCfg({ ...cfg, geocode_import: e.target.checked })} className="w-4 h-4 accent-blue-600" />
+            Tự tính tọa độ &amp; KM khi import CSV khách hàng (dòng thiếu Km)
+          </label>
         </div>
       </div>
 
-      {/* GOOGLE SHEET */}
+      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+        <h3 className="text-lg font-semibold text-slate-700">Ngày nghỉ Lễ / Tết</h3>
+        <div className="flex gap-2 items-end">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Ngày nghỉ</label>
+            <DateField value={newNgayNghi} onChange={setNewNgayNghi} heightClass="h-10" className="w-36" />
+          </div>
+          <div className="space-y-1 flex-1 max-w-sm">
+            <label className="text-xs font-semibold text-slate-600">Lý do nghỉ (Tùy chọn)</label>
+            <Input placeholder="VD: Nghỉ lễ 30/4" value={newGhiChuNghi} onChange={(e) => setNewGhiChuNghi(e.target.value)} className="bg-white h-10" />
+          </div>
+          <Button onClick={handleAddNgayNghi} className="h-10 bg-emerald-600 hover:bg-emerald-700">
+            <Plus className="w-4 h-4 mr-1" /> Thêm ngày
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-2 pt-2">
+          {loadingNghi ? <span className="text-sm text-slate-400">Đang tải...</span> : ngayNghiList.length === 0 ? <span className="text-sm text-slate-400">Chưa khai báo ngày nghỉ nào.</span> : ngayNghiList.map((n) => (
+            <div key={n.ngay} className="flex items-center gap-1 bg-white border border-slate-200 px-2 py-1 rounded-md text-sm shadow-sm">
+              <span className="font-semibold text-slate-700">{n.ngay.split('-').reverse().join('/')}</span>
+              {n.ghi_chu && <span className="text-slate-400 text-xs">— {n.ghi_chu}</span>}
+              <button onClick={() => handleDeleteNgayNghi(n.ngay)} className="ml-1 text-slate-400 hover:text-red-500" title="Xóa">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+      </>
+      )}
+
+      {/* ===== KHO & MÁY THUÊ/CPC ===== */}
+      {tab === 'kho' && (
+      <>
+      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+        <h3 className="text-lg font-semibold text-slate-700">Kho &amp; Máy thuê/CPC</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {numField('Ngưỡng tồn thấp (đỏ khi ≤)', 'nguong_ton_thap')}
+          {numField('Báo trước hạn lấy counter (ngày)', 'counter_bao_truoc_ngay')}
+          {numField('Cảnh báo sắp hết mực (còn ≤ trang)', 'muc_canh_bao_con_trang')}
+          {numField('Ngày chuyển kỳ counter', 'counter_chuyen_ky_ngay', 'Máy chốt số ngày ≤ N thuộc kỳ THÁNG TRƯỚC (đọc vào ngày D tháng sau); chốt > N thuộc kỳ THÁNG NÀY. Cũng là mốc dropdown mặc định nhảy kỳ. Mặc định 20')}
+        </div>
+      </div>
+
       <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
         <h3 className="text-lg font-semibold text-slate-700">Google Sheet — đồng bộ counter máy thuê</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -195,11 +264,13 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
         </div>
         <p className="text-xs text-slate-500 leading-relaxed">Cần chia sẻ sheet (quyền Xem) cho email <b>service account</b> đã cấu hình ở máy chủ (env <code>GOOGLE_SA_EMAIL</code>). Cột tháng <code>MM/YYYY</code> = kỳ tương ứng; ô counter dạng <code>đen/màu</code>. Nút đồng bộ nằm ở tab <b>Thuê/CPC › Nhập counter</b>.</p>
       </div>
+      </>
+      )}
 
-      {/* NGƯỜI BÁN TRÊN HÓA ĐƠN */}
+      {/* ===== KẾ TOÁN — HÓA ĐƠN ===== */}
+      {tab === 'ke_toan' && (
       <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
         <h3 className="text-lg font-semibold text-slate-700">Người bán trên hóa đơn</h3>
-        <p className="text-xs text-slate-500 leading-relaxed">Hiển thị ở <b>bản xem trước hóa đơn</b> (Kanban HĐ → chốt chặn bàn giao → &quot;Xem như hóa đơn&quot;). Để trống ô nào thì dùng mặc định (CTCP Siêu Thanh Hà Nội). Đây chỉ là bản xem trước nội bộ — hóa đơn hợp lệ vẫn phát hành trên M-invoice.</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1 md:col-span-2">
             <label className="text-xs font-semibold text-slate-600">Đơn vị bán hàng</label>
@@ -231,11 +302,12 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
           </div>
         </div>
       </div>
+      )}
 
-      {/* DANH MỤC KHÁCH KINH DOANH */}
+      {/* ===== KINH DOANH ===== */}
+      {tab === 'kinh_doanh' && (
       <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
         <h3 className="text-lg font-semibold text-slate-700">Danh mục khách — Kinh doanh (Lệnh xuất hàng)</h3>
-        <p className="text-xs text-slate-500 leading-relaxed">Chính sách danh mục khách của phòng Kinh doanh. MST luôn <b>duy nhất toàn hệ thống</b> (trừ khách lẻ không MST).</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">Phạm vi xem danh sách khách</label>
@@ -251,88 +323,46 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
               <option value="chu_so_huu">Chủ sở hữu tự sửa — mỗi NV quản khách của mình</option>
               <option value="chi_sale_admin">Chỉ quản lý KD (sale_admin) — NV chỉ chọn</option>
             </select>
-            <p className="text-[11px] text-slate-400">Khi &quot;chỉ sale_admin&quot;: NV không thêm/sửa được nhưng vẫn thấy toàn bộ để chọn.</p>
           </div>
         </div>
       </div>
+      )}
 
-      {/* NGHIỆP VỤ */}
-      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
-        <h3 className="text-lg font-semibold text-slate-700">Nghiệp vụ</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {numField('Cửa sổ "đã sửa gần đây" (ngày)', 'repeat_ngay', 'Đánh dấu máy vừa sửa trong N ngày')}
-          {numField('Cảnh báo HĐBT trước (tháng)', 'hdbt_canh_bao_thang')}
-          {numField('Ngưỡng tồn thấp (đỏ khi ≤)', 'nguong_ton_thap')}
-          {numField('Cảnh báo trễ nộp phiếu (ngày)', 'phieu_cung_canh_bao_ngay')}
-          {numField('Báo trước hạn lấy counter (ngày)', 'counter_bao_truoc_ngay', 'Máy thuê/CPC: cảnh báo trước N ngày tới hạn chốt số')}
-          {numField('Cảnh báo sắp hết mực (còn ≤ trang)', 'muc_canh_bao_con_trang', 'Máy thuê: counter ÷ định lượng, còn ≤ N trang thì cảnh báo để office liên hệ khách. Mặc định 2000')}
-          {numField('Ngày chuyển kỳ counter', 'counter_chuyen_ky_ngay', 'Máy chốt số ngày ≤ N thuộc kỳ THÁNG TRƯỚC (đọc vào ngày D tháng sau); chốt > N thuộc kỳ THÁNG NÀY (đọc vào ngày D chính tháng). Cũng là mốc dropdown mặc định nhảy kỳ. Mặc định 20')}
-          {numField('KTV nộp báo cáo trễ tối đa (ngày)', 'bao_cao_cho_phep_ngay', 'Cho phép nộp/sửa báo cáo lùi về N ngày. 0 = chỉ hôm nay')}
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-600">Loại việc cần báo cáo khách</label>
-            <Input value={cfg.bao_cao_khach_loai} onChange={(e) => setCfg({ ...cfg, bao_cao_khach_loai: e.target.value })} placeholder="Sửa máy" className="bg-white" />
-            <p className="text-[11px] text-slate-400">KTV Hoàn thành các loại việc này mới hiện ô "Báo cáo sửa chữa". Nhiều loại cách nhau dấu phẩy.</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-6">
-          <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
-            <input type="checkbox" checked={cfg.mac_dinh_hom_nay} onChange={(e) => setCfg({ ...cfg, mac_dinh_hom_nay: e.target.checked })} className="w-4 h-4 accent-blue-600" />
-            Sổ công tác mặc định lọc việc hôm nay
-          </label>
-          <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
-            <input type="checkbox" checked={cfg.auto_bao_tri} onChange={(e) => setCfg({ ...cfg, auto_bao_tri: e.target.checked })} className="w-4 h-4 accent-blue-600" />
-            Tự đánh dấu bảo trì khi việc &quot;Bảo trì&quot; hoàn thành
-          </label>
-          <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
-            <input type="checkbox" checked={cfg.geocode_import} onChange={(e) => setCfg({ ...cfg, geocode_import: e.target.checked })} className="w-4 h-4 accent-blue-600" />
-            Tự tính tọa độ &amp; KM khi import CSV khách hàng (dòng thiếu Km)
-          </label>
-        </div>
-      </div>
-
-      {/* NGÀY NGHỈ LỄ */}
-      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
-        <h3 className="text-lg font-semibold text-slate-700">Ngày nghỉ Lễ / Tết</h3>
-        <p className="text-sm text-slate-500">Các ngày KTV không đi làm (trừ T7, CN). Dùng để ẩn trên lịch nộp báo cáo KTV và bỏ qua khi bot nhắc nhở.</p>
-        <div className="flex gap-2 items-end">
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-600">Ngày nghỉ</label>
-            <DateField value={newNgayNghi} onChange={setNewNgayNghi} heightClass="h-10" className="w-36" />
-          </div>
-          <div className="space-y-1 flex-1 max-w-sm">
-            <label className="text-xs font-semibold text-slate-600">Lý do nghỉ (Tùy chọn)</label>
-            <Input placeholder="VD: Nghỉ lễ 30/4" value={newGhiChuNghi} onChange={(e) => setNewGhiChuNghi(e.target.value)} className="bg-white h-10" />
-          </div>
-          <Button onClick={handleAddNgayNghi} className="h-10 bg-emerald-600 hover:bg-emerald-700">
-            <Plus className="w-4 h-4 mr-1" /> Thêm ngày
-          </Button>
-        </div>
-        <div className="flex flex-wrap gap-2 pt-2">
-          {loadingNghi ? <span className="text-sm text-slate-400">Đang tải...</span> : ngayNghiList.length === 0 ? <span className="text-sm text-slate-400">Chưa khai báo ngày nghỉ nào.</span> : ngayNghiList.map((n) => (
-            <div key={n.ngay} className="flex items-center gap-1 bg-white border border-slate-200 px-2 py-1 rounded-md text-sm shadow-sm">
-              <span className="font-semibold text-slate-700">{n.ngay.split('-').reverse().join('/')}</span>
-              {n.ghi_chu && <span className="text-slate-400 text-xs">— {n.ghi_chu}</span>}
-              <button onClick={() => handleDeleteNgayNghi(n.ngay)} className="ml-1 text-slate-400 hover:text-red-500" title="Xóa">
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* PHIÊN ĐĂNG NHẬP */}
+      {/* ===== BẢO MẬT & TRUY CẬP ===== */}
+      {tab === 'bao_mat' && (
+      <>
       <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
         <h3 className="text-lg font-semibold text-slate-700">Phiên đăng nhập</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {numField('Văn phòng — giữ đăng nhập (ngày)', 'phien_van_phong_ngay', 'Admin / Tech Admin / Staff. Áp dụng cho lần đăng nhập kế tiếp')}
-          {numField('KTV (mật khẩu) — giữ đăng nhập (ngày)', 'phien_ktv_ngay', 'KTV đăng nhập bằng QR trên điện thoại vẫn giữ dài hạn riêng')}
+          {numField('Văn phòng — giữ đăng nhập (ngày)', 'phien_van_phong_ngay')}
+          {numField('KTV (mật khẩu) — giữ đăng nhập (ngày)', 'phien_ktv_ngay')}
         </div>
       </div>
 
-      {/* PHÂN QUYỀN TAB */}
+      <div className={`border rounded-lg p-6 space-y-3 ${cfg.bao_tri ? 'border-red-300 bg-red-50/60' : 'border-slate-200 bg-slate-50/50'}`}>
+        <h3 className="text-lg font-semibold text-slate-700">Chế độ bảo trì</h3>
+        <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer select-none">
+          <input type="checkbox" checked={cfg.bao_tri} onChange={(e) => setCfg({ ...cfg, bao_tri: e.target.checked })} className="w-4 h-4 accent-red-600 mt-0.5" />
+          <span><b>Khóa app — chỉ Admin vào được</b></span>
+        </label>
+        {cfg.bao_tri && (
+          <p className="text-xs text-red-700 bg-red-100 border border-red-200 rounded px-2 py-1.5">
+            ⚠️ Đang chọn khóa app. Sau khi Lưu, chỉ tài khoản <b>Admin</b> dùng được — bỏ tick rồi Lưu để mở lại.
+          </p>
+        )}
+        <div className="space-y-1 max-w-md pt-1 border-t border-slate-200">
+          <label className="text-xs font-semibold text-slate-600">Khóa vào app khi đang bảo trì</label>
+          <Input value={cfg.bao_tri_key} onChange={(e) => setCfg({ ...cfg, bao_tri_key: e.target.value })} placeholder="VD: mokhoa2026" className="bg-white" />
+          <p className="text-xs text-slate-400">
+            Nếu Admin lỡ đăng xuất, mở lại app bằng link kín
+            {' '}<b className="text-slate-600 font-mono">…/?qt={cfg.bao_tri_key.trim() || 'khóa'}</b>. Để trống = chỉ vào lại được bằng SQL.
+          </p>
+        </div>
+      </div>
+
       <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-3">
         <h3 className="text-lg font-semibold text-slate-700">Phân quyền hiển thị tab</h3>
-        <p className="text-sm text-slate-500">Bật/tắt tab lớn, <b>tab con và tab cháu</b> cho từng role. <b>Admin luôn thấy tất cả</b>; <b>Sổ công tác</b> luôn hiện; <b>Hệ thống</b> chỉ admin; <b>KTV</b> chỉ dùng app mobile. Tắt tab cha sẽ ẩn toàn bộ tab con/cháu. Lưu ý: đây là <b>ẩn/hiện giao diện</b> — API vẫn kiểm quyền tới cấp tab con (tab cháu chung API nên chỉ ẩn cho gọn).</p>
+        <p className="text-sm text-slate-500">Bật/tắt tab cho từng role. Đây là <b>ẩn/hiện giao diện</b> — API vẫn kiểm quyền. Tắt tab cha sẽ ẩn toàn bộ tab con/cháu.</p>
         <div className="bg-white rounded-lg border border-slate-200 overflow-hidden inline-block">
           <table className="text-sm text-slate-600">
             <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
@@ -366,6 +396,8 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
           </table>
         </div>
       </div>
+      </>
+      )}
 
       <div className="flex justify-end">
         <Button onClick={save} disabled={saving} className="h-10">{saving ? 'Đang lưu...' : 'Lưu cài đặt'}</Button>
