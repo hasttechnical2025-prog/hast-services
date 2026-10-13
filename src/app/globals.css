@@ -33,6 +33,8 @@ body {
    (root html=14px nên đặt px tuyệt đối cho chắc; áp mọi bảng trong /v2.) */
 .v2-shell table tbody td { font-size: 13px; }
 .v2-shell table thead th { font-size: 12px; }
+/* Bảng Rà soát kho (Đặt hàng) là bảng dày đặc dữ liệu — thu nhỏ riêng về 12px cho gọn. */
+.v2-shell table.dh-rasoat tbody td { font-size: 12px; }
 /* Tương phản: ô nhập / ô lọc / select / textarea viền rõ hơn (slate-300) trên nền thẻ trắng,
    giúp dễ nhận diện vùng nhập liệu khi nền canvas đã là slate-100. */
 .v2-shell input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),

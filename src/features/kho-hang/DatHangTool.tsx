@@ -410,7 +410,7 @@ export function DatHangTool({
           </div>
 
           <div className="overflow-x-auto h-[850px] overflow-y-auto">
-            <table className="w-full text-left text-xs text-slate-600 min-w-[550px]">
+            <table className="dh-rasoat w-full text-left text-xs text-slate-600 min-w-[550px]">
               <thead className="bg-slate-50 text-slate-500 font-semibold uppercase sticky top-0 border-b border-slate-200 z-10">
                 <tr>
                   <th onClick={() => handleLeftSort('vattu')} className={`px-3 py-2 min-w-[180px] cursor-pointer select-none transition-colors ${leftSortField === 'vattu' ? 'text-blue-600 font-bold bg-blue-50/60' : 'hover:bg-slate-100 hover:text-slate-700'}`} title="Bấm để sắp xếp theo Vật tư">
