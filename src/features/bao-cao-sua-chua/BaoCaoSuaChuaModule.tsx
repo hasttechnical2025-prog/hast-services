@@ -96,12 +96,12 @@ export function BaoCaoSuaChuaModule({ notify }: { notify: (type: 'success' | 'er
           {pill('cho_gui', 'Chờ gửi')}
           {pill('da_gui', 'Đã gửi')}
         </div>
-        <div className="relative flex-1 min-w-[220px]">
+        <div className="relative ml-auto w-full sm:w-64">
           <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm tên khách / mã máy / model / KTV…" className="w-full pl-9 h-9 text-xs rounded-md border border-slate-200 bg-white outline-none focus:border-blue-500" />
         </div>
         <span className="text-xs text-slate-400">{shown.length}{shown.length !== list.length ? `/${list.length}` : ''} báo cáo</span>
-        <button onClick={load} className="text-slate-400 hover:text-blue-600 p-1" title="Làm mới"><RefreshCw className="w-4 h-4" /></button>
+        <button onClick={load} className="h-9 px-3 rounded-md text-xs font-medium border border-slate-200 text-slate-600 bg-white hover:bg-blue-50 hover:text-blue-600 inline-flex items-center gap-1.5" title="Làm mới"><RefreshCw className="w-4 h-4" /> Làm mới</button>
       </div>
 
       {tab === 'cho_gui' && list.length > 0 && (

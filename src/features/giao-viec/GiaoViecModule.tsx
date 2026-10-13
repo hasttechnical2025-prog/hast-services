@@ -295,7 +295,14 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
       {/* Nhắc làm tiếp (phiếu Chưa hoàn thành đến hẹn) */}
       <LamTiepBanner showNotification={notify} onCreated={() => { load(true); loadFuture() }} />
 
-      {/* Phiếu đặt trước cho ngày tới */}
+      <StatRow>
+        <StatCard label="Tổng việc" value={stats.total.toLocaleString('vi-VN')} sub={`trên ${jobs.length.toLocaleString('vi-VN')} tất cả`} tone="blue" icon={ClipboardList} />
+        <StatCard label="Hoàn thành" value={stats.done.toLocaleString('vi-VN')} tone="emerald" icon={CheckCircle2} />
+        <StatCard label="Đang làm / Chờ" value={(stats.doing + stats.waiting).toLocaleString('vi-VN')} sub={`${stats.unassigned.toLocaleString('vi-VN')} chưa giao`} tone="amber" icon={Clock} />
+        <StatCard label="Phát sinh tiền" value={`${fmtMoney(stats.revenue)} đ`} sub={`có HĐ: ${fmtMoney(stats.revenueHD)} đ`} tone="indigo" icon={Wallet} />
+      </StatRow>
+
+      {/* Phiếu đặt trước cho ngày tới — nằm giữa thẻ KPI và danh sách */}
       {futureJobs.length > 0 && (
         <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs">
           <Clock className="w-4 h-4 text-blue-600 shrink-0" />
@@ -305,13 +312,6 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
             : <button onClick={() => { setTuNgay(tomorrow); setDenNgay('') }} className="ml-auto shrink-0 font-semibold text-blue-700 hover:underline">Xem →</button>}
         </div>
       )}
-
-      <StatRow>
-        <StatCard label="Tổng việc" value={stats.total.toLocaleString('vi-VN')} sub={`trên ${jobs.length.toLocaleString('vi-VN')} tất cả`} tone="blue" icon={ClipboardList} />
-        <StatCard label="Hoàn thành" value={stats.done.toLocaleString('vi-VN')} tone="emerald" icon={CheckCircle2} />
-        <StatCard label="Đang làm / Chờ" value={(stats.doing + stats.waiting).toLocaleString('vi-VN')} sub={`${stats.unassigned.toLocaleString('vi-VN')} chưa giao`} tone="amber" icon={Clock} />
-        <StatCard label="Phát sinh tiền" value={`${fmtMoney(stats.revenue)} đ`} sub={`có HĐ: ${fmtMoney(stats.revenueHD)} đ`} tone="indigo" icon={Wallet} />
-      </StatRow>
 
       <Card>
         {/* TOOLBAR */}

@@ -23,7 +23,6 @@ export default function TonKhoPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-lg font-bold text-slate-800 mb-4">Quản lý Kho Hàng (Vật tư)</h2>
         <InventoryManagementTool inventory={inventory} lowStock={lowStock} danhMuc={danhMuc} onUpdateSuccess={refetchInventory} showNotification={notify} />
       </div>
       <div className="bg-white rounded-lg border border-slate-200 p-5">
