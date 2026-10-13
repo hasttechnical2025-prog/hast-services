@@ -120,7 +120,7 @@ export function BaoCaoSuaChuaModule({ notify }: { notify: (type: 'success' | 'er
                       <ChevronRight className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} />
                       <div className="min-w-0 flex-1">
                         <div className="text-[13px] font-semibold text-slate-800 truncate">{kh.ten_khach_hang || 'Khách lẻ'}</div>
-                        <div className="text-[13px] text-slate-400 truncate">Mã máy {cv.ma_may || '—'} · {kh.model || 'N/A'} · {dmy(cv.ngay)} · KTV {r.nguoi_tao_u?.full_name || '—'}</div>
+                        <div className="text-[11px] text-slate-400 truncate">Mã máy {cv.ma_may || '—'} · {kh.model || 'N/A'} · {dmy(cv.ngay)} · KTV {r.nguoi_tao_u?.full_name || '—'}</div>
                       </div>
                       {tab === 'da_gui' && <span className="text-[10px] text-emerald-600 shrink-0">đã gửi</span>}
                     </button>

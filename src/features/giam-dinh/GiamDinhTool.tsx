@@ -279,8 +279,8 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
           <div key={r.id} className={`bg-white rounded-lg border p-4 space-y-2 ${r.da_thay ? 'border-slate-200 opacity-75' : 'border-amber-200'}`}>
             <div className="flex justify-between items-start gap-3 flex-wrap">
               <div>
-                <div className="text-xs font-medium text-slate-800">{r.soct_khach_hang?.ten_khach_hang || 'Không rõ khách hàng'}</div>
-                <div className="text-xs text-slate-500">Mã máy <span className="font-mono">{r.ma_may}</span> · {r.soct_khach_hang?.model || '-'} · GĐ {fmtDate(r.ngay_giam_dinh)}{r.ktv_giam_dinh ? ` · ${r.ktv_giam_dinh}` : ''}</div>
+                <div className="text-[13px] font-medium text-slate-800">{r.soct_khach_hang?.ten_khach_hang || 'Không rõ khách hàng'}</div>
+                <div className="text-[11px] text-slate-500">Mã máy <span className="font-mono">{r.ma_may}</span> · {r.soct_khach_hang?.model || '-'} · GĐ {fmtDate(r.ngay_giam_dinh)}{r.ktv_giam_dinh ? ` · ${r.ktv_giam_dinh}` : ''}</div>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap justify-end">
                 <span className={`whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold border ${r.da_bao_gia ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>

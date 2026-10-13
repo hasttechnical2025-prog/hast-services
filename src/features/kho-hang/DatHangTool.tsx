@@ -571,8 +571,8 @@ export function DatHangTool({
             <div key={o.id} className={`bg-white rounded-lg border p-4 space-y-3 ${o.hoan_thanh ? 'border-slate-200 opacity-80' : 'border-slate-200'}`}>
               <div className="flex justify-between items-start gap-3 flex-wrap">
                 <div>
-                  <div className="font-medium text-slate-800">{o.nha_cung_cap || 'Chưa có NCC'} {o.so_don_hang && <span className="text-slate-400 font-normal">· {o.so_don_hang}</span>}</div>
-                  <div className="text-xs text-slate-500">Ngày đặt {fmtDate(o.ngay_dat)}</div>
+                  <div className="text-[13px] font-medium text-slate-800">{o.nha_cung_cap || 'Chưa có NCC'} {o.so_don_hang && <span className="text-slate-400 font-normal">· {o.so_don_hang}</span>}</div>
+                  <div className="text-[11px] text-slate-500">Ngày đặt {fmtDate(o.ngay_dat)}</div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <button onClick={() => toggleDaDat(o)} className={`whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold border ${o.da_dat ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{o.da_dat ? 'Đã đặt' : 'Nháp'}</button>

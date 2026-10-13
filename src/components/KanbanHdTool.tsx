@@ -1672,7 +1672,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
           <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 uppercase tracking-wide shrink-0">KD{t.so_lenh ? ` · ${t.so_lenh}` : ''}</span>
           <span className="text-[10px] text-slate-400 shrink-0">{fmtDate(t.ngay)}</span>
         </div>
-        <div className="text-sm font-bold text-slate-800 leading-tight">{(t.ten_khach_hd || t.ten_khach_hang || 'Khách lẻ').toUpperCase()}</div>
+        <div className="text-[13px] font-bold text-slate-800 leading-tight">{(t.ten_khach_hd || t.ten_khach_hang || 'Khách lẻ').toUpperCase()}</div>
         {t.ma_so_thue && <div className="text-[10px] text-slate-400 font-mono">MST {t.ma_so_thue}</div>}
         <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-1"><User className="w-3 h-3" /> {t.nguoi_kd_ten || '—'}{t.so_hop_dong ? ` · HĐ ${t.so_hop_dong}` : ''}</div>
         <div className="mt-2 flex items-center justify-between gap-2">
@@ -1740,7 +1740,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification }: { rol
                     <div className="pl-1.5 space-y-2">
                       <div className="flex justify-between items-start gap-2">
                         <div className="min-w-0 flex-1">
-                          <div className="font-bold text-slate-800 text-xs leading-snug line-clamp-2">
+                          <div className="font-bold text-slate-800 text-[13px] leading-snug line-clamp-2">
                             {tenKh}
                           </div>
                           {state === 'Đang xử lý HĐ' && card.tickets.length > 1 && (

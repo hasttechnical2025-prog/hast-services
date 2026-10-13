@@ -271,7 +271,7 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
                   <button key={c.ma_khach_hang} onClick={() => { setSelMa(c.ma_khach_hang); setEditing(false); setPickIds([]); setMaySearch('') }}
                     className={`w-full text-left px-3 py-2.5 hover:bg-slate-50 flex items-center gap-2 ${selMa === c.ma_khach_hang ? 'bg-blue-50/70' : ''}`}>
                     <span className="text-xs font-mono text-slate-400 shrink-0">{c.ma_khach_hang}</span>
-                    <span className="flex-1 text-sm font-medium text-slate-800 truncate">{c.ten_khach_hang}</span>
+                    <span className="flex-1 text-[13px] font-medium text-slate-800 truncate">{c.ten_khach_hang}</span>
                     <span className="text-xs text-slate-500 shrink-0 whitespace-nowrap">{c.so_may} máy</span>
                   </button>
                 ))}

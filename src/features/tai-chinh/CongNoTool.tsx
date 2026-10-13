@@ -298,10 +298,10 @@ export function CongNoTool({ showNotification }: { showNotification: (type: 'suc
             <label key={c.id} className="flex items-start gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer text-sm">
               <input type="radio" name="congno-diemmay" checked={selIds[0] === c.id} onChange={() => {}} onClick={() => toggleSel(c)} className="w-4 h-4 accent-blue-600 mt-0.5 shrink-0" />
               <div className="w-56 sm:w-72 shrink-0">
-                <span className="font-medium text-slate-700 leading-snug">{c.ten}</span>
+                <span className="text-[13px] font-medium text-slate-700 leading-snug">{c.ten}</span>
                 {c.isCum && <span className="ml-1.5 px-1.5 py-[1px] text-[10px] font-semibold bg-violet-50 text-violet-700 border border-violet-200 rounded whitespace-nowrap">cụm · {new Set(c.tickets.map((t: any) => t.id_khach_hang)).size} máy</span>}
               </div>
-              <div className="flex-1 min-w-0 text-xs text-slate-400 leading-relaxed">
+              <div className="flex-1 min-w-0 text-[11px] text-slate-400 leading-relaxed">
                 <span className="font-semibold text-slate-500">{c.tickets.length} phiếu</span>
                 <span className="text-slate-300"> · </span>
                 {c.tickets.map((t: any, idx: number) => (
