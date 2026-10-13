@@ -475,7 +475,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                   const ok = traRes.months.has(m)
                   return (
                     <div key={m} className={`rounded-md border text-center py-2 ${ok ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
-                      <div className="text-[10px] font-semibold">T{m}</div>
+                      <div className="t3 font-semibold">T{m}</div>
                       <div className="text-sm font-bold">{ok ? '✓' : '✗'}</div>
                     </div>
                   )
@@ -619,7 +619,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                 <Download className="w-4 h-4" />
               </Button>
             </div>
-            <p className="text-[11px] text-slate-400">Gộp theo <b>khách cụm</b>; máy chưa gán cụm = <b>máy lẻ</b>. Chỉ tính HĐ bảo trì ({LOAI_HD_BAO_TRI.join(', ')}).</p>
+            <p className="t2 text-slate-400">Gộp theo <b>khách cụm</b>; máy chưa gán cụm = <b>máy lẻ</b>. Chỉ tính HĐ bảo trì ({LOAI_HD_BAO_TRI.join(', ')}).</p>
             <div className="border border-slate-200 rounded-lg overflow-hidden">
               <table className="w-full text-left text-sm text-slate-600">
                 <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200 select-none">

@@ -118,7 +118,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
       </div>
       <div className="border border-slate-200 rounded-lg overflow-hidden">
         <table className="w-full text-left text-xs text-slate-600">
-          <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase border-b border-slate-200 select-none">
+          <thead className="bg-slate-50 text-slate-500 t2 font-semibold uppercase border-b border-slate-200 select-none">
             <tr>
               <th onClick={() => handleSort('khach')} className={`px-2.5 py-2 cursor-pointer transition-colors hover:bg-slate-100 ${sortField === 'khach' ? 'text-blue-600 bg-blue-50/60' : ''}`}><span className="inline-flex items-center gap-1">Khách / máy {sortField === 'khach' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}</span></th>
               <th onClick={() => handleSort('muc')} className={`px-2.5 py-2 cursor-pointer transition-colors hover:bg-slate-100 ${sortField === 'muc' ? 'text-blue-600 bg-blue-50/60' : ''}`}><span className="inline-flex items-center gap-1">Mực {sortField === 'muc' && (sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}</span></th>
@@ -138,7 +138,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
                   <tr key={i} className={`hover:bg-amber-50/60 ${sortField === 'khach' ? (zebra[i] ? 'bg-sky-50/50' : 'bg-white') : ''}`}>
                     <td className="px-2.5 py-1.5"><div className="font-medium text-slate-800">{r.ten_khach_hang}</div><div className="text-[10px] text-slate-400 font-mono">{r.ma_may || '—'}{r.model ? ` · ${r.model}` : ''}</div></td>
                     <td className="px-2.5 py-1.5 text-[11px]">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold mr-1.5 ${r.nhom === 'trong' ? 'bg-violet-50 text-violet-700' : 'bg-sky-50 text-sky-700'}`}>{r.nhom === 'trong' ? 'Trống' : 'Mực'}</span>
+                      <span className={`inline-block px-1.5 py-0.5 rounded t3 font-semibold mr-1.5 ${r.nhom === 'trong' ? 'bg-violet-50 text-violet-700' : 'bg-sky-50 text-sky-700'}`}>{r.nhom === 'trong' ? 'Trống' : 'Mực'}</span>
                       {r.is_group ? <span className="font-semibold text-amber-700">Bộ {r.nhom === 'trong' ? 'trống' : 'mực'} màu (C/M/Y)</span> : <span className="font-mono">{r.ma_muc}</span>}
                       {r.is_group && <div className="text-slate-400 font-mono ml-[52px]">{r.ma_muc}</div>}
                     </td>
@@ -151,16 +151,16 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
                         {Number(r.dinh_luong_hop ?? r.dinh_luong).toLocaleString('vi-VN')}
                       </span>
                       {r.dl_hoc && <span className="ml-1 text-[9px] font-semibold px-1 py-0.5 rounded bg-emerald-50 text-emerald-700 align-middle">học</span>}
-                      <div className="text-[10px] text-slate-400">hộp thứ {r.so_hop + 1}{r.so_hop === 0 && r.dinh_luong_dau ? ' · hộp theo máy' : ''}</div>
+                      <div className="t3 text-slate-400">hộp thứ {r.so_hop + 1}{r.so_hop === 0 && r.dinh_luong_dau ? ' · hộp theo máy' : ''}</div>
                     </td>
                     <td className={`px-2.5 py-1.5 text-right font-bold ${r.trang_thai && r.trang_thai !== 'canh_bao' ? 'text-slate-600' : 'text-red-600'}`}>{Number(r.con_lai).toLocaleString('vi-VN')}</td>
                     <td className="px-2.5 py-1.5 text-[11px]">{r.giao_gan_nhat ? <span><span className="font-mono text-slate-700">{r.giao_gan_nhat.so_phieu || '—'}</span> <span className="text-slate-400">×{r.giao_gan_nhat.so_luong}</span><div className="text-slate-400">{fmtDMY(r.giao_gan_nhat.ngay)}</div></span> : <span className="text-slate-300">Chưa có</span>}</td>
                     <td className="px-2.5 py-1.5 text-center">
                       {(!r.trang_thai || r.trang_thai === 'canh_bao')
                         ? <button onClick={() => daGui(r)} disabled={busy === `${r.ma_may}|${r.ma_muc}|${r.so_hop}`} className="h-8 px-3 rounded-md text-xs font-semibold border border-emerald-300 text-white bg-emerald-600 hover:bg-emerald-700 inline-flex items-center gap-1.5 disabled:opacity-50"><Check className="w-3.5 h-3.5" /> Đã gửi mực</button>
-                        : r.trang_thai === 'du_phong' ? <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">Còn dự phòng{r.du_phong > 0 ? ` (${r.du_phong})` : ''}</span>
-                        : r.trang_thai === 'da_gui' ? <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-500">Đã gửi</span>
-                        : <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-sky-50 text-sky-600">Còn nhiều</span>}
+                        : r.trang_thai === 'du_phong' ? <span className="t3 font-semibold px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">Còn dự phòng{r.du_phong > 0 ? ` (${r.du_phong})` : ''}</span>
+                        : r.trang_thai === 'da_gui' ? <span className="t3 font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-500">Đã gửi</span>
+                        : <span className="t3 font-semibold px-2 py-1 rounded-full bg-sky-50 text-sky-600">Còn nhiều</span>}
                     </td>
                   </tr>
                 ))}
@@ -307,8 +307,8 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
           {tabs.map(([k, l]) => (
             <button key={k} onClick={() => setSub(k)} className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 border-b-2 ${active === k ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
               {l}
-              {k === 'counter' && dueCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{dueCount}</span>}
-              {k === 'canh_bao_muc' && mucCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{mucCount}</span>}
+              {k === 'counter' && dueCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white t3 font-bold">{dueCount}</span>}
+              {k === 'canh_bao_muc' && mucCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white t3 font-bold">{mucCount}</span>}
             </button>
           ))}
         </div>
@@ -510,8 +510,8 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
                   </td>
                   <td className="px-3 py-2 font-mono text-slate-500">
                     <div>{r.ma_may || '—'}</div>
-                    {r.model && <div className="text-[10px] text-slate-400 font-sans">{r.model}</div>}
-                    {r.serial && <div className="text-[10px] text-slate-400">SN: {r.serial}</div>}
+                    {r.model && <div className="t3 text-slate-400 font-sans">{r.model}</div>}
+                    {r.serial && <div className="t3 text-slate-400">SN: {r.serial}</div>}
                   </td>
                   <td className="px-3 py-2"><span className={`text-xs px-2 py-0.5 rounded-full border ${loaiHdBadgeCls(r.loai_hd)}`}>{r.loai_hd}</span></td>
                   <td className="px-3 py-2 text-right">{money(r.don_gia_bw)}</td>
@@ -604,7 +604,7 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
                   <option value="mau">Máy màu</option>
                   <option value="den">Máy đen trắng</option>
                 </select>
-                <span className="text-[10px] text-slate-400">Đen trắng → khóa ô counter Màu</span>
+                <span className="t3 text-slate-400">Đen trắng → khóa ô counter Màu</span>
               </label>
               {numField('Đơn giá Đen (VNĐ/bản)', 'don_gia_bw')}
               {numField('Đơn giá Màu (VNĐ/bản)', 'don_gia_mau', false, !f.may_mau)}
@@ -677,7 +677,7 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
                   <option value="thang">Tháng M/YYYY</option>
                   <option value="tu_den">Từ ngày … đến ngày (tự tính theo chốt số)</option>
                 </select>
-                <span className="text-[10px] text-slate-400">Chọn &quot;Từ ngày…đến ngày&quot; cho khách chốt số giữa tháng — tự nhảy kỳ mỗi tháng.</span>
+                <span className="t3 text-slate-400">Chọn &quot;Từ ngày…đến ngày&quot; cho khách chốt số giữa tháng — tự nhảy kỳ mỗi tháng.</span>
               </label>
             </div>
           </section>
@@ -688,7 +688,7 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
               <label className="block col-span-2 md:col-span-4">
                 <span className="text-xs font-medium text-slate-500">Tên máy trên hóa đơn</span>
                 <Input value={f.ten_may_hd} onChange={e => set('ten_may_hd', e.target.value)} className="h-9 mt-1" placeholder={`Để trống = dùng model (${row.model || 'model máy'}). VD: Konica Minolta bizhub C258`} />
-                <span className="text-[10px] text-slate-400">Ghi vào dòng &quot;Dịch vụ thuê máy …&quot;. Cho phép thêm hãng tùy ý (Konica / Konica Minolta) — đặt 1 lần, dùng mãi.</span>
+                <span className="t3 text-slate-400">Ghi vào dòng &quot;Dịch vụ thuê máy …&quot;. Cho phép thêm hãng tùy ý (Konica / Konica Minolta) — đặt 1 lần, dùng mãi.</span>
               </label>
               <label className="block col-span-2"><span className="text-xs font-medium text-slate-500">Vị trí đặt máy</span><Input value={f.vi_tri_dat_may} onChange={e => set('vi_tri_dat_may', e.target.value)} className="h-9 mt-1" /></label>
               <label className="block"><span className="text-xs font-medium text-slate-500">Người liên hệ</span><Input value={f.nguoi_lien_he} onChange={e => set('nguoi_lien_he', e.target.value)} className="h-9 mt-1" /></label>
@@ -1038,12 +1038,12 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
             </select>
           </label>
           <div className="ml-auto text-right">
-            <div className="text-[11px] text-slate-500">Tổng ước tính kỳ {thang} · {soMayLoc} máy</div>
+            <div className="t2 text-slate-500">Tổng ước tính kỳ {thang} · {soMayLoc} máy</div>
             <div className="text-xl font-bold text-blue-700">{tongUocTinh.toLocaleString('vi-VN')} đ</div>
           </div>
         </div>
       )}
-      {!loading && nvFilter !== 'all' && <p className="text-[11px] text-slate-400 -mt-2">Tổng chỉ tính máy LẺ; máy thuộc Hợp đồng khung tính ở phần Bảng kê bên dưới.</p>}
+      {!loading && nvFilter !== 'all' && <p className="t2 text-slate-400 -mt-2">Tổng chỉ tính máy LẺ; máy thuộc Hợp đồng khung tính ở phần Bảng kê bên dưới.</p>}
 
       {loading ? <div className="text-sm text-slate-400 py-8 text-center"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải danh sách...</div> : (
         <div className="overflow-x-auto border border-slate-100 rounded-lg">
@@ -1108,14 +1108,14 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
               {sortedRows.map(({ r, st }: any) => (
                 <tr key={r.id} className="hover:bg-slate-50">
                   <td className="px-3 py-2">
-                    <div className="font-medium text-slate-700">{r.ten_khach_hang}{r.trach_nhiem_ky_thuat === 'Đối tác ngoài' && <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-100">{r.ten_doi_tac_ky_thuat || 'Đối tác'}</span>}</div>
+                    <div className="font-medium text-slate-700">{r.ten_khach_hang}{r.trach_nhiem_ky_thuat === 'Đối tác ngoài' && <span className="ml-1 t3 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-100">{r.ten_doi_tac_ky_thuat || 'Đối tác'}</span>}</div>
                     {r.vi_tri_dat_may && <div className="text-xs text-slate-400">{r.vi_tri_dat_may}</div>}
                   </td>
                   <td className="px-3 py-2 font-mono text-slate-500">
                     <div>{r.ma_may || '—'}</div>
                     {/* Model tô màu để nhìn phát biết liền: máy MÀU = tím hồng, ĐEN TRẮNG = xám đậm */}
-                    {r.model && <div className={`text-[10px] font-sans font-semibold ${r.may_mau === false ? 'text-slate-500' : 'text-fuchsia-600'}`} title={r.may_mau === false ? 'Máy đen trắng' : 'Máy màu'}>{r.model}</div>}
-                    {r.serial && <div className="text-[10px] text-slate-400">SN: {r.serial}</div>}
+                    {r.model && <div className={`t3 font-sans font-semibold ${r.may_mau === false ? 'text-slate-500' : 'text-fuchsia-600'}`} title={r.may_mau === false ? 'Máy đen trắng' : 'Máy màu'}>{r.model}</div>}
+                    {r.serial && <div className="t3 text-slate-400">SN: {r.serial}</div>}
                   </td>
                   <td className="px-3 py-2 text-center whitespace-nowrap text-slate-500">{chotLabelShort(r)}</td>
                   <td className="px-3 py-2">
@@ -1123,23 +1123,23 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
                   </td>
                   <td className="px-3 py-2">
                     <NumInput value={edits[r.id]?.so_bw ?? ''} onChange={v => setEdit(r.id, 'so_bw', v)} className="h-8 w-24" />
-                    <div className="text-[10px] text-slate-400 mt-0.5">đầu kỳ: {fmtInt(r.so_bw_truoc)}</div>
+                    <div className="t3 text-slate-400 mt-0.5">đầu kỳ: {fmtInt(r.so_bw_truoc)}</div>
                   </td>
                   <td className="px-3 py-2">
                     <NumInput value={r.may_mau === false ? '' : (edits[r.id]?.so_mau ?? '')} onChange={v => setEdit(r.id, 'so_mau', v)}
                       disabled={r.may_mau === false} title={r.may_mau === false ? 'Máy đen trắng — không có counter màu' : undefined}
                       className={`h-8 w-24 ${r.may_mau === false ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''}`} />
-                    <div className="text-[10px] text-slate-400 mt-0.5">{r.may_mau === false ? 'máy đen trắng' : `đầu kỳ: ${fmtInt(r.so_mau_truoc)}`}</div>
+                    <div className="t3 text-slate-400 mt-0.5">{r.may_mau === false ? 'máy đen trắng' : `đầu kỳ: ${fmtInt(r.so_mau_truoc)}`}</div>
                   </td>
                   {showGhiChu && <td className="px-3 py-2"><Input value={edits[r.id]?.ghi_chu ?? ''} onChange={e => setEdit(r.id, 'ghi_chu', e.target.value)} className="h-8 w-40" /></td>}
                   <td className="px-3 py-2 text-right whitespace-nowrap">
                     {r.id_hop_dong_khung ? (
-                      <span className="text-[10px] text-violet-600" title="Máy thuộc HĐ khung — tính gộp ở Bảng kê">HĐ khung</span>
+                      <span className="t3 text-violet-600" title="Máy thuộc HĐ khung — tính gộp ở Bảng kê">HĐ khung</span>
                     ) : (() => {
                       const d = uocTinh(r)
                       if (!d) return <span className="text-slate-300">—</span>
                       const sb = (d.so_bw_tinh_phi || 0) + (d.so_mau_tinh_phi || 0)
-                      return <div><div className="font-semibold text-slate-700">{Math.round(d.thanh_tien).toLocaleString('vi-VN')} đ</div><div className="text-[10px] text-slate-400">{sb.toLocaleString('vi-VN')} bản tính phí</div></div>
+                      return <div><div className="font-semibold text-slate-700">{Math.round(d.thanh_tien).toLocaleString('vi-VN')} đ</div><div className="t3 text-slate-400">{sb.toLocaleString('vi-VN')} bản tính phí</div></div>
                     })()}
                   </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
@@ -1334,8 +1334,8 @@ function KhungTab({ showNotification }: { showNotification: Notify }) {
           <label className="block"><span className="text-xs font-medium text-slate-500">Card reader / option</span><NumInput value={form.card_reader} onChange={v => setForm({ ...form, card_reader: v })} className="h-9 mt-1" /></label>
           {/* 2 ô tên dịch vụ trên HĐ — cùng 1 chức năng nên đặt chung 1 hàng, ngay dưới Card reader */}
           <div className="md:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-            <label className="block"><span className="text-xs font-medium text-slate-500">Tên DV thuê máy (trên HĐ)</span><Input value={form.ten_dv_thue_may} onChange={e => setForm({ ...form, ten_dv_thue_may: e.target.value })} className="h-9 mt-1" placeholder="Trống = Dịch vụ thuê máy" /><span className="text-[10px] text-slate-400">KHÔNG gõ tháng — hệ thống tự ghép kỳ. VD: Dịch vụ thuê máy Photocopy</span></label>
-            <label className="block"><span className="text-xs font-medium text-slate-500">Tên DV đầu đọc thẻ (trên HĐ)</span><Input value={form.ten_dv_dau_doc} onChange={e => setForm({ ...form, ten_dv_dau_doc: e.target.value })} className="h-9 mt-1" placeholder="Trống = Dịch vụ đầu đọc thẻ" /><span className="text-[10px] text-slate-400">Hệ thống tự ghép kỳ vào cuối. VD: Dịch vụ thuê đầu đọc thẻ</span></label>
+            <label className="block"><span className="text-xs font-medium text-slate-500">Tên DV thuê máy (trên HĐ)</span><Input value={form.ten_dv_thue_may} onChange={e => setForm({ ...form, ten_dv_thue_may: e.target.value })} className="h-9 mt-1" placeholder="Trống = Dịch vụ thuê máy" /><span className="t3 text-slate-400">KHÔNG gõ tháng — hệ thống tự ghép kỳ. VD: Dịch vụ thuê máy Photocopy</span></label>
+            <label className="block"><span className="text-xs font-medium text-slate-500">Tên DV đầu đọc thẻ (trên HĐ)</span><Input value={form.ten_dv_dau_doc} onChange={e => setForm({ ...form, ten_dv_dau_doc: e.target.value })} className="h-9 mt-1" placeholder="Trống = Dịch vụ đầu đọc thẻ" /><span className="t3 text-slate-400">Hệ thống tự ghép kỳ vào cuối. VD: Dịch vụ thuê đầu đọc thẻ</span></label>
           </div>
           <label className="block md:col-span-4"><span className="text-xs font-medium text-slate-500">Ghi chú</span><Input value={form.ghi_chu} onChange={e => setForm({ ...form, ghi_chu: e.target.value })} className="h-9 mt-1" /></label>
         </div>

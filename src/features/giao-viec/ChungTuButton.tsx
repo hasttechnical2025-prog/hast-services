@@ -54,7 +54,7 @@ export function ChungTuButton({ jobId, bbbgLuc, onExported, notify }: {
   }
   const doExportBBBG = (mau: string) => download(`/api/admin/bbbg?id=${jobId}&mau=${encodeURIComponent(mau)}`, 'BBBG.docx', 'Đã xuất Biên bản bàn giao.')
   const doExportBBGD = () => download(`/api/admin/bbgd?id=${jobId}`, 'BBGD.docx', 'Đã xuất Biên bản giám định.')
-  const chip = (iso?: string) => iso ? <span className="ml-auto pl-2 text-[10px] font-semibold text-emerald-600 whitespace-nowrap">✓ {fmtTime(iso)}</span> : null
+  const chip = (iso?: string) => iso ? <span className="ml-auto pl-2 t3 font-semibold text-emerald-600 whitespace-nowrap">✓ {fmtTime(iso)}</span> : null
 
   return (
     <>
@@ -68,25 +68,25 @@ export function ChungTuButton({ jobId, bbbgLuc, onExported, notify }: {
         <>
           <div className="fixed inset-0 z-[70]" onClick={(e) => { e.stopPropagation(); setOpen(false) }} />
           <div className="fixed w-[300px] bg-white border border-slate-200 rounded-lg shadow-lg z-[71] py-1 overflow-y-auto" style={{ left: pos.left, ...(pos.top != null ? { top: pos.top } : { bottom: pos.bottom }), maxHeight: pos.maxH }} onClick={e => e.stopPropagation()}>
-            <div className="px-3 py-1 text-[10px] font-semibold text-slate-400 uppercase">Biên bản bàn giao</div>
+            <div className="px-3 py-1 t3 font-semibold text-slate-400 uppercase">Biên bản bàn giao</div>
             {BBBG_TEMPLATE_LIST.map(t => (
               <button key={t.key} onClick={() => doExportBBBG(t.key)} className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2">
                 <FileText className="w-3.5 h-3.5 text-blue-500 shrink-0" /> <span className="truncate">{t.label}</span>{chip(lastFor('BBBG', t.key))}
               </button>
             ))}
             <div className="border-t border-slate-100 mt-1 pt-1">
-              <div className="px-3 py-1 text-[10px] font-semibold text-slate-400 uppercase">Biên bản giám định</div>
+              <div className="px-3 py-1 t3 font-semibold text-slate-400 uppercase">Biên bản giám định</div>
               <button onClick={doExportBBGD} className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2">
                 <ClipboardCheck className="w-3.5 h-3.5 text-blue-500 shrink-0" /> <span className="truncate">BM26 — Biên bản giám định</span>{chip(lastFor('BBGD', 'bm26'))}
               </button>
             </div>
             {(logLoading || log.length > 0) && (
               <div className="border-t border-slate-100 mt-1 pt-1">
-                <div className="px-3 py-1 text-[10px] font-semibold text-slate-400 uppercase flex items-center gap-1"><Clock className="w-3 h-3" /> Lịch sử xuất {log.length > 0 && `(${log.length})`}</div>
-                {logLoading ? <div className="px-3 py-1.5 text-[11px] text-slate-400">Đang tải…</div> : (
+                <div className="px-3 py-1 t3 font-semibold text-slate-400 uppercase flex items-center gap-1"><Clock className="w-3 h-3" /> Lịch sử xuất {log.length > 0 && `(${log.length})`}</div>
+                {logLoading ? <div className="px-3 py-1.5 t2 text-slate-400">Đang tải…</div> : (
                   <div className="max-h-40 overflow-y-auto">
                     {log.map(l => (
-                      <div key={l.id} className="px-3 py-1.5 text-[11px] text-slate-600 flex items-center gap-1.5">
+                      <div key={l.id} className="px-3 py-1.5 t2 text-slate-600 flex items-center gap-1.5">
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${l.loai === 'BBGD' ? 'bg-indigo-400' : 'bg-blue-400'}`} />
                         <span className="font-medium text-slate-700 truncate">{l.mau_label || l.mau}</span>
                         <span className="text-slate-400 ml-auto pl-2 whitespace-nowrap">{l.nguoi_ten || '—'} · {fmtTime(l.created_at)}</span>

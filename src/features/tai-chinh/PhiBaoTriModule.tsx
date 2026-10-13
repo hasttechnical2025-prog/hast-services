@@ -300,7 +300,7 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
                     <td className="px-3 py-2 text-center text-xs whitespace-nowrap">{tu && den ? `${tu} → ${den}` : <span className="text-slate-400">—</span>}</td>
                     <td className="px-2 py-2 text-center">
                       {daLap ? (
-                        <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">✓ Đã lập {nam}</span>
+                        <span className="inline-block px-2 py-0.5 rounded-full t2 font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">✓ Đã lập {nam}</span>
                       ) : (
                         <Button onClick={() => openBill(g)} disabled={lech || dirty.size > 0} className="h-8 gap-1.5"
                           title={lech ? 'Sửa đơn giá cho đồng nhất trước' : dirty.size > 0 ? 'Lưu cấu hình trước khi tạo hóa đơn' : 'Tạo hóa đơn phí BT → đẩy Kanban'}>
@@ -413,7 +413,7 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
                   <td className="px-2 py-1.5 font-mono text-xs">{m.ma_may}</td>
                   <td className="px-2 py-1.5 text-xs">{m.model}</td>
                   <td className="px-2 py-1.5 text-center text-xs">
-                    <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold border ${isMF ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>{m.loai_hd}</span>
+                    <span className={`px-1.5 py-0.5 rounded t2 font-semibold border ${isMF ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>{m.loai_hd}</span>
                   </td>
                   <td className="px-2 py-1.5 text-center text-xs whitespace-nowrap">{fmtDate(m.ngay_het_han_hdbt) || '—'}</td>
                   {isMF ? (

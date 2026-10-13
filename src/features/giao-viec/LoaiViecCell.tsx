@@ -25,7 +25,7 @@ export function LoaiViecCell({ job }: { job: Job }) {
         <div className="fixed z-[80] w-64 rounded-lg border border-slate-200 bg-white shadow-xl p-2.5 text-left" style={{ top: pos.top, left: pos.left }}>
           {hasVt ? (
             <>
-              <div className="text-[10px] font-bold uppercase text-slate-500 mb-1.5">Vật tư ({vts.length})</div>
+              <div className="t3 font-bold uppercase text-slate-500 mb-1.5">Vật tư ({vts.length})</div>
               <div className="space-y-1">
                 {vts.map((v, i) => (
                   <div key={i} className="flex items-start gap-2 text-xs">
@@ -38,7 +38,7 @@ export function LoaiViecCell({ job }: { job: Job }) {
             </>
           ) : (
             <>
-              <div className="text-[10px] font-bold uppercase text-slate-500 mb-1.5">Ghi chú</div>
+              <div className="t3 font-bold uppercase text-slate-500 mb-1.5">Ghi chú</div>
               <div className="text-xs text-slate-700 leading-snug whitespace-pre-wrap break-words">{ghi}</div>
             </>
           )}

@@ -290,19 +290,19 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
 
                 {String(d.machine_condition ?? '').trim() && (
                   <div className="space-y-1">
-                    <div className="text-[11px] font-bold text-slate-400 uppercase">Tình trạng chung</div>
+                    <div className="t2 font-bold text-slate-400 uppercase">Tình trạng chung</div>
                     <div className="text-sm text-slate-700 bg-slate-50 rounded-md px-3 py-2 whitespace-pre-wrap">{d.machine_condition}</div>
                   </div>
                 )}
                 {String(d.ly_do ?? '').trim() && (
                   <div className="space-y-1">
-                    <div className="text-[11px] font-bold text-slate-400 uppercase">Lý do giám định</div>
+                    <div className="t2 font-bold text-slate-400 uppercase">Lý do giám định</div>
                     <div className="text-sm text-slate-700 bg-slate-50 rounded-md px-3 py-2 whitespace-pre-wrap">{d.ly_do}</div>
                   </div>
                 )}
 
                 <div className="space-y-2">
-                  <div className="text-[11px] font-bold text-slate-400 uppercase">Chi tiết vật tư / bộ phận ({vt.length})</div>
+                  <div className="t2 font-bold text-slate-400 uppercase">Chi tiết vật tư / bộ phận ({vt.length})</div>
                   {vt.length === 0 ? (
                     <p className="text-xs text-slate-400">Biên bản không ghi chi tiết vật tư.</p>
                   ) : (
@@ -362,7 +362,7 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
 
               {/* Chi tiết trống / mực / vật tư — ghi vào biên bản Techbot (data jsonb). Để trống = bỏ qua. */}
               <div className="space-y-2">
-                <div className="text-[11px] font-bold text-slate-400 uppercase">Chi tiết trống / mực / vật tư</div>
+                <div className="t2 font-bold text-slate-400 uppercase">Chi tiết trống / mực / vật tư</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 border border-slate-200 rounded-lg p-3">
                   {VAT_TU_FIELDS.map(([k, label]) => (
                     <label key={k} className="flex items-center gap-2">
@@ -388,7 +388,7 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
 function Info({ label, value, mono }: { label: string; value: any; mono?: boolean }) {
   return (
     <div className="space-y-0.5">
-      <div className="text-[10px] font-bold text-slate-400 uppercase">{label}</div>
+      <div className="t3 font-bold text-slate-400 uppercase">{label}</div>
       <div className={`text-sm text-slate-800 ${mono ? 'font-mono' : ''}`}>{String(value ?? '').trim() || '—'}</div>
     </div>
   )

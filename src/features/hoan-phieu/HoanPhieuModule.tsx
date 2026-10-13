@@ -93,8 +93,8 @@ export function HoanPhieuModule({ notify }: { notify: (type: 'success' | 'error'
     {
       key: 'nop', header: 'Đã nộp', align: 'center', sortValue: r => r.da_nop_phieu ? 1 : 0,
       render: r => r.da_nop_phieu
-        ? <button onClick={() => toggle(r)} className="inline-block whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200" title={r.ngay_nop_phieu ? `Nộp ${new Date(r.ngay_nop_phieu).toLocaleDateString('vi-VN')}` : ''}>Đã nộp</button>
-        : <button onClick={() => toggle(r)} className="inline-block whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-semibold border bg-slate-100 text-slate-500 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200">Đánh dấu nộp</button>,
+        ? <button onClick={() => toggle(r)} className="inline-block whitespace-nowrap px-2 py-0.5 rounded-full t2 font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200" title={r.ngay_nop_phieu ? `Nộp ${new Date(r.ngay_nop_phieu).toLocaleDateString('vi-VN')}` : ''}>Đã nộp</button>
+        : <button onClick={() => toggle(r)} className="inline-block whitespace-nowrap px-2 py-0.5 rounded-full t2 font-semibold border bg-slate-100 text-slate-500 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200">Đánh dấu nộp</button>,
     },
   ]
 

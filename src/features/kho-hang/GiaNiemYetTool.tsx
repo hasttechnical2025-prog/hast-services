@@ -159,12 +159,12 @@ export function GiaNiemYetTool({ showNotification, hangOptions }: { showNotifica
             const cols2 = colMap.filter(Boolean)
             return (
               <div className="space-y-1.5">
-                <div className="flex gap-2 text-[11px]">
+                <div className="flex gap-2 t2">
                   <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">Cập nhật: {ok}</span>
                   <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-semibold">Lỗi (bỏ qua): {er}</span>
                 </div>
                 <div className="border border-slate-200 rounded-lg overflow-hidden max-h-56 overflow-y-auto">
-                  <table className="w-full text-left text-[11px] text-slate-600">
+                  <table className="w-full text-left t2 text-slate-600">
                     <thead className="bg-slate-100 text-slate-500 uppercase sticky top-0"><tr><th className="px-2 py-1">Mã</th>{cols2.map(c => <th key={c} className="px-2 py-1 text-right">{PRICE_LABEL[c]}</th>)}<th className="px-2 py-1">Trạng thái</th></tr></thead>
                     <tbody className="divide-y divide-slate-100">
                       {preview.map((r, idx) => (
@@ -185,7 +185,7 @@ export function GiaNiemYetTool({ showNotification, hangOptions }: { showNotifica
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-slate-600">
-            <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase border-b border-slate-200">
+            <thead className="bg-slate-50 text-slate-500 t2 font-semibold uppercase border-b border-slate-200">
               <tr>
                 <SortTh f="ma_hang" label="Mã hàng" />
                 <SortTh f="ten_hang" label="Tên vật tư" />

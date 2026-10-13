@@ -60,10 +60,10 @@ export function MaterialCombobox({ inventory, value, onChange, committed }: {
                 <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                   <span>Mã tương đương:</span>
                   {String(obsoleteMatch.ma_thay_the).split(',').map((s: string) => s.trim()).filter(Boolean).map((mtd: string) => (
-                    <button key={mtd} type="button" onMouseDown={(e) => { e.preventDefault(); onChange(mtd); setQuery(''); setOpen(false) }} className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-semibold font-mono transition shrink-0">↳ {mtd}</button>
+                    <button key={mtd} type="button" onMouseDown={(e) => { e.preventDefault(); onChange(mtd); setQuery(''); setOpen(false) }} className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded t2 font-semibold font-mono transition shrink-0">↳ {mtd}</button>
                   ))}
                 </div>
-              ) : <div className="mt-0.5 text-slate-500 italic text-[11px]">Chưa cài đặt mã tương đương cho vật tư này.</div>}
+              ) : <div className="mt-0.5 text-slate-500 italic t2">Chưa cài đặt mã tương đương cho vật tư này.</div>}
             </div>
           )}
           {results.length === 0 && !obsoleteMatch ? (
@@ -78,13 +78,13 @@ export function MaterialCombobox({ inventory, value, onChange, committed }: {
                 <div className="truncate flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="font-mono font-medium text-slate-700">{item.ma_hang}</span>
-                    {isDiscontinued && <span className="text-[10px] font-bold px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded border border-amber-200">Mã cũ — còn tồn</span>}
-                    {item.ma_thay_the && <span className="text-[10px] text-slate-500">(≡ <span className="font-mono text-blue-600 font-semibold">{item.ma_thay_the}</span>)</span>}
+                    {isDiscontinued && <span className="t3 font-bold px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded border border-amber-200">Mã cũ — còn tồn</span>}
+                    {item.ma_thay_the && <span className="t3 text-slate-500">(≡ <span className="font-mono text-blue-600 font-semibold">{item.ma_thay_the}</span>)</span>}
                   </div>
                   <div className="text-slate-500 text-xs truncate">{item.ten_hang}</div>
                 </div>
                 {committed
-                  ? <span className={`text-xs shrink-0 text-right leading-tight ${kd <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>Có sẵn: {kd}{giu > 0 && <span className="block text-[10px] text-amber-600">Tồn {item.ton_kho} · giữ {giu}</span>}</span>
+                  ? <span className={`text-xs shrink-0 text-right leading-tight ${kd <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>Có sẵn: {kd}{giu > 0 && <span className="block t3 text-amber-600">Tồn {item.ton_kho} · giữ {giu}</span>}</span>
                   : <span className={`text-xs shrink-0 ${item.ton_kho <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>Tồn: {item.ton_kho}</span>}
               </button>
             )

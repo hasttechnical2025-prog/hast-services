@@ -348,7 +348,7 @@ export function DatHangTool({
             <button key={k} onClick={() => setTab(k)}
               className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 inline-flex items-center gap-1.5 ${on ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
               {label}
-              {draftCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold" title={`${draftCount} đơn còn ở trạng thái Nháp`}>{draftCount}</span>}
+              {draftCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white t3 font-bold" title={`${draftCount} đơn còn ở trạng thái Nháp`}>{draftCount}</span>}
             </button>
           )
         })}
@@ -443,10 +443,10 @@ export function DatHangTool({
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="font-mono font-bold text-slate-700">{item.ma_hang}</span>
-                          {underInfo.isUnder && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-300 whitespace-nowrap" title={`Tồn: ${item.ton_kho} / Ngưỡng: ${underInfo.nguong} → Cần đặt bù tối thiểu ${underInfo.thieu}`}>🔔 Thiếu {underInfo.thieu}</span>}
+                          {underInfo.isUnder && <span className="inline-flex items-center px-1.5 py-0.5 rounded t3 font-bold bg-rose-100 text-rose-700 border border-rose-300 whitespace-nowrap" title={`Tồn: ${item.ton_kho} / Ngưỡng: ${underInfo.nguong} → Cần đặt bù tối thiểu ${underInfo.thieu}`}>🔔 Thiếu {underInfo.thieu}</span>}
                         </div>
                         <div className="text-slate-500 font-normal leading-relaxed">{item.ten_hang}</div>
-                        {item.ma_thay_the && <div className="text-[10px] text-blue-600 font-mono leading-tight mt-0.5" title={`Mã tương đương: ${item.ma_thay_the}`}>≡ {item.ma_thay_the}</div>}
+                        {item.ma_thay_the && <div className="t3 text-blue-600 font-mono leading-tight mt-0.5" title={`Mã tương đương: ${item.ma_thay_the}`}>≡ {item.ma_thay_the}</div>}
                       </td>
                       <td className="px-3 py-2.5 text-center text-[11px] text-slate-500 leading-tight w-32 max-w-[150px] break-words whitespace-normal">{item.model || '—'}</td>
                       {(() => {
@@ -455,7 +455,7 @@ export function DatHangTool({
                         return (
                           <td className={`px-3 py-2.5 text-center font-bold leading-tight ${isOut ? 'bg-red-50/50' : ''}`} title={giu > 0 ? `Tồn ${item.ton_kho}, đang giữ ${giu} ở phiếu chưa hoàn thành` : undefined}>
                             <span className={isOut ? 'text-red-500' : 'text-slate-600'}>{item.ton_kho}</span>
-                            {giu > 0 && <span className={`block text-[10px] font-semibold ${kd <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>Có sẵn {kd}</span>}
+                            {giu > 0 && <span className={`block t3 font-semibold ${kd <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>Có sẵn {kd}</span>}
                           </td>
                         )
                       })()}
@@ -505,7 +505,7 @@ export function DatHangTool({
           <div className="border border-slate-200 rounded-lg overflow-hidden bg-white flex flex-col flex-1 min-h-[250px]">
             <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 flex justify-between items-center shrink-0">
               <h4 className="text-xs font-bold text-slate-600 uppercase">Danh sách đã chọn ({lines.length})</h4>
-              {lines.length > 0 && <button type="button" onClick={() => setLines([])} className="text-[10px] text-red-500 font-bold hover:underline">Xóa hết</button>}
+              {lines.length > 0 && <button type="button" onClick={() => setLines([])} className="t3 text-red-500 font-bold hover:underline">Xóa hết</button>}
             </div>
             <div className="p-3 space-y-2 flex-1 overflow-y-auto">
               {lines.length === 0 ? (
@@ -516,7 +516,7 @@ export function DatHangTool({
                   <div key={l.ma_hang} className="flex gap-2 items-center justify-between bg-slate-50/50 p-2 rounded border border-slate-100">
                     <div className="flex-1 min-w-0 pr-1">
                       <div className="font-mono font-bold text-xs text-slate-700">{l.ma_hang}</div>
-                      <div className="text-[10px] text-slate-500 truncate" title={item?.ten_hang}>{item?.ten_hang || '—'}</div>
+                      <div className="t3 text-slate-500 truncate" title={item?.ten_hang}>{item?.ten_hang || '—'}</div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <Input type="number" min="1" className="h-7 w-16 text-xs bg-white text-center" value={l.sl_dat} onChange={(e) => updLine(i, 'sl_dat', e.target.value)} />
@@ -532,7 +532,7 @@ export function DatHangTool({
             {editingDraftId && (
               <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 p-2 rounded flex justify-between items-center mb-1">
                 <span>Đang sửa đơn nháp: <b>{form.so_don_hang}</b></span>
-                <button onClick={() => { setEditingDraftId(null); setForm({ ngay_dat: new Date().toISOString().split('T')[0], nha_cung_cap: "", so_don_hang: "", da_dat: false }); setLines([]) }} className="font-bold hover:underline text-red-600 text-[10px]">Huỷ sửa</button>
+                <button onClick={() => { setEditingDraftId(null); setForm({ ngay_dat: new Date().toISOString().split('T')[0], nha_cung_cap: "", so_don_hang: "", da_dat: false }); setLines([]) }} className="font-bold hover:underline text-red-600 t3">Huỷ sửa</button>
               </div>
             )}
             <div className="flex gap-2">
@@ -594,8 +594,8 @@ export function DatHangTool({
             <div key={o.id} className={`bg-white rounded-lg border p-4 space-y-3 ${o.hoan_thanh ? 'border-slate-200 opacity-80' : 'border-slate-200'}`}>
               <div className="flex justify-between items-start gap-3 flex-wrap">
                 <div>
-                  <div className="text-[13px] font-medium text-slate-800">{o.nha_cung_cap || 'Chưa có NCC'} {o.so_don_hang && <span className="text-slate-400 font-normal">· {o.so_don_hang}</span>}</div>
-                  <div className="text-[11px] text-slate-500">Ngày đặt {fmtDate(o.ngay_dat)}</div>
+                  <div className="t1 font-medium text-slate-800">{o.nha_cung_cap || 'Chưa có NCC'} {o.so_don_hang && <span className="text-slate-400 font-normal">· {o.so_don_hang}</span>}</div>
+                  <div className="t2 text-slate-500">Ngày đặt {fmtDate(o.ngay_dat)}</div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <button onClick={() => toggleDaDat(o)} className={`whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold border ${o.da_dat ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{o.da_dat ? 'Đã đặt' : 'Nháp'}</button>
@@ -637,7 +637,7 @@ export function DatHangTool({
                                 return (
                                   <span key={h.id} className={`inline-flex items-center gap-1 border rounded px-1.5 py-0.5 ${maThuc ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'}`} title={maThuc ? `Giao thay thế bằng mã ${maThuc}` : undefined}>
                                     {fmtDate(h.ngay_nhan)}: <b>{h.so_luong_nhan}</b>
-                                    {maThuc && <span className="text-[10px] text-amber-700 font-semibold">→ {maThuc}</span>}
+                                    {maThuc && <span className="t3 text-amber-700 font-semibold">→ {maThuc}</span>}
                                     {currentUserRole === 'admin' && <button onClick={() => deleteReceipt(h.id, h.so_luong_nhan, h.ma_hang || line.ma_hang)} className="text-slate-400 hover:text-red-500" title="Xóa đợt này (trừ tồn)">✕</button>}
                                   </span>
                                 )
@@ -653,7 +653,7 @@ export function DatHangTool({
                                 </label>
                                 <Button onClick={saveReceipt} className="h-8 text-xs px-3 bg-emerald-600 hover:bg-emerald-700">Lưu</Button>
                                 <Button variant="outline" onClick={() => setReceiving(null)} className="h-8 text-xs px-3">Hủy</Button>
-                                {receiving.ma_hang !== receiving.ma_dat && <span className="text-[10px] text-amber-700 self-center">Giao thay thế (đặt {receiving.ma_dat})</span>}
+                                {receiving.ma_hang !== receiving.ma_dat && <span className="t3 text-amber-700 self-center">Giao thay thế (đặt {receiving.ma_dat})</span>}
                               </div>
                             )}
                           </td>

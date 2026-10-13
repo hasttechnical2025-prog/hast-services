@@ -97,8 +97,8 @@ export default function NghiPhepDuyet({ notify, onPending }: {
       <div className="flex items-start justify-between gap-2">
         <div className="font-semibold text-slate-800 text-sm">{d.soct_users?.full_name || '—'}</div>
         <div className="flex items-center gap-1.5 shrink-0">
-          {status && <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${ttBadge(d.trang_thai)}`}>{TT_LABEL[d.trang_thai] || d.trang_thai}</span>}
-          <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${loaiBadge(d.loai)}`}>{LOAI_LABEL[d.loai]}</span>
+          {status && <span className={`px-2 py-0.5 rounded t2 font-semibold border ${ttBadge(d.trang_thai)}`}>{TT_LABEL[d.trang_thai] || d.trang_thai}</span>}
+          <span className={`px-2 py-0.5 rounded t2 font-semibold border ${loaiBadge(d.loai)}`}>{LOAI_LABEL[d.loai]}</span>
         </div>
       </div>
       <div className="text-xs text-slate-600 mt-1 flex items-center gap-1">

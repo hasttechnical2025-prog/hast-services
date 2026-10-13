@@ -323,7 +323,7 @@ export function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCa
                           <Input value={editing.email_ke_toan || ""} onChange={(e) => setEditing({ ...editing, email_ke_toan: e.target.value })} placeholder="Email kế toán (tùy chọn)" className="bg-white" />
                         </div>
                       </div>
-                      <p className="text-[11px] text-slate-400 -mt-1">Điểm máy CHƯA gán vào cụm khách → MST/Email này được dùng khi lên hóa đơn. Nếu đã gán cụm thì lấy theo cụm.</p>
+                      <p className="t2 text-slate-400 -mt-1">Điểm máy CHƯA gán vào cụm khách → MST/Email này được dùng khi lên hóa đơn. Nếu đã gán cụm thì lấy theo cụm.</p>
                     </>
                   )}
 
@@ -396,7 +396,7 @@ export function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCa
                   <div className="border-t border-slate-100 pt-4 space-y-3">
                     <div className="flex items-center gap-2">
                       <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Lịch bảo trì</div>
-                      {!baoTriOn && <span className="text-[11px] text-slate-400">— chỉ áp dụng cho HĐBT / MF</span>}
+                      {!baoTriOn && <span className="t2 text-slate-400">— chỉ áp dụng cho HĐBT / MF</span>}
                     </div>
                     <div className={baoTriOn ? '' : 'opacity-50 pointer-events-none select-none'} aria-disabled={!baoTriOn}>
                       <div className="space-y-1">

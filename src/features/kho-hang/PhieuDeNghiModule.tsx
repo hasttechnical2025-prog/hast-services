@@ -1047,7 +1047,7 @@ export default function PhieuDeNghiModule({
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-slate-600">
-            <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase border-b border-slate-200 select-none">
+            <thead className="bg-slate-50 text-slate-500 t2 font-semibold uppercase border-b border-slate-200 select-none">
               <tr>
                 <th
                   onClick={() => handleSort('so_phieu')}
@@ -1143,7 +1143,7 @@ export default function PhieuDeNghiModule({
                       </td>
                       <td className="px-2.5 py-2.5 text-center whitespace-nowrap">
                         <span
-                          className="inline-flex items-center gap-1.5 text-[11px] cursor-default"
+                          className="inline-flex items-center gap-1.5 t2 cursor-default"
                           onMouseEnter={(countXuat > 0 || countNhap > 0) ? (e) => {
                             const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
                             setVtHover({ x: r.left + r.width / 2, y: r.bottom + 6, xuat: xuatList, nhap: nhapList })
@@ -1163,16 +1163,16 @@ export default function PhieuDeNghiModule({
                       </td>
                       <td className="px-2.5 py-2.5 text-center whitespace-nowrap">
                         {row.trang_thai === 'da_thuc_hien' ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-semibold" title={row.thuc_hien_luc ? `Thực hiện: ${fmtDate(row.thuc_hien_luc)}` : ''}>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 t2 font-semibold" title={row.thuc_hien_luc ? `Thực hiện: ${fmtDate(row.thuc_hien_luc)}` : ''}>
                             Đã thực hiện
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 text-[11px] font-semibold">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 t2 font-semibold">
                             Nháp
                           </span>
                         )}
                         {row.tac_dong_ton === false && (
-                          <span className="block text-[10px] text-slate-400 mt-0.5">không tác động tồn</span>
+                          <span className="block t3 text-slate-400 mt-0.5">không tác động tồn</span>
                         )}
                       </td>
                       <td className="px-3 py-2.5 text-center whitespace-nowrap">
@@ -1250,7 +1250,7 @@ export default function PhieuDeNghiModule({
           style={{ left: vtHover.x, top: vtHover.y }}
         >
           <div>
-            <div className="font-semibold text-indigo-700 mb-1 text-[11px] uppercase">Hàng xuất ra ({vtHover.xuat.length})</div>
+            <div className="font-semibold text-indigo-700 mb-1 t2 uppercase">Hàng xuất ra ({vtHover.xuat.length})</div>
             {vtHover.xuat.length === 0 ? (
               <div className="text-slate-400 text-xs">— không có —</div>
             ) : (
@@ -1266,7 +1266,7 @@ export default function PhieuDeNghiModule({
             )}
           </div>
           <div className="border-t border-slate-100 mt-2 pt-2">
-            <div className="font-semibold text-emerald-700 mb-1 text-[11px] uppercase">Hàng nhập lại ({vtHover.nhap.length})</div>
+            <div className="font-semibold text-emerald-700 mb-1 t2 uppercase">Hàng nhập lại ({vtHover.nhap.length})</div>
             {vtHover.nhap.length === 0 ? (
               <div className="text-slate-400 text-xs">— không có —</div>
             ) : (
@@ -1322,7 +1322,7 @@ export default function PhieuDeNghiModule({
                       maxLength={6}
                       className="h-8 w-full font-mono font-bold text-blue-700 bg-white uppercase"
                     />
-                    <span className="text-[10px] text-slate-400 mt-0.5 block">Tối đa 6 ký tự, tự IN HOA</span>
+                    <span className="t3 text-slate-400 mt-0.5 block">Tối đa 6 ký tự, tự IN HOA</span>
                   </div>
 
                   <div>
@@ -1449,7 +1449,7 @@ export default function PhieuDeNghiModule({
                   className="w-4 h-4 accent-amber-600 disabled:opacity-50"
                 />
                 <span className="text-xs text-amber-900 font-semibold">Phiếu này tác động tồn kho</span>
-                <span className="text-[11px] text-amber-700/80">
+                <span className="t2 text-amber-700/80">
                   — bật cột <b>Tồn</b> ở 2 bảng (mã có trong kho tự bật). Tắt nếu chỉ là giấy tờ (vd gộp mã theo khách). Tồn chỉ trừ/cộng khi bấm <b>Xác nhận thực hiện</b>.
                 </span>
               </label>
@@ -1467,14 +1467,14 @@ export default function PhieuDeNghiModule({
                       type="button"
                       variant="outline"
                       onClick={() => addLine('xuat_ra')}
-                      className="h-7 text-[11px] px-2 text-indigo-700 border-indigo-200 hover:bg-indigo-100/50"
+                      className="h-7 t2 px-2 text-indigo-700 border-indigo-200 hover:bg-indigo-100/50"
                     >
                       <Plus className="w-3.5 h-3.5 mr-1" /> Thêm dòng xuất
                     </Button>
                   </div>
 
                   <div className="space-y-1.5">
-                    <div className="grid grid-cols-12 gap-1.5 px-0.5 text-[10px] font-semibold uppercase text-indigo-700/70">
+                    <div className="grid grid-cols-12 gap-1.5 px-0.5 t3 font-semibold uppercase text-indigo-700/70">
                       <div className="col-span-1 text-center">TT</div>
                       <div className="col-span-3">Mã hàng</div>
                       <div className="col-span-4">Tên hàng</div>
@@ -1484,7 +1484,7 @@ export default function PhieuDeNghiModule({
                     </div>
                     {linesXuat.map((ln, idx) => (
                       <div key={idx} className="grid grid-cols-12 gap-1.5 items-center">
-                        <div className="col-span-1 text-center text-[11px] font-semibold text-indigo-700">{idx + 1}</div>
+                        <div className="col-span-1 text-center t2 font-semibold text-indigo-700">{idx + 1}</div>
                         <div className="col-span-3">
                           <MaMayUnionCombo
                             value={ln.ma_hang}
@@ -1548,14 +1548,14 @@ export default function PhieuDeNghiModule({
                       type="button"
                       variant="outline"
                       onClick={() => addLine('nhap_lai')}
-                      className="h-7 text-[11px] px-2 text-emerald-700 border-emerald-200 hover:bg-emerald-100/50"
+                      className="h-7 t2 px-2 text-emerald-700 border-emerald-200 hover:bg-emerald-100/50"
                     >
                       <Plus className="w-3.5 h-3.5 mr-1" /> Thêm dòng nhập
                     </Button>
                   </div>
 
                   <div className="space-y-1.5">
-                    <div className="grid grid-cols-12 gap-1.5 px-0.5 text-[10px] font-semibold uppercase text-emerald-700/70">
+                    <div className="grid grid-cols-12 gap-1.5 px-0.5 t3 font-semibold uppercase text-emerald-700/70">
                       <div className="col-span-1 text-center">TT</div>
                       <div className="col-span-3">Mã hàng</div>
                       <div className="col-span-4">Tên hàng</div>
@@ -1565,7 +1565,7 @@ export default function PhieuDeNghiModule({
                     </div>
                     {linesNhap.map((ln, idx) => (
                       <div key={idx} className="grid grid-cols-12 gap-1.5 items-center">
-                        <div className="col-span-1 text-center text-[11px] font-semibold text-emerald-700">{idx + 1}</div>
+                        <div className="col-span-1 text-center t2 font-semibold text-emerald-700">{idx + 1}</div>
                         <div className="col-span-3">
                           <MaMayUnionCombo
                             value={ln.ma_hang}
@@ -1626,7 +1626,7 @@ export default function PhieuDeNghiModule({
                 </span>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div>
-                    <label className="block text-slate-500 font-medium mb-1 text-[11px]">Ban Tổng Giám đốc</label>
+                    <label className="block text-slate-500 font-medium mb-1 t2">Ban Tổng Giám đốc</label>
                     <Input
                       value={form.ky_bgd}
                       onChange={e => setForm({ ...form, ky_bgd: e.target.value })}
@@ -1634,7 +1634,7 @@ export default function PhieuDeNghiModule({
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-500 font-medium mb-1 text-[11px]">Kế toán trưởng</label>
+                    <label className="block text-slate-500 font-medium mb-1 t2">Kế toán trưởng</label>
                     <Input
                       value={form.ky_ktt}
                       onChange={e => setForm({ ...form, ky_ktt: e.target.value })}
@@ -1642,7 +1642,7 @@ export default function PhieuDeNghiModule({
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-500 font-medium mb-1 text-[11px]">Phòng Kỹ thuật</label>
+                    <label className="block text-slate-500 font-medium mb-1 t2">Phòng Kỹ thuật</label>
                     <Input
                       value={form.ky_pkt}
                       onChange={e => setForm({ ...form, ky_pkt: e.target.value })}
@@ -1650,7 +1650,7 @@ export default function PhieuDeNghiModule({
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-500 font-medium mb-1 text-[11px]">Người lập biểu</label>
+                    <label className="block text-slate-500 font-medium mb-1 t2">Người lập biểu</label>
                     <Input
                       value={form.nguoi_lap}
                       onChange={e => setForm({ ...form, nguoi_lap: e.target.value })}

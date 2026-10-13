@@ -69,7 +69,7 @@ export function TroLyLogTool({ showNotification }: { showNotification: (type: 's
                   <td className="px-3 py-2 align-top">
                     <div className="text-slate-800">{r.cau_hoi}</div>
                     {r.tra_loi && <div className="text-xs text-slate-500 mt-0.5">↳ {r.tra_loi}</div>}
-                    {r.tham_so && r.tham_so !== '{}' && <div className="text-[11px] text-slate-400 mt-0.5 font-mono">AI hiểu: {r.tham_so}</div>}
+                    {r.tham_so && r.tham_so !== '{}' && <div className="t2 text-slate-400 mt-0.5 font-mono">AI hiểu: {r.tham_so}</div>}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap align-top"><span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">{TROLY_TOOL_LABEL[r.tool] || r.tool || '—'}</span></td>
                   <td className="px-3 py-2 text-center whitespace-nowrap align-top">

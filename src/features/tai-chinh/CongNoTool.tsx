@@ -298,10 +298,10 @@ export function CongNoTool({ showNotification }: { showNotification: (type: 'suc
             <label key={c.id} className="flex items-start gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer text-sm">
               <input type="radio" name="congno-diemmay" checked={selIds[0] === c.id} onChange={() => {}} onClick={() => toggleSel(c)} className="w-4 h-4 accent-blue-600 mt-0.5 shrink-0" />
               <div className="w-56 sm:w-72 shrink-0">
-                <span className="text-[13px] font-medium text-slate-700 leading-snug">{c.ten}</span>
-                {c.isCum && <span className="ml-1.5 px-1.5 py-[1px] text-[10px] font-semibold bg-violet-50 text-violet-700 border border-violet-200 rounded whitespace-nowrap">cụm · {new Set(c.tickets.map((t: any) => t.id_khach_hang)).size} máy</span>}
+                <span className="t1 font-medium text-slate-700 leading-snug">{c.ten}</span>
+                {c.isCum && <span className="ml-1.5 px-1.5 py-[1px] t3 font-semibold bg-violet-50 text-violet-700 border border-violet-200 rounded whitespace-nowrap">cụm · {new Set(c.tickets.map((t: any) => t.id_khach_hang)).size} máy</span>}
               </div>
-              <div className="flex-1 min-w-0 text-[11px] text-slate-400 leading-relaxed">
+              <div className="flex-1 min-w-0 t2 text-slate-400 leading-relaxed">
                 <span className="font-semibold text-slate-500">{c.tickets.length} phiếu</span>
                 <span className="text-slate-300"> · </span>
                 {c.tickets.map((t: any, idx: number) => (
@@ -336,8 +336,8 @@ export function CongNoTool({ showNotification }: { showNotification: (type: 'suc
                 )
               })}
               <div className="ml-auto flex gap-1">
-                <button onClick={() => setSelPhieuIds(selTickets.map((t: any) => t.id))} className="text-[11px] text-blue-600 hover:underline px-1">Chọn tất</button>
-                <button onClick={() => setSelPhieuIds([])} className="text-[11px] text-slate-400 hover:underline px-1">Bỏ tất</button>
+                <button onClick={() => setSelPhieuIds(selTickets.map((t: any) => t.id))} className="t2 text-blue-600 hover:underline px-1">Chọn tất</button>
+                <button onClick={() => setSelPhieuIds([])} className="t2 text-slate-400 hover:underline px-1">Bỏ tất</button>
               </div>
             </div>
           )}
@@ -407,8 +407,8 @@ export function CongNoTool({ showNotification }: { showNotification: (type: 'suc
                 return (
                   <div key={t.id} className="border border-slate-200 rounded-lg overflow-hidden">
                     <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-                      <span className="text-sm font-semibold text-slate-700">Phiếu {t.report}</span>
-                      <span className="text-[11px] text-slate-500">Lên HĐ: SL {keptAll} · {movedAll > 0 ? <span className="text-amber-700 font-semibold">tách SL {movedAll}</span> : 'không tách'}</span>
+                      <span className="t1 font-semibold text-slate-700">Phiếu {t.report}</span>
+                      <span className="t2 text-slate-500">Lên HĐ: SL {keptAll} · {movedAll > 0 ? <span className="text-amber-700 font-semibold">tách SL {movedAll}</span> : 'không tách'}</span>
                     </div>
                     <div className="divide-y divide-slate-50">
                       {lines.map((l: any) => {
@@ -421,10 +421,10 @@ export function CongNoTool({ showNotification }: { showNotification: (type: 'suc
                             <span className="flex-1 min-w-0 truncate text-slate-700" title={ten}>{ten}</span>
                             <span className="text-xs text-slate-400 shrink-0">SL {total}</span>
                             <label className="flex items-center gap-1 shrink-0">
-                              <span className="text-[11px] text-slate-500">lên HĐ</span>
+                              <span className="t2 text-slate-500">lên HĐ</span>
                               <input type="number" min={0} max={total} value={keep} onChange={e => { const n = Math.max(0, Math.min(total, Math.floor(Number(e.target.value) || 0))); setSplitQty(prev => ({ ...prev, [l.id]: n })) }} className="w-16 h-8 px-2 rounded border border-slate-200 text-sm text-right bg-white" />
                             </label>
-                            <span className={`text-[11px] shrink-0 w-20 text-right ${move > 0 ? 'text-amber-700 font-semibold' : 'text-slate-300'}`}>{move > 0 ? `tách ${move}` : '—'}</span>
+                            <span className={`t2 shrink-0 w-20 text-right ${move > 0 ? 'text-amber-700 font-semibold' : 'text-slate-300'}`}>{move > 0 ? `tách ${move}` : '—'}</span>
                           </div>
                         )
                       })}

@@ -93,19 +93,19 @@ export function BaoCaoThangTool({ showNotification }: { showNotification: (type:
       {preview && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col justify-center shadow-sm">
-              <div className="text-[10px] font-bold text-blue-600 uppercase mb-1 tracking-wider">Hóa đơn đã xuất</div>
+              <div className="t3 font-bold text-blue-600 uppercase mb-1 tracking-wider">Hóa đơn đã xuất</div>
               <div className="text-2xl font-black text-blue-900">{preview.ketoan_so_luong_hd} <span className="text-sm font-medium text-blue-700">tờ</span></div>
             </div>
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex flex-col justify-center shadow-sm">
-              <div className="text-[10px] font-bold text-emerald-600 uppercase mb-1 tracking-wider">Doanh số trước thuế</div>
+              <div className="t3 font-bold text-emerald-600 uppercase mb-1 tracking-wider">Doanh số trước thuế</div>
               <div className="text-xl font-black text-emerald-900">{preview.ketoan_truoc_vat} <span className="text-sm font-medium text-emerald-700">đ</span></div>
             </div>
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col justify-center shadow-sm">
-              <div className="text-[10px] font-bold text-amber-600 uppercase mb-1 tracking-wider">Tiền thuế VAT</div>
+              <div className="t3 font-bold text-amber-600 uppercase mb-1 tracking-wider">Tiền thuế VAT</div>
               <div className="text-xl font-black text-amber-900">{preview.ketoan_vat} <span className="text-sm font-medium text-amber-700">đ</span></div>
             </div>
             <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex flex-col justify-center shadow-sm">
-              <div className="text-[10px] font-bold text-indigo-600 uppercase mb-1 tracking-wider">Tổng cộng (sau thuế)</div>
+              <div className="t3 font-bold text-indigo-600 uppercase mb-1 tracking-wider">Tổng cộng (sau thuế)</div>
               <div className="text-xl font-black text-indigo-900">{preview.ketoan_sau_vat} <span className="text-sm font-medium text-indigo-700">đ</span></div>
             </div>
           </div>

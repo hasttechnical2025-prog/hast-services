@@ -290,7 +290,7 @@ export function NhapHangThangTool({
           <Package className="w-5 h-5 text-amber-600 shrink-0" />
           <div>
             <h3 className="text-sm font-bold text-slate-800">Cảnh báo tồn kho {warnCount > 0 && <span className="text-amber-700">({warnCount})</span>}</h3>
-            <p className="text-[11px] text-slate-500">Mặt hàng đã nhập trong 12 tháng gần nhất (mọi hãng) + mọi mặt hàng <b>đã đặt ngưỡng</b>. Cảnh báo khi <b>tồn ≤ ngưỡng</b>. Bỏ trống ngưỡng = không cảnh báo. Hàng nhập đã lâu: dùng ô <b>“Thêm mặt hàng cũ”</b> bên dưới.</p>
+            <p className="t2 text-slate-500">Mặt hàng đã nhập trong 12 tháng gần nhất (mọi hãng) + mọi mặt hàng <b>đã đặt ngưỡng</b>. Cảnh báo khi <b>tồn ≤ ngưỡng</b>. Bỏ trống ngưỡng = không cảnh báo. Hàng nhập đã lâu: dùng ô <b>“Thêm mặt hàng cũ”</b> bên dưới.</p>
           </div>
           <div className="ml-auto flex items-center gap-2 flex-wrap">
             {cartCount != null && cartCount > 0 && onGoToCart && (
@@ -327,11 +327,11 @@ export function NhapHangThangTool({
             {allHangOptions.map(h => <option key={h} value={h}>{h}</option>)}
           </select>
           {(filterSearch || filterModel || filterHang) && <button onClick={() => { setFilterSearch(""); setFilterModel(""); setFilterHang("") }} className="text-xs text-rose-600 hover:underline font-medium ml-1">Bỏ lọc</button>}
-          <div className="text-[11px] text-slate-400 ml-auto">Hiển thị <b>{cbRows.length}</b> mặt hàng</div>
+          <div className="t2 text-slate-400 ml-auto">Hiển thị <b>{cbRows.length}</b> mặt hàng</div>
         </div>
 
         <div className="flex flex-wrap gap-2 items-center bg-slate-50 border border-slate-200 rounded-md px-3 py-2">
-          <span className="text-[11px] font-semibold text-slate-600">Thêm mặt hàng cũ:</span>
+          <span className="t2 font-semibold text-slate-600">Thêm mặt hàng cũ:</span>
           <div className="relative w-72" ref={addWrapRef}>
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
             <Input placeholder="Gõ mã / tên vật tư (gợi ý từ toàn kho)…" className="pl-8 pr-6 h-9 text-xs bg-white" value={findKw} onChange={(e) => setFindKw(e.target.value)} onFocus={() => { if (findKw.trim().length >= 2) setShowSug(true) }} />
@@ -354,14 +354,14 @@ export function NhapHangThangTool({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono font-bold text-slate-800">{it.ma_hang}</span>
-                      {hasNg && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">ngưỡng {Number(it.nguong_dat).toLocaleString('vi-VN')}</span>}
-                      {inList && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-semibold">đã trong danh sách</span>}
+                      {hasNg && <span className="t3 px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">ngưỡng {Number(it.nguong_dat).toLocaleString('vi-VN')}</span>}
+                      {inList && <span className="t3 px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-semibold">đã trong danh sách</span>}
                     </div>
                     <div className="text-slate-600 truncate">{it.ten_hang || <span className="italic text-slate-400">(chưa có tên)</span>}</div>
-                    {(it.model || it.hang) && <div className="text-[11px] text-slate-400 truncate">{[it.hang, it.model].filter(Boolean).join(' · ')}</div>}
+                    {(it.model || it.hang) && <div className="t2 text-slate-400 truncate">{[it.hang, it.model].filter(Boolean).join(' · ')}</div>}
                   </div>
                   <div className="shrink-0 text-right">
-                    <div className="text-[10px] text-slate-400 uppercase">Tồn</div>
+                    <div className="t3 text-slate-400 uppercase">Tồn</div>
                     <div className={`font-bold ${Number(it.ton_kho) <= 0 ? 'text-rose-600' : 'text-slate-700'}`}>{Number(it.ton_kho || 0).toLocaleString('vi-VN')}</div>
                   </div>
                 </button>

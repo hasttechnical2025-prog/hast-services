@@ -227,7 +227,7 @@ function InvoiceSheet({ seller, buyer, items, kyHieu, lamTron = 0 }: { seller: I
           <div className="w-1/4" />
           <div className="flex-1 text-center">
             <div className="text-[#c0122b] font-bold text-lg leading-tight">HÓA ĐƠN GIÁ TRỊ GIA TĂNG</div>
-            <div className="italic text-[11px] text-slate-500">(Bản thể hiện của hóa đơn điện tử)</div>
+            <div className="italic t2 text-slate-500">(Bản thể hiện của hóa đơn điện tử)</div>
             <div className="text-[12px] mt-0.5">Ngày <Dash w={34} /> tháng <Dash w={34} /> năm <Dash w={40} /></div>
             <div className="text-[12px]"><span className="text-[#2f6db5] font-semibold">Mã của cơ quan thuế:</span> <Dash w={130} /></div>
           </div>
@@ -293,12 +293,12 @@ function InvoiceSheet({ seller, buyer, items, kyHieu, lamTron = 0 }: { seller: I
             </tr>
           </tbody>
         </table>
-        {(Number(lamTron) || 0) !== 0 && <div className="text-[11px] text-amber-700 italic mt-0.5">⚠ Đã làm tròn {lamTron > 0 ? '+' : ''}{fmtVnd(lamTron)} đ vào tổng — nhắc kế toán kiểm tra.</div>}
+        {(Number(lamTron) || 0) !== 0 && <div className="t2 text-amber-700 italic mt-0.5">⚠ Đã làm tròn {lamTron > 0 ? '+' : ''}{fmtVnd(lamTron)} đ vào tổng — nhắc kế toán kiểm tra.</div>}
         <div className="text-[12.5px]"><b>Số tiền bằng chữ:</b> <i>{docSoTien(tong).replace(/\s*\.\/\.\s*$/, '')}</i></div>
         {/* Chữ ký */}
         <div className="flex justify-between text-center pt-3 text-[12px]">
-          <div className="w-1/2"><div className="font-semibold">Người mua hàng</div><div className="italic text-[11px] text-slate-500">(Chữ ký điện tử, Chữ ký số)</div></div>
-          <div className="w-1/2"><div className="font-semibold">Người bán hàng</div><div className="italic text-[11px] text-slate-500">(Chữ ký điện tử, Chữ ký số)</div></div>
+          <div className="w-1/2"><div className="font-semibold">Người mua hàng</div><div className="italic t2 text-slate-500">(Chữ ký điện tử, Chữ ký số)</div></div>
+          <div className="w-1/2"><div className="font-semibold">Người bán hàng</div><div className="italic t2 text-slate-500">(Chữ ký điện tử, Chữ ký số)</div></div>
         </div>
       </div>
     </div>
@@ -1670,14 +1670,14 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
         <div className="absolute top-0 left-0 bottom-0 w-1 bg-violet-400"></div>
         <div className="flex items-center justify-between gap-2 mb-1">
           <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 uppercase tracking-wide shrink-0">KD{t.so_lenh ? ` · ${t.so_lenh}` : ''}</span>
-          <span className="text-[10px] text-slate-400 shrink-0">{fmtDate(t.ngay)}</span>
+          <span className="t3 text-slate-400 shrink-0">{fmtDate(t.ngay)}</span>
         </div>
-        <div className="text-[13px] font-bold text-slate-800 leading-tight">{(t.ten_khach_hd || t.ten_khach_hang || 'Khách lẻ').toUpperCase()}</div>
-        {t.ma_so_thue && <div className="text-[10px] text-slate-400 font-mono">MST {t.ma_so_thue}</div>}
-        <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-1"><User className="w-3 h-3" /> {t.nguoi_kd_ten || '—'}{t.so_hop_dong ? ` · HĐ ${t.so_hop_dong}` : ''}</div>
+        <div className="t1 font-bold text-slate-800 leading-tight">{(t.ten_khach_hd || t.ten_khach_hang || 'Khách lẻ').toUpperCase()}</div>
+        {t.ma_so_thue && <div className="t3 text-slate-400 font-mono">MST {t.ma_so_thue}</div>}
+        <div className="flex items-center gap-1 t3 text-slate-500 mt-1"><User className="w-3 h-3" /> {t.nguoi_kd_ten || '—'}{t.so_hop_dong ? ` · HĐ ${t.so_hop_dong}` : ''}</div>
         <div className="mt-2 flex items-center justify-between gap-2">
-          <span className="text-[10px] text-slate-400">{t.lines.length} dòng hàng</span>
-          <span className="text-sm font-bold text-slate-800">{fmtVnd(t.tong_sau_vat)} đ</span>
+          <span className="t3 text-slate-400">{t.lines.length} dòng hàng</span>
+          <span className="t1 font-bold text-slate-800">{fmtVnd(t.tong_sau_vat)} đ</span>
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-1">
           {t.ban_giao_kt_luc && <span className="inline-flex items-center gap-0.5 text-[9px] text-slate-400" title="Ngày bàn giao kế toán"><Upload className="w-2.5 h-2.5" />{fmtDate(t.ban_giao_kt_luc)}</span>}
@@ -1740,7 +1740,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                     <div className="pl-1.5 space-y-2">
                       <div className="flex justify-between items-start gap-2">
                         <div className="min-w-0 flex-1">
-                          <div className="font-bold text-slate-800 text-[13px] leading-snug line-clamp-2">
+                          <div className="font-bold text-slate-800 t1 leading-snug line-clamp-2">
                             {tenKh}
                           </div>
                           {state === 'Đang xử lý HĐ' && card.tickets.length > 1 && (
@@ -1807,7 +1807,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                                 }
                               })
                             }}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50 px-1 py-0.5 rounded transition text-[10px] font-bold shrink-0 border border-red-200"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 px-1 py-0.5 rounded transition t3 font-bold shrink-0 border border-red-200"
                             title="Thu hồi quay lại Công nợ"
                           >
                             Thu hồi
@@ -1817,13 +1817,13 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                       </div>
 
                       {mst && (
-                        <div className="text-[10px] text-slate-400 font-mono">
+                        <div className="t3 text-slate-400 font-mono">
                           MST: {mst}
                         </div>
                       )}
                       {/* Kế toán TRẢ LẠI: hiện lý do cần sửa (ở Cột 1) */}
                       {state === 'Chờ xuất HĐ' && card.tickets.find((t: any) => t.ly_do_tra)?.ly_do_tra && (
-                        <div className="text-[10px] bg-rose-50 border border-rose-200 text-rose-700 rounded px-1.5 py-1 leading-snug">
+                        <div className="t3 bg-rose-50 border border-rose-200 text-rose-700 rounded px-1.5 py-1 leading-snug">
                           <b>KT trả lại:</b> {card.tickets.find((t: any) => t.ly_do_tra)?.ly_do_tra}
                         </div>
                       )}
@@ -1838,9 +1838,9 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                         return (
                           <div className="flex flex-wrap gap-1">
                             {allMF
-                              ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">MF{loaiLbl}</span>
-                              : <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">MF một phần</span>}
-                            {allMF && tong > 0 && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-200" title="Đánh dấu MF nhưng vẫn có tiền — kiểm tra lại">⚠ có tiền</span>}
+                              ? <span className="t3 font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">MF{loaiLbl}</span>
+                              : <span className="t3 font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">MF một phần</span>}
+                            {allMF && tong > 0 && <span className="t3 font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-200" title="Đánh dấu MF nhưng vẫn có tiền — kiểm tra lại">⚠ có tiền</span>}
                           </div>
                         )
                       })()}
@@ -1851,7 +1851,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                         const label = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`
                         const lan = Math.max(0, ...card.tickets.map((x: any) => Number(x.minvoice_lan) || 0))
                         return (
-                          <div className="text-[10px] bg-amber-50 border border-amber-300 text-amber-800 rounded px-1.5 py-1 leading-snug" title="Đã xuất file M-invoice, chờ nhập số HĐ. Đối chiếu MISA rồi nhập số HĐ để chốt.">
+                          <div className="t3 bg-amber-50 border border-amber-300 text-amber-800 rounded px-1.5 py-1 leading-snug" title="Đã xuất file M-invoice, chờ nhập số HĐ. Đối chiếu MISA rồi nhập số HĐ để chốt.">
                             ⚠ Đã xuất M-inv {label}{lan > 1 ? ` (${lan}×)` : ''} — <b>chưa có số HĐ</b>
                           </div>
                         )
@@ -1860,7 +1860,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                   )
                 })()}
 
-                  <div className="flex justify-between items-start gap-2 text-[10px] text-slate-500">
+                  <div className="flex justify-between items-start gap-2 t3 text-slate-500">
                     <span className="bg-slate-100 px-2 py-0.5 rounded font-medium leading-relaxed">
                       {count > 1 ? `${count} phiếu: ${card.tickets.map((t: any) => t.report || '—').join(', ')}` : `Phiếu: ${card.tickets[0].report || '—'}`}
                     </span>
@@ -1892,7 +1892,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                   })()}
 
                   <div className="pt-1.5 border-t border-dashed border-slate-100 flex justify-between items-end">
-                    <div className="text-[10px] text-slate-400">Thành tiền:</div>
+                    <div className="t3 text-slate-400">Thành tiền:</div>
                     <div className="text-right">
                       <div className="text-xs font-bold text-slate-800">{fmtVnd(tong)} đ</div>
                       <div className="text-[9px] text-slate-400 font-mono">Trước VAT: {fmtVnd(truocVat)}</div>
@@ -1900,7 +1900,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                   </div>
                   {/* Cột 2: dấu hiệu phiếu có làm tròn -> kế toán tự nhập giá sau thuế tay trên MInvoice */}
                   {state === 'Đang xử lý HĐ' && cardLamTron(card.tickets) !== 0 && (
-                    <div className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-red-600"
+                    <div className="mt-1 flex items-center gap-1 t3 font-semibold text-red-600"
                       title={`Tổng đã làm tròn. Vào MInvoice nhập ĐƠN GIÁ SAU THUẾ tay để tổng khớp ${fmtVnd(tong)}đ (MInvoice tự chia ngược trước thuế + 8%).`}>
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>Làm tròn {cardLamTron(card.tickets) > 0 ? '+' : ''}{fmtVnd(cardLamTron(card.tickets))}đ. Cần kiểm tra.</span>
@@ -1909,14 +1909,14 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
 
                   {(state === 'Đã lên hóa đơn' || state === 'Đã thanh toán') && card.tickets[0].so_hoa_don && (
                     <div className="mt-2 space-y-1">
-                      <div className={`border rounded px-2 py-1 text-[10px] font-semibold flex items-center gap-1 ${state === 'Đã thanh toán' ? 'bg-indigo-50 text-indigo-800 border-indigo-100' : 'bg-emerald-50 text-emerald-800 border-emerald-100'}`}>
+                      <div className={`border rounded px-2 py-1 t3 font-semibold flex items-center gap-1 ${state === 'Đã thanh toán' ? 'bg-indigo-50 text-indigo-800 border-indigo-100' : 'bg-emerald-50 text-emerald-800 border-emerald-100'}`}>
                         <CheckCircle className="w-3.5 h-3.5" /> HĐ: {card.tickets[0].so_hoa_don}
                       </div>
                       {/* Xuất Đề nghị thanh toán (.docx) cho hóa đơn này + badge đã xuất */}
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <button
                           onClick={(e) => { e.stopPropagation(); exportDntt(card.tickets[0].so_hoa_don) }}
-                          className="text-[10px] font-semibold px-2 py-0.5 rounded border border-blue-200 text-blue-700 hover:bg-blue-50 inline-flex items-center gap-1"
+                          className="t3 font-semibold px-2 py-0.5 rounded border border-blue-200 text-blue-700 hover:bg-blue-50 inline-flex items-center gap-1"
                           title="Xuất Đề nghị thanh toán (.docx)"
                         >
                           <FileText className="w-3 h-3" /> Xuất ĐNTT
@@ -2094,12 +2094,12 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
 
         {/* Hàng 2: TÙY CHỌN hiển thị (chữ nhỏ, xám) */}
         <div className="flex items-center gap-5 flex-wrap pt-2.5 border-t border-slate-100">
-          <label className="flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer select-none" title="Bật: cột Chờ thanh toán chỉ hiện HĐ trong kỳ đang chọn. Tắt: lũy kế toàn bộ nợ chưa thu.">
+          <label className="flex items-center gap-1.5 t2 text-slate-500 cursor-pointer select-none" title="Bật: cột Chờ thanh toán chỉ hiện HĐ trong kỳ đang chọn. Tắt: lũy kế toàn bộ nợ chưa thu.">
             <input type="checkbox" checked={col3ChiKyNay} onChange={e => setCol3ChiKyNay(e.target.checked)} className="w-3.5 h-3.5 accent-blue-600" />
             Chờ thanh toán: chỉ kỳ này
           </label>
           {role !== 'kthc' && (
-            <label className="flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer select-none">
+            <label className="flex items-center gap-1.5 t2 text-slate-500 cursor-pointer select-none">
               <input type="checkbox" checked={grouped} onChange={e => {
                 if (e.target.checked) {
                   // Tick = GOM cả khách cụm -> dễ gộp nhầm khi danh sách dài. Xác nhận trước.
@@ -2161,11 +2161,11 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                     } else runExport()
                   }}
                   title={cardsCol2ChuaXuat.length === 0 ? 'Mọi thẻ trong cột đã xuất M-invoice' : `Xuất ${cardsCol2ChuaXuat.length} thẻ CHƯA xuất thành 1 file M-invoice`}
-                  className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed">
+                  className="shrink-0 inline-flex items-center gap-1 t3 font-semibold px-2 py-1 rounded border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed">
                   <Download className="w-3 h-3" /> M-invoice{cardsCol2ChuaXuat.length > 0 ? ` (${cardsCol2ChuaXuat.length} chưa xuất)` : ''}
                 </button>
                 <label title={cardsCol2.length === 0 ? 'Cột trống — không có thẻ nào để đối chiếu' : "Nhập file 'Báo cáo tổng hợp doanh thu hóa đơn' từ M-invoice → tự điền số HĐ + chuyển thẻ khớp sang Chờ thanh toán"}
-                  className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-emerald-200 text-emerald-700 bg-white hover:bg-emerald-50 cursor-pointer ${importingReport || cardsCol2.length === 0 ? 'opacity-40 pointer-events-none' : ''}`}>
+                  className={`shrink-0 inline-flex items-center gap-1 t3 font-semibold px-2 py-1 rounded border border-emerald-200 text-emerald-700 bg-white hover:bg-emerald-50 cursor-pointer ${importingReport || cardsCol2.length === 0 ? 'opacity-40 pointer-events-none' : ''}`}>
                   <Upload className="w-3 h-3" /> {importingReport ? 'Đang khớp…' : 'Import báo cáo'}
                   <input type="file" accept=".xlsx" className="hidden" disabled={importingReport || cardsCol2.length === 0}
                     onChange={e => { const f = e.target.files?.[0]; if (f) importMinvoiceReport(f); e.target.value = '' }} />
@@ -2175,7 +2175,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
             </div>
             {/* Banner an toàn: đếm phiếu ĐÃ xuất file nhưng CHƯA nhập số HĐ -> nhắc đối chiếu MISA, chống quên. */}
             {isKeToan && col2PendingCount > 0 && (
-              <div className="mx-3 mt-2 -mb-1 text-[10px] leading-snug bg-amber-50 border border-amber-200 text-amber-800 rounded px-2 py-1.5">
+              <div className="mx-3 mt-2 -mb-1 t3 leading-snug bg-amber-50 border border-amber-200 text-amber-800 rounded px-2 py-1.5">
                 ⚠ <b>{col2PendingCount}</b> phiếu đã xuất M-invoice nhưng <b>chưa nhập số HĐ</b>. Hãy đối chiếu đã lên hóa đơn trên MISA chưa — nhập số HĐ để chốt sang <i>Chờ thanh toán</i>. (Nếu thực sự chưa lên: mở thẻ, bấm <b>Xuất lại</b>.)
               </div>
             )}
@@ -2191,13 +2191,13 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
               {isKeToan && (
                 <div className="flex gap-2 flex-wrap">
                   <label title="Import thanh toán từ FAST (Sổ chi tiết TK 112) → đối ứng công nợ, thu = tổng HĐ tự chuyển Đã thanh toán"
-                    className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-emerald-200 text-emerald-700 bg-white hover:bg-emerald-50 cursor-pointer ${payImporting ? 'opacity-50 pointer-events-none' : ''}`}>
+                    className={`shrink-0 inline-flex items-center gap-1 t3 font-semibold px-2 py-1 rounded border border-emerald-200 text-emerald-700 bg-white hover:bg-emerald-50 cursor-pointer ${payImporting ? 'opacity-50 pointer-events-none' : ''}`}>
                     <Upload className="w-3 h-3" /> {payImporting ? 'Đang đối ứng…' : 'Import Thanh toán'}
                     <input type="file" accept=".xlsx" className="hidden" disabled={payImporting}
                       onChange={e => { const f = e.target.files?.[0]; if (f) importThanhToanFast(f); e.target.value = '' }} />
                   </label>
                   <label title="Đối chiếu sao kê ngân hàng (MB/VCB) → khớp số HĐ + số tiền với HĐ đang chờ thu; duyệt trước khi ghi"
-                    className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 cursor-pointer ${dcImporting ? 'opacity-50 pointer-events-none' : ''}`}>
+                    className={`shrink-0 inline-flex items-center gap-1 t3 font-semibold px-2 py-1 rounded border border-blue-200 text-blue-700 bg-white hover:bg-blue-50 cursor-pointer ${dcImporting ? 'opacity-50 pointer-events-none' : ''}`}>
                     <Landmark className="w-3 h-3" /> {dcImporting ? 'Đang đọc…' : 'Đối chiếu ngân hàng'}
                     <input type="file" accept=".xlsx" className="hidden" disabled={dcImporting}
                       onChange={e => { const f = e.target.files?.[0]; if (f) doiChieuNH(f); e.target.value = '' }} />
@@ -2205,7 +2205,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                 </div>
               )}
               {isKeToan && dcNeedBank && (
-                <div className="text-[10px] bg-amber-50 border border-amber-200 text-amber-800 rounded px-2 py-1.5 flex items-center gap-2 flex-wrap">
+                <div className="t3 bg-amber-50 border border-amber-200 text-amber-800 rounded px-2 py-1.5 flex items-center gap-2 flex-wrap">
                   <span>Không tự nhận diện được ngân hàng. Đây là:</span>
                   <button onClick={() => { const f = dcNeedBank; setDcNeedBank(null); if (f) doiChieuNH(f, 'MB') }} className="px-2 py-0.5 rounded border border-blue-300 text-blue-700 bg-white font-semibold">MB</button>
                   <button onClick={() => { const f = dcNeedBank; setDcNeedBank(null); if (f) doiChieuNH(f, 'VCB') }} className="px-2 py-0.5 rounded border border-blue-300 text-blue-700 bg-white font-semibold">VCB</button>
@@ -2216,22 +2216,22 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
             {/* Banner NỢ ĐỌNG theo tuổi — bấm 1 mức để LỌC theo tuổi (bấm lại bỏ lọc). */}
             {col3Debt.nAll > 0 && (
               <div className="mx-3 mt-2 -mb-1 space-y-1">
-                <div className="text-[10px] text-slate-600">
+                <div className="t3 text-slate-600">
                   Còn nợ: <b className="text-slate-800">{fmtVnd(col3Debt.tAll)} đ</b> · {col3Debt.nAll} hóa đơn
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {col3Debt.n2 > 0 && (
-                    <button onClick={() => setCol3Age(col3Age === 'd30' ? 'all' : 'd30')} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-red-50 text-red-700 border-red-200 ${col3Age === 'd30' ? 'ring-2 ring-red-300' : ''}`} title="Lọc: quá hạn >30 ngày">
+                    <button onClick={() => setCol3Age(col3Age === 'd30' ? 'all' : 'd30')} className={`t3 font-semibold px-1.5 py-0.5 rounded border bg-red-50 text-red-700 border-red-200 ${col3Age === 'd30' ? 'ring-2 ring-red-300' : ''}`} title="Lọc: quá hạn >30 ngày">
                       🔴 &gt;30 ngày: {col3Debt.n2} HĐ · {fmtVnd(col3Debt.t2)}
                     </button>
                   )}
                   {col3Debt.n1 > 0 && (
-                    <button onClick={() => setCol3Age(col3Age === 'd15' ? 'all' : 'd15')} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-amber-50 text-amber-700 border-amber-200 ${col3Age === 'd15' ? 'ring-2 ring-amber-300' : ''}`} title="Lọc: 15–30 ngày">
+                    <button onClick={() => setCol3Age(col3Age === 'd15' ? 'all' : 'd15')} className={`t3 font-semibold px-1.5 py-0.5 rounded border bg-amber-50 text-amber-700 border-amber-200 ${col3Age === 'd15' ? 'ring-2 ring-amber-300' : ''}`} title="Lọc: 15–30 ngày">
                       🟠 15–30 ngày: {col3Debt.n1} HĐ · {fmtVnd(col3Debt.t1)}
                     </button>
                   )}
                   {col3Debt.n0 > 0 && (
-                    <button onClick={() => setCol3Age(col3Age === 'd0' ? 'all' : 'd0')} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-slate-50 text-slate-500 border-slate-200 ${col3Age === 'd0' ? 'ring-2 ring-slate-300' : ''}`} title="Lọc: <15 ngày">
+                    <button onClick={() => setCol3Age(col3Age === 'd0' ? 'all' : 'd0')} className={`t3 font-semibold px-1.5 py-0.5 rounded border bg-slate-50 text-slate-500 border-slate-200 ${col3Age === 'd0' ? 'ring-2 ring-slate-300' : ''}`} title="Lọc: <15 ngày">
                       ⚪ &lt;15 ngày: {col3Debt.n0} HĐ · {fmtVnd(col3Debt.t0)}
                     </button>
                   )}
@@ -2242,10 +2242,10 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
             {isKeToan && (
               <div className="mx-3 mt-2 -mb-1 flex flex-wrap items-center gap-1">
                 {([['all', 'Tất cả'], ['chua', 'Chưa thu'], ['phan', 'Thu một phần'], ['du', 'Thu dư']] as const).map(([k, l]) => (
-                  <button key={k} onClick={() => setCol3Pay(k)} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${col3Pay === k ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-500 border-slate-200'}`}>{l}</button>
+                  <button key={k} onClick={() => setCol3Pay(k)} className={`t3 font-semibold px-1.5 py-0.5 rounded-full border ${col3Pay === k ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-500 border-slate-200'}`}>{l}</button>
                 ))}
                 {(col3Pay !== 'all' || col3Age !== 'all') && (
-                  <button onClick={() => { setCol3Pay('all'); setCol3Age('all') }} className="text-[10px] text-rose-500 hover:text-rose-700 px-1">Bỏ lọc</button>
+                  <button onClick={() => { setCol3Pay('all'); setCol3Age('all') }} className="t3 text-rose-500 hover:text-rose-700 px-1">Bỏ lọc</button>
                 )}
               </div>
             )}
@@ -2270,7 +2270,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl my-6 flex flex-col max-h-[92vh] overflow-hidden border border-slate-200" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-3.5 border-b border-slate-200 bg-violet-50 flex items-center justify-between shrink-0">
               <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 uppercase">KD</span>
+                <span className="inline-flex items-center t3 font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 uppercase">KD</span>
                 Lệnh xuất {kdActive.so_lenh || ''}
               </h3>
               <button onClick={() => setKdActive(null)} className="text-slate-400 hover:text-slate-600 p-1"><span className="text-xl leading-none">×</span></button>
@@ -2290,7 +2290,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
               <div className="overflow-hidden rounded-md border border-slate-200">
                 <table className="w-full text-xs border-collapse">
                   <thead>
-                    <tr className="bg-slate-50 text-[10px] uppercase text-slate-500 [&>th]:px-2 [&>th]:py-1.5 [&>th]:text-left [&>th]:border-b [&>th]:border-slate-200">
+                    <tr className="bg-slate-50 t3 uppercase text-slate-500 [&>th]:px-2 [&>th]:py-1.5 [&>th]:text-left [&>th]:border-b [&>th]:border-slate-200">
                       <th>Mã</th><th>Tên hàng</th><th className="!text-center">ĐVT</th><th className="!text-center">SL</th><th className="!text-right">Đơn giá</th><th className="!text-center">VAT</th><th className="!text-right">Thành tiền</th>
                     </tr>
                   </thead>
@@ -2315,12 +2315,12 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
               </div>
               {(kdActive.da_thu > 0 || kdActive.cho_duyet > 0) && (
                 <div className="flex flex-wrap gap-2 pt-1">
-                  {kdActive.da_thu > 0 && <span className="inline-block border rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">Đã thu (đã duyệt): {fmtVnd(kdActive.da_thu)} đ</span>}
-                  {kdActive.cho_duyet > 0 && <span className="inline-block border rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-amber-50 text-amber-700 border-amber-200">Chờ kế toán duyệt: {fmtVnd(kdActive.cho_duyet)} đ</span>}
+                  {kdActive.da_thu > 0 && <span className="inline-block border rounded-full px-2.5 py-0.5 t2 font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">Đã thu (đã duyệt): {fmtVnd(kdActive.da_thu)} đ</span>}
+                  {kdActive.cho_duyet > 0 && <span className="inline-block border rounded-full px-2.5 py-0.5 t2 font-semibold bg-amber-50 text-amber-700 border-amber-200">Chờ kế toán duyệt: {fmtVnd(kdActive.cho_duyet)} đ</span>}
                 </div>
               )}
               {kdActive.trang_thai_hd === 'Chờ xuất HĐ' && kdActive.ly_do_tra && (
-                <div className="rounded-md bg-rose-50 border border-rose-200 px-3 py-2 text-[11px] text-rose-700"><b>⚠ Kế toán trả lại — cần sửa:</b> {kdActive.ly_do_tra}</div>
+                <div className="rounded-md bg-rose-50 border border-rose-200 px-3 py-2 t2 text-rose-700"><b>⚠ Kế toán trả lại — cần sửa:</b> {kdActive.ly_do_tra}</div>
               )}
               {/* Thu tiền + DUYỆT (Lát 5) — từ cột 2 trở đi; kế toán khai & duyệt tại đây. */}
               {['Đang xử lý HĐ', 'Đã lên hóa đơn', 'Đã thanh toán'].includes(kdActive.trang_thai_hd) && (
@@ -2368,7 +2368,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
             <div className="p-5 space-y-1">
               <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Số hóa đơn <span className="text-red-500">*</span></label>
               <Input value={kdInvoice.so_hoa_don} onChange={e => setKdInvoice(v => v ? { ...v, so_hoa_don: e.target.value.toUpperCase() } : v)} placeholder="Nhập số hóa đơn đã xuất trên phần mềm" className="h-10 bg-white uppercase font-mono font-bold text-slate-800" />
-              <p className="text-[10px] text-slate-400">Số HĐ phải duy nhất (không trùng lệnh khác / phiếu kỹ thuật).</p>
+              <p className="t3 text-slate-400">Số HĐ phải duy nhất (không trùng lệnh khác / phiếu kỹ thuật).</p>
             </div>
             <div className="p-4 border-t border-slate-100 flex justify-end gap-2">
               <Button variant="outline" onClick={() => setKdInvoice(null)} disabled={kdBusy} className="h-9 text-xs">Hủy</Button>
@@ -2409,7 +2409,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
               <button onClick={() => !exporting && setExportOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
             </div>
             <div className="p-5 space-y-4 text-sm">
-              <p className="text-[11px] text-slate-500">File dữ liệu thô, 2 sheet (Chưa thu · Đã thanh toán) để tự pivot/tổng hợp báo cáo.</p>
+              <p className="t2 text-slate-500">File dữ liệu thô, 2 sheet (Chưa thu · Đã thanh toán) để tự pivot/tổng hợp báo cáo.</p>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">Phòng ban</label>
                 <div className="flex gap-1.5">
@@ -2418,7 +2418,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                       className={`px-3 py-1.5 rounded border text-xs font-medium transition ${expPhongBan === v ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>{l}</button>
                   ))}
                 </div>
-                {expPhongBan === 'kinh_doanh' && <p className="text-[11px] text-slate-500 mt-1.5">Chỉ lệnh xuất hàng (phòng Kinh doanh); &quot;Đã thu&quot; = tổng khoản kế toán ĐÃ DUYỆT.</p>}
+                {expPhongBan === 'kinh_doanh' && <p className="t2 text-slate-500 mt-1.5">Chỉ lệnh xuất hàng (phòng Kinh doanh); &quot;Đã thu&quot; = tổng khoản kế toán ĐÃ DUYỆT.</p>}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">① Công nợ chưa thu — Nợ tính đến ngày</label>
@@ -2431,9 +2431,9 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                   <span className="text-slate-400 text-xs">đến</span>
                   <DateField value={expDen} onChange={setExpDen} heightClass="h-9" className="w-36" />
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">Để trống một đầu = không giới hạn đầu đó.</p>
+                <p className="t2 text-slate-400 mt-1">Để trống một đầu = không giới hạn đầu đó.</p>
               </div>
-              {search.trim() && <div className="text-[11px] text-blue-700 bg-blue-50 border border-blue-100 rounded px-2 py-1.5">Đang áp bộ tìm kiếm: &quot;{search.trim()}&quot;</div>}
+              {search.trim() && <div className="t2 text-blue-700 bg-blue-50 border border-blue-100 rounded px-2 py-1.5">Đang áp bộ tìm kiếm: &quot;{search.trim()}&quot;</div>}
             </div>
             <div className="p-4 border-t border-slate-100 flex justify-end gap-2">
               <Button variant="outline" size="sm" onClick={() => setExportOpen(false)} disabled={exporting} className="text-xs">Hủy</Button>
@@ -2475,7 +2475,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
               {/* Thông tin khách hàng & MST */}
               <div className="bg-slate-50/70 p-4 rounded-lg border border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">Tên khách hàng</div>
+                  <div className="t3 font-bold text-slate-400 uppercase">Tên khách hàng</div>
                   <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
                     {modalTenKh}
                     <button
@@ -2489,7 +2489,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                 </div>
 
                 <div className="space-y-1">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">Mã số thuế</div>
+                  <div className="t3 font-bold text-slate-400 uppercase">Mã số thuế</div>
                   <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
                     {modalMst || <span className="text-slate-400 italic">Chưa khai báo MST</span>}
                     {modalMst && (
@@ -2505,7 +2505,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                 </div>
 
                 <div className="space-y-1">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">Địa chỉ xuất hóa đơn</div>
+                  <div className="t3 font-bold text-slate-400 uppercase">Địa chỉ xuất hóa đơn</div>
                   <div className="text-sm font-normal text-slate-800 flex items-start gap-1.5">
                     <span className="min-w-0 break-words">{modalDiaChi || '—'}</span>
                     {modalDiaChi && (
@@ -2521,7 +2521,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                 </div>
 
                 <div className="space-y-1">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">Email nhận hóa đơn</div>
+                  <div className="t3 font-bold text-slate-400 uppercase">Email nhận hóa đơn</div>
                   <div className="text-sm font-normal text-slate-800 flex items-start gap-1.5">
                     {/* Nhiều email M-invoice phân cách bằng ';' -> tách mỗi email 1 dòng cho dễ đọc, chống tràn lề. */}
                     <div className="min-w-0 break-all leading-snug">
@@ -2545,7 +2545,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
               {/* Bảng chi tiết sản phẩm / dịch vụ */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Danh sách sản phẩm dịch vụ ({modalDisplayRows.length} mặt hàng){canEditItems && <span className="ml-1.5 normal-case font-normal text-[10px] text-slate-400">· kéo ⠿ để đổi thứ tự</span>}</div>
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Danh sách sản phẩm dịch vụ ({modalDisplayRows.length} mặt hàng){canEditItems && <span className="ml-1.5 normal-case font-normal t3 text-slate-400">· kéo ⠿ để đổi thứ tự</span>}</div>
                   <div className="flex items-center gap-1.5">
                     {canEditItems && activeCard.tickets[0]?._co_mau && (
                       <Button size="sm" variant="outline" onClick={applyTemplate} disabled={savingName} className="h-8 text-xs gap-1 border-amber-300 text-amber-700 hover:bg-amber-50" title="Điền tên + đơn giá đã lưu của khách này (rồi kiểm tra lại)">
@@ -2564,10 +2564,10 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                     )}
                   </div>
                 </div>
-                <p className="text-[10px] text-slate-400 -mt-1">Vật tư dùng tên kho sẽ tự ghép <b>mã hàng</b> vào tên khi lên hóa đơn (Tên - Mã). Tên tự đặt / áp mẫu khách và dòng dịch vụ giữ nguyên — muốn bỏ mã thì bấm ✏️ đặt tên riêng.</p>
+                <p className="t3 text-slate-400 -mt-1">Vật tư dùng tên kho sẽ tự ghép <b>mã hàng</b> vào tên khi lên hóa đơn (Tên - Mã). Tên tự đặt / áp mẫu khách và dòng dịch vụ giữ nguyên — muốn bỏ mã thì bấm ✏️ đặt tên riêng.</p>
                 {/* Copy CẢ CỘT (số thô) -> dán xuống 1 cột M-invoice nếu phần mềm cho phép. Chỉ kế toán, không hiện ở cột "Chờ lên hóa đơn". */}
                 {modalDisplayRows.length > 0 && isKeToan && !canEditItems && (
-                  <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-slate-500">
+                  <div className="flex items-center gap-1.5 flex-wrap t2 text-slate-500">
                     <span className="font-semibold text-slate-600">Copy cả cột:</span>
                     {([['ten', 'Tên', modalDisplayRows.map(v => tenHangKeToan(v.ten_hang, v.ma_hang, v.ghepMa))], ['sl', 'SL', modalDisplayRows.map(v => String(v.so_luong))], ['gia', 'Đơn giá', modalDisplayRows.map(v => String(v.don_gia))], ['vat', 'VAT', modalDisplayRows.map(v => String(v.vat))]] as [string, string, string[]][]).map(([key, label, vals]) => (
                       <button key={key} onClick={() => handleCopy(vals.join('\n'), `col_${key}`)}
@@ -2611,7 +2611,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                                   />
                                   <div className="grid grid-cols-2 gap-2">
                                     <label className="flex flex-col gap-1">
-                                      <span className="text-[10px] text-slate-400">Đơn giá</span>
+                                      <span className="t3 text-slate-400">Đơn giá</span>
                                       <Input
                                         value={editName.gia}
                                         onChange={e => setEditName({ ...editName, gia: e.target.value })}
@@ -2621,7 +2621,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                                       />
                                     </label>
                                     <label className="flex flex-col gap-1">
-                                      <span className="text-[10px] text-slate-400">ĐVT (trống = Cái)</span>
+                                      <span className="t3 text-slate-400">ĐVT (trống = Cái)</span>
                                       <Input
                                         value={editName.dvt}
                                         onChange={e => setEditName({ ...editName, dvt: e.target.value })}
@@ -2636,7 +2636,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                                     <Button size="sm" variant="outline" onClick={() => saveName('khach')} disabled={savingName} className="h-8 text-xs">Lưu mẫu cho khách</Button>
                                     <button onClick={() => setEditName(null)} className="text-xs text-slate-500 hover:text-slate-700 px-1">Hủy</button>
                                     <button onClick={resetName} disabled={savingName} title="Xóa mẫu đã lưu cho khách/cụm ở mã hàng này. Dòng vật tư kho về tên kho; dòng dịch vụ giữ tên hiện tại." className="text-xs text-rose-500 hover:text-rose-700 px-1 disabled:opacity-50">↺ Reset mẫu</button>
-                                    <span className="text-[10px] text-slate-400 ml-auto font-mono">Mã: {v.ma_hang}</span>
+                                    <span className="t3 text-slate-400 ml-auto font-mono">Mã: {v.ma_hang}</span>
                                   </div>
                                 </div>
                               </td>
@@ -2719,12 +2719,12 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                 </div>
                 {canEditItems && roundOpen && (
                   <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-dashed border-slate-200">
-                    <span className="text-[11px] text-slate-500">Đặt tổng sau thuế:</span>
+                    <span className="t2 text-slate-500">Đặt tổng sau thuế:</span>
                     <Input value={roundVal} onChange={e => setRoundVal(fmtMoneyInput(e.target.value))} inputMode="numeric" className="h-8 w-36 text-right text-xs font-mono bg-white" />
-                    <span className="text-[11px] text-slate-400">đ</span>
+                    <span className="t2 text-slate-400">đ</span>
                     <Button size="sm" onClick={saveLamTron} disabled={savingRound} className="h-8 text-xs bg-blue-600 hover:bg-blue-700">Lưu</Button>
-                    <button onClick={() => setRoundVal(fmtMoneyInput(String(Math.round(modalStats.sauVat))))} className="text-[11px] text-slate-500 hover:text-slate-700 px-1" title="Đặt lại về số tự tính (bỏ làm tròn)">Bỏ làm tròn</button>
-                    <button onClick={() => setRoundOpen(false)} className="text-[11px] text-slate-500 hover:text-slate-700 px-1">Hủy</button>
+                    <button onClick={() => setRoundVal(fmtMoneyInput(String(Math.round(modalStats.sauVat))))} className="t2 text-slate-500 hover:text-slate-700 px-1" title="Đặt lại về số tự tính (bỏ làm tròn)">Bỏ làm tròn</button>
+                    <button onClick={() => setRoundOpen(false)} className="t2 text-slate-500 hover:text-slate-700 px-1">Hủy</button>
                   </div>
                 )}
               </div>
@@ -2744,8 +2744,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                     className="h-10 mt-1 bg-white uppercase font-mono font-bold text-slate-800 border-blue-200 focus:ring-blue-500 disabled:bg-slate-100 disabled:text-slate-400"
                   />
                   {activeCard.tickets[0].trang_thai_hd === 'Đang xử lý HĐ' && !isKeToan
-                    ? <p className="text-[10px] text-amber-600">Chỉ kế toán (KT-HC) mới nhập số hóa đơn và hoàn tất. Bạn chỉ xem/đối chiếu.</p>
-                    : <p className="text-[10px] text-blue-600">Lưu ý: Bắt buộc điền đúng Số hóa đơn đã xuất trên phần mềm để lưu vết đối chiếu.</p>}
+                    ? <p className="t3 text-amber-600">Chỉ kế toán (KT-HC) mới nhập số hóa đơn và hoàn tất. Bạn chỉ xem/đối chiếu.</p>
+                    : <p className="t3 text-blue-600">Lưu ý: Bắt buộc điền đúng Số hóa đơn đã xuất trên phần mềm để lưu vết đối chiếu.</p>}
                 </div>
               )}
             </div>
@@ -2825,7 +2825,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                     <Input value={payInput} onChange={e => setPayInput(fmtMoneyInput(e.target.value))} inputMode="numeric" placeholder="0" className="h-10 bg-white text-right font-mono font-bold text-slate-800" />
                     <Button variant="outline" onClick={() => setPayInput(fmtMoneyInput(String(con)))} className="h-10 whitespace-nowrap">Trả đủ</Button>
                   </div>
-                  <p className="text-[10px] text-slate-400">Trả thiếu → thẻ ở lại &quot;Chờ thanh toán&quot;. Trả đủ/dư → xác nhận rồi chuyển &quot;Đã thanh toán&quot;.</p>
+                  <p className="t3 text-slate-400">Trả thiếu → thẻ ở lại &quot;Chờ thanh toán&quot;. Trả đủ/dư → xác nhận rồi chuyển &quot;Đã thanh toán&quot;.</p>
                 </div>
               </div>
               <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center gap-2">
@@ -2901,7 +2901,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
               </div>
 
               <div className="overflow-auto flex-1 bg-slate-100 p-4">
-                  <div className="mb-3 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-[11px] px-3 py-2 text-center">
+                  <div className="mb-3 rounded-md bg-blue-50 border border-blue-200 text-blue-700 t2 px-3 py-2 text-center">
                     🧾 <b>BẢN XEM TRƯỚC</b> để office đối chiếu — <b>chưa phải hóa đơn hợp lệ</b>. Số HĐ · Ngày · Mã CQ thuế do kế toán phát hành trên M-invoice.
                   </div>
                   <InvoiceSheet
@@ -2947,7 +2947,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                 {multiVat && <p className="text-xs font-semibold text-rose-600 mt-1">⚠ Lô có nhiều thuế suất ({vatRates.map(v => v + '%').join(', ')}) — 1 hóa đơn chỉ 1 thuế suất, phải TÁCH hóa đơn riêng.</p>}
               </div>
               <div className="overflow-auto flex-1 bg-slate-100 p-4">
-                <div className="mb-3 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-[11px] px-3 py-2 text-center">
+                <div className="mb-3 rounded-md bg-blue-50 border border-blue-200 text-blue-700 t2 px-3 py-2 text-center">
                   🧾 <b>BẢN XEM TRƯỚC</b> để office đối chiếu — <b>chưa phải hóa đơn hợp lệ</b>. Số HĐ · Ngày · Mã CQ thuế do kế toán phát hành trên M-invoice.
                 </div>
                 <InvoiceSheet
@@ -3107,21 +3107,21 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                       <div key={i} className="px-3 py-2 text-xs space-y-0.5">
                         <div className="flex justify-between gap-2">
                           <span className="font-medium text-slate-800 truncate">{l.khach}</span>
-                          <span className="text-[10px] text-slate-400 shrink-0">chuyển {l.tuNgay ? fmtDate(l.tuNgay) : '?'}{l.denNgay && l.denNgay !== l.tuNgay ? `–${fmtDate(l.denNgay)}` : ''}</span>
+                          <span className="t3 text-slate-400 shrink-0">chuyển {l.tuNgay ? fmtDate(l.tuNgay) : '?'}{l.denNgay && l.denNgay !== l.tuNgay ? `–${fmtDate(l.denNgay)}` : ''}</span>
                         </div>
                         <div className="text-emerald-700 font-semibold">Đã chuyển (sau ngày xuất HĐ): {fmtVnd(l.tienSau)} đ</div>
-                        <div className="text-[11px] text-slate-500">
+                        <div className="t2 text-slate-500">
                           HĐ chờ (tổng còn nợ <b className="text-slate-700">{fmtVnd(l.tongCon)}</b>): {l.hds.map((h: any) => `${h.hd}${h.ngayXuat ? ` · xuất ${fmtDate(h.ngayXuat)}` : ''} · còn ${fmtVnd(h.con)}`).join('  ·  ')}
                         </div>
                       </div>
                     ))}
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-1">Khoản gộp không ghi số HĐ nên không tự đối ứng — kế toán tự thu tiền cho HĐ tương ứng.</p>
+                  <p className="t3 text-slate-400 mt-1">Khoản gộp không ghi số HĐ nên không tự đối ứng — kế toán tự thu tiền cho HĐ tương ứng.</p>
                 </div>
               )}
 
               {payResult.khacCount > 0 && (
-                <p className="text-[11px] text-slate-400">Bỏ qua <b>{payResult.khacCount}</b> khoản thu cho HĐ không thuộc "Chờ thanh toán" (đã ở Đã thanh toán / kỳ khác).</p>
+                <p className="t2 text-slate-400">Bỏ qua <b>{payResult.khacCount}</b> khoản thu cho HĐ không thuộc "Chờ thanh toán" (đã ở Đã thanh toán / kỳ khác).</p>
               )}
             </div>
             <div className="px-5 py-4 border-t border-slate-100 flex justify-end shrink-0">
@@ -3151,8 +3151,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                 {Math.abs(m.tong - m.tx.so_tien) > 1000 && <span className="text-rose-600">lệch {fmtVnd(Math.abs(m.tong - m.tx.so_tien))}đ</span>}
                 {m.gap != null && m.gap < -5 && <span className="text-rose-600">GD trước HĐ {Math.abs(m.gap)} ngày</span>}
               </div>
-              {m.tx.nguoi && <div className="text-[10px] text-slate-400 truncate">Người chuyển: {m.tx.nguoi}</div>}
-              {m.kind === 'suggest' && <div className="text-[10px] text-amber-600">⚠ {m.reason}</div>}
+              {m.tx.nguoi && <div className="t3 text-slate-400 truncate">Người chuyển: {m.tx.nguoi}</div>}
+              {m.kind === 'suggest' && <div className="t3 text-amber-600">⚠ {m.reason}</div>}
             </div>
           </label>
         )
@@ -3209,11 +3209,11 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                         </div>
                       ))}
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-1">Có thể HĐ đã thanh toán / thuộc kỳ khác / chưa lên HĐ. Bỏ qua.</p>
+                    <p className="t3 text-slate-400 mt-1">Có thể HĐ đã thanh toán / thuộc kỳ khác / chưa lên HĐ. Bỏ qua.</p>
                   </div>
                 )}
 
-                <p className="text-[11px] text-slate-400">
+                <p className="t2 text-slate-400">
                   Bỏ qua <b>{dcResult.skipped}</b> giao dịch không liên quan (không khớp HĐ/khách nào ở chờ thu).
                   {dcResult.daDoiChieu > 0 && <> Đã loại <b>{dcResult.daDoiChieu}</b> giao dịch đối chiếu từ lần trước.</>}
                 </p>

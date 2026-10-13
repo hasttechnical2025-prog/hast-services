@@ -327,7 +327,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
             <div className="relative w-60"><Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã máy, tên khách hàng…" className={`${fieldCls} w-full pl-9`} /></div>
             <div className="relative w-44"><Hash className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" /><input value={report} onChange={e => setReport(e.target.value)} placeholder="Số phiếu…" className={`${fieldCls} w-full pl-9`} /></div>
             {anyFilterActive && <button onClick={clearAll} className="text-xs text-rose-600 hover:underline font-medium px-1">Bỏ lọc</button>}
-            <span className="text-[11px] text-slate-400 ml-auto">{visibleRows.length}/{jobs.length} việc</span>
+            <span className="t2 text-slate-400 ml-auto">{visibleRows.length}/{jobs.length} việc</span>
           </div>
           {/* Dòng 2 — Giao việc mới (trái) · nhóm nút (phải) */}
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -335,7 +335,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
               ? <button onClick={openCreate} className="h-9 px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold flex items-center gap-1.5 shadow-xs"><Plus className="w-4 h-4" /> Giao việc mới</button>
               : <span />}
             <div className="flex flex-wrap items-center gap-2">
-              <button onClick={exportExcel} className="h-9 px-3 rounded-md border border-emerald-200 text-emerald-700 text-xs font-medium flex items-center gap-1.5 hover:bg-emerald-50"><FileDown className="w-3.5 h-3.5" /> Xuất Excel <span className="text-[10px] text-emerald-500">(đang lọc)</span></button>
+              <button onClick={exportExcel} className="h-9 px-3 rounded-md border border-emerald-200 text-emerald-700 text-xs font-medium flex items-center gap-1.5 hover:bg-emerald-50"><FileDown className="w-3.5 h-3.5" /> Xuất Excel <span className="t3 text-emerald-500">(đang lọc)</span></button>
               {canAdminTools && <button onClick={cuonNgay} disabled={busyTool} className={btnOutline}><CalendarArrowDown className="w-3.5 h-3.5" /> Cuốn ngày</button>}
               {isAdmin && <button onClick={xoaTrung} disabled={busyTool} className="h-9 px-3 rounded-md border border-amber-300 text-amber-700 text-xs font-medium flex items-center gap-1.5 hover:bg-amber-50 disabled:opacity-50"><CopyX className="w-3.5 h-3.5" /> Xóa phiếu trùng</button>}
               <button onClick={() => load()} className={btnOutline}><RefreshCw className="w-3.5 h-3.5" /> Tải lại</button>

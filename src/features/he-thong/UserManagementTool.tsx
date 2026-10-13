@@ -172,7 +172,7 @@ export function UserManagementTool({ users, onUpdateSuccess, showNotification }:
                 {col.show('username') && <td className="px-4 py-2 font-mono text-xs">{u.username || <span className="text-slate-400 italic">N/A</span>}</td>}
                 {col.show('role') && <td className="px-4 py-2">
                   <span className={`px-2 py-0.5 rounded text-xs font-semibold ${u.role === 'admin' ? 'bg-red-50 text-red-600' : u.role === 'ktv' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600'}`}>{u.role}</span>
-                  {u.role === 'kinh_doanh' && u.kd_quan_ly && <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-violet-50 text-violet-700 border border-violet-200">QL</span>}
+                  {u.role === 'kinh_doanh' && u.kd_quan_ly && <span className="ml-1 px-1.5 py-0.5 rounded t3 font-semibold bg-violet-50 text-violet-700 border border-violet-200">QL</span>}
                 </td>}
                 {col.show('telegram') && <td className="px-4 py-2 text-center">
                   {u.role === 'ktv'

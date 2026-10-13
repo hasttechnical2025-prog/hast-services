@@ -138,7 +138,7 @@ export function NotificationCenter() {
               ))}
             </tbody>
           </table>
-          {a.henCskh.length > 40 && <p className="text-[10px] text-slate-400 px-2 py-1">…và {a.henCskh.length - 40} khách nữa.</p>}
+          {a.henCskh.length > 40 && <p className="t3 text-slate-400 px-2 py-1">…và {a.henCskh.length - 40} khách nữa.</p>}
         </div>
       ),
     },
@@ -218,7 +218,7 @@ export function NotificationCenter() {
             return (
               <div key={d.id} className="flex items-center gap-1.5 bg-white border border-indigo-100 rounded-lg px-2 py-1">
                 <span className="text-xs font-medium text-slate-800">{d.soct_users?.full_name || '—'}</span>
-                <span className="text-[10px] text-slate-500">{LOAI_LABEL[d.loai as keyof typeof LOAI_LABEL] || d.loai} · {moTaKhoang(d.tu_ngay, d.den_ngay, d.buoi)}</span>
+                <span className="t3 text-slate-500">{LOAI_LABEL[d.loai as keyof typeof LOAI_LABEL] || d.loai} · {moTaKhoang(d.tu_ngay, d.den_ngay, d.buoi)}</span>
                 <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold border ${approved ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{approved ? 'Đã duyệt' : 'Chờ duyệt'}</span>
               </div>
             )
@@ -241,7 +241,7 @@ export function NotificationCenter() {
       <button type="button" onClick={() => setOpen(o => !o)} title="Cảnh báo & nhắc việc"
         className={`relative w-9 h-9 rounded-full border flex items-center justify-center transition ${btnCls}`}>
         <Bell className="w-[18px] h-[18px]" />
-        {total > 0 && <span className={`absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white ${badgeCls}`}>{total}</span>}
+        {total > 0 && <span className={`absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full text-white t3 font-bold flex items-center justify-center ring-2 ring-white ${badgeCls}`}>{total}</span>}
       </button>
       {open && (
         <>
@@ -263,7 +263,7 @@ export function NotificationCenter() {
                       <button type="button" onClick={() => setExpanded(e => e === s.key ? null : s.key)} className="w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg hover:bg-slate-50 text-left">
                         <Icon className={`w-[18px] h-[18px] shrink-0 ${iconTone(s.tone)}`} />
                         <span className="flex-1 text-sm text-slate-700">{s.label}</span>
-                        <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-white text-[11px] font-bold flex items-center justify-center ${dotTone(s.tone)}`}>{s.count}</span>
+                        <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-white t2 font-bold flex items-center justify-center ${dotTone(s.tone)}`}>{s.count}</span>
                         <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                       </button>
                       {isOpen && (
@@ -271,7 +271,7 @@ export function NotificationCenter() {
                           {s.detail}
                           {s.navHref && s.canSee && (
                             <Link href={s.navHref} onClick={() => setOpen(false)}
-                              className={`block w-full text-center text-[11px] font-semibold rounded-lg border py-1.5 ${s.tone === 'red' ? 'text-red-700 bg-red-50 hover:bg-red-100 border-red-100' : s.tone === 'amber' ? 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-100' : 'text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-100'}`}>
+                              className={`block w-full text-center t2 font-semibold rounded-lg border py-1.5 ${s.tone === 'red' ? 'text-red-700 bg-red-50 hover:bg-red-100 border-red-100' : s.tone === 'amber' ? 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-100' : 'text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-100'}`}>
                               {s.navLabel}
                             </Link>
                           )}

@@ -37,7 +37,7 @@ function DoiChieuMinvoiceModal({ onClose, showNotification, isAdmin }: { onClose
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setApplying('') }
   }
   const ApBtn = ({ x, field, value }: { x: any, field: 'ten' | 'dia_chi' | 'email' | 'mst', value: string }) => isAdmin
-    ? <button onClick={() => apply(x, field, value)} disabled={applying === `${x.key}|${field}`} className="mt-1 h-6 px-2 rounded text-[10px] font-semibold bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50">{applying === `${x.key}|${field}` ? '...' : 'Áp minVoice'}</button>
+    ? <button onClick={() => apply(x, field, value)} disabled={applying === `${x.key}|${field}`} className="mt-1 h-6 px-2 rounded t3 font-semibold bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50">{applying === `${x.key}|${field}` ? '...' : 'Áp minVoice'}</button>
     : null
   const stripH = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().trim()
   const parse = (): { ten: string, dia_chi: string, mst: string, email: string }[] | null => {
@@ -78,7 +78,7 @@ function DoiChieuMinvoiceModal({ onClose, showNotification, isAdmin }: { onClose
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-5 overflow-y-auto space-y-3 flex-1 text-xs">
-          <p className="text-[11px] text-slate-500 leading-relaxed">Copy từ Excel minVoice (gồm <b>dòng tiêu đề</b>: Tên Đối Tượng · Địa Chỉ · Mã Số Thuế · Email) rồi dán vào đây. minVoice là <b>chuẩn</b> → báo chỗ <b>lệch</b> & <b>chưa có</b> trong app (chỉ đọc, không ghi đè).</p>
+          <p className="t2 text-slate-500 leading-relaxed">Copy từ Excel minVoice (gồm <b>dòng tiêu đề</b>: Tên Đối Tượng · Địa Chỉ · Mã Số Thuế · Email) rồi dán vào đây. minVoice là <b>chuẩn</b> → báo chỗ <b>lệch</b> & <b>chưa có</b> trong app (chỉ đọc, không ghi đè).</p>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-slate-500">Đối chiếu với:</span>
             {([['both', 'Cả hai'], ['cum', 'Khách kỹ thuật'], ['kd', 'Khách kinh doanh']] as const).map(([k, l]) => (
@@ -90,7 +90,7 @@ function DoiChieuMinvoiceModal({ onClose, showNotification, isAdmin }: { onClose
 
           {res && (
             <div className="space-y-3">
-              <div className="flex flex-wrap gap-2 text-[11px]">
+              <div className="flex flex-wrap gap-2 t2">
                 <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-semibold">Tổng: {res.tong}</span>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">Khớp đủ: {res.khop}</span>
                 <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold">Lệch: {res.lech.length}</span>
@@ -100,9 +100,9 @@ function DoiChieuMinvoiceModal({ onClose, showNotification, isAdmin }: { onClose
 
               {res.lech.length > 0 && (
                 <div>
-                  <p className="text-[11px] font-semibold text-amber-700 mb-1">Lệch thông tin (minVoice ≠ app)</p>
+                  <p className="t2 font-semibold text-amber-700 mb-1">Lệch thông tin (minVoice ≠ app)</p>
                   <div className="border border-amber-200 rounded-lg overflow-hidden max-h-64 overflow-y-auto">
-                    <table className="w-full text-left text-[11px] text-slate-600">
+                    <table className="w-full text-left t2 text-slate-600">
                       <thead className="bg-amber-50 text-amber-800 sticky top-0 select-none"><tr>{thL('source', 'Nguồn · MST')}{thL('ten', 'Tên')}{thL('dia_chi', 'Địa chỉ')}<th className="px-2 py-1.5">Email thiếu</th></tr></thead>
                       <tbody className="divide-y divide-slate-100">
                         {lechSorted.map((x: any, i: number) => (
@@ -121,9 +121,9 @@ function DoiChieuMinvoiceModal({ onClose, showNotification, isAdmin }: { onClose
 
               {res.thieu.length > 0 && (
                 <div>
-                  <p className="text-[11px] font-semibold text-rose-700 mb-1">Chưa có trong app (cần tạo/gán MST)</p>
+                  <p className="t2 font-semibold text-rose-700 mb-1">Chưa có trong app (cần tạo/gán MST)</p>
                   <div className="border border-rose-200 rounded-lg overflow-hidden max-h-64 overflow-y-auto">
-                    <table className="w-full text-left text-[11px] text-slate-600">
+                    <table className="w-full text-left t2 text-slate-600">
                       <thead className="bg-rose-50 text-rose-800 sticky top-0 select-none"><tr>{thT('ten', 'Tên')}{thT('mst', 'MST')}{thT('dia_chi', 'Địa chỉ')}</tr></thead>
                       <tbody className="divide-y divide-slate-100">
                         {thieuSorted.map((x: any, i: number) => (
@@ -248,7 +248,7 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
               <Input placeholder="Tên khách hàng" className="bg-white" value={newTen} onChange={e => setNewTen(e.target.value)} />
             </div>
             {dupCluster && (
-              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">⚠ Mã <b>{dupCluster.ma_khach_hang}</b> đã dùng cho cụm: <b>{dupCluster.ten_khach_hang}</b>. Chọn mã khác.</p>
+              <p className="t2 text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">⚠ Mã <b>{dupCluster.ma_khach_hang}</b> đã dùng cho cụm: <b>{dupCluster.ten_khach_hang}</b>. Chọn mã khác.</p>
             )}
             <Input placeholder="Địa chỉ (xuất hóa đơn)" className="bg-white" value={newDc} onChange={e => setNewDc(e.target.value)} />
             <div className="grid grid-cols-2 gap-2">
@@ -271,7 +271,7 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
                   <button key={c.ma_khach_hang} onClick={() => { setSelMa(c.ma_khach_hang); setEditing(false); setPickIds([]); setMaySearch('') }}
                     className={`w-full text-left px-3 py-2.5 hover:bg-slate-50 flex items-center gap-2 ${selMa === c.ma_khach_hang ? 'bg-blue-50/70' : ''}`}>
                     <span className="text-xs font-mono text-slate-400 shrink-0">{c.ma_khach_hang}</span>
-                    <span className="flex-1 text-[13px] font-medium text-slate-800 truncate">{c.ten_khach_hang}</span>
+                    <span className="flex-1 t1 font-medium text-slate-800 truncate">{c.ten_khach_hang}</span>
                     <span className="text-xs text-slate-500 shrink-0 whitespace-nowrap">{c.so_may} máy</span>
                   </button>
                 ))}
@@ -308,8 +308,8 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
                       </div>
                       {sel.dia_chi && <p className="text-sm text-slate-500 mt-0.5">{sel.dia_chi}</p>}
                       <div className="flex gap-3 mt-1.5 flex-wrap">
-                        {sel.ma_so_thue && <p className="text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">MST: {sel.ma_so_thue}</p>}
-                        {sel.email_ke_toan && <p className="text-[11px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">Email: {sel.email_ke_toan}</p>}
+                        {sel.ma_so_thue && <p className="t2 font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">MST: {sel.ma_so_thue}</p>}
+                        {sel.email_ke_toan && <p className="t2 text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">Email: {sel.email_ke_toan}</p>}
                       </div>
                     </>
                   )}

@@ -125,10 +125,10 @@ export function BaoCaoSuaChuaModule({ notify }: { notify: (type: 'success' | 'er
                     <button onClick={() => setOpenId(open ? null : r.id)} className="w-full flex items-center gap-2 px-3.5 py-2.5 text-left hover:bg-slate-50">
                       <ChevronRight className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} />
                       <div className="min-w-0 flex-1">
-                        <div className="text-[13px] font-semibold text-slate-800 truncate">{kh.ten_khach_hang || 'Khách lẻ'}</div>
-                        <div className="text-[11px] text-slate-400 truncate">Mã máy {cv.ma_may || '—'} · {kh.model || 'N/A'} · {dmy(cv.ngay)} · KTV {r.nguoi_tao_u?.full_name || '—'}</div>
+                        <div className="t1 font-semibold text-slate-800 truncate">{kh.ten_khach_hang || 'Khách lẻ'}</div>
+                        <div className="t2 text-slate-400 truncate">Mã máy {cv.ma_may || '—'} · {kh.model || 'N/A'} · {dmy(cv.ngay)} · KTV {r.nguoi_tao_u?.full_name || '—'}</div>
                       </div>
-                      {tab === 'da_gui' && <span className="text-[10px] text-emerald-600 shrink-0">đã gửi</span>}
+                      {tab === 'da_gui' && <span className="t3 text-emerald-600 shrink-0">đã gửi</span>}
                     </button>
                     {open && (
                       <div className="px-4 pb-4 space-y-3 border-t border-slate-100 pt-3">

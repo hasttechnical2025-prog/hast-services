@@ -218,7 +218,7 @@ export function JobFormModal({ editingJob, onClose, onSaved, notify, customers, 
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-6 h-6" /></button>
         </div>
 
-        {editing && !canEdit && <div className="mx-5 mt-3 px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-[11px] text-amber-800">KTV đã bắt đầu việc — chỉ admin mới sửa được phiếu này.</div>}
+        {editing && !canEdit && <div className="mx-5 mt-3 px-3 py-2 rounded-md bg-amber-50 border border-amber-200 t2 text-amber-800">KTV đã bắt đầu việc — chỉ admin mới sửa được phiếu này.</div>}
 
         <div className="p-6 space-y-6">
           {/* Nhập từ PDF (chỉ tạo mới) */}

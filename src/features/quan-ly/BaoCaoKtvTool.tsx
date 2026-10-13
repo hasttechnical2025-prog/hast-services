@@ -190,13 +190,13 @@ export function BaoCaoKtvTool({ technicians, showNotification }: { technicians: 
                         <button onClick={() => setOpenKey(open ? null : cardKey)} className="w-full flex items-center gap-2 px-3.5 py-2.5 text-left hover:bg-slate-50">
                           <ChevronRight className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} />
                           <div className="min-w-0 flex-1">
-                            <div className="text-[13px] font-semibold text-slate-800 truncate">{ktvInfo.full_name}</div>
-                            <div className="text-[11px] text-slate-400 truncate">Phiếu sửa chữa ({jobsOfDay.length})</div>
+                            <div className="t1 font-semibold text-slate-800 truncate">{ktvInfo.full_name}</div>
+                            <div className="t2 text-slate-400 truncate">Phiếu sửa chữa ({jobsOfDay.length})</div>
                           </div>
                           {status?.da_nop ? (
-                            <span className="shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200" title={`Nộp lúc: ${new Date(status.thoi_gian_nop).toLocaleString('vi-VN')}`}>✓ Đã chốt nộp</span>
+                            <span className="shrink-0 px-2.5 py-0.5 rounded-full t2 font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200" title={`Nộp lúc: ${new Date(status.thoi_gian_nop).toLocaleString('vi-VN')}`}>✓ Đã chốt nộp</span>
                           ) : (
-                            <span className="shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200">⚠️ Chưa nộp</span>
+                            <span className="shrink-0 px-2.5 py-0.5 rounded-full t2 font-semibold bg-red-50 text-red-700 border border-red-200">⚠️ Chưa nộp</span>
                           )}
                         </button>
                         {open && (

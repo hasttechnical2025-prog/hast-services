@@ -154,7 +154,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
             <button key={k} onClick={() => setView(k)} className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 border-b-2 ${view === k ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
               {Icon && <Icon className="w-3.5 h-3.5" />}
               {l}
-              {k === 'can' && urgentCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{urgentCount}</span>}
+              {k === 'can' && urgentCount > 0 && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white t3 font-bold">{urgentCount}</span>}
             </button>
           ))}
         </div>
@@ -164,14 +164,14 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
       {view === 'can' && (
         <div className="space-y-2">
           <div className="flex flex-wrap gap-1.5 items-center">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase inline-flex items-center gap-1 mr-0.5"><Filter className="w-3 h-3" /> Lọc</span>
+            <span className="t2 font-semibold text-slate-400 uppercase inline-flex items-center gap-1 mr-0.5"><Filter className="w-3 h-3" /> Lọc</span>
             {REASON_ORDER.map(k => (
-              <button key={k} onClick={() => setReasonFilter(k)} className={`text-[11px] px-2.5 h-7 rounded-full border font-medium transition inline-flex items-center gap-1.5 ${reasonFilter === k ? REASON[k].active : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+              <button key={k} onClick={() => setReasonFilter(k)} className={`t2 px-2.5 h-7 rounded-full border font-medium transition inline-flex items-center gap-1.5 ${reasonFilter === k ? REASON[k].active : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${reasonFilter === k ? 'bg-white/80' : REASON[k].dot}`} />
                 {REASON[k].chip} ({qCounts[k] || 0})
               </button>
             ))}
-            <button onClick={() => setReasonFilter('all')} className={`text-[11px] px-2.5 h-7 rounded-full border font-medium transition ${reasonFilter === 'all' ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>Tất cả ({queue.length})</button>
+            <button onClick={() => setReasonFilter('all')} className={`t2 px-2.5 h-7 rounded-full border font-medium transition ${reasonFilter === 'all' ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>Tất cả ({queue.length})</button>
             <Button variant="outline" onClick={() => loadQueue()} className="h-7 px-2.5 gap-1.5 text-xs ml-auto" title="Tải lại"><RefreshCw className={`w-3.5 h-3.5 ${qLoading ? 'animate-spin' : ''}`} /> Tải lại</Button>
           </div>
           <div className="space-y-2">
@@ -180,14 +180,14 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
                 : queueShown.map(r => (
                   <div key={r.ma_khach_cum} className="border border-slate-200 rounded-lg p-3 flex items-start gap-3 hover:bg-slate-50">
                     <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-medium text-slate-800">{r.ten_khach_hang}</div>
+                      <div className="t1 font-medium text-slate-800">{r.ten_khach_hang}</div>
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {r.reasons.map((x: any, i: number) => (<span key={i} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${REASON[x.type]?.badge || 'bg-slate-100 text-slate-600'}`}>{x.label}</span>))}
+                        {r.reasons.map((x: any, i: number) => (<span key={i} className={`t3 font-semibold px-1.5 py-0.5 rounded ${REASON[x.type]?.badge || 'bg-slate-100 text-slate-600'}`}>{x.label}</span>))}
                       </div>
                       {r.reasons.filter((x: any) => x.detail).map((x: any, i: number) => (
-                        <div key={i} className="text-[11px] text-slate-500 mt-0.5">↳ {x.detail}</div>
+                        <div key={i} className="t2 text-slate-500 mt-0.5">↳ {x.detail}</div>
                       ))}
-                      <div className="text-[11px] text-slate-400 mt-1">{r.so_may} máy{r.hd_het_han ? ` · HĐ hết hạn ${fmtDate(r.hd_het_han)}` : ''}{r.sua_60 ? ` · cụm sửa ${r.sua_60} lần/60ng` : ''} · {r.lan_cham ? `chăm sóc gần nhất ${fmtDate(r.lan_cham)}` : 'chưa chăm sóc'}</div>
+                      <div className="t2 text-slate-400 mt-1">{r.so_may} máy{r.hd_het_han ? ` · HĐ hết hạn ${fmtDate(r.hd_het_han)}` : ''}{r.sua_60 ? ` · cụm sửa ${r.sua_60} lần/60ng` : ''} · {r.lan_cham ? `chăm sóc gần nhất ${fmtDate(r.lan_cham)}` : 'chưa chăm sóc'}</div>
                     </div>
                     <Button onClick={() => openCum(r.ma_khach_cum, r.ten_khach_hang)} size="sm" className="h-8 text-xs shrink-0">Ghi chăm sóc</Button>
                   </div>
@@ -205,7 +205,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
           ))}
         </div>
         <div className="inline-flex items-center gap-1.5 ml-auto">
-          <span className="text-[11px] text-slate-500 whitespace-nowrap">Tính từ:</span>
+          <span className="t2 text-slate-500 whitespace-nowrap">Tính từ:</span>
           <select value={period} onChange={e => setPeriod(e.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700" title="Mốc đếm Số lần & Chăm sóc gần nhất">
             {PERIODS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
@@ -215,7 +215,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
 
       <div className="border border-slate-200 rounded-lg overflow-hidden">
         <table className="w-full text-left text-xs text-slate-600">
-          <thead className="bg-slate-50 text-slate-500 text-[11px] font-semibold uppercase border-b border-slate-200 select-none">
+          <thead className="bg-slate-50 text-slate-500 t2 font-semibold uppercase border-b border-slate-200 select-none">
             <tr>
               {sortTh('ten', 'Khách hàng')}
               {sortTh('loai', 'Loại', 'text-center')}
@@ -233,8 +233,8 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
                     <td className="px-2.5 py-1.5"><div className="font-medium text-slate-800">{r.ten_khach_hang}</div>{r.dia_chi && <div className="text-[10px] text-slate-400 truncate max-w-[280px]">{r.dia_chi}</div>}</td>
                     <td className="px-2.5 py-1.5 text-center">
                       {r.loai === 'cum'
-                        ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-sky-50 text-sky-700">Cụm</span>
-                        : <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${TT_TN[r.trang_thai]?.cls || 'bg-slate-100 text-slate-600'}`}>{TT_TN[r.trang_thai]?.label || 'Tiềm năng'}</span>}
+                        ? <span className="t3 font-semibold px-1.5 py-0.5 rounded bg-sky-50 text-sky-700">Cụm</span>
+                        : <span className={`t3 font-semibold px-1.5 py-0.5 rounded ${TT_TN[r.trang_thai]?.cls || 'bg-slate-100 text-slate-600'}`}>{TT_TN[r.trang_thai]?.label || 'Tiềm năng'}</span>}
                     </td>
                     <td className="px-2.5 py-1.5 text-[11px] align-top"><div className="max-w-[220px] break-words leading-snug">{[r.dien_thoai, cleanEmails(r.email)].filter(Boolean).join(' · ') || <span className="text-slate-300">—</span>}</div></td>
                     <td className="px-2.5 py-1.5 text-center">{r.lan_cham ? fmtDate(r.lan_cham) : <span className="text-slate-300">Chưa</span>}</td>
@@ -249,23 +249,23 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
 
       {view === 'pipeline' && (
         <div className="space-y-2">
-          <p className="text-[11px] text-slate-500">Khách tiềm năng theo trạng thái. Bấm một thẻ để mở hồ sơ, ghi chăm sóc hoặc đổi trạng thái.</p>
+          <p className="t2 text-slate-500">Khách tiềm năng theo trạng thái. Bấm một thẻ để mở hồ sơ, ghi chăm sóc hoặc đổi trạng thái.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {(['moi', 'dang_tiep_can', 'thanh_khach', 'khong_thanh'] as const).map(st => {
               const col = pipeline[st] || []
               return (
                 <div key={st} className="bg-slate-50/70 border border-slate-200 rounded-lg p-2 min-h-[120px]">
                   <div className="flex items-center justify-between px-1 pb-2 mb-1 border-b border-slate-200">
-                    <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${TT_TN[st].cls}`}>{TT_TN[st].label}</span>
-                    <span className="text-[11px] font-bold text-slate-400">{col.length}</span>
+                    <span className={`t2 font-bold px-1.5 py-0.5 rounded ${TT_TN[st].cls}`}>{TT_TN[st].label}</span>
+                    <span className="t2 font-bold text-slate-400">{col.length}</span>
                   </div>
                   <div className="space-y-1.5">
-                    {col.length === 0 ? <p className="text-[11px] text-slate-300 text-center py-3">—</p>
+                    {col.length === 0 ? <p className="t2 text-slate-300 text-center py-3">—</p>
                       : col.map((r: any) => (
                         <button key={r.key} onClick={() => setSel(r)} className="w-full text-left bg-white border border-slate-200 rounded-md p-2 hover:border-indigo-300 hover:shadow-sm transition">
                           <div className="font-medium text-slate-800 text-xs break-words">{r.ten_khach_hang}</div>
-                          {(r.nguoi_lien_he || r.dien_thoai) && <div className="text-[10px] text-slate-500 mt-0.5">{[r.nguoi_lien_he, r.dien_thoai].filter(Boolean).join(' · ')}</div>}
-                          <div className="flex items-center gap-1.5 flex-wrap mt-1 text-[10px] text-slate-400">
+                          {(r.nguoi_lien_he || r.dien_thoai) && <div className="t3 text-slate-500 mt-0.5">{[r.nguoi_lien_he, r.dien_thoai].filter(Boolean).join(' · ')}</div>}
+                          <div className="flex items-center gap-1.5 flex-wrap mt-1 t3 text-slate-400">
                             {r.nguon && <span className="px-1 py-0.5 rounded bg-slate-100 text-slate-500">{r.nguon}</span>}
                             {r.lan_cham ? <span>CS gần nhất {fmtDate(r.lan_cham)}</span> : <span className="text-slate-300">chưa chăm sóc</span>}
                             {r.hen && <span className={henCls(r.hen)}>· hẹn {fmtDate(r.hen)}</span>}
@@ -283,36 +283,36 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
       {view === 'kpi' && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <p className="text-[11px] text-slate-500 flex-1">Chỉ số theo dõi hiệu quả chăm sóc. Lượt chăm sóc gồm cả nhật ký tay và phiếu giao việc loại CSKH đã hoàn thành.</p>
+            <p className="t2 text-slate-500 flex-1">Chỉ số theo dõi hiệu quả chăm sóc. Lượt chăm sóc gồm cả nhật ký tay và phiếu giao việc loại CSKH đã hoàn thành.</p>
             <Button variant="outline" onClick={() => loadKpi()} className="h-8 px-2.5 gap-1.5 text-xs" title="Tải lại"><RefreshCw className={`w-4 h-4 ${kpiLoading ? 'animate-spin' : ''}`} /> Tải lại</Button>
           </div>
           {kpiLoading && !kpi ? <div className="py-6 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải...</div> : !kpi ? <p className="text-xs text-slate-400 py-6 text-center">Chưa có dữ liệu.</p> : (<>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="border border-slate-200 rounded-xl p-3.5 bg-white">
-                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500"><Clock className="w-3.5 h-3.5 text-blue-500" /> Lượt chăm sóc 30 ngày</div>
+                <div className="flex items-center gap-1.5 t2 font-semibold text-slate-500"><Clock className="w-3.5 h-3.5 text-blue-500" /> Lượt chăm sóc 30 ngày</div>
                 <div className="text-2xl font-bold text-slate-800 mt-1">{(kpi.luot_30 || 0).toLocaleString('vi-VN')}</div>
-                <div className="text-[11px] text-slate-400 mt-0.5">Tổng cộng: {(kpi.luot_tong || 0).toLocaleString('vi-VN')}</div>
+                <div className="t2 text-slate-400 mt-0.5">Tổng cộng: {(kpi.luot_tong || 0).toLocaleString('vi-VN')}</div>
               </div>
               <div className="border border-slate-200 rounded-xl p-3.5 bg-white">
-                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500"><Target className="w-3.5 h-3.5 text-emerald-500" /> Độ phủ (90 ngày)</div>
+                <div className="flex items-center gap-1.5 t2 font-semibold text-slate-500"><Target className="w-3.5 h-3.5 text-emerald-500" /> Độ phủ (90 ngày)</div>
                 <div className="text-2xl font-bold text-slate-800 mt-1">{kpi.do_phu?.pct ?? 0}%</div>
-                <div className="text-[11px] text-slate-400 mt-0.5">{kpi.do_phu?.covered ?? 0}/{kpi.do_phu?.total ?? 0} khách cụm</div>
+                <div className="t2 text-slate-400 mt-0.5">{kpi.do_phu?.covered ?? 0}/{kpi.do_phu?.total ?? 0} khách cụm</div>
               </div>
               <div className="border border-slate-200 rounded-xl p-3.5 bg-white">
-                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500"><CalendarClock className="w-3.5 h-3.5 text-rose-500" /> Hẹn quá hạn</div>
+                <div className="flex items-center gap-1.5 t2 font-semibold text-slate-500"><CalendarClock className="w-3.5 h-3.5 text-rose-500" /> Hẹn quá hạn</div>
                 <div className="text-2xl font-bold text-rose-600 mt-1">{kpi.hen_qua_han?.count ?? 0}</div>
-                <div className="text-[11px] text-slate-400 mt-0.5">việc hẹn chưa xử lý</div>
+                <div className="t2 text-slate-400 mt-0.5">việc hẹn chưa xử lý</div>
               </div>
               <div className="border border-slate-200 rounded-xl p-3.5 bg-white">
-                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500"><TrendingUp className="w-3.5 h-3.5 text-indigo-500" /> Chuyển đổi tiềm năng</div>
+                <div className="flex items-center gap-1.5 t2 font-semibold text-slate-500"><TrendingUp className="w-3.5 h-3.5 text-indigo-500" /> Chuyển đổi tiềm năng</div>
                 <div className="text-2xl font-bold text-slate-800 mt-1">{kpi.pipeline?.chuyen_doi_pct ?? 0}%</div>
-                <div className="text-[11px] text-slate-400 mt-0.5">{kpi.pipeline?.thanh_khach ?? 0}/{kpi.pipeline?.total ?? 0} thành khách</div>
+                <div className="t2 text-slate-400 mt-0.5">{kpi.pipeline?.thanh_khach ?? 0}/{kpi.pipeline?.total ?? 0} thành khách</div>
               </div>
             </div>
 
             {/* Phân bố pipeline */}
             <div className="border border-slate-200 rounded-xl p-3.5 bg-white">
-              <div className="text-[11px] font-semibold text-slate-500 uppercase mb-2">Phân bố khách tiềm năng</div>
+              <div className="t2 font-semibold text-slate-500 uppercase mb-2">Phân bố khách tiềm năng</div>
               <div className="flex flex-wrap gap-2">
                 {(['moi', 'dang_tiep_can', 'thanh_khach', 'khong_thanh'] as const).map(st => (
                   <span key={st} className={`text-xs font-semibold px-2.5 py-1 rounded-full ${TT_TN[st].cls}`}>{TT_TN[st].label}: {kpi.pipeline?.[st] ?? 0}</span>
@@ -323,7 +323,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
             {/* Danh sách hẹn quá hạn */}
             {(kpi.hen_qua_han?.list || []).length > 0 && (
               <div className="border border-rose-200 rounded-xl p-3.5 bg-rose-50/40">
-                <div className="text-[11px] font-semibold text-rose-700 uppercase mb-2 flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5" /> Việc hẹn quá hạn ({kpi.hen_qua_han.count})</div>
+                <div className="t2 font-semibold text-rose-700 uppercase mb-2 flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5" /> Việc hẹn quá hạn ({kpi.hen_qua_han.count})</div>
                 <div className="space-y-1">
                   {(kpi.hen_qua_han.list as any[]).slice(0, 20).map((h: any) => (
                     <div key={h.key} className="flex items-center justify-between gap-2 text-xs bg-white border border-rose-100 rounded-md px-2.5 py-1.5">
@@ -331,7 +331,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
                       <span className="text-rose-600 font-semibold shrink-0">Hẹn {fmtDate(h.ngay_hen)}</span>
                     </div>
                   ))}
-                  {kpi.hen_qua_han.list.length > 20 && <p className="text-[11px] text-slate-400 pt-1">… và {kpi.hen_qua_han.list.length - 20} khách khác</p>}
+                  {kpi.hen_qua_han.list.length > 20 && <p className="t2 text-slate-400 pt-1">… và {kpi.hen_qua_han.list.length - 20} khách khác</p>}
                 </div>
               </div>
             )}
@@ -413,7 +413,7 @@ function ProfileModal({ row, isAdmin, onClose, onChanged, showNotification }: { 
           {isTN && (
             <section className="bg-slate-50/70 border border-slate-200 rounded-lg p-3 space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase">Thông tin khách tiềm năng</span>
+                <span className="t2 font-semibold text-slate-500 uppercase">Thông tin khách tiềm năng</span>
                 {isAdmin && <button onClick={async () => { if (await confirm(`Ẩn khách tiềm năng "${row.ten_khach_hang}" khỏi danh sách?`, { confirmLabel: 'Ẩn khách' })) delTN() }} className="text-rose-600 hover:text-rose-700 text-xs inline-flex items-center gap-1"><Trash2 className="w-3.5 h-3.5" /> Ẩn khách</button>}
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-12 gap-2.5 text-xs">
@@ -441,7 +441,7 @@ function ProfileModal({ row, isAdmin, onClose, onChanged, showNotification }: { 
 
           {/* Ghi nhật ký chăm sóc mới */}
           <section className="border border-blue-200 rounded-lg p-3 space-y-2.5 bg-blue-50/30">
-            <span className="text-[11px] font-semibold text-blue-700 uppercase">Ghi nhật ký chăm sóc</span>
+            <span className="t2 font-semibold text-blue-700 uppercase">Ghi nhật ký chăm sóc</span>
             <div className="grid grid-cols-2 sm:grid-cols-12 gap-2.5 text-xs">
               {/* Dòng 1: Ngày + Kênh */}
               <div className="sm:col-span-4"><label className="block text-slate-600 font-semibold mb-1">Ngày</label><DateField value={f.ngay} onChange={v => setF({ ...f, ngay: v })} heightClass="h-8" className="w-full" /></div>
@@ -465,7 +465,7 @@ function ProfileModal({ row, isAdmin, onClose, onChanged, showNotification }: { 
 
           {/* Lịch sử chăm sóc */}
           <section>
-            <span className="text-[11px] font-semibold text-slate-500 uppercase flex items-center gap-1"><Clock className="w-3 h-3" /> Lịch sử chăm sóc ({logs.length})</span>
+            <span className="t2 font-semibold text-slate-500 uppercase flex items-center gap-1"><Clock className="w-3 h-3" /> Lịch sử chăm sóc ({logs.length})</span>
             {loadingLog ? <div className="py-3 text-center text-sm text-slate-400"><RefreshCw className="w-4 h-4 animate-spin mx-auto mb-1 text-blue-600" />Đang tải lịch sử...</div>
               : logs.length === 0 ? <p className="text-xs text-slate-400 py-3">Chưa có lần chăm sóc nào.</p>
                 : <div className="mt-2 space-y-2">
@@ -473,10 +473,10 @@ function ProfileModal({ row, isAdmin, onClose, onChanged, showNotification }: { 
                     <div key={l.id} className={`border rounded-lg p-2.5 text-xs ${l.tu_phieu ? 'border-indigo-200 bg-indigo-50/40' : 'border-slate-200'}`}>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-slate-700">{fmtDate(l.ngay)}</span>
-                        {l.kenh && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">{l.kenh}</span>}
-                        {l.tu_phieu && <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-semibold">Phiếu CSKH{l.so_phieu ? ` ${l.so_phieu}` : ''}{l.ma_may ? ` · ${l.ma_may}` : ''}</span>}
+                        {l.kenh && <span className="t3 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">{l.kenh}</span>}
+                        {l.tu_phieu && <span className="t3 px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-semibold">Phiếu CSKH{l.so_phieu ? ` ${l.so_phieu}` : ''}{l.ma_may ? ` · ${l.ma_may}` : ''}</span>}
                         <span className="text-slate-400">· {l.nguoi_ten || '—'}</span>
-                        {l.ngay_hen && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 ml-1">Hẹn {fmtDate(l.ngay_hen)}</span>}
+                        {l.ngay_hen && <span className="t3 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 ml-1">Hẹn {fmtDate(l.ngay_hen)}</span>}
                         {!l.tu_phieu && <button onClick={async () => { if (await confirm('Xóa dòng nhật ký chăm sóc này?')) delLog(l.id) }} className="ml-auto text-slate-300 hover:text-rose-600" title="Xóa"><Trash2 className="w-3.5 h-3.5" /></button>}
                       </div>
                       {l.noi_dung && <div className="mt-1 text-slate-700 whitespace-pre-wrap break-words"><b>{l.tu_phieu ? 'Báo cáo:' : 'Nội dung:'}</b> {l.noi_dung}</div>}

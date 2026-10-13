@@ -145,7 +145,7 @@ export function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSucce
           <label className="text-xs font-semibold text-slate-600">Mã hàng *</label>
           <Input required value={formData.ma_hang} onChange={(e) => setFormData({ ...formData, ma_hang: e.target.value.toUpperCase() })} disabled={isEditing} placeholder="VD: DR017" className={`bg-white h-9 ${dupItem ? 'border-amber-400 focus:ring-amber-400' : ''}`} />
           {dupItem && (
-            <div className="text-[10px] text-amber-600 flex items-center gap-1 flex-wrap mt-1">⚠ Đã có.<button type="button" onClick={() => handleEdit(dupItem)} className="underline font-medium">Sửa</button></div>
+            <div className="t3 text-amber-600 flex items-center gap-1 flex-wrap mt-1">⚠ Đã có.<button type="button" onClick={() => handleEdit(dupItem)} className="underline font-medium">Sửa</button></div>
           )}
         </div>
         <div className="space-y-1 lg:col-span-3">

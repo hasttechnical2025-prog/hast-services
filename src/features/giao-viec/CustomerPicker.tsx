@@ -64,7 +64,7 @@ export function CustomerPicker({ customers, value, onChange }: {
                 <button key={c.id} type="button" onClick={() => pick(c.id)}
                   className={cn('w-full text-left px-3 py-1.5 hover:bg-slate-50 border-b border-slate-50', c.id === value && 'bg-blue-50')}>
                   <div className="text-xs font-medium text-slate-800 truncate">{c.ten_khach_hang || '—'}{c.ma_may ? <span className="font-mono text-slate-400"> · {c.ma_may}</span> : ''}</div>
-                  <div className="text-[10px] text-slate-400 truncate">{c.model ? `${c.model} · ` : ''}{c.vi_tri_dat_may || c.dia_chi || ''}</div>
+                  <div className="t3 text-slate-400 truncate">{c.model ? `${c.model} · ` : ''}{c.vi_tri_dat_may || c.dia_chi || ''}</div>
                 </button>
               ))}
             </div>
