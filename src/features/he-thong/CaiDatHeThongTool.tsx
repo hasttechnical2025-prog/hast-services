@@ -148,13 +148,13 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
 
   return (
     <div className="space-y-6">
-      {/* Thanh tab cháu (underline chuẩn v2) — gom thiết lập theo nghiệp vụ */}
-      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto sticky top-0 z-20 bg-slate-200/95 backdrop-blur -mx-2 px-2">
+      {/* Thanh tab kiểu segmented pill — ĐỒNG BỘ với Danh mục. Gom thiết lập theo nghiệp vụ. */}
+      <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
         {SETTING_TABS.map(([k, label]) => {
           const on = tab === k
           return (
             <button key={k} onClick={() => setTab(k)}
-              className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${on ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+              className={`px-3 py-1.5 rounded-md text-xs transition whitespace-nowrap ${on ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-blue-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>
               {label}
             </button>
           )
