@@ -214,9 +214,9 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
     },
     {
       key: 'khach', header: 'Khách hàng', sortValue: j => j.soct_khach_hang?.ten_khach_hang || '',
-      // Ghì rộng cột (260px) để tên dài không kéo giãn cột; WRAP (xuống dòng) để hiện đủ, không cắt mất.
+      // Co dãn theo nội dung như /admin (không ghì bề rộng); tên dài tự wrap, cột tự nở.
       render: j => (
-        <div className="w-[260px] max-w-[260px]">
+        <div>
           <div className="t1 font-medium text-slate-800 break-words">{j.soct_khach_hang?.ten_khach_hang || '—'}</div>
           <div className="t2 text-slate-500 flex items-start gap-1 mt-0.5"><MapPin className="w-3 h-3 shrink-0 mt-0.5" /><span className="break-words">{j.soct_khach_hang?.vi_tri_dat_may || j.soct_khach_hang?.dia_chi || ''}</span></div>
         </div>
@@ -228,7 +228,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
     },
     { key: 'loai', header: 'Loại việc', sortValue: j => j.loai_cong_viec, filter: filterDefs.loai, tdClassName: 'whitespace-nowrap', render: j => <LoaiViecCell job={j} /> },
     {
-      key: 'ktv', header: 'KTV', sortValue: j => j.soct_users?.full_name || '', filter: filterDefs.ktv, tdClassName: 'whitespace-nowrap',
+      key: 'ktv', header: 'KTV', sortValue: j => j.soct_users?.full_name || '', filter: filterDefs.ktv,
       render: j => j.soct_users?.full_name
         ? <div><div className="t1 font-medium text-slate-800">{j.soct_users.full_name}</div>{j.ktv2?.full_name && <div className="t3 text-slate-500 mt-0.5">+ {j.ktv2.full_name} <span className="text-slate-400 italic">(kèm)</span></div>}</div>
         : <span className="text-amber-600 italic">Chưa giao</span>,
