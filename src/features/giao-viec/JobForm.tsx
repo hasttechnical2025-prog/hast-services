@@ -39,6 +39,19 @@ export function JobFormModal({ editingJob, onClose, onSaved, notify, customers, 
     }
   })
   const [submitting, setSubmitting] = useState(false)
+  // "Đang giữ" của CHÍNH phiếu đang sửa (chỉ phiếu chưa Hoàn thành mới nằm trong committed) → trừ ra
+  // khi tính khả dụng để không báo thiếu nhầm chính phần phiếu này đã giữ chỗ.
+  const selfGiu = useMemo(() => {
+    const m: Record<string, number> = {}
+    if (editingJob && editingJob.ket_qua !== 'Hoàn thành') {
+      for (const v of (editingJob.soct_chi_tiet_vat_tu || [])) {
+        if ((v as any)?.da_tra) continue
+        const ma = String(v.ma_hang || ''); if (!ma) continue
+        m[ma] = (m[ma] || 0) + (Number(v.so_luong) || 0)
+      }
+    }
+    return m
+  }, [editingJob])
   const lock = useRef(false)
   // PDF import
   const pdfRef = useRef<HTMLInputElement>(null)
@@ -357,7 +370,7 @@ export function JobFormModal({ editingJob, onClose, onSaved, notify, customers, 
                       <button type="button" onClick={() => rmVt(index)} className="text-slate-400 hover:text-red-500 p-2 shrink-0 h-9 flex items-center"><Trash2 className="w-4 h-4" /></button>
                     </div>
                     {selectedItem && (() => {
-                      const giu = committed[selectedItem.ma_hang] || 0
+                      const giu = Math.max(0, (committed[selectedItem.ma_hang] || 0) - (selfGiu[selectedItem.ma_hang] || 0))
                       const kd = (Number(selectedItem.ton_kho) || 0) - giu
                       const thieu = sl > kd
                       return (
