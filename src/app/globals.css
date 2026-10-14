@@ -31,20 +31,18 @@ body {
 /* ───── UI 2027 (/v2) — scope riêng, KHÔNG ảnh hưởng /admin ───── */
 /* Font v2: Be Vietnam Pro (chỉ trong .v2-shell); admin giữ Inter. font-mono vẫn override cho mã. */
 .v2-shell { font-family: var(--font-be-vietnam), var(--font-inter), system-ui, sans-serif; }
-/* Thang cỡ chữ bảng (đã chốt): thân bảng 13px (bằng cỡ chữ sidebar) · tiêu đề cột nhỏ hơn 1px = 12px.
+/* Thang cỡ chữ bảng — KHỚP /admin 1:1: thân bảng 12.25px (= text-sm @root14) · tiêu đề cột 10.5px (= text-xs).
    (root html=14px nên đặt px tuyệt đối cho chắc; áp mọi bảng trong /v2.) */
-.v2-shell table tbody td { font-size: 13px; }
-.v2-shell table thead th { font-size: 12px; }
-/* Bảng Rà soát kho (Đặt hàng) là bảng dày đặc dữ liệu — thu nhỏ riêng: thân 12px · tiêu đề 11px. */
-.v2-shell table.dh-rasoat tbody td { font-size: 12px; }
-.v2-shell table.dh-rasoat thead th { font-size: 11px; }
+.v2-shell table tbody td { font-size: 12.25px; }
+.v2-shell table thead th { font-size: 10.5px; }
 
-/* ── Token cỡ chữ NỘI DUNG danh sách/bảng (áp theo VAI TRÒ dữ liệu, không theo cột) ──
-   t1 = Nhấn/chính (tên, Model, loại việc, tiền) · t2 = Phụ (mã máy, địa chỉ, km, tg)
-   · t3 = Nền/meta + badge thời gian. Đổi 1 chỗ ở đây là đổi toàn app v2.
+/* ── Token cỡ chữ NỘI DUNG danh sách/bảng (áp theo VAI TRÒ dữ liệu, không theo cột) — KHỚP admin ──
+   t1 = Nhấn/chính (tên, Model, loại việc, tiền) = 12.25px (= text-sm admin)
+   t2 = Phụ (mã máy, địa chỉ, km, tg) = 10.5px (= text-xs admin)
+   t3 = Nền/meta + badge thời gian = 10px. Đổi 1 chỗ ở đây là đổi toàn app v2.
    (specificity 2 class > quy tắc bảng 1 class nên thắng cả khi gắn thẳng vào td.) */
-.v2-shell .t1 { font-size: 13px; }
-.v2-shell .t2 { font-size: 11px; }
+.v2-shell .t1 { font-size: 12.25px; }
+.v2-shell .t2 { font-size: 10.5px; }
 .v2-shell .t3 { font-size: 10px; }
 /* Tương phản: ô nhập / ô lọc / select / textarea viền rõ hơn (slate-300) trên nền thẻ trắng,
    giúp dễ nhận diện vùng nhập liệu khi nền canvas đã là slate-100. */
