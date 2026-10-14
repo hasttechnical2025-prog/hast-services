@@ -163,15 +163,16 @@ function TopBar({ parent, child }: { parent?: string; child?: string }) {
   const c = p?.children.find(x => x.slug === child)
   return (
     <header className="h-12 shrink-0 border-b border-slate-200 flex items-center gap-3 px-4 bg-white">
-      <div className="flex items-center gap-1.5 text-sm min-w-0">
+      <div className="flex items-center gap-1.5 text-sm min-w-0 shrink-0">
         <span className="text-slate-400">{p?.label || 'Sổ công tác'}</span>
         {c && <>
           <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
           <span className="font-semibold text-slate-800 truncate">{c.label}</span>
         </>}
       </div>
+      {/* Chuông đặt cạnh breadcrumb, cách ml-2 để không lẫn với link */}
+      <div className="ml-2"><NotificationCenter /></div>
       <div className="flex-1" />
-      <NotificationCenter />
     </header>
   )
 }
