@@ -209,7 +209,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
       key: 'ngay', header: 'Ngày', sortValue: j => j.ngay,
       render: j => {
         const chip = phieuTaoChip(j.created_at, j.ngay, j.so_lan_cuon, j.ket_qua)
-        return <div className="t1 whitespace-nowrap"><DateText value={j.ngay} />{chip && <div className={`mt-0.5 block w-fit t3 leading-tight font-medium border rounded px-1 py-px ${PHIEU_TAO_TONE[chip.tone]}`} title={chip.title}>{chip.label}</div>}</div>
+        return <div className="t1 whitespace-nowrap"><DateText value={j.ngay} />{chip && <div className={`mt-0.5 block w-fit t-time leading-tight font-medium border rounded px-1 py-px ${PHIEU_TAO_TONE[chip.tone]}`} title={chip.title}>{chip.label}</div>}</div>
       },
     },
     {
@@ -253,7 +253,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
           <div className="flex items-start gap-1.5 whitespace-nowrap">
             <div className="inline-flex flex-col items-center gap-0.5">
               <span className={`inline-block px-2.5 py-1 rounded-full t2 font-medium border ${statusCls(j.ket_qua)}`}>{j.ket_qua}</span>
-              {chip && <span className={`t3 leading-tight font-medium border rounded px-1 py-px ${PHIEU_TAO_TONE[chip.tone]}`} title={`Hoàn thành ${chip.title}`}>{chip.label}</span>}
+              {chip && <span className={`t-time leading-tight font-medium border rounded px-1 py-px ${PHIEU_TAO_TONE[chip.tone]}`} title={`Hoàn thành ${chip.title}`}>{chip.label}</span>}
             </div>
             {j.nguon_nhan === 'giao' && <span title="Giao trực tiếp cho KTV" className="inline-flex text-indigo-500 mt-1"><Send className="w-3.5 h-3.5" /></span>}
             {j.nguon_nhan === 'tu_nhan' && <span title="KTV tự nhận trên app" className="inline-flex text-emerald-500 mt-1"><Hand className="w-3.5 h-3.5" /></span>}
