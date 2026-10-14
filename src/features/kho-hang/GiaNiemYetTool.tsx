@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Upload, RefreshCw, Save, ChevronUp, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { TableLoading } from '@/ui'
+import { TableLoading, usePaged, Pagination } from '@/ui'
 
 // Port NGUYÊN GiaNiemYetTool từ admin (y hệt), gọi lại /api/admin/gia-niem-yet.
 export function GiaNiemYetTool({ showNotification, hangOptions }: { showNotification: (t: 'success' | 'error', m: string) => void, hangOptions: string[] }) {
@@ -93,6 +93,7 @@ export function GiaNiemYetTool({ showNotification, hangOptions }: { showNotifica
     })
     return base
   }, [rows, q, qModel, fHang, sortField, sortAsc])
+  const paged = usePaged(filtered)
 
   const SortTh = ({ f, label, align = 'left' }: { f: string, label: string, align?: 'left' | 'center' | 'right' }) => (
     <th onClick={() => handleSort(f)} className={`px-2 py-2.5 cursor-pointer select-none transition-colors hover:bg-slate-100 ${align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left'} ${sortField === f ? 'text-blue-600 bg-blue-50/60' : ''}`}>
@@ -183,6 +184,7 @@ export function GiaNiemYetTool({ showNotification, hangOptions }: { showNotifica
         </div>
       )}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-slate-600">
             <thead className="bg-slate-50 text-slate-500 t2 font-semibold uppercase border-b border-slate-200">
@@ -203,7 +205,7 @@ export function GiaNiemYetTool({ showNotification, hangOptions }: { showNotifica
                 <TableLoading colSpan={9} label="Đang tải giá niêm yết..." />
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400">Không có vật tư nào.</td></tr>
-              ) : filtered.map(r => {
+              ) : paged.pageItems.map(r => {
                 const e = edits[r.ma_hang] || { gia_niem_yet: '', gia_nhan_vien: '', gia_quan_ly: '' }
                 return (
                   <tr key={r.ma_hang} className="hover:bg-slate-50">
@@ -222,6 +224,7 @@ export function GiaNiemYetTool({ showNotification, hangOptions }: { showNotifica
             </tbody>
           </table>
         </div>
+        <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
       </div>
     </div>
   )
