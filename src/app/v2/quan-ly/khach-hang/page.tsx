@@ -52,7 +52,7 @@ export default function KhachHangPage() {
     <div className="space-y-4">
       {/* Thanh tab con STICKY kiểu UNDERLINE (chuẩn chung v2). */}
       {tabs.length > 1 && (
-        <div className="sticky top-0 z-20 -mx-4 px-4 pt-1 bg-slate-200/95 backdrop-blur">
+        <div className="sticky top-0 z-20 -mx-2 px-2 pt-1 bg-slate-200/95 backdrop-blur">
           <div className="flex gap-1 border-b border-slate-200">
             {tabs.map(t => {
               const on = t.slug === active

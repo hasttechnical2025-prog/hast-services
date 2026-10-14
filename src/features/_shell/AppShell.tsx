@@ -218,7 +218,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             top-[calc(var(--head-h)+2.5rem)]. Admin có header+tab-cha (--head-h+2.5rem); ở v2 TopBar
             nằm NGOÀI vùng cuộn nên offset đúng = 0 → đặt -2.5rem để calc ra 0 (tab con sticky sát mép). */}
         <div className="flex-1 overflow-y-auto bg-slate-200" style={{ ['--head-h' as string]: '-2.5rem' } as React.CSSProperties}>
-          <div className="p-4">{allowed ? children : <AccessDenied role={user.role} />}</div>
+          <div className="px-2 py-4">{allowed ? children : <AccessDenied role={user.role} />}</div>
         </div>
       </section>
       {/* Trợ lý AI — nút nổi góc dưới phải (không chiếm chỗ bảng/dữ liệu), gate quyền tro_ly. */}

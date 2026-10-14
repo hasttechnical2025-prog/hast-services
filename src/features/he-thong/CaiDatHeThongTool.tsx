@@ -149,7 +149,7 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
   return (
     <div className="space-y-6">
       {/* Thanh tab cháu (underline chuẩn v2) — gom thiết lập theo nghiệp vụ */}
-      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto sticky top-0 z-20 bg-slate-200/95 backdrop-blur -mx-4 px-4">
+      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto sticky top-0 z-20 bg-slate-200/95 backdrop-blur -mx-2 px-2">
         {SETTING_TABS.map(([k, label]) => {
           const on = tab === k
           return (

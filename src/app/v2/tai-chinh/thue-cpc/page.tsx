@@ -7,12 +7,10 @@ import ThueCpcModule from '@/features/tai-chinh/ThueCpcModule'
 export default function ThueCpcPage() {
   const { subSubVisible } = useSession()
   const { notify, toastNode } = useToast()
-  // md:px-2 (0.5rem): bù để lề âm -mx-6 của thanh tab con sticky (ThueCpcModule, khớp p-6 admin)
-  // full-bleed đúng mép vùng cuộn p-4 của v2 trên desktop, tránh tràn ngang. Mobile dùng -mx-4 đã khớp.
   return (
-    <div className="md:px-2">
+    <>
       <ThueCpcModule showNotification={notify} canSub={(g) => subSubVisible('tai_chinh', 'thue_cpc', g)} />
       {toastNode}
-    </div>
+    </>
   )
 }
