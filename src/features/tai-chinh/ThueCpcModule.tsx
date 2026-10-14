@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import DateField from "@/components/DateField"
 import MonthField from "@/components/MonthField"
+import { usePaged, Pagination } from "@/ui"
 import { chotSoDate, counterStatus, CounterStatus, kyTruoc, tinhDongMay } from "@/lib/thue-cpc"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
 import { Save, FileText, RefreshCw, ArrowRight, Check, PenSquare, Search, ChevronUp, ChevronDown, Download, Droplets } from "lucide-react"
@@ -414,6 +415,7 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
     })
     return list
   }, [filtered, sortField, sortAsc, khungMap])
+  const paged = usePaged(sortedRows)
 
   return (
     <div className="space-y-4">
@@ -439,6 +441,8 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
       </div>
 
       {loading ? <div className="text-sm text-slate-400 py-8 text-center"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải danh sách...</div> : (
+        <>
+        <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
         <div className="overflow-x-auto border border-slate-100 rounded-lg">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
@@ -502,7 +506,7 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {sortedRows.length === 0 && <tr><td colSpan={10} className="px-3 py-6 text-center text-slate-400">Không có máy nào.</td></tr>}
-              {sortedRows.map(r => (
+              {paged.pageItems.map(r => (
                 <tr key={r.id} className="hover:bg-slate-50">
                   <td className="px-3 py-2">
                     <div className="font-medium text-slate-700">{r.ten_khach_hang}</div>
@@ -526,6 +530,8 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
             </tbody>
           </table>
         </div>
+        <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
+        </>
       )}
 
       {editing && <DonGiaModal row={editing} khung={khung} nvkd={nvkd} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load() }} showNotification={showNotification} />}

@@ -7,6 +7,7 @@ import { Search, Plus, X, Trash2, Clock, ChevronUp, ChevronDown, Phone, Users, R
 import { useConfirm } from "@/components/ConfirmDialog"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
 import { CSKH_TOPIC, JOBS_TOPIC, DATA_EVENT } from "@/lib/realtime"
+import { usePaged, Pagination } from "@/ui"
 
 type Notify = (type: 'success' | 'error', msg: string) => void
 
@@ -130,6 +131,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
     })
     return arr
   }, [rows, q, loaiFilter, sortField, sortAsc])
+  const paged = usePaged(list)
 
   // Pipeline tiềm năng: gom khách tiềm năng theo trạng thái (dạng cột Kanban).
   const pipeline = useMemo(() => {
@@ -213,6 +215,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
         <span className="text-xs text-slate-500">{list.length} khách</span>
       </div>
 
+      <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
       <div className="border border-slate-200 rounded-lg overflow-hidden">
         <table className="w-full text-left text-xs text-slate-600">
           <thead className="bg-slate-50 text-slate-500 t2 font-semibold uppercase border-b border-slate-200 select-none">
@@ -228,7 +231,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
           <tbody className="divide-y divide-slate-100">
             {loading ? <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải danh sách...</td></tr>
               : list.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Không có khách khớp.</td></tr>
-                : list.map(r => (
+                : paged.pageItems.map(r => (
                   <tr key={r.key} onClick={() => setSel(r)} className="hover:bg-blue-50/50 cursor-pointer">
                     <td className="px-2.5 py-1.5"><div className="font-medium text-slate-800">{r.ten_khach_hang}</div>{r.dia_chi && <div className="text-[10px] text-slate-400 truncate max-w-[280px]">{r.dia_chi}</div>}</td>
                     <td className="px-2.5 py-1.5 text-center">
@@ -245,6 +248,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
           </tbody>
         </table>
       </div>
+      <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
       </>)}
 
       {view === 'pipeline' && (
