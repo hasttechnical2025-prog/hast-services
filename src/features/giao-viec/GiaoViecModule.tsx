@@ -242,7 +242,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
         const active = allVt.filter(v => !v.da_tra)
         const returned = allVt.length - active.length
         const { tong, coHD } = jobTien(j)
-        return <div>{j.report && <div className="t2 text-slate-600">Phiếu: {j.report}</div>}{active.length > 0 && <div className={`t1 font-medium ${coHD ? 'text-emerald-600' : 'text-amber-600'}`}>{coHD ? 'Có HĐ' : 'Chưa HĐ'}: {fmtMoney(tong)} đ</div>}{returned > 0 && <div className="t3 text-indigo-600 font-medium mt-0.5">↩ Đã trả kho {returned}/{allVt.length}</div>}</div>
+        return <div>{j.report && <div className="t2 text-slate-600">Phiếu: {j.report}</div>}{active.length > 0 && <div className={`t2 font-medium ${coHD ? 'text-emerald-600' : 'text-amber-600'}`}>{coHD ? 'Có HĐ' : 'Chưa HĐ'}: {fmtMoney(tong)} đ</div>}{returned > 0 && <div className="t3 text-indigo-600 font-medium mt-0.5">↩ Đã trả kho {returned}/{allVt.length}</div>}</div>
       },
     },
     {
