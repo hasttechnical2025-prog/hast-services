@@ -5,7 +5,7 @@ import { Package, Boxes, Search, ShoppingCart, ChevronUp, ChevronDown } from 'lu
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import MonthField from '@/components/MonthField'
-import { TableLoading } from '@/ui'
+import { TableLoading, usePaged, Pagination } from '@/ui'
 
 // Port NGUYÊN NhapHangThangTool từ admin (y hệt): panel Cảnh báo tồn + Thống kê nhập theo tháng.
 // Gọi lại /api/admin/nhap-hang-thang và /api/admin/canh-bao-ton.
@@ -74,6 +74,7 @@ export function NhapHangThangTool({
       return hay.includes(kw)
     })
   }, [sortedRows, q])
+  const nhapPaged = usePaged(filteredRows)
 
   const fetchRows = async () => {
     setLoading(true)
@@ -469,6 +470,7 @@ export function NhapHangThangTool({
           </div>
         </div>
 
+        <Pagination top page={nhapPaged.page} pageCount={nhapPaged.pageCount} total={nhapPaged.total} perPage={nhapPaged.perPage} onPage={nhapPaged.setPage} onPerPage={nhapPaged.setPerPage} />
         <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[480px] overflow-y-auto">
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide sticky top-0 border-b border-slate-200 shadow-sm z-10">
@@ -492,7 +494,7 @@ export function NhapHangThangTool({
                 <TableLoading colSpan={4} label="Đang tải thống kê nhập..." />
               ) : filteredRows.length === 0 ? (
                 <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">{q.trim() ? `Không có mặt hàng khớp "${q.trim()}".` : 'Chưa có dữ liệu nhập.'}</td></tr>
-              ) : filteredRows.map(r => (
+              ) : nhapPaged.pageItems.map(r => (
                 <tr key={r.id} className="hover:bg-slate-50">
                   <td className="px-4 py-2.5 font-mono text-xs">{r.thang_nam.split('-').reverse().join('/')}</td>
                   <td className="px-4 py-2.5 font-mono font-medium text-slate-700">{r.ma_hang}</td>
@@ -503,6 +505,7 @@ export function NhapHangThangTool({
             </tbody>
           </table>
         </div>
+        <Pagination page={nhapPaged.page} pageCount={nhapPaged.pageCount} total={nhapPaged.total} perPage={nhapPaged.perPage} onPage={nhapPaged.setPage} />
       </div>
     </div>
   )

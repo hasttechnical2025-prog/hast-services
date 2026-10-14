@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { RefreshCw, Search, PenSquare, X, FileText, AlertTriangle, Printer, ChevronUp, ChevronDown } from "lucide-react"
+import { usePaged, Pagination } from "@/ui"
 
 // Kho máy thuê: danh sách biên bản giám định máy thuê/CPC lấy từ app Techbot (bảng
 // `inspections`, chung Supabase). Xem chi tiết vật tư + sửa; cảnh báo máy đã cho khách khác thuê.
@@ -119,6 +120,7 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
     })
     return list
   }, [filtered, sortField, sortAsc])
+  const paged = usePaged(sortedRows)
 
   // Xuất lại BIÊN BẢN GIÁM ĐỊNH .docx (đúng mẫu Techbot) để in. Tải file rồi mở Word in.
   const exportBienBan = async (r: Insp) => {
@@ -176,6 +178,7 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
 
       <p className="text-xs text-slate-400">Nguồn: biên bản giám định do app Techbot lập (dùng chung dữ liệu). &quot;Khách đang thuê&quot; đối chiếu serial với máy thuê/CPC trong HAST.</p>
 
+      <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
       <div className="overflow-x-auto border border-slate-200 rounded-lg bg-white">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-600">
@@ -230,7 +233,7 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
               <tr><td colSpan={8} className="text-center text-sm text-slate-400 py-8"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải máy thuê...</td></tr>
             ) : sortedRows.length === 0 ? (
               <tr><td colSpan={8} className="text-center text-slate-400 py-8">Không có biên bản nào.</td></tr>
-            ) : sortedRows.map(r => (
+            ) : paged.pageItems.map(r => (
               <tr key={r.id} className={`border-t border-slate-100 hover:bg-slate-50/60 align-top ${r.da_thue_lai ? 'bg-rose-50/40' : ''}`}>
                 <td className="px-3 py-2 font-mono whitespace-nowrap">{r.serial || '—'}</td>
                 <td className="px-3 py-2 whitespace-nowrap">{r.model || '—'}</td>
@@ -257,6 +260,7 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
           </tbody>
         </table>
       </div>
+      <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
 
       {/* MODAL CHI TIẾT VẬT TƯ */}
       {detail && (() => {
