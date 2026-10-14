@@ -30,8 +30,10 @@ export function LoaiViecCell({ job }: { job: Job }) {
                 {vts.map((v, i) => (
                   <div key={i} className="flex items-start gap-2 text-xs">
                     <span className="font-mono text-slate-500 shrink-0">{v.ma_hang}</span>
-                    <span className="text-slate-700 flex-1 min-w-0 break-words leading-tight">{v.soct_kho_hang?.ten_hang || v.ten_hang_hd || ''}</span>
-                    <span className="font-semibold text-blue-700 shrink-0 whitespace-nowrap">×{Number(v.so_luong) || 0}</span>
+                    <span className="text-slate-700 flex-1 min-w-0 break-words leading-tight">
+                      {v.soct_kho_hang?.ten_hang || v.ten_hang_hd || ''}{' '}
+                      <b className="font-semibold text-blue-700 whitespace-nowrap">×{Number(v.so_luong) || 0}</b>
+                    </span>
                   </div>
                 ))}
               </div>
