@@ -1,6 +1,6 @@
 'use client'
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { KHO_TOPIC, KHACH_TOPIC, DATA_EVENT } from '@/lib/realtime'
+import { KHO_TOPIC, KHACH_TOPIC, JOBS_TOPIC, DATA_EVENT } from '@/lib/realtime'
 import { useRealtimeRefetch } from '@/lib/useRealtime'
 import { useSession } from './SessionProvider'
 
@@ -72,8 +72,9 @@ export function SharedDataProvider({ children }: { children: React.ReactNode }) 
   // Chỉ fetch khi đã biết user (sau khi SessionProvider xác thực xong) — tránh gọi lúc chưa login.
   useEffect(() => { if (user) refetchAll() }, [user, refetchAll])
 
-  // Tự đồng bộ: kho đổi (nhập/hàng về/sửa mã) → refetch tồn; khách đổi → refetch khách. Poll 90s nền.
-  useRealtimeRefetch(KHO_TOPIC, DATA_EVENT, refetchInventory, !!user, 90000)
+  // Tự đồng bộ: KHO đổi (nhập/hàng về/sửa-tạo mã) HOẶC JOBS đổi (tạo/sửa phiếu → đổi "đang giữ")
+  // → refetch tồn + đang giữ. Khách đổi → refetch khách. Poll nền 60s (lưới an toàn nếu broadcast rớt).
+  useRealtimeRefetch([KHO_TOPIC, JOBS_TOPIC], DATA_EVENT, refetchInventory, !!user, 60000)
   useRealtimeRefetch(KHACH_TOPIC, DATA_EVENT, refetchCustomers, !!user, 0)
 
   const dmOptions = useCallback((nhom: string, fallback: string[] = []) => {
