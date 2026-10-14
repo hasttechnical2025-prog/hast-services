@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import DateField from "@/components/DateField"
 import { useConfirm } from "@/components/ConfirmDialog"
+import { usePaged, Pagination } from "@/ui"
 import {
   FileText, Search, Plus, Printer, PenSquare, Trash2,
   RefreshCw, X, Save, ArrowUpDown, ChevronUp, ChevronDown
@@ -575,6 +576,7 @@ export default function PhieuDeNghiModule({
     })
     return list
   }, [rows, sortField, sortAsc])
+  const paged = usePaged(sortedRows)
 
   const handleSort = (f: 'so_phieu' | 'ngay_lap' | 'ten_may' | 'ma_may') => {
     if (sortField === f) {
@@ -1044,6 +1046,7 @@ export default function PhieuDeNghiModule({
       </div>
 
       {/* Data table */}
+      <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-slate-600">
@@ -1109,7 +1112,7 @@ export default function PhieuDeNghiModule({
                   </td>
                 </tr>
               ) : (
-                sortedRows.map(row => {
+                paged.pageItems.map(row => {
                   const ct = row.soct_phieu_de_nghi_ct || []
                   const xuatList = ct.filter(c => c.loai_hang === 'xuat_ra').sort((a, b) => (a.stt || 0) - (b.stt || 0))
                   const nhapList = ct.filter(c => c.loai_hang === 'nhap_lai').sort((a, b) => (a.stt || 0) - (b.stt || 0))
@@ -1242,6 +1245,7 @@ export default function PhieuDeNghiModule({
           </table>
         </div>
       </div>
+      <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
 
       {/* Popover xem nhanh vật tư (fixed, không bị overflow của bảng cắt) */}
       {vtHover && (

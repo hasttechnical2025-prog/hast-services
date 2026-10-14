@@ -4,7 +4,7 @@ import { Search, RefreshCw, ChevronRight, Copy, CheckCircle2, Trash2 } from 'luc
 import { useConfirm } from '@/components/ConfirmDialog'
 import { JOBS_TOPIC, JOBS_EVENT } from '@/lib/realtime'
 import { useRealtimeRefetch } from '@/lib/useRealtime'
-import { normVi, BoxLoading } from '@/ui'
+import { normVi, BoxLoading, usePaged, Pagination } from '@/ui'
 import { listBaoCao, markBaoCao, deleteBaoCao } from './api'
 
 const dmy = (s: any) => { if (!s) return ''; const p = String(s).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : '' }
@@ -83,6 +83,7 @@ export function BaoCaoSuaChuaModule({ notify }: { notify: (type: 'success' | 'er
       return tokens.every(t => hay.includes(t))
     })
   }, [list, search])
+  const paged = usePaged(shown)
 
   // Tab con kiểu UNDERLINE (chuẩn chung v2).
   const pill = (k: 'cho_gui' | 'da_gui', label: string) => (
@@ -113,11 +114,12 @@ export function BaoCaoSuaChuaModule({ notify }: { notify: (type: 'success' | 'er
         </div>
       )}
 
+      {!loading && <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />}
       {loading ? <BoxLoading label="Đang tải báo cáo..." />
         : shown.length === 0 ? <p className="text-xs text-slate-400 text-center py-10 italic">{list.length === 0 ? (tab === 'cho_gui' ? 'Không có báo cáo nào chờ gửi.' : 'Chưa có báo cáo đã gửi.') : 'Không khớp tìm kiếm.'}</p>
           : (
             <div className="space-y-2">
-              {shown.map((r: any) => {
+              {paged.pageItems.map((r: any) => {
                 const cv = r.soct_cong_viec || {}; const kh = cv.soct_khach_hang || {}
                 const open = openId === r.id
                 return (
@@ -147,6 +149,7 @@ export function BaoCaoSuaChuaModule({ notify }: { notify: (type: 'success' | 'er
               })}
             </div>
           )}
+      {!loading && <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />}
       {confirmNode}
     </div>
   )
