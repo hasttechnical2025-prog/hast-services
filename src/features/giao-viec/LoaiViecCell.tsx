@@ -15,14 +15,14 @@ export function LoaiViecCell({ job }: { job: Job }) {
   const show = () => {
     if (!has) return
     const r = ref.current?.getBoundingClientRect()
-    if (r) setPos({ top: r.bottom + 3, left: Math.max(8, Math.min(r.left, window.innerWidth - 272)) })
+    if (r) setPos({ top: r.bottom + 3, left: Math.max(8, Math.min(r.left, window.innerWidth - 460)) })
   }
   return (
     <span ref={ref} onMouseEnter={show} onMouseLeave={() => setPos(null)}
       className={has ? 'cursor-help border-b border-dotted border-slate-300' : ''}>
       {job.loai_cong_viec || '—'}
       {pos && has && (
-        <div className="fixed z-[80] w-64 rounded-lg border border-slate-200 bg-white shadow-xl p-2.5 text-left" style={{ top: pos.top, left: pos.left }}>
+        <div className="fixed z-[80] w-max max-w-[min(92vw,440px)] rounded-lg border border-slate-200 bg-white shadow-xl p-2.5 text-left" style={{ top: pos.top, left: pos.left }}>
           {hasVt ? (
             <>
               <div className="t3 font-bold uppercase text-slate-500 mb-1.5">Vật tư ({vts.length})</div>
