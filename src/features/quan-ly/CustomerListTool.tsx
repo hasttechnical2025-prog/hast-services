@@ -218,6 +218,7 @@ export function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCa
         </div>
       </div>
 
+      <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-slate-600">

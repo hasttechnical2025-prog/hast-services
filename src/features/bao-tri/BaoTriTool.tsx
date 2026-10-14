@@ -741,7 +741,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                 </table>
               </div>
               <div className="px-4 pb-2">
-                <Pagination page={dcPaged.page} pageCount={dcPaged.pageCount} total={dcPaged.total} perPage={dcPaged.perPage} onPage={dcPaged.setPage} />
+                <Pagination page={dcPaged.page} pageCount={dcPaged.pageCount} total={dcPaged.total} perPage={dcPaged.perPage} onPage={dcPaged.setPage} onPerPage={dcPaged.setPerPage} />
               </div>
             </div>
           </div>
@@ -791,7 +791,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                 </table>
               </div>
               <div className="px-4 pb-2">
-                <Pagination page={tamDungPaged.page} pageCount={tamDungPaged.pageCount} total={tamDungPaged.total} perPage={tamDungPaged.perPage} onPage={tamDungPaged.setPage} />
+                <Pagination page={tamDungPaged.page} pageCount={tamDungPaged.pageCount} total={tamDungPaged.total} perPage={tamDungPaged.perPage} onPage={tamDungPaged.setPage} onPerPage={tamDungPaged.setPerPage} />
               </div>
             </div>
           </div>
@@ -860,7 +860,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
               </table>
               </div>
               <div className="px-4 pb-2">
-                <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
+                <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
               </div>
             </div>
           </div>
@@ -909,7 +909,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
               </table>
               </div>
               <div className="px-4 pb-2">
-                <Pagination page={chuaBaoTriPaged.page} pageCount={chuaBaoTriPaged.pageCount} total={chuaBaoTriPaged.total} perPage={chuaBaoTriPaged.perPage} onPage={chuaBaoTriPaged.setPage} />
+                <Pagination page={chuaBaoTriPaged.page} pageCount={chuaBaoTriPaged.pageCount} total={chuaBaoTriPaged.total} perPage={chuaBaoTriPaged.perPage} onPage={chuaBaoTriPaged.setPage} onPerPage={chuaBaoTriPaged.setPerPage} />
               </div>
             </div>
           </div>

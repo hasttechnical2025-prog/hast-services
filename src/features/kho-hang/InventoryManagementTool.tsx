@@ -208,6 +208,7 @@ export function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSucce
           <Button variant="outline" onClick={onClearAll} disabled={inventory.length === 0} title="Xóa toàn bộ vật tư trong kho" className="h-9 w-9 p-0 border-rose-200 text-rose-600 hover:bg-rose-50"><Trash2 className="w-4 h-4" /></Button>
         </div>
       </div>
+      <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-slate-600">

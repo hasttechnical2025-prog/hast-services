@@ -269,6 +269,7 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
           </select>
           {gdFilterActive && <button onClick={() => setGdFilters({ maMay: "", trangThai: "", baoGia: "" })} className="text-xs text-red-600 hover:underline font-medium">Bỏ lọc</button>}
         </div>
+        <Pagination top page={gdPaged.page} pageCount={gdPaged.pageCount} total={gdPaged.total} perPage={gdPaged.perPage} onPage={gdPaged.setPage} onPerPage={gdPaged.setPerPage} />
         {loading ? (
           <BoxLoading label="Đang tải giám định..." />
         ) : records.length === 0 ? (

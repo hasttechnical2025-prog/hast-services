@@ -56,6 +56,7 @@ export function AuditLogsTool({ showNotification }: { showNotification: (type: '
           <Button variant="outline" onClick={exportTxt} className="gap-2 h-9"><Download className="w-4 h-4" /> Xuất .txt</Button>
         </div>
       </div>
+      <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-slate-600">

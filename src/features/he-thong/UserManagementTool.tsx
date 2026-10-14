@@ -150,6 +150,7 @@ export function UserManagementTool({ users, onUpdateSuccess, showNotification }:
         <span className="text-sm text-slate-500">{users.length} tài khoản</span>
         <ColumnMenu view={col} />
       </div>
+      <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-slate-600">
