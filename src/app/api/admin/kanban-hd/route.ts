@@ -19,17 +19,18 @@ export async function GET(request: Request) {
     if (searchParams.get('count') === '1') {
       const rows = await selectAll<any>((from, to) => supabaseAdmin
         .from('soct_cong_viec')
-        .select('id, trang_thai_hd, nguon, id_khach_hang, soct_khach_hang(ma_khach_cum)')
+        .select('id, trang_thai_hd, nguon, id_khach_hang, minvoice_luc, soct_khach_hang(ma_khach_cum)')
         .in('trang_thai_hd', ['Chờ xuất HĐ', 'Đang xử lý HĐ'])
         .range(from, to))
       const s1 = new Set<string>(), s2 = new Set<string>()
-      let p1 = 0, p2 = 0
+      let p1 = 0, p2 = 0, p2ChuaMinv = 0
       for (const t of (rows || []) as any[]) {
         const cumId = t.soct_khach_hang?.ma_khach_cum
         const key = t.nguon === 'thue_cpc' ? `tc:${t.id}` : (cumId ? `cum:${cumId}` : `may:${t.id_khach_hang}`)
-        if (t.trang_thai_hd === 'Chờ xuất HĐ') { s1.add(key); p1++ } else { s2.add(key); p2++ }
+        if (t.trang_thai_hd === 'Chờ xuất HĐ') { s1.add(key); p1++ } else { s2.add(key); p2++; if (!t.minvoice_luc) p2ChuaMinv++ }
       }
-      return NextResponse.json({ col1: s1.size, col2: s2.size, col1_phieu: p1, col2_phieu: p2 })
+      // col2_chua_minv: số PHIẾU ở cột 2 (Đang xử lý HĐ) CHƯA xuất M-invoice (minvoice_luc NULL)
+      return NextResponse.json({ col1: s1.size, col2: s2.size, col1_phieu: p1, col2_phieu: p2, col2_chua_minv: p2ChuaMinv })
     }
 
     const reqThang = searchParams.get('thang_nam')

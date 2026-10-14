@@ -95,7 +95,10 @@ function Sidebar({ parent, child }: { parent?: string; child?: string }) {
           const Ic = iconOf(p.icon)
           const headHref = p.leaf ? `/v2/${p.slug}` : `/v2/${p.slug}/${(kids[0] || p.children[0]).slug}`
           // Tổng badge các mục con — hiện trên tab CHA khi đang THU GỌN (chưa mở), để không mất tín hiệu.
-          const parentSum = kids.reduce((s, c) => { const k = childBadgeKey(c); return s + (k ? (counts[k] || 0) : 0) }, 0)
+          // Cha "lá" (vd Kanban): badge riêng theo key permKey.permSub, hiện cả khi đang mở (không có con).
+          const parentSum = p.leaf
+            ? (p.permSub ? (counts[`${p.permKey}.${p.permSub}`] || 0) : 0)
+            : kids.reduce((s, c) => { const k = childBadgeKey(c); return s + (k ? (counts[k] || 0) : 0) }, 0)
           return (
             <div key={p.slug}>
               <Link
@@ -107,7 +110,7 @@ function Sidebar({ parent, child }: { parent?: string; child?: string }) {
               >
                 <Ic className={cn('w-4 h-4 shrink-0', p.tone === 'rose' ? 'text-rose-500' : open ? 'text-blue-600' : 'text-slate-400')} />
                 <span className="flex-1 truncate">{p.label}</span>
-                {!open && <CountPill n={parentSum} />}
+                {(!open || p.leaf) && <CountPill n={parentSum} />}
               </Link>
               {open && !p.leaf && (
                 <div className="ml-3 pl-2 border-l border-slate-200 space-y-0.5 mb-1 mt-0.5">

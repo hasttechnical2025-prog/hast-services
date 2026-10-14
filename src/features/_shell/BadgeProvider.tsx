@@ -77,6 +77,11 @@ export function BadgeProvider({ children }: { children: React.ReactNode }) {
         }).catch(() => {}).finally(finish)
       } else finish()
     } else setKey('tai_chinh.thue_cpc', 0)
+
+    // ── Kanban Hóa đơn: số PHIẾU cột 2 (Đang xử lý HĐ) chưa xuất M-invoice ──
+    if (subVisible('tai_chinh', 'kanban')) {
+      fetch('/api/admin/kanban-hd?count=1').then(r => r.ok ? r.json() : { col2_chua_minv: 0 }).then(j => setKey('tai_chinh.kanban', j.col2_chua_minv ?? 0)).catch(() => {})
+    } else setKey('tai_chinh.kanban', 0)
   }, [user, subVisible, subSubVisible, config])
 
   useEffect(() => { refetch() }, [refetch])
