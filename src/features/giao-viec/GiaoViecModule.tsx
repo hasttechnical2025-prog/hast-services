@@ -297,7 +297,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
 
       <StatRow>
         <StatCard label="Tổng việc" value={stats.total.toLocaleString('vi-VN')} sub={`trên ${jobs.length.toLocaleString('vi-VN')} tất cả`} tone="blue" icon={ClipboardList} />
-        <StatCard label="Hoàn thành" value={stats.done.toLocaleString('vi-VN')} tone="emerald" icon={CheckCircle2} />
+        <StatCard label="Hoàn thành" value={stats.done.toLocaleString('vi-VN')} sub={stats.total ? `${Math.round(stats.done / stats.total * 100)}% khối lượng` : '—'} tone="emerald" icon={CheckCircle2} />
         <StatCard label="Đang làm / Chờ" value={(stats.doing + stats.waiting).toLocaleString('vi-VN')} sub={`${stats.unassigned.toLocaleString('vi-VN')} chưa giao`} tone="amber" icon={Clock} />
         <StatCard label="Phát sinh tiền" value={`${fmtMoney(stats.revenue)} đ`} sub={`có HĐ: ${fmtMoney(stats.revenueHD)} đ`} tone="indigo" icon={Wallet} />
       </StatRow>
