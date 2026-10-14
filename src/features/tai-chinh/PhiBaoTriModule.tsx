@@ -442,7 +442,7 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
 
       {/* ===== Modal tạo hóa đơn phí BT ===== */}
       {bill && (
-        <div className="fixed inset-0 bg-slate-900/50 z-[80] flex items-center justify-center p-4" onClick={() => !pushing && setBill(null)}>
+        <div className="fixed inset-0 bg-slate-900/50 z-[80] flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-5 space-y-3" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-800">Tạo phí bảo trì — HĐ {bill.so_hddv}</h3>

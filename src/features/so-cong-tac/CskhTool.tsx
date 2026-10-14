@@ -398,7 +398,7 @@ function ProfileModal({ row, isAdmin, onClose, onChanged, showNotification }: { 
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-3 overflow-y-auto" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-3 overflow-y-auto">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="px-5 py-3 border-b border-slate-100 flex items-start justify-between gap-3 shrink-0">
           <div>
@@ -508,7 +508,7 @@ function AddTiemNangModal({ onClose, onSaved, showNotification }: { onClose: () 
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setSaving(false) }
   }
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-3" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-3">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
         <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
           <h3 className="font-bold text-slate-800">Thêm khách tiềm năng</h3>

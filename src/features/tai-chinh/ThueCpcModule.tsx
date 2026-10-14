@@ -1202,7 +1202,7 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
 
       {/* MODAL XEM TRƯỚC ĐỒNG BỘ GOOGLE SHEET */}
       {gsPreview && (
-        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4" onClick={() => !gsBusy && setGsPreview(null)}>
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[88vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
               <h3 className="text-base font-bold text-slate-800 flex items-center gap-1.5"><Download className="w-4 h-4 text-emerald-600" /> Đồng bộ counter từ Google Sheet — kỳ {thang}</h3>
@@ -1249,7 +1249,7 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
 function ConfirmDialog({ open, title, message, confirmLabel, danger, busy, onConfirm, onCancel }: { open: boolean, title: string, message: string, confirmLabel?: string, danger?: boolean, busy?: boolean, onConfirm: () => void, onCancel: () => void }) {
   if (!open) return null
   return (
-    <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4" onClick={onCancel}>
+    <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
         <div className="p-5">
           <div className="flex items-start gap-3">

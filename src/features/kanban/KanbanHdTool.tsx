@@ -2266,7 +2266,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
 
       {/* MODAL XEM THẺ KINH DOANH (lệnh xuất) — đọc-thôi (4a) */}
       {kdActive && (
-        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-3 overflow-y-auto" onClick={() => setKdActive(null)}>
+        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-3 overflow-y-auto">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl my-6 flex flex-col max-h-[92vh] overflow-hidden border border-slate-200" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-3.5 border-b border-slate-200 bg-violet-50 flex items-center justify-between shrink-0">
               <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
@@ -2359,7 +2359,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
 
       {/* MODAL nhập SỐ HĐ khi lên hóa đơn lệnh KD (2->3) */}
       {kdInvoice && (
-        <div className="fixed inset-0 bg-black/50 z-[72] flex items-center justify-center p-4" onClick={() => !kdBusy && setKdInvoice(null)}>
+        <div className="fixed inset-0 bg-black/50 z-[72] flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="p-4 bg-emerald-50 border-b border-emerald-100">
               <h3 className="text-base font-bold text-emerald-800">Lên hóa đơn lệnh KD</h3>
@@ -2380,7 +2380,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
 
       {/* MODAL kế toán TRẢ LẠI lệnh KD về cột 1 (nhập lý do) */}
       {kdReturn && (
-        <div className="fixed inset-0 bg-black/50 z-[75] flex items-center justify-center p-4" onClick={() => !kdBusy && setKdReturn(null)}>
+        <div className="fixed inset-0 bg-black/50 z-[75] flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="p-4 bg-rose-50 border-b border-rose-100">
               <h3 className="text-base font-bold text-rose-800">Trả lệnh về phòng Kinh doanh</h3>
@@ -2400,7 +2400,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
 
       {/* HỘP THOẠI XUẤT EXCEL CÔNG NỢ (dữ liệu thô) */}
       {exportOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => !exporting && setExportOpen(false)}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
               <h3 className="text-base font-bold text-slate-800 flex items-center gap-1.5">
@@ -2447,7 +2447,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
 
       {/* MODAL TRỢ THỦ COPY-PASTE CHO KẾ TOÁN */}
       {activeCard && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setActiveCard(null)}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
 
             {/* Header */}
@@ -2803,7 +2803,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
       {payModal && (() => {
         const con = Math.max(0, payModal.tong - payModal.daThu)
         return (
-          <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4" onClick={() => setPayModal(null)}>
+          <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
               <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
                 <h3 className="text-base font-bold text-slate-800 flex items-center gap-1.5"><Landmark className="w-5 h-5 text-indigo-600" /> Thu tiền hóa đơn</h3>
@@ -2845,7 +2845,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
       {/* MODAL XÁC NHẬN (THAY THẾ WINDOW.CONFIRM) */}
       {/* HỘP THOẠI KẾ TOÁN TRẢ LẠI PHIẾU (nhập lý do) */}
       {returnTarget && (
-        <div className="fixed inset-0 bg-black/50 z-[75] flex items-center justify-center p-4" onClick={() => !returning && setReturnTarget(null)}>
+        <div className="fixed inset-0 bg-black/50 z-[75] flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="p-4 bg-rose-50 border-b border-rose-100">
               <h3 className="text-base font-bold text-rose-800">Trả phiếu về &quot;Chờ lên hóa đơn&quot;</h3>
@@ -2891,7 +2891,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
         const muaMST = String(cum?.ma_so_thue || kh?.ma_so_thue || '').trim()
         const S = sellerFromCfg(cfg)
         return (
-          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => setGiaoReview(null)}>
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
               <div className="p-4 bg-amber-50 border-b border-amber-200">
                 <h3 className="text-base font-bold text-amber-800 flex items-center gap-2"><AlertCircle className="w-5 h-5" /> Kiểm tra trước khi bàn giao kế toán</h3>
@@ -2938,7 +2938,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
         const vat = kdItems.reduce((s, it) => s + it.so_luong * it.don_gia * it.vat / 100, 0)
         const tong = Math.round(truoc + vat) + lt
         return (
-          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => setKdReview(null)}>
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
               <div className="p-4 bg-amber-50 border-b border-amber-200">
                 <h3 className="text-base font-bold text-amber-800 flex items-center gap-2"><AlertCircle className="w-5 h-5" /> Kiểm tra trước khi bàn giao kế toán (lệnh KD)</h3>
@@ -2972,7 +2972,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
       })()}
 
       {confirmDialog && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => setConfirmDialog(null)}>
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="p-5 space-y-3">
               <h3 className="text-lg font-bold text-red-700 flex items-center gap-2">
@@ -3002,7 +3002,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
 
       {/* KẾT QUẢ IMPORT BÁO CÁO M-INVOICE */}
       {importResult && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => setImportResult(null)}>
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-slate-100 shrink-0">
               <h3 className="font-bold text-slate-800">Kết quả import báo cáo M-invoice</h3>
@@ -3058,7 +3058,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
 
       {/* KẾT QUẢ IMPORT THANH TOÁN (FAST) */}
       {payResult && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => setPayResult(null)}>
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-slate-100 shrink-0">
               <h3 className="font-bold text-slate-800">Kết quả đối ứng thanh toán (FAST)</h3>
@@ -3157,7 +3157,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
           </label>
         )
         return (
-          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => !dcApplying && setDcResult(null)}>
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
               <div className="px-5 py-4 border-b border-slate-100 shrink-0">
                 <h3 className="font-bold text-slate-800">Đối chiếu sao kê — <span className="text-blue-700">{dcResult.bank}</span> · {dcResult.total} giao dịch</h3>

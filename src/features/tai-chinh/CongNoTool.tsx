@@ -390,7 +390,7 @@ export function CongNoTool({ showNotification }: { showNotification: (type: 'suc
 
       {/* MODAL TÁCH HÓA ĐƠN */}
       {splitOpen && (
-        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4" onClick={() => !working && setSplitOpen(false)}>
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
               <h3 className="text-base font-bold text-slate-800 flex items-center gap-1.5">✂ Tách dòng lên hóa đơn</h3>

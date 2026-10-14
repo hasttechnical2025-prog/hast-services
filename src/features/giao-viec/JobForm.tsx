@@ -211,7 +211,7 @@ export function JobFormModal({ editingJob, onClose, onSaved, notify, customers, 
   const ghiChuBatBuoc = form.loai_cong_viec.trim() === 'Khác'
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
           <h2 className="text-xl font-bold text-slate-800">{editing ? 'Sửa công việc' : 'Giao công việc mới'}</h2>
