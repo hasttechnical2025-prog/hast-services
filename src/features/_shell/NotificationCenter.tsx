@@ -246,7 +246,7 @@ export function NotificationCenter() {
       {open && (
         <>
           <div className="fixed inset-0 z-[55]" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 mt-2 w-[520px] max-w-[94vw] max-h-[75vh] overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl z-[56]">
+          <div className="absolute left-0 mt-2 w-[520px] max-w-[94vw] max-h-[75vh] overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl z-[56]">
             <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white">
               <span className="text-sm font-semibold text-slate-700">Cảnh báo &amp; nhắc việc</span>
               <span className="text-xs text-slate-400">{total > 0 ? `${total} mục` : 'Không có'}</span>
