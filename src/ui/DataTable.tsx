@@ -3,6 +3,7 @@ import { useMemo, useState, useRef, useLayoutEffect } from 'react'
 import { ChevronUp, ChevronDown, ChevronsUpDown, Filter, X, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { compareVi } from './format'
+import { usePaged, Pagination } from './table-helpers'
 
 // Bảng danh sách dùng chung — ĐÓNG KHUNG 2 luật:
 //  1) "sort cột bắt buộc": cột có `sortValue` → bấm tiêu đề để sắp xếp.
@@ -27,7 +28,7 @@ export type Column<T> = {
   tdClassName?: string
 }
 
-export function DataTable<T>({ columns, rows, rowKey, loading, loadingText = 'Đang tải...', empty = 'Không có dữ liệu.', defaultSort, onRowClick, className, filters: filtersProp, onFilterChange, onClearFilters }: {
+export function DataTable<T>({ columns, rows, rowKey, loading, loadingText = 'Đang tải...', empty = 'Không có dữ liệu.', defaultSort, onRowClick, className, filters: filtersProp, onFilterChange, onClearFilters, paginate = true }: {
   columns: Column<T>[]
   rows: T[]
   rowKey: (row: T, i: number) => string
@@ -43,6 +44,8 @@ export function DataTable<T>({ columns, rows, rowKey, loading, loadingText = 'Đ
   filters?: Record<string, string>
   onFilterChange?: (key: string, value: string) => void
   onClearFilters?: () => void
+  /** Phân trang nội bộ (mặc định bật): selector 10/20/50 ở trên + dải số trang ở dưới. */
+  paginate?: boolean
 }) {
   const [sortKey, setSortKey] = useState<string | null>(defaultSort?.key ?? null)
   const [asc, setAsc] = useState<boolean>(defaultSort?.asc ?? true)
@@ -80,6 +83,10 @@ export function DataTable<T>({ columns, rows, rowKey, loading, loadingText = 'Đ
     })
     return arr
   }, [filtered, sortKey, asc, columns])
+
+  // Phân trang NỘI BỘ: chỉ cắt danh sách đã lọc+sort để hiển thị; không đụng dữ liệu cha dùng cho xuất Excel.
+  const paged = usePaged(sorted)
+  const bodyRows = paginate ? paged.pageItems : sorted
 
   const toggleSort = (col: Column<T>) => {
     if (!col.sortValue) return
@@ -122,6 +129,7 @@ export function DataTable<T>({ columns, rows, rowKey, loading, loadingText = 'Đ
           <button onClick={clearFilters} className="text-rose-600 hover:underline ml-1">Bỏ lọc cột</button>
         </div>
       )}
+      {paginate && !loading && <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />}
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-slate-600">
           <thead className="bg-slate-50/80 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200/70">
@@ -155,7 +163,7 @@ export function DataTable<T>({ columns, rows, rowKey, loading, loadingText = 'Đ
               <tr><td colSpan={columns.length} className="px-3.5 py-10 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />{loadingText}</td></tr>
             ) : sorted.length === 0 ? (
               <tr><td colSpan={columns.length} className="px-3.5 py-10 text-center text-slate-400 italic">{empty}</td></tr>
-            ) : sorted.map((row, i) => (
+            ) : bodyRows.map((row, i) => (
               <tr key={rowKey(row, i)} onClick={onRowClick ? () => onRowClick(row) : undefined} className={cn('hover:bg-slate-50/70 transition-colors', onRowClick && 'cursor-pointer')}>
                 {columns.map(col => (
                   <td key={col.key} className={cn('px-3.5 py-2.5', alignCls(col.align), col.tdClassName)}>
@@ -167,6 +175,7 @@ export function DataTable<T>({ columns, rows, rowKey, loading, loadingText = 'Đ
           </tbody>
         </table>
       </div>
+      {paginate && !loading && <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />}
 
       {popColDef?.filter && pos && (
         <div data-dt-pop className="fixed z-50 w-52 bg-white rounded-lg border border-slate-200 shadow-lg p-2" style={{ top: pos.top, left: pos.left }}>

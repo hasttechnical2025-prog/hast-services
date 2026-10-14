@@ -7,17 +7,58 @@ import { Button } from '@/components/ui/button'
 // Phân trang + ẩn/hiện cột — port NGUYÊN từ admin để các bảng port y hệt hành vi.
 
 export const PAGE_SIZE = 20
+export const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
-export function usePaged<T>(items: T[], perPage = PAGE_SIZE) {
+// Phân trang có chọn số dòng/trang (10/20/50) — lưu localStorage DÙNG CHUNG theo storageKey
+// (mặc định 'v2' = 1 lựa chọn cho toàn app). page state riêng mỗi bảng; setPerPage reset về trang 1.
+export function usePaged<T>(items: T[], storageKey: string = 'v2') {
+  const [perPage, setPP] = useState<number>(() => {
+    try { const v = parseInt(localStorage.getItem('pp:' + storageKey) || ''); if (PAGE_SIZE_OPTIONS.includes(v)) return v } catch { /* ignore */ }
+    return PAGE_SIZE
+  })
   const [page, setPage] = useState(1)
   const pageCount = Math.max(1, Math.ceil(items.length / perPage))
   useEffect(() => { setPage(p => Math.min(p, pageCount)) }, [pageCount])
+  const setPerPage = (n: number) => { setPP(n); setPage(1); try { localStorage.setItem('pp:' + storageKey, String(n)) } catch { /* ignore */ } }
   const pageItems = items.slice((page - 1) * perPage, page * perPage)
-  return { page, setPage, pageCount, pageItems, total: items.length, perPage }
+  return { page, setPage, pageCount, pageItems, total: items.length, perPage, setPerPage }
 }
 
-// Thanh điều hướng trang — chỉ hiện khi có >1 trang.
-export function Pagination({ page, pageCount, total, perPage, onPage }: { page: number, pageCount: number, total: number, perPage: number, onPage: (p: number) => void }) {
+// Thanh điều hướng trang.
+//  - top=true  : hàng gọn cho PHÍA TRÊN danh sách — [Hiển thị 10/20/50] · N dòng · ‹ Trước  Trang x/y  Sau ›
+//  - mặc định  : PHÍA DƯỚI — dải số trang đầy đủ + ‹ › + "x–y / N dòng".
+// Truyền onPerPage để hiện ô chọn số dòng (thường chỉ gắn ở thanh TRÊN, tránh lặp).
+export function Pagination({ page, pageCount, total, perPage, onPage, onPerPage, top }: {
+  page: number, pageCount: number, total: number, perPage: number, onPage: (p: number) => void,
+  onPerPage?: (n: number) => void, top?: boolean,
+}) {
+  const navBtn = 'h-8 min-w-8 px-2 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition inline-flex items-center justify-center'
+
+  if (top) {
+    // Không có gì để điều khiển (ít dòng, không đổi được số/trang) -> ẩn.
+    if (pageCount <= 1 && !onPerPage) return null
+    if (pageCount <= 1 && total <= PAGE_SIZE_OPTIONS[0]) return null
+    return (
+      <div className="flex items-center gap-3 flex-wrap px-1 pb-2 text-xs text-slate-500">
+        {onPerPage && (
+          <label className="flex items-center gap-1.5">Hiển thị
+            <select value={perPage} onChange={e => onPerPage(parseInt(e.target.value))} className="h-7 rounded-md border border-slate-200 bg-white px-1.5 text-xs outline-none focus:border-blue-500">
+              {PAGE_SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
+            </select> dòng
+          </label>
+        )}
+        <span>{total.toLocaleString('vi-VN')} dòng</span>
+        {pageCount > 1 && (
+          <div className="flex items-center gap-1.5 ml-auto">
+            <button className={navBtn} disabled={page <= 1} onClick={() => onPage(page - 1)}><ChevronLeft className="w-4 h-4" /> Trước</button>
+            <span className="px-1">Trang <b className="text-slate-700">{page}</b>/{pageCount}</span>
+            <button className={navBtn} disabled={page >= pageCount} onClick={() => onPage(page + 1)}>Sau <ChevronRight className="w-4 h-4" /></button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   if (pageCount <= 1) return null
   const from = (page - 1) * perPage + 1
   const to = Math.min(page * perPage, total)
