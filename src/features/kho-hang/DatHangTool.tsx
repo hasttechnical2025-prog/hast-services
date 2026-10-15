@@ -351,7 +351,7 @@ export function DatHangTool({
       {tab === 'tao_don' && (
       <>
       {/* FORM TẠO ĐƠN - SHOPPING CART UX */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-2">
         {/* BÊN TRÁI: RÀ SOÁT TỒN KHO & CHỌN VẬT TƯ (3/5) */}
         <div className="lg:col-span-3 border border-slate-200 rounded-xl bg-white overflow-hidden flex flex-col shadow-sm">
           <div className="bg-slate-50 p-4 border-b border-slate-200 space-y-2.5">
