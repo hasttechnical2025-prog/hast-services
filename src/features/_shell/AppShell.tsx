@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import * as Icons from 'lucide-react'
 import { LogOut, ChevronRight, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -94,8 +94,30 @@ function Sidebar({ parent, child }: { parent?: string; child?: string }) {
   const allOpen = expandableSlugs.length > 0 && expandableSlugs.every(s => expanded.has(s))
   const toggleAll = () => { const n = allOpen ? new Set<string>() : new Set(expandableSlugs); setExpanded(n); persist(n) }
 
+  // Bề rộng sidebar CO DÃN: kéo cạnh phải, kẹp [200, 360], mặc định 256, nhớ localStorage.
+  const SIDEBAR_KEY = 'v2:sidebar-w'
+  const [sideW, setSideW] = useState(256)
+  const sideWRef = useRef(256); sideWRef.current = sideW
+  const dragW = useRef<{ sx: number; sw: number } | null>(null)
+  useEffect(() => { try { const v = parseInt(localStorage.getItem(SIDEBAR_KEY) || ''); if (v >= 200 && v <= 360) setSideW(v) } catch {} }, [])
+  const clampW = (x: number) => Math.min(360, Math.max(200, x))
+  const onWMove = (e: PointerEvent) => { const d = dragW.current; if (!d) return; setSideW(clampW(d.sw + (e.clientX - d.sx))) }
+  const onWUp = () => {
+    window.removeEventListener('pointermove', onWMove); window.removeEventListener('pointerup', onWUp)
+    document.body.style.userSelect = ''
+    try { localStorage.setItem(SIDEBAR_KEY, String(sideWRef.current)) } catch {}
+  }
+  const onWDown = (e: React.PointerEvent) => {
+    e.preventDefault()
+    dragW.current = { sx: e.clientX, sw: sideWRef.current }
+    document.body.style.userSelect = 'none'
+    window.addEventListener('pointermove', onWMove); window.addEventListener('pointerup', onWUp)
+  }
+
   return (
-    <aside className="w-56 shrink-0 border-r border-slate-200 bg-slate-50/60 flex flex-col">
+    <aside style={{ width: sideW }} className="relative shrink-0 border-r border-slate-200 bg-slate-50/60 flex flex-col">
+      {/* Tay kéo co dãn bề rộng (kẹp 200–360px, nhớ localStorage). */}
+      <div onPointerDown={onWDown} title="Kéo để đổi rộng sidebar" className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-blue-300/50 active:bg-blue-400/60 z-40 select-none" />
       <div className="h-12 px-3 border-b border-slate-200 flex items-center gap-2 shrink-0">
         {/* Logo + tên app lấy từ hệ thống (public/logo.png + Cài đặt › app_ten). */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
