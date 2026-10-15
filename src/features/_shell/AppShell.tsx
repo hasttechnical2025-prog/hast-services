@@ -78,21 +78,17 @@ function Sidebar({ parent, child }: { parent?: string; child?: string }) {
       return tabVisible(p.permKey) && kids.length > 0
     }), [tabVisible, subVisible, isAdmin]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Trạng thái gập/mở ĐỘC LẬP từng nhóm (đa-mở). Mặc định mở hết; nhớ qua localStorage.
-  // Khởi tạo = tất cả nhóm có con để SSR/client khớp, rồi effect nạp lại từ localStorage.
-  const NAV_KEY = 'v2:nav-expanded'
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(V2_NAV.filter(p => !p.leaf).map(p => p.slug)))
-  useEffect(() => {
-    try { const raw = localStorage.getItem(NAV_KEY); if (raw) setExpanded(new Set(JSON.parse(raw))) } catch {}
-  }, [])
-  const persist = (s: Set<string>) => { try { localStorage.setItem(NAV_KEY, JSON.stringify([...s])) } catch {} }
-  const toggle = (slug: string) => setExpanded(prev => { const n = new Set(prev); n.has(slug) ? n.delete(slug) : n.add(slug); persist(n); return n })
-  const ensureOpen = (slug: string) => setExpanded(prev => { if (prev.has(slug)) return prev; const n = new Set(prev); n.add(slug); persist(n); return n })
-  // Luôn mở nhóm chứa trang hiện tại khi route đổi (tải lại / deep-link).
+  // Trạng thái gập/mở ĐỘC LẬP từng nhóm (đa-mở). MẶC ĐỊNH (đăng nhập / refresh / Thu gọn):
+  // chỉ mở nhóm chứa trang hiện tại, các nhóm khác thu gọn. Trong phiên tự mở thêm được; refresh về mặc định.
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(parent ? [parent] : []))
+  const toggle = (slug: string) => setExpanded(prev => { const n = new Set(prev); n.has(slug) ? n.delete(slug) : n.add(slug); return n })
+  const ensureOpen = (slug: string) => setExpanded(prev => prev.has(slug) ? prev : new Set(prev).add(slug))
+  // Mở nhóm chứa trang hiện tại khi route đổi (tải lại / deep-link / điều hướng).
   useEffect(() => { if (parent) ensureOpen(parent) }, [parent]) // eslint-disable-line react-hooks/exhaustive-deps
   const expandableSlugs = parents.filter(x => !x.p.leaf).map(x => x.p.slug)
   const allOpen = expandableSlugs.length > 0 && expandableSlugs.every(s => expanded.has(s))
-  const toggleAll = () => { const n = allOpen ? new Set<string>() : new Set(expandableSlugs); setExpanded(n); persist(n) }
+  // "Mở tất cả" -> mở hết; "Thu gọn" -> chỉ giữ nhóm hiện tại.
+  const toggleAll = () => setExpanded(allOpen ? new Set(parent ? [parent] : []) : new Set(expandableSlugs))
 
   // Bề rộng sidebar CO DÃN: kéo cạnh phải, kẹp [200, 360], mặc định 256, nhớ localStorage.
   const SIDEBAR_KEY = 'v2:sidebar-w'
