@@ -117,7 +117,7 @@ export default function MucMayThueTool({ customers, inventory, committed, showNo
         ) : shown.map(({ model, so }) => {
           const rows = maByModel(model)
           return (
-            <div key={model} className="border border-slate-200 rounded-lg p-3">
+            <div key={model} className="bg-white border border-slate-200 rounded-lg p-3">
               <div className="flex items-center justify-between gap-2 mb-2">
                 <span className="text-sm font-semibold text-slate-800">{model}</span>
                 <span className="text-xs text-slate-500">{so} máy</span>

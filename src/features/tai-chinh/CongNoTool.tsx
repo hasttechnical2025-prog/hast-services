@@ -291,7 +291,7 @@ export function CongNoTool({ showNotification }: { showNotification: (type: 'suc
             {khSearch && <button type="button" onClick={() => setKhSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>}
           </div>
         </div>
-        <div className="border border-slate-200 rounded-lg max-h-[500px] overflow-y-auto divide-y divide-slate-100">
+        <div className="bg-white border border-slate-200 rounded-lg max-h-[500px] overflow-y-auto divide-y divide-slate-100">
           {custs.length === 0 ? (
             <p className="text-sm text-slate-400 text-center py-4">Không có công nợ.</p>
           ) : custs.filter(c => !khSearch || c.ten.toLowerCase().includes(khSearch.trim().toLowerCase())).map(c => (
