@@ -10,9 +10,7 @@ export default function TaiKhoanPage() {
   const { notify, toastNode } = useToast()
   return (
     <AdminGuard>
-      <div className="border border-slate-200 rounded-lg p-6 bg-white">
-        <UserManagementTool users={users} onUpdateSuccess={refetchAll} showNotification={notify} />
-      </div>
+      <UserManagementTool users={users} onUpdateSuccess={refetchAll} showNotification={notify} />
       {toastNode}
     </AdminGuard>
   )
