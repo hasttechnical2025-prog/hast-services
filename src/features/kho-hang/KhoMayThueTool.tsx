@@ -176,7 +176,6 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
         <span className="text-xs text-slate-500 ml-auto">{filtered.length} máy</span>
       </div>
 
-      <p className="text-xs text-slate-400">Nguồn: biên bản giám định do app Techbot lập (dùng chung dữ liệu). &quot;Khách đang thuê&quot; đối chiếu serial với máy thuê/CPC trong HAST.</p>
 
       <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
       <div className="overflow-x-auto border border-slate-200 rounded-lg bg-white">
