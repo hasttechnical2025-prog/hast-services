@@ -10,7 +10,7 @@ import { V2_NAV, findParent, type V2Child } from '@/lib/v2-nav'
 import { useSession } from './SessionProvider'
 import { useBadges } from './BadgeProvider'
 import { NotificationCenter } from './NotificationCenter'
-import TroLyAI from '@/components/TroLyAI'
+import TroLyAI from './TroLyAI'
 
 // Badge đỏ đếm (như bản cũ) bám phải trong mục sidebar.
 function CountPill({ n }: { n: number }) {
