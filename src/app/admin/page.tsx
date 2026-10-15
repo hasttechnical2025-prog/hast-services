@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom"
-import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy, X, Palmtree, Send, Hand, Bell, Droplets, FileText, FileSpreadsheet, ToggleRight, ToggleLeft, Save, Scissors } from "lucide-react"
+import { Plus, Search, Trash2, MapPin, RefreshCw, PenSquare, QrCode, Power, Download, ClipboardList, CheckCircle2, Clock, Wallet, Package, ShoppingCart, AlertTriangle, Users, Wrench, ClipboardCheck, Boxes, Upload, SlidersHorizontal, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Copy, X, Palmtree, Send, Hand, Bell, Droplets, FileText, FileSpreadsheet, ToggleRight, ToggleLeft, Save, Scissors, Sparkles } from "lucide-react"
 import { BBBG_TEMPLATE_LIST } from "@/lib/bbbg-templates"
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
@@ -221,6 +221,24 @@ const JOBS_COLS: ColDef[] = [
 const LOAI_CV_FALLBACK = ['Lắp máy', 'Sửa máy', 'Giao mực', 'Thay vật tư', 'Bảo trì', 'Bảo hành', 'Hỗ trợ thầu', 'Hỗ trợ đại lý', 'Khiếu nại', 'Kiểm tra', 'Khác']
 // Loại việc BẮT BUỘC có Số phiếu (report) + ít nhất 1 vật tư khi lưu công việc.
 const LOAI_CV_CAN_VAT_TU = ['Giao mực', 'Thay vật tư']
+
+// Banner mời trải nghiệm giao diện mới (v2). Ẩn được, nhớ qua localStorage. Mở v2 CÙNG TAB.
+function NewUiBanner() {
+  const [show, setShow] = useState(false)
+  useEffect(() => { try { setShow(localStorage.getItem('v2:admin-banner-dismissed') !== '1') } catch { setShow(true) } }, [])
+  if (!show) return null
+  return (
+    <div className="flex items-center gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl px-4 py-2.5 shadow-md">
+      <Sparkles className="w-5 h-5 shrink-0" />
+      <div className="flex-1 min-w-0 text-sm">
+        <span className="font-semibold">Giao diện mới (2027) đã sẵn sàng!</span>
+        <span className="hidden sm:inline text-blue-100"> — bố cục gọn, nhanh hơn. Dữ liệu dùng chung, không phải đăng nhập lại.</span>
+      </div>
+      <a href="/v2" className="shrink-0 bg-white text-blue-700 font-semibold text-sm px-3 py-1.5 rounded-lg hover:bg-blue-50 transition">Trải nghiệm ngay →</a>
+      <button onClick={() => { try { localStorage.setItem('v2:admin-banner-dismissed', '1') } catch {}; setShow(false) }} className="shrink-0 text-blue-100 hover:text-white p-1" title="Ẩn thông báo"><X className="w-4 h-4" /></button>
+    </div>
+  )
+}
 
 export default function AdminDashboard() {
   const { confirm, confirmNode } = useConfirm()
@@ -1801,6 +1819,8 @@ export default function AdminDashboard() {
       {confirmNode}
       {tabVisible('tro_ly') && <TroLyAI />}
       <div className="max-w-7xl mx-auto space-y-6">
+        {/* Lời mời trải nghiệm giao diện mới (v2) — chỉ admin, ẩn được (nhớ localStorage) */}
+        {currentUserRole === 'admin' && <NewUiBanner />}
         {/* Header */}
         <header ref={headerRef} className="sticky top-0 z-30 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-xl shadow-md border border-slate-200 gap-4">
           <div className="flex items-center gap-3">
@@ -1810,6 +1830,12 @@ export default function AdminDashboard() {
               <h1 className="text-2xl font-bold text-slate-800">{cauHinh.app_ten || 'Admin Dashboard'}</h1>
               <p className="text-xs text-slate-400">Tài khoản: <span className="font-bold text-slate-700">{currentAdmin?.full_name}</span> (<span className="font-semibold text-slate-500 uppercase">{currentUserRole}</span>)</p>
             </div>
+            {/* Nút vào giao diện mới (cùng tab) — chỉ admin, luôn hiện kể cả khi đã ẩn banner */}
+            {currentUserRole === 'admin' && (
+              <a href="/v2" title="Mở giao diện mới (2027)" className="inline-flex items-center gap-1.5 shrink-0 h-8 px-3 rounded-full text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition">
+                <Sparkles className="w-3.5 h-3.5" /> Giao diện mới
+              </a>
+            )}
           </div>
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
