@@ -149,7 +149,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
 
   return (
     <div className="space-y-3">
-      {/* Menu cháu kiểu UNDERLINE (chuẩn chung v2). Nút "Thêm khách tiềm năng" đẩy về phải. */}
+      {/* Menu cháu kiểu UNDERLINE (chuẩn chung v2). */}
       <div className="flex items-end gap-3 flex-wrap sticky top-0 z-20 bg-slate-200 pt-2">
         <div className="flex gap-1 border-b border-slate-200 w-fit overflow-x-auto">
           {([['can', 'Cần chăm sóc', null], ['ds', 'Danh sách khách', Users], ['pipeline', 'Pipeline tiềm năng', TrendingUp], ['kpi', 'KPI', BarChart3]] as const).map(([k, l, Icon]) => (
@@ -160,7 +160,6 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
             </button>
           ))}
         </div>
-        {isAdmin && <Button onClick={() => setAddOpen(true)} className="ml-auto h-9 gap-1.5 text-xs"><Plus className="w-4 h-4" /> Thêm khách tiềm năng</Button>}
       </div>
 
       {view === 'can' && (
@@ -206,6 +205,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
             <button key={v} onClick={() => setLoaiFilter(v)} className={`px-3 h-9 font-semibold border-l first:border-l-0 border-slate-200 ${loaiFilter === v ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>{l}</button>
           ))}
         </div>
+        {isAdmin && <Button onClick={() => setAddOpen(true)} className="h-9 gap-1.5 text-xs"><Plus className="w-4 h-4" /> Thêm khách tiềm năng</Button>}
         <div className="inline-flex items-center gap-1.5 ml-auto">
           <span className="t2 text-slate-500 whitespace-nowrap">Tính từ:</span>
           <select value={period} onChange={e => setPeriod(e.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700" title="Mốc đếm Số lần & Chăm sóc gần nhất">
