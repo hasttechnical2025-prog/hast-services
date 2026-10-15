@@ -110,13 +110,13 @@ export function BaoCaoKtvTool({ technicians, showNotification }: { technicians: 
           </select>
         </div>
 
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-slate-600">Từ ngày</label>
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-semibold text-slate-600 whitespace-nowrap">Từ ngày</label>
           <DateField value={tuNgay} onChange={(v) => { setTuNgay(v); if (v && denNgay && denNgay < v) setDenNgay(v) }} heightClass="h-9" className="w-36" />
         </div>
 
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-slate-600">Đến ngày</label>
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-semibold text-slate-600 whitespace-nowrap">Đến ngày</label>
           <DateField value={denNgay} onChange={(v) => { setDenNgay(v); if (v && tuNgay && v < tuNgay) setTuNgay(v) }} heightClass="h-9" className="w-36" />
         </div>
 
