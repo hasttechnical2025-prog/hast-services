@@ -13,12 +13,12 @@ export function buildJobsUrl(query: JobQuery): string {
   return `/api/admin/cong-viec?${p.toString()}`
 }
 
-export type DedupeInfo = { groups: number; extras: number }
+export type DedupeInfo = { groups: number; extras: number; list: { report: string; extras: number }[] }
 export async function dedupeInfo(): Promise<DedupeInfo> {
   const res = await fetch('/api/admin/cong-viec/dedupe')
   const j = await res.json()
   if (!res.ok) throw new Error(j.error || 'Lỗi quét phiếu trùng')
-  return { groups: j.groups, extras: j.extras }
+  return { groups: j.groups, extras: j.extras, list: j.list || [] }
 }
 export async function dedupeRun(): Promise<{ removed: number; groups: number }> {
   const res = await fetch('/api/admin/cong-viec/dedupe', { method: 'POST' })

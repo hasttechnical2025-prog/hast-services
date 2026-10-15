@@ -15,16 +15,21 @@ async function findDuplicates() {
     .order('created_at', { ascending: true })
   if (error) throw error
 
-  const keep = new Map<string, string>() // report(chuẩn hóa) -> id giữ lại (bản sớm nhất)
+  const keep = new Map<string, string>()  // report(chuẩn hóa) -> id giữ lại (bản sớm nhất)
+  const label = new Map<string, string>() // report(chuẩn hóa) -> số phiếu gốc để hiển thị
+  const extras = new Map<string, number>()// report(chuẩn hóa) -> số bản thừa
   const removeIds: string[] = []
-  const dupReports = new Set<string>()
   for (const r of data || []) {
-    const key = String(r.report).trim().toLowerCase()
+    const raw = String(r.report).trim()
+    const key = raw.toLowerCase()
     if (!key) continue
-    if (keep.has(key)) { removeIds.push(r.id); dupReports.add(key) }
-    else keep.set(key, r.id)
+    if (keep.has(key)) { removeIds.push(r.id); extras.set(key, (extras.get(key) || 0) + 1) }
+    else { keep.set(key, r.id); label.set(key, raw) }
   }
-  return { removeIds, groups: dupReports.size }
+  const list = [...extras.entries()]
+    .map(([k, n]) => ({ report: label.get(k) || k, extras: n }))
+    .sort((a, b) => a.report.localeCompare(b.report, 'vi', { numeric: true }))
+  return { removeIds, groups: extras.size, list }
 }
 
 // Xem trước: có bao nhiêu số phiếu trùng / bao nhiêu phiếu thừa
@@ -32,8 +37,8 @@ export async function GET() {
   try {
     const session = await requireRole('admin')
     if (!session) return NextResponse.json({ error: 'Chỉ admin được thực hiện' }, { status: 401 })
-    const { removeIds, groups } = await findDuplicates()
-    return NextResponse.json({ groups, extras: removeIds.length })
+    const { removeIds, groups, list } = await findDuplicates()
+    return NextResponse.json({ groups, extras: removeIds.length, list })
   } catch (e: any) {
     console.error('Error scanning duplicate reports:', e)
     return NextResponse.json({ error: e.message }, { status: 500 })

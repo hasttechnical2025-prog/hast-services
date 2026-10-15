@@ -195,7 +195,11 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
     try {
       const info = await dedupeInfo()
       if (info.extras === 0) { notify('success', 'Không có phiếu trùng số phiếu. 👍'); return }
-      const ok = await confirm(`Tìm thấy ${info.groups} số phiếu trùng → sẽ xóa ${info.extras} phiếu thừa (giữ bản tạo sớm nhất; vật tư phiếu thừa bị xóa theo).\nKhông thể hoàn tác.`, { confirmLabel: `Xóa ${info.extras} phiếu thừa`, danger: true })
+      const items = info.list.map(x => x.extras > 1 ? `${x.report} (×${x.extras})` : x.report)
+      const shown = items.slice(0, 20).join(', ')
+      const more = items.length > 20 ? ` …và ${items.length - 20} số phiếu nữa` : ''
+      const dsDong = items.length ? `\nSố phiếu trùng: ${shown}${more}` : ''
+      const ok = await confirm(`Tìm thấy ${info.groups} số phiếu trùng → sẽ xóa ${info.extras} phiếu thừa (giữ bản tạo sớm nhất; vật tư phiếu thừa bị xóa theo).${dsDong}\nKhông thể hoàn tác.`, { confirmLabel: `Xóa ${info.extras} phiếu thừa`, danger: true })
       if (!ok) return
       const r = await dedupeRun()
       notify('success', `Đã xóa ${r.removed} phiếu trùng (${r.groups} số phiếu).`)
