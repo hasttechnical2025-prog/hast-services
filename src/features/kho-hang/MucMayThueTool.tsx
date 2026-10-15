@@ -51,7 +51,7 @@ export default function MucMayThueTool({ customers, inventory, committed, showNo
   const fetchMucMap = useCallback(() => {
     fetch('/api/admin/muc-may-thue')
       .then(r => r.ok ? r.json() : [])
-      .then(d => setMucMap(Array.isArray(d) ? d : (d.items || [])))
+      .then(d => setMucMap(Array.isArray(d) ? d : (d.data || d.items || [])))
       .catch(() => {})
   }, [])
   useEffect(() => { fetchMucMap() }, [fetchMucMap])
