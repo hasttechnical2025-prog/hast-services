@@ -622,8 +622,8 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                 <Input placeholder="Tìm tên khách / cụm…" className="pl-9 pr-7 bg-white h-9" value={tkQ} onChange={e => setTkQ(e.target.value)} />
                 {tkQ && <button type="button" onClick={() => setTkQ('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa">✕</button>}
               </div>
-              <Button onClick={exportThongKe} disabled={thongKeFiltered.length === 0} title={`Xuất CSV (${thongKeFiltered.length} khách)`} variant="outline" className="h-9 w-9 p-0 ml-auto shrink-0">
-                <Download className="w-4 h-4" />
+              <Button onClick={exportThongKe} disabled={thongKeFiltered.length === 0} title={`Xuất thống kê cụm (${thongKeFiltered.length} khách)`} variant="outline" className="h-9 px-3 gap-1.5 text-xs ml-auto shrink-0">
+                <Download className="w-4 h-4" /> Xuất thống kê cụm
               </Button>
             </div>
             <p className="t2 text-slate-400">Gộp theo <b>khách cụm</b>; máy chưa gán cụm = <b>máy lẻ</b>. Chỉ tính HĐ bảo trì ({LOAI_HD_BAO_TRI.join(', ')}).</p>
@@ -667,8 +667,8 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                   {dcQ && (<button type="button" onClick={() => setDcQ('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>)}
                 </div>
               </div>
-              <Button onClick={exportDoiChieu} disabled={dcLoading || dcFiltered.length === 0} title={`Xuất Excel (${dcFiltered.length} máy)`} className="h-9 w-9 p-0 bg-emerald-600 hover:bg-emerald-700">
-                <Download className="w-4 h-4" />
+              <Button onClick={exportDoiChieu} disabled={dcLoading || dcFiltered.length === 0} title={`Xuất đối chiếu năm (${dcFiltered.length} máy)`} className="h-9 px-3 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700">
+                <Download className="w-4 h-4" /> Xuất đối chiếu năm
               </Button>
               <Button onClick={inHangLoatSo} disabled={dcLoading || batchBusy || dcFiltered.length === 0} title={`In hàng loạt sổ theo dõi máy — tất cả ${dcFiltered.length} máy đang lọc (mỗi máy 2 trang A4 ngang)`} className="h-9 px-3 gap-1.5 text-xs font-semibold">
                 🖨 {batchBusy ? 'Đang dựng…' : `In sổ (${dcFiltered.length})`}
@@ -808,7 +808,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
               <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">{records.length} máy</span>
               <div className="ml-auto flex items-center gap-2">
                 <Button variant="outline" onClick={xuatBaoTriExcel} disabled={records.length === 0} title={`Xuất Excel (${records.length} máy)`} className="h-9 px-3 gap-1.5 text-xs">
-                  <Download className="w-4 h-4" /> Xuất Excel
+                  <Download className="w-4 h-4" /> Xuất DS đã bảo trì
                 </Button>
                 <Button variant="outline" onClick={xoaTatCaThang} disabled={records.length === 0} title="Xóa toàn bộ bảo trì tháng này" className="h-9 px-3 gap-1.5 text-xs border-rose-200 text-rose-600 hover:bg-rose-50">
                   <Trash2 className="w-4 h-4" /> Xóa toàn bộ

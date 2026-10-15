@@ -2086,7 +2086,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
             <Button onClick={load} disabled={loading} size="sm" variant="outline" title="Tải lại" className="h-9 px-3 gap-1.5 text-xs font-medium bg-white">
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Tải lại
             </Button>
-            <Button onClick={() => setExportOpen(true)} size="sm" variant="outline" title="Xuất Excel công nợ" className="h-9 w-9 p-0 bg-white">
+            <Button onClick={() => setExportOpen(true)} size="sm" variant="outline" title="Xuất công nợ (kế toán)" className="h-9 w-9 p-0 bg-white">
               <Download className="w-3.5 h-3.5" />
             </Button>
           </div>
@@ -2404,7 +2404,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
               <h3 className="text-base font-bold text-slate-800 flex items-center gap-1.5">
-                <Download className="w-5 h-5 text-blue-600" /> Xuất Excel công nợ
+                <Download className="w-5 h-5 text-blue-600" /> Xuất công nợ (kế toán)
               </h3>
               <button onClick={() => !exporting && setExportOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
             </div>
@@ -2552,7 +2552,7 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                         <CheckSquare className="w-3.5 h-3.5" /> Áp mẫu khách
                       </Button>
                     )}
-                    <Button size="sm" variant="outline" onClick={exportExcel} className="h-8 text-xs gap-1"><Download className="w-3.5 h-3.5" /> Xuất Excel</Button>
+                    <Button size="sm" variant="outline" onClick={exportExcel} className="h-8 text-xs gap-1"><Download className="w-3.5 h-3.5" /> Xuất vật tư phiếu</Button>
                     {isKeToan && !canEditItems && (
                       <Button size="sm" variant="outline" onClick={() => activeCard && exportMinvoice([{ tickets: activeCard.tickets, soDonHang: soDonHangCard(activeCard.tickets) }], `minvoice-${soDonHangCard(activeCard.tickets)}.xlsx`)} className="h-8 text-xs gap-1 border-blue-300 text-blue-700 hover:bg-blue-50" title="Xuất file Excel đúng mẫu M-invoice để import (Tạo hóa đơn từ file excel)"><Download className="w-3.5 h-3.5" /> Xuất M-invoice</Button>
                     )}

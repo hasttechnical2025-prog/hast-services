@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button'
 // Công cụ Nhập/Xuất Excel (.xlsx) dùng chung — port NGUYÊN từ admin.
 export type ExcelCol = { header: string; key: string; toCsv?: (v: any) => string; parse?: (raw: string) => any }
 
-export function ExcelTool({ columns, rows, filename, endpoint, payloadKey, requiredKeys, unit, onSuccess, showNotification }: {
+export function ExcelTool({ columns, rows, filename, endpoint, payloadKey, requiredKeys, unit, onSuccess, showNotification, exportLabel = 'Xuất Excel' }: {
   columns: ExcelCol[]; rows: any[]; filename: string; endpoint: string; payloadKey: string;
-  requiredKeys: string[]; unit: string; onSuccess: () => void; showNotification: (type: 'success' | 'error', msg: string) => void
+  requiredKeys: string[]; unit: string; onSuccess: () => void; showNotification: (type: 'success' | 'error', msg: string) => void; exportLabel?: string
 }) {
   const [parsed, setParsed] = useState<any[] | null>(null)
   const [importing, setImporting] = useState(false)
@@ -96,7 +96,7 @@ export function ExcelTool({ columns, rows, filename, endpoint, payloadKey, requi
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" onClick={exportExcel} disabled={busy} className="gap-2"><Download className="w-4 h-4" /> Xuất Excel ({rows.length})</Button>
+        <Button variant="outline" onClick={exportExcel} disabled={busy} className="gap-2"><Download className="w-4 h-4" /> {exportLabel} ({rows.length})</Button>
         <input ref={fileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={onFile} className="hidden" />
         <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={busy} className="gap-2"><Upload className="w-4 h-4" /> Nhập từ Excel</Button>
       </div>

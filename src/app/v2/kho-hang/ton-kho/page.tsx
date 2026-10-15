@@ -27,7 +27,7 @@ export default function TonKhoPage() {
       </div>
       <div className="bg-white rounded-lg border border-slate-200 p-5">
         <h3 className="text-base font-bold text-slate-800 mb-3">Nhập / Xuất kho hàng (Excel)</h3>
-        <ExcelTool columns={EXCEL_COLS} rows={inventory} filename="kho-hang" endpoint="/api/admin/kho-hang/bulk" payloadKey="items" requiredKeys={['ma_hang', 'ten_hang']} unit="vật tư" onSuccess={refetchInventory} showNotification={notify} />
+        <ExcelTool columns={EXCEL_COLS} rows={inventory} filename="kho-hang" endpoint="/api/admin/kho-hang/bulk" payloadKey="items" requiredKeys={['ma_hang', 'ten_hang']} unit="vật tư" onSuccess={refetchInventory} showNotification={notify} exportLabel="Xuất tồn kho" />
       </div>
       {toastNode}
     </div>

@@ -357,7 +357,7 @@ export function CongNoTool({ showNotification }: { showNotification: (type: 'suc
             emptyText="Chưa chọn phiếu nào (hoặc phiếu đã chọn không có vật tư). Tick phiếu ở trên."
             rightToolbarExtra={
               <Button variant="outline" onClick={exportBangKe} disabled={exportingXlsx || selCusts.length === 0} className="h-9 gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50" title="Xuất Excel bảng kê công nợ (itemized theo mẫu 'Bảng kê lẻ')">
-                <FileSpreadsheet className={`w-4 h-4 ${exportingXlsx ? 'animate-pulse' : ''}`} /> Xuất Excel công nợ
+                <FileSpreadsheet className={`w-4 h-4 ${exportingXlsx ? 'animate-pulse' : ''}`} /> Xuất bảng kê công nợ
               </Button>
             }
             footerExtra={
@@ -380,7 +380,7 @@ export function CongNoTool({ showNotification }: { showNotification: (type: 'suc
                     <Upload className="w-4 h-4" /> Nhập Excel
                     <input type="file" accept=".xlsx" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) importPrepExcel(f); e.target.value = '' }} />
                   </label>
-                  <Button variant="outline" onClick={exportPrepExcel} disabled={exportingPrep || rows.length === 0} className="h-9 gap-1.5" title="Xuất Excel (sửa giá): tải bảng ra để sửa hàng loạt rồi Nhập lại"><Download className={`w-4 h-4 ${exportingPrep ? 'animate-pulse' : ''}`} /> Xuất Excel</Button>
+                  <Button variant="outline" onClick={exportPrepExcel} disabled={exportingPrep || rows.length === 0} className="h-9 gap-1.5" title="Xuất Excel (sửa giá): tải bảng ra để sửa hàng loạt rồi Nhập lại"><Download className={`w-4 h-4 ${exportingPrep ? 'animate-pulse' : ''}`} /> Xuất để sửa giá</Button>
                 </div>
               </div>
             }

@@ -388,7 +388,7 @@ export function DatHangTool({
                 <button onClick={() => { setLeftSearch(""); setLeftModel(""); setLeftHang(""); setLeftLowStock(false); setLeftUnderWarn(false) }} className="text-xs text-rose-600 hover:underline font-medium ml-1">Bỏ lọc</button>
               )}
               <button type="button" onClick={exportLeftInventory} title="Xuất Excel đúng danh sách đang hiển thị (sau lọc mã/tên, model, hãng…) để đối chiếu" className="ml-auto shrink-0 h-9 px-2.5 rounded-md border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold inline-flex items-center gap-1.5">
-                <Download className="w-3.5 h-3.5" /> Xuất Excel ({sortedLeftInventory.length})
+                <Download className="w-3.5 h-3.5" /> Xuất DS tồn (đang lọc) ({sortedLeftInventory.length})
               </button>
             </div>
             {leftUnderWarn && (
@@ -557,7 +557,7 @@ export function DatHangTool({
           <h3 className="text-sm font-bold text-slate-700">Danh sách đơn đặt hàng ({filteredOrders.length}/{orders.length})</h3>
           <div className="flex gap-2">
             <Button variant="outline" onClick={exportPendingItemsExcel} className="gap-2 h-9 text-xs border-amber-200 text-amber-700 hover:bg-amber-50"><AlertTriangle className="w-4 h-4" /> Xuất hàng chưa về</Button>
-            <Button variant="outline" onClick={exportOrdersExcel} className="gap-2 h-9 text-xs border-blue-200 text-blue-700 hover:bg-blue-50"><Download className="w-4 h-4" /> Xuất danh sách đang lọc</Button>
+            <Button variant="outline" onClick={exportOrdersExcel} className="gap-2 h-9 text-xs border-blue-200 text-blue-700 hover:bg-blue-50"><Download className="w-4 h-4" /> Xuất DS đơn hàng</Button>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 px-1">
@@ -601,7 +601,7 @@ export function DatHangTool({
                 <div className="flex items-center gap-2 flex-wrap">
                   <button onClick={() => toggleDaDat(o)} className={`whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold border ${o.da_dat ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{o.da_dat ? 'Đã đặt' : 'Nháp'}</button>
                   {o.hoan_thanh && <span className="whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200">Đã đủ hàng</span>}
-                  <button onClick={() => exportSingleOrderExcel(o)} className="text-blue-600 hover:text-blue-800 p-1.5 bg-blue-50 hover:bg-blue-100 rounded-md transition" title="Xuất file Excel đơn này"><Download className="w-4 h-4" /></button>
+                  <button onClick={() => exportSingleOrderExcel(o)} className="text-blue-600 hover:text-blue-800 p-1.5 bg-blue-50 hover:bg-blue-100 rounded-md transition" title="Xuất đơn (gửi NCC)"><Download className="w-4 h-4" /></button>
                   {!o.da_dat && (
                     <button onClick={() => { setEditingDraftId(o.id); setForm({ ngay_dat: o.ngay_dat, nha_cung_cap: o.nha_cung_cap || "", so_don_hang: o.so_don_hang || "", da_dat: false }); setLines((o.soct_dat_hang_ct || []).map((l: any) => ({ ma_hang: l.ma_hang, sl_dat: String(l.sl_dat) }))); window.scrollTo({ top: 0, behavior: 'smooth' }) }} className="text-slate-600 hover:text-slate-800 p-1.5 bg-slate-100 hover:bg-slate-200 rounded-md transition" title="Sửa đơn nháp"><PenSquare className="w-4 h-4" /></button>
                   )}
@@ -697,7 +697,7 @@ export function DatHangTool({
               </div>
             </div>
             <div className="bg-slate-50 p-4 flex flex-col gap-2 border-t border-slate-100">
-              <Button onClick={() => { exportSingleOrderExcel(excelSuccessModal.order); setExcelSuccessModal(null) }} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2"><Download className="w-4 h-4" /> Xuất Excel đơn này ngay</Button>
+              <Button onClick={() => { exportSingleOrderExcel(excelSuccessModal.order); setExcelSuccessModal(null) }} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2"><Download className="w-4 h-4" /> Xuất đơn (gửi NCC) ngay</Button>
               <Button variant="outline" onClick={() => { setTab('danh_sach'); setExcelSuccessModal(null) }} className="w-full border-blue-200 text-blue-700 hover:bg-blue-50 gap-2"><ShoppingCart className="w-4 h-4" /> Danh sách đơn hàng</Button>
               <Button variant="outline" onClick={() => setExcelSuccessModal(null)} className="w-full text-slate-500 hover:text-slate-700">Đóng</Button>
             </div>

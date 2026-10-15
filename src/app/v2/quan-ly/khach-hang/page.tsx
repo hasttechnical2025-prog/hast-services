@@ -77,7 +77,7 @@ export default function KhachHangPage() {
               <b>Cột:</b> Mã máy | Tên khách hàng | Địa chỉ | Model | Hãng | Km | Loại HĐ | Ngày hết hạn HĐBT (DD/MM/YYYY) | Tháng bảo trì | Bắt đầu từ tháng (MM/YYYY) | Tạm dừng từ tháng (MM/YYYY) | Ghi chú bảo trì.<br />
               <span className="text-xs text-slate-400"><b>Tháng bảo trì</b>: VD <b>2,4,6,8,10,12</b> — <b>trống = hằng tháng</b>. <b>Bắt đầu từ tháng</b>: máy lắp giữa năm → tháng trước không tính. <b>Tạm dừng từ tháng</b>: còn trong HĐ nhưng không đòi bảo trì từ tháng đó. <b>Km</b> trống = tự tính từ địa chỉ.</span>
             </p>
-            <ExcelTool rows={customers} filename="khach-hang" endpoint="/api/admin/khach-hang/bulk" payloadKey="customers" unit="khách hàng" requiredKeys={['ma_may', 'ten_khach_hang', 'dia_chi']} columns={excelCols} onSuccess={refetchAll} showNotification={notify} />
+            <ExcelTool rows={customers} filename="khach-hang" endpoint="/api/admin/khach-hang/bulk" payloadKey="customers" unit="khách hàng" requiredKeys={['ma_may', 'ten_khach_hang', 'dia_chi']} columns={excelCols} onSuccess={refetchAll} showNotification={notify} exportLabel="Xuất DS khách hàng" />
           </div>
         </div>
       )}
