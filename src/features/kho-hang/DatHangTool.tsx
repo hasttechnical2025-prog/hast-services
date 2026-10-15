@@ -331,17 +331,11 @@ export function DatHangTool({
 
   return (
     <div className="space-y-6">
-      <StatRow>
-        <StatCard label="Đơn hàng" value={orderStats.total.toLocaleString('vi-VN')} sub={`trên ${orders.length.toLocaleString('vi-VN')} tất cả`} icon={ShoppingCart} tone="blue" />
-        <StatCard label="Đã đặt NCC" value={orderStats.daDat.toLocaleString('vi-VN')} sub={`${(orderStats.total - orderStats.daDat).toLocaleString('vi-VN')} còn nháp`} icon={CheckCircle2} tone="indigo" />
-        <StatCard label="Đủ hàng" value={orderStats.done.toLocaleString('vi-VN')} sub="đã nhận đủ" icon={Package} tone="emerald" />
-        <StatCard label="Còn thiếu" value={orderStats.thieu.toLocaleString('vi-VN')} sub="đơn vị chưa về" icon={AlertTriangle} tone="amber" />
-      </StatRow>
       {confirmNode}
 
-      {/* Thanh tab: Tạo đơn hàng · Danh sách đơn hàng (underline chuẩn v2) */}
+      {/* Thanh tab: Tạo đơn · Danh sách (underline chuẩn v2) */}
       <div className="flex gap-1 border-b border-slate-200">
-        {([['tao_don', 'Tạo đơn hàng'], ['danh_sach', 'Danh sách đơn hàng']] as const).map(([k, label]) => {
+        {([['tao_don', 'Tạo đơn'], ['danh_sach', 'Danh sách']] as const).map(([k, label]) => {
           const on = tab === k
           const draftCount = k === 'danh_sach' ? orders.filter(o => !o.da_dat).length : 0
           return (
@@ -547,6 +541,12 @@ export function DatHangTool({
 
       {tab === 'danh_sach' && (
       <>
+      <StatRow>
+        <StatCard label="Đơn hàng" value={orderStats.total.toLocaleString('vi-VN')} sub={`trên ${orders.length.toLocaleString('vi-VN')} tất cả`} icon={ShoppingCart} tone="blue" />
+        <StatCard label="Đã đặt NCC" value={orderStats.daDat.toLocaleString('vi-VN')} sub={`${(orderStats.total - orderStats.daDat).toLocaleString('vi-VN')} còn nháp`} icon={CheckCircle2} tone="indigo" />
+        <StatCard label="Đủ hàng" value={orderStats.done.toLocaleString('vi-VN')} sub="đã nhận đủ" icon={Package} tone="emerald" />
+        <StatCard label="Còn thiếu" value={orderStats.thieu.toLocaleString('vi-VN')} sub="đơn vị chưa về" icon={AlertTriangle} tone="amber" />
+      </StatRow>
       {/* Gợi ý MÃ THỰC NHẬN khi ghi hàng về giao thay thế */}
       <datalist id="dathang-ma-thuc">
         {inventory.map((it: any) => <option key={it.ma_hang} value={it.ma_hang}>{it.ten_hang || ''}</option>)}
