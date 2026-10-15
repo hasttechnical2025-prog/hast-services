@@ -115,21 +115,21 @@ export function UserManagementTool({ users, onUpdateSuccess, showNotification }:
           <label className="text-xs font-semibold text-slate-600">Họ và Tên *</label>
           <Input required value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} placeholder="VD: Nguyễn Văn A" />
         </div>
-        <div className="space-y-1 flex-1 min-w-[140px]">
+        <div className="space-y-1 w-36">
           <label className="text-xs font-semibold text-slate-600">Tên đăng nhập *</label>
           <Input required value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} placeholder="VD: nguyenva" />
         </div>
-        <div className="space-y-1 flex-1 min-w-[140px]">
+        <div className="space-y-1 w-36">
           <label className="text-xs font-semibold text-slate-600">{isEditing ? "Mật khẩu mới" : "Mật khẩu *"}</label>
           <Input required={!isEditing} type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder={isEditing ? "(Bỏ trống nếu không đổi)" : "Nhập mật khẩu"} />
         </div>
-        <div className="space-y-1 w-44 relative">
+        <div className="space-y-1 w-72 relative">
           <label className="text-xs font-semibold text-slate-600">Quyền hạn *</label>
           <select className="w-full h-8 px-2.5 rounded-md border border-slate-200 bg-white text-xs text-slate-800 focus-visible:outline-none focus-visible:border-blue-500 focus-visible:ring-1 focus-visible:ring-blue-500" value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })}>
             <option value="ktv">Kỹ thuật viên (KTV)</option>
             <option value="kthc">Kế toán (KTHC)</option>
-            <option value="kinh_doanh">Kinh doanh (chỉ Kho máy thuê, mobile)</option>
-            <option value="staff">Staff (Chỉ xem sổ)</option>
+            <option value="kinh_doanh">Kinh doanh (Kho thuê, Lệnh xuất hàng)</option>
+            <option value="staff">Staff</option>
             <option value="tech_admin">Tech Admin</option>
             <option value="admin">Admin</option>
           </select>
