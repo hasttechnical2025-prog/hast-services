@@ -32,7 +32,7 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
   const [quoteRows, setQuoteRows] = useState<BaoGiaRow[]>([])
   const [quoteKh, setQuoteKh] = useState('')
   const [quoteDiaChi, setQuoteDiaChi] = useState('')
-  const [tab, setTab] = useState<'nhap' | 'ds'>('ds')
+  const [tab, setTab] = useState<'nhap' | 'ds'>('nhap')
 
   const cust = form.ma_may.trim() ? customers.find(c => c.ma_may && c.ma_may.toLowerCase() === form.ma_may.trim().toLowerCase()) : undefined
   const filteredInventory = onlyModel && cust?.model ? inventory.filter(i => matchModelGD(i.model, cust.model)) : inventory
