@@ -180,7 +180,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
             {qLoading ? <div className="py-6 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải...</div>
               : queueShown.length === 0 ? <p className="text-xs text-slate-400 py-6 text-center">Không có khách trong nhóm <b>{reasonFilter === 'all' ? 'nào' : (REASON[reasonFilter]?.label || '')}</b>. Bấm nhóm khác ở trên để xem.</p>
                 : queueShown.map(r => (
-                  <div key={r.ma_khach_cum} className="border border-slate-200 rounded-lg p-3 flex items-start gap-3 hover:bg-slate-50">
+                  <div key={r.ma_khach_cum} className="bg-white border border-slate-200 rounded-lg p-3 flex items-start gap-3 hover:bg-slate-50">
                     <div className="min-w-0 flex-1">
                       <div className="t1 font-medium text-slate-800">{r.ten_khach_hang}</div>
                       <div className="flex flex-wrap gap-1 mt-1">
@@ -216,7 +216,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
       </div>
 
       <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
-      <div className="border border-slate-200 rounded-lg overflow-hidden">
+      <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
         <table className="w-full text-left text-xs text-slate-600">
           <thead className="bg-slate-50 text-slate-500 t2 font-semibold uppercase border-b border-slate-200 select-none">
             <tr>
