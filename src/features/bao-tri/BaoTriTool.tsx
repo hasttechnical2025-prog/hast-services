@@ -4,7 +4,6 @@ import { Search, RefreshCw, Download, Trash2, ChevronUp, ChevronDown } from 'luc
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import MonthField from '@/components/MonthField'
-import CollapsibleTools from '@/components/CollapsibleTools'
 import SoTheoDoiPrintButton, { printSoTheoDoiBatch } from '@/components/SoTheoDoiPrint'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { useRealtimeRefetch } from '@/lib/useRealtime'
@@ -49,6 +48,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [subTab, setSubTab] = useState<'da_bao_tri' | 'chua_bao_tri' | 'tam_dung' | 'doi_chieu' | 'thong_ke'>('da_bao_tri')
+  const [mainTab, setMainTab] = useState<'tra_cuu' | 'ds'>('tra_cuu')
   const active = (canS(subTab) ? subTab : ((['da_bao_tri', 'chua_bao_tri', 'tam_dung', 'doi_chieu', 'thong_ke'] as const).find(canS) ?? subTab))
   const [dcNam, setDcNam] = useState(String(new Date().getFullYear()))
   const [dcRecords, setDcRecords] = useState<any[]>([])
@@ -438,8 +438,13 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
   }
 
   return (
-    <div className="space-y-6">
-      <CollapsibleTools title="Tra cứu & Nhập liệu bảo trì" storageKey="baotri_tools_open" defaultOpen={role === 'staff'} icon={<Search className="w-4 h-4 text-blue-600 shrink-0" />}>
+    <div className="space-y-4">
+      <div className="flex gap-1 border-b border-slate-200">
+        <button onClick={() => setMainTab('tra_cuu')} className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${mainTab === 'tra_cuu' ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Tra cứu &amp; Nhập liệu</button>
+        <button onClick={() => setMainTab('ds')} className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${mainTab === 'ds' ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Danh sách</button>
+      </div>
+      {mainTab === 'tra_cuu' && (
+      <>
       <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
         <h3 className="text-sm font-bold text-slate-700">Tra cứu lịch sử bảo trì theo mã máy</h3>
         <div className="flex flex-wrap items-end gap-3">
@@ -583,8 +588,10 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
           </div>
         )}
       </div>
-      </CollapsibleTools>
+      </>
+      )}
 
+      {mainTab === 'ds' && (
       <div>
         <div className="flex gap-1 border-b border-slate-200 mb-4 overflow-x-auto w-full max-w-full sticky top-0 z-20 bg-slate-50 pt-1">
           {canS('da_bao_tri') && <button onClick={() => setSubTab('da_bao_tri')} className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${active === 'da_bao_tri' ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
@@ -915,6 +922,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
           </div>
         )}
       </div>
+      )}
       {confirmNode}
     </div>
   )
