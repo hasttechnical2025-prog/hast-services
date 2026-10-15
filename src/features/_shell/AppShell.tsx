@@ -113,8 +113,8 @@ function Sidebar({ parent, child }: { parent?: string; child?: string }) {
   return (
     <aside style={{ width: sideW }} className="relative shrink-0 border-r border-slate-200 bg-slate-50/60 flex flex-col">
       {/* Tay kéo co dãn bề rộng (kẹp 200–360px, nhớ localStorage). Núm giữa biên luôn hiện để báo "kéo được". */}
-      <div onPointerDown={onWDown} title="Kéo để đổi rộng sidebar" className="group absolute top-0 right-0 h-full w-2 cursor-col-resize z-40 select-none flex items-center justify-center hover:bg-blue-50">
-        <div className="w-1 h-8 rounded-full bg-slate-300 group-hover:bg-blue-500 group-active:bg-blue-600 transition-colors" />
+      <div onPointerDown={onWDown} title="Kéo để đổi rộng sidebar" className="group absolute top-0 right-0 h-full w-3 cursor-col-resize z-40 select-none flex items-center justify-center hover:bg-blue-50">
+        <Icons.GripVertical className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-active:text-blue-700 transition-colors" />
       </div>
       <div className="h-12 px-3 border-b border-slate-200 flex items-center gap-2 shrink-0">
         {/* Logo + tên app lấy từ hệ thống (public/logo.png + Cài đặt › app_ten). */}
