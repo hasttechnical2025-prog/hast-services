@@ -142,7 +142,7 @@ export default function TroLyAI() {
           onClick={() => { if (suppressClick.current) return; setOpen(true) }}
           title="Trợ lý AI — kéo để di chuyển"
           style={pos ? { left: pos.x, top: pos.y, right: 'auto', bottom: 'auto', touchAction: 'none' } : { touchAction: 'none' }}
-          className={`fixed z-[90] w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/30 flex items-center justify-center transition select-none cursor-grab active:cursor-grabbing ${pos ? '' : 'bottom-5 right-5'}`}>
+          className={`fixed z-[90] w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/30 flex items-center justify-center transition select-none cursor-grab active:cursor-grabbing ${pos ? '' : 'top-5 right-5'}`}>
           <Sparkles className="w-6 h-6 pointer-events-none" />
         </button>
       )}
@@ -152,7 +152,7 @@ export default function TroLyAI() {
         <div
           ref={panelRef}
           style={panelStyle}
-          className={`fixed z-[90] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden ${pos ? '' : 'bottom-5 right-5 w-[calc(100vw-2.5rem)] sm:w-[420px] h-[70vh] max-h-[640px]'}`}>
+          className={`fixed z-[90] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden ${pos ? '' : 'top-5 right-5 w-[calc(100vw-2.5rem)] sm:w-[420px] h-[70vh] max-h-[640px]'}`}>
           {/* Header */}
           <div className="px-4 py-3 bg-blue-600 text-white flex items-center gap-2 shrink-0">
             <Sparkles className="w-5 h-5" />
