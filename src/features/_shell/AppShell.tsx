@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import * as Icons from 'lucide-react'
 import { LogOut, ChevronRight, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -78,6 +78,22 @@ function Sidebar({ parent, child }: { parent?: string; child?: string }) {
       return tabVisible(p.permKey) && kids.length > 0
     }), [tabVisible, subVisible, isAdmin]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Trạng thái gập/mở ĐỘC LẬP từng nhóm (đa-mở). Mặc định mở hết; nhớ qua localStorage.
+  // Khởi tạo = tất cả nhóm có con để SSR/client khớp, rồi effect nạp lại từ localStorage.
+  const NAV_KEY = 'v2:nav-expanded'
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(V2_NAV.filter(p => !p.leaf).map(p => p.slug)))
+  useEffect(() => {
+    try { const raw = localStorage.getItem(NAV_KEY); if (raw) setExpanded(new Set(JSON.parse(raw))) } catch {}
+  }, [])
+  const persist = (s: Set<string>) => { try { localStorage.setItem(NAV_KEY, JSON.stringify([...s])) } catch {} }
+  const toggle = (slug: string) => setExpanded(prev => { const n = new Set(prev); n.has(slug) ? n.delete(slug) : n.add(slug); persist(n); return n })
+  const ensureOpen = (slug: string) => setExpanded(prev => { if (prev.has(slug)) return prev; const n = new Set(prev); n.add(slug); persist(n); return n })
+  // Luôn mở nhóm chứa trang hiện tại khi route đổi (tải lại / deep-link).
+  useEffect(() => { if (parent) ensureOpen(parent) }, [parent]) // eslint-disable-line react-hooks/exhaustive-deps
+  const expandableSlugs = parents.filter(x => !x.p.leaf).map(x => x.p.slug)
+  const allOpen = expandableSlugs.length > 0 && expandableSlugs.every(s => expanded.has(s))
+  const toggleAll = () => { const n = allOpen ? new Set<string>() : new Set(expandableSlugs); setExpanded(n); persist(n) }
+
   return (
     <aside className="w-56 shrink-0 border-r border-slate-200 bg-slate-50/60 flex flex-col">
       <div className="h-12 px-3 border-b border-slate-200 flex items-center gap-2 shrink-0">
@@ -89,30 +105,47 @@ function Sidebar({ parent, child }: { parent?: string; child?: string }) {
           <div className="t3 text-slate-400">Phiên bản 2027</div>
         </div>
       </div>
-      <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
+      <div className="px-2 pt-2 flex justify-end">
+        <button onClick={toggleAll} title={allOpen ? 'Thu gọn tất cả' : 'Mở tất cả'}
+          className="t3 text-slate-400 hover:text-blue-600 inline-flex items-center gap-1 px-1.5 py-0.5 rounded">
+          {allOpen ? <Icons.ChevronsDownUp className="w-3 h-3" /> : <Icons.ChevronsUpDown className="w-3 h-3" />}
+          {allOpen ? 'Thu gọn' : 'Mở tất cả'}
+        </button>
+      </div>
+      <nav className="flex-1 overflow-y-auto px-2 pt-1 pb-2 space-y-0.5">
         {parents.map(({ p, kids }) => {
-          const open = p.slug === parent
+          const isActive = p.slug === parent
+          const isExpanded = expanded.has(p.slug)
           const Ic = iconOf(p.icon)
           const headHref = p.leaf ? `/v2/${p.slug}` : `/v2/${p.slug}/${(kids[0] || p.children[0]).slug}`
-          // Tổng badge các mục con — hiện trên tab CHA khi đang THU GỌN (chưa mở), để không mất tín hiệu.
+          // Tổng badge các mục con — hiện trên tab CHA khi nhóm đang THU GỌN, để không mất tín hiệu.
           // Cha "lá" (vd Kanban): badge riêng theo key permKey.permSub, hiện cả khi đang mở (không có con).
           const parentSum = p.leaf
             ? (p.permSub ? (counts[`${p.permKey}.${p.permSub}`] || 0) : 0)
             : kids.reduce((s, c) => { const k = childBadgeKey(c); return s + (k ? (counts[k] || 0) : 0) }, 0)
           return (
             <div key={p.slug}>
-              <Link
-                href={headHref}
-                className={cn('flex items-center gap-2 px-2.5 py-1.5 rounded-md t1 font-semibold',
-                  p.tone === 'rose'
-                    ? (open ? 'bg-rose-50 text-rose-700' : 'text-rose-600 hover:bg-rose-50')
-                    : open ? (p.leaf ? 'bg-blue-50 text-blue-700' : 'text-slate-800') : 'text-slate-500 hover:bg-slate-100')}
-              >
-                <Ic className={cn('w-4 h-4 shrink-0', p.tone === 'rose' ? 'text-rose-500' : open ? 'text-blue-600' : 'text-slate-400')} />
-                <span className="flex-1 truncate">{p.label}</span>
-                {(!open || p.leaf) && <CountPill n={parentSum} />}
-              </Link>
-              {open && !p.leaf && (
+              <div className="flex items-center gap-0.5">
+                <Link
+                  href={headHref}
+                  onClick={() => { if (!p.leaf) ensureOpen(p.slug) }}
+                  className={cn('flex items-center gap-2 px-2.5 py-1.5 rounded-md t1 font-semibold flex-1 min-w-0',
+                    p.tone === 'rose'
+                      ? (isActive ? 'bg-rose-50 text-rose-700' : 'text-rose-600 hover:bg-rose-50')
+                      : isActive ? (p.leaf ? 'bg-blue-50 text-blue-700' : 'text-slate-800') : 'text-slate-500 hover:bg-slate-100')}
+                >
+                  <Ic className={cn('w-4 h-4 shrink-0', p.tone === 'rose' ? 'text-rose-500' : isActive ? 'text-blue-600' : 'text-slate-400')} />
+                  <span className="flex-1 truncate">{p.label}</span>
+                  {(!isExpanded || p.leaf) && <CountPill n={parentSum} />}
+                </Link>
+                {!p.leaf && (
+                  <button onClick={() => toggle(p.slug)} title={isExpanded ? 'Thu gọn' : 'Mở'}
+                    className="shrink-0 w-6 h-7 flex items-center justify-center rounded-md text-slate-400 hover:text-blue-600 hover:bg-slate-100">
+                    <Icons.ChevronDown className={cn('w-3.5 h-3.5 transition-transform', isExpanded ? '' : '-rotate-90')} />
+                  </button>
+                )}
+              </div>
+              {isExpanded && !p.leaf && (
                 <div className="ml-3 pl-2 border-l border-slate-200 space-y-0.5 mb-1 mt-0.5">
                   {kids.map(c => {
                     const active = c.slug === child
