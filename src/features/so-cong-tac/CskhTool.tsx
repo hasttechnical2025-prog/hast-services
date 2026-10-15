@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import DateField from "@/components/DateField"
-import { Search, Plus, X, Trash2, Clock, ChevronUp, ChevronDown, Phone, Users, RefreshCw, Target, CalendarClock, TrendingUp, BarChart3, Filter } from "lucide-react"
+import { Search, Plus, X, Trash2, Clock, ChevronUp, ChevronDown, Phone, Users, RefreshCw, Target, CalendarClock, TrendingUp, BarChart3 } from "lucide-react"
 import { useConfirm } from "@/components/ConfirmDialog"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
 import { CSKH_TOPIC, JOBS_TOPIC, DATA_EVENT } from "@/lib/realtime"
@@ -164,16 +164,14 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
 
       {view === 'can' && (
         <div className="space-y-2">
-          <div className="flex flex-wrap gap-1.5 items-center">
-            <span className="t2 font-semibold text-slate-400 uppercase inline-flex items-center gap-1 mr-0.5"><Filter className="w-3 h-3" /> Lọc</span>
-            {REASON_ORDER.map(k => (
-              <button key={k} onClick={() => setReasonFilter(k)} className={`t2 px-2.5 h-7 rounded-full border font-medium transition inline-flex items-center gap-1.5 ${reasonFilter === k ? REASON[k].active : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${reasonFilter === k ? 'bg-white/80' : REASON[k].dot}`} />
-                {REASON[k].chip} ({qCounts[k] || 0})
-              </button>
-            ))}
-            <button onClick={() => setReasonFilter('all')} className={`t2 px-2.5 h-7 rounded-full border font-medium transition ${reasonFilter === 'all' ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>Tất cả ({queue.length})</button>
-            <Button variant="outline" onClick={() => loadQueue()} className="h-7 px-2.5 gap-1.5 text-xs ml-auto" title="Tải lại"><RefreshCw className={`w-3.5 h-3.5 ${qLoading ? 'animate-spin' : ''}`} /> Tải lại</Button>
+          <div className="flex flex-wrap gap-2 items-center">
+            <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden text-xs">
+              {REASON_ORDER.map(k => (
+                <button key={k} onClick={() => setReasonFilter(k)} className={`px-3 h-9 font-semibold border-l first:border-l-0 border-slate-200 whitespace-nowrap ${reasonFilter === k ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>{REASON[k].chip} ({qCounts[k] || 0})</button>
+              ))}
+              <button onClick={() => setReasonFilter('all')} className={`px-3 h-9 font-semibold border-l border-slate-200 whitespace-nowrap ${reasonFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>Tất cả ({queue.length})</button>
+            </div>
+            <Button variant="outline" onClick={() => loadQueue()} className="h-9 px-3 gap-1.5 text-xs ml-auto" title="Tải lại"><RefreshCw className={`w-3.5 h-3.5 ${qLoading ? 'animate-spin' : ''}`} /> Tải lại</Button>
           </div>
           <div className="space-y-2">
             {qLoading ? <div className="py-6 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải...</div>
