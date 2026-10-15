@@ -40,7 +40,16 @@ export async function GET(request: Request) {
         .in('trang_thai', ['cho_duyet', 'da_duyet'])
         .order('trang_thai', { ascending: true })
       if (error) throw error
-      return NextResponse.json({ data: data || [] })
+      // Lọc theo BUỔI + giờ VN (mốc 12:00): nghỉ sáng -> ẩn sau 12h; nghỉ chiều -> ẩn trước 12h.
+      // Cả ngày (hoặc đơn cũ không ghi buổi) luôn hiện. Dùng chung cho chuông v2 + banner admin.
+      const vnHour = new Date(Date.now() + 7 * 3600 * 1000).getUTCHours()
+      const isAfternoon = vnHour >= 12
+      const filtered = (data || []).filter((d: any) => {
+        if (d.buoi === 'sang') return !isAfternoon
+        if (d.buoi === 'chieu') return isAfternoon
+        return true
+      })
+      return NextResponse.json({ data: filtered })
     }
 
     const { data: pending, error: pErr } = await supabaseAdmin
