@@ -4,7 +4,6 @@ import { ClipboardCheck, Plus, Trash2, RefreshCw, Search, Clock, CheckCircle2, W
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import DateField from '@/components/DateField'
-import CollapsibleTools from '@/components/CollapsibleTools'
 import BaoGiaEditor, { type BaoGiaRow } from '@/components/BaoGiaEditor'
 import { MaterialCombobox } from '@/features/giao-viec/MaterialCombobox'
 import { useRealtimeRefetch } from '@/lib/useRealtime'
@@ -33,6 +32,7 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
   const [quoteRows, setQuoteRows] = useState<BaoGiaRow[]>([])
   const [quoteKh, setQuoteKh] = useState('')
   const [quoteDiaChi, setQuoteDiaChi] = useState('')
+  const [tab, setTab] = useState<'nhap' | 'ds'>('ds')
 
   const cust = form.ma_may.trim() ? customers.find(c => c.ma_may && c.ma_may.toLowerCase() === form.ma_may.trim().toLowerCase()) : undefined
   const filteredInventory = onlyModel && cust?.model ? inventory.filter(i => matchModelGD(i.model, cust.model)) : inventory
@@ -152,8 +152,12 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
   const fmtDate = (s: string) => { if (!s) return ''; const d = new Date(s); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` }
 
   return (
-    <div className="space-y-6">
-      <CollapsibleTools title="Nhập biên bản giám định" storageKey="giamdinh_nhap_open" defaultOpen={false} icon={<ClipboardCheck className="w-4 h-4 text-blue-600 shrink-0" />}>
+    <div className="space-y-4">
+      <div className="flex gap-1 border-b border-slate-200">
+        <button onClick={() => setTab('nhap')} className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${tab === 'nhap' ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Nhập biên bản</button>
+        <button onClick={() => setTab('ds')} className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${tab === 'ds' ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Danh sách</button>
+      </div>
+      {tab === 'nhap' && (
       <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -236,8 +240,9 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
           <Button onClick={handleSave} disabled={saving} className="h-10 gap-2 bg-emerald-600 hover:bg-emerald-700">{saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ClipboardCheck className="w-4 h-4" />} {saving ? 'Đang lưu…' : 'Lưu biên bản'}</Button>
         </div>
       </div>
-      </CollapsibleTools>
+      )}
 
+      {tab === 'ds' && (
       <div className="space-y-3">
         <StatRow>
           <StatCard label="Biên bản" value={gdStats.total.toLocaleString('vi-VN')} sub={`trên ${records.length.toLocaleString('vi-VN')} tất cả`} tone="blue" icon={ClipboardCheck} />
@@ -245,10 +250,6 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
           <StatCard label="Đã thay" value={gdStats.daThay.toLocaleString('vi-VN')} sub="đã xử lý xong" tone="emerald" icon={CheckCircle2} />
           <StatCard label="Đã báo giá" value={gdStats.daBaoGia.toLocaleString('vi-VN')} sub="đã gửi khách" tone="indigo" icon={Wallet} />
         </StatRow>
-        <div className="flex items-center gap-2 px-1">
-          <h3 className="text-sm font-bold text-slate-700">Danh sách biên bản giám định</h3>
-          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">{filteredRecords.length}/{records.length}</span>
-        </div>
         <div className="flex flex-wrap items-center gap-2 px-1">
           <div className="relative w-full sm:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -328,6 +329,7 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
         ))}
         <Pagination page={gdPaged.page} pageCount={gdPaged.pageCount} total={gdPaged.total} perPage={gdPaged.perPage} onPage={gdPaged.setPage} />
       </div>
+      )}
 
       {quoteGd && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
