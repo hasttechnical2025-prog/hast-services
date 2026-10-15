@@ -53,7 +53,7 @@ export function AuditLogsTool({ showNotification }: { showNotification: (type: '
             <option value="all">Toàn bộ</option>
           </select>
           <ColumnMenu view={col} />
-          <Button variant="outline" onClick={exportTxt} className="gap-2 h-9"><Download className="w-4 h-4" /> Xuất .txt</Button>
+          <Button variant="outline" onClick={exportTxt} className="gap-2 h-9"><Download className="w-4 h-4" /> Xuất nhật ký (.txt)</Button>
         </div>
       </div>
       <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />

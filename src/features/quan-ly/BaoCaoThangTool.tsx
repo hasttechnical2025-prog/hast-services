@@ -117,7 +117,7 @@ export function BaoCaoThangTool({ showNotification }: { showNotification: (type:
           <MonthField value={thang} onChange={setThang} className="h-9 px-3 text-xs w-44" />
         </div>
         <Button onClick={exportDocx} disabled={exporting || loading || !preview} className="gap-2 h-9 text-sm font-semibold shrink-0">
-          <Download className="w-4 h-4" /> {exporting ? 'Đang xuất...' : 'Xuất báo cáo (.docx)'}
+          <Download className="w-4 h-4" /> {exporting ? 'Đang xuất...' : 'Xuất báo cáo tháng (.docx)'}
         </Button>
       </div>
 

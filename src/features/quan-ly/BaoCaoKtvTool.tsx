@@ -128,7 +128,7 @@ export function BaoCaoKtvTool({ technicians, showNotification }: { technicians: 
             className={`h-9 gap-1.5 text-xs ${!ktvId || tuNgay !== denNgay ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'}`}
             title={!ktvId ? 'Vui lòng chọn 1 KTV' : tuNgay !== denNgay ? 'Ngày từ và đến phải trùng nhau' : 'Xuất bản in Word cho KTV này'}>
             <Download className="w-4 h-4" />
-            {exporting ? 'Đang xuất...' : 'Xuất Word (.docx)'}
+            {exporting ? 'Đang xuất...' : 'Xuất báo cáo KTV (.docx)'}
           </Button>
         </div>
       </div>
