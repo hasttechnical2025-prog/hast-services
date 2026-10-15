@@ -148,9 +148,9 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
   const henCls = (hen: string | null) => !hen ? '' : hen < today ? 'text-rose-600 font-semibold' : hen === today ? 'text-amber-600 font-semibold' : 'text-slate-600'
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6 space-y-3">
+    <div className="space-y-3">
       {/* Menu cháu kiểu UNDERLINE (chuẩn chung v2). Nút "Thêm khách tiềm năng" đẩy về phải. */}
-      <div className="flex items-end gap-3 flex-wrap sticky top-0 z-20 bg-white pt-2">
+      <div className="flex items-end gap-3 flex-wrap sticky top-0 z-20 bg-slate-200 pt-2">
         <div className="flex gap-1 border-b border-slate-200 w-fit overflow-x-auto">
           {([['can', 'Cần chăm sóc', null], ['ds', 'Danh sách khách', Users], ['pipeline', 'Pipeline tiềm năng', TrendingUp], ['kpi', 'KPI', BarChart3]] as const).map(([k, l, Icon]) => (
             <button key={k} onClick={() => setView(k)} className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap inline-flex items-center gap-1.5 border-b-2 ${view === k ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
