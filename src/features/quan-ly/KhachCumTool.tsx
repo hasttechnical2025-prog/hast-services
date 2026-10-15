@@ -236,7 +236,7 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* CỘT TRÁI: danh sách cụm + tạo cụm */}
-        <div className="border border-slate-200 rounded-lg p-5 bg-slate-50/50 space-y-4">
+        <div className="border border-slate-200 rounded-lg p-5 bg-white space-y-4">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-base font-semibold text-slate-700">Danh sách khách cụm</h3>
             <Button variant="outline" onClick={() => setDoiChieuOpen(true)} className="gap-1.5 h-9 text-xs shrink-0"><FileSpreadsheet className="w-4 h-4" /> Đối chiếu minVoice</Button>
@@ -279,7 +279,7 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
         </div>
 
         {/* CỘT PHẢI: chi tiết cụm đang chọn */}
-        <div className="border border-slate-200 rounded-lg p-5 bg-slate-50/50 space-y-4">
+        <div className="border border-slate-200 rounded-lg p-5 bg-white space-y-4">
           {!sel ? (
             <div className="text-sm text-slate-400 text-center py-16">Chọn một cụm bên trái để xem &amp; gán máy.</div>
           ) : (

@@ -63,7 +63,7 @@ export function DanhMucTool({ danhMuc, setDanhMuc, onUpdateSuccess, showNotifica
   }
   return (
     <div className="space-y-6">
-      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+      <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-4">
         <h3 className="text-lg font-semibold text-slate-700">Danh mục dropdown</h3>
         <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
           {DANH_MUC_NHOMS.map(n => (
@@ -146,7 +146,7 @@ export function AliasTool({ showNotification }: { showNotification: (type: 'succ
   }
 
   return (
-    <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+    <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-4">
       <div>
         <h3 className="text-lg font-semibold text-slate-700">Biệt danh cho Trợ lý AI</h3>
         <p className="text-sm text-slate-500">Giúp trợ lý hiểu viết tắt / tên gọi nội bộ khi tra cứu khách hàng. VD: <b>tccb</b> → <b>Tổ chức cán bộ</b>, <b>pv06</b> → <b>Cục Hồ sơ nghiệp vụ</b>.</p>

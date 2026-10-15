@@ -163,7 +163,7 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
 
       {/* ===== CHUNG ===== */}
       {tab === 'chung' && (
-      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+      <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-4">
         <h3 className="text-lg font-semibold text-slate-700">Chung</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1 md:col-span-1">
@@ -179,7 +179,7 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
       {/* ===== SỔ CÔNG TÁC (KỸ THUẬT) ===== */}
       {tab === 'so_cong_tac' && (
       <>
-      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+      <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-4">
         <h3 className="text-lg font-semibold text-slate-700">Nghiệp vụ Sổ công tác</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {numField('Cửa sổ "đã sửa gần đây" (ngày)', 'repeat_ngay')}
@@ -207,7 +207,7 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
         </div>
       </div>
 
-      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+      <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-4">
         <h3 className="text-lg font-semibold text-slate-700">Ngày nghỉ Lễ / Tết</h3>
         <div className="flex gap-2 items-end">
           <div className="space-y-1">
@@ -240,7 +240,7 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
       {/* ===== KHO & MÁY THUÊ/CPC ===== */}
       {tab === 'kho' && (
       <>
-      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+      <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-4">
         <h3 className="text-lg font-semibold text-slate-700">Kho &amp; Máy thuê/CPC</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {numField('Ngưỡng tồn thấp (đỏ khi ≤)', 'nguong_ton_thap')}
@@ -250,7 +250,7 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
         </div>
       </div>
 
-      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+      <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-4">
         <h3 className="text-lg font-semibold text-slate-700">Google Sheet — đồng bộ counter máy thuê</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1 md:col-span-2">
@@ -269,7 +269,7 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
 
       {/* ===== KẾ TOÁN — HÓA ĐƠN ===== */}
       {tab === 'ke_toan' && (
-      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+      <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-4">
         <h3 className="text-lg font-semibold text-slate-700">Người bán trên hóa đơn</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1 md:col-span-2">
@@ -306,7 +306,7 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
 
       {/* ===== KINH DOANH ===== */}
       {tab === 'kinh_doanh' && (
-      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+      <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-4">
         <h3 className="text-lg font-semibold text-slate-700">Danh mục khách — Kinh doanh (Lệnh xuất hàng)</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1">
@@ -331,7 +331,7 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
       {/* ===== BẢO MẬT & TRUY CẬP ===== */}
       {tab === 'bao_mat' && (
       <>
-      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+      <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-4">
         <h3 className="text-lg font-semibold text-slate-700">Phiên đăng nhập</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {numField('Văn phòng — giữ đăng nhập (ngày)', 'phien_van_phong_ngay')}
@@ -339,7 +339,7 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
         </div>
       </div>
 
-      <div className={`border rounded-lg p-6 space-y-3 ${cfg.bao_tri ? 'border-red-300 bg-red-50/60' : 'border-slate-200 bg-slate-50/50'}`}>
+      <div className={`border rounded-lg p-6 space-y-3 ${cfg.bao_tri ? 'border-red-300 bg-red-50/60' : 'border-slate-200 bg-white'}`}>
         <h3 className="text-lg font-semibold text-slate-700">Chế độ bảo trì</h3>
         <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer select-none">
           <input type="checkbox" checked={cfg.bao_tri} onChange={(e) => setCfg({ ...cfg, bao_tri: e.target.checked })} className="w-4 h-4 accent-red-600 mt-0.5" />
@@ -360,7 +360,7 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
         </div>
       </div>
 
-      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-3">
+      <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-3">
         <h3 className="text-lg font-semibold text-slate-700">Phân quyền hiển thị tab</h3>
         <p className="text-sm text-slate-500">Bật/tắt tab cho từng role. Đây là <b>ẩn/hiện giao diện</b> — API vẫn kiểm quyền. Tắt tab cha sẽ ẩn toàn bộ tab con/cháu.</p>
         <div className="bg-white rounded-lg border border-slate-200 overflow-hidden inline-block">

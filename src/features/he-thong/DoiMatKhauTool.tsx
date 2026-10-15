@@ -27,7 +27,7 @@ export function DoiMatKhauTool({ showNotification }: { showNotification: (type: 
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setSaving(false) }
   }
   return (
-    <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 max-w-md space-y-4">
+    <div className="border border-slate-200 rounded-lg p-6 bg-white max-w-md space-y-4">
       <h3 className="text-lg font-semibold text-slate-700">Đổi mật khẩu</h3>
       <p className="text-sm text-slate-500">Nhập mật khẩu cũ → mật khẩu mới → xác nhận → Lưu.</p>
       <div className="space-y-1">

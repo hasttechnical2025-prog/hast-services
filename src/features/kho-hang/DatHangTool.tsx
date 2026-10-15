@@ -473,7 +473,7 @@ export function DatHangTool({
         </div>
 
         {/* BÊN PHẢI: GIỎ HÀNG & THÔNG TIN ĐƠN (2/5) */}
-        <div className="lg:col-span-2 border border-slate-200 rounded-xl p-5 bg-slate-50/50 flex flex-col shadow-sm gap-4">
+        <div className="lg:col-span-2 border border-slate-200 rounded-xl p-5 bg-white flex flex-col shadow-sm gap-4">
           <div className="space-y-4 shrink-0">
             <h3 className="text-base font-bold text-slate-700">Giỏ hàng đặt</h3>
             <div className="space-y-3">

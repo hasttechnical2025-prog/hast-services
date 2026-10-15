@@ -158,7 +158,7 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
         <button onClick={() => setTab('ds')} className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${tab === 'ds' ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Danh sách</button>
       </div>
       {tab === 'nhap' && (
-      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+      <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-4">
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1">

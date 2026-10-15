@@ -111,7 +111,7 @@ export function BaoCaoThangTool({ showNotification }: { showNotification: (type:
           </div>
       )}
 
-      <div className="border border-slate-200 rounded-lg p-4 bg-slate-50/50 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="border border-slate-200 rounded-lg p-4 bg-white flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div className="space-y-1">
           <label className="text-xs font-semibold text-slate-600">Tháng báo cáo</label>
           <MonthField value={thang} onChange={setThang} className="h-9 px-3 text-xs w-44" />
@@ -160,7 +160,7 @@ export function BaoCaoThangTool({ showNotification }: { showNotification: (type:
           </div>
 
           {/* MỤC 3 */}
-          <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+          <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-4">
             <h4 className="text-sm font-bold text-slate-700">3. Doanh số</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
@@ -178,7 +178,7 @@ export function BaoCaoThangTool({ showNotification }: { showNotification: (type:
           </div>
 
           {/* BẢNG DOANH SỐ THEO THÁNG */}
-          <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+          <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-4">
             <h4 className="text-sm font-bold text-slate-700">Doanh số theo tháng (nhập từ kế toán) — năm {nam}</h4>
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1">
@@ -248,7 +248,7 @@ export function BaoCaoThangTool({ showNotification }: { showNotification: (type:
           </div>
 
           {/* MỤC 6 & 7 & 8 */}
-          <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+          <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-4">
             <h4 className="text-sm font-bold text-slate-700">6. Tòa nhà 5 Nguyễn Ngọc Vũ <span className="font-normal text-slate-400">(để trống = &quot;Hoạt động ổn định&quot;)</span></h4>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {manualInput('TN6_1', 'Thang máy', 'Hoạt động ổn định')}

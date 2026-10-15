@@ -445,7 +445,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
       </div>
       {mainTab === 'tra_cuu' && (
       <>
-      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+      <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-4">
         <h3 className="text-sm font-bold text-slate-700">Tra cứu lịch sử bảo trì theo mã máy</h3>
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
@@ -519,7 +519,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
         })()}
       </div>
 
-      <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+      <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-end gap-4">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">Tháng bảo trì</label>

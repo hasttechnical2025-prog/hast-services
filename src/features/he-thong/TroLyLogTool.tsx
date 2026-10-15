@@ -33,7 +33,7 @@ export function TroLyLogTool({ showNotification }: { showNotification: (type: 's
   }
 
   return (
-    <div className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 space-y-4">
+    <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex-1 min-w-0">
           <h3 className="text-lg font-semibold text-slate-700">Nhật ký Trợ lý AI</h3>
