@@ -32,7 +32,8 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
   const [quoteRows, setQuoteRows] = useState<BaoGiaRow[]>([])
   const [quoteKh, setQuoteKh] = useState('')
   const [quoteDiaChi, setQuoteDiaChi] = useState('')
-  const [tab, setTab] = useState<'nhap' | 'ds'>('nhap')
+  const [formOpen, setFormOpen] = useState(false)
+  const openForm = () => { setForm(emptyForm); setVatTu([]); setFormOpen(true) }
 
   const cust = form.ma_may.trim() ? customers.find(c => c.ma_may && c.ma_may.toLowerCase() === form.ma_may.trim().toLowerCase()) : undefined
   const filteredInventory = onlyModel && cust?.model ? inventory.filter(i => matchModelGD(i.model, cust.model)) : inventory
@@ -88,7 +89,7 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
       })
       if (res.ok) {
         showNotification('success', "Đã lưu biên bản giám định.")
-        setForm(emptyForm); setVatTu([]); fetchRecords()
+        setForm(emptyForm); setVatTu([]); setFormOpen(false); fetchRecords()
       } else {
         const err = await res.json(); showNotification('error', err.error)
       }
@@ -153,12 +154,14 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-1 border-b border-slate-200">
-        <button onClick={() => setTab('nhap')} className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${tab === 'nhap' ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Nhập biên bản</button>
-        <button onClick={() => setTab('ds')} className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${tab === 'ds' ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Danh sách</button>
-      </div>
-      {tab === 'nhap' && (
-      <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-4">
+      {formOpen && (
+      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+            <h3 className="text-base font-bold text-slate-800 flex items-center gap-2"><ClipboardCheck className="w-5 h-5 text-blue-600" /> Lập biên bản giám định</h3>
+            <button onClick={() => setFormOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
+          </div>
+          <div className="overflow-y-auto p-6 space-y-4">
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1">
@@ -239,10 +242,11 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
           </label>
           <Button onClick={handleSave} disabled={saving} className="h-10 gap-2 bg-emerald-600 hover:bg-emerald-700">{saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ClipboardCheck className="w-4 h-4" />} {saving ? 'Đang lưu…' : 'Lưu biên bản'}</Button>
         </div>
+          </div>
+        </div>
       </div>
       )}
 
-      {tab === 'ds' && (
       <div className="space-y-3">
         <StatRow>
           <StatCard label="Biên bản" value={gdStats.total.toLocaleString('vi-VN')} sub={`trên ${records.length.toLocaleString('vi-VN')} tất cả`} tone="blue" icon={ClipboardCheck} />
@@ -269,6 +273,7 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
             <option value="co">Đã báo giá</option>
           </select>
           {gdFilterActive && <button onClick={() => setGdFilters({ maMay: "", trangThai: "", baoGia: "" })} className="text-xs text-red-600 hover:underline font-medium">Bỏ lọc</button>}
+          <Button onClick={openForm} className="h-9 gap-1.5 text-xs ml-auto bg-blue-600 hover:bg-blue-700"><ClipboardCheck className="w-4 h-4" /> Lập BBGĐ</Button>
         </div>
         <Pagination top page={gdPaged.page} pageCount={gdPaged.pageCount} total={gdPaged.total} perPage={gdPaged.perPage} onPage={gdPaged.setPage} onPerPage={gdPaged.setPerPage} />
         {loading ? (
@@ -329,7 +334,6 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
         ))}
         <Pagination page={gdPaged.page} pageCount={gdPaged.pageCount} total={gdPaged.total} perPage={gdPaged.perPage} onPage={gdPaged.setPage} />
       </div>
-      )}
 
       {quoteGd && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
