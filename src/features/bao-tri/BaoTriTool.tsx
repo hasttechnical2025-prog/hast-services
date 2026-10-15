@@ -10,7 +10,7 @@ import { useRealtimeRefetch } from '@/lib/useRealtime'
 import { BAOTRI_TOPIC, DATA_EVENT } from '@/lib/realtime'
 import { exportRowsToExcel } from '@/lib/excel'
 import { LOAI_HD_BAO_TRI, canBaoTriThang, dangTamDung, moTaLichBaoTri, doiChieuNam, thangDaToi, fmtThang, CELL_DA_LAM, CELL_THIEU, CELL_CHUA_TOI } from '@/lib/bao-tri'
-import { usePaged, Pagination, useColView, ColumnMenu, TableLoading, type ColDef } from '@/ui'
+import { usePaged, Pagination, useColView, TableLoading, type ColDef } from '@/ui'
 
 // Port NGUYÊN BaoTriTool từ admin/page.tsx (y hệt giao diện + nghiệp vụ). Chỉ đổi import sang
 // helper dùng chung + thay ClearAllButton bằng xác nhận useConfirm.
@@ -807,12 +807,11 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
             <div className="flex items-center gap-2 px-1">
               <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">{records.length} máy</span>
               <div className="ml-auto flex items-center gap-2">
-                <Button variant="outline" onClick={xuatBaoTriExcel} disabled={records.length === 0} title={`Xuất Excel (${records.length} máy)`} className="h-9 w-9 p-0">
-                  <Download className="w-4 h-4" />
+                <Button variant="outline" onClick={xuatBaoTriExcel} disabled={records.length === 0} title={`Xuất Excel (${records.length} máy)`} className="h-9 px-3 gap-1.5 text-xs">
+                  <Download className="w-4 h-4" /> Xuất Excel
                 </Button>
-                <ColumnMenu view={col} />
-                <Button variant="outline" onClick={xoaTatCaThang} disabled={records.length === 0} title="Xóa toàn bộ bảo trì tháng này" className="h-9 w-9 p-0 border-rose-200 text-rose-600 hover:bg-rose-50">
-                  <Trash2 className="w-4 h-4" />
+                <Button variant="outline" onClick={xoaTatCaThang} disabled={records.length === 0} title="Xóa toàn bộ bảo trì tháng này" className="h-9 px-3 gap-1.5 text-xs border-rose-200 text-rose-600 hover:bg-rose-50">
+                  <Trash2 className="w-4 h-4" /> Xóa toàn bộ
                 </Button>
               </div>
             </div>
