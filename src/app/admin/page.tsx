@@ -223,11 +223,9 @@ const LOAI_CV_FALLBACK = ['Lắp máy', 'Sửa máy', 'Giao mực', 'Thay vật 
 // Loại việc BẮT BUỘC có Số phiếu (report) + ít nhất 1 vật tư khi lưu công việc.
 const LOAI_CV_CAN_VAT_TU = ['Giao mực', 'Thay vật tư']
 
-// Banner mời trải nghiệm giao diện mới (v2). Mặc định LUÔN hiện mỗi lần tải trang; ẩn chỉ trong
-// lần xem hiện tại (không nhớ qua reload) — vì lối vào thường trực đã là FAB kéo-thả. Mở v2 cùng tab.
-function NewUiBanner() {
-  const [show, setShow] = useState(true)
-  if (!show) return null
+// Banner mời trải nghiệm giao diện mới (v2). Hiện mặc định; bấm ✕ -> ẩn banner và BẬT FAB thay thế
+// (chỉ 1 trong 2 hiện cùng lúc). Reload lại hiện banner. Mở v2 cùng tab.
+function NewUiBanner({ onClose }: { onClose: () => void }) {
   return (
     <div className="flex items-center gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl px-4 py-2.5 shadow-md">
       <Sparkles className="w-5 h-5 shrink-0" />
@@ -235,7 +233,7 @@ function NewUiBanner() {
         <span className="font-semibold">Giao diện mới (2027) đã sẵn sàng!</span>
       </div>
       <a href="/v2" className="shrink-0 bg-white text-blue-700 font-semibold text-sm px-3 py-1.5 rounded-lg hover:bg-blue-50 transition">Trải nghiệm ngay →</a>
-      <button onClick={() => setShow(false)} className="shrink-0 text-blue-100 hover:text-white p-1" title="Ẩn (hiện lại khi tải trang)"><X className="w-4 h-4" /></button>
+      <button onClick={onClose} className="shrink-0 text-blue-100 hover:text-white p-1" title="Ẩn (hiện nút nổi thay thế)"><X className="w-4 h-4" /></button>
     </div>
   )
 }
@@ -270,6 +268,9 @@ export default function AdminDashboard() {
 
   // Notification State
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null)
+
+  // Lời mời v2: hiện banner trước; bấm ✕ -> ẩn banner + bật FAB (chỉ 1 trong 2). Reload lại hiện banner.
+  const [showV2Banner, setShowV2Banner] = useState(true)
 
   // Custom Confirm Dialog State
   const [confirmDialog, setConfirmDialog] = useState({
@@ -1818,13 +1819,13 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-slate-50 p-6" style={{ ['--head-h' as any]: `${headH}px` }}>
       {confirmNode}
       {tabVisible('tro_ly') && <TroLyAI />}
-      {/* Nút nổi KÉO-THẢ vào giao diện mới v2 (chỉ admin) — mặc định góc dưới-trái */}
-      {currentUserRole === 'admin' && (
+      {/* Nút nổi KÉO-THẢ vào giao diện mới v2 (chỉ admin) — CHỈ hiện khi đã ẩn banner */}
+      {currentUserRole === 'admin' && !showV2Banner && (
         <DraggableFab href="/v2" label="Giao diện mới" icon={<Sparkles className="w-4 h-4" />} storageKey="v2:fab-admin" defaultPos="bottom-5 left-5" className="bg-blue-600 hover:bg-blue-700 shadow-blue-600/30" />
       )}
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Lời mời trải nghiệm giao diện mới (v2) — chỉ admin, ẩn được (nhớ localStorage) */}
-        {currentUserRole === 'admin' && <NewUiBanner />}
+        {currentUserRole === 'admin' && showV2Banner && <NewUiBanner onClose={() => setShowV2Banner(false)} />}
         {/* Header */}
         <header ref={headerRef} className="sticky top-0 z-30 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-xl shadow-md border border-slate-200 gap-4">
           <div className="flex items-center gap-3">
