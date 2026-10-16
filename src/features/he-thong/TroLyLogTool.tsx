@@ -42,7 +42,7 @@ export function TroLyLogTool({ showNotification }: { showNotification: (type: 's
         <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
           <input type="checkbox" checked={miss} onChange={e => setMiss(e.target.checked)} className="w-4 h-4 accent-blue-600" /> Chỉ xem câu trượt
         </label>
-        <Button variant="outline" onClick={() => load(miss)} className="gap-1 h-9"><RefreshCw className="w-4 h-4" /> Tải lại</Button>
+        <Button variant="outline" onClick={() => load(miss)} className="gap-1 h-9"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>
       </div>
       <div className="bg-white rounded-lg border border-slate-200 overflow-x-auto max-h-[520px] overflow-y-auto">
         <table className="w-full text-left text-sm text-slate-600">

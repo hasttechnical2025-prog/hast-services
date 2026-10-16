@@ -342,7 +342,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
               <button onClick={exportExcel} className="h-9 px-3 rounded-md border border-emerald-200 text-emerald-700 text-xs font-medium flex items-center gap-1.5 hover:bg-emerald-50"><FileDown className="w-3.5 h-3.5" /> Xuất DS giao việc</button>
               {canAdminTools && <button onClick={cuonNgay} disabled={busyTool} className={btnOutline}><CalendarArrowDown className="w-3.5 h-3.5" /> Cuốn ngày</button>}
               {isAdmin && <button onClick={xoaTrung} disabled={busyTool} className="h-9 px-3 rounded-md border border-amber-300 text-amber-700 text-xs font-medium flex items-center gap-1.5 hover:bg-amber-50 disabled:opacity-50"><CopyX className="w-3.5 h-3.5" /> Xóa phiếu trùng</button>}
-              <button onClick={() => load()} className={btnOutline}><RefreshCw className="w-3.5 h-3.5" /> Tải lại</button>
+              <button onClick={() => load()} className={btnOutline}><RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Tải lại</button>
             </div>
           </div>
         </div>
