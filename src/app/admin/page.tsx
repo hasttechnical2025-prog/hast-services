@@ -1817,6 +1817,12 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-slate-50 p-6" style={{ ['--head-h' as any]: `${headH}px` }}>
       {confirmNode}
       {tabVisible('tro_ly') && <TroLyAI />}
+      {/* Nút nổi vào giao diện mới v2 (chỉ admin) — góc dưới-trái, tránh FAB Trợ lý AI ở dưới-phải */}
+      {currentUserRole === 'admin' && (
+        <a href="/v2" title="Mở giao diện mới (2027)" className="fixed bottom-5 left-5 z-[80] inline-flex items-center gap-1.5 h-11 px-4 rounded-full bg-blue-600 text-white text-sm font-semibold shadow-lg shadow-blue-600/30 hover:bg-blue-700 transition">
+          <Sparkles className="w-4 h-4" /> Giao diện mới
+        </a>
+      )}
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Lời mời trải nghiệm giao diện mới (v2) — chỉ admin, ẩn được (nhớ localStorage) */}
         {currentUserRole === 'admin' && <NewUiBanner />}
@@ -1829,12 +1835,6 @@ export default function AdminDashboard() {
               <h1 className="text-2xl font-bold text-slate-800">{cauHinh.app_ten || 'Admin Dashboard'}</h1>
               <p className="text-xs text-slate-400">Tài khoản: <span className="font-bold text-slate-700">{currentAdmin?.full_name}</span> (<span className="font-semibold text-slate-500 uppercase">{currentUserRole}</span>)</p>
             </div>
-            {/* Nút vào giao diện mới (cùng tab) — chỉ admin, luôn hiện kể cả khi đã ẩn banner */}
-            {currentUserRole === 'admin' && (
-              <a href="/v2" title="Mở giao diện mới (2027)" className="inline-flex items-center gap-1.5 shrink-0 h-8 px-3 rounded-full text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition">
-                <Sparkles className="w-3.5 h-3.5" /> Giao diện mới
-              </a>
-            )}
           </div>
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">

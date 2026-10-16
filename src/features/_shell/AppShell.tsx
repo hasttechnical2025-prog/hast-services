@@ -274,8 +274,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="px-2 py-4">{allowed ? children : <AccessDenied role={user.role} />}</div>
         </div>
       </section>
-      {/* Trợ lý AI — nút nổi góc dưới phải (không chiếm chỗ bảng/dữ liệu), gate quyền tro_ly. */}
+      {/* Trợ lý AI — nút nổi (mặc định góc trên phải, kéo được), gate quyền tro_ly. */}
       {tabVisible('tro_ly') && <TroLyAI />}
+      {/* Nút nổi quay lại giao diện cũ (/admin) — cho ai chưa quen UI v2. Góc dưới phải. */}
+      <a href="/admin" title="Quay lại giao diện cũ (/admin)" className="fixed bottom-5 right-5 z-[80] inline-flex items-center gap-1.5 h-11 px-4 rounded-full bg-slate-700 text-white text-sm font-semibold shadow-lg hover:bg-slate-800 transition">
+        <Icons.ArrowLeft className="w-4 h-4" /> Giao diện cũ
+      </a>
     </div>
   )
 }
