@@ -25,6 +25,7 @@ import SoTheoDoiPrintButton, { printSoTheoDoiBatch } from "@/components/SoTheoDo
 import CollapsibleTools from "@/components/CollapsibleTools"
 import { phieuTaoChip, buoiGio, PHIEU_TAO_TONE } from "@/lib/phieu-tao"
 import TroLyAI from "@/components/TroLyAI"
+import DraggableFab from "@/components/DraggableFab"
 import { hdbtStatus, loaiHdBadge } from "@/lib/hd-status"
 import { fmtThoiLuong } from "@/lib/thoi-gian"
 import { LOAI_LABEL, moTaKhoang } from "@/lib/nghi-phep"
@@ -222,10 +223,10 @@ const LOAI_CV_FALLBACK = ['Lắp máy', 'Sửa máy', 'Giao mực', 'Thay vật 
 // Loại việc BẮT BUỘC có Số phiếu (report) + ít nhất 1 vật tư khi lưu công việc.
 const LOAI_CV_CAN_VAT_TU = ['Giao mực', 'Thay vật tư']
 
-// Banner mời trải nghiệm giao diện mới (v2). Ẩn được, nhớ qua localStorage. Mở v2 CÙNG TAB.
+// Banner mời trải nghiệm giao diện mới (v2). Mặc định LUÔN hiện mỗi lần tải trang; ẩn chỉ trong
+// lần xem hiện tại (không nhớ qua reload) — vì lối vào thường trực đã là FAB kéo-thả. Mở v2 cùng tab.
 function NewUiBanner() {
-  const [show, setShow] = useState(false)
-  useEffect(() => { try { setShow(localStorage.getItem('v2:admin-banner-dismissed') !== '1') } catch { setShow(true) } }, [])
+  const [show, setShow] = useState(true)
   if (!show) return null
   return (
     <div className="flex items-center gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl px-4 py-2.5 shadow-md">
@@ -234,7 +235,7 @@ function NewUiBanner() {
         <span className="font-semibold">Giao diện mới (2027) đã sẵn sàng!</span>
       </div>
       <a href="/v2" className="shrink-0 bg-white text-blue-700 font-semibold text-sm px-3 py-1.5 rounded-lg hover:bg-blue-50 transition">Trải nghiệm ngay →</a>
-      <button onClick={() => { try { localStorage.setItem('v2:admin-banner-dismissed', '1') } catch {}; setShow(false) }} className="shrink-0 text-blue-100 hover:text-white p-1" title="Ẩn thông báo"><X className="w-4 h-4" /></button>
+      <button onClick={() => setShow(false)} className="shrink-0 text-blue-100 hover:text-white p-1" title="Ẩn (hiện lại khi tải trang)"><X className="w-4 h-4" /></button>
     </div>
   )
 }
@@ -1817,11 +1818,9 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-slate-50 p-6" style={{ ['--head-h' as any]: `${headH}px` }}>
       {confirmNode}
       {tabVisible('tro_ly') && <TroLyAI />}
-      {/* Nút nổi vào giao diện mới v2 (chỉ admin) — góc dưới-trái, tránh FAB Trợ lý AI ở dưới-phải */}
+      {/* Nút nổi KÉO-THẢ vào giao diện mới v2 (chỉ admin) — mặc định góc dưới-trái */}
       {currentUserRole === 'admin' && (
-        <a href="/v2" title="Mở giao diện mới (2027)" className="fixed bottom-5 left-5 z-[80] inline-flex items-center gap-1.5 h-11 px-4 rounded-full bg-blue-600 text-white text-sm font-semibold shadow-lg shadow-blue-600/30 hover:bg-blue-700 transition">
-          <Sparkles className="w-4 h-4" /> Giao diện mới
-        </a>
+        <DraggableFab href="/v2" label="Giao diện mới" icon={<Sparkles className="w-4 h-4" />} storageKey="v2:fab-admin" defaultPos="bottom-5 left-5" className="bg-blue-600 hover:bg-blue-700 shadow-blue-600/30" />
       )}
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Lời mời trải nghiệm giao diện mới (v2) — chỉ admin, ẩn được (nhớ localStorage) */}
