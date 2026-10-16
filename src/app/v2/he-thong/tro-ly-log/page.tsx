@@ -14,7 +14,7 @@ export default function TroLyAIPage() {
   return (
     <AdminGuard>
       <div className="space-y-4">
-        <div className="flex gap-1 border-b border-slate-200">
+        <div className="sticky top-0 z-20 bg-slate-200 -mx-2 px-2 flex gap-1 border-b border-slate-200">
           {TABS.map(([k, label]) => {
             const on = tab === k
             return (

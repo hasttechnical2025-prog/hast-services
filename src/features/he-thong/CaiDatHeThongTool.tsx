@@ -148,7 +148,8 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
 
   return (
     <div className="space-y-6">
-      {/* Thanh tab kiểu segmented pill — ĐỒNG BỘ với Danh mục. Gom thiết lập theo nghiệp vụ. */}
+      {/* Thanh tab kiểu segmented pill — ĐỒNG BỘ với Danh mục. Gom thiết lập theo nghiệp vụ. Sticky khi cuộn. */}
+      <div className="sticky top-0 z-20 bg-slate-200 -mx-2 px-2 py-1">
       <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-lg w-max max-w-full overflow-x-auto">
         {SETTING_TABS.map(([k, label]) => {
           const on = tab === k
@@ -159,6 +160,7 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
             </button>
           )
         })}
+      </div>
       </div>
 
       {/* ===== CHUNG ===== */}

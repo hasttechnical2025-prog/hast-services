@@ -334,7 +334,7 @@ export function DatHangTool({
       {confirmNode}
 
       {/* Thanh tab: Tạo đơn · Danh sách (underline chuẩn v2) */}
-      <div className="flex gap-1 border-b border-slate-200">
+      <div className="sticky top-0 z-20 bg-slate-200 -mx-2 px-2 flex gap-1 border-b border-slate-200">
         {([['tao_don', 'Tạo đơn'], ['danh_sach', 'Danh sách']] as const).map(([k, label]) => {
           const on = tab === k
           const draftCount = k === 'danh_sach' ? orders.filter(o => !o.da_dat).length : 0

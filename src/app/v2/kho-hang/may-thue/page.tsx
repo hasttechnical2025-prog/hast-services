@@ -20,7 +20,7 @@ export default function KhoMayThuePage() {
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-1 border-b border-slate-200">
+      <div className="sticky top-0 z-20 bg-slate-200 -mx-2 px-2 flex gap-1 border-b border-slate-200">
         {pill('may', 'Máy thuê')}
         {isAdmin && pill('vat_tu', 'Vật tư tiêu hao')}
       </div>

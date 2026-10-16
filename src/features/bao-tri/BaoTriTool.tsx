@@ -439,7 +439,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-1 border-b border-slate-200">
+      <div className="sticky top-0 z-30 bg-slate-200 -mx-2 px-2 flex gap-1 border-b border-slate-200">
         <button onClick={() => setMainTab('tra_cuu')} className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${mainTab === 'tra_cuu' ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Tra cứu &amp; Nhập liệu</button>
         <button onClick={() => setMainTab('ds')} className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${mainTab === 'ds' ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Danh sách</button>
       </div>
@@ -593,7 +593,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
 
       {mainTab === 'ds' && (
       <div>
-        <div className="flex gap-1 border-b border-slate-200 mb-4 overflow-x-auto w-full max-w-full sticky top-0 z-20 bg-slate-50 pt-1">
+        <div className="flex gap-1 border-b border-slate-200 mb-4 overflow-x-auto w-full max-w-full sticky top-10 z-20 bg-slate-200 pt-1">
           {canS('da_bao_tri') && <button onClick={() => setSubTab('da_bao_tri')} className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${active === 'da_bao_tri' ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
             Đã bảo trì tháng {thangNam.split('-').reverse().join('/')} ({records.length} máy)
           </button>}
