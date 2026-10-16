@@ -232,7 +232,6 @@ function NewUiBanner() {
       <Sparkles className="w-5 h-5 shrink-0" />
       <div className="flex-1 min-w-0 text-sm">
         <span className="font-semibold">Giao diện mới (2027) đã sẵn sàng!</span>
-        <span className="hidden sm:inline text-blue-100"> — bố cục gọn, nhanh hơn. Dữ liệu dùng chung, không phải đăng nhập lại.</span>
       </div>
       <a href="/v2" className="shrink-0 bg-white text-blue-700 font-semibold text-sm px-3 py-1.5 rounded-lg hover:bg-blue-50 transition">Trải nghiệm ngay →</a>
       <button onClick={() => { try { localStorage.setItem('v2:admin-banner-dismissed', '1') } catch {}; setShow(false) }} className="shrink-0 text-blue-100 hover:text-white p-1" title="Ẩn thông báo"><X className="w-4 h-4" /></button>
