@@ -10,7 +10,7 @@ export default function DraggableFab({ href, label, icon, storageKey, defaultPos
   const posRef = useRef<{ x: number; y: number } | null>(null); posRef.current = pos
   const drag = useRef<{ sx: number; sy: number; ox: number; oy: number; w: number; h: number; moved: boolean } | null>(null)
   const suppress = useRef(false)
-  const ref = useRef<HTMLAnchorElement>(null)
+  const ref = useRef<HTMLButtonElement>(null)
 
   const clamp = (x: number, y: number, w: number, h: number) => ({
     x: Math.min(Math.max(8, x), window.innerWidth - w - 8),
@@ -37,7 +37,8 @@ export default function DraggableFab({ href, label, icon, storageKey, defaultPos
     if (d?.moved) { suppress.current = true; setTimeout(() => { suppress.current = false }, 0); try { if (posRef.current) localStorage.setItem(storageKey, JSON.stringify(posRef.current)) } catch {} }
     drag.current = null
   }
-  const onDown = (e: React.PointerEvent) => {
+  const onDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    e.preventDefault() // chặn kéo-ảnh/chọn-text mặc định -> kéo mượt
     const r = ref.current!.getBoundingClientRect()
     drag.current = { sx: e.clientX, sy: e.clientY, ox: r.left, oy: r.top, w: r.width, h: r.height, moved: false }
     window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp)
@@ -45,11 +46,12 @@ export default function DraggableFab({ href, label, icon, storageKey, defaultPos
 
   const style: React.CSSProperties = pos ? { left: pos.x, top: pos.y, right: 'auto', bottom: 'auto', touchAction: 'none' } : { touchAction: 'none' }
   return (
-    <a ref={ref} href={href} title={label + ' — kéo để di chuyển'} onPointerDown={onDown}
-      onClick={(e) => { if (suppress.current) e.preventDefault() }}
+    <button ref={ref} type="button" title={label + ' — kéo để di chuyển'} draggable={false}
+      onPointerDown={onDown}
+      onClick={() => { if (!suppress.current) window.location.href = href }}
       style={style}
       className={`fixed z-[80] inline-flex items-center gap-1.5 h-11 px-4 rounded-full text-white text-sm font-semibold shadow-lg select-none cursor-grab active:cursor-grabbing transition ${pos ? '' : defaultPos} ${className}`}>
       {icon} {label}
-    </a>
+    </button>
   )
 }
