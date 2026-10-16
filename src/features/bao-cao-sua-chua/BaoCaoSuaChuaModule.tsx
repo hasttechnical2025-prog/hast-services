@@ -92,20 +92,19 @@ export function BaoCaoSuaChuaModule({ notify }: { notify: (type: 'success' | 'er
 
   return (
     <div className="space-y-4">
-      <div className="sticky top-0 z-20 bg-slate-200 pt-2 pb-2 space-y-2.5">
-        <div className="flex gap-1 border-b border-slate-200">
-          {pill('cho_gui', 'Chờ gửi')}
-          {pill('da_gui', 'Đã gửi')}
-        </div>
-        {/* Toolbar NẰM TRONG tab — ô tìm kiếm cục bộ theo tab đang mở, căn trái */}
-        <div className="flex items-center gap-3 flex-wrap">
+      {/* CHỈ thanh tab sticky; toolbar cuộn bình thường */}
+      <div className="sticky top-0 z-20 bg-slate-200 -mx-2 px-2 pt-2 flex gap-1 border-b border-slate-200">
+        {pill('cho_gui', 'Chờ gửi')}
+        {pill('da_gui', 'Đã gửi')}
+      </div>
+      {/* Toolbar — ô tìm kiếm cục bộ theo tab đang mở, căn trái (không sticky) */}
+      <div className="flex items-center gap-3 flex-wrap">
           <div className="relative w-full sm:w-72">
             <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm tên khách / mã máy / model / KTV…" className="w-full pl-9 h-9 text-xs rounded-md border border-slate-200 bg-white outline-none focus:border-blue-500" />
           </div>
           <span className="text-xs text-slate-400 ml-auto whitespace-nowrap">{shown.length}{shown.length !== list.length ? `/${list.length}` : ''} báo cáo</span>
           <button onClick={load} className="h-9 px-3 rounded-md text-xs font-medium border border-slate-200 text-slate-600 bg-white hover:bg-blue-50 hover:text-blue-600 inline-flex items-center gap-1.5" title="Tải lại"><RefreshCw className="w-4 h-4" /> Tải lại</button>
-        </div>
       </div>
 
       {tab === 'cho_gui' && list.length > 0 && (
