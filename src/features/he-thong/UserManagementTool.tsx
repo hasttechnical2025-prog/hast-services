@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import QRCodeLib from 'qrcode'
-import { Users, Wrench, CheckCircle2, QrCode, Power, PenSquare, Trash2 } from 'lucide-react'
+import { Users, Wrench, CheckCircle2, QrCode, Power, PenSquare, Trash2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useConfirm } from '@/components/ConfirmDialog'
@@ -29,10 +29,13 @@ export function UserManagementTool({ users, onUpdateSuccess, showNotification }:
   const [qrModal, setQrModal] = useState<{ id: string; name: string; url: string; dataUrl: string } | null>(null)
   const [qrLoadingId, setQrLoadingId] = useState<string | null>(null)
 
+  const [formOpen, setFormOpen] = useState(false)
   const resetForm = () => {
     setFormData({ id: "", full_name: "", username: "", password: "", role: "ktv", telegram_id: "", kd_quan_ly: false })
     setIsEditing(false)
   }
+  const openAdd = () => { resetForm(); setFormOpen(true) }
+  const closeForm = () => { resetForm(); setFormOpen(false) }
 
   const handleToggleActive = async (user: any) => {
     try {
@@ -76,6 +79,7 @@ export function UserManagementTool({ users, onUpdateSuccess, showNotification }:
   const handleEdit = (user: any) => {
     setFormData({ id: user.id, full_name: user.full_name, username: user.username || "", password: "", role: user.role, telegram_id: user.telegram_id || "", kd_quan_ly: !!user.kd_quan_ly })
     setIsEditing(true)
+    setFormOpen(true)
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -87,7 +91,7 @@ export function UserManagementTool({ users, onUpdateSuccess, showNotification }:
     const method = isEditing ? 'PUT' : 'POST'
     try {
       const res = await fetch('/api/admin/users', { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) })
-      if (res.ok) { showNotification('success', isEditing ? "Cập nhật nhân viên thành công!" : "Tạo nhân viên thành công!"); resetForm(); onUpdateSuccess() }
+      if (res.ok) { showNotification('success', isEditing ? "Cập nhật nhân viên thành công!" : "Tạo nhân viên thành công!"); resetForm(); setFormOpen(false); onUpdateSuccess() }
       else { const err = await res.json(); showNotification('error', err.error) }
     } catch { showNotification('error', "Lỗi kết nối!") } finally { setLoading(false) }
   }
@@ -110,45 +114,12 @@ export function UserManagementTool({ users, onUpdateSuccess, showNotification }:
         <StatCard label="KTV" value={userKtv.toLocaleString('vi-VN')} sub="kỹ thuật viên" icon={Wrench} tone="indigo" />
         <StatCard label="Đang hoạt động" value={userActive.toLocaleString('vi-VN')} sub={`${(users.length - userActive).toLocaleString('vi-VN')} ngừng`} icon={CheckCircle2} tone="emerald" />
       </StatRow>
-      <form onSubmit={handleSave} className={`bg-white p-4 rounded-lg border border-slate-200 flex flex-wrap items-end gap-3 ${formData.role === 'kinh_doanh' ? 'pb-12' : ''}`}>
-        <div className="space-y-1 flex-1 min-w-[150px]">
-          <label className="text-xs font-semibold text-slate-600">Họ và Tên *</label>
-          <Input required value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} placeholder="VD: Nguyễn Văn A" />
-        </div>
-        <div className="space-y-1 w-36">
-          <label className="text-xs font-semibold text-slate-600">Tên đăng nhập *</label>
-          <Input required value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} placeholder="VD: nguyenva" />
-        </div>
-        <div className="space-y-1 w-36">
-          <label className="text-xs font-semibold text-slate-600">{isEditing ? "Mật khẩu mới" : "Mật khẩu *"}</label>
-          <Input required={!isEditing} type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder={isEditing ? "(Bỏ trống nếu không đổi)" : "Nhập mật khẩu"} />
-        </div>
-        <div className="space-y-1 w-72 relative">
-          <label className="text-xs font-semibold text-slate-600">Quyền hạn *</label>
-          <select className="w-full h-8 px-2.5 rounded-md border border-slate-200 bg-white text-xs text-slate-800 focus-visible:outline-none focus-visible:border-blue-500 focus-visible:ring-1 focus-visible:ring-blue-500" value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })}>
-            <option value="ktv">Kỹ thuật viên (KTV)</option>
-            <option value="kthc">Kế toán (KTHC)</option>
-            <option value="kinh_doanh">Kinh doanh (Kho thuê, Lệnh xuất hàng)</option>
-            <option value="staff">Staff</option>
-            <option value="tech_admin">Tech Admin</option>
-            <option value="admin">Admin</option>
-          </select>
-          {formData.role === 'kinh_doanh' && (
-            <label className="absolute left-0 top-full mt-2 flex items-center gap-2 whitespace-nowrap cursor-pointer select-none">
-              <input type="checkbox" checked={formData.kd_quan_ly} onChange={(e) => setFormData({ ...formData, kd_quan_ly: e.target.checked })} className="w-4 h-4 accent-blue-600 shrink-0" />
-              <span className="text-sm text-slate-700">Quản lý kinh doanh</span>
-            </label>
-          )}
-        </div>
-        <div className="flex items-end gap-2 shrink-0">
-          {isEditing && <Button type="button" variant="outline" onClick={resetForm} className="h-8">Hủy sửa</Button>}
-          <Button type="submit" disabled={loading} className="h-8 whitespace-nowrap">{loading ? "Đang lưu..." : isEditing ? "Cập nhật tài khoản" : "Tạo tài khoản mới"}</Button>
-        </div>
-      </form>
-
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <span className="text-sm text-slate-500">{users.length} tài khoản</span>
-        <ColumnMenu view={col} />
+        <div className="flex items-center gap-2">
+          <ColumnMenu view={col} />
+          <Button onClick={openAdd} className="h-9 gap-1.5 text-xs"><Plus className="w-4 h-4" /> Tạo tài khoản mới</Button>
+        </div>
       </div>
       <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
@@ -230,6 +201,55 @@ export function UserManagementTool({ users, onUpdateSuccess, showNotification }:
                 <Button onClick={handlePrintQr}>In QR</Button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL TẠO / SỬA TÀI KHOẢN — thay cho form nằm cố định trên trang */}
+      {formOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2"><Users className="w-5 h-5 text-blue-600" /> {isEditing ? 'Sửa tài khoản' : 'Tạo tài khoản mới'}</h3>
+              <button onClick={closeForm} className="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
+            </div>
+            <form onSubmit={handleSave} className="overflow-y-auto p-5 space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Họ và Tên *</label>
+                <Input required value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} placeholder="VD: Nguyễn Văn A" className="bg-white h-9" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">Tên đăng nhập *</label>
+                  <Input required value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} placeholder="VD: nguyenva" className="bg-white h-9" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">{isEditing ? "Mật khẩu mới" : "Mật khẩu *"}</label>
+                  <Input required={!isEditing} type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder={isEditing ? "(Bỏ trống nếu không đổi)" : "Nhập mật khẩu"} className="bg-white h-9" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Quyền hạn *</label>
+                <select className="w-full h-9 px-2.5 rounded-md border border-slate-200 bg-white text-xs text-slate-800 focus-visible:outline-none focus-visible:border-blue-500 focus-visible:ring-1 focus-visible:ring-blue-500" value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })}>
+                  <option value="ktv">Kỹ thuật viên (KTV)</option>
+                  <option value="kthc">Kế toán (KTHC)</option>
+                  <option value="kinh_doanh">Kinh doanh (Kho thuê, Lệnh xuất hàng)</option>
+                  <option value="staff">Staff</option>
+                  <option value="tech_admin">Tech Admin</option>
+                  <option value="admin">Admin</option>
+                </select>
+                {formData.role === 'kinh_doanh' && (
+                  <label className="flex items-center gap-2 cursor-pointer select-none pt-1">
+                    <input type="checkbox" checked={formData.kd_quan_ly} onChange={(e) => setFormData({ ...formData, kd_quan_ly: e.target.checked })} className="w-4 h-4 accent-blue-600 shrink-0" />
+                    <span className="text-sm text-slate-700">Quản lý kinh doanh</span>
+                  </label>
+                )}
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <Button type="button" variant="outline" onClick={closeForm} className="h-9 text-xs">Hủy</Button>
+                <Button type="submit" disabled={loading} className="h-9 text-xs">{loading ? "Đang lưu..." : isEditing ? "Cập nhật tài khoản" : "Tạo tài khoản mới"}</Button>
+              </div>
+            </form>
           </div>
         </div>
       )}
