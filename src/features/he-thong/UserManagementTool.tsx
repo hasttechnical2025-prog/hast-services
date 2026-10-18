@@ -12,7 +12,7 @@ import { usePaged, Pagination, useColView, ColumnMenu, StatCard, StatRow, type C
 const USER_COLS: ColDef[] = [
   { key: 'ho_ten', label: 'Họ Tên', locked: true },
   { key: 'username', label: 'Tên đăng nhập', locked: true },
-  { key: 'role', label: 'Role' },
+  { key: 'role', label: 'Quyền hạn' },
   { key: 'telegram', label: 'Telegram' },
   { key: 'trang_thai', label: 'Trạng thái' },
   { key: 'thaotac', label: 'Thao tác', locked: true },
@@ -129,7 +129,7 @@ export function UserManagementTool({ users, onUpdateSuccess, showNotification }:
             <tr>
               {col.show('ho_ten') && <th className="px-4 py-2">Họ Tên</th>}
               {col.show('username') && <th className="px-4 py-2">Tên đăng nhập</th>}
-              {col.show('role') && <th className="px-4 py-2">Role</th>}
+              {col.show('role') && <th className="px-4 py-2">Quyền hạn</th>}
               {col.show('telegram') && <th className="px-4 py-2 text-center whitespace-nowrap">Telegram</th>}
               {col.show('trang_thai') && <th className="px-4 py-2 text-center whitespace-nowrap">Trạng thái</th>}
               {col.show('thaotac') && <th className="px-4 py-2 text-right">Thao tác</th>}
