@@ -4,7 +4,7 @@ import { Users, Boxes, Package, Plus, Search, PenSquare, Trash2, X, FileSpreadsh
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useConfirm } from '@/components/ConfirmDialog'
-import { StatCard, StatRow, BoxLoading } from '@/ui'
+import { StatCard, StatRow, BoxLoading, usePaged, Pagination } from '@/ui'
 
 // Port NGUYÊN KhachCumTool + DoiChieuMinvoiceModal từ admin (y hệt). Gọi lại /api/admin/khach-cum,
 // /api/admin/doi-chieu-khach.
@@ -152,7 +152,7 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
   const [selMa, setSelMa] = useState<string | null>(null)
   const [working, setWorking] = useState(false)
   const [newMa, setNewMa] = useState(''), [newTen, setNewTen] = useState(''), [newDc, setNewDc] = useState('')
-  const [editing, setEditing] = useState(false), [edMa, setEdMa] = useState(''), [edTen, setEdTen] = useState(''), [edDc, setEdDc] = useState('')
+  const [edMa, setEdMa] = useState(''), [edTen, setEdTen] = useState(''), [edDc, setEdDc] = useState('')
   const [newMst, setNewMst] = useState(''), [newEmail, setNewEmail] = useState('')
   const [edMst, setEdMst] = useState(''), [edEmail, setEdEmail] = useState('')
   const [cumSearch, setCumSearch] = useState(''), [maySearch, setMaySearch] = useState('')
@@ -193,7 +193,7 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
     if (!ma || !ten) return showNotification('error', 'Nhập mã và tên khách hàng')
     if (dupCluster) return showNotification('error', `Mã ${ma} đã dùng cho cụm: ${dupCluster.ten_khach_hang}`)
     if (await call('POST', { ma_khach_hang: ma, ten_khach_hang: ten, dia_chi: newDc.trim(), ma_so_thue: newMst.trim(), email_ke_toan: newEmail.trim() })) {
-      showNotification('success', 'Đã tạo cụm.'); setNewMa(''); setNewTen(''); setNewDc(''); setNewMst(''); setNewEmail(''); setSelMa(ma); await fetchClusters()
+      showNotification('success', 'Đã tạo cụm.'); setNewMa(''); setNewTen(''); setNewDc(''); setNewMst(''); setNewEmail(''); setCreateOpen(false); await fetchClusters()
     }
   }
   const saveEdit = async () => {
@@ -201,7 +201,7 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
     const maMoi = edMa.trim()
     if (!maMoi) return showNotification('error', 'Mã khách hàng không được để trống')
     if (await call('PUT', { ma_khach_hang: sel.ma_khach_hang, ma_moi: maMoi, ten_khach_hang: edTen.trim(), dia_chi: edDc.trim(), ma_so_thue: edMst.trim(), email_ke_toan: edEmail.trim() })) {
-      setEditing(false); if (maMoi !== sel.ma_khach_hang) setSelMa(maMoi); await fetchClusters(); onUpdateSuccess()
+      showNotification('success', 'Đã lưu thông tin cụm.'); if (maMoi !== sel.ma_khach_hang) setSelMa(maMoi); await fetchClusters(); onUpdateSuccess()
     }
   }
   const delCluster = async (ma: string) => {
@@ -223,6 +223,33 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
 
   const cumList = clusters.filter(c => !cumSearch.trim() || `${c.ma_khach_hang} ${c.ten_khach_hang}`.toLowerCase().includes(cumSearch.trim().toLowerCase()))
   const [doiChieuOpen, setDoiChieuOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [sortField, setSortField] = useState<'ma' | 'ten' | 'dia_chi' | 'email' | 'so_may'>('ten')
+  const [sortAsc, setSortAsc] = useState(true)
+  const handleSort = (f: typeof sortField) => { sortField === f ? setSortAsc(p => !p) : (setSortField(f), setSortAsc(true)) }
+  const cmpVi = (a: any, b: any) => String(a ?? '').localeCompare(String(b ?? ''), 'vi', { numeric: true, sensitivity: 'base' })
+  const sortedCumList = useMemo(() => {
+    const arr = [...cumList]
+    arr.sort((a, b) => {
+      let c = 0
+      if (sortField === 'ma') c = cmpVi(a.ma_khach_hang, b.ma_khach_hang)
+      else if (sortField === 'ten') c = cmpVi(a.ten_khach_hang, b.ten_khach_hang)
+      else if (sortField === 'dia_chi') c = cmpVi(a.dia_chi, b.dia_chi)
+      else if (sortField === 'email') c = cmpVi(a.email_ke_toan, b.email_ke_toan)
+      else if (sortField === 'so_may') c = (Number(a.so_may) || 0) - (Number(b.so_may) || 0)
+      if (c === 0) c = cmpVi(a.ten_khach_hang, b.ten_khach_hang)
+      return sortAsc ? c : -c
+    })
+    return arr
+  }, [cumList, sortField, sortAsc])
+  const paged = usePaged(sortedCumList)
+  const openCreate = () => { setNewMa(''); setNewTen(''); setNewDc(''); setNewMst(''); setNewEmail(''); setCreateOpen(true) }
+  const openEdit = (c: typeof clusters[number]) => { setSelMa(c.ma_khach_hang); setEdMa(c.ma_khach_hang); setEdTen(c.ten_khach_hang); setEdDc(c.dia_chi || ''); setEdMst(c.ma_so_thue || ''); setEdEmail(c.email_ke_toan || ''); setPickIds([]); setMaySearch('') }
+  const thCum = (f: typeof sortField, label: string, w: string) => (
+    <th onClick={() => handleSort(f)} className={`px-3 py-2.5 text-left cursor-pointer select-none transition-colors hover:bg-slate-100 ${w} ${sortField === f ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
+      <span className="inline-flex items-center gap-1 align-middle">{label}{sortField === f && (sortAsc ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />)}</span>
+    </th>
+  )
 
   return (
     <div className="space-y-6">
@@ -234,113 +261,160 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
         <StatCard label="Máy chưa gán (lẻ)" value={unassigned.length.toLocaleString('vi-VN')} sub="coi như 1 khách - 1 máy" icon={Package} tone="amber" />
       </StatRow>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* CỘT TRÁI: danh sách cụm + tạo cụm */}
-        <div className="border border-slate-200 rounded-lg p-5 bg-white space-y-4">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-base font-semibold text-slate-700">Danh sách khách cụm</h3>
-            <Button variant="outline" onClick={() => setDoiChieuOpen(true)} className="gap-1.5 h-9 text-xs shrink-0"><FileSpreadsheet className="w-4 h-4" /> Đối chiếu minVoice</Button>
-          </div>
-          <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Tạo cụm mới</p>
-            <div className="flex gap-2">
-              <Input placeholder="Mã KH (số)" className={`bg-white w-32 shrink-0 ${dupCluster ? 'border-amber-400 focus:ring-amber-400' : ''}`} value={newMa} onChange={e => setNewMa(e.target.value)} />
-              <Input placeholder="Tên khách hàng" className="bg-white" value={newTen} onChange={e => setNewTen(e.target.value)} />
-            </div>
-            {dupCluster && (
-              <p className="t2 text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">⚠ Mã <b>{dupCluster.ma_khach_hang}</b> đã dùng cho cụm: <b>{dupCluster.ten_khach_hang}</b>. Chọn mã khác.</p>
-            )}
-            <Input placeholder="Địa chỉ (xuất hóa đơn)" className="bg-white" value={newDc} onChange={e => setNewDc(e.target.value)} />
-            <div className="grid grid-cols-2 gap-2">
-              <Input placeholder="Mã số thuế" className="bg-white" value={newMst} onChange={e => setNewMst(e.target.value)} />
-              <Input placeholder="Email kế toán" className="bg-white" value={newEmail} onChange={e => setNewEmail(e.target.value)} />
-            </div>
-            <Button onClick={addCluster} disabled={working || !!dupCluster} className="gap-1 w-full"><Plus className="w-4 h-4" /> Tạo cụm</Button>
-          </div>
-
-          <div className="relative">
+      {/* Thanh công cụ */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h3 className="text-base font-semibold text-slate-700">Danh sách khách cụm <span className="text-slate-400 font-normal">· {clusters.length.toLocaleString('vi-VN')}</span></h3>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative w-full sm:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input placeholder="Tìm mã / tên cụm..." className="pl-9 pr-7 bg-white h-9 text-xs" value={cumSearch} onChange={e => setCumSearch(e.target.value)} />
             {cumSearch && <button type="button" onClick={() => setCumSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>}
           </div>
+          <Button variant="outline" onClick={() => setDoiChieuOpen(true)} className="gap-1.5 h-9 text-xs shrink-0"><FileSpreadsheet className="w-4 h-4" /> Đối chiếu minVoice</Button>
+          <Button onClick={openCreate} className="gap-1 h-9 text-xs shrink-0"><Plus className="w-4 h-4" /> Tạo cụm mới</Button>
+        </div>
+      </div>
 
-          <div className="bg-white rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-[420px] overflow-y-auto">
-            {loading ? <BoxLoading label="Đang tải khách cụm..." className="py-6" />
-              : cumList.length === 0 ? <p className="text-sm text-slate-400 text-center py-6">Chưa có cụm nào. Tạo ở trên.</p>
-                : cumList.map(c => (
-                  <button key={c.ma_khach_hang} onClick={() => { setSelMa(c.ma_khach_hang); setEditing(false); setPickIds([]); setMaySearch('') }}
-                    className={`w-full text-left px-3 py-2.5 hover:bg-slate-50 flex items-center gap-2 ${selMa === c.ma_khach_hang ? 'bg-blue-50/70' : ''}`}>
-                    <span className="text-xs font-mono text-slate-400 shrink-0">{c.ma_khach_hang}</span>
-                    <span className="flex-1 t1 font-medium text-slate-800 truncate">{c.ten_khach_hang}</span>
-                    <span className="text-xs text-slate-500 shrink-0 whitespace-nowrap">{c.so_may} máy</span>
-                  </button>
-                ))}
+      <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
+
+      {/* Bảng khách cụm — table-fixed + wrap (không tràn ngang, không cắt chữ) */}
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+        <table className="w-full table-fixed text-sm text-slate-600">
+          <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
+            <tr>
+              {thCum('ma', 'Mã khách', 'w-[13%]')}
+              {thCum('ten', 'Tên khách', 'w-[22%]')}
+              {thCum('dia_chi', 'Địa chỉ hóa đơn', 'w-[27%]')}
+              {thCum('email', 'Email hóa đơn', 'w-[20%]')}
+              {thCum('so_may', 'Số máy', 'w-[9%]')}
+              <th className="px-3 py-2.5 text-center w-[9%]">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {loading ? (
+              <tr><td colSpan={6} className="px-4 py-8 text-center"><BoxLoading label="Đang tải khách cụm..." /></td></tr>
+            ) : sortedCumList.length === 0 ? (
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">{clusters.length === 0 ? 'Chưa có cụm nào. Bấm "Tạo cụm mới".' : 'Không khớp tìm kiếm.'}</td></tr>
+            ) : paged.pageItems.map(c => (
+              <tr key={c.ma_khach_hang} className="hover:bg-slate-50 align-top">
+                <td className="px-3 py-2.5 font-mono text-xs text-slate-500 break-words">{c.ma_khach_hang}</td>
+                <td className="px-3 py-2.5 font-medium text-slate-800 break-words">{c.ten_khach_hang}</td>
+                <td className="px-3 py-2.5 text-slate-600 break-words">{c.dia_chi || <span className="text-slate-300">—</span>}</td>
+                <td className="px-3 py-2.5 text-xs text-slate-500 break-words">{c.email_ke_toan || <span className="text-slate-300">—</span>}</td>
+                <td className="px-3 py-2.5 text-center"><span className="inline-block min-w-[24px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold">{c.so_may}</span></td>
+                <td className="px-3 py-2.5">
+                  <div className="flex items-center justify-center gap-1.5">
+                    <button onClick={() => openEdit(c)} title="Chỉnh sửa cụm" className="text-blue-500 hover:text-blue-700 p-1.5 bg-blue-50 hover:bg-blue-100 rounded-md transition"><PenSquare className="w-4 h-4" /></button>
+                    <button onClick={() => delCluster(c.ma_khach_hang)} title="Xóa cụm" className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 hover:bg-red-100 rounded-md transition"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
+
+      {/* MODAL TẠO CỤM MỚI */}
+      {createOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2"><Plus className="w-5 h-5 text-blue-600" /> Tạo cụm khách mới</h3>
+              <button onClick={() => setCreateOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
+            </div>
+            <div className="overflow-y-auto p-5 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">Mã khách (số) *</label>
+                  <Input placeholder="VD: 10992" className={`bg-white h-9 font-mono ${dupCluster ? 'border-amber-400 focus:ring-amber-400' : ''}`} value={newMa} onChange={e => setNewMa(e.target.value)} />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="text-xs font-semibold text-slate-600">Tên khách hàng *</label>
+                  <Input placeholder="Tên khách cụm" className="bg-white h-9" value={newTen} onChange={e => setNewTen(e.target.value)} />
+                </div>
+              </div>
+              {dupCluster && (
+                <p className="t2 text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">⚠ Mã <b>{dupCluster.ma_khach_hang}</b> đã dùng cho cụm: <b>{dupCluster.ten_khach_hang}</b>. Chọn mã khác.</p>
+              )}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">Địa chỉ <span className="font-normal text-slate-400">(xuất hóa đơn)</span></label>
+                <Input placeholder="Địa chỉ hóa đơn" className="bg-white h-9" value={newDc} onChange={e => setNewDc(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">Mã số thuế</label>
+                  <Input placeholder="MST" className="bg-white h-9 font-mono" value={newMst} onChange={e => setNewMst(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">Email kế toán</label>
+                  <Input placeholder="Email nhận hóa đơn" className="bg-white h-9" value={newEmail} onChange={e => setNewEmail(e.target.value)} />
+                </div>
+              </div>
+            </div>
+            <div className="bg-slate-50 px-5 py-3 flex justify-end gap-2 border-t border-slate-100 shrink-0">
+              <Button variant="outline" onClick={() => setCreateOpen(false)} className="h-9 text-xs">Hủy</Button>
+              <Button onClick={addCluster} disabled={working || !!dupCluster} className="h-9 text-xs gap-1"><Plus className="w-4 h-4" /> Tạo cụm</Button>
+            </div>
           </div>
         </div>
+      )}
 
-        {/* CỘT PHẢI: chi tiết cụm đang chọn */}
-        <div className="border border-slate-200 rounded-lg p-5 bg-white space-y-4">
-          {!sel ? (
-            <div className="text-sm text-slate-400 text-center py-16">Chọn một cụm bên trái để xem &amp; gán máy.</div>
-          ) : (
-            <>
-              <div className="flex items-start gap-2">
-                <div className="flex-1 min-w-0">
-                  {editing ? (
-                    <div className="space-y-2">
-                      <Input className="bg-white w-40" value={edMa} onChange={e => setEdMa(e.target.value)} placeholder="Mã KH (số)" />
-                      <Input className="bg-white" value={edTen} onChange={e => setEdTen(e.target.value)} placeholder="Tên khách hàng" />
-                      <Input className="bg-white" value={edDc} onChange={e => setEdDc(e.target.value)} placeholder="Địa chỉ" />
-                      <div className="grid grid-cols-2 gap-2">
-                        <Input className="bg-white" value={edMst} onChange={e => setEdMst(e.target.value)} placeholder="Mã số thuế" />
-                        <Input className="bg-white" value={edEmail} onChange={e => setEdEmail(e.target.value)} placeholder="Email kế toán" />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button onClick={saveEdit} disabled={working} className="h-8 text-xs px-3">Lưu</Button>
-                        <Button variant="outline" onClick={() => setEditing(false)} className="h-8 text-xs px-3">Hủy</Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono text-slate-400">{sel.ma_khach_hang}</span>
-                        <h3 className="text-base font-semibold text-slate-800 truncate">{sel.ten_khach_hang}</h3>
-                      </div>
-                      {sel.dia_chi && <p className="text-sm text-slate-500 mt-0.5">{sel.dia_chi}</p>}
-                      <div className="flex gap-3 mt-1.5 flex-wrap">
-                        {sel.ma_so_thue && <p className="t2 font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">MST: {sel.ma_so_thue}</p>}
-                        {sel.email_ke_toan && <p className="t2 text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">Email: {sel.email_ke_toan}</p>}
-                      </div>
-                    </>
-                  )}
-                </div>
-                {!editing && (
-                  <div className="flex gap-1 shrink-0">
-                    <button onClick={() => { setEditing(true); setEdMa(sel.ma_khach_hang); setEdTen(sel.ten_khach_hang); setEdDc(sel.dia_chi || ''); setEdMst(sel.ma_so_thue || ''); setEdEmail(sel.email_ke_toan || '') }} className="text-blue-500 hover:text-blue-700 p-1"><PenSquare className="w-4 h-4" /></button>
-                    <button onClick={() => delCluster(sel.ma_khach_hang)} className="text-red-500 hover:text-red-700 p-1"><Trash2 className="w-4 h-4" /></button>
+      {/* MODAL CHỈNH SỬA CỤM */}
+      {selMa && sel && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2"><PenSquare className="w-5 h-5 text-blue-600" /> Chỉnh sửa cụm <span className="font-mono text-sm text-slate-400">{sel.ma_khach_hang}</span></h3>
+              <button onClick={() => setSelMa(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
+            </div>
+            <div className="overflow-y-auto p-5 space-y-5">
+
+              <section className="space-y-3">
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-100 pb-1.5 flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-slate-400" /> Thông tin cụm</div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-600">Mã khách (số)</label>
+                    <Input className="bg-white h-9 font-mono" value={edMa} onChange={e => setEdMa(e.target.value)} />
                   </div>
-                )}
-              </div>
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="text-xs font-semibold text-slate-600">Tên khách hàng</label>
+                    <Input className="bg-white h-9" value={edTen} onChange={e => setEdTen(e.target.value)} />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">Địa chỉ <span className="font-normal text-slate-400">(xuất hóa đơn)</span></label>
+                  <Input className="bg-white h-9" value={edDc} onChange={e => setEdDc(e.target.value)} />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-600">Mã số thuế</label>
+                    <Input className="bg-white h-9 font-mono" value={edMst} onChange={e => setEdMst(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-600">Email kế toán</label>
+                    <Input className="bg-white h-9" value={edEmail} onChange={e => setEdEmail(e.target.value)} />
+                  </div>
+                </div>
+              </section>
 
-              {/* Máy trong cụm */}
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Máy trong cụm ({selMembers.length})</p>
+              <section className="space-y-2">
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-100 pb-1.5 flex items-center gap-1.5"><Boxes className="w-3.5 h-3.5 text-slate-400" /> Máy trong cụm ({selMembers.length})</div>
                 <div className="bg-white rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-52 overflow-y-auto">
                   {selMembers.length === 0 ? <p className="text-sm text-slate-400 text-center py-4">Chưa có máy. Thêm ở dưới.</p>
                     : selMembers.map(m => (
-                      <div key={m.id} className="flex items-center gap-2 px-3 py-2 text-sm">
-                        <span className="text-xs font-mono text-slate-400 shrink-0">{m.ma_may || '—'}</span>
-                        <span className="flex-1 text-slate-700 truncate">{m.ten_khach_hang}</span>
+                      <div key={m.id} className="flex items-start gap-2 px-3 py-2 text-sm">
+                        <span className="text-xs font-mono text-slate-400 shrink-0 pt-0.5">{m.ma_may || '—'}</span>
+                        <span className="flex-1 text-slate-700 break-words min-w-0">{m.ten_khach_hang}</span>
                         <button onClick={() => removeMay(m.id)} disabled={working} title="Gỡ khỏi cụm" className="text-slate-400 hover:text-red-600 shrink-0"><X className="w-4 h-4" /></button>
                       </div>
                     ))}
                 </div>
-              </div>
+              </section>
 
-              {/* Thêm máy (từ danh sách máy chưa gán) */}
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Thêm máy vào cụm (chỉ hiện máy chưa thuộc cụm nào)</p>
-                <div className="relative mb-2">
+              <section className="space-y-2">
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-100 pb-1.5 flex items-center gap-1.5"><Plus className="w-3.5 h-3.5 text-slate-400" /> Thêm máy vào cụm <span className="normal-case tracking-normal font-normal text-slate-400">— chỉ máy lẻ chưa thuộc cụm</span></div>
+                <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <Input placeholder="Tìm theo tên / mã máy / model..." className="pl-9 pr-7 bg-white h-9 text-xs" value={maySearch} onChange={e => setMaySearch(e.target.value)} />
                   {maySearch && <button type="button" onClick={() => setMaySearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>}
@@ -349,22 +423,29 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
                   <div className="bg-white rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-52 overflow-y-auto">
                     {mayResults.length === 0 ? <p className="text-sm text-slate-400 text-center py-4">Không có máy lẻ khớp.</p>
                       : mayResults.map(c => (
-                        <label key={c.id} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">
-                          <input type="checkbox" checked={pickIds.includes(c.id)} onChange={() => togglePick(c.id)} className="w-4 h-4 accent-blue-600" />
-                          <span className="text-xs font-mono text-slate-400 shrink-0">{c.ma_may || '—'}</span>
-                          <span className="flex-1 text-slate-700 truncate">{c.ten_khach_hang}</span>
+                        <label key={c.id} className="flex items-start gap-2 px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">
+                          <input type="checkbox" checked={pickIds.includes(c.id)} onChange={() => togglePick(c.id)} className="w-4 h-4 accent-blue-600 mt-0.5 shrink-0" />
+                          <span className="text-xs font-mono text-slate-400 shrink-0 pt-0.5">{c.ma_may || '—'}</span>
+                          <span className="flex-1 text-slate-700 break-words min-w-0">{c.ten_khach_hang}</span>
                         </label>
                       ))}
                   </div>
                 )}
                 {pickIds.length > 0 && (
-                  <Button onClick={assignMay} disabled={working} className="gap-1 w-full mt-2 bg-emerald-600 hover:bg-emerald-700"><Plus className="w-4 h-4" /> Gán {pickIds.length} máy vào cụm</Button>
+                  <Button onClick={assignMay} disabled={working} className="gap-1 w-full bg-emerald-600 hover:bg-emerald-700"><Plus className="w-4 h-4" /> Gán {pickIds.length} máy vào cụm</Button>
                 )}
+              </section>
+            </div>
+            <div className="bg-slate-50 px-5 py-3 flex items-center justify-between gap-2 border-t border-slate-100 shrink-0">
+              <Button variant="outline" onClick={() => delCluster(sel.ma_khach_hang)} className="h-9 text-xs gap-1.5 border-rose-200 text-rose-600 hover:bg-rose-50"><Trash2 className="w-4 h-4" /> Xóa cụm</Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setSelMa(null)} className="h-9 text-xs">Đóng</Button>
+                <Button onClick={saveEdit} disabled={working} className="h-9 text-xs">Lưu thông tin</Button>
               </div>
-            </>
-          )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
