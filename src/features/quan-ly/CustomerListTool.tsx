@@ -328,6 +328,30 @@ export function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCa
                     </>
                   )}
 
+                </div>
+
+                <div className="space-y-4">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Hợp đồng</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-600">Loại hợp đồng</label>
+                      <select className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" value={editing.loai_hd || ""} onChange={(e) => setEditing({ ...editing, loai_hd: e.target.value })}>
+                        <option value="">— Không —</option>
+                        {loaiHdOptions.map(v => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-600">Khoảng cách (km)</label>
+                      {editing.id
+                        ? <Input type="number" step="0.1" value={editing.km_mac_dinh ?? ""} onChange={(e) => setEditing({ ...editing, km_mac_dinh: e.target.value })} className="bg-white" />
+                        : <Input value="Tự tính từ địa chỉ" disabled className="bg-slate-50 text-slate-400" />}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-600">Ngày hết hạn hợp đồng</label>
+                    <DateField value={editing.ngay_het_han_hdbt || ""} onChange={(v) => setEditing({ ...editing, ngay_het_han_hdbt: v })} />
+                  </div>
+
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide pt-1">Thông tin máy</div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
@@ -362,32 +386,6 @@ export function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCa
                       </select>
                     </div>
                   </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Hợp đồng</div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-slate-600">Loại hợp đồng</label>
-                      <select className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" value={editing.loai_hd || ""} onChange={(e) => setEditing({ ...editing, loai_hd: e.target.value })}>
-                        <option value="">— Không —</option>
-                        {loaiHdOptions.map(v => <option key={v} value={v}>{v}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-slate-600">Khoảng cách (km)</label>
-                      {editing.id
-                        ? <Input type="number" step="0.1" value={editing.km_mac_dinh ?? ""} onChange={(e) => setEditing({ ...editing, km_mac_dinh: e.target.value })} className="bg-white" />
-                        : <Input value="Tự tính từ địa chỉ" disabled className="bg-slate-50 text-slate-400" />}
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-600">Ngày hết hạn hợp đồng</label>
-                    <DateField value={editing.ngay_het_han_hdbt || ""} onChange={(v) => setEditing({ ...editing, ngay_het_han_hdbt: v })} />
-                  </div>
-                  <p className="text-xs text-slate-500 bg-slate-50 border border-slate-100 rounded-md px-3 py-2">
-                    Khối <b>Lịch bảo trì</b> bên dưới chỉ áp dụng cho máy <b>HĐBT</b> hoặc <b>MF</b>. Loại HĐ khác sẽ được khóa.
-                  </p>
                 </div>
               </div>
 

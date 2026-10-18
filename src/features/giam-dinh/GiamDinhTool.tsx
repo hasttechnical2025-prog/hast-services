@@ -169,8 +169,8 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
             <Input placeholder="Nhập mã máy" value={form.ma_may} onChange={(e) => setForm({ ...form, ma_may: e.target.value })} className="bg-white" />
           </div>
           <div className="space-y-1 md:col-span-2">
-            <label className="text-xs font-semibold text-slate-600">Khách hàng (tự tra theo mã máy)</label>
-            <div className="h-10 flex items-center px-3 rounded-md border border-slate-200 bg-slate-100 text-sm text-slate-600 overflow-hidden whitespace-nowrap text-ellipsis">
+            <label className="text-xs font-semibold text-slate-600">Khách hàng</label>
+            <div className="h-8 flex items-center px-2.5 rounded-md border border-slate-200 bg-slate-100 text-xs text-slate-600 overflow-hidden whitespace-nowrap text-ellipsis">
               {cust ? cust.ten_khach_hang : <span className="text-slate-400 italic">Chưa khớp mã máy</span>}
             </div>
             {cust && (

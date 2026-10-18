@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect, useMemo, useRef } from 'react'
-import { Search, Package, Boxes, AlertTriangle, Trash2, ChevronUp, ChevronDown, ToggleLeft, ToggleRight, PenSquare } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Search, Package, Boxes, AlertTriangle, Trash2, ChevronUp, ChevronDown, ToggleLeft, ToggleRight, PenSquare, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useConfirm } from '@/components/ConfirmDialog'
@@ -81,7 +81,7 @@ export function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSucce
   const [loading, setLoading] = useState(false)
   const [highlightMH, setHighlightMH] = useState("")
   const [pendingScroll, setPendingScroll] = useState("")
-  const formRef = useRef<HTMLFormElement>(null)
+  const [formOpen, setFormOpen] = useState(false)
 
   useEffect(() => {
     if (!pendingScroll) return
@@ -92,12 +92,14 @@ export function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSucce
   const dupItem = !isEditing && formData.ma_hang.trim() ? inventory.find(i => i.ma_hang === formData.ma_hang.trim().toUpperCase()) : undefined
 
   const resetForm = () => { setFormData({ ma_hang: "", ten_hang: "", model: "", hang: "", ton_kho: 0, ngung_su_dung: false, ma_thay_the: "" }); setIsEditing(false) }
+  const openAdd = () => { resetForm(); setFormOpen(true) }
+  const closeForm = () => { resetForm(); setFormOpen(false) }
 
   const handleEdit = (item: any) => {
     setFormData({ ma_hang: item.ma_hang, ten_hang: item.ten_hang, model: item.model || "", hang: item.hang || "", ton_kho: item.ton_kho || 0, ngung_su_dung: !!item.ngung_su_dung, ma_thay_the: item.ma_thay_the || "" })
     setIsEditing(true)
     setHighlightMH(item.ma_hang)
-    setTimeout(() => formRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 0)
+    setFormOpen(true)
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -105,7 +107,7 @@ export function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSucce
     setLoading(true)
     try {
       const res = await fetch('/api/admin/kho-hang', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) })
-      if (res.ok) { showNotification('success', isEditing ? "Cập nhật vật tư thành công!" : "Thêm vật tư mới thành công!"); resetForm(); onUpdateSuccess() }
+      if (res.ok) { const ma = formData.ma_hang.trim().toUpperCase(); showNotification('success', isEditing ? "Cập nhật vật tư thành công!" : "Thêm vật tư mới thành công!"); setHighlightMH(ma); setPendingScroll(ma); resetForm(); setFormOpen(false); onUpdateSuccess() }
       else { const err = await res.json(); showNotification('error', err.error) }
     } catch { showNotification('error', "Lỗi kết nối!") } finally { setLoading(false) }
   }
@@ -140,56 +142,6 @@ export function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSucce
         <StatCard label="Sắp hết" value={invLow.toLocaleString('vi-VN')} sub={lowStock > 0 ? `tồn ≤ ${lowStock.toLocaleString('vi-VN')}` : 'chưa đặt ngưỡng'} tone="amber" icon={AlertTriangle} />
         <StatCard label="Hết hàng" value={invOut.toLocaleString('vi-VN')} sub="tồn = 0" tone="rose" icon={Trash2} />
       </StatRow>
-      <form ref={formRef} onSubmit={handleSave} className="bg-slate-50 p-4 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
-        <div className="space-y-1 lg:col-span-2">
-          <label className="text-xs font-semibold text-slate-600">Mã hàng *</label>
-          <Input required value={formData.ma_hang} onChange={(e) => setFormData({ ...formData, ma_hang: e.target.value.toUpperCase() })} disabled={isEditing} placeholder="VD: DR017" className={`bg-white h-9 ${dupItem ? 'border-amber-400 focus:ring-amber-400' : ''}`} />
-          {dupItem && (
-            <div className="t3 text-amber-600 flex items-center gap-1 flex-wrap mt-1">⚠ Đã có.<button type="button" onClick={() => handleEdit(dupItem)} className="underline font-medium">Sửa</button></div>
-          )}
-        </div>
-        <div className="space-y-1 lg:col-span-3">
-          <label className="text-xs font-semibold text-slate-600">Tên hàng / Vật tư *</label>
-          <Input required value={formData.ten_hang} onChange={(e) => setFormData({ ...formData, ten_hang: e.target.value })} placeholder="VD: Trống lấy ảnh DR017" className="bg-white h-9" />
-        </div>
-        <div className="space-y-1 lg:col-span-2">
-          <label className="text-xs font-semibold text-slate-600">Model</label>
-          <Input value={formData.model} onChange={(e) => setFormData({ ...formData, model: e.target.value })} placeholder="VD: PP 7136" className="bg-white h-9" />
-        </div>
-        <div className="space-y-1 lg:col-span-2">
-          <label className="text-xs font-semibold text-slate-600">Hãng</label>
-          <select value={formData.hang} onChange={(e) => setFormData({ ...formData, hang: e.target.value })} className="w-full h-9 px-3 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-1 focus:ring-blue-500">
-            <option value="">-- Chọn hãng --</option>
-            {hangOptions.map(h => <option key={h} value={h}>{h}</option>)}
-          </select>
-        </div>
-        <div className="space-y-1 lg:col-span-1">
-          <label className="text-xs font-semibold text-slate-600">SL Tồn *</label>
-          <Input type="number" required value={formData.ton_kho} onChange={(e) => setFormData({ ...formData, ton_kho: parseInt(e.target.value) || 0 })} className="bg-white h-9 text-center px-1" />
-        </div>
-        <div className="space-y-1 lg:col-span-2">
-          <label className="text-xs font-semibold text-transparent select-none hidden lg:block">&nbsp;</label>
-          <div className="flex items-center gap-1.5 w-full">
-            {isEditing && <Button type="button" variant="outline" onClick={resetForm} className="h-9 px-2.5 text-xs">Hủy</Button>}
-            <Button type="submit" disabled={loading} className="h-9 flex-1 text-xs px-3 font-medium">{loading ? "Lưu..." : isEditing ? "Cập nhật" : "Thêm mới"}</Button>
-          </div>
-        </div>
-        {isEditing && (
-          <>
-            <div className="space-y-1 lg:col-span-2 flex items-center py-1">
-              <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
-                <input type="checkbox" checked={formData.ngung_su_dung} onChange={(e) => setFormData({ ...formData, ngung_su_dung: e.target.checked })} className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500" />
-                <span className={formData.ngung_su_dung ? 'text-amber-700 font-bold' : ''}>Ngưng sử dụng (Mã cũ)</span>
-              </label>
-            </div>
-            <div className="space-y-1 lg:col-span-3">
-              <label className="text-xs font-semibold text-slate-600">Mã tương đương <span className="font-normal text-slate-400">(nhiều mã cách nhau dấu phẩy)</span></label>
-              <Input value={formData.ma_thay_the} onChange={(e) => setFormData({ ...formData, ma_thay_the: e.target.value.toUpperCase() })} placeholder="VD: AC79090, TN628" className="bg-white h-9 font-mono" />
-            </div>
-          </>
-        )}
-      </form>
-
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
           <button type="button" onClick={() => setStatusFilter('all')} className={`px-3 py-1.5 rounded-md text-xs transition ${statusFilter === 'all' ? 'bg-white text-slate-800 font-bold shadow-sm ring-1 ring-slate-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>Tất cả ({inventory.length})</button>
@@ -198,6 +150,7 @@ export function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSucce
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <Button onClick={openAdd} className="h-9 gap-1.5 text-xs"><Plus className="w-4 h-4" /> Thêm mới</Button>
           <div className="relative">
             <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Tìm mã, tên, model, mã tương đương..." className="h-9 pl-8 pr-7 text-xs rounded-md border border-slate-200 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 w-52 sm:w-60" />
@@ -247,6 +200,66 @@ export function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSucce
           <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
         </div>
       </div>
+
+      {/* Modal Thêm / Sửa vật tư — thay cho form nằm cố định trên trang */}
+      {formOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2"><Package className="w-5 h-5 text-blue-600" /> {isEditing ? 'Sửa vật tư' : 'Thêm vật tư mới'}</h3>
+              <button onClick={closeForm} className="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
+            </div>
+            <form onSubmit={handleSave} className="overflow-y-auto p-5 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">Mã hàng *</label>
+                  <Input required value={formData.ma_hang} onChange={(e) => setFormData({ ...formData, ma_hang: e.target.value.toUpperCase() })} disabled={isEditing} placeholder="VD: DR017" className={`bg-white h-9 ${dupItem ? 'border-amber-400 focus:ring-amber-400' : ''}`} />
+                  {dupItem && (
+                    <div className="t3 text-amber-600 flex items-center gap-1 flex-wrap mt-1">⚠ Đã có.<button type="button" onClick={() => handleEdit(dupItem)} className="underline font-medium">Sửa</button></div>
+                  )}
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="text-xs font-semibold text-slate-600">Tên hàng / Vật tư *</label>
+                  <Input required value={formData.ten_hang} onChange={(e) => setFormData({ ...formData, ten_hang: e.target.value })} placeholder="VD: Trống lấy ảnh DR017" className="bg-white h-9" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">Model</label>
+                  <Input value={formData.model} onChange={(e) => setFormData({ ...formData, model: e.target.value })} placeholder="VD: PP 7136" className="bg-white h-9" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">Hãng</label>
+                  <select value={formData.hang} onChange={(e) => setFormData({ ...formData, hang: e.target.value })} className="w-full h-9 px-3 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-1 focus:ring-blue-500">
+                    <option value="">-- Chọn hãng --</option>
+                    {hangOptions.map(h => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">SL Tồn *</label>
+                  <Input type="number" required value={formData.ton_kho} onChange={(e) => setFormData({ ...formData, ton_kho: parseInt(e.target.value) || 0 })} className="bg-white h-9 text-center px-1" />
+                </div>
+              </div>
+              {isEditing && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="text-xs font-semibold text-slate-600">Mã tương đương <span className="font-normal text-slate-400">(nhiều mã cách nhau dấu phẩy)</span></label>
+                    <Input value={formData.ma_thay_the} onChange={(e) => setFormData({ ...formData, ma_thay_the: e.target.value.toUpperCase() })} placeholder="VD: AC79090, TN628" className="bg-white h-9 font-mono" />
+                  </div>
+                  <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none h-9">
+                    <input type="checkbox" checked={formData.ngung_su_dung} onChange={(e) => setFormData({ ...formData, ngung_su_dung: e.target.checked })} className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500" />
+                    <span className={formData.ngung_su_dung ? 'text-amber-700 font-bold' : ''}>Ngưng sử dụng (Mã cũ)</span>
+                  </label>
+                </div>
+              )}
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <Button type="button" variant="outline" onClick={closeForm} className="h-9 text-xs">Hủy</Button>
+                <Button type="submit" disabled={loading} className="h-9 text-xs px-4 font-medium">{loading ? 'Lưu...' : isEditing ? 'Cập nhật' : 'Thêm mới'}</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {confirmNode}
     </div>
   )
