@@ -30,7 +30,7 @@ body {
 
 /* ───── UI 2027 (/v2) — scope riêng, KHÔNG ảnh hưởng /admin ───── */
 /* Font v2: Be Vietnam Pro (chỉ trong .v2-shell); admin giữ Inter. font-mono vẫn override cho mã. */
-.v2-shell { font-family: var(--font-be-vietnam), var(--font-inter), system-ui, sans-serif; }
+.v2-shell { font-family: var(--font-tinos), "Times New Roman", Times, serif; }
 /* Thang cỡ chữ bảng — KHỚP /admin 1:1: thân bảng 12.25px (= text-sm @root14) · tiêu đề cột 10.5px (= text-xs).
    (root html=14px nên đặt px tuyệt đối cho chắc; áp mọi bảng trong /v2.) */
 .v2-shell table tbody td { font-size: 12.25px; }

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Geist_Mono, Be_Vietnam_Pro } from "next/font/google";
+import { Inter, Geist_Mono, Tinos } from "next/font/google";
 import "./globals.css";
 import UpdateChecker from "@/components/UpdateChecker";
 import NoPinchZoom from "@/components/NoPinchZoom";
@@ -19,10 +19,11 @@ const geistMono = Geist_Mono({
 });
 
 // Font cho v2 (chỉ áp qua .v2-shell trong globals.css); admin vẫn Inter.
-const beVietnam = Be_Vietnam_Pro({
-  variable: "--font-be-vietnam",
+// Tinos = bản web-safe của Times New Roman (metric-compatible), hỗ trợ tiếng Việt. Chỉ có 400/700.
+const tinos = Tinos({
+  variable: "--font-tinos",
   subsets: ["latin", "vietnamese"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["400", "700"],
   display: "swap",
 });
 
@@ -50,7 +51,7 @@ export default function RootLayout({
   return (
     <html
       lang="vi"
-      className={`${inter.variable} ${geistMono.variable} ${beVietnam.variable} h-full antialiased`}
+      className={`${inter.variable} ${geistMono.variable} ${tinos.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {children}
