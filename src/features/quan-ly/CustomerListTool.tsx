@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
-import { Users, ClipboardCheck, Clock, AlertTriangle, Search, Plus, ChevronUp, ChevronDown, PenSquare, MapPin } from 'lucide-react'
+import { Users, ClipboardCheck, Clock, AlertTriangle, Search, Plus, ChevronUp, ChevronDown, PenSquare, MapPin, Printer, FileText, CalendarClock, ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import DateField from '@/components/DateField'
@@ -288,114 +288,121 @@ export function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCa
               <button onClick={() => setEditing(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
             </div>
             <div className="p-5 overflow-y-auto space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-                <div className="space-y-4">
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Khách hàng</div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-600">Tên khách hàng</label>
-                    <Input value={editing.ten_khach_hang || ""} onChange={(e) => setEditing({ ...editing, ten_khach_hang: e.target.value })} className="bg-white" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-600">Địa chỉ <span className="font-normal text-slate-400">(hóa đơn)</span></label>
-                    <Input value={editing.dia_chi || ""} onChange={(e) => setEditing({ ...editing, dia_chi: e.target.value })} className="bg-white" />
-                    <label className="text-xs font-semibold text-slate-600 flex items-center gap-1 mt-2"><MapPin className="w-3 h-3 text-blue-500" /> Nơi đặt máy <span className="font-normal text-slate-400">(KTV đến — để trống nếu trùng địa chỉ)</span></label>
-                    <Input value={editing.vi_tri_dat_may || ""} onChange={(e) => setEditing({ ...editing, vi_tri_dat_may: e.target.value })} placeholder="VD: Tầng 3, chi nhánh Nội Bài" className="bg-white" />
-                  </div>
+              {/* 1. THÔNG TIN KHÁCH HÀNG */}
+              <section className="space-y-3">
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-100 pb-1.5 flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-slate-400" /> Thông tin khách hàng</div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">Tên khách hàng</label>
+                  <Input value={editing.ten_khach_hang || ""} onChange={(e) => setEditing({ ...editing, ten_khach_hang: e.target.value })} className="bg-white h-9" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">Địa chỉ <span className="font-normal text-slate-400">(hóa đơn)</span></label>
+                  <Input value={editing.dia_chi || ""} onChange={(e) => setEditing({ ...editing, dia_chi: e.target.value })} className="bg-white h-9" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600 flex items-center gap-1"><MapPin className="w-3 h-3 text-blue-500" /> Nơi đặt máy <span className="font-normal text-slate-400">(KTV đến — để trống nếu trùng địa chỉ)</span></label>
+                  <Input value={editing.vi_tri_dat_may || ""} onChange={(e) => setEditing({ ...editing, vi_tri_dat_may: e.target.value })} placeholder="VD: Tầng 3, chi nhánh Nội Bài" className="bg-white h-9" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {(editing.ma_khach_cum && editing.soct_khach_cum) ? (
-                    <div className="grid grid-cols-2 gap-3">
+                    <>
                       <div className="space-y-1">
                         <label className="text-xs font-semibold text-slate-600">Mã số thuế <span className="font-normal text-slate-400">(hóa đơn)</span></label>
-                        <Input value={editing.soct_khach_cum.ma_so_thue || ""} readOnly className="bg-slate-50 font-mono text-slate-600" />
+                        <Input value={editing.soct_khach_cum.ma_so_thue || ""} readOnly className="bg-slate-50 font-mono text-slate-600 h-9" />
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs font-semibold text-slate-600">Email nhận HĐ</label>
-                        <Input value={editing.soct_khach_cum.email_ke_toan || ""} readOnly className="bg-slate-50 text-slate-600" />
+                        <Input value={editing.soct_khach_cum.email_ke_toan || ""} readOnly className="bg-slate-50 text-slate-600 h-9" />
                       </div>
-                    </div>
+                    </>
                   ) : (
                     <>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <label className="text-xs font-semibold text-slate-600">Mã số thuế <span className="font-normal text-slate-400">(hóa đơn)</span></label>
-                          <Input value={editing.ma_so_thue || ""} onChange={(e) => setEditing({ ...editing, ma_so_thue: e.target.value })} placeholder="MST của điểm máy này" className="bg-white font-mono" />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-xs font-semibold text-slate-600">Email nhận HĐ</label>
-                          <Input value={editing.email_ke_toan || ""} onChange={(e) => setEditing({ ...editing, email_ke_toan: e.target.value })} placeholder="Email kế toán (tùy chọn)" className="bg-white" />
-                        </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-600">Mã số thuế <span className="font-normal text-slate-400">(hóa đơn)</span></label>
+                        <Input value={editing.ma_so_thue || ""} onChange={(e) => setEditing({ ...editing, ma_so_thue: e.target.value })} placeholder="MST của điểm máy này" className="bg-white font-mono h-9" />
                       </div>
-                      <p className="t2 text-slate-400 -mt-1">Điểm máy CHƯA gán vào cụm khách → MST/Email này được dùng khi lên hóa đơn. Nếu đã gán cụm thì lấy theo cụm.</p>
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-600">Email nhận HĐ</label>
+                        <Input value={editing.email_ke_toan || ""} onChange={(e) => setEditing({ ...editing, email_ke_toan: e.target.value })} placeholder="Email kế toán (tùy chọn)" className="bg-white h-9" />
+                      </div>
                     </>
                   )}
-
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-600">Khoảng cách (km)</label>
+                    {editing.id
+                      ? <Input type="number" step="0.1" value={editing.km_mac_dinh ?? ""} onChange={(e) => setEditing({ ...editing, km_mac_dinh: e.target.value })} className="bg-white h-9" />
+                      : <Input value="Tự tính từ địa chỉ" disabled className="bg-slate-50 text-slate-400 h-9" />}
+                  </div>
                 </div>
+                {!(editing.ma_khach_cum && editing.soct_khach_cum) && (
+                  <p className="t2 text-slate-400">Điểm máy CHƯA gán vào cụm khách → MST/Email này được dùng khi lên hóa đơn. Nếu đã gán cụm thì lấy theo cụm.</p>
+                )}
+              </section>
 
-                <div className="space-y-4">
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Hợp đồng</div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-slate-600">Loại hợp đồng</label>
-                      <select className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" value={editing.loai_hd || ""} onChange={(e) => setEditing({ ...editing, loai_hd: e.target.value })}>
-                        <option value="">— Không —</option>
-                        {loaiHdOptions.map(v => <option key={v} value={v}>{v}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-slate-600">Khoảng cách (km)</label>
-                      {editing.id
-                        ? <Input type="number" step="0.1" value={editing.km_mac_dinh ?? ""} onChange={(e) => setEditing({ ...editing, km_mac_dinh: e.target.value })} className="bg-white" />
-                        : <Input value="Tự tính từ địa chỉ" disabled className="bg-slate-50 text-slate-400" />}
-                    </div>
+              {/* 2. THÔNG TIN MÁY */}
+              <section className="space-y-3">
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-100 pb-1.5 flex items-center gap-1.5"><Printer className="w-3.5 h-3.5 text-slate-400" /> Thông tin máy</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-600">Mã máy</label>
+                    <Input value={editing.ma_may || ""} onChange={(e) => setEditing({ ...editing, ma_may: e.target.value })} className={`bg-white h-9 ${dupCust ? 'border-amber-400 focus:ring-amber-400' : ''}`} />
+                    {dupCust && (
+                      <div className="text-xs text-amber-600 flex items-center gap-1 flex-wrap">
+                        ⚠ Trùng mã của: {dupCust.ten_khach_hang}.
+                        <button type="button" onClick={() => viewRow(dupCust.id)} className="underline font-medium">Xem dòng</button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-600">Serial máy</label>
+                    <Input value={editing.serial || ""} onChange={(e) => setEditing({ ...editing, serial: e.target.value })} className={`bg-white h-9 ${dupSerial ? 'border-amber-400 focus:ring-amber-400' : ''}`} placeholder="Tùy chọn (nên có với máy thuê)" />
+                    {dupSerial && (
+                      <div className="text-xs text-amber-600 flex items-center gap-1 flex-wrap">
+                        ⚠ Trùng serial của: {dupSerial.ten_khach_hang}.
+                        <button type="button" onClick={() => viewRow(dupSerial.id)} className="underline font-medium">Xem dòng</button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-600">Model</label>
+                    <Input value={editing.model || ""} onChange={(e) => setEditing({ ...editing, model: e.target.value })} className="bg-white h-9" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-600">Hãng máy</label>
+                    <select className="w-full h-9 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" value={editing.hang || ""} onChange={(e) => setEditing({ ...editing, hang: e.target.value })}>
+                      <option value="">— Không —</option>
+                      {hangOptions.map(v => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </section>
+
+              {/* 3. HỢP ĐỒNG — Loại HĐ quyết định khối Lịch bảo trì */}
+              <section className="rounded-lg border border-blue-200 bg-blue-50/50 p-3.5 space-y-3">
+                <div className="text-xs font-semibold text-blue-700 uppercase tracking-wide border-b border-blue-200 pb-1.5 flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> Hợp đồng</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-600">Loại hợp đồng</label>
+                    <select className="w-full h-9 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" value={editing.loai_hd || ""} onChange={(e) => setEditing({ ...editing, loai_hd: e.target.value })}>
+                      <option value="">— Không —</option>
+                      {loaiHdOptions.map(v => <option key={v} value={v}>{v}</option>)}
+                    </select>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-600">Ngày hết hạn hợp đồng</label>
-                    <DateField value={editing.ngay_het_han_hdbt || ""} onChange={(v) => setEditing({ ...editing, ngay_het_han_hdbt: v })} />
-                  </div>
-
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide pt-1">Thông tin máy</div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-slate-600">Mã máy</label>
-                      <Input value={editing.ma_may || ""} onChange={(e) => setEditing({ ...editing, ma_may: e.target.value })} className={`bg-white ${dupCust ? 'border-amber-400 focus:ring-amber-400' : ''}`} />
-                      {dupCust && (
-                        <div className="text-xs text-amber-600 flex items-center gap-1 flex-wrap">
-                          ⚠ Trùng mã của: {dupCust.ten_khach_hang}.
-                          <button type="button" onClick={() => viewRow(dupCust.id)} className="underline font-medium">Xem dòng</button>
-                        </div>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-slate-600">Serial máy</label>
-                      <Input value={editing.serial || ""} onChange={(e) => setEditing({ ...editing, serial: e.target.value })} className={`bg-white ${dupSerial ? 'border-amber-400 focus:ring-amber-400' : ''}`} placeholder="Tùy chọn (nên có với máy thuê)" />
-                      {dupSerial && (
-                        <div className="text-xs text-amber-600 flex items-center gap-1 flex-wrap">
-                          ⚠ Trùng serial của: {dupSerial.ten_khach_hang}.
-                          <button type="button" onClick={() => viewRow(dupSerial.id)} className="underline font-medium">Xem dòng</button>
-                        </div>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-slate-600">Model</label>
-                      <Input value={editing.model || ""} onChange={(e) => setEditing({ ...editing, model: e.target.value })} className="bg-white" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-slate-600">Hãng máy</label>
-                      <select className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" value={editing.hang || ""} onChange={(e) => setEditing({ ...editing, hang: e.target.value })}>
-                        <option value="">— Không —</option>
-                        {hangOptions.map(v => <option key={v} value={v}>{v}</option>)}
-                      </select>
-                    </div>
+                    <DateField value={editing.ngay_het_han_hdbt || ""} onChange={(v) => setEditing({ ...editing, ngay_het_han_hdbt: v })} heightClass="h-9" />
                   </div>
                 </div>
-              </div>
+                <p className="text-xs text-blue-700 flex items-center gap-1.5"><ArrowDown className="w-3.5 h-3.5 shrink-0" /> Loại HĐ quyết định khối Lịch bảo trì bên dưới (chỉ mở với HĐBT / MF).</p>
+              </section>
 
               {(() => {
                 const baoTriOn = ['HĐBT', 'MF'].includes((editing.loai_hd || '').trim())
                 return (
-                  <div className="border-t border-slate-100 pt-4 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Lịch bảo trì</div>
-                      {!baoTriOn && <span className="t2 text-slate-400">— chỉ áp dụng cho HĐBT / MF</span>}
+                  <section className="space-y-3">
+                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-100 pb-1.5 flex items-center gap-1.5">
+                      <CalendarClock className="w-3.5 h-3.5 text-slate-400" /> Lịch bảo trì
+                      {!baoTriOn && <span className="normal-case tracking-normal font-normal text-slate-400">— chỉ áp dụng cho HĐBT / MF</span>}
                     </div>
                     <div className={baoTriOn ? '' : 'opacity-50 pointer-events-none select-none'} aria-disabled={!baoTriOn}>
                       <div className="space-y-1">
@@ -441,7 +448,7 @@ export function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCa
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </section>
                 )
               })()}
             </div>
