@@ -221,23 +221,24 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
   const thongKeRows = useMemo(() => {
     // Gom theo NHÓM (cụm hoặc khách lẻ cùng tên). so_may = số máy HĐBT (hiển thị);
     // ids = TOÀN BỘ máy của nhóm (kể cả không HĐBT) để "Tạm hoãn" áp cho cả nhóm.
-    const g = new Map<string, { key: string, ten: string, so_may: number, la_cum: boolean, ids: number[], tam_tu: string | null, tam_den: string | null }>()
+    // hdbt = mốc tạm dừng của TỪNG máy HĐBT -> tính "đang tạm hoãn cả nhóm / một phần" ở lúc render.
+    type Row = { key: string, ten: string, so_may: number, la_cum: boolean, ids: number[], hdbt: { tu: string | null, den: string | null }[] }
+    const g = new Map<string, Row>()
     for (const c of customers) {
       if (!c.ma_may || !LOAI_HD_BAO_TRI.includes(String(c.loai_hd || '').trim())) continue
       const laCum = !!(c.ma_khach_cum && c.soct_khach_cum)
       const key = groupKey(c)
       const ten = laCum ? (c.soct_khach_cum.ten_khach_hang || c.ma_khach_cum) : (String(c.ten_khach_hang || '').trim() || '(không tên)')
-      const cur = g.get(key)
-      if (cur) cur.so_may++
-      else g.set(key, { key, ten, so_may: 1, la_cum: laCum, ids: [], tam_tu: null, tam_den: null })
+      let row = g.get(key)
+      if (!row) { row = { key, ten, so_may: 0, la_cum: laCum, ids: [], hdbt: [] }; g.set(key, row) }
+      row.so_may++
+      row.hdbt.push({ tu: c.tam_dung_tu_thang || null, den: c.tam_dung_den_thang || null })
     }
-    // Gắn ids của TẤT CẢ máy (mọi loại HĐ) vào nhóm tương ứng + mốc tạm hoãn đại diện.
+    // Gắn ids của TẤT CẢ máy (mọi loại HĐ) vào nhóm tương ứng để tạm hoãn áp cho cả nhóm.
     for (const c of customers) {
       if (!c.ma_may || c.id == null) continue
       const row = g.get(groupKey(c))
-      if (!row) continue
-      row.ids.push(Number(c.id))
-      if (c.tam_dung_tu_thang && !row.tam_tu) { row.tam_tu = c.tam_dung_tu_thang; row.tam_den = c.tam_dung_den_thang || null }
+      if (row) row.ids.push(Number(c.id))
     }
     return [...g.values()]
   }, [customers])
@@ -691,17 +692,22 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                   {thongKeFiltered.length === 0 ? (
                     <tr><td colSpan={canTamHoan ? 3 : 2} className="px-4 py-8 text-center text-slate-400">{thongKeRows.length === 0 ? 'Chưa có máy HĐ bảo trì nào.' : 'Không có khách khớp tìm kiếm.'}</td></tr>
                   ) : thongKeFiltered.map(r => {
-                    const dangHoan = dangTamDung(r.tam_tu, thangNam, r.tam_den)
+                    const paused = r.hdbt.filter(m => dangTamDung(m.tu, thangNam, m.den))
+                    const full = r.so_may > 0 && paused.length === r.so_may // cả nhóm đang tạm hoãn
+                    const partial = paused.length > 0 && paused.length < r.so_may // chỉ 1 phần
+                    const rep = paused[0] || { tu: null, den: null } // mốc đại diện để prefill modal
+                    const repTitle = rep.tu ? `Tạm hoãn từ ${fmtThang(rep.tu)}${rep.den ? ` đến ${fmtThang(rep.den)}` : ' (vô hạn)'}` : ''
                     return (
                     <tr key={r.key} className="hover:bg-slate-50">
                       <td className="px-3 py-1.5 font-medium text-slate-800">
                         {r.ten}{!r.la_cum && <span className="ml-1.5 text-[9px] font-semibold px-1 py-0.5 rounded bg-slate-100 text-slate-500 align-middle">máy lẻ</span>}
-                        {dangHoan && <span className="ml-1.5 text-[9px] font-semibold px-1 py-0.5 rounded bg-amber-100 text-amber-700 align-middle" title={`Tạm hoãn từ ${fmtThang(r.tam_tu)}${r.tam_den ? ` đến ${fmtThang(r.tam_den)}` : ' (vô hạn)'}`}>tạm hoãn</span>}
+                        {full && <span className="ml-1.5 text-[9px] font-semibold px-1 py-0.5 rounded bg-amber-100 text-amber-700 align-middle" title={repTitle}>tạm hoãn cả nhóm</span>}
+                        {partial && <span className="ml-1.5 text-[9px] font-semibold px-1 py-0.5 rounded bg-sky-100 text-sky-700 align-middle" title={`${paused.length}/${r.so_may} máy đang tạm hoãn`}>tạm hoãn {paused.length}/{r.so_may}</span>}
                       </td>
                       <td className="px-3 py-1.5 text-right font-semibold tabular-nums">{r.so_may.toLocaleString('vi-VN')}</td>
                       {canTamHoan && <td className="px-3 py-1.5 text-center">
-                        <button onClick={() => openHoan(r)} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold border transition ${dangHoan ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`} title={dangHoan ? 'Đang tạm hoãn — bấm để chỉnh/bỏ' : 'Tạm hoãn bảo trì cả nhóm'}>
-                          <PauseCircle className="w-3.5 h-3.5" /> {dangHoan ? 'Đang tạm hoãn' : 'Tạm hoãn'}
+                        <button onClick={() => openHoan({ ten: r.ten, ids: r.ids, tam_tu: rep.tu, tam_den: rep.den })} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold border transition ${full ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`} title={full ? 'Cả nhóm đang tạm hoãn — bấm để chỉnh/bỏ' : 'Tạm hoãn bảo trì cả nhóm'}>
+                          <PauseCircle className="w-3.5 h-3.5" /> {full ? 'Đang tạm hoãn' : 'Tạm hoãn'}
                         </button>
                       </td>}
                     </tr>
