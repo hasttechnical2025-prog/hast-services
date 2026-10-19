@@ -591,7 +591,6 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
         <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3 shrink-0">
           <div>
             <h3 className="font-bold text-slate-800">Đơn giá HĐ — {row.ten_khach_hang}</h3>
-            {row.dia_chi && <p className="text-xs text-slate-500 mt-0.5">📍 Địa chỉ xuất HĐ: {row.dia_chi}</p>}
             <p className="text-xs text-slate-500 font-mono mt-0.5">{row.ma_may} · {row.loai_hd}</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none shrink-0" title="Đóng">✕</button>
@@ -704,6 +703,27 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
               <label className="block col-span-2 md:col-span-1"><span className="text-xs font-medium text-slate-500">Ngày hết hạn hợp đồng</span><div className="mt-1"><DateField value={f.ngay_het_han_hdbt || ''} onChange={v => set('ngay_het_han_hdbt', v)} heightClass="h-9" /></div></label>
             </div>
           </section>
+
+          {/* NHÓM 4 — Thông tin XUẤT HÓA ĐƠN (chỉ đọc). Ưu tiên khách cụm, fallback điểm máy. */}
+          {(() => {
+            const cum = row.soct_khach_cum || {}
+            const diaChiHD = cum.dia_chi || row.dia_chi || ''
+            const mstHD = cum.ma_so_thue || row.ma_so_thue || ''
+            const emailHD = cum.email_ke_toan || row.email_ke_toan || ''
+            const roBox = 'mt-1 min-h-9 px-3 py-2 rounded-md border border-slate-200 bg-slate-50 text-sm text-slate-700 break-words whitespace-pre-wrap'
+            const empty = <span className="text-slate-400 italic">— chưa có —</span>
+            return (
+              <section className="border-t border-slate-100 pt-3">
+                <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Thông tin xuất hóa đơn</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="col-span-2 md:col-span-2"><span className="text-xs font-medium text-slate-500">Địa chỉ xuất hóa đơn</span><div className={roBox}>{diaChiHD || empty}</div></div>
+                  <div className="col-span-1"><span className="text-xs font-medium text-slate-500">Mã số thuế</span><div className={`${roBox} font-mono`}>{mstHD || empty}</div></div>
+                  <div className="col-span-1"><span className="text-xs font-medium text-slate-500">Email nhận hóa đơn</span><div className={roBox}>{emailHD || empty}</div></div>
+                </div>
+                <p className="t3 text-slate-400 mt-1.5">Lấy từ <b>Khách cụm</b> (hoặc điểm máy nếu chưa gán cụm) — <b>không sửa ở đây</b>. Nếu nhầm lẫn, báo admin sửa trong <b>Quản lý › Khách hàng › Khách cụm</b>.</p>
+              </section>
+            )
+          })()}
         </div>
         <div className="px-5 py-4 border-t border-slate-100 flex justify-end gap-2 shrink-0">
           <Button variant="outline" onClick={onClose} className="h-9">Hủy</Button>

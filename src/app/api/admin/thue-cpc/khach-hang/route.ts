@@ -11,7 +11,9 @@ const BILLING_SELECT =
   'id, ten_khach_hang, dia_chi, ma_may, serial, model, hang, loai_hd, ' +
   'may_mau, phi_thue_thang, don_gia_bw, don_gia_mau, dinh_muc_mien_phi_bw, dinh_muc_mien_phi_mau, ' +
   'cam_ket_toi_thieu_bw, cam_ket_toi_thieu_mau, vat_thue_cpc, trach_nhiem_ky_thuat, ' +
-  'ten_doi_tac_ky_thuat, ngay_chot_so, chot_so_ngay, chot_so_cuoi_thang, kieu_ky, ten_may_hd, vi_tri_dat_may, nguoi_lien_he, email, ngay_lap_may, ngay_het_han_hdbt, nv_kinh_doanh, id_hop_dong_khung'
+  'ten_doi_tac_ky_thuat, ngay_chot_so, chot_so_ngay, chot_so_cuoi_thang, kieu_ky, ten_may_hd, vi_tri_dat_may, nguoi_lien_he, email, ngay_lap_may, ngay_het_han_hdbt, nv_kinh_doanh, id_hop_dong_khung, ' +
+  // Thông tin XUẤT HÓA ĐƠN (chỉ đọc) — ưu tiên khách cụm, fallback điểm máy
+  'ma_so_thue, email_ke_toan, ma_khach_cum, soct_khach_cum ( dia_chi, ma_so_thue, email_ke_toan )'
 
 // GET: danh sách máy loai_hd IN ('Máy thuê','Máy CPC') kèm toàn bộ field billing
 export async function GET() {
