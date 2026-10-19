@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { ShieldAlert } from 'lucide-react'
 import { useSession } from '@/features/_shell/SessionProvider'
+import { V2_BASE } from '@/lib/v2-nav'
 
 // Chặn truy cập trực tiếp URL các tab Hệ thống chỉ-admin với role khác (nav đã ẩn sẵn).
 export function AdminGuard({ children }: { children: React.ReactNode }) {
@@ -13,7 +14,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
         <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto"><ShieldAlert className="w-6 h-6" /></div>
         <div className="font-semibold text-slate-700">Chỉ Admin truy cập được mục này</div>
         <p className="text-xs text-slate-400">Tài khoản của bạn (<b>{user?.role || '—'}</b>) không có quyền. Bạn có thể vào mục Đổi mật khẩu.</p>
-        <Link href="/v2/he-thong/doi-mat-khau" className="inline-block text-sm font-semibold text-blue-700 hover:underline">→ Đổi mật khẩu</Link>
+        <Link href={`${V2_BASE}/he-thong/doi-mat-khau`} className="inline-block text-sm font-semibold text-blue-700 hover:underline">→ Đổi mật khẩu</Link>
       </div>
     )
   }

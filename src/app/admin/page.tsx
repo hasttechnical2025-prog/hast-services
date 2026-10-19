@@ -30,6 +30,7 @@ import { hdbtStatus, loaiHdBadge } from "@/lib/hd-status"
 import { fmtThoiLuong } from "@/lib/thoi-gian"
 import { LOAI_LABEL, moTaKhoang } from "@/lib/nghi-phep"
 import { LOAI_HD_BAO_TRI, canBaoTriThang, nghiBaoTri, coBaoTriThang, moTaLichBaoTri, fmtThang, parseThangBaoTri, formatThangBaoTri, doiChieuNam, thangDaToi, CELL_DA_LAM, CELL_THIEU, CELL_CHUA_TOI } from "@/lib/bao-tri"
+import { V2_BASE } from "@/lib/v2-nav"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
 
 // Kênh realtime (đồng bộ với lib/realtime.ts + app KTV): server phát broadcast sau mỗi thay đổi việc
@@ -232,7 +233,7 @@ function NewUiBanner({ onClose }: { onClose: () => void }) {
       <div className="flex-1 min-w-0 text-sm">
         <span className="font-semibold">Giao diện mới (2027) đã sẵn sàng!</span>
       </div>
-      <a href="/v2" className="shrink-0 bg-white text-blue-700 font-semibold text-sm px-3 py-1.5 rounded-lg hover:bg-blue-50 transition">Trải nghiệm ngay →</a>
+      <a href={V2_BASE} className="shrink-0 bg-white text-blue-700 font-semibold text-sm px-3 py-1.5 rounded-lg hover:bg-blue-50 transition">Trải nghiệm ngay →</a>
       <button onClick={onClose} className="shrink-0 text-blue-100 hover:text-white p-1" title="Ẩn (hiện nút nổi thay thế)"><X className="w-4 h-4" /></button>
     </div>
   )
@@ -309,6 +310,9 @@ export default function AdminDashboard() {
   const [unfinishedPastJobs, setUnfinishedPastJobs] = useState<Job[]>([])
   const [futureJobs, setFutureJobs] = useState<Job[]>([]) // phiếu đặt trước cho ngày tương lai (ngay > hôm nay)
   const [cauHinh, setCauHinh] = useState<Record<string, string>>({})
+  // Role nào được dùng Giao diện mới (v2) — admin luôn được; cấu hình ở Hệ thống › Bảo mật.
+  const v2Roles = (cauHinh.v2_roles || '').split(',').map(s => s.trim()).filter(Boolean)
+  const v2EntryAllowed = currentUserRole === 'admin' || v2Roles.includes(currentUserRole)
   const [kanbanCounts, setKanbanCounts] = useState<{ col1: number, col2: number, col1_phieu: number, col2_phieu: number }>({ col1: 0, col2: 0, col1_phieu: 0, col2_phieu: 0 })
   // Đo chiều cao header (tab cha sticky) -> đặt CSS var --head-h để thanh tab con sticky ngay dưới.
   const headerRef = useRef<HTMLElement>(null)
@@ -1819,9 +1823,9 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-slate-50 p-6" style={{ ['--head-h' as any]: `${headH}px` }}>
       {confirmNode}
       {tabVisible('tro_ly') && <TroLyAI />}
-      {/* Nút nổi KÉO-THẢ vào giao diện mới v2 (chỉ admin) — CHỈ hiện khi đã ẩn banner */}
-      {currentUserRole === 'admin' && !showV2Banner && (
-        <DraggableFab href="/v2" label="Giao diện mới" icon={<Sparkles className="w-4 h-4" />} storageKey="v2:fab-admin" defaultPos="bottom-5 left-5" className="bg-blue-600 hover:bg-blue-700 shadow-blue-600/30" />
+      {/* Nút nổi KÉO-THẢ vào giao diện mới v2 — admin (sau khi ẩn banner) + role được cấp quyền */}
+      {v2EntryAllowed && !(currentUserRole === 'admin' && showV2Banner) && (
+        <DraggableFab href={V2_BASE} label="Giao diện mới" icon={<Sparkles className="w-4 h-4" />} storageKey="v2:fab-admin" defaultPos="bottom-5 left-5" className="bg-blue-600 hover:bg-blue-700 shadow-blue-600/30" />
       )}
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Lời mời trải nghiệm giao diện mới (v2) — chỉ admin, ẩn được (nhớ localStorage) */}

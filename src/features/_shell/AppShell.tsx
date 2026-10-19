@@ -6,7 +6,7 @@ import * as Icons from 'lucide-react'
 import { LogOut, ChevronRight, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ShieldAlert } from 'lucide-react'
-import { V2_NAV, findParent, type V2Child } from '@/lib/v2-nav'
+import { V2_NAV, findParent, V2_BASE, type V2Child } from '@/lib/v2-nav'
 import { useSession } from './SessionProvider'
 import { useBadges } from './BadgeProvider'
 import { NotificationCenter } from './NotificationCenter'
@@ -54,10 +54,10 @@ function iconOf(name: string): LucideIcon {
   return ((Icons as any)[pascal] as LucideIcon) || Icons.Square
 }
 
-// Tách /v2/<parent>/<child>/<...> từ pathname.
+// Tách /<base>/<parent>/<child>/<...> từ pathname (base = V2_BASE, vd 'qlkt').
 function parseRoute(pathname: string): { parent?: string; child?: string } {
-  const parts = pathname.replace(/^\/+|\/+$/g, '').split('/') // ['v2','so-cong-tac','giao-viec',...]
-  if (parts[0] !== 'v2') return {}
+  const parts = pathname.replace(/^\/+|\/+$/g, '').split('/') // ['qlkt','so-cong-tac','giao-viec',...]
+  if (parts[0] !== V2_BASE.replace(/^\/+/, '')) return {}
   return { parent: parts[1], child: parts[2] }
 }
 
@@ -138,7 +138,7 @@ function Sidebar({ parent, child }: { parent?: string; child?: string }) {
           const isActive = p.slug === parent
           const isExpanded = expanded.has(p.slug)
           const Ic = iconOf(p.icon)
-          const headHref = p.leaf ? `/v2/${p.slug}` : `/v2/${p.slug}/${(kids[0] || p.children[0]).slug}`
+          const headHref = p.leaf ? `${V2_BASE}/${p.slug}` : `${V2_BASE}/${p.slug}/${(kids[0] || p.children[0]).slug}`
           // Tổng badge các mục con — hiện trên tab CHA khi nhóm đang THU GỌN, để không mất tín hiệu.
           // Cha "lá" (vd Kanban): badge riêng theo key permKey.permSub, hiện cả khi đang mở (không có con).
           const parentSum = p.leaf
@@ -174,7 +174,7 @@ function Sidebar({ parent, child }: { parent?: string; child?: string }) {
                     return (
                       <Link
                         key={c.slug}
-                        href={`/v2/${p.slug}/${c.slug}`}
+                        href={`${V2_BASE}/${p.slug}/${c.slug}`}
                         className={cn('flex items-center gap-2 px-2.5 py-1.5 rounded-md t1 cursor-pointer',
                           active ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-100')}
                       >
@@ -240,7 +240,7 @@ function AccessDenied({ role }: { role?: string }) {
       <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto"><ShieldAlert className="w-6 h-6" /></div>
       <div className="font-semibold text-slate-700">Bạn không có quyền truy cập mục này</div>
       <p className="text-xs text-slate-400">Tài khoản của bạn (<b>{role || '—'}</b>) chưa được cấp quyền. Liên hệ Admin nếu cần mở quyền.</p>
-      <Link href="/v2" className="inline-block text-sm font-semibold text-blue-700 hover:underline">→ Về trang chính</Link>
+      <Link href={V2_BASE} className="inline-block text-sm font-semibold text-blue-700 hover:underline">→ Về trang chính</Link>
     </div>
   )
 }

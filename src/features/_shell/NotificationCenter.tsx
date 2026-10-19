@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Bell, Droplets, Package, AlertTriangle, Clock, Users, ClipboardList, ClipboardCheck, Palmtree, ChevronDown } from 'lucide-react'
 import { fmtDate } from '@/ui'
 import { hdbtStatus } from '@/lib/hd-status'
+import { V2_BASE } from '@/lib/v2-nav'
 import { LOAI_LABEL, moTaKhoang } from '@/lib/nghi-phep'
 import { useSession } from './SessionProvider'
 import { useAlerts } from './AlertsProvider'
@@ -21,7 +22,7 @@ export function NotificationCenter() {
   const sections: Section[] = [
     {
       key: 'muc', icon: Droplets, tone: 'red', label: 'Mực máy thuê đã hết', count: a.mucCanhBao.length,
-      navHref: '/v2/tai-chinh/thue-cpc', navLabel: '→ Mở Thuê/CPC › Cảnh báo vật tư', canSee: subVisible('tai_chinh', 'thue_cpc'),
+      navHref: `${V2_BASE}/tai-chinh/thue-cpc`, navLabel: '→ Mở Thuê/CPC › Cảnh báo vật tư', canSee: subVisible('tai_chinh', 'thue_cpc'),
       detail: (
         <div className="border border-red-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
@@ -42,7 +43,7 @@ export function NotificationCenter() {
     },
     {
       key: 'muc_sap_het', icon: Droplets, tone: 'amber', label: 'Máy thuê sắp cần thay vật tư', count: a.mucSapHet.length,
-      navHref: '/v2/tai-chinh/thue-cpc', navLabel: '→ Mở Thuê/CPC › Cảnh báo vật tư', canSee: subVisible('tai_chinh', 'thue_cpc'),
+      navHref: `${V2_BASE}/tai-chinh/thue-cpc`, navLabel: '→ Mở Thuê/CPC › Cảnh báo vật tư', canSee: subVisible('tai_chinh', 'thue_cpc'),
       detail: (
         <div className="border border-amber-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
@@ -62,7 +63,7 @@ export function NotificationCenter() {
     },
     {
       key: 'ton_kho_nguong', icon: Package, tone: 'amber', label: 'Hàng dưới ngưỡng tồn kho', count: a.canhBaoTonList.length,
-      navHref: '/v2/kho-hang/thong-ke', navLabel: '→ Mở Kho hàng › Thống kê nhập', canSee: subVisible('kho_hang', 'thong_ke'),
+      navHref: `${V2_BASE}/kho-hang/thong-ke`, navLabel: '→ Mở Kho hàng › Thống kê nhập', canSee: subVisible('kho_hang', 'thong_ke'),
       detail: (
         <div className="border border-amber-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
@@ -83,7 +84,7 @@ export function NotificationCenter() {
     },
     {
       key: 'unfinished', icon: AlertTriangle, tone: 'red', label: 'Phiếu ngày trước chưa Hoàn thành', count: a.unfinishedPastJobs.length,
-      navHref: '/v2/so-cong-tac/giao-viec', navLabel: '→ Mở Sổ công tác', canSee: tabVisible('cong_viec'),
+      navHref: `${V2_BASE}/so-cong-tac/giao-viec`, navLabel: '→ Mở Sổ công tác', canSee: tabVisible('cong_viec'),
       detail: (
         <div className="border border-rose-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
@@ -103,7 +104,7 @@ export function NotificationCenter() {
     },
     {
       key: 'future', icon: Clock, tone: 'blue', label: 'Phiếu đặt trước cho ngày tới', count: a.futureJobs.length,
-      navHref: '/v2/so-cong-tac/giao-viec', navLabel: '→ Xem & sắp xếp trong Sổ công tác', canSee: tabVisible('cong_viec'),
+      navHref: `${V2_BASE}/so-cong-tac/giao-viec`, navLabel: '→ Xem & sắp xếp trong Sổ công tác', canSee: tabVisible('cong_viec'),
       detail: (
         <div className="border border-blue-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
@@ -123,7 +124,7 @@ export function NotificationCenter() {
     },
     {
       key: 'cskh_hen', icon: Users, tone: 'amber', label: 'Khách đến hẹn chăm sóc', count: a.henCskh.length,
-      navHref: '/v2/so-cong-tac/cham-soc-kh', navLabel: '→ Mở Sổ công tác › Chăm sóc KH', canSee: subVisible('cong_viec', 'cham_soc_kh'),
+      navHref: `${V2_BASE}/so-cong-tac/cham-soc-kh`, navLabel: '→ Mở Sổ công tác › Chăm sóc KH', canSee: subVisible('cong_viec', 'cham_soc_kh'),
       detail: (
         <div className="border border-amber-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
@@ -144,7 +145,7 @@ export function NotificationCenter() {
     },
     {
       key: 'kanban_c1', icon: ClipboardList, tone: 'amber', label: 'Thẻ chờ lên hóa đơn (Kanban Cột 1)', count: a.kanban.col1,
-      navHref: '/v2/kanban', navLabel: '→ Mở Kanban Hóa đơn', canSee: subVisible('tai_chinh', 'kanban'),
+      navHref: `${V2_BASE}/kanban`, navLabel: '→ Mở Kanban Hóa đơn', canSee: subVisible('tai_chinh', 'kanban'),
       detail: (
         <div className="text-xs text-slate-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 leading-relaxed">
           <b>{a.kanban.col1}</b> thẻ{a.kanban.col1_phieu !== a.kanban.col1 ? ` (gồm ${a.kanban.col1_phieu} phiếu)` : ''} đang ở Cột 1 (Chờ lên hóa đơn) — mỗi thẻ = 1 hóa đơn. Vào <b>Kanban Hóa đơn</b>: <b>bàn giao kế toán</b> lên hóa đơn, hoặc <b>thu hồi</b> về Công nợ nếu chưa cần.
@@ -153,7 +154,7 @@ export function NotificationCenter() {
     },
     {
       key: 'kanban_c2', icon: ClipboardList, tone: 'amber', label: 'Thẻ chờ kế toán lên hóa đơn (Kanban Cột 2)', count: a.kanban.col2,
-      navHref: '/v2/kanban', navLabel: '→ Mở Kanban Hóa đơn', canSee: subVisible('tai_chinh', 'kanban'),
+      navHref: `${V2_BASE}/kanban`, navLabel: '→ Mở Kanban Hóa đơn', canSee: subVisible('tai_chinh', 'kanban'),
       detail: (
         <div className="text-xs text-slate-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 leading-relaxed">
           <b>{a.kanban.col2}</b> thẻ{a.kanban.col2_phieu !== a.kanban.col2 ? ` (gồm ${a.kanban.col2_phieu} phiếu — một số khách gộp nhiều phiếu vào 1 hóa đơn)` : ''} đã bàn giao, đang chờ <b>kế toán (KT-HC) lên hóa đơn</b> (Cột 2). Mỗi thẻ = 1 hóa đơn. Nhắc kế toán xử lý.
@@ -162,7 +163,7 @@ export function NotificationCenter() {
     },
     {
       key: 'hdbt', icon: ClipboardCheck, tone: 'amber', label: `HĐBT/thuê sắp hết hạn (${a.hdbtCanhBaoThang} tháng)`, count: a.hdbtExpiring.length,
-      navHref: '/v2/theo-doi-may/bao-tri', navLabel: '→ Mở Theo dõi máy › Bảo trì', canSee: subVisible('theo_doi_may', 'bao_tri'),
+      navHref: `${V2_BASE}/theo-doi-may/bao-tri`, navLabel: '→ Mở Theo dõi máy › Bảo trì', canSee: subVisible('theo_doi_may', 'bao_tri'),
       detail: (
         <div className="border border-amber-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
@@ -185,7 +186,7 @@ export function NotificationCenter() {
     },
     {
       key: 'counter', icon: Clock, tone: 'amber', label: 'Máy thuê/CPC đến hạn lấy counter', count: a.counterDueList.length,
-      navHref: '/v2/tai-chinh/thue-cpc', navLabel: '→ Mở Thuê/CPC › Nhập counter', canSee: subVisible('tai_chinh', 'thue_cpc'),
+      navHref: `${V2_BASE}/tai-chinh/thue-cpc`, navLabel: '→ Mở Thuê/CPC › Nhập counter', canSee: subVisible('tai_chinh', 'thue_cpc'),
       detail: (
         <div className="border border-amber-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
@@ -210,7 +211,7 @@ export function NotificationCenter() {
     },
     {
       key: 'leave', icon: Palmtree, tone: 'blue', label: 'Nghỉ hôm nay', count: a.leaveToday.length,
-      navHref: '/v2/quan-ly/nghi-phep', navLabel: '→ Mở Quản lý › Nghỉ phép', canSee: subVisible('quan_ly', 'nghi_phep'),
+      navHref: `${V2_BASE}/quan-ly/nghi-phep`, navLabel: '→ Mở Quản lý › Nghỉ phép', canSee: subVisible('quan_ly', 'nghi_phep'),
       detail: (
         <div className="flex flex-wrap gap-1.5 px-1 py-1">
           {a.leaveToday.map((d: any) => {

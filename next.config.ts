@@ -5,6 +5,13 @@ const nextConfig: NextConfig = {
   // đụng vào — nếu không turbopack/webpack sẽ vướng file worker .mjs. Để external ->
   // Next tải thẳng từ node_modules lúc chạy (và trace vào bundle serverless của Vercel).
   serverExternalPackages: ['pdfjs-dist'],
+  // Đổi tên segment UI 2027: /v2/* -> /qlkt/* (giữ bookmark cũ sống). Permanent (308).
+  async redirects() {
+    return [
+      { source: '/v2', destination: '/qlkt', permanent: true },
+      { source: '/v2/:path*', destination: '/qlkt/:path*', permanent: true },
+    ]
+  },
   // Đảm bảo template .docx được đóng gói cho từng serverless route đọc nó (Vercel).
   // Route đọc template bằng fs.readFileSync -> phải khai ở đây, nếu không Vercel không
   // bundle file và route sẽ lỗi "file not found" trên production.

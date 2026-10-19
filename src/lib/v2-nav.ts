@@ -7,6 +7,10 @@
 //  - permParent / permSub: KEY quyền trong tabs.ts (DEFAULT_TAB_VIS) để guard ẩn/hiện.
 //    (slug ≠ key quyền có chủ đích — URL theo UI thực tế; xem docs/rebuild-ui-2027/02.)
 
+// Segment URL gốc của UI 2027 (đổi 1 chỗ này = đổi toàn bộ link; thư mục app phải trùng tên).
+// Link cũ /v2/* được next.config redirect sang base này để bookmark không gãy.
+export const V2_BASE = '/qlkt'
+
 export type V2Child = {
   slug: string
   label: string
@@ -132,8 +136,8 @@ export const V2_SUBTABS: Record<string, { slug: string; label: string }[]> = {
 
 // Module mặc định khi vào /v2 (redirect theo role).
 export function defaultModuleFor(role: string): string {
-  if (role === 'kthc') return '/v2/kanban'
-  return '/v2/so-cong-tac/giao-viec'
+  if (role === 'kthc') return `${V2_BASE}/kanban`
+  return `${V2_BASE}/so-cong-tac/giao-viec`
 }
 
 export function findParent(slug: string): V2Parent | undefined {

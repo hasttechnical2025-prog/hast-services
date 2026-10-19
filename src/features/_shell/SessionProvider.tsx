@@ -59,20 +59,23 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         const j = await res.json()
         if (!alive) return
         if (res.ok && j.data) {
-          // kinh_doanh / ktv không dùng /v2 (office admin/tech_admin/staff/kthc).
+          // kinh_doanh / ktv không dùng /qlkt (office admin/tech_admin/staff/kthc).
           if (j.data.role === 'kinh_doanh') { router.replace('/kho-thue'); return }
           if (j.data.role === 'ktv') { router.replace('/ktv'); return }
-          setUser(j.data)
-          // Cấu hình phân quyền tab (best-effort; kinh_doanh/ktv không tới đây).
+          // Cấu hình phân quyền tab + quyền dùng giao diện mới (v2). Đọc TRƯỚC khi hiển thị.
+          let cfg: Record<string, string> = {}
           try {
             const cRes = await fetch('/api/admin/cau-hinh')
-            if (cRes.ok) {
-              const cJson = await cRes.json()
-              if (alive) setConfig(cJson?.data || {})
-              const vis = JSON.parse(cJson?.data?.tab_visibility || '{}')
-              if (alive) setTabVisCfg(vis || {})
-            }
-          } catch { /* dùng mặc định */ }
+            if (cRes.ok) cfg = (await cRes.json())?.data || {}
+          } catch { /* dùng mặc định -> fail-closed cho role khác admin */ }
+          // Chặn vào giao diện mới nếu role chưa được cấp quyền (admin LUÔN được). Đá về /admin.
+          if (j.data.role !== 'admin') {
+            const allowed = String(cfg.v2_roles || '').split(',').map(s => s.trim()).filter(Boolean)
+            if (!allowed.includes(j.data.role)) { router.replace('/admin'); return }
+          }
+          setUser(j.data)
+          if (alive) setConfig(cfg)
+          try { if (alive) setTabVisCfg(JSON.parse(cfg.tab_visibility || '{}') || {}) } catch { /* giữ mặc định */ }
         } else {
           router.replace('/')
         }

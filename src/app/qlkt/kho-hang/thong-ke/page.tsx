@@ -5,6 +5,7 @@ import { useToast } from '@/ui'
 import { useShared } from '@/features/_shell/SharedDataProvider'
 import { NhapHangThangTool } from '@/features/kho-hang/NhapHangThangTool'
 import { useDatHangCart } from '@/features/kho-hang/useDatHangCart'
+import { V2_BASE } from '@/lib/v2-nav'
 
 // Kho hàng › Thống kê nhập — port nguyên NhapHangThangTool (panel Cảnh báo tồn + thống kê theo tháng).
 export default function ThongKeNhapPage() {
@@ -24,7 +25,7 @@ export default function ThongKeNhapPage() {
 
   const onAddToCart = useCallback((items: { ma_hang: string, sl_dat: string }[], redirect?: boolean) => {
     addToCart(items)
-    if (redirect) router.push('/v2/kho-hang/dat-hang')
+    if (redirect) router.push(`${V2_BASE}/kho-hang/dat-hang`)
   }, [addToCart, router])
 
   return (
@@ -36,7 +37,7 @@ export default function ThongKeNhapPage() {
         hangOptions={dmOptions('hang', ['Konica', 'Fuji', 'Khác'])}
         cartCount={lines.length}
         onAddToCart={onAddToCart}
-        onGoToCart={() => router.push('/v2/kho-hang/dat-hang')}
+        onGoToCart={() => router.push(`${V2_BASE}/kho-hang/dat-hang`)}
       />
       {toastNode}
     </>

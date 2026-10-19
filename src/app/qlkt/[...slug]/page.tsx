@@ -1,7 +1,7 @@
 'use client'
 import { use } from 'react'
 import { LayoutTemplate } from 'lucide-react'
-import { V2_NAV, V2_SUBTABS } from '@/lib/v2-nav'
+import { V2_NAV, V2_SUBTABS, V2_BASE } from '@/lib/v2-nav'
 import { SegTabs, Card } from '@/ui'
 
 // Placeholder cho các module CHƯA port (GĐ0). Route cụ thể (vd so-cong-tac/giao-viec) đã có
@@ -21,7 +21,7 @@ export default function V2Placeholder({ params }: { params: Promise<{ slug: stri
         <SegTabs
           items={subtabs}
           active={subSlug || subtabs[0].slug}
-          hrefFor={(s) => `/v2/${parentSlug}/${childSlug}/${s}`}
+          hrefFor={(s) => `${V2_BASE}/${parentSlug}/${childSlug}/${s}`}
         />
       )}
       <Card className="p-10 text-center">

@@ -54,6 +54,9 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
     kd_khach_pham_vi: cauHinh.kd_khach_pham_vi || 'rieng',
     kd_khach_quyen_sua: cauHinh.kd_khach_quyen_sua || 'chu_so_huu',
   })
+  // Role được phép dùng Giao diện mới (v2). Admin luôn được (không nằm trong set này).
+  const [v2Roles, setV2Roles] = useState<Set<string>>(() => new Set(String(cauHinh.v2_roles || '').split(',').map(s => s.trim()).filter(Boolean)))
+  const toggleV2Role = (r: string) => setV2Roles(p => { const n = new Set(p); n.has(r) ? n.delete(r) : n.add(r); return n })
   const [tabVis, setTabVis] = useState<Record<string, Record<string, boolean>>>(() => {
     let parsed: any = {}; try { parsed = JSON.parse(cauHinh.tab_visibility || '{}') } catch {}
     const merged: Record<string, Record<string, boolean>> = {}
@@ -129,6 +132,7 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
       hd_ban_stk2: cfg.hd_ban_stk2.trim(),
       kd_khach_pham_vi: cfg.kd_khach_pham_vi,
       kd_khach_quyen_sua: cfg.kd_khach_quyen_sua,
+      v2_roles: Array.from(v2Roles).join(','),
       tab_visibility: JSON.stringify(tabVis),
     }
     try {
@@ -338,6 +342,21 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {numField('Văn phòng — giữ đăng nhập (ngày)', 'phien_van_phong_ngay')}
           {numField('KTV (mật khẩu) — giữ đăng nhập (ngày)', 'phien_ktv_ngay')}
+        </div>
+      </div>
+
+      <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-3">
+        <h3 className="text-lg font-semibold text-slate-700">Giao diện mới (v2)</h3>
+        <p className="text-sm text-slate-500">Cho phép role nào vào <b>Giao diện mới</b> (đường dẫn <b className="font-mono">/qlkt</b>). <b>Admin</b> luôn dùng được. Role không được cấp sẽ tự quay về bản cũ (<b className="font-mono">/admin</b>).</p>
+        <div className="flex flex-wrap gap-5 pt-1">
+          <label className="flex items-center gap-1.5 text-sm text-slate-400 select-none">
+            <input type="checkbox" checked disabled className="w-4 h-4 accent-blue-600" /> Admin <span className="text-xs">(luôn bật)</span>
+          </label>
+          {TAB_ROLES.map(([role, label]) => (
+            <label key={role} className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
+              <input type="checkbox" checked={v2Roles.has(role)} onChange={() => toggleV2Role(role)} className="w-4 h-4 accent-blue-600" /> {label}
+            </label>
+          ))}
         </div>
       </div>
 
