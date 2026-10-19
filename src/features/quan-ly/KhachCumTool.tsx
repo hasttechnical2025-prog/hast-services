@@ -201,7 +201,7 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
     const maMoi = edMa.trim()
     if (!maMoi) return showNotification('error', 'Mã khách hàng không được để trống')
     if (await call('PUT', { ma_khach_hang: sel.ma_khach_hang, ma_moi: maMoi, ten_khach_hang: edTen.trim(), dia_chi: edDc.trim(), ma_so_thue: edMst.trim(), email_ke_toan: edEmail.trim() })) {
-      showNotification('success', 'Đã lưu thông tin cụm.'); if (maMoi !== sel.ma_khach_hang) setSelMa(maMoi); await fetchClusters(); onUpdateSuccess()
+      showNotification('success', 'Đã lưu thông tin cụm.'); setSelMa(null); await fetchClusters(); onUpdateSuccess()
     }
   }
   const delCluster = async (ma: string) => {
