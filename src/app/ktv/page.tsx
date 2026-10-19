@@ -541,6 +541,7 @@ export default function KtvMobileWeb() {
       const job = jobs.find(j => j.id === jobId)
       const goiY = phutGiua(job?.bat_dau_luc, nowISO())
       const todayVN = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
+      setBckChips([]); setBckNote('') // reset ô báo cáo gửi khách
       setChuaHtTarget({ jobId, phut: goiY == null ? '' : String(lamTronPhut(goiY, 5)), ngay_hen: todayVN })
       return
     }
@@ -1502,6 +1503,18 @@ export default function KtvMobileWeb() {
         const phutNum = parseInt(chuaHtTarget.phut || '0', 10) || 0
         const setPhut = (v: number) => setChuaHtTarget(f => f ? { ...f, phut: String(Math.max(0, v)) } : f)
         const QUICK = [15, 30, 45, 60, 90, 120]
+        const fjob = jobs.find(j => j.id === chuaHtTarget.jobId)
+        const needBaoCao = !!fjob && bckLoai.includes(fjob.loai_cong_viec)
+        const CHIPS: [string, string][] = [['ve_sinh', 'Vệ sinh máy'], ['sua_loi', 'Sửa lỗi'], ['can_chinh', 'Căn chỉnh'], ['hdbt', 'Máy HĐBT'], ['theo_doi', 'Theo dõi thêm']]
+        const toggleChip = (k: string) => setBckChips(prev => prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k])
+        const doChuaHt = async () => {
+          if (!chuaHtTarget.ngay_hen) { showNotification('error', 'Chọn ngày hẹn làm tiếp.'); return }
+          const t = chuaHtTarget
+          if (needBaoCao) {
+            try { await fetch('/api/ktv/bao-cao-khach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_cong_viec: t.jobId, chips: bckChips, ghi_chu: bckNote }) }) } catch { /* không chặn */ }
+          }
+          setChuaHtTarget(null); applyStatus(t.jobId, 'Chưa hoàn thành', phutNum, t.ngay_hen)
+        }
         return (
           <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
@@ -1533,12 +1546,25 @@ export default function KtvMobileWeb() {
                     ))}
                   </div>
                 </div>
+                {needBaoCao && (
+                  <div className="pt-2 border-t border-slate-100 space-y-2">
+                    <p className="text-xs font-semibold text-slate-600">Báo cáo sửa chữa <span className="font-normal text-slate-400">(gửi khách — bỏ trống = tự báo &quot;Máy hoạt động bình thường&quot;)</span></p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {CHIPS.map(([k, l]) => (
+                        <button key={k} type="button" onClick={() => toggleChip(k)}
+                          className={`px-2.5 h-8 rounded-lg text-xs font-semibold border ${bckChips.includes(k) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200'}`}>
+                          {l}
+                        </button>
+                      ))}
+                    </div>
+                    <textarea value={bckNote} onChange={e => setBckNote(e.target.value)} rows={2} placeholder="Ghi chú thêm (tùy chọn)…"
+                      className="w-full text-sm rounded-lg border border-slate-200 px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                  </div>
+                )}
               </div>
               <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
                 <Button variant="outline" onClick={() => setChuaHtTarget(null)}>Hủy</Button>
-                <Button
-                  onClick={() => { if (!chuaHtTarget.ngay_hen) { showNotification('error', 'Chọn ngày hẹn làm tiếp.'); return } const t = chuaHtTarget; setChuaHtTarget(null); applyStatus(t.jobId, 'Chưa hoàn thành', phutNum, t.ngay_hen) }}
-                  className="bg-amber-600 hover:bg-amber-700 text-white">
+                <Button onClick={doChuaHt} className="bg-amber-600 hover:bg-amber-700 text-white">
                   Xác nhận
                 </Button>
               </div>

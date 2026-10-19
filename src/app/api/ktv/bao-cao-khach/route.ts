@@ -38,6 +38,14 @@ export async function POST(request: Request) {
     const b = await request.json()
     if (!b.id_cong_viec) return NextResponse.json({ error: 'Thiếu phiếu' }, { status: 400 })
 
+    // KTV chỉ báo cáo cho phiếu của CHÍNH MÌNH (chính/kèm). Office (admin/tech_admin/staff) báo hộ được.
+    if (session.role === 'ktv') {
+      const { data: job } = await supabaseAdmin.from('soct_cong_viec').select('ktv_id, ktv2_id').eq('id', b.id_cong_viec).single()
+      if (!job || (job.ktv_id !== session.id && job.ktv2_id !== session.id)) {
+        return NextResponse.json({ error: 'Không có quyền báo cáo phiếu này' }, { status: 403 })
+      }
+    }
+
     const chips: string[] = Array.isArray(b.chips) ? b.chips : []
     const ghiChu = String(b.ghi_chu || '').trim()
     const phrases = chips.map(c => CHIP_TEXT[c]).filter(Boolean)

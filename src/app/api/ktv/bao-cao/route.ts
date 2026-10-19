@@ -40,12 +40,9 @@ export async function GET(request: Request) {
 
     // 1. Tính toán danh sách 6 ngày gần nhất để lấy trạng thái nộp báo cáo hàng loạt
     const datesToCheck: string[] = []
-    const refDate = new Date()
-    refDate.setHours(0,0,0,0)
+    const baseVN = Date.parse(vnTodayStr() + 'T00:00:00Z') // mốc 00:00 HÔM NAY giờ VN (tránh lệch do server UTC)
     for (let i = 0; i < 6; i++) {
-      const d = new Date(refDate.getTime() - i * 86400000)
-      const ymdStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-      datesToCheck.push(ymdStr)
+      datesToCheck.push(new Date(baseVN - i * 86400000).toISOString().slice(0, 10))
     }
 
     // Lấy trạng thái chốt nộp của 6 ngày này + ngày đang xem (ngày cũ không nằm trong 6 ngày gần nhất)
@@ -295,7 +292,8 @@ export async function POST(request: Request) {
           // Đây là sửa CÓ CHỦ ĐÍCH nên được phép ghi đè (khác luồng đóng dấu ghi-một-lần).
           const p = parseInt(j.so_phut, 10)
           if (Number.isFinite(p) && p > 0) patch.so_phut_xu_ly = Math.min(24 * 60, p)
-          return supabaseAdmin.from('soct_cong_viec').update(patch).eq('id', j.id)
+          // BẢO MẬT: chỉ ghi được ca của CHÍNH KTV này (chính hoặc kèm) — tránh ghi đè phiếu người khác.
+          return supabaseAdmin.from('soct_cong_viec').update(patch).eq('id', j.id).or(`ktv_id.eq.${session.id},ktv2_id.eq.${session.id}`)
         })
         const results = await Promise.all(updatePromises)
         const err = results.find(r => r.error)
