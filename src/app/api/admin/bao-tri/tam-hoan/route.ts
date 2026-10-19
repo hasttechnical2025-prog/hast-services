@@ -19,7 +19,10 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const ids: number[] = Array.isArray(body.ids) ? body.ids.filter((x: any) => Number.isFinite(Number(x))).map(Number) : []
+    // id khách hàng là UUID (chuỗi) -> giữ nguyên dạng chuỗi, KHÔNG ép về số.
+    const ids: string[] = Array.isArray(body.ids)
+      ? body.ids.filter((x: any) => typeof x === 'string' && x.trim()).map((x: string) => x.trim())
+      : []
     if (ids.length === 0) {
       return NextResponse.json({ error: 'Không có máy nào trong nhóm để tạm hoãn' }, { status: 400 })
     }

@@ -222,7 +222,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
     // Gom theo NHÓM (cụm hoặc khách lẻ cùng tên). so_may = số máy HĐBT (hiển thị);
     // ids = TOÀN BỘ máy của nhóm (kể cả không HĐBT) để "Tạm hoãn" áp cho cả nhóm.
     // hdbt = mốc tạm hoãn CỤM của TỪNG máy HĐBT -> tính "đang tạm hoãn cả nhóm / một phần" ở lúc render.
-    type Row = { key: string, ten: string, so_may: number, la_cum: boolean, ids: number[], hdbt: { tu: string | null, den: string | null }[] }
+    type Row = { key: string, ten: string, so_may: number, la_cum: boolean, ids: string[], hdbt: { tu: string | null, den: string | null }[] }
     const g = new Map<string, Row>()
     for (const c of customers) {
       if (!c.ma_may || !LOAI_HD_BAO_TRI.includes(String(c.loai_hd || '').trim())) continue
@@ -238,7 +238,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
     for (const c of customers) {
       if (!c.ma_may || c.id == null) continue
       const row = g.get(groupKey(c))
-      if (row) row.ids.push(Number(c.id))
+      if (row) row.ids.push(String(c.id))
     }
     return [...g.values()]
   }, [customers])
@@ -262,11 +262,11 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
 
   // ── Tạm hoãn bảo trì CẢ NHÓM (cụm / khách lẻ) trong một khoảng tháng ──
   const canTamHoan = role === 'admin' || role === 'tech_admin'
-  const [hoanRow, setHoanRow] = useState<{ ten: string, ids: number[], tam_tu: string | null, tam_den: string | null } | null>(null)
+  const [hoanRow, setHoanRow] = useState<{ ten: string, ids: string[], tam_tu: string | null, tam_den: string | null } | null>(null)
   const [hoanTu, setHoanTu] = useState('')
   const [hoanDen, setHoanDen] = useState('')
   const [hoanBusy, setHoanBusy] = useState(false)
-  const openHoan = (r: { ten: string, ids: number[], tam_tu: string | null, tam_den: string | null }) => {
+  const openHoan = (r: { ten: string, ids: string[], tam_tu: string | null, tam_den: string | null }) => {
     setHoanRow(r)
     setHoanTu(r.tam_tu || new Date().toISOString().slice(0, 7))
     setHoanDen(r.tam_den || '')
