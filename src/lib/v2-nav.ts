@@ -115,7 +115,7 @@ export const V2_SUBTABS: Record<string, { slug: string; label: string }[]> = {
     { slug: 'chua-bao-tri', label: 'Chưa bảo trì' },
     { slug: 'tam-dung', label: 'Tạm dừng' },
     { slug: 'doi-chieu', label: 'Đối chiếu năm' },
-    { slug: 'thong-ke', label: 'Thống kê' },
+    { slug: 'thong-ke', label: 'HĐBT cụm' },
   ],
   'tai-chinh/thue-cpc': [
     { slug: 'danh-sach', label: 'Danh sách máy' },
@@ -167,7 +167,7 @@ export const V2_PERM_ROWS: V2PermRow[] = [
   { label: 'Chưa bảo trì', key: 'theo_doi_may.bao_tri.chua_bao_tri', level: 3, deps: ['theo_doi_may', 'theo_doi_may.bao_tri'] },
   { label: 'Tạm dừng', key: 'theo_doi_may.bao_tri.tam_dung', level: 3, deps: ['theo_doi_may', 'theo_doi_may.bao_tri'] },
   { label: 'Đối chiếu năm', key: 'theo_doi_may.bao_tri.doi_chieu', level: 3, deps: ['theo_doi_may', 'theo_doi_may.bao_tri'] },
-  { label: 'Thống kê', key: 'theo_doi_may.bao_tri.thong_ke', level: 3, deps: ['theo_doi_may', 'theo_doi_may.bao_tri'] },
+  { label: 'HĐBT cụm', key: 'theo_doi_may.bao_tri.thong_ke', level: 3, deps: ['theo_doi_may', 'theo_doi_may.bao_tri'] },
   { label: 'Giám định', key: 'theo_doi_may.giam_dinh', level: 2, deps: ['theo_doi_may'] },
 
   { label: 'Kho hàng', key: 'kho_hang', level: 1 },
