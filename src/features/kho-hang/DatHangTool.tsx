@@ -152,6 +152,7 @@ export function DatHangTool({
     }
     return true
   })
+  const qLine = orderFilters.maHang.trim().toLowerCase() // từ khóa tìm mã/tên hàng -> highlight dòng khớp
   const dhPaged = usePaged(filteredOrders)
 
   const updLine = (i: number, f: 'ma_hang' | 'sl_dat', v: string) => setLines(p => p.map((l, idx) => idx === i ? { ...l, [f]: v } : l))
@@ -625,10 +626,12 @@ export function DatHangTool({
                     {(o.soct_dat_hang_ct || []).map((line: any) => {
                       const nhan = daNhan(line); const thieu = line.sl_dat - nhan
                       const editing = receiving && receiving.ctId === line.id
+                      // Dòng KHỚP ô tìm mã/tên hàng -> tô nổi (vàng) để dễ dò trong đơn dài/nhiều đơn.
+                      const hit = !!qLine && ((line.ma_hang || '').toLowerCase().includes(qLine) || (line.soct_kho_hang?.ten_hang || '').toLowerCase().includes(qLine))
                       return (
                         <Fragment key={line.id}>
-                        <tr className={line.hoan_thanh ? 'bg-emerald-50/40' : editing ? 'bg-blue-50/40' : ''}>
-                          <td className="px-3 py-2"><span className="font-mono font-medium text-slate-700">{line.ma_hang}</span> <span className="text-slate-500">{line.soct_kho_hang?.ten_hang || ''}</span></td>
+                        <tr className={hit ? 'bg-amber-100 ring-1 ring-inset ring-amber-300' : line.hoan_thanh ? 'bg-emerald-50/40' : editing ? 'bg-blue-50/40' : ''}>
+                          <td className="px-3 py-2"><span className={`font-mono font-medium ${hit ? 'text-amber-900 font-bold' : 'text-slate-700'}`}>{line.ma_hang}</span> <span className={hit ? 'text-amber-800' : 'text-slate-500'}>{line.soct_kho_hang?.ten_hang || ''}</span></td>
                           <td className="px-3 py-2 text-slate-500">{line.soct_kho_hang?.model || '—'}</td>
                           <td className="px-3 py-2 text-center">{line.sl_dat}</td>
                           <td className="px-3 py-2 text-center font-medium text-emerald-600">{nhan}</td>
