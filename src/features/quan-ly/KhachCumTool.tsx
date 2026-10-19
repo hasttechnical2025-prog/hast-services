@@ -192,8 +192,12 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
     const ma = newMa.trim(), ten = newTen.trim()
     if (!ma || !ten) return showNotification('error', 'Nhập mã và tên khách hàng')
     if (dupCluster) return showNotification('error', `Mã ${ma} đã dùng cho cụm: ${dupCluster.ten_khach_hang}`)
-    if (await call('POST', { ma_khach_hang: ma, ten_khach_hang: ten, dia_chi: newDc.trim(), ma_so_thue: newMst.trim(), email_ke_toan: newEmail.trim() })) {
-      showNotification('success', 'Đã tạo cụm.'); setNewMa(''); setNewTen(''); setNewDc(''); setNewMst(''); setNewEmail(''); setCreateOpen(false); await fetchClusters()
+    const dc = newDc.trim(), mst = newMst.trim(), email = newEmail.trim()
+    if (await call('POST', { ma_khach_hang: ma, ten_khach_hang: ten, dia_chi: dc, ma_so_thue: mst, email_ke_toan: email })) {
+      showNotification('success', 'Đã tạo cụm. Thêm máy vào cụm bên dưới.')
+      setNewMa(''); setNewTen(''); setNewDc(''); setNewMst(''); setNewEmail(''); setCreateOpen(false); await fetchClusters(); onUpdateSuccess()
+      // Mở luôn modal Chỉnh sửa cụm vừa tạo -> user thêm máy ngay, không phải mở lại.
+      setSelMa(ma); setEdMa(ma); setEdTen(ten); setEdDc(dc); setEdMst(mst); setEdEmail(email); setPickIds([]); setMaySearch('')
     }
   }
   const saveEdit = async () => {
