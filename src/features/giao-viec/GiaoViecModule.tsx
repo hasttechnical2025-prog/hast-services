@@ -96,6 +96,8 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
           { value: 'co', label: 'Có hóa đơn', test: (j: Job) => jobTien(j).coHD },
           { value: 'chua', label: 'Chưa hóa đơn', test: (j: Job) => { const { tong, coHD } = jobTien(j); return !coHD && tong > 0 } },
           { value: 'cotien', label: 'Có phát sinh tiền', test: (j: Job) => jobTien(j).tong > 0 },
+          { value: 'mf', label: 'Miễn phí (MF)', test: (j: Job) => !!j.mien_phi },
+          { value: 'cophi', label: 'Có phí', test: (j: Job) => !j.mien_phi },
         ],
       },
       tt: { title: 'Trạng thái', options: STATUSES.map(s => ({ value: s, label: s, test: (j: Job) => j.ket_qua === s })) },
@@ -246,7 +248,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
         const active = allVt.filter(v => !v.da_tra)
         const returned = allVt.length - active.length
         const { tong, coHD } = jobTien(j)
-        return <div>{j.report && <div className="t2 text-slate-600">Phiếu: {j.report}</div>}{active.length > 0 && <div className={`t2 font-medium ${coHD ? 'text-emerald-600' : 'text-amber-600'}`}>{coHD ? 'Có HĐ' : 'Chưa HĐ'}: {fmtMoney(tong)} đ</div>}{returned > 0 && <div className="t3 text-indigo-600 font-medium mt-0.5">↩ Đã trả kho {returned}/{allVt.length}</div>}</div>
+        return <div>{j.report && <div className="t2 text-slate-600">Phiếu: {j.report}</div>}{j.mien_phi && <span className="inline-block t3 font-semibold px-1 py-px rounded bg-emerald-100 text-emerald-700 border border-emerald-200">MF</span>}{active.length > 0 && <div className={`t2 font-medium ${coHD ? 'text-emerald-600' : 'text-amber-600'}`}>{coHD ? 'Có HĐ' : 'Chưa HĐ'}: {fmtMoney(tong)} đ</div>}{returned > 0 && <div className="t3 text-indigo-600 font-medium mt-0.5">↩ Đã trả kho {returned}/{allVt.length}</div>}</div>
       },
     },
     {
