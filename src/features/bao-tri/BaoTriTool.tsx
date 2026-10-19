@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
-import { Search, RefreshCw, Download, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
+import { Search, RefreshCw, Download, Trash2, ChevronUp, ChevronDown, PauseCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import MonthField from '@/components/MonthField'
@@ -28,6 +28,11 @@ function parseBaoTriInput(text: string): { ma_may: string, counter: string }[] {
   }
   return out
 }
+
+// Khoá gom NHÓM bảo trì: theo cụm (ma_khach_cum) hoặc theo tên khách lẻ.
+const groupKey = (c: any) => (c.ma_khach_cum && c.soct_khach_cum)
+  ? `cum:${c.ma_khach_cum}`
+  : `le:${String(c.ten_khach_hang || '').trim().toLowerCase()}`
 
 const BAOTRI_COLS: ColDef[] = [
   { key: 'ma_may', label: 'Mã máy', locked: true },
@@ -87,7 +92,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
   const chuaBaoTri = mayCanBaoTri.filter(c => !daBaoTriSet.has(String(c.ma_may).toLowerCase()))
   const tamDung = customers.filter(c => c.ma_may
     && LOAI_HD_BAO_TRI.includes(String(c.loai_hd || '').trim())
-    && dangTamDung(c.tam_dung_tu_thang, thangNam))
+    && dangTamDung(c.tam_dung_tu_thang, thangNam, c.tam_dung_den_thang))
 
   const fetchRecords = async (thang: string) => {
     setLoading(true)
@@ -214,15 +219,25 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
   }
   const tkStrip = (s: any) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd')
   const thongKeRows = useMemo(() => {
-    const g = new Map<string, { key: string, ten: string, so_may: number, la_cum: boolean }>()
+    // Gom theo NHÓM (cụm hoặc khách lẻ cùng tên). so_may = số máy HĐBT (hiển thị);
+    // ids = TOÀN BỘ máy của nhóm (kể cả không HĐBT) để "Tạm hoãn" áp cho cả nhóm.
+    const g = new Map<string, { key: string, ten: string, so_may: number, la_cum: boolean, ids: number[], tam_tu: string | null, tam_den: string | null }>()
     for (const c of customers) {
       if (!c.ma_may || !LOAI_HD_BAO_TRI.includes(String(c.loai_hd || '').trim())) continue
       const laCum = !!(c.ma_khach_cum && c.soct_khach_cum)
-      const key = laCum ? `cum:${c.ma_khach_cum}` : `le:${String(c.ten_khach_hang || '').trim().toLowerCase()}`
+      const key = groupKey(c)
       const ten = laCum ? (c.soct_khach_cum.ten_khach_hang || c.ma_khach_cum) : (String(c.ten_khach_hang || '').trim() || '(không tên)')
       const cur = g.get(key)
       if (cur) cur.so_may++
-      else g.set(key, { key, ten, so_may: 1, la_cum: laCum })
+      else g.set(key, { key, ten, so_may: 1, la_cum: laCum, ids: [], tam_tu: null, tam_den: null })
+    }
+    // Gắn ids của TẤT CẢ máy (mọi loại HĐ) vào nhóm tương ứng + mốc tạm hoãn đại diện.
+    for (const c of customers) {
+      if (!c.ma_may || c.id == null) continue
+      const row = g.get(groupKey(c))
+      if (!row) continue
+      row.ids.push(Number(c.id))
+      if (c.tam_dung_tu_thang && !row.tam_tu) { row.tam_tu = c.tam_dung_tu_thang; row.tam_den = c.tam_dung_den_thang || null }
     }
     return [...g.values()]
   }, [customers])
@@ -243,6 +258,38 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
     const a = document.createElement('a'); a.href = url; a.download = 'thong-ke-bao-tri-theo-cum.csv'; a.click(); URL.revokeObjectURL(url)
   }
+
+  // ── Tạm hoãn bảo trì CẢ NHÓM (cụm / khách lẻ) trong một khoảng tháng ──
+  const canTamHoan = role === 'admin' || role === 'tech_admin'
+  const [hoanRow, setHoanRow] = useState<{ ten: string, ids: number[], tam_tu: string | null, tam_den: string | null } | null>(null)
+  const [hoanTu, setHoanTu] = useState('')
+  const [hoanDen, setHoanDen] = useState('')
+  const [hoanBusy, setHoanBusy] = useState(false)
+  const openHoan = (r: { ten: string, ids: number[], tam_tu: string | null, tam_den: string | null }) => {
+    setHoanRow(r)
+    setHoanTu(r.tam_tu || new Date().toISOString().slice(0, 7))
+    setHoanDen(r.tam_den || '')
+  }
+  const postHoan = async (body: any, okMsg: string) => {
+    if (!hoanRow) return
+    setHoanBusy(true)
+    try {
+      const res = await fetch('/api/admin/bao-tri/tam-hoan', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: hoanRow.ids, ...body }),
+      })
+      const j = await res.json()
+      if (res.ok) { showNotification('success', okMsg); setHoanRow(null) }
+      else showNotification('error', j.error || 'Lỗi tạm hoãn')
+    } catch { showNotification('error', 'Lỗi kết nối!') } finally { setHoanBusy(false) }
+  }
+  const applyHoan = () => {
+    if (!/^\d{4}-\d{2}$/.test(hoanTu)) return showNotification('error', 'Chọn tháng bắt đầu tạm hoãn')
+    if (hoanDen && hoanDen < hoanTu) return showNotification('error', 'Tháng kết thúc phải sau hoặc bằng tháng bắt đầu')
+    postHoan({ tu: hoanTu, den: hoanDen || null },
+      `Đã tạm hoãn bảo trì nhóm "${hoanRow?.ten}" (${hoanRow?.ids.length} máy).`)
+  }
+  const clearHoan = () => postHoan({ clear: true }, `Đã bỏ tạm hoãn bảo trì nhóm "${hoanRow?.ten}".`)
 
   useEffect(() => { fetchRecords(thangNam) }, [thangNam]) // eslint-disable-line react-hooks/exhaustive-deps
   useRealtimeRefetch(BAOTRI_TOPIC, DATA_EVENT, () => fetchRecords(thangNam))
@@ -607,7 +654,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
             Đối chiếu năm
           </button>}
           {canS('thong_ke') && <button onClick={() => setSubTab('thong_ke')} className={`px-4 py-2 font-medium text-sm transition whitespace-nowrap border-b-2 ${active === 'thong_ke' ? 'border-indigo-600 text-indigo-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
-            Thống kê
+            HĐBT cụm
           </button>}
         </div>
 
@@ -637,17 +684,28 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                     <th onClick={() => handleTkSort('so_may')} className={`px-3 py-2 text-right w-32 cursor-pointer transition-colors hover:bg-slate-100 ${tkSortField === 'so_may' ? 'text-blue-600 bg-blue-50/60' : ''}`}>
                       <span className="inline-flex items-center gap-1 justify-end">Số lượng {tkSortField === 'so_may' && (tkSortAsc ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}</span>
                     </th>
+                    {canTamHoan && <th className="px-3 py-2 text-center w-40">Thao tác</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {thongKeFiltered.length === 0 ? (
-                    <tr><td colSpan={2} className="px-4 py-8 text-center text-slate-400">{thongKeRows.length === 0 ? 'Chưa có máy HĐ bảo trì nào.' : 'Không có khách khớp tìm kiếm.'}</td></tr>
-                  ) : thongKeFiltered.map(r => (
+                    <tr><td colSpan={canTamHoan ? 3 : 2} className="px-4 py-8 text-center text-slate-400">{thongKeRows.length === 0 ? 'Chưa có máy HĐ bảo trì nào.' : 'Không có khách khớp tìm kiếm.'}</td></tr>
+                  ) : thongKeFiltered.map(r => {
+                    const dangHoan = dangTamDung(r.tam_tu, thangNam, r.tam_den)
+                    return (
                     <tr key={r.key} className="hover:bg-slate-50">
-                      <td className="px-3 py-1.5 font-medium text-slate-800">{r.ten}{!r.la_cum && <span className="ml-1.5 text-[9px] font-semibold px-1 py-0.5 rounded bg-slate-100 text-slate-500 align-middle">máy lẻ</span>}</td>
+                      <td className="px-3 py-1.5 font-medium text-slate-800">
+                        {r.ten}{!r.la_cum && <span className="ml-1.5 text-[9px] font-semibold px-1 py-0.5 rounded bg-slate-100 text-slate-500 align-middle">máy lẻ</span>}
+                        {dangHoan && <span className="ml-1.5 text-[9px] font-semibold px-1 py-0.5 rounded bg-amber-100 text-amber-700 align-middle" title={`Tạm hoãn từ ${fmtThang(r.tam_tu)}${r.tam_den ? ` đến ${fmtThang(r.tam_den)}` : ' (vô hạn)'}`}>tạm hoãn</span>}
+                      </td>
                       <td className="px-3 py-1.5 text-right font-semibold tabular-nums">{r.so_may.toLocaleString('vi-VN')}</td>
+                      {canTamHoan && <td className="px-3 py-1.5 text-center">
+                        <button onClick={() => openHoan(r)} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold border transition ${dangHoan ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`} title={dangHoan ? 'Đang tạm hoãn — bấm để chỉnh/bỏ' : 'Tạm hoãn bảo trì cả nhóm'}>
+                          <PauseCircle className="w-3.5 h-3.5" /> {dangHoan ? 'Đang tạm hoãn' : 'Tạm hoãn'}
+                        </button>
+                      </td>}
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>
@@ -921,6 +979,51 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
           </div>
         )}
       </div>
+      )}
+
+      {hoanRow && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
+              <h3 className="font-semibold text-slate-800 flex items-center gap-2"><PauseCircle className="w-4 h-4 text-amber-600" /> Tạm hoãn bảo trì cả nhóm</h3>
+              <button onClick={() => setHoanRow(null)} className="text-slate-400 hover:text-slate-700 text-lg leading-none">✕</button>
+            </div>
+            <div className="px-5 py-4 space-y-4 overflow-y-auto">
+              <div className="text-sm">
+                <div className="font-semibold text-slate-800">{hoanRow.ten}</div>
+                <div className="t2 text-slate-500">Áp dụng cho toàn bộ <b>{hoanRow.ids.length}</b> máy của nhóm này.</div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">Tạm hoãn từ tháng</label>
+                  <MonthField value={hoanTu} onChange={setHoanTu} className="h-9 px-3 text-xs w-full" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">Đến hết tháng</label>
+                  <MonthField value={hoanDen} onChange={setHoanDen} className="h-9 px-3 text-xs w-full" />
+                  {hoanDen
+                    ? <button type="button" onClick={() => setHoanDen('')} className="t2 text-slate-400 hover:text-slate-600">✕ bỏ (dừng vô hạn)</button>
+                    : <span className="t2 text-slate-400">Để trống = dừng vô hạn</span>}
+                </div>
+              </div>
+              <p className="t2 text-slate-500 bg-amber-50 border border-amber-100 rounded-md px-3 py-2">
+                Trong khoảng này nhóm sẽ KHÔNG bị tính "chưa bảo trì". Hết tháng kết thúc, hệ thống tự theo dõi lại. Vô hại với máy không có HĐBT.
+              </p>
+            </div>
+            <div className="flex items-center justify-between gap-2 px-5 py-3 border-t border-slate-200">
+              <button onClick={clearHoan} disabled={hoanBusy || !hoanRow.tam_tu}
+                className="px-3 py-2 rounded-md text-xs font-semibold text-red-600 border border-red-200 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed">
+                Bỏ tạm hoãn
+              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setHoanRow(null)} disabled={hoanBusy} className="px-3 py-2 rounded-md text-xs font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50">Hủy</button>
+                <button onClick={applyHoan} disabled={hoanBusy} className="px-4 py-2 rounded-md text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50">
+                  {hoanBusy ? 'Đang lưu…' : 'Áp dụng'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
       {confirmNode}
     </div>

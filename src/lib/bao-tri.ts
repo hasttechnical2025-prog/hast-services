@@ -27,12 +27,21 @@ export function coBaoTriThang(thang_bao_tri: string | null | undefined, month: n
   return list.length === 0 ? true : list.includes(month)
 }
 
-// Máy đã tạm dừng theo dõi tính đến tháng `thang_nam` ('YYYY-MM') chưa.
+// Máy đã tạm dừng theo dõi trong tháng `thang_nam` ('YYYY-MM') chưa.
 // So sánh chuỗi 'YYYY-MM' là đúng thứ tự thời gian nên không cần parse ngày.
-export function dangTamDung(tam_dung_tu_thang: string | null | undefined, thang_nam: string): boolean {
+// `tam_dung_den_thang` (tuỳ chọn) = tháng CUỐI còn tạm dừng; để trống = dừng vô hạn (hành vi cũ).
+// Hết tháng `den` -> tự theo dõi lại (tháng den+1 trở đi không còn tạm dừng).
+export function dangTamDung(
+  tam_dung_tu_thang: string | null | undefined,
+  thang_nam: string,
+  tam_dung_den_thang?: string | null,
+): boolean {
   const t = (tam_dung_tu_thang || '').trim()
   if (!/^\d{4}-\d{2}$/.test(t)) return false
-  return thang_nam >= t
+  if (thang_nam < t) return false
+  const d = (tam_dung_den_thang || '').trim()
+  if (/^\d{4}-\d{2}$/.test(d)) return thang_nam <= d // có mốc kết thúc -> chỉ dừng trong khoảng [tu, den]
+  return true // không có mốc kết thúc -> dừng vô hạn
 }
 
 // Tháng `thang_nam` có TRƯỚC lúc máy được lắp không (máy chưa tồn tại -> không đòi bảo trì).
@@ -49,6 +58,7 @@ type MayBaoTri = {
   thang_bao_tri?: string | null
   bat_dau_tu_thang?: string | null
   tam_dung_tu_thang?: string | null
+  tam_dung_den_thang?: string | null
 }
 
 // Máy có bị đòi bảo trì trong tháng `thang_nam` ('YYYY-MM') không:
@@ -57,7 +67,7 @@ export function canBaoTriThang(may: MayBaoTri, thang_nam: string): boolean {
   if (!may.ma_may) return false
   if (!LOAI_HD_BAO_TRI.includes((may.loai_hd || '').trim())) return false
   if (chuaBatDau(may.bat_dau_tu_thang, thang_nam)) return false
-  if (dangTamDung(may.tam_dung_tu_thang, thang_nam)) return false
+  if (dangTamDung(may.tam_dung_tu_thang, thang_nam, may.tam_dung_den_thang)) return false
   const month = parseInt(thang_nam.split('-')[1] || '0', 10)
   return coBaoTriThang(may.thang_bao_tri, month)
 }
@@ -95,7 +105,7 @@ export function doiChieuNam(may: MayBaoTri, year: number, doneMonths: Set<number
     const thang_nam = `${year}-${String(m).padStart(2, '0')}`
     const done = doneMonths.has(m)
     const chuaCo = chuaBatDau(may.bat_dau_tu_thang, thang_nam)   // máy chưa lắp
-    const paused = dangTamDung(may.tam_dung_tu_thang, thang_nam) // khách đã bỏ máy
+    const paused = dangTamDung(may.tam_dung_tu_thang, thang_nam, may.tam_dung_den_thang) // khách đã bỏ máy/tạm hoãn
     const scheduled = !chuaCo && !paused && coBaoTriThang(may.thang_bao_tri, m)
     const daToi = m <= denThang
     if (done) da_lam++

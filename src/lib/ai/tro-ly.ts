@@ -280,7 +280,7 @@ async function baoTri(terms: string[][]): Promise<ToolResult> {
   if (terms.length === 0) {
     const customers = await selectAll((from, to) => supabaseAdmin
       .from('soct_khach_hang')
-      .select('ma_may, ten_khach_hang, dia_chi, model, loai_hd, thang_bao_tri, bat_dau_tu_thang, tam_dung_tu_thang')
+      .select('ma_may, ten_khach_hang, dia_chi, model, loai_hd, thang_bao_tri, bat_dau_tu_thang, tam_dung_tu_thang, tam_dung_den_thang')
       .range(from, to))
     const { data: btRecords } = await supabaseAdmin.from('soct_bao_tri').select('ma_may').eq('thang_nam', thang)
     const done = new Set((btRecords || []).map((r: any) => String(r.ma_may).toLowerCase()))
@@ -307,7 +307,7 @@ async function baoTri(terms: string[][]): Promise<ToolResult> {
 
   const customers = await selectAll((from, to) => supabaseAdmin
     .from('soct_khach_hang')
-    .select('ma_may, ten_khach_hang, dia_chi, model, loai_hd, thang_bao_tri, bat_dau_tu_thang, tam_dung_tu_thang')
+    .select('ma_may, ten_khach_hang, dia_chi, model, loai_hd, thang_bao_tri, bat_dau_tu_thang, tam_dung_tu_thang, tam_dung_den_thang')
     .range(from, to))
   const { data: btRecords } = await supabaseAdmin.from('soct_bao_tri').select('ma_may').eq('thang_nam', thang)
   const done = new Set((btRecords || []).map((r: any) => String(r.ma_may).toLowerCase()))

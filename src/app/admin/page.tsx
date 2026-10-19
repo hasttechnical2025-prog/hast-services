@@ -2808,7 +2808,7 @@ export default function AdminDashboard() {
                       {/* Bảo trì tháng: chỉ máy HĐBT/MF, và chỉ khi tháng này NẰM TRONG lịch của máy.
                           Máy tạm dừng (khách bỏ máy) -> báo xám, không đòi bảo trì. */}
                       {LOAI_HD_BAO_TRI.includes(String(matched.loai_hd || '').trim()) && mayStatus && (
-                        dangTamDung(matched.tam_dung_tu_thang, mayStatus.thang_nam)
+                        dangTamDung(matched.tam_dung_tu_thang, mayStatus.thang_nam, matched.tam_dung_den_thang)
                           ? <span className={`${pill} bg-slate-100 text-slate-600 border-slate-200`}>Tạm dừng bảo trì (từ {fmtThang(matched.tam_dung_tu_thang)})</span>
                           : mayStatus.bao_tri_thang
                             ? <span className={`${pill} bg-emerald-50 text-emerald-700 border-emerald-200`}>✓ Đã bảo trì T{mayStatus.thang_nam.split('-')[1]}</span>
@@ -10140,7 +10140,7 @@ function BaoTriTool({ customers, showNotification, canSub, role }: { customers: 
   // Máy tạm dừng theo dõi (khách bỏ máy nhưng còn trong HĐ) — luôn xem được để không thất lạc
   const tamDung = customers.filter(c => c.ma_may
     && LOAI_HD_BAO_TRI.includes(String(c.loai_hd || '').trim())
-    && dangTamDung(c.tam_dung_tu_thang, thangNam))
+    && dangTamDung(c.tam_dung_tu_thang, thangNam, c.tam_dung_den_thang))
 
   const fetchRecords = async (thang: string) => {
     setLoading(true)

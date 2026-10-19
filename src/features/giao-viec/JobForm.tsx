@@ -297,7 +297,7 @@ export function JobFormModal({ editingJob, onClose, onSaved, notify, customers, 
               <div className="space-y-2">
                 <div className="flex flex-wrap gap-2">
                   {LOAI_HD_BAO_TRI.includes(String(matched.loai_hd || '').trim()) && mayStatus && (
-                    dangTamDung(matched.tam_dung_tu_thang, mayStatus.thang_nam)
+                    dangTamDung(matched.tam_dung_tu_thang, mayStatus.thang_nam, matched.tam_dung_den_thang)
                       ? <span className={`${pill} bg-slate-100 text-slate-600 border-slate-200`}>Tạm dừng bảo trì (từ {fmtThang(matched.tam_dung_tu_thang)})</span>
                       : mayStatus.bao_tri_thang
                         ? <span className={`${pill} bg-emerald-50 text-emerald-700 border-emerald-200`}>✓ Đã bảo trì T{mayStatus.thang_nam.split('-')[1]}</span>
