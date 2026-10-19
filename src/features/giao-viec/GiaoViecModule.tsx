@@ -333,17 +333,17 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
             {anyFilterActive && <button onClick={clearAll} className="text-xs text-rose-600 hover:underline font-medium px-1">Bỏ lọc</button>}
             <span className="t2 text-slate-400 ml-auto">{visibleRows.length}/{jobs.length} việc</span>
           </div>
-          {/* Dòng 2 — Giao việc mới (trái) · nhóm nút (phải) */}
+          {/* Dòng 2 — nhóm nút phụ (trái) · Giao việc mới (phải, hay dùng -> dễ thao tác) */}
           <div className="flex flex-wrap items-center justify-between gap-2">
-            {canCreate
-              ? <button onClick={openCreate} className="h-9 px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold flex items-center gap-1.5 shadow-xs"><Plus className="w-4 h-4" /> Giao việc mới</button>
-              : <span />}
             <div className="flex flex-wrap items-center gap-2">
               <button onClick={exportExcel} className="h-9 px-3 rounded-md border border-emerald-200 text-emerald-700 text-xs font-medium flex items-center gap-1.5 hover:bg-emerald-50"><FileDown className="w-3.5 h-3.5" /> Xuất DS giao việc</button>
               {canAdminTools && <button onClick={cuonNgay} disabled={busyTool} className={btnOutline}><CalendarArrowDown className="w-3.5 h-3.5" /> Cuốn ngày</button>}
               {isAdmin && <button onClick={xoaTrung} disabled={busyTool} className="h-9 px-3 rounded-md border border-amber-300 text-amber-700 text-xs font-medium flex items-center gap-1.5 hover:bg-amber-50 disabled:opacity-50"><CopyX className="w-3.5 h-3.5" /> Xóa phiếu trùng</button>}
               <button onClick={() => load()} className={btnOutline}><RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Tải lại</button>
             </div>
+            {canCreate
+              ? <button onClick={openCreate} className="h-9 px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold flex items-center gap-1.5 shadow-xs"><Plus className="w-4 h-4" /> Giao việc mới</button>
+              : <span />}
           </div>
         </div>
 
