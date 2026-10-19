@@ -250,7 +250,7 @@ function SearchSelect({ options, value, onChange, placeholder }: { options: { va
 
 export default function ThueCpcModule({ showNotification, canSub }: { showNotification: Notify, canSub?: (g: string) => boolean }) {
   const canS = canSub || (() => true)
-  const [sub, setSub] = useState<'danh_sach' | 'counter' | 'canh_bao_muc'>('danh_sach')
+  const [sub, setSub] = useState<'danh_sach' | 'counter' | 'canh_bao_muc'>('counter')
   const [mucCount, setMucCount] = useState(0) // badge: số máy sắp hết mực
   const [dueCount, setDueCount] = useState(0) // số máy cần lấy counter (badge tab) — theo kỳ đang chọn
   const [counterThang, setCounterThang] = useState(monthNow()) // kỳ đang chọn ở tab Nhập counter (nâng lên để badge bám theo)
@@ -271,9 +271,9 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
   // Gộp 4 tab cháu cũ -> 2: "Danh sách máy" (đơn giá + hợp đồng khung), "Nhập counter" (counter + bảng kê).
   // Quyền giữ theo key cũ: mỗi tab mới hiện nếu có ÍT NHẤT một phần con được phép.
   const allTabs: [typeof sub, string, boolean][] = [
-    ['danh_sach', 'Danh sách máy', canS('don_gia') || canS('khung')],
     ['counter', 'Nhập counter', canS('counter') || canS('bang_ke')],
     ['canh_bao_muc', 'Cảnh báo vật tư', canS('canh_bao_muc')],
+    ['danh_sach', 'Danh sách máy', canS('don_gia') || canS('khung')],
   ]
   // Badge số vật tư cần cảnh báo (cho tab) — ĐẾM THEO BỘ LỌC nhóm admin đã lưu (Tất cả/Mực/Trống).
   useEffect(() => {
