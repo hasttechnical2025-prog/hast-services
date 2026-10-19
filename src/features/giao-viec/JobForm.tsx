@@ -4,7 +4,7 @@ import { X, Plus, Trash2, Loader2, MapPin, AlertTriangle } from 'lucide-react'
 import DateField from '@/components/DateField'
 import { Button } from '@/components/ui/button'
 import { loaiHdBadge } from '@/lib/hd-status'
-import { LOAI_HD_BAO_TRI, dangTamDung, coBaoTriThang, moTaLichBaoTri, fmtThang } from '@/lib/bao-tri'
+import { LOAI_HD_BAO_TRI, nghiBaoTri, coBaoTriThang, moTaLichBaoTri, fmtThang } from '@/lib/bao-tri'
 import { CustomerCombobox } from './CustomerCombobox'
 import { MaterialCombobox } from './MaterialCombobox'
 import { createCustomer, saveJob, importPdf, fetchMayStatus, addKhoItem, closeGiamDinh } from './api'
@@ -297,8 +297,8 @@ export function JobFormModal({ editingJob, onClose, onSaved, notify, customers, 
               <div className="space-y-2">
                 <div className="flex flex-wrap gap-2">
                   {LOAI_HD_BAO_TRI.includes(String(matched.loai_hd || '').trim()) && mayStatus && (
-                    dangTamDung(matched.tam_dung_tu_thang, mayStatus.thang_nam, matched.tam_dung_den_thang)
-                      ? <span className={`${pill} bg-slate-100 text-slate-600 border-slate-200`}>Tạm dừng bảo trì (từ {fmtThang(matched.tam_dung_tu_thang)})</span>
+                    nghiBaoTri(matched, mayStatus.thang_nam)
+                      ? <span className={`${pill} bg-slate-100 text-slate-600 border-slate-200`}>Tạm dừng bảo trì (từ {fmtThang(matched.tam_dung_tu_thang || matched.tam_hoan_cum_tu_thang)})</span>
                       : mayStatus.bao_tri_thang
                         ? <span className={`${pill} bg-emerald-50 text-emerald-700 border-emerald-200`}>✓ Đã bảo trì T{mayStatus.thang_nam.split('-')[1]}</span>
                         : coBaoTriThang(matched.thang_bao_tri, parseInt(mayStatus.thang_nam.split('-')[1], 10))

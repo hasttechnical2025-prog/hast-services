@@ -57,8 +57,19 @@ type MayBaoTri = {
   loai_hd?: string | null
   thang_bao_tri?: string | null
   bat_dau_tu_thang?: string | null
+  // Lớp 1 — tạm hoãn LẺ (neo vào điểm máy; khách bỏ máy): khai ở form Khách hàng.
   tam_dung_tu_thang?: string | null
   tam_dung_den_thang?: string | null
+  // Lớp 2 — tạm hoãn CỤM (neo vào nhóm HĐBT; cả cụm nghỉ tạm): đặt ở tab HĐBT cụm, ghi cho mọi máy nhóm.
+  tam_hoan_cum_tu_thang?: string | null
+  tam_hoan_cum_den_thang?: string | null
+}
+
+// Máy có NGHỈ bảo trì trong tháng không = HỢP (OR) 2 lớp độc lập: tạm hoãn lẻ HOẶC tạm hoãn cụm.
+// Gỡ 1 lớp không ảnh hưởng lớp kia (xóa cột tương ứng).
+export function nghiBaoTri(may: MayBaoTri, thang_nam: string): boolean {
+  return dangTamDung(may.tam_dung_tu_thang, thang_nam, may.tam_dung_den_thang)
+    || dangTamDung(may.tam_hoan_cum_tu_thang, thang_nam, may.tam_hoan_cum_den_thang)
 }
 
 // Máy có bị đòi bảo trì trong tháng `thang_nam` ('YYYY-MM') không:
@@ -67,7 +78,7 @@ export function canBaoTriThang(may: MayBaoTri, thang_nam: string): boolean {
   if (!may.ma_may) return false
   if (!LOAI_HD_BAO_TRI.includes((may.loai_hd || '').trim())) return false
   if (chuaBatDau(may.bat_dau_tu_thang, thang_nam)) return false
-  if (dangTamDung(may.tam_dung_tu_thang, thang_nam, may.tam_dung_den_thang)) return false
+  if (nghiBaoTri(may, thang_nam)) return false
   const month = parseInt(thang_nam.split('-')[1] || '0', 10)
   return coBaoTriThang(may.thang_bao_tri, month)
 }
@@ -105,7 +116,7 @@ export function doiChieuNam(may: MayBaoTri, year: number, doneMonths: Set<number
     const thang_nam = `${year}-${String(m).padStart(2, '0')}`
     const done = doneMonths.has(m)
     const chuaCo = chuaBatDau(may.bat_dau_tu_thang, thang_nam)   // máy chưa lắp
-    const paused = dangTamDung(may.tam_dung_tu_thang, thang_nam, may.tam_dung_den_thang) // khách đã bỏ máy/tạm hoãn
+    const paused = nghiBaoTri(may, thang_nam) // tạm hoãn lẻ (bỏ máy) HOẶC tạm hoãn cả cụm
     const scheduled = !chuaCo && !paused && coBaoTriThang(may.thang_bao_tri, m)
     const daToi = m <= denThang
     if (done) da_lam++

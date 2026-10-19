@@ -9,7 +9,7 @@ import { useConfirm } from '@/components/ConfirmDialog'
 import { useRealtimeRefetch } from '@/lib/useRealtime'
 import { BAOTRI_TOPIC, DATA_EVENT } from '@/lib/realtime'
 import { exportRowsToExcel } from '@/lib/excel'
-import { LOAI_HD_BAO_TRI, canBaoTriThang, dangTamDung, moTaLichBaoTri, doiChieuNam, thangDaToi, fmtThang, CELL_DA_LAM, CELL_THIEU, CELL_CHUA_TOI } from '@/lib/bao-tri'
+import { LOAI_HD_BAO_TRI, canBaoTriThang, dangTamDung, nghiBaoTri, moTaLichBaoTri, doiChieuNam, thangDaToi, fmtThang, CELL_DA_LAM, CELL_THIEU, CELL_CHUA_TOI } from '@/lib/bao-tri'
 import { usePaged, Pagination, useColView, TableLoading, type ColDef } from '@/ui'
 
 // Port NGUYÊN BaoTriTool từ admin/page.tsx (y hệt giao diện + nghiệp vụ). Chỉ đổi import sang
@@ -92,7 +92,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
   const chuaBaoTri = mayCanBaoTri.filter(c => !daBaoTriSet.has(String(c.ma_may).toLowerCase()))
   const tamDung = customers.filter(c => c.ma_may
     && LOAI_HD_BAO_TRI.includes(String(c.loai_hd || '').trim())
-    && dangTamDung(c.tam_dung_tu_thang, thangNam, c.tam_dung_den_thang))
+    && nghiBaoTri(c, thangNam))
 
   const fetchRecords = async (thang: string) => {
     setLoading(true)
@@ -221,7 +221,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
   const thongKeRows = useMemo(() => {
     // Gom theo NHÓM (cụm hoặc khách lẻ cùng tên). so_may = số máy HĐBT (hiển thị);
     // ids = TOÀN BỘ máy của nhóm (kể cả không HĐBT) để "Tạm hoãn" áp cho cả nhóm.
-    // hdbt = mốc tạm dừng của TỪNG máy HĐBT -> tính "đang tạm hoãn cả nhóm / một phần" ở lúc render.
+    // hdbt = mốc tạm hoãn CỤM của TỪNG máy HĐBT -> tính "đang tạm hoãn cả nhóm / một phần" ở lúc render.
     type Row = { key: string, ten: string, so_may: number, la_cum: boolean, ids: number[], hdbt: { tu: string | null, den: string | null }[] }
     const g = new Map<string, Row>()
     for (const c of customers) {
@@ -232,7 +232,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
       let row = g.get(key)
       if (!row) { row = { key, ten, so_may: 0, la_cum: laCum, ids: [], hdbt: [] }; g.set(key, row) }
       row.so_may++
-      row.hdbt.push({ tu: c.tam_dung_tu_thang || null, den: c.tam_dung_den_thang || null })
+      row.hdbt.push({ tu: c.tam_hoan_cum_tu_thang || null, den: c.tam_hoan_cum_den_thang || null })
     }
     // Gắn ids của TẤT CẢ máy (mọi loại HĐ) vào nhóm tương ứng để tạm hoãn áp cho cả nhóm.
     for (const c of customers) {
