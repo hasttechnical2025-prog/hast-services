@@ -268,12 +268,12 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
   const [badgeVer, setBadgeVer] = useState(0) // tăng sau mỗi lần lưu counter -> badge tính lại
   const [refreshVer, setRefreshVer] = useState(0) // realtime: tăng khi có thay đổi -> BÁO NHẸ cho CounterTab (KHÔNG remount, tránh trôi danh sách đang nhập)
   useRealtimeRefetch(THUECPC_TOPIC, DATA_EVENT, () => { setRefreshVer(v => v + 1); setBadgeVer(v => v + 1) })
-  // Gộp 4 tab cháu cũ -> 2: "Danh sách máy" (đơn giá + hợp đồng khung), "Nhập counter" (counter + bảng kê).
-  // Quyền giữ theo key cũ: mỗi tab mới hiện nếu có ÍT NHẤT một phần con được phép.
+  // 3 tab = 3 quyền (khớp ma trận phân quyền). Mỗi tab 1 key; section con trong tab hiện cùng nhau:
+  //  Danh sách máy = Đơn giá HĐ + Hợp đồng khung · Nhập counter = Counter + Bảng kê.
   const allTabs: [typeof sub, string, boolean][] = [
-    ['counter', 'Nhập counter', canS('counter') || canS('bang_ke')],
+    ['counter', 'Nhập counter', canS('counter')],
     ['canh_bao_muc', 'Cảnh báo vật tư', canS('canh_bao_muc')],
-    ['danh_sach', 'Danh sách máy', canS('don_gia') || canS('khung')],
+    ['danh_sach', 'Danh sách máy', canS('don_gia')],
   ]
   // Badge số vật tư cần cảnh báo (cho tab) — ĐẾM THEO BỘ LỌC nhóm admin đã lưu (Tất cả/Mực/Trống).
   useEffect(() => {
@@ -316,14 +316,14 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
       {active === 'danh_sach' && (
         <div className="space-y-8">
-          {canS('don_gia') && <DonGiaTab showNotification={showNotification} />}
-          {canS('khung') && <div className="pt-2 border-t border-slate-100"><KhungTab showNotification={showNotification} /></div>}
+          <DonGiaTab showNotification={showNotification} />
+          <div className="pt-2 border-t border-slate-100"><KhungTab showNotification={showNotification} /></div>
         </div>
       )}
       {active === 'counter' && (
         <div className="space-y-8">
-          {canS('counter') && <CounterTab showNotification={showNotification} thang={counterThang} setThang={(v: string) => { setThangTouched(true); setCounterThang(v) }} chuyenKyNgay={chuyenKyNgay} onSaved={() => setBadgeVer(v => v + 1)} refreshVer={refreshVer} />}
-          {canS('bang_ke') && <div className="pt-2 border-t border-slate-100"><BangKeTab showNotification={showNotification} thang={counterThang} refreshVer={refreshVer} /></div>}
+          <CounterTab showNotification={showNotification} thang={counterThang} setThang={(v: string) => { setThangTouched(true); setCounterThang(v) }} chuyenKyNgay={chuyenKyNgay} onSaved={() => setBadgeVer(v => v + 1)} refreshVer={refreshVer} />
+          <div className="pt-2 border-t border-slate-100"><BangKeTab showNotification={showNotification} thang={counterThang} refreshVer={refreshVer} /></div>
         </div>
       )}
       {active === 'canh_bao_muc' && canS('canh_bao_muc') && (

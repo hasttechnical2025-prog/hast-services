@@ -181,11 +181,11 @@ export const V2_PERM_ROWS: V2PermRow[] = [
   { label: 'Tài chính', key: 'tai_chinh', level: 1 },
   { label: 'Công nợ', key: 'tai_chinh.cong_no', level: 2, deps: ['tai_chinh'] },
   { label: 'Thuê / CPC', key: 'tai_chinh.thue_cpc', level: 2, deps: ['tai_chinh'] },
-  { label: 'Đơn giá HĐ', key: 'tai_chinh.thue_cpc.don_gia', level: 3, deps: ['tai_chinh', 'tai_chinh.thue_cpc'] },
+  // 3 tab cháu khớp UI: mỗi tab 1 key (các section con hiện cùng tab). don_gia = tab "Danh sách máy"
+  // (gồm Đơn giá HĐ + Hợp đồng khung); counter = tab "Nhập counter" (gồm Counter + Bảng kê).
   { label: 'Nhập counter', key: 'tai_chinh.thue_cpc.counter', level: 3, deps: ['tai_chinh', 'tai_chinh.thue_cpc'] },
-  { label: 'Hợp đồng khung', key: 'tai_chinh.thue_cpc.khung', level: 3, deps: ['tai_chinh', 'tai_chinh.thue_cpc'] },
-  { label: 'Bảng kê', key: 'tai_chinh.thue_cpc.bang_ke', level: 3, deps: ['tai_chinh', 'tai_chinh.thue_cpc'] },
   { label: 'Cảnh báo vật tư', key: 'tai_chinh.thue_cpc.canh_bao_muc', level: 3, deps: ['tai_chinh', 'tai_chinh.thue_cpc'] },
+  { label: 'Danh sách máy', key: 'tai_chinh.thue_cpc.don_gia', level: 3, deps: ['tai_chinh', 'tai_chinh.thue_cpc'] },
   { label: 'Phí bảo trì', key: 'tai_chinh.phi_bao_tri', level: 2, deps: ['tai_chinh'] },
 
   // Kanban đã tách MENU CẤP 1 ở v2 → dòng cấp 1 riêng, ĐỘC LẬP với Tài chính (vẫn key tai_chinh.kanban).
