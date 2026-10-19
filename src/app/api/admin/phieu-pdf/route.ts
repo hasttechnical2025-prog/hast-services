@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireRole } from '@/lib/session'
-import { parsePhieuPdf } from '@/lib/phieu-pdf'
+import { extractPdfLines, parsePhieuLines, laPhieuCongTac } from '@/lib/phieu-pdf'
 
 export const runtime = 'nodejs'
 
@@ -26,10 +26,16 @@ export async function POST(request: Request) {
     }
 
     const buf = Buffer.from(await f.arrayBuffer())
-    const parsed = await parsePhieuPdf(buf)
+    const lines = await extractPdfLines(buf) // chỉ đọc 2 trang đầu (nhanh dù file dài)
 
+    // Kiểm ĐÚNG MẪU phiếu công tác trước khi bóc tách; sai mẫu / ảnh scan -> 1 message duy nhất.
+    if (!laPhieuCongTac(lines)) {
+      return NextResponse.json({ error: 'File không đúng mẫu report. Hãy thử lại!' }, { status: 422 })
+    }
+
+    const parsed = parsePhieuLines(lines)
     if (!parsed.so_phieu && !parsed.ma_may && parsed.vat_tu.length === 0) {
-      return NextResponse.json({ error: 'Không đọc được dữ liệu từ phiếu. File có thể không đúng mẫu hoặc là ảnh scan.' }, { status: 422 })
+      return NextResponse.json({ error: 'File không đúng mẫu report. Hãy thử lại!' }, { status: 422 })
     }
 
     return NextResponse.json({ data: parsed })

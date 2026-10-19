@@ -62,7 +62,10 @@ export async function extractPdfLines(buffer: Buffer | Uint8Array): Promise<stri
   const data = new Uint8Array(buffer)
   const doc = await pdfjs.getDocument({ data, useSystemFonts: true, isEvalSupported: false }).promise
   const allLines: string[] = []
-  for (let p = 1; p <= doc.numPages; p++) {
+  // Phiếu công tác là 1 trang (bảng vật tư có thể tràn sang trang 2) -> CHỈ đọc tối đa 2 trang đầu.
+  // Tránh đọc hết file hàng trăm trang (chọn nhầm) -> nhanh bất kể độ dài.
+  const maxP = Math.min(doc.numPages, 2)
+  for (let p = 1; p <= maxP; p++) {
     const page = await doc.getPage(p)
     const tc = await page.getTextContent()
     const items = (tc.items as any[])
@@ -128,4 +131,11 @@ export function parsePhieuLines(lines: string[]): ParsedPhieu {
 export async function parsePhieuPdf(buffer: Buffer | Uint8Array): Promise<ParsedPhieu> {
   const lines = await extractPdfLines(buffer)
   return parsePhieuLines(lines)
+}
+
+// Nhận diện ĐÚNG MẪU "Phiếu công tác": text có mã biểu mẫu BM26-KT hoặc tiêu đề PHIẾU CÔNG TÁC.
+// File linh tinh / ảnh scan (không có text) -> false.
+export function laPhieuCongTac(lines: string[]): boolean {
+  const t = lines.join(' ').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[đĐ]/g, 'd').toUpperCase()
+  return t.includes('BM26-KT') || t.includes('PHIEU CONG TAC')
 }
