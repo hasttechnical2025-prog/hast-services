@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, Fragment } from 'react'
 import { ShoppingCart, CheckCircle2, Package, AlertTriangle, Search, Download, Plus, Trash2, PenSquare, ChevronUp, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -624,8 +624,10 @@ export function DatHangTool({
                   <tbody className="divide-y divide-slate-100">
                     {(o.soct_dat_hang_ct || []).map((line: any) => {
                       const nhan = daNhan(line); const thieu = line.sl_dat - nhan
+                      const editing = receiving && receiving.ctId === line.id
                       return (
-                        <tr key={line.id} className={line.hoan_thanh ? 'bg-emerald-50/40' : ''}>
+                        <Fragment key={line.id}>
+                        <tr className={line.hoan_thanh ? 'bg-emerald-50/40' : editing ? 'bg-blue-50/40' : ''}>
                           <td className="px-3 py-2"><span className="font-mono font-medium text-slate-700">{line.ma_hang}</span> <span className="text-slate-500">{line.soct_kho_hang?.ten_hang || ''}</span></td>
                           <td className="px-3 py-2 text-slate-500">{line.soct_kho_hang?.model || '—'}</td>
                           <td className="px-3 py-2 text-center">{line.sl_dat}</td>
@@ -644,19 +646,6 @@ export function DatHangTool({
                                 )
                               })}
                             </div>
-                            {receiving && receiving.ctId === line.id && (
-                              <div className="flex flex-wrap items-end gap-1.5 mt-1.5">
-                                <DateField value={receiving.ngay_nhan} onChange={(v) => setReceiving({ ...receiving, ngay_nhan: v })} heightClass="h-8" className="w-36" />
-                                <Input type="number" min="1" placeholder="SL nhận" value={receiving.so_luong_nhan} onChange={(e) => setReceiving({ ...receiving, so_luong_nhan: e.target.value })} className="h-8 bg-white w-24" />
-                                <label className="flex flex-col">
-                                  <span className="text-[9px] text-slate-400 leading-none mb-0.5">Mã thực nhận</span>
-                                  <Input list="dathang-ma-thuc" value={receiving.ma_hang} onChange={(e) => setReceiving({ ...receiving, ma_hang: e.target.value.trim() })} className={`h-8 bg-white w-40 font-mono ${receiving.ma_hang !== receiving.ma_dat ? 'border-amber-400' : ''}`} title="Mặc định = mã đã đặt; đổi nếu NCC giao mã khác" />
-                                </label>
-                                <Button onClick={saveReceipt} className="h-8 text-xs px-3 bg-emerald-600 hover:bg-emerald-700">Lưu</Button>
-                                <Button variant="outline" onClick={() => setReceiving(null)} className="h-8 text-xs px-3">Hủy</Button>
-                                {receiving.ma_hang !== receiving.ma_dat && <span className="t3 text-amber-700 self-center">Giao thay thế (đặt {receiving.ma_dat})</span>}
-                              </div>
-                            )}
                           </td>
                           <td className="px-3 py-2 whitespace-nowrap text-right">
                             <div className="flex items-center justify-end gap-2">
@@ -671,6 +660,38 @@ export function DatHangTool({
                             </div>
                           </td>
                         </tr>
+                        {editing && (
+                          <tr className="bg-blue-50/40">
+                            <td colSpan={7} className="px-3 pb-3 pt-1">
+                              <div className="rounded-md border border-blue-200 bg-blue-50/60 px-3 py-2.5">
+                                <div className="flex flex-wrap items-end gap-3">
+                                  <div className="flex flex-col gap-0.5">
+                                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Ngày nhận</label>
+                                    <DateField value={receiving.ngay_nhan} onChange={(v) => setReceiving({ ...receiving, ngay_nhan: v })} heightClass="h-8" className="w-36" />
+                                  </div>
+                                  <div className="flex flex-col gap-0.5">
+                                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">SL nhận</label>
+                                    <Input type="number" min="1" placeholder="Số lượng" value={receiving.so_luong_nhan} onChange={(e) => setReceiving({ ...receiving, so_luong_nhan: e.target.value })} className="h-8 bg-white w-28" />
+                                  </div>
+                                  <div className="flex flex-col gap-0.5">
+                                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Mã thực nhận</label>
+                                    <Input list="dathang-ma-thuc" value={receiving.ma_hang} onChange={(e) => setReceiving({ ...receiving, ma_hang: e.target.value.trim() })} className={`h-8 bg-white w-44 font-mono ${receiving.ma_hang !== receiving.ma_dat ? 'border-amber-400' : ''}`} title="Mặc định = mã đã đặt; đổi nếu NCC giao mã khác" />
+                                  </div>
+                                  <div className="flex items-center gap-2 ml-auto">
+                                    <Button onClick={saveReceipt} className="h-8 text-xs px-4 bg-emerald-600 hover:bg-emerald-700">Lưu</Button>
+                                    <Button variant="outline" onClick={() => setReceiving(null)} className="h-8 text-xs px-4">Hủy</Button>
+                                  </div>
+                                </div>
+                                {receiving.ma_hang !== receiving.ma_dat && (
+                                  <div className="mt-2 flex items-center gap-1 t3 text-amber-700 font-semibold">
+                                    <AlertTriangle className="w-3.5 h-3.5" /> Giao thay thế — mã đã đặt là <span className="font-mono">{receiving.ma_dat}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
                       )
                     })}
                   </tbody>
