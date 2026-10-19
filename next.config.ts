@@ -26,6 +26,7 @@ const nextConfig: NextConfig = {
     '/api/admin/bbbg': ['./src/lib/report/bbbg-cuc-tha.docx', './src/lib/report/bbbg-nhnn.docx', './src/lib/report/bbbg-chung-price.docx', './src/lib/report/bbbg-chung-noprice.docx'],
     '/api/admin/dntt': ['./src/lib/report/dntt.docx'],
     '/api/admin/bbgd': ['./src/lib/report/bbgd-bm26.docx'],
+    '/api/admin/tem-gui': ['./src/lib/report/tem-gui-hang.docx'],
     '/api/admin/kho-may-thue/bien-ban': ['./src/lib/report/phieu-giam-dinh.docx'],
   },
 };
