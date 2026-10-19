@@ -590,7 +590,7 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
       <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3 shrink-0">
           <div>
-            <h3 className="font-bold text-slate-800">Đơn giá HĐ — {row.ten_khach_hang}</h3>
+            <h3 className="font-bold text-slate-800">{row.ten_khach_hang}</h3>
             <p className="text-xs text-slate-500 font-mono mt-0.5">{row.ma_may} · {row.loai_hd}</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none shrink-0" title="Đóng">✕</button>
@@ -720,7 +720,6 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
                   <div className="col-span-1"><span className="text-xs font-medium text-slate-500">Mã số thuế</span><div className={`${roBox} font-mono`}>{mstHD || empty}</div></div>
                   <div className="col-span-1"><span className="text-xs font-medium text-slate-500">Email nhận hóa đơn</span><div className={roBox}>{emailHD || empty}</div></div>
                 </div>
-                <p className="t3 text-slate-400 mt-1.5">Lấy từ <b>Khách cụm</b> (hoặc điểm máy nếu chưa gán cụm) — <b>không sửa ở đây</b>. Nếu nhầm lẫn, báo admin sửa trong <b>Quản lý › Khách hàng › Khách cụm</b>.</p>
               </section>
             )
           })()}
