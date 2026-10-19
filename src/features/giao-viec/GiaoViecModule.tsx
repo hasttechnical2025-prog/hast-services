@@ -91,7 +91,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
           ...users.filter(u => u.role === 'ktv').map(u => ({ value: u.id, label: u.full_name, test: (j: Job) => j.ktv_id === u.id })),
         ],
       },
-      hd: {
+      bao_cao: {
         title: 'HĐ', options: [
           { value: 'co', label: 'Có hóa đơn', test: (j: Job) => jobTien(j).coHD },
           { value: 'chua', label: 'Chưa hóa đơn', test: (j: Job) => { const { tong, coHD } = jobTien(j); return !coHD && tong > 0 } },
@@ -242,7 +242,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
     { key: 'km', header: 'KM', align: 'center', sortValue: j => Number(j.km) || 0, render: j => <span className="t2">{j.km ? `${Number(j.km).toLocaleString('vi-VN')} km` : '0 km'}</span> },
     { key: 'tg', header: 'TG xử lý', align: 'center', sortValue: j => Number(j.so_phut_xu_ly) || 0, render: j => <span className="t2 text-slate-500">{fmtThoiLuong(j.so_phut_xu_ly)}</span> },
     {
-      key: 'bao_cao', header: 'Báo cáo HĐ', sortValue: j => jobTien(j).tong, filter: filterDefs.hd,
+      key: 'bao_cao', header: 'Báo cáo HĐ', sortValue: j => jobTien(j).tong, filter: filterDefs.bao_cao,
       render: j => {
         const allVt = j.soct_chi_tiet_vat_tu || []
         const active = allVt.filter(v => !v.da_tra)
