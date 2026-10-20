@@ -459,7 +459,15 @@ async function congViec(ngay: string, thang: string, loaiViec: string, tinhTrang
 async function khachHang(terms: string[][], loai: string, maMay: string, model: string): Promise<ToolResult> {
   const columns = [{ key: 'khach', label: 'Khách hàng' }, { key: 'dia_chi', label: 'Địa chỉ' }, { key: 'ma_may', label: 'Mã máy' }, { key: 'model', label: 'Model' }, { key: 'loai_hd', label: 'Loại HĐ' }]
   const qMa = (maMay || '').trim(), qModel = (model || '').trim()
-  if (terms.length === 0 && !qMa && !qModel) return { summary: 'Chưa xác định được khách / máy cần tra.', rows: [], columns }
+  // Hỏi CHUNG CHUNG "xem thông tin khách / địa chỉ hóa đơn / MST ở đâu?" (không nêu khách cụ thể)
+  // -> trả HƯỚNG DẪN điều hướng thay vì báo trượt.
+  if (terms.length === 0 && !qMa && !qModel) return {
+    summary: 'Thông tin khách hàng xem tại **Quản lý › Khách hàng**:\n'
+      + '• Tab **Điểm máy** — địa chỉ, mã máy, model, loại HĐ, lịch bảo trì của từng điểm máy.\n'
+      + '• Tab **Khách cụm** — **địa chỉ xuất hóa đơn, mã số thuế, email nhận hóa đơn** (gộp nhiều điểm máy về một đầu hóa đơn).\n'
+      + 'Bạn cũng có thể gõ thẳng **tên khách** hoặc **mã máy** để tôi tra giúp (VD: "công ty A dùng máy gì", "địa chỉ của văn phòng B", "mã máy 36114 của khách nào").',
+    rows: [], columns,
+  }
   const customers = await selectAll((from, to) => supabaseAdmin
     .from('soct_khach_hang').select('ten_khach_hang, dia_chi, ma_may, model, hang, loai_hd').range(from, to))
   const qLoai = norm(loai || '')
@@ -662,7 +670,7 @@ async function phieu(soPhieu: string): Promise<ToolResult> {
     soct_chi_tiet_vat_tu ( ma_hang, so_luong, don_gia, vat, soct_kho_hang ( ten_hang ) )`
   const { data } = await supabaseAdmin.from('soct_cong_viec').select(sel).eq('report', q)
   const list = (data || []) as any[]
-  if (list.length === 0) return { summary: `Không tìm thấy phiếu số "${q}".`, rows: [], columns }
+  if (list.length === 0) return { summary: `Không tìm thấy phiếu số "${q}". Kiểm tra lại số phiếu, hoặc tra trực tiếp trong **Sổ công tác › Giao việc** (ô tìm **Số phiếu**).`, rows: [], columns }
 
   const rows = list.map(j => {
     const vt = j.soct_chi_tiet_vat_tu || []
