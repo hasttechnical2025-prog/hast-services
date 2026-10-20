@@ -518,9 +518,16 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
                     {r.model && <div className="t3 text-slate-400 font-sans">{r.model}</div>}
                     {r.serial && <div className="t3 text-slate-400">SN: {r.serial}</div>}
                   </td>
-                  <td className="px-3 py-2"><span className={`text-xs px-2 py-0.5 rounded-full border ${loaiHdBadgeCls(r.loai_hd)}`}>{r.loai_hd}</span></td>
+                  <td className="px-3 py-2 w-32 whitespace-nowrap">
+                    <div className="inline-flex flex-col items-start gap-1">
+                      <span className={`text-xs px-2 py-0.5 rounded-full border ${loaiHdBadgeCls(r.loai_hd)}`}>{r.loai_hd}</span>
+                      {r.may_mau !== false
+                        ? <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border bg-rose-50 text-rose-700 border-rose-200"><span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: 'conic-gradient(#06b6d4, #ec4899, #facc15, #111827, #06b6d4)' }} /> Màu</span>
+                        : <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border bg-slate-100 text-slate-600 border-slate-200"><span className="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0" /> Đen trắng</span>}
+                    </div>
+                  </td>
                   <td className="px-3 py-2 text-right">{money(r.don_gia_bw)}</td>
-                  <td className="px-3 py-2 text-right">{money(r.don_gia_mau)}</td>
+                  <td className="px-3 py-2 text-right">{r.may_mau === false ? <span className="text-slate-300">—</span> : money(r.don_gia_mau)}</td>
                   <td className="px-3 py-2 text-right">{r.phi_thue_thang == null ? '—' : money(r.phi_thue_thang)}</td>
                   <td className="px-3 py-2 text-center">{r.vat_thue_cpc ?? 8}%</td>
                   <td className="px-3 py-2 text-slate-600 text-xs">{r.nv_kinh_doanh || <span className="text-slate-300">—</span>}</td>
