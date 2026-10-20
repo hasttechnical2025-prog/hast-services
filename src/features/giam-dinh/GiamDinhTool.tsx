@@ -8,7 +8,7 @@ import BaoGiaEditor, { type BaoGiaRow } from '@/components/BaoGiaEditor'
 import { MaterialCombobox } from '@/features/giao-viec/MaterialCombobox'
 import { useRealtimeRefetch } from '@/lib/useRealtime'
 import { GIAMDINH_TOPIC, DATA_EVENT } from '@/lib/realtime'
-import { usePaged, Pagination, StatCard, StatRow, BoxLoading } from '@/ui'
+import { usePaged, ListFrame, StatCard, StatRow, BoxLoading } from '@/ui'
 
 // Port NGUYÊN GiamDinhTool từ admin/page.tsx (y hệt), gọi lại /api/admin/giam-dinh + /api/admin/bao-gia.
 function modelNumber(model: string) { const m = (model || '').match(/\d+/); return m ? m[0] : '' }
@@ -254,7 +254,8 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
           <StatCard label="Đã thay" value={gdStats.daThay.toLocaleString('vi-VN')} sub="đã xử lý xong" tone="emerald" icon={CheckCircle2} />
           <StatCard label="Đã báo giá" value={gdStats.daBaoGia.toLocaleString('vi-VN')} sub="đã gửi khách" tone="indigo" icon={Wallet} />
         </StatRow>
-        <div className="flex flex-wrap items-center gap-2 px-1">
+        <ListFrame variant="cards" paged={loading ? undefined : gdPaged} unit="biên bản" toolbar={
+          <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input placeholder="Lọc theo mã máy / khách / địa chỉ..." className="pl-9 pr-7 bg-white h-9 text-xs" value={gdFilters.maMay} onChange={(e) => setGdFilters({ ...gdFilters, maMay: e.target.value })} />
@@ -274,8 +275,8 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
           </select>
           {gdFilterActive && <button onClick={() => setGdFilters({ maMay: "", trangThai: "", baoGia: "" })} className="text-xs text-red-600 hover:underline font-medium">Bỏ lọc</button>}
           <Button onClick={openForm} className="h-9 gap-1.5 text-xs ml-auto bg-blue-600 hover:bg-blue-700"><ClipboardCheck className="w-4 h-4" /> Lập BBGĐ</Button>
-        </div>
-        <Pagination top page={gdPaged.page} pageCount={gdPaged.pageCount} total={gdPaged.total} perPage={gdPaged.perPage} onPage={gdPaged.setPage} onPerPage={gdPaged.setPerPage} />
+          </div>
+        }>
         {loading ? (
           <BoxLoading label="Đang tải giám định..." />
         ) : records.length === 0 ? (
@@ -332,7 +333,7 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
             )}
           </div>
         ))}
-        <Pagination page={gdPaged.page} pageCount={gdPaged.pageCount} total={gdPaged.total} perPage={gdPaged.perPage} onPage={gdPaged.setPage} />
+        </ListFrame>
       </div>
 
       {quoteGd && (
