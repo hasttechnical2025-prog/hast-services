@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import DateField from "@/components/DateField"
 import MonthField from "@/components/MonthField"
-import { usePaged, Pagination } from "@/ui"
+import { usePaged, ListFrame } from "@/ui"
 import { chotSoDate, counterStatus, CounterStatus, kyTruoc, tinhDongMay } from "@/lib/thue-cpc"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
 import { Save, FileText, RefreshCw, ArrowRight, Check, PenSquare, Search, ChevronUp, ChevronDown, Download, Droplets } from "lucide-react"
@@ -102,6 +102,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
   }
   return (
     <div className="space-y-3">
+      <ListFrame paged={!loading && !err && list.length > 0 ? paged : undefined} unit="vật tư" toolbar={
       <div className="space-y-2">
         <p className="text-xs text-slate-500 leading-relaxed">Ước lượng theo <b>counter DỰ ĐOÁN hôm nay</b> (= counter chốt + mức in/ngày × số ngày đã qua) ÷ định lượng — cảnh báo khi còn <b>≤ {nguong.toLocaleString('vi-VN')}</b> trang <b>hoặc ≤ ~1 tháng in</b>, gồm <b>Mực</b> &amp; <b>Trống</b>. Tự tắt khi <b>còn hộp dự phòng</b> (1 hộp theo máy + đã giao − đã mở) hoặc bấm <b>Đã gửi</b>. Chỉ là ước lượng.</p>
         <div className="flex items-center gap-2 flex-wrap">
@@ -117,11 +118,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
           <label className="inline-flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none whitespace-nowrap"><input type="checkbox" checked={xemTatCa} onChange={e => setXemTatCa(e.target.checked)} className="w-4 h-4 accent-blue-600" /> Xem tất cả máy</label>
           <Button variant="outline" onClick={load} className="h-9 px-3 gap-1.5 text-xs font-medium shrink-0" title="Tải lại"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>
         </div>
-      </div>
-      {!loading && !err && list.length > 0 && (
-        <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
-      )}
-      <div className="border border-slate-200 rounded-lg overflow-hidden">
+      </div>}>
         <table className="w-full text-left text-xs text-slate-600">
           <thead className="bg-slate-50 text-slate-500 t2 font-semibold uppercase border-b border-slate-200 select-none">
             <tr>
@@ -173,10 +170,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
                 )})}
           </tbody>
         </table>
-      </div>
-      {!loading && !err && list.length > 0 && (
-        <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
-      )}
+      </ListFrame>
     </div>
   )
 }
@@ -429,31 +423,18 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h3 className="font-bold text-slate-800">Đơn giá & định mức hợp đồng thuê / CPC</h3>
-          <p className="text-xs text-slate-500">Chỉ các máy có loại HĐ là <b>Máy thuê</b> hoặc <b>Máy CPC</b>.</p>
-        </div>
+      <ListFrame paged={loading ? undefined : paged} unit="máy" toolbar={
         <div className="relative w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input placeholder="Tìm tên khách / mã máy / serial…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 pr-7 w-full h-9 bg-white text-xs" />
           {search && (
-            <button
-              type="button"
-              onClick={() => setSearch('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
-              title="Xóa tìm kiếm"
-            >
-              ✕
-            </button>
+            <button type="button" onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>
           )}
         </div>
-      </div>
-
-      {loading ? <div className="text-sm text-slate-400 py-8 text-center"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải danh sách...</div> : (
-        <>
-        <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
-        <div className="overflow-x-auto border border-slate-100 rounded-lg">
+      }>
+        {loading ? (
+          <div className="text-sm text-slate-400 py-8 text-center"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải danh sách...</div>
+        ) : (
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
               <tr>
@@ -551,10 +532,8 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
               ))}
             </tbody>
           </table>
-        </div>
-        <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
-        </>
-      )}
+        )}
+      </ListFrame>
 
       {editing && <DonGiaModal row={editing} khung={khung} nvkd={nvkd} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load() }} showNotification={showNotification} />}
     </div>

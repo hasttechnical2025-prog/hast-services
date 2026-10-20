@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import DateField from "@/components/DateField"
 import CollapsibleTools from "@/components/CollapsibleTools"
+import { usePaged, ListFrame } from "@/ui"
 import { Landmark, Search, Send, X, RefreshCw, Save, ChevronUp, ChevronDown } from "lucide-react"
 
 type May = {
@@ -189,6 +190,7 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
     })
     return list
   }, [rows, q, sortFieldMay, sortAscMay])
+  const mayPaged = usePaged(sortedMays, 'phibt-may')
 
   // Kỳ thanh toán = TỪ ngày ký HĐ ĐẾN ngày hết hạn HĐ (dịch vụ đã thực hiện xong mới thu — không phải
   // thu trước cho kỳ mới). Lấy trực tiếp từ dữ liệu máy, không tự cuốn năm.
@@ -317,9 +319,12 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
       </div>
       </CollapsibleTools>
 
-      {/* ===== Bảng cấu hình phí BT theo máy (inline edit) ===== */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
-        <h3 className="text-sm font-bold text-slate-700">Cấu hình theo máy (HĐBT/MF) — {sortedMays.length} máy</h3>
+      {/* ===== Bảng cấu hình phí BT theo máy (inline edit) — khung chuẩn ListFrame ===== */}
+      <ListFrame paged={mayPaged} unit="máy" aboveTable={dirty.size > 0 ? (
+        <div className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">
+          ⚠ Còn <b>{dirty.size}</b> dòng chưa lưu (nền xanh) — bấm <b>Lưu</b>. Reload/rời trang khi chưa lưu sẽ mất thay đổi.
+        </div>
+      ) : undefined} toolbar={
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -340,12 +345,7 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
           </Button>
           {v2Layout && <Button variant="outline" onClick={load} disabled={loading} title="Tải lại" className="h-9 px-3 gap-1.5 text-xs font-medium"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>}
         </div>
-        {dirty.size > 0 && (
-          <div className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">
-            ⚠ Còn <b>{dirty.size}</b> dòng chưa lưu (nền xanh) — bấm <b>Lưu</b>. Reload/rời trang khi chưa lưu sẽ mất thay đổi.
-          </div>
-        )}
-        <div className="overflow-x-auto">
+      }>
           <table className="w-full text-sm text-slate-600">
             <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase border-b border-slate-200">
               <tr>
@@ -404,7 +404,7 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
                 <tr><td colSpan={8} className="px-4 py-6 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải phí bảo trì...</td></tr>
               ) : sortedMays.length === 0 ? (
                 <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Không có máy HĐBT/MF.</td></tr>
-              ) : sortedMays.map(m => {
+              ) : mayPaged.pageItems.map(m => {
                 // Máy MF (miễn phí) — kỳ này khách KHÔNG phải thanh toán: khóa 3 ô cấu hình + tô màu.
                 const isMF = String(m.loai_hd || '').trim().toUpperCase() === 'MF'
                 return (
@@ -437,8 +437,7 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
               })}
             </tbody>
           </table>
-        </div>
-      </div>
+      </ListFrame>
 
       {/* ===== Modal tạo hóa đơn phí BT ===== */}
       {bill && (
