@@ -553,12 +553,8 @@ export function DatHangTool({
         {inventory.map((it: any) => <option key={it.ma_hang} value={it.ma_hang}>{it.ten_hang || ''}</option>)}
       </datalist>
       {/* DANH SÁCH ĐƠN + BỘ LỌC — khung chuẩn ListFrame (dạng thẻ) */}
-      <ListFrame unit="đơn" paged={dhPaged} variant="cards" toolbar={<>
-        <div className="flex items-center justify-end gap-2 flex-wrap mb-2">
-          <Button variant="outline" onClick={exportPendingItemsExcel} className="gap-2 h-9 text-xs border-amber-200 text-amber-700 hover:bg-amber-50"><AlertTriangle className="w-4 h-4" /> Xuất hàng chưa về</Button>
-          <Button variant="outline" onClick={exportOrdersExcel} className="gap-2 h-9 text-xs border-blue-200 text-blue-700 hover:bg-blue-50"><Download className="w-4 h-4" /> Xuất DS đơn hàng</Button>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 px-1">
+      <ListFrame unit="đơn" paged={dhPaged} variant="cards" toolbar={
+        <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input placeholder="Lọc theo mã hàng / tên..." className="pl-9 pr-7 bg-white h-9 text-xs" value={orderFilters.maHang} onChange={(e) => setOrderFilters({ ...orderFilters, maHang: e.target.value })} />
@@ -584,8 +580,12 @@ export function DatHangTool({
           {(orderFilters.maHang || orderFilters.ncc || orderFilters.trangThai !== 'con_thieu' || orderFilters.hvTu || orderFilters.hvDen) && (
             <button onClick={() => setOrderFilters({ maHang: "", ncc: "", trangThai: "con_thieu", hvTu: "", hvDen: "" })} className="text-xs text-red-600 hover:underline font-medium">Bỏ lọc</button>
           )}
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="outline" onClick={exportPendingItemsExcel} className="gap-2 h-9 text-xs border-amber-200 text-amber-700 hover:bg-amber-50"><AlertTriangle className="w-4 h-4" /> Xuất hàng chưa về</Button>
+            <Button variant="outline" onClick={exportOrdersExcel} className="gap-2 h-9 text-xs border-blue-200 text-blue-700 hover:bg-blue-50"><Download className="w-4 h-4" /> Xuất DS đơn hàng</Button>
+          </div>
         </div>
-      </>}>
+      }>
         {loading ? <BoxLoading label="Đang tải đơn đặt hàng..." />
           : orders.length === 0 ? <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">Chưa có đơn đặt hàng nào.</div>
           : filteredOrders.length === 0 ? <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">Không có đơn khớp bộ lọc.</div>

@@ -4,7 +4,7 @@ import { Search, Package, Boxes, AlertTriangle, Trash2, ChevronUp, ChevronDown, 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useConfirm } from '@/components/ConfirmDialog'
-import { usePaged, Pagination, useColView, ColumnMenu, StatCard, StatRow, type ColDef } from '@/ui'
+import { usePaged, ListFrame, useColView, ColumnMenu, StatCard, StatRow, type ColDef } from '@/ui'
 
 // Port NGUYÊN InventoryManagementTool từ admin (y hệt), gọi lại /api/admin/kho-hang.
 // Thay confirmDelete + ClearAllButton bằng useConfirm nội bộ.
@@ -142,7 +142,7 @@ export function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSucce
         <StatCard label="Sắp hết" value={invLow.toLocaleString('vi-VN')} sub={lowStock > 0 ? `tồn ≤ ${lowStock.toLocaleString('vi-VN')}` : 'chưa đặt ngưỡng'} tone="amber" icon={AlertTriangle} />
         <StatCard label="Hết hàng" value={invOut.toLocaleString('vi-VN')} sub="tồn = 0" tone="rose" icon={Trash2} />
       </StatRow>
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <ListFrame paged={paged} unit="mã hàng" toolbar={<div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
           <button type="button" onClick={() => setStatusFilter('all')} className={`px-3 py-1.5 rounded-md text-xs transition ${statusFilter === 'all' ? 'bg-white text-slate-800 font-bold shadow-sm ring-1 ring-slate-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>Tất cả ({inventory.length})</button>
           <button type="button" onClick={() => setStatusFilter('active')} className={`px-3 py-1.5 rounded-md text-xs transition ${statusFilter === 'active' ? 'bg-white text-emerald-700 font-bold shadow-sm ring-1 ring-emerald-300' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium'}`}>Đang dùng ({invActive})</button>
@@ -160,10 +160,7 @@ export function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSucce
           <ColumnMenu view={col} />
           <Button variant="outline" onClick={onClearAll} disabled={inventory.length === 0} title="Xóa toàn bộ vật tư trong kho" className="h-9 w-9 p-0 border-rose-200 text-rose-600 hover:bg-rose-50"><Trash2 className="w-4 h-4" /></Button>
         </div>
-      </div>
-      <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      </div>}>
         <table className="w-full text-left text-sm text-slate-600">
           <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200 shadow-sm">
             <tr>
@@ -195,11 +192,7 @@ export function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSucce
             ))}
           </tbody>
         </table>
-        </div>
-        <div className="px-4 pb-2">
-          <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
-        </div>
-      </div>
+      </ListFrame>
 
       {/* Modal Thêm / Sửa vật tư — thay cho form nằm cố định trên trang */}
       {formOpen && (
