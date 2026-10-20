@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import DateField from "@/components/DateField"
 import { useConfirm } from "@/components/ConfirmDialog"
-import { usePaged, Pagination } from "@/ui"
+import { usePaged, ListFrame } from "@/ui"
 import {
   FileText, Search, Plus, Printer, PenSquare, Trash2,
   RefreshCw, X, Save, ArrowUpDown, ChevronUp, ChevronDown
@@ -995,8 +995,8 @@ export default function PhieuDeNghiModule({
       </div>
       )}
 
-      {/* Filter toolbar */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3.5 flex flex-wrap items-center gap-2.5">
+      {/* Filter toolbar + bảng — khung chuẩn ListFrame */}
+      <ListFrame paged={paged} unit="phiếu" toolbar={<div className="flex flex-wrap items-center gap-2.5">
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input
@@ -1043,12 +1043,7 @@ export default function PhieuDeNghiModule({
             <Button variant="outline" onClick={load} disabled={loading} title="Tải lại danh sách" className="h-9 px-3 gap-1.5 text-xs font-medium"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-600' : 'text-slate-600'}`} /> Tải lại</Button>
           </div>
         )}
-      </div>
-
-      {/* Data table */}
-      <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      </div>}>
           <table className="w-full text-xs text-slate-600">
             <thead className="bg-slate-50 text-slate-500 t2 font-semibold uppercase border-b border-slate-200 select-none">
               <tr>
@@ -1243,9 +1238,7 @@ export default function PhieuDeNghiModule({
               )}
             </tbody>
           </table>
-        </div>
-      </div>
-      <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
+      </ListFrame>
 
       {/* Popover xem nhanh vật tư (fixed, không bị overflow của bảng cắt) */}
       {vtHover && (

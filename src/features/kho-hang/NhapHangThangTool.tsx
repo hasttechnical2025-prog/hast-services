@@ -5,7 +5,7 @@ import { Package, Boxes, Search, ShoppingCart, ChevronUp, ChevronDown } from 'lu
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import MonthField from '@/components/MonthField'
-import { TableLoading, usePaged, Pagination } from '@/ui'
+import { TableLoading, usePaged, ListFrame } from '@/ui'
 
 // Port NGUYÊN NhapHangThangTool từ admin (y hệt): panel Cảnh báo tồn + Thống kê nhập theo tháng.
 // Gọi lại /api/admin/nhap-hang-thang và /api/admin/canh-bao-ton.
@@ -444,16 +444,7 @@ export function NhapHangThangTool({
       </div>
 
       {/* ===== Danh sách Thống kê nhập hàng theo tháng ===== */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2.5">
-            <Boxes className="w-5 h-5 text-blue-600 shrink-0" />
-            <div>
-              <h3 className="text-sm font-bold text-slate-800">
-                Thống kê nhập hàng theo tháng {rows.length > 0 && <span className="text-slate-500 font-normal">({q.trim() ? `${filteredRows.length}/${rows.length}` : rows.length} lượt nhập{thang ? ` · Tháng ${thang.split('-').reverse().join('/')}` : ''})</span>}
-              </h3>
-            </div>
-          </div>
+      <ListFrame paged={nhapPaged} unit="lượt nhập" toolbar={
           <div className="flex items-end gap-2 flex-wrap">
             <div className="space-y-1">
               <label className="text-xs font-semibold text-slate-600">Tìm mã hàng / tên vật tư</label>
@@ -468,10 +459,7 @@ export function NhapHangThangTool({
             </div>
             {thang && <Button variant="outline" onClick={() => setThang("")} className="h-9 text-xs">Xem tất cả</Button>}
           </div>
-        </div>
-
-        <Pagination top page={nhapPaged.page} pageCount={nhapPaged.pageCount} total={nhapPaged.total} perPage={nhapPaged.perPage} onPage={nhapPaged.setPage} onPerPage={nhapPaged.setPerPage} />
-        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-[480px] overflow-y-auto">
+        }>
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide sticky top-0 border-b border-slate-200 shadow-sm z-10">
               <tr>
@@ -504,9 +492,7 @@ export function NhapHangThangTool({
               ))}
             </tbody>
           </table>
-        </div>
-        <Pagination page={nhapPaged.page} pageCount={nhapPaged.pageCount} total={nhapPaged.total} perPage={nhapPaged.perPage} onPage={nhapPaged.setPage} />
-      </div>
+      </ListFrame>
     </div>
   )
 }

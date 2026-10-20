@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { RefreshCw, Search, PenSquare, X, FileText, AlertTriangle, Printer, ChevronUp, ChevronDown } from "lucide-react"
-import { usePaged, Pagination } from "@/ui"
+import { usePaged, ListFrame } from "@/ui"
 
 // Kho máy thuê: danh sách biên bản giám định máy thuê/CPC lấy từ app Techbot (bảng
 // `inspections`, chung Supabase). Xem chi tiết vật tư + sửa; cảnh báo máy đã cho khách khác thuê.
@@ -151,7 +151,7 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3 flex-wrap">
+      <ListFrame paged={paged} unit="máy" toolbar={<div className="flex items-center gap-3 flex-wrap">
         <div className="relative">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm serial / khách / model..." className="pl-9 pr-7 bg-white w-72 h-9 text-xs" />
@@ -173,12 +173,7 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
         <Button variant="outline" onClick={fetchList} disabled={loading} className="gap-1 h-9 text-xs px-3">
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Tải lại
         </Button>
-        <span className="text-xs text-slate-500 ml-auto">{filtered.length} máy</span>
-      </div>
-
-
-      <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
-      <div className="overflow-x-auto border border-slate-200 rounded-lg bg-white">
+      </div>}>
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-600">
             <tr>
@@ -258,8 +253,7 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
             ))}
           </tbody>
         </table>
-      </div>
-      <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
+      </ListFrame>
 
       {/* MODAL CHI TIẾT VẬT TƯ */}
       {detail && (() => {
