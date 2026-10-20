@@ -91,6 +91,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
     }
     return res
   }, [list])
+  const paged = usePaged(list, 'thuecpc-cbvt')
   const daGui = async (r: any) => {
     setBusy(`${r.ma_may}|${r.ma_muc}|${r.so_hop}`)
     try {
@@ -117,6 +118,9 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
           <Button variant="outline" onClick={load} className="h-9 px-3 gap-1.5 text-xs font-medium shrink-0" title="Tải lại"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>
         </div>
       </div>
+      {!loading && !err && list.length > 0 && (
+        <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
+      )}
       <div className="border border-slate-200 rounded-lg overflow-hidden">
         <table className="w-full text-left text-xs text-slate-600">
           <thead className="bg-slate-50 text-slate-500 t2 font-semibold uppercase border-b border-slate-200 select-none">
@@ -135,8 +139,10 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
             {loading ? <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải cảnh báo vật tư...</td></tr>
               : err ? <tr><td colSpan={8} className="px-4 py-8 text-center text-rose-600">⚠ {err} — bấm Tải lại để thử lại.</td></tr>
               : list.length === 0 ? <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">{xemTatCa ? 'Không có máy khớp tìm kiếm.' : 'Không có máy nào sắp cần thay vật tư. 🎉'}</td></tr>
-                : list.map((r, i) => (
-                  <tr key={i} className={`hover:bg-amber-50/60 ${sortField === 'khach' ? (zebra[i] ? 'bg-sky-50/50' : 'bg-white') : ''}`}>
+                : paged.pageItems.map((r, i) => {
+                  const idx = (paged.page - 1) * paged.perPage + i
+                  return (
+                  <tr key={idx} className={`hover:bg-amber-50/60 ${sortField === 'khach' ? (zebra[idx] ? 'bg-sky-50/50' : 'bg-white') : ''}`}>
                     <td className="px-2.5 py-1.5"><div className="font-medium text-slate-800">{r.ten_khach_hang}</div><div className="text-[10px] text-slate-400 font-mono">{r.ma_may || '—'}{r.model ? ` · ${r.model}` : ''}</div></td>
                     <td className="px-2.5 py-1.5 text-[11px]">
                       <span className={`inline-block px-1.5 py-0.5 rounded t3 font-semibold mr-1.5 ${r.nhom === 'trong' ? 'bg-violet-50 text-violet-700' : 'bg-sky-50 text-sky-700'}`}>{r.nhom === 'trong' ? 'Trống' : 'Mực'}</span>
@@ -164,10 +170,13 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
                         : <span className="t3 font-semibold px-2 py-1 rounded-full bg-sky-50 text-sky-600">Còn nhiều</span>}
                     </td>
                   </tr>
-                ))}
+                )})}
           </tbody>
         </table>
       </div>
+      {!loading && !err && list.length > 0 && (
+        <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
+      )}
     </div>
   )
 }
