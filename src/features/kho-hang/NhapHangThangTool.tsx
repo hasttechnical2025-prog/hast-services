@@ -5,7 +5,7 @@ import { Package, Boxes, Search, ShoppingCart, ChevronUp, ChevronDown } from 'lu
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import MonthField from '@/components/MonthField'
-import { TableLoading, usePaged, ListFrame } from '@/ui'
+import { TableLoading, usePaged, ListFrame, Pagination } from '@/ui'
 
 // Port NGUYÊN NhapHangThangTool từ admin (y hệt): panel Cảnh báo tồn + Thống kê nhập theo tháng.
 // Gọi lại /api/admin/nhap-hang-thang và /api/admin/canh-bao-ton.
@@ -252,6 +252,7 @@ export function NhapHangThangTool({
       if (cmp === 0) cmp = String(a.ma_hang || '').localeCompare(String(b.ma_hang || ''))
       return sortAsc ? cmp : -cmp
     })
+  const cbPaged = usePaged(cbRows, 'nhap-cb')
   const warnCount = canhBaoMerged.filter(isWarn).length
 
   const thieuList = useMemo(() => {
@@ -293,24 +294,6 @@ export function NhapHangThangTool({
             <h3 className="text-sm font-bold text-slate-800">Cảnh báo tồn kho {warnCount > 0 && <span className="text-amber-700">({warnCount})</span>}</h3>
             <p className="t2 text-slate-500">Mặt hàng đã nhập trong 12 tháng gần nhất (mọi hãng) + mọi mặt hàng <b>đã đặt ngưỡng</b>. Cảnh báo khi <b>tồn ≤ ngưỡng</b>. Bỏ trống ngưỡng = không cảnh báo. Hàng nhập đã lâu: dùng ô <b>“Thêm mặt hàng cũ”</b> bên dưới.</p>
           </div>
-          <div className="ml-auto flex items-center gap-2 flex-wrap">
-            {cartCount != null && cartCount > 0 && onGoToCart && (
-              <button type="button" onClick={onGoToCart} className="text-xs font-semibold px-2.5 py-1.5 rounded border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 flex items-center gap-1.5 transition" title="Chuyển sang tab Đặt hàng để xem giỏ hàng">
-                <ShoppingCart className="w-3.5 h-3.5" /> Xem giỏ ({cartCount})
-              </button>
-            )}
-            {thieuList.length > 0 && onAddToCart && (
-              <button type="button" onClick={handleAddAllToCart} className="text-xs font-semibold px-2.5 py-1.5 rounded border border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 flex items-center gap-1.5 transition" title="Nhặt toàn bộ các mặt hàng đang thiếu vào Giỏ đặt hàng và chuyển sang tab Đặt hàng">
-                <ShoppingCart className="w-3.5 h-3.5 text-amber-600" /> Nhặt vào Giỏ đặt hàng ({thieuList.length} món)
-              </button>
-            )}
-            <button onClick={() => setShowAll(s => !s)} className="text-xs font-semibold px-2.5 py-1.5 rounded border border-slate-200 text-slate-600 bg-white hover:bg-slate-50">
-              {showAll ? 'Chỉ hiện cảnh báo' : '⚙ Thiết lập ngưỡng (tất cả)'}
-            </button>
-            <Button onClick={saveNg} disabled={savingNg || dirtyNg.size === 0} className="h-9 gap-1.5">
-              {savingNg ? 'Đang lưu…' : dirtyNg.size > 0 ? `Lưu (${dirtyNg.size})` : 'Đã lưu'}
-            </Button>
-          </div>
         </div>
 
         <div className="flex flex-wrap gap-2 items-center pt-1 border-t border-slate-100">
@@ -328,7 +311,24 @@ export function NhapHangThangTool({
             {allHangOptions.map(h => <option key={h} value={h}>{h}</option>)}
           </select>
           {(filterSearch || filterModel || filterHang) && <button onClick={() => { setFilterSearch(""); setFilterModel(""); setFilterHang("") }} className="text-xs text-rose-600 hover:underline font-medium ml-1">Bỏ lọc</button>}
-          <div className="t2 text-slate-400 ml-auto">Hiển thị <b>{cbRows.length}</b> mặt hàng</div>
+          <div className="ml-auto flex items-center gap-2 flex-wrap">
+            {cartCount != null && cartCount > 0 && onGoToCart && (
+              <button type="button" onClick={onGoToCart} className="text-xs font-semibold px-2.5 py-1.5 rounded border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 flex items-center gap-1.5 transition" title="Chuyển sang tab Đặt hàng để xem giỏ hàng">
+                <ShoppingCart className="w-3.5 h-3.5" /> Xem giỏ ({cartCount})
+              </button>
+            )}
+            {thieuList.length > 0 && onAddToCart && (
+              <button type="button" onClick={handleAddAllToCart} className="text-xs font-semibold px-2.5 py-1.5 rounded border border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 flex items-center gap-1.5 transition" title="Nhặt toàn bộ các mặt hàng đang thiếu vào Giỏ đặt hàng và chuyển sang tab Đặt hàng">
+                <ShoppingCart className="w-3.5 h-3.5 text-amber-600" /> Nhặt vào Giỏ ({thieuList.length})
+              </button>
+            )}
+            <button onClick={() => setShowAll(s => !s)} className="text-xs font-semibold px-2.5 py-1.5 rounded border border-slate-200 text-slate-600 bg-white hover:bg-slate-50">
+              {showAll ? 'Chỉ hiện cảnh báo' : '⚙ Thiết lập ngưỡng (tất cả)'}
+            </button>
+            <Button onClick={saveNg} disabled={savingNg || dirtyNg.size === 0} className="h-9 gap-1.5">
+              {savingNg ? 'Đang lưu…' : dirtyNg.size > 0 ? `Lưu (${dirtyNg.size})` : 'Đã lưu'}
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2 items-center bg-slate-50 border border-slate-200 rounded-md px-3 py-2">
@@ -377,7 +377,8 @@ export function NhapHangThangTool({
             ⚠ Còn <b>{dirtyNg.size}</b> ngưỡng chưa lưu — bấm <b>Lưu</b>. Reload khi chưa lưu sẽ mất thay đổi.
           </div>
         )}
-        <div className="overflow-x-auto">
+        <Pagination top unit="mặt hàng" page={cbPaged.page} pageCount={cbPaged.pageCount} total={cbPaged.total} perPage={cbPaged.perPage} onPage={cbPaged.setPage} onPerPage={cbPaged.setPerPage} />
+        <div className="overflow-x-auto border border-slate-200 rounded-lg">
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase border-b border-slate-200 select-none">
               <tr>
@@ -413,7 +414,7 @@ export function NhapHangThangTool({
                 <tr><td colSpan={9} className="px-4 py-6 text-center text-slate-400">
                   {(filterSearch || filterModel || filterHang) ? 'Không tìm thấy mặt hàng khớp bộ lọc.' : showAll ? 'Không có mặt hàng nào đã nhập trong 12 tháng.' : 'Không có mặt hàng nào dưới ngưỡng khớp bộ lọc. Bấm "Thiết lập ngưỡng" để xem và đặt ngưỡng.'}
                 </td></tr>
-              ) : cbRows.map((x: any) => {
+              ) : cbPaged.pageItems.map((x: any) => {
                 const warn = isWarn(x); const n = Number(ngOf(x.ma_hang) || 0)
                 const thieu = warn ? n - Number(x.ton_kho) : 0
                 return (
@@ -441,6 +442,7 @@ export function NhapHangThangTool({
             </tbody>
           </table>
         </div>
+        <Pagination unit="mặt hàng" page={cbPaged.page} pageCount={cbPaged.pageCount} total={cbPaged.total} perPage={cbPaged.perPage} onPage={cbPaged.setPage} />
       </div>
 
       {/* ===== Danh sách Thống kê nhập hàng theo tháng ===== */}
