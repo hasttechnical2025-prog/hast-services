@@ -757,6 +757,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
               <p className="text-xs text-slate-400 px-1">Đang xem năm hiện tại — &quot;Thiếu&quot; chỉ tính tới <b>tháng {dcDenThang}</b>; các tháng sau ghi <b>·</b> (chưa tới) và nằm ở cột &quot;Còn lại&quot;.</p>
             )}
 
+            {!dcLoading && dcFiltered.length > 0 && <Pagination top page={dcPaged.page} pageCount={dcPaged.pageCount} total={dcPaged.total} perPage={dcPaged.perPage} onPage={dcPaged.setPage} onPerPage={dcPaged.setPerPage} />}
             <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm text-slate-600">
@@ -822,6 +823,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
               Máy khách đã bỏ nhưng còn trong hợp đồng — <b>không bị đòi bảo trì</b> nhưng vẫn giữ để đối chiếu cuối năm.
               Bỏ tạm dừng bằng cách xóa ô &quot;Tạm dừng từ tháng&quot; trong Danh sách khách hàng.
             </p>
+            {tamDung.length > 0 && <Pagination top page={tamDungPaged.page} pageCount={tamDungPaged.pageCount} total={tamDungPaged.total} perPage={tamDungPaged.perPage} onPage={tamDungPaged.setPage} onPerPage={tamDungPaged.setPerPage} />}
             <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm text-slate-600">
@@ -879,6 +881,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                 </Button>
               </div>
             </div>
+            {!loading && records.length > 0 && <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />}
             <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
               <div className="overflow-x-auto">
               <table className="w-full text-left text-sm text-slate-600">
@@ -939,6 +942,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
             <div className="flex items-center gap-2 px-1">
               <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">{chuaBaoTri.length} máy</span>
             </div>
+            {!loading && chuaBaoTri.length > 0 && <Pagination top page={chuaBaoTriPaged.page} pageCount={chuaBaoTriPaged.pageCount} total={chuaBaoTriPaged.total} perPage={chuaBaoTriPaged.perPage} onPage={chuaBaoTriPaged.setPage} onPerPage={chuaBaoTriPaged.setPerPage} />}
             <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
               <div className="overflow-x-auto">
               <table className="w-full text-left text-sm text-slate-600">
