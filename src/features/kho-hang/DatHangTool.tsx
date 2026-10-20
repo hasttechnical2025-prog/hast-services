@@ -8,7 +8,7 @@ import { useConfirm } from '@/components/ConfirmDialog'
 import { useRealtimeRefetch } from '@/lib/useRealtime'
 import { DATHANG_TOPIC, DATA_EVENT } from '@/lib/realtime'
 import { exportRowsToExcel } from '@/lib/excel'
-import { usePaged, Pagination, StatCard, StatRow, BoxLoading } from '@/ui'
+import { usePaged, ListFrame, StatCard, StatRow, BoxLoading } from '@/ui'
 import type { DatHangLine } from './useDatHangCart'
 
 // Port NGUYÊN DatHangTool từ admin (y hệt): rà soát tồn + giỏ hàng + đơn đặt + hàng về.
@@ -552,9 +552,9 @@ export function DatHangTool({
       <datalist id="dathang-ma-thuc">
         {inventory.map((it: any) => <option key={it.ma_hang} value={it.ma_hang}>{it.ten_hang || ''}</option>)}
       </datalist>
-      {/* DANH SÁCH ĐƠN + BỘ LỌC */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-2 flex-wrap px-1">
+      {/* DANH SÁCH ĐƠN + BỘ LỌC — khung chuẩn ListFrame (dạng thẻ) */}
+      <ListFrame unit="đơn" paged={dhPaged} variant="cards" toolbar={<>
+        <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
           <h3 className="text-sm font-bold text-slate-700">Danh sách đơn đặt hàng ({filteredOrders.length}/{orders.length})</h3>
           <div className="flex gap-2">
             <Button variant="outline" onClick={exportPendingItemsExcel} className="gap-2 h-9 text-xs border-amber-200 text-amber-700 hover:bg-amber-50"><AlertTriangle className="w-4 h-4" /> Xuất hàng chưa về</Button>
@@ -588,7 +588,7 @@ export function DatHangTool({
             <button onClick={() => setOrderFilters({ maHang: "", ncc: "", trangThai: "con_thieu", hvTu: "", hvDen: "" })} className="text-xs text-red-600 hover:underline font-medium">Bỏ lọc</button>
           )}
         </div>
-        <Pagination top unit="đơn" page={dhPaged.page} pageCount={dhPaged.pageCount} total={dhPaged.total} perPage={dhPaged.perPage} onPage={dhPaged.setPage} onPerPage={dhPaged.setPerPage} />
+      </>}>
         {loading ? <BoxLoading label="Đang tải đơn đặt hàng..." />
           : orders.length === 0 ? <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">Chưa có đơn đặt hàng nào.</div>
           : filteredOrders.length === 0 ? <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">Không có đơn khớp bộ lọc.</div>
@@ -703,10 +703,7 @@ export function DatHangTool({
               {o.ghi_chu && <div className="text-xs text-slate-500 italic">Ghi chú: {o.ghi_chu}</div>}
             </div>
           ))}
-        {!loading && filteredOrders.length > 0 && (
-          <Pagination unit="đơn" page={dhPaged.page} pageCount={dhPaged.pageCount} total={dhPaged.total} perPage={dhPaged.perPage} onPage={dhPaged.setPage} />
-        )}
-      </div>
+      </ListFrame>
       </>
       )}
 

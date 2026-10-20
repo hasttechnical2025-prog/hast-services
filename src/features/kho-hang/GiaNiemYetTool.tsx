@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Upload, RefreshCw, Save, ChevronUp, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { TableLoading, usePaged, Pagination } from '@/ui'
+import { TableLoading, usePaged, ListFrame } from '@/ui'
 
 // Port NGUYÊN GiaNiemYetTool từ admin (y hệt), gọi lại /api/admin/gia-niem-yet.
 export function GiaNiemYetTool({ showNotification, hangOptions }: { showNotification: (t: 'success' | 'error', m: string) => void, hangOptions: string[] }) {
@@ -117,23 +117,23 @@ export function GiaNiemYetTool({ showNotification, hangOptions }: { showNotifica
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setSavingMa(null) }
   }
 
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-2.5 items-center">
-        <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã / tên vật tư..." className="h-9 w-56" />
-        <Input value={qModel} onChange={e => setQModel(e.target.value)} placeholder="Tìm model..." className="h-9 w-44" />
-        <select value={fHang} onChange={e => setFHang(e.target.value)} className="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-700">
-          <option value="">Tất cả hãng</option>
-          {hangOptions.map(h => <option key={h} value={h}>{h}</option>)}
-        </select>
-        <span className="self-center text-xs text-slate-400">{filtered.length} vật tư{!canEdit && ' · chỉ tra cứu'}</span>
-        <div className="ml-auto flex items-center gap-2">
-          {canEdit && <Button variant="outline" onClick={() => setBulkOpen(v => !v)} className="h-9 gap-1.5 text-sm"><Upload className="w-4 h-4" /> Nhập giá hàng loạt</Button>}
-          <Button variant="outline" onClick={load} className="h-9 gap-1.5 text-sm"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>
-        </div>
+  const toolbar = (
+    <div className="flex flex-wrap gap-2.5 items-center">
+      <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã / tên vật tư..." className="h-9 w-56" />
+      <Input value={qModel} onChange={e => setQModel(e.target.value)} placeholder="Tìm model..." className="h-9 w-44" />
+      <select value={fHang} onChange={e => setFHang(e.target.value)} className="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-700">
+        <option value="">Tất cả hãng</option>
+        {hangOptions.map(h => <option key={h} value={h}>{h}</option>)}
+      </select>
+      {!canEdit && <span className="self-center text-xs text-slate-400">chỉ tra cứu</span>}
+      <div className="ml-auto flex items-center gap-2">
+        {canEdit && <Button variant="outline" onClick={() => setBulkOpen(v => !v)} className="h-9 gap-1.5 text-sm"><Upload className="w-4 h-4" /> Nhập giá hàng loạt</Button>}
+        <Button variant="outline" onClick={load} className="h-9 gap-1.5 text-sm"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>
       </div>
+    </div>
+  )
 
-      {canEdit && bulkOpen && (
+  const bulkPanel = canEdit && bulkOpen ? (
         <div className="bg-slate-50/80 p-3.5 rounded-lg border border-slate-200 space-y-2.5">
           <p className="text-xs text-slate-500">Dán từ Excel: <b>cột 1 = Mã hàng</b>, các cột sau là giá — chọn mỗi cột ứng với loại giá nào bên dưới. Chỉ cập nhật mã <b>đã có trong kho</b>; trùng thì ghi đè. Bấm <b>Kiểm tra</b> rồi <b>Nhập</b>.</p>
           <div className="flex flex-wrap items-center gap-3 text-xs">
@@ -182,10 +182,11 @@ export function GiaNiemYetTool({ showNotification, hangOptions }: { showNotifica
             )
           })()}
         </div>
-      )}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
-        <div className="overflow-x-auto">
+      ) : null
+
+  return (
+    <div className="space-y-4">
+      <ListFrame toolbar={toolbar} aboveTable={bulkPanel} paged={paged} unit="vật tư">
           <table className="w-full text-xs text-slate-600">
             <thead className="bg-slate-50 text-slate-500 t2 font-semibold uppercase border-b border-slate-200">
               <tr>
@@ -223,9 +224,7 @@ export function GiaNiemYetTool({ showNotification, hangOptions }: { showNotifica
               })}
             </tbody>
           </table>
-        </div>
-        <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
-      </div>
+      </ListFrame>
     </div>
   )
 }
