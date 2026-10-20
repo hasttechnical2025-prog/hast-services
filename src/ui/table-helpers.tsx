@@ -28,9 +28,9 @@ export function usePaged<T>(items: T[], storageKey: string = 'v2') {
 //  - top=true  : hàng gọn cho PHÍA TRÊN danh sách — [Hiển thị 10/20/50] · N dòng · ‹ Trước  Trang x/y  Sau ›
 //  - mặc định  : PHÍA DƯỚI — dải số trang đầy đủ + ‹ › + "x–y / N dòng".
 // Truyền onPerPage để hiện ô chọn số dòng (thường chỉ gắn ở thanh TRÊN, tránh lặp).
-export function Pagination({ page, pageCount, total, perPage, onPage, onPerPage, top }: {
+export function Pagination({ page, pageCount, total, perPage, onPage, onPerPage, top, unit = 'dòng' }: {
   page: number, pageCount: number, total: number, perPage: number, onPage: (p: number) => void,
-  onPerPage?: (n: number) => void, top?: boolean,
+  onPerPage?: (n: number) => void, top?: boolean, unit?: string,
 }) {
   const navBtn = 'h-8 min-w-8 px-2 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition inline-flex items-center justify-center'
 
@@ -44,10 +44,10 @@ export function Pagination({ page, pageCount, total, perPage, onPage, onPerPage,
           <label className="flex items-center gap-1.5">Hiển thị
             <select value={perPage} onChange={e => onPerPage(parseInt(e.target.value))} className="h-7 rounded-md border border-slate-200 bg-white px-1.5 text-xs outline-none focus:border-blue-500">
               {PAGE_SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
-            </select> dòng
+            </select> {unit}
           </label>
         )}
-        <span>{total.toLocaleString('vi-VN')} dòng</span>
+        <span>{total.toLocaleString('vi-VN')} {unit}</span>
         {pageCount > 1 && (
           <div className="flex items-center gap-1.5 ml-auto">
             <button className={navBtn} disabled={page <= 1} onClick={() => onPage(page - 1)}><ChevronLeft className="w-4 h-4" /> Trước</button>
@@ -71,7 +71,7 @@ export function Pagination({ page, pageCount, total, perPage, onPage, onPerPage,
   const btn = 'h-8 min-w-8 px-2 rounded-md border text-sm transition'
   return (
     <div className="flex items-center justify-between gap-3 flex-wrap px-1 pt-3 pb-1">
-      <span className="text-xs text-slate-500">Hiển thị <b>{from}</b>–<b>{to}</b> / {total.toLocaleString('vi-VN')} dòng</span>
+      <span className="text-xs text-slate-500">Hiển thị <b>{from}</b>–<b>{to}</b> / {total.toLocaleString('vi-VN')} {unit}</span>
       <div className="flex items-center gap-1">
         <button className={`${btn} border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed`} disabled={page <= 1} onClick={() => onPage(page - 1)}><ChevronLeft className="w-4 h-4" /></button>
         {nums.map((n, i) => (
