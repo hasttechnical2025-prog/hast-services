@@ -531,7 +531,12 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
                   <td className="px-3 py-2 text-right">{r.phi_thue_thang == null ? '—' : money(r.phi_thue_thang)}</td>
                   <td className="px-3 py-2 text-center">{r.vat_thue_cpc ?? 8}%</td>
                   <td className="px-3 py-2 text-slate-600 text-xs">{r.nv_kinh_doanh || <span className="text-slate-300">—</span>}</td>
-                  <td className="px-3 py-2 text-slate-500 text-xs">{khung.find(k => k.id === r.id_hop_dong_khung)?.ten_hop_dong || '—'}</td>
+                  <td className="px-3 py-2 text-center w-16">{(() => {
+                    const ten = khung.find(k => k.id === r.id_hop_dong_khung)?.ten_hop_dong
+                    return ten
+                      ? <FileText className="w-4 h-4 inline text-indigo-600" title={`Hợp đồng khung: ${ten}`} />
+                      : <span className="text-slate-300">—</span>
+                  })()}</td>
                   <td className="px-3 py-2 text-right"><button onClick={() => setEditing(r)} title="Sửa" className="text-blue-600 hover:text-blue-800 transition"><PenSquare className="w-4 h-4 inline" /></button></td>
                 </tr>
               ))}
