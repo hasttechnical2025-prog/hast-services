@@ -14,9 +14,11 @@ export default function UpdateChecker({ intervalMs = 5 * 60 * 1000 }: { interval
       try {
         const res = await fetch('/api/version', { cache: 'no-store' })
         if (!res.ok) return
-        const { version } = await res.json()
+        const { version, cap_nhat_off } = await res.json()
         if (!version) return
         if (baseline.current === null) { baseline.current = version; return } // lần đầu: ghi mốc
+        // Admin TẮT thông báo cập nhật (đang deploy liên tục) -> dời mốc theo bản mới, không báo.
+        if (cap_nhat_off) { baseline.current = version; setUpdateAvailable(false); return }
         if (version !== baseline.current) setUpdateAvailable(true)
       } catch { /* bỏ qua lỗi mạng, thử lại lần sau */ }
     }

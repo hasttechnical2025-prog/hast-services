@@ -40,6 +40,7 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
     phien_van_phong_ngay: cauHinh.phien_van_phong_ngay || '7',
     phien_ktv_ngay: cauHinh.phien_ktv_ngay || '30',
     mac_dinh_hom_nay: (cauHinh.mac_dinh_hom_nay ?? '1') !== '0',
+    thong_bao_cap_nhat: (cauHinh.thong_bao_cap_nhat ?? '1') !== '0',
     auto_bao_tri: (cauHinh.auto_bao_tri ?? '1') !== '0',
     geocode_import: (cauHinh.geocode_import ?? '1') !== '0',
     bao_tri: (cauHinh.bao_tri ?? '0') === '1',
@@ -119,6 +120,7 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
       phien_van_phong_ngay: String(parseInt(cfg.phien_van_phong_ngay) || 7),
       phien_ktv_ngay: String(parseInt(cfg.phien_ktv_ngay) || 30),
       mac_dinh_hom_nay: cfg.mac_dinh_hom_nay ? '1' : '0',
+      thong_bao_cap_nhat: cfg.thong_bao_cap_nhat ? '1' : '0',
       auto_bao_tri: cfg.auto_bao_tri ? '1' : '0',
       geocode_import: cfg.geocode_import ? '1' : '0',
       bao_tri: cfg.bao_tri ? '1' : '0',
@@ -178,6 +180,14 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
           </div>
           {numField('Vĩ độ VP (lat)', 'vp_lat', undefined, 'any')}
           {numField('Kinh độ VP (lng)', 'vp_lng', undefined, 'any')}
+        </div>
+        <div className="pt-1 border-t border-slate-100">
+          <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer select-none">
+            <input type="checkbox" checked={cfg.thong_bao_cap_nhat} onChange={(e) => setCfg({ ...cfg, thong_bao_cap_nhat: e.target.checked })} className="w-4 h-4 accent-blue-600 mt-0.5" />
+            <span>Hiện thông báo &quot;Đã có bản cập nhật mới — Tải lại&quot; cho người dùng
+              <span className="block text-xs text-slate-400 font-normal">Tắt khi đang deploy liên tục để người dùng khỏi bị nhắc tải lại nhiều lần. Bật lại khi cần.</span>
+            </span>
+          </label>
         </div>
       </div>
       )}
