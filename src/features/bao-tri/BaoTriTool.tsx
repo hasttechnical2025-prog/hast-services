@@ -10,7 +10,7 @@ import { useRealtimeRefetch } from '@/lib/useRealtime'
 import { BAOTRI_TOPIC, DATA_EVENT } from '@/lib/realtime'
 import { exportRowsToExcel } from '@/lib/excel'
 import { LOAI_HD_BAO_TRI, canBaoTriThang, dangTamDung, nghiBaoTri, moTaLichBaoTri, doiChieuNam, thangDaToi, fmtThang, CELL_DA_LAM, CELL_THIEU, CELL_CHUA_TOI } from '@/lib/bao-tri'
-import { usePaged, Pagination, useColView, TableLoading, type ColDef } from '@/ui'
+import { usePaged, ListFrame, useColView, TableLoading, type ColDef } from '@/ui'
 
 // Port NGUYÊN BaoTriTool từ admin/page.tsx (y hệt giao diện + nghiệp vụ). Chỉ đổi import sang
 // helper dùng chung + thay ClearAllButton bằng xác nhận useConfirm.
@@ -297,6 +297,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
   const paged = usePaged(sortedRecords)
   const chuaBaoTriPaged = usePaged(sortedChuaBaoTri)
   const tamDungPaged = usePaged(sortedTamDung)
+  const tkPaged = usePaged(thongKeFiltered, 'baotri-tk')
 
   const fetchDoiChieu = async (nam: string) => {
     setDcLoading(true)
@@ -660,7 +661,9 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
         </div>
 
         {active === 'thong_ke' ? (
-          <div className="space-y-3">
+          <ListFrame paged={tkPaged} unit="khách"
+            aboveTable={<p className="t2 text-slate-400">Gộp theo <b>khách cụm</b>; máy chưa gán cụm = <b>máy lẻ</b>. Chỉ tính HĐ bảo trì ({LOAI_HD_BAO_TRI.join(', ')}).</p>}
+            toolbar={
             <div className="flex flex-wrap items-center gap-3">
               <div className="text-sm text-slate-600">
                 <b className="text-indigo-700">{thongKeFiltered.length}</b> khách · <b className="text-indigo-700">{thongKeTongMay.toLocaleString('vi-VN')}</b> máy HĐ bảo trì
@@ -674,8 +677,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                 <Download className="w-4 h-4" /> Xuất thống kê cụm
               </Button>
             </div>
-            <p className="t2 text-slate-400">Gộp theo <b>khách cụm</b>; máy chưa gán cụm = <b>máy lẻ</b>. Chỉ tính HĐ bảo trì ({LOAI_HD_BAO_TRI.join(', ')}).</p>
-            <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+          }>
               <table className="w-full text-left text-sm text-slate-600">
                 <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200 select-none">
                   <tr>
@@ -691,7 +693,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                 <tbody className="divide-y divide-slate-100">
                   {thongKeFiltered.length === 0 ? (
                     <tr><td colSpan={canTamHoan ? 3 : 2} className="px-4 py-8 text-center text-slate-400">{thongKeRows.length === 0 ? 'Chưa có máy HĐ bảo trì nào.' : 'Không có khách khớp tìm kiếm.'}</td></tr>
-                  ) : thongKeFiltered.map(r => {
+                  ) : tkPaged.pageItems.map(r => {
                     const paused = r.hdbt.filter(m => dangTamDung(m.tu, thangNam, m.den))
                     const full = r.so_may > 0 && paused.length === r.so_may // cả nhóm đang tạm hoãn
                     const partial = paused.length > 0 && paused.length < r.so_may // chỉ 1 phần
@@ -714,10 +716,29 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                   )})}
                 </tbody>
               </table>
-            </div>
-          </div>
+          </ListFrame>
         ) : active === 'doi_chieu' ? (
-          <div className="space-y-3">
+          <ListFrame paged={!dcLoading && dcFiltered.length > 0 ? dcPaged : undefined} unit="máy"
+            aboveTable={<>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                <span><b className="text-emerald-700">✓</b> đã bảo trì</span>
+                <span><b className="text-amber-600">x</b> quá hạn (tháng đã qua mà chưa làm)</span>
+                <span><b className="text-slate-400">·</b> theo lịch, chưa tới tháng</span>
+                <span><b className="text-slate-500">–</b> chưa có máy (lắp sau)</span>
+                <span><b className="text-slate-500">N</b> đã tạm dừng theo dõi</span>
+                <span>ô trống = không nằm trong lịch</span>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-1.5">
+                <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">Theo HĐ cả năm: {dcTong.theo_hd} lượt</span>
+                <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">Đã làm: {dcTong.da_lam} lượt</span>
+                <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">Thiếu (quá hạn): {dcTong.thieu} lượt</span>
+                <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-semibold">Còn lại: {dcTong.con_lai} lượt</span>
+              </div>
+              {dcDenThang > 0 && dcDenThang < 12 && (
+                <p className="text-xs text-slate-400 mt-1.5">Đang xem năm hiện tại — &quot;Thiếu&quot; chỉ tính tới <b>tháng {dcDenThang}</b>; các tháng sau ghi <b>·</b> (chưa tới) và nằm ở cột &quot;Còn lại&quot;.</p>
+              )}
+            </>}
+            toolbar={
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Năm</label>
@@ -738,28 +759,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                 🖨 {batchBusy ? 'Đang dựng…' : `In sổ (${dcFiltered.length})`}
               </Button>
             </div>
-
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 px-1">
-              <span><b className="text-emerald-700">✓</b> đã bảo trì</span>
-              <span><b className="text-amber-600">x</b> quá hạn (tháng đã qua mà chưa làm)</span>
-              <span><b className="text-slate-400">·</b> theo lịch, chưa tới tháng</span>
-              <span><b className="text-slate-500">–</b> chưa có máy (lắp sau)</span>
-              <span><b className="text-slate-500">N</b> đã tạm dừng theo dõi</span>
-              <span>ô trống = không nằm trong lịch</span>
-            </div>
-            <div className="flex flex-wrap gap-2 px-1">
-              <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">Theo HĐ cả năm: {dcTong.theo_hd} lượt</span>
-              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">Đã làm: {dcTong.da_lam} lượt</span>
-              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">Thiếu (quá hạn): {dcTong.thieu} lượt</span>
-              <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-semibold">Còn lại: {dcTong.con_lai} lượt</span>
-            </div>
-            {dcDenThang > 0 && dcDenThang < 12 && (
-              <p className="text-xs text-slate-400 px-1">Đang xem năm hiện tại — &quot;Thiếu&quot; chỉ tính tới <b>tháng {dcDenThang}</b>; các tháng sau ghi <b>·</b> (chưa tới) và nằm ở cột &quot;Còn lại&quot;.</p>
-            )}
-
-            {!dcLoading && dcFiltered.length > 0 && <Pagination top page={dcPaged.page} pageCount={dcPaged.pageCount} total={dcPaged.total} perPage={dcPaged.perPage} onPage={dcPaged.setPage} onPerPage={dcPaged.setPerPage} />}
-            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-              <div className="overflow-x-auto">
+          }>
                 <table className="w-full text-left text-sm text-slate-600">
                   <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
                     <tr>
@@ -811,21 +811,10 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                     ))}
                   </tbody>
                 </table>
-              </div>
-              <div className="px-4 pb-2">
-                <Pagination page={dcPaged.page} pageCount={dcPaged.pageCount} total={dcPaged.total} perPage={dcPaged.perPage} onPage={dcPaged.setPage} onPerPage={dcPaged.setPerPage} />
-              </div>
-            </div>
-          </div>
+          </ListFrame>
         ) : active === 'tam_dung' ? (
-          <div className="space-y-3">
-            <p className="text-xs text-slate-500 px-1">
-              Máy khách đã bỏ nhưng còn trong hợp đồng — <b>không bị đòi bảo trì</b> nhưng vẫn giữ để đối chiếu cuối năm.
-              Bỏ tạm dừng bằng cách xóa ô &quot;Tạm dừng từ tháng&quot; trong Danh sách khách hàng.
-            </p>
-            {tamDung.length > 0 && <Pagination top page={tamDungPaged.page} pageCount={tamDungPaged.pageCount} total={tamDungPaged.total} perPage={tamDungPaged.perPage} onPage={tamDungPaged.setPage} onPerPage={tamDungPaged.setPerPage} />}
-            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-              <div className="overflow-x-auto">
+          <ListFrame paged={tamDung.length > 0 ? tamDungPaged : undefined} unit="máy"
+            aboveTable={<p className="text-xs text-slate-500">Máy khách đã bỏ nhưng còn trong hợp đồng — <b>không bị đòi bảo trì</b> nhưng vẫn giữ để đối chiếu cuối năm. Bỏ tạm dừng bằng cách xóa ô &quot;Tạm dừng từ tháng&quot; trong Danh sách khách hàng.</p>}>
                 <table className="w-full text-left text-sm text-slate-600">
                   <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
                     <tr>
@@ -862,16 +851,10 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                     ))}
                   </tbody>
                 </table>
-              </div>
-              <div className="px-4 pb-2">
-                <Pagination page={tamDungPaged.page} pageCount={tamDungPaged.pageCount} total={tamDungPaged.total} perPage={tamDungPaged.perPage} onPage={tamDungPaged.setPage} onPerPage={tamDungPaged.setPerPage} />
-              </div>
-            </div>
-          </div>
+          </ListFrame>
         ) : active === 'da_bao_tri' ? (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 px-1">
-              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">{records.length} máy</span>
+          <ListFrame paged={!loading && records.length > 0 ? paged : undefined} unit="máy" toolbar={
+            <div className="flex items-center gap-2">
               <div className="ml-auto flex items-center gap-2">
                 <Button variant="outline" onClick={xuatBaoTriExcel} disabled={records.length === 0} title={`Xuất Excel (${records.length} máy)`} className="h-9 px-3 gap-1.5 text-xs">
                   <Download className="w-4 h-4" /> Xuất DS đã bảo trì
@@ -881,9 +864,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                 </Button>
               </div>
             </div>
-            {!loading && records.length > 0 && <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />}
-            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-              <div className="overflow-x-auto">
+          }>
               <table className="w-full text-left text-sm text-slate-600">
                 <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200 shadow-sm">
                   <tr>
@@ -931,20 +912,9 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                   })}
                 </tbody>
               </table>
-              </div>
-              <div className="px-4 pb-2">
-                <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
-              </div>
-            </div>
-          </div>
+          </ListFrame>
         ) : (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 px-1">
-              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">{chuaBaoTri.length} máy</span>
-            </div>
-            {!loading && chuaBaoTri.length > 0 && <Pagination top page={chuaBaoTriPaged.page} pageCount={chuaBaoTriPaged.pageCount} total={chuaBaoTriPaged.total} perPage={chuaBaoTriPaged.perPage} onPage={chuaBaoTriPaged.setPage} onPerPage={chuaBaoTriPaged.setPerPage} />}
-            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-              <div className="overflow-x-auto">
+          <ListFrame paged={!loading && chuaBaoTri.length > 0 ? chuaBaoTriPaged : undefined} unit="máy">
               <table className="w-full text-left text-sm text-slate-600">
                 <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200 shadow-sm">
                   <tr>
@@ -981,12 +951,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                   ))}
                 </tbody>
               </table>
-              </div>
-              <div className="px-4 pb-2">
-                <Pagination page={chuaBaoTriPaged.page} pageCount={chuaBaoTriPaged.pageCount} total={chuaBaoTriPaged.total} perPage={chuaBaoTriPaged.perPage} onPage={chuaBaoTriPaged.setPage} onPerPage={chuaBaoTriPaged.setPerPage} />
-              </div>
-            </div>
-          </div>
+          </ListFrame>
         )}
       </div>
       )}
