@@ -554,12 +554,9 @@ export function DatHangTool({
       </datalist>
       {/* DANH SÁCH ĐƠN + BỘ LỌC — khung chuẩn ListFrame (dạng thẻ) */}
       <ListFrame unit="đơn" paged={dhPaged} variant="cards" toolbar={<>
-        <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
-          <h3 className="text-sm font-bold text-slate-700">Danh sách đơn đặt hàng ({filteredOrders.length}/{orders.length})</h3>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={exportPendingItemsExcel} className="gap-2 h-9 text-xs border-amber-200 text-amber-700 hover:bg-amber-50"><AlertTriangle className="w-4 h-4" /> Xuất hàng chưa về</Button>
-            <Button variant="outline" onClick={exportOrdersExcel} className="gap-2 h-9 text-xs border-blue-200 text-blue-700 hover:bg-blue-50"><Download className="w-4 h-4" /> Xuất DS đơn hàng</Button>
-          </div>
+        <div className="flex items-center justify-end gap-2 flex-wrap mb-2">
+          <Button variant="outline" onClick={exportPendingItemsExcel} className="gap-2 h-9 text-xs border-amber-200 text-amber-700 hover:bg-amber-50"><AlertTriangle className="w-4 h-4" /> Xuất hàng chưa về</Button>
+          <Button variant="outline" onClick={exportOrdersExcel} className="gap-2 h-9 text-xs border-blue-200 text-blue-700 hover:bg-blue-50"><Download className="w-4 h-4" /> Xuất DS đơn hàng</Button>
         </div>
         <div className="flex flex-wrap items-center gap-2 px-1">
           <div className="relative w-full sm:w-56">
