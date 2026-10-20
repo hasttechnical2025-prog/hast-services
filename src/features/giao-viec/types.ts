@@ -44,7 +44,7 @@ export type Job = {
   created_at?: string | null
   so_lan_cuon?: number | null
   bbbg_luc?: string | null
-  soct_khach_hang?: { ten_khach_hang?: string; dia_chi?: string; model?: string; vi_tri_dat_may?: string } | null
+  soct_khach_hang?: { ten_khach_hang?: string; dia_chi?: string; model?: string; vi_tri_dat_may?: string; soct_khach_cum?: { dia_chi?: string } | null } | null
   soct_users?: { full_name?: string } | null
   ktv2?: { full_name?: string } | null
   soct_chi_tiet_vat_tu?: { id: string; ma_hang: string; so_luong: number; don_gia: number; vat: number; thanh_tien?: number; hoa_don: boolean; da_tra: boolean; ten_hang_hd?: string | null; soct_kho_hang?: { ten_hang?: string } | null }[]

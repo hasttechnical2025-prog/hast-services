@@ -2,18 +2,19 @@
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { FileText, ClipboardCheck, Clock, Truck } from 'lucide-react'
+import DateField from '@/components/DateField'
 import { BBBG_TEMPLATE_LIST } from '@/lib/bbbg-templates'
 
 // Nút "Xuất chứng từ" (port BbbgExportButton của admin): dropdown BBBG (theo mẫu) + BBGĐ (BM26)
 // + lịch sử xuất (chung-tu-log). Tải .docx từ /api/admin/bbbg & /api/admin/bbgd. Menu position:fixed.
-export function ChungTuButton({ jobId, bbbgLuc, onExported, notify, ghiChu, khachTen, viTri }: {
+export function ChungTuButton({ jobId, bbbgLuc, onExported, notify, ghiChu, khachTen, diaChiHD }: {
   jobId: string
   bbbgLuc?: string | null
   onExported: () => void
   notify: (t: 'success' | 'error', m: string) => void
   ghiChu?: string | null     // ghi chú phiếu -> tên người nhận (prefill tem)
-  khachTen?: string | null   // tên khách điểm máy -> tên khách hàng (prefill tem)
-  viTri?: string | null      // vị trí đặt máy -> địa chỉ (prefill tem)
+  khachTen?: string | null   // tên khách điểm máy -> tên khách hàng (prefill tem, IN HOA)
+  diaChiHD?: string | null   // địa chỉ hóa đơn (cụm ưu tiên, fallback điểm máy) -> địa chỉ (prefill tem)
 }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -23,17 +24,19 @@ export function ChungTuButton({ jobId, bbbgLuc, onExported, notify, ghiChu, khac
   const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number; maxH: number } | null>(null)
   // Tem gửi hàng (chuyển phát nhanh) — modal sửa 5 trường rồi xuất .docx
   const [temOpen, setTemOpen] = useState(false)
+  // ngay lưu dạng ISO YYYY-MM-DD cho DateField; xuất docx đổi sang DD/MM/YYYY.
   const [tem, setTem] = useState({ ngay: '', nguoi_nhan: '', khach_hang: '', dia_chi: '', noi_dung: '' })
-  const todayDMY = () => { const d = new Date(); const p = (n: number) => String(n).padStart(2, '0'); return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}` }
+  const todayISO = () => { const d = new Date(); const p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` }
+  const isoToDMY = (iso: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? `${m[3]}/${m[2]}/${m[1]}` : (iso || '') }
   const openTem = () => {
     setOpen(false)
-    setTem({ ngay: todayDMY(), nguoi_nhan: ghiChu || '', khach_hang: khachTen || '', dia_chi: viTri || '', noi_dung: '+ Mực máy photocopy' })
+    setTem({ ngay: todayISO(), nguoi_nhan: ghiChu || '', khach_hang: (khachTen || '').toUpperCase(), dia_chi: diaChiHD || '', noi_dung: '+ Mực máy photocopy' })
     setTemOpen(true)
   }
   const submitTem = async () => {
     setBusy(true)
     try {
-      const res = await fetch('/api/admin/tem-gui', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: jobId, ...tem }) })
+      const res = await fetch('/api/admin/tem-gui', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: jobId, ...tem, ngay: isoToDMY(tem.ngay) }) })
       if (!res.ok) { const j = await res.json().catch(() => ({})); notify('error', j.error || 'Lỗi xuất tem'); return }
       const blob = await res.blob()
       const cd = res.headers.get('Content-Disposition') || ''
@@ -141,7 +144,7 @@ export function ChungTuButton({ jobId, bbbgLuc, onExported, notify, ghiChu, khac
             <div className="px-5 py-4 space-y-3 overflow-y-auto">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Ngày</label>
-                <input value={tem.ngay} onChange={e => setTem({ ...tem, ngay: e.target.value })} className="w-full h-9 px-3 rounded-md border border-slate-300 text-sm bg-white" />
+                <DateField value={tem.ngay} onChange={v => setTem({ ...tem, ngay: v })} heightClass="h-9" className="w-full" />
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Tên người nhận</label>
@@ -149,7 +152,7 @@ export function ChungTuButton({ jobId, bbbgLuc, onExported, notify, ghiChu, khac
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Tên khách hàng</label>
-                <input value={tem.khach_hang} onChange={e => setTem({ ...tem, khach_hang: e.target.value })} className="w-full h-9 px-3 rounded-md border border-slate-300 text-sm bg-white" />
+                <input value={tem.khach_hang} onChange={e => setTem({ ...tem, khach_hang: e.target.value.toUpperCase() })} className="w-full h-9 px-3 rounded-md border border-slate-300 text-sm bg-white uppercase" />
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Địa chỉ</label>

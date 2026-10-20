@@ -298,7 +298,8 @@ export async function GET(request: Request) {
             ten_khach_hang,
             dia_chi,
             model,
-            vi_tri_dat_may
+            vi_tri_dat_may,
+            soct_khach_cum ( dia_chi )
           ),
           soct_users!ktv_id (
             full_name
