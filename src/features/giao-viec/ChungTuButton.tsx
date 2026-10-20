@@ -1,5 +1,6 @@
 'use client'
 import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { FileText, ClipboardCheck, Clock, Truck } from 'lucide-react'
 import { BBBG_TEMPLATE_LIST } from '@/lib/bbbg-templates'
 
@@ -130,8 +131,8 @@ export function ChungTuButton({ jobId, bbbgLuc, onExported, notify, ghiChu, khac
         </>
       )}
 
-      {temOpen && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4" onClick={e => e.stopPropagation()}>
+      {temOpen && typeof document !== 'undefined' && createPortal(
+        <div className="v2-shell fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4" onClick={e => e.stopPropagation()}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
               <h3 className="font-semibold text-slate-800 flex items-center gap-2"><Truck className="w-4 h-4 text-blue-600" /> Tem gửi hàng (chuyển phát nhanh)</h3>
@@ -164,7 +165,8 @@ export function ChungTuButton({ jobId, bbbgLuc, onExported, notify, ghiChu, khac
               <button onClick={submitTem} disabled={busy} className="px-4 py-2 rounded-md text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50">{busy ? 'Đang tạo…' : 'Tạo tem'}</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )
