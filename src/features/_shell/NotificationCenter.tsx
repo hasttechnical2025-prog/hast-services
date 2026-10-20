@@ -153,11 +153,11 @@ export function NotificationCenter() {
       ),
     },
     {
-      key: 'kanban_c2', icon: ClipboardList, tone: 'amber', label: 'Thẻ chờ kế toán lên hóa đơn (Kanban Cột 2)', count: a.kanban.col2,
+      key: 'kanban_c2', icon: ClipboardList, tone: 'amber', label: 'Thẻ chờ kế toán lên hóa đơn (Kanban Cột 2)', count: a.kanban.col2_chua_minv,
       navHref: `${V2_BASE}/kanban`, navLabel: '→ Mở Kanban Hóa đơn', canSee: subVisible('tai_chinh', 'kanban'),
       detail: (
         <div className="text-xs text-slate-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 leading-relaxed">
-          <b>{a.kanban.col2}</b> thẻ{a.kanban.col2_phieu !== a.kanban.col2 ? ` (gồm ${a.kanban.col2_phieu} phiếu — một số khách gộp nhiều phiếu vào 1 hóa đơn)` : ''} đã bàn giao, đang chờ <b>kế toán (KT-HC) lên hóa đơn</b> (Cột 2). Mỗi thẻ = 1 hóa đơn. Nhắc kế toán xử lý.
+          <b>{a.kanban.col2_chua_minv}</b> phiếu ở Cột 2 (đã bàn giao) <b>chưa xuất hóa đơn (M-invoice)</b>, đang chờ <b>kế toán (KT-HC)</b> xử lý. Khớp với badge ở menu Kanban Hóa đơn.
         </div>
       ),
     },

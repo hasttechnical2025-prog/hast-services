@@ -9,13 +9,13 @@ import { chotSoDate, counterStatus } from '@/lib/thue-cpc'
 // Gom DỮ LIỆU cho chuông cảnh báo xuyên-module (như /admin). Chỉ fetch + tính; render ở NotificationCenter.
 export type AlertsData = {
   mucCanhBao: any[]; mucSapHet: any[]; canhBaoTonList: any[]; unfinishedPastJobs: any[]; futureJobs: any[]
-  henCskh: any[]; kanban: { col1: number; col2: number; col1_phieu: number; col2_phieu: number }
+  henCskh: any[]; kanban: { col1: number; col2: number; col1_phieu: number; col2_phieu: number; col2_chua_minv: number }
   hdbtExpiring: any[]; counterDueList: any[]; leaveToday: any[]; hdbtCanhBaoThang: number
   refetch: () => void
 }
 const Ctx = createContext<AlertsData | null>(null)
 export function useAlerts(): AlertsData {
-  return useContext(Ctx) || { mucCanhBao: [], mucSapHet: [], canhBaoTonList: [], unfinishedPastJobs: [], futureJobs: [], henCskh: [], kanban: { col1: 0, col2: 0, col1_phieu: 0, col2_phieu: 0 }, hdbtExpiring: [], counterDueList: [], leaveToday: [], hdbtCanhBaoThang: 2, refetch: () => {} }
+  return useContext(Ctx) || { mucCanhBao: [], mucSapHet: [], canhBaoTonList: [], unfinishedPastJobs: [], futureJobs: [], henCskh: [], kanban: { col1: 0, col2: 0, col1_phieu: 0, col2_phieu: 0, col2_chua_minv: 0 }, hdbtExpiring: [], counterDueList: [], leaveToday: [], hdbtCanhBaoThang: 2, refetch: () => {} }
 }
 
 const getJson = (u: string, fb: any) => fetch(u).then(r => r.ok ? r.json() : fb).catch(() => fb)
@@ -32,7 +32,7 @@ export function BellAlertsProvider({ children }: { children: React.ReactNode }) 
   const [mucSapHet, setMucSapHet] = useState<any[]>([])
   const [canhBaoTon, setCanhBaoTon] = useState<any[]>([])
   const [henCskh, setHenCskh] = useState<any[]>([])
-  const [kanban, setKanban] = useState({ col1: 0, col2: 0, col1_phieu: 0, col2_phieu: 0 })
+  const [kanban, setKanban] = useState({ col1: 0, col2: 0, col1_phieu: 0, col2_phieu: 0, col2_chua_minv: 0 })
   const [counterDueList, setCounterDueList] = useState<any[]>([])
   const [leaveToday, setLeaveToday] = useState<any[]>([])
   const [unfinishedPastJobs, setUnfinished] = useState<any[]>([])
@@ -45,7 +45,7 @@ export function BellAlertsProvider({ children }: { children: React.ReactNode }) 
     getJson('/api/admin/muc-sap-het', { data: [] }).then(j => setMucSapHet(j.data || []))
     getJson('/api/admin/canh-bao-ton', { items: [] }).then(j => setCanhBaoTon(j.items || []))
     getJson('/api/admin/cskh/hen', { data: [] }).then(j => setHenCskh(j.data || []))
-    getJson('/api/admin/kanban-hd?count=1', {}).then(j => { if (j && typeof j.col1 === 'number') setKanban({ col1: j.col1, col2: j.col2, col1_phieu: j.col1_phieu ?? j.col1, col2_phieu: j.col2_phieu ?? j.col2 }) })
+    getJson('/api/admin/kanban-hd?count=1', {}).then(j => { if (j && typeof j.col1 === 'number') setKanban({ col1: j.col1, col2: j.col2, col1_phieu: j.col1_phieu ?? j.col1, col2_phieu: j.col2_phieu ?? j.col2, col2_chua_minv: j.col2_chua_minv ?? j.col2 }) })
     getJson('/api/admin/nghi-phep?today=1', { data: [] }).then(j => setLeaveToday(j.data || []))
     getJson('/api/admin/kho-hang/dang-giu', { choVe: {} }).then(j => setChoVe(j.choVe || {}))
 
