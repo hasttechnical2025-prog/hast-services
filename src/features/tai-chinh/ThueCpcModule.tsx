@@ -534,7 +534,7 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
                   <td className="px-3 py-2 text-center w-16">{(() => {
                     const ten = khung.find(k => k.id === r.id_hop_dong_khung)?.ten_hop_dong
                     return ten
-                      ? <FileText className="w-4 h-4 inline text-indigo-600" title={`Hợp đồng khung: ${ten}`} />
+                      ? <span title={`Hợp đồng khung: ${ten}`}><FileText className="w-4 h-4 inline text-indigo-600" /></span>
                       : <span className="text-slate-300">—</span>
                   })()}</td>
                   <td className="px-3 py-2 text-right"><button onClick={() => setEditing(r)} title="Sửa" className="text-blue-600 hover:text-blue-800 transition"><PenSquare className="w-4 h-4 inline" /></button></td>
