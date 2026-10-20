@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import DateField from "@/components/DateField"
 import { useConfirm } from "@/components/ConfirmDialog"
-import { usePaged, ListFrame } from "@/ui"
+import { usePaged, ListFrame, DateRangeField } from "@/ui"
 import {
   FileText, Search, Plus, Printer, PenSquare, Trash2,
   RefreshCw, X, Save, ArrowUpDown, ChevronUp, ChevronDown
@@ -1017,15 +1017,7 @@ export default function PhieuDeNghiModule({
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 text-xs text-slate-600">
-          <span className="text-slate-500 whitespace-nowrap">Từ ngày:</span>
-          <DateField value={tuNgay} onChange={setTuNgay} heightClass="h-9" className="w-32" />
-        </div>
-
-        <div className="flex items-center gap-1.5 text-xs text-slate-600">
-          <span className="text-slate-500 whitespace-nowrap">Đến ngày:</span>
-          <DateField value={denNgay} onChange={setDenNgay} heightClass="h-9" className="w-32" />
-        </div>
+        <DateRangeField from={tuNgay} to={denNgay} onFrom={setTuNgay} onTo={setDenNgay} width="w-32" />
 
         {(tuNgay || denNgay || q) && (
           <Button

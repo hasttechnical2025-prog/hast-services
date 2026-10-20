@@ -2,9 +2,8 @@
 import { useState, useEffect } from 'react'
 import { RefreshCw, Download, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import DateField from '@/components/DateField'
 import { fmtThoiLuong } from '@/lib/thoi-gian'
-import { BoxLoading } from '@/ui'
+import { BoxLoading, DateRangeField } from '@/ui'
 
 // Port NGUYÊN BaoCaoKtvTool từ admin (y hệt). Gọi lại /api/admin/bao-cao-ktv.
 export function BaoCaoKtvTool({ technicians, showNotification }: { technicians: any[], showNotification: (type: 'success' | 'error', msg: string) => void }) {
@@ -110,15 +109,9 @@ export function BaoCaoKtvTool({ technicians, showNotification }: { technicians: 
           </select>
         </div>
 
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold text-slate-600 whitespace-nowrap">Từ ngày</label>
-          <DateField value={tuNgay} onChange={(v) => { setTuNgay(v); if (v && denNgay && denNgay < v) setDenNgay(v) }} heightClass="h-9" className="w-36" />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold text-slate-600 whitespace-nowrap">Đến ngày</label>
-          <DateField value={denNgay} onChange={(v) => { setDenNgay(v); if (v && tuNgay && v < tuNgay) setTuNgay(v) }} heightClass="h-9" className="w-36" />
-        </div>
+        <DateRangeField from={tuNgay} to={denNgay}
+          onFrom={(v) => { setTuNgay(v); if (v && denNgay && denNgay < v) setDenNgay(v) }}
+          onTo={(v) => { setDenNgay(v); if (v && tuNgay && v < tuNgay) setTuNgay(v) }} />
 
         <div className="flex items-center gap-2 ml-auto">
           <Button variant="outline" onClick={fetchData} disabled={loading} title="Tải lại" className="h-9 px-3 gap-1.5 text-xs font-medium">

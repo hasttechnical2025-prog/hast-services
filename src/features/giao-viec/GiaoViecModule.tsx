@@ -1,7 +1,6 @@
 'use client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ClipboardList, CheckCircle2, Clock, Wallet, RefreshCw, Plus, Pencil, Trash2, MapPin, Send, Hand, Search, Hash, FileDown, CalendarArrowDown, CopyX, Boxes, ChevronLeft } from 'lucide-react'
-import DateField from '@/components/DateField'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { fmtThoiLuong } from '@/lib/thoi-gian'
 import { phieuTaoChip, buoiGio, PHIEU_TAO_TONE } from '@/lib/phieu-tao'
@@ -13,7 +12,7 @@ import { useShared } from '@/features/_shell/SharedDataProvider'
 import { useSession } from '@/features/_shell/SessionProvider'
 import {
   StatCard, StatRow, DataTable, type Column, type ColumnFilter, Card,
-  DateText, fmtMoney, fmtDate,
+  DateText, fmtMoney, fmtDate, DateRangeField,
 } from '@/ui'
 import { listJobs, deleteJob, dedupeInfo, dedupeRun } from './api'
 import { JobFormModal } from './JobForm'
@@ -326,12 +325,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
         <div className="p-3 border-b border-slate-100 space-y-2.5">
           {/* Dòng 1 — 3 bộ lọc SERVER */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1.5 text-xs text-slate-500">
-              <span>Ngày</span>
-              <DateField value={tuNgay} onChange={v => setTuNgay(v)} heightClass="h-9" className="w-36" />
-              <span>–</span>
-              <DateField value={denNgay} onChange={v => setDenNgay(v)} heightClass="h-9" className="w-36" />
-            </div>
+            <DateRangeField from={tuNgay} to={denNgay} onFrom={setTuNgay} onTo={setDenNgay} />
             <div className="relative w-60"><Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã máy, tên khách hàng…" className={`${fieldCls} w-full pl-9`} /></div>
             <div className="relative w-44"><Hash className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" /><input value={report} onChange={e => setReport(e.target.value)} placeholder="Số phiếu…" className={`${fieldCls} w-full pl-9`} /></div>
             {anyFilterActive && <button onClick={clearAll} className="text-xs text-rose-600 hover:underline font-medium px-1">Bỏ lọc</button>}

@@ -8,7 +8,7 @@ import { useConfirm } from '@/components/ConfirmDialog'
 import { useRealtimeRefetch } from '@/lib/useRealtime'
 import { DATHANG_TOPIC, DATA_EVENT } from '@/lib/realtime'
 import { exportRowsToExcel } from '@/lib/excel'
-import { usePaged, ListFrame, StatCard, StatRow, BoxLoading } from '@/ui'
+import { usePaged, ListFrame, StatCard, StatRow, BoxLoading, DateRangeField } from '@/ui'
 import type { DatHangLine } from './useDatHangCart'
 
 // Port NGUYÊN DatHangTool từ admin (y hệt): rà soát tồn + giỏ hàng + đơn đặt + hàng về.
@@ -571,12 +571,9 @@ export function DatHangTool({
             <option value="da_dat">Đã đặt (đang về)</option>
             <option value="hoan_thanh">Đã nhận đủ</option>
           </select>
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
-            <span>Hàng về</span>
-            <DateField value={orderFilters.hvTu} onChange={(v) => setOrderFilters({ ...orderFilters, hvTu: v })} heightClass="h-9" className="w-36" />
-            <span>–</span>
-            <DateField value={orderFilters.hvDen} onChange={(v) => setOrderFilters({ ...orderFilters, hvDen: v })} heightClass="h-9" className="w-36" />
-          </div>
+          <DateRangeField label="Hàng về" from={orderFilters.hvTu} to={orderFilters.hvDen}
+            onFrom={(v) => setOrderFilters({ ...orderFilters, hvTu: v })}
+            onTo={(v) => setOrderFilters({ ...orderFilters, hvDen: v })} />
           {(orderFilters.maHang || orderFilters.ncc || orderFilters.trangThai !== 'con_thieu' || orderFilters.hvTu || orderFilters.hvDen) && (
             <button onClick={() => setOrderFilters({ maHang: "", ncc: "", trangThai: "con_thieu", hvTu: "", hvDen: "" })} className="text-xs text-red-600 hover:underline font-medium">Bỏ lọc</button>
           )}
