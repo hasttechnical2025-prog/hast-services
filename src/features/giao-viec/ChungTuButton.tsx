@@ -14,7 +14,7 @@ export function ChungTuButton({ jobId, bbbgLuc, onExported, notify, ghiChu, khac
   notify: (t: 'success' | 'error', m: string) => void
   ghiChu?: string | null     // ghi chú phiếu -> tên người nhận (prefill tem)
   khachTen?: string | null   // tên khách điểm máy -> tên khách hàng (prefill tem, IN HOA)
-  diaChiHD?: string | null   // địa chỉ hóa đơn (cụm ưu tiên, fallback điểm máy) -> địa chỉ (prefill tem)
+  diaChiHD?: string | null   // vị trí đặt máy (fallback địa chỉ điểm máy) -> địa chỉ (prefill tem)
 }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)

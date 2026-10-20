@@ -275,7 +275,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
         const hasVt = (j.soct_chi_tiet_vat_tu || []).length > 0
         return (
           <div className="inline-flex gap-1 items-center">
-            {hasVt && <ChungTuButton jobId={j.id} bbbgLuc={j.bbbg_luc} onExported={() => load(true)} notify={notify} ghiChu={j.ghi_chu} khachTen={j.soct_khach_hang?.ten_khach_hang} diaChiHD={j.soct_khach_hang?.soct_khach_cum?.dia_chi || j.soct_khach_hang?.dia_chi} />}
+            {hasVt && <ChungTuButton jobId={j.id} bbbgLuc={j.bbbg_luc} onExported={() => load(true)} notify={notify} ghiChu={j.ghi_chu} khachTen={j.soct_khach_hang?.ten_khach_hang} diaChiHD={j.soct_khach_hang?.vi_tri_dat_may || j.soct_khach_hang?.dia_chi} />}
             {(['Chờ nhận', 'Đã nhận'].includes(j.ket_qua) || role === 'admin') && (
               <button onClick={() => openEdit(j)} title={['Chờ nhận', 'Đã nhận'].includes(j.ket_qua) ? 'Sửa phiếu' : 'Sửa phiếu (admin)'} className="w-7 h-7 rounded border border-blue-200 text-blue-600 hover:bg-blue-50 flex items-center justify-center"><Pencil className="w-3.5 h-3.5" /></button>
             )}
