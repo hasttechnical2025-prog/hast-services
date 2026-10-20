@@ -4,7 +4,7 @@ import { Users, Boxes, Package, Plus, Search, PenSquare, Trash2, X, FileSpreadsh
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useConfirm } from '@/components/ConfirmDialog'
-import { StatCard, StatRow, BoxLoading, usePaged, Pagination } from '@/ui'
+import { StatCard, StatRow, BoxLoading, usePaged, ListFrame } from '@/ui'
 
 // Port NGUYÊN KhachCumTool + DoiChieuMinvoiceModal từ admin (y hệt). Gọi lại /api/admin/khach-cum,
 // /api/admin/doi-chieu-khach.
@@ -265,10 +265,8 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
         <StatCard label="Máy chưa gán (lẻ)" value={unassigned.length.toLocaleString('vi-VN')} sub="coi như 1 khách - 1 máy" icon={Package} tone="amber" />
       </StatRow>
 
-      {/* Thanh công cụ */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h3 className="text-base font-semibold text-slate-700">Danh sách khách cụm <span className="text-slate-400 font-normal">· {clusters.length.toLocaleString('vi-VN')}</span></h3>
-        <div className="flex items-center gap-2 flex-wrap">
+      <ListFrame paged={paged} unit="cụm" toolbar={
+        <div className="flex items-center justify-end gap-2 flex-wrap">
           <div className="relative w-full sm:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input placeholder="Tìm mã / tên cụm..." className="pl-9 pr-7 bg-white h-9 text-xs" value={cumSearch} onChange={e => setCumSearch(e.target.value)} />
@@ -277,12 +275,7 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
           <Button variant="outline" onClick={() => setDoiChieuOpen(true)} className="gap-1.5 h-9 text-xs shrink-0"><FileSpreadsheet className="w-4 h-4" /> Đối chiếu minVoice</Button>
           <Button onClick={openCreate} className="gap-1 h-9 text-xs shrink-0"><Plus className="w-4 h-4" /> Tạo cụm mới</Button>
         </div>
-      </div>
-
-      <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
-
-      {/* Bảng khách cụm — table-fixed + wrap (không tràn ngang, không cắt chữ) */}
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+      }>
         <table className="w-full table-fixed text-sm text-slate-600">
           <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
             <tr>
@@ -316,8 +309,7 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
             ))}
           </tbody>
         </table>
-      </div>
-      <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
+      </ListFrame>
 
       {/* MODAL TẠO CỤM MỚI */}
       {createOpen && (

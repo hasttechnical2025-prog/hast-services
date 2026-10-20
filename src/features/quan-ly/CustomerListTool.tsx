@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import DateField from '@/components/DateField'
 import { hdbtStatus } from '@/lib/hd-status'
 import { LOAI_HD_BAO_TRI, fmtThang, moTaLichBaoTri, coBaoTriThang, parseThangBaoTri, formatThangBaoTri } from '@/lib/bao-tri'
-import { usePaged, Pagination, useColView, ColumnMenu, StatCard, StatRow, type ColDef } from '@/ui'
+import { usePaged, ListFrame, useColView, ColumnMenu, StatCard, StatRow, type ColDef } from '@/ui'
 
 // Port NGUYÊN CustomerListTool từ admin (y hệt). Gọi lại /api/admin/khach-hang.
 const CUSTOMER_COLS: ColDef[] = [
@@ -169,7 +169,8 @@ export function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCa
         <StatCard label="Sắp hết hạn" value={custStats.expiring.toLocaleString('vi-VN')} sub={`trong ${hdbtCanhBaoThang} tháng`} icon={Clock} tone="amber" />
         <StatCard label="Đã hết hạn" value={custStats.expired.toLocaleString('vi-VN')} sub="cần ký tiếp" icon={AlertTriangle} tone="rose" />
       </StatRow>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <ListFrame paged={paged} unit="khách hàng" toolbar={
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex gap-2 w-full sm:w-auto">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -208,19 +209,13 @@ export function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCa
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-slate-500 whitespace-nowrap">
-            {(q || hdFilter !== 'all') ? `${filtered.length} / ${customers.length}` : `Tổng: ${customers.length}`} khách hàng
-          </span>
           <Button onClick={() => setEditing({ ten_khach_hang: "", ma_may: "", serial: "", model: "", hang: "", dia_chi: "", km_mac_dinh: "", loai_hd: "", ngay_het_han_hdbt: "", thang_bao_tri: "", bat_dau_tu_thang: "", tam_dung_tu_thang: "", ghi_chu_bao_tri: "", ma_so_thue: "", email_ke_toan: "" })} className="gap-1 bg-blue-600 hover:bg-blue-700 h-9 px-3 text-xs font-semibold whitespace-nowrap">
             <Plus className="w-4 h-4" /> Thêm mới
           </Button>
           <ColumnMenu view={col} />
         </div>
       </div>
-
-      <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      }>
         <table className="w-full text-left text-sm text-slate-600">
           <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200 shadow-sm">
             <tr>
@@ -273,11 +268,7 @@ export function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCa
             })}
           </tbody>
         </table>
-        </div>
-        <div className="px-4 pb-2">
-          <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
-        </div>
-      </div>
+      </ListFrame>
 
       {/* Modal sửa khách hàng */}
       {editing && (
