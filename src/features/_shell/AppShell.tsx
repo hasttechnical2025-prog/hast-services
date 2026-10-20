@@ -6,7 +6,7 @@ import * as Icons from 'lucide-react'
 import { LogOut, ChevronRight, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ShieldAlert } from 'lucide-react'
-import { V2_NAV, findParent, V2_BASE, type V2Child } from '@/lib/v2-nav'
+import { V2_NAV, findParent, V2_BASE, defaultModuleFor, type V2Child } from '@/lib/v2-nav'
 import { useSession } from './SessionProvider'
 import { useBadges } from './BadgeProvider'
 import { NotificationCenter } from './NotificationCenter'
@@ -86,10 +86,15 @@ function Sidebar({ parent, child }: { parent?: string; child?: string }) {
   const ensureOpen = (slug: string) => setExpanded(prev => prev.has(slug) ? prev : new Set(prev).add(slug))
   // Mở nhóm chứa trang hiện tại khi route đổi (tải lại / deep-link / điều hướng).
   useEffect(() => { if (parent) ensureOpen(parent) }, [parent]) // eslint-disable-line react-hooks/exhaustive-deps
-  const expandableSlugs = parents.filter(x => !x.p.leaf).map(x => x.p.slug)
-  const allOpen = expandableSlugs.length > 0 && expandableSlugs.every(s => expanded.has(s))
-  // "Mở tất cả" -> mở hết; "Thu gọn" -> chỉ giữ nhóm hiện tại.
-  const toggleAll = () => setExpanded(allOpen ? new Set(parent ? [parent] : []) : new Set(expandableSlugs))
+  // "Mặc định": về đúng trạng thái lúc đăng nhập — thu gọn hết, chỉ mở nhóm mặc định theo role,
+  // và điều hướng tới trang mặc định (admin/tech_admin/staff → Giao việc; kthc → Kanban).
+  const router = useRouter()
+  const goDefault = () => {
+    const href = defaultModuleFor(user?.role || '')
+    const defParent = href.replace(V2_BASE + '/', '').split('/')[0]
+    setExpanded(new Set([defParent]))
+    router.push(href)
+  }
 
   // Bề rộng sidebar CO DÃN: kéo cạnh phải, kẹp [200, 360], mặc định 256, nhớ localStorage.
   const SIDEBAR_KEY = 'v2:sidebar-w'
@@ -127,10 +132,10 @@ function Sidebar({ parent, child }: { parent?: string; child?: string }) {
         </div>
       </div>
       <div className="px-2 pt-2 flex justify-end">
-        <button onClick={toggleAll} title={allOpen ? 'Thu gọn tất cả' : 'Mở tất cả'}
+        <button onClick={goDefault} title="Về trạng thái mặc định (thu gọn + mở trang mặc định)"
           className="t3 text-slate-400 hover:text-blue-600 inline-flex items-center gap-1 px-1.5 py-0.5 rounded">
-          {allOpen ? <Icons.ChevronsDownUp className="w-3 h-3" /> : <Icons.ChevronsUpDown className="w-3 h-3" />}
-          {allOpen ? 'Thu gọn' : 'Mở tất cả'}
+          <Icons.RotateCcw className="w-3 h-3" />
+          Mặc định
         </button>
       </div>
       <nav className="flex-1 overflow-y-auto px-2 pt-1 pb-2 space-y-0.5">
