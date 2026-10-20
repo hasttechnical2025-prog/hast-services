@@ -4,7 +4,7 @@ import { Search, RefreshCw, ChevronRight, Copy, CheckCircle2, Trash2 } from 'luc
 import { useConfirm } from '@/components/ConfirmDialog'
 import { JOBS_TOPIC, JOBS_EVENT } from '@/lib/realtime'
 import { useRealtimeRefetch } from '@/lib/useRealtime'
-import { normVi, BoxLoading, usePaged, Pagination } from '@/ui'
+import { normVi, BoxLoading, usePaged, ListFrame } from '@/ui'
 import { listBaoCao, markBaoCao, deleteBaoCao } from './api'
 
 const dmy = (s: any) => { if (!s) return ''; const p = String(s).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : '' }
@@ -97,23 +97,21 @@ export function BaoCaoSuaChuaModule({ notify }: { notify: (type: 'success' | 'er
         {pill('cho_gui', 'Chờ gửi')}
         {pill('da_gui', 'Đã gửi')}
       </div>
-      {/* Toolbar — ô tìm kiếm cục bộ theo tab đang mở, căn trái (không sticky) */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <ListFrame variant="cards" paged={loading ? undefined : paged} unit="báo cáo"
+        aboveTable={tab === 'cho_gui' && list.length > 0 ? (
+          <div className="rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-xs px-3 py-2 leading-relaxed">
+            ℹ️ Báo cáo sửa chữa được gửi từ KTV hiện trường. <b>Copy</b> nội dung báo cáo — chỉnh sửa nếu cần — và <b>paste</b> vào nhóm Zalo báo cáo sửa chữa dành cho khách hàng đã tạo.
+          </div>
+        ) : undefined}
+        toolbar={
+        <div className="flex items-center gap-3 flex-wrap">
           <div className="relative w-full sm:w-72">
             <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm tên khách / mã máy / model / KTV…" className="w-full pl-9 h-9 text-xs rounded-md border border-slate-200 bg-white outline-none focus:border-blue-500" />
           </div>
-          <span className="text-xs text-slate-400 ml-auto whitespace-nowrap">{shown.length}{shown.length !== list.length ? `/${list.length}` : ''} báo cáo</span>
-          <button onClick={load} className="h-9 px-3 rounded-md text-xs font-medium border border-slate-200 text-slate-600 bg-white hover:bg-blue-50 hover:text-blue-600 inline-flex items-center gap-1.5" title="Tải lại"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</button>
+          <button onClick={load} className="h-9 px-3 rounded-md text-xs font-medium border border-slate-200 text-slate-600 bg-white hover:bg-blue-50 hover:text-blue-600 inline-flex items-center gap-1.5 ml-auto" title="Tải lại"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</button>
       </div>
-
-      {tab === 'cho_gui' && list.length > 0 && (
-        <div className="rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-xs px-3 py-2 leading-relaxed">
-          ℹ️ Báo cáo sửa chữa được gửi từ KTV hiện trường. <b>Copy</b> nội dung báo cáo — chỉnh sửa nếu cần — và <b>paste</b> vào nhóm Zalo báo cáo sửa chữa dành cho khách hàng đã tạo.
-        </div>
-      )}
-
-      {!loading && <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />}
+      }>
       {loading ? <BoxLoading label="Đang tải báo cáo..." />
         : shown.length === 0 ? <p className="text-xs text-slate-400 text-center py-10 italic">{list.length === 0 ? (tab === 'cho_gui' ? 'Không có báo cáo nào chờ gửi.' : 'Chưa có báo cáo đã gửi.') : 'Không khớp tìm kiếm.'}</p>
           : (
@@ -148,7 +146,7 @@ export function BaoCaoSuaChuaModule({ notify }: { notify: (type: 'success' | 'er
               })}
             </div>
           )}
-      {!loading && <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />}
+      </ListFrame>
       {confirmNode}
     </div>
   )

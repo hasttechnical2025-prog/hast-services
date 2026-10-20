@@ -7,7 +7,7 @@ import { Search, Plus, X, Trash2, Clock, ChevronUp, ChevronDown, Phone, Users, R
 import { useConfirm } from "@/components/ConfirmDialog"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
 import { CSKH_TOPIC, JOBS_TOPIC, DATA_EVENT } from "@/lib/realtime"
-import { usePaged, Pagination } from "@/ui"
+import { usePaged, ListFrame } from "@/ui"
 
 type Notify = (type: 'success' | 'error', msg: string) => void
 
@@ -195,8 +195,9 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
         </div>
       )}
 
-      {view === 'ds' && (<>
-      <div className="flex flex-wrap items-center gap-2">
+      {view === 'ds' && (
+      <ListFrame paged={paged} unit="khách" toolbar={
+        <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[180px] max-w-xs"><Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" /><Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm tên / SĐT / địa chỉ…" className="h-9 pl-9 bg-white" /></div>
         <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden text-xs">
           {([['all', 'Tất cả'], ['cum', 'Khách cụm'], ['tiem_nang', 'Tiềm năng']] as const).map(([v, l]) => (
@@ -210,11 +211,8 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
             {PERIODS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </div>
-        <span className="text-xs text-slate-500">{list.length} khách</span>
       </div>
-
-      <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
-      <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+      }>
         <table className="w-full text-left text-xs text-slate-600">
           <thead className="bg-slate-50 text-slate-500 t2 font-semibold uppercase border-b border-slate-200 select-none">
             <tr>
@@ -245,9 +243,8 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
                 ))}
           </tbody>
         </table>
-      </div>
-      <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
-      </>)}
+      </ListFrame>
+      )}
 
       {view === 'pipeline' && (
         <div className="space-y-2">
