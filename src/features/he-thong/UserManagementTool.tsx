@@ -5,7 +5,7 @@ import { Users, Wrench, CheckCircle2, QrCode, Power, PenSquare, Trash2, Plus } f
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useConfirm } from '@/components/ConfirmDialog'
-import { usePaged, Pagination, useColView, ColumnMenu, StatCard, StatRow, type ColDef } from '@/ui'
+import { usePaged, ListFrame, useColView, ColumnMenu, StatCard, StatRow, type ColDef } from '@/ui'
 
 // Port NGUYÊN UserManagementTool từ admin (y hệt). Gọi lại /api/admin/users, /api/admin/ktv-qr.
 // confirmDelete('user') → useConfirm nội bộ + DELETE /api/admin/users?id=.
@@ -114,16 +114,12 @@ export function UserManagementTool({ users, onUpdateSuccess, showNotification }:
         <StatCard label="KTV" value={userKtv.toLocaleString('vi-VN')} sub="kỹ thuật viên" icon={Wrench} tone="indigo" />
         <StatCard label="Đang hoạt động" value={userActive.toLocaleString('vi-VN')} sub={`${(users.length - userActive).toLocaleString('vi-VN')} ngừng`} icon={CheckCircle2} tone="emerald" />
       </StatRow>
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <span className="text-sm text-slate-500">{users.length} tài khoản</span>
-        <div className="flex items-center gap-2">
+      <ListFrame paged={paged} unit="tài khoản" toolbar={
+        <div className="flex items-center justify-end gap-2 flex-wrap">
           <ColumnMenu view={col} />
           <Button onClick={openAdd} className="h-9 gap-1.5 text-xs"><Plus className="w-4 h-4" /> Tạo tài khoản mới</Button>
         </div>
-      </div>
-      <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      }>
         <table className="w-full text-left text-sm text-slate-600">
           <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
             <tr>
@@ -175,11 +171,7 @@ export function UserManagementTool({ users, onUpdateSuccess, showNotification }:
             })}
           </tbody>
         </table>
-        </div>
-        <div className="px-4 pb-2">
-          <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
-        </div>
-      </div>
+      </ListFrame>
 
       {qrModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">

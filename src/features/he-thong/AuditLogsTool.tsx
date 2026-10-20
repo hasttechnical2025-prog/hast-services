@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { usePaged, Pagination, useColView, ColumnMenu, TableLoading, type ColDef } from '@/ui'
+import { usePaged, ListFrame, useColView, ColumnMenu, TableLoading, type ColDef } from '@/ui'
 
 // Port NGUYÊN AuditLogsTool từ admin (y hệt). Gọi lại /api/admin/audit-logs.
 const AUDIT_COLS: ColDef[] = [
@@ -41,24 +41,21 @@ export function AuditLogsTool({ showNotification }: { showNotification: (type: '
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-lg font-semibold text-slate-700">Audit Logs</h3>
-        <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">{logs.length}</span>
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-xs text-slate-500">Hiển thị</span>
+      <ListFrame paged={paged} unit="bản ghi" toolbar={
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-slate-500">Tải về</span>
           <select value={limit} onChange={e => setLimit(e.target.value)} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
             <option value="10">10</option>
             <option value="50">50</option>
             <option value="100">100</option>
             <option value="all">Toàn bộ</option>
           </select>
-          <ColumnMenu view={col} />
-          <Button variant="outline" onClick={exportTxt} className="gap-2 h-9"><Download className="w-4 h-4" /> Xuất nhật ký (.txt)</Button>
+          <div className="ml-auto flex items-center gap-2">
+            <ColumnMenu view={col} />
+            <Button variant="outline" onClick={exportTxt} className="gap-2 h-9"><Download className="w-4 h-4" /> Xuất nhật ký (.txt)</Button>
+          </div>
         </div>
-      </div>
-      <Pagination top page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} onPerPage={paged.setPerPage} />
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      }>
         <table className="w-full text-left text-sm text-slate-600">
           <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200">
             <tr>
@@ -83,11 +80,7 @@ export function AuditLogsTool({ showNotification }: { showNotification: (type: '
             ))}
           </tbody>
         </table>
-        </div>
-        <div className="px-4 pb-2">
-          <Pagination page={paged.page} pageCount={paged.pageCount} total={paged.total} perPage={paged.perPage} onPage={paged.setPage} />
-        </div>
-      </div>
+      </ListFrame>
     </div>
   )
 }

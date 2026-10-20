@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { TableLoading } from '@/ui'
+import { TableLoading, usePaged, ListFrame } from '@/ui'
 
 // Port NGUYÊN TroLyLogTool từ admin (y hệt). Gọi lại /api/admin/tro-ly.
 const TROLY_TOOL_LABEL: Record<string, string> = {
@@ -25,6 +25,7 @@ export function TroLyLogTool({ showNotification }: { showNotification: (type: 's
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setLoading(false) }
   }
   useEffect(() => { load(miss) }, [miss]) // eslint-disable-line react-hooks/exhaustive-deps
+  const paged = usePaged(rows, 'troly-log')
 
   const fmtDt = (s: string) => {
     const d = new Date(s); if (isNaN(d.getTime())) return s
@@ -33,18 +34,15 @@ export function TroLyLogTool({ showNotification }: { showNotification: (type: 's
   }
 
   return (
-    <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-4">
+    <ListFrame paged={paged} unit="câu hỏi" toolbar={
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-semibold text-slate-700">Nhật ký Trợ lý AI</h3>
-          <p className="text-sm text-slate-500">Xem user hỏi gì. Lọc <b>câu trượt</b> (không hiểu / 0 kết quả) để thêm biệt danh hoặc báo lập trình bổ sung.</p>
-        </div>
+        <p className="flex-1 min-w-0 text-sm text-slate-500">Xem user hỏi gì. Lọc <b>câu trượt</b> (không hiểu / 0 kết quả) để thêm biệt danh hoặc báo lập trình bổ sung.</p>
         <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
           <input type="checkbox" checked={miss} onChange={e => setMiss(e.target.checked)} className="w-4 h-4 accent-blue-600" /> Chỉ xem câu trượt
         </label>
         <Button variant="outline" onClick={() => load(miss)} className="gap-1 h-9"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>
       </div>
-      <div className="bg-white rounded-lg border border-slate-200 overflow-x-auto max-h-[520px] overflow-y-auto">
+    }>
         <table className="w-full text-left text-sm text-slate-600">
           <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide sticky top-0 border-b border-slate-200">
             <tr>
@@ -60,7 +58,7 @@ export function TroLyLogTool({ showNotification }: { showNotification: (type: 's
               <TableLoading colSpan={5} label="Đang tải nhật ký Trợ lý..." />
             ) : rows.length === 0 ? (
               <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Chưa có câu hỏi nào.</td></tr>
-            ) : rows.map(r => {
+            ) : paged.pageItems.map(r => {
               const truot = r.tool === 'none' || r.so_ket_qua === 0
               return (
                 <tr key={r.id} className={`hover:bg-slate-50 ${truot ? 'bg-amber-50/40' : ''}`}>
@@ -80,7 +78,6 @@ export function TroLyLogTool({ showNotification }: { showNotification: (type: 's
             })}
           </tbody>
         </table>
-      </div>
-    </div>
+    </ListFrame>
   )
 }
