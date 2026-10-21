@@ -744,6 +744,7 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
   const [bkByMaMay, setBkByMaMay] = useState<Record<string, any>>({})   // bảng kê RIÊNG của kỳ theo mã máy (suy trạng thái kỳ)
   const [pending, setPending] = useState(false)                         // có cập nhật từ máy khác -> banner
   const lastActionRef = useRef(0)                                       // mốc thao tác của CHÍNH máy này (để bỏ qua echo broadcast)
+  const firstRefreshRef = useRef(true)                                  // bỏ qua LẦN MOUNT của effect refreshVer (tránh báo "có cập nhật" khi đổi tab/remount)
   const [search, setSearch] = useState('')
   const [onlyDue, setOnlyDue] = useState(false)
   const [nvFilter, setNvFilter] = useState('all') // 'all' (mặc định) | 'ky_thuat' | tên NV cụ thể
@@ -826,8 +827,10 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
     } catch { showNotification('error', 'Lỗi kết nối' ) } finally { setGsBusy(false) }
   }
   // Realtime: có thay đổi -> BÁO NHẸ (banner), KHÔNG tự tải lại. Bỏ qua "echo" của chính thao tác vừa rồi (<2.5s).
+  // Bỏ qua LẦN CHẠY ĐẦU (mount): refreshVer sống ở component cha nên khi đổi tab/remount effect chạy lại với
+  // refreshVer đã >0 -> sẽ báo "có cập nhật" dù không có thay đổi mới. Chỉ báo khi refreshVer TĂNG sau mount.
   useEffect(() => {
-    if (refreshVer === 0) return
+    if (firstRefreshRef.current) { firstRefreshRef.current = false; return }
     if (Date.now() - lastActionRef.current < 2500) return
     setPending(true)
   }, [refreshVer])
@@ -1134,7 +1137,7 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
                     <div className="font-medium text-slate-700">{r.ten_khach_hang}{r.trach_nhiem_ky_thuat === 'Đối tác ngoài' && <span className="ml-1 t3 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-100">{r.ten_doi_tac_ky_thuat || 'Đối tác'}</span>}</div>
                     {r.vi_tri_dat_may && <div className="text-xs text-slate-400">{r.vi_tri_dat_may}</div>}
                   </td>
-                  <td className="px-3 py-2 font-mono text-slate-500">
+                  <td className="px-3 py-2 font-mono text-slate-500 whitespace-nowrap">
                     <div>{r.ma_may || '—'}</div>
                     {/* Model tô màu để nhìn phát biết liền: máy MÀU = tím hồng, ĐEN TRẮNG = xám đậm */}
                     {r.model && <div className={`t3 font-sans font-semibold ${r.may_mau === false ? 'text-slate-500' : 'text-fuchsia-600'}`} title={r.may_mau === false ? 'Máy đen trắng' : 'Máy màu'}>{r.model}</div>}
