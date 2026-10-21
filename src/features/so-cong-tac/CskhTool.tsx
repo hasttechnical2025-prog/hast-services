@@ -327,26 +327,60 @@ function ProfileModal({ row, role, onClose, onChanged, showNotification, confirm
   )
 }
 
-// ===== Import =====
+// ===== Import (dán → Kiểm tra → Import) =====
+const PHONE_RE = /0\d[\d.\s]{7,13}\d/
+function cParseLienHe(raw: string) {
+  const s = String(raw || '').replace(/\s+/g, ' ').trim()
+  const pm = s.match(PHONE_RE)
+  const dien_thoai = pm ? pm[0].replace(/[^\d]/g, '') : ''
+  const segs = s.split(/\s*[-–—]\s*/).map(x => x.trim()).filter(Boolean)
+  const vat_tu = (segs[0] || s).slice(0, 120)
+  const nameSeg = segs.find(x => PHONE_RE.test(x)) || (segs.length > 1 ? segs[segs.length - 1] : '')
+  const nguoi = nameSeg.replace(new RegExp(PHONE_RE, 'g'), '').replace(/b[áa]o gi[áa][^-]*/i, '').replace(/[.\-\s]+$/, '').replace(/^[.\-\s]+/, '').trim()
+  return { dien_thoai, nguoi: nguoi.slice(0, 60), vat_tu }
+}
+function cNormThang(v: any): string {
+  const s = String(v || '').trim()
+  let m = s.match(/(\d{4})[-/.](\d{1,2})/); if (m) return `${m[1]}-${String(m[2]).padStart(2, '0')}`
+  m = s.match(/(\d{1,2})[-/.](\d{4})/); if (m) return `${m[2]}-${String(m[1]).padStart(2, '0')}`
+  const d = new Date(s); if (!isNaN(d.getTime())) return d.toISOString().slice(0, 7)
+  return ''
+}
+
 function ImportModal({ onClose, onDone, showNotification }: any) {
   const [text, setText] = useState('')
+  const [preview, setPreview] = useState<any[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<any | null>(null)
 
-  const doImport = async () => {
-    const lines = text.split(/\r?\n/).map(l => l.trimEnd()).filter(l => l.trim())
+  const kiemTra = () => {
+    setResult(null)
+    const lines = text.split(/\r?\n/).filter(l => l.trim())
     if (!lines.length) { showNotification('error', 'Dán dữ liệu vào ô trên'); return }
-    const parsed: any[] = []
+    const out: any[] = []
     for (const ln of lines) {
       const c = ln.split('\t')
       const ma = (c[0] || '').trim()
-      if (!ma || /^mã\s*máy/i.test(ma)) continue  // bỏ dòng tiêu đề
-      parsed.push({ ma_may: ma, ten: (c[1] || '').trim(), model: (c[2] || '').trim(), lienhe: (c[3] || '').trim(), thang: (c[4] || '').trim() })
+      if (/^mã\s*máy/i.test(ma)) continue  // bỏ dòng tiêu đề
+      const ten = (c[1] || '').trim(), model = (c[2] || '').trim(), lienhe = (c[3] || '').trim(), thangRaw = (c[4] || '').trim()
+      const thang = cNormThang(thangRaw)
+      const pl = cParseLienHe(lienhe)
+      let status: 'ok' | 'warn' | 'err' = 'ok', note = ''
+      if (!ma) { status = 'err'; note = 'Thiếu mã máy' }
+      else if (!thang) { status = 'warn'; note = 'Không đọc được tháng → chỉ cập nhật, không thêm lượt' }
+      out.push({ ma, ten, model, lienhe, thangRaw, thang, ...pl, status, note })
     }
-    if (!parsed.length) { showNotification('error', 'Không nhận được dòng hợp lệ (cần cột đầu là Mã máy)'); return }
+    if (!out.length) { showNotification('error', 'Không nhận được dòng nào (cần cột đầu là Mã máy)'); return }
+    setPreview(out)
+  }
+
+  const doImport = async () => {
+    const ok = (preview || []).filter(r => r.status !== 'err')
+    if (!ok.length) { showNotification('error', 'Không có dòng hợp lệ để import'); return }
     setBusy(true)
     try {
-      const r = await fetch('/api/admin/cskh/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rows: parsed }) })
+      const rows = ok.map(r => ({ ma_may: r.ma, ten: r.ten, model: r.model, lienhe: r.lienhe, thang: r.thangRaw }))
+      const r = await fetch('/api/admin/cskh/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rows }) })
       const j = await r.json()
       if (!r.ok) throw new Error(j.error)
       setResult(j)
@@ -355,25 +389,76 @@ function ImportModal({ onClose, onDone, showNotification }: any) {
     } catch (e: any) { showNotification('error', e.message || 'Lỗi import') } finally { setBusy(false) }
   }
 
+  const stat = useMemo(() => {
+    const p = preview || []
+    const err = p.filter(r => r.status === 'err').length
+    const warn = p.filter(r => r.status === 'warn').length
+    const may = new Set(p.filter(r => r.status !== 'err').map(r => r.ma)).size
+    return { tong: p.length, hople: p.length - err, err, warn, may }
+  }, [preview])
+
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between p-4 border-b border-slate-100">
           <div className="font-semibold text-slate-800">Import danh sách lấy hàng</div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
         </div>
-        <div className="p-4 space-y-3">
-          <p className="text-xs text-slate-500">Copy từ Excel rồi dán vào ô dưới. Thứ tự cột: <b>Mã máy</b> · Tên KH · Model · <b>Vật tư + Người liên hệ</b> · <b>Thời điểm lấy hàng</b>. Chỉ cần đúng cột 1, 4, 5 (tên/model tra tự động theo mã máy). Dòng tiêu đề tự bỏ qua.</p>
-          <textarea value={text} onChange={e => setText(e.target.value)} placeholder="35750&#9;CỤC CNTT…&#9;bizhub 550i&#9;01 hộp mực&#9;2024-07" rows={10} className="w-full text-xs font-mono border border-slate-200 rounded-lg p-2.5 bg-white outline-none focus:border-blue-500" />
-          {result && (
-            <div className="text-xs bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-emerald-800">
-              ✓ {result.may} máy · +{result.lichsu_them} lượt mới · khớp điểm máy: {result.khop} · chưa khớp: <b className={result.chua_khop ? 'text-amber-700' : ''}>{result.chua_khop}</b>
+        <div className="p-4 space-y-3 overflow-y-auto">
+          <p className="text-xs text-slate-500">Copy từ Excel rồi dán vào ô dưới. Thứ tự cột: <b>Mã máy</b> · Tên KH · Model · <b>Vật tư + Người liên hệ</b> · <b>Thời điểm lấy hàng</b>. Chỉ cần đúng cột 1, 4, 5 (tên/model tra tự động theo mã máy). Dòng tiêu đề tự bỏ qua. Bấm <b>Kiểm tra</b> để xem trước rồi <b>Import</b>.</p>
+          <textarea value={text} onChange={e => { setText(e.target.value); setPreview(null); setResult(null) }} placeholder="35750&#9;CỤC CNTT…&#9;bizhub 550i&#9;01 hộp mực&#9;2024-07" rows={6} className="w-full text-xs font-mono border border-slate-200 rounded-lg p-2.5 bg-white outline-none focus:border-blue-500" />
+
+          {preview && (
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                <span className="text-slate-600"><b className="text-slate-800">{stat.tong}</b> dòng</span>
+                <span className="text-emerald-700"><b>{stat.hople}</b> hợp lệ</span>
+                {stat.warn > 0 && <span className="text-amber-700"><b>{stat.warn}</b> thiếu tháng</span>}
+                {stat.err > 0 && <span className="text-red-600"><b>{stat.err}</b> lỗi (bỏ qua)</span>}
+                <span className="text-slate-500">→ <b className="text-slate-700">{stat.may}</b> máy</span>
+              </div>
+              <div className="border border-slate-200 rounded-lg overflow-auto max-h-64">
+                <table className="w-full text-[11px] text-slate-600">
+                  <thead className="bg-slate-50 text-slate-500 sticky top-0">
+                    <tr>
+                      <th className="px-2 py-1.5 text-left">#</th>
+                      <th className="px-2 py-1.5 text-left">Mã máy</th>
+                      <th className="px-2 py-1.5 text-center">Tháng</th>
+                      <th className="px-2 py-1.5 text-left">Vật tư (tách)</th>
+                      <th className="px-2 py-1.5 text-left">SĐT</th>
+                      <th className="px-2 py-1.5 text-left">Người LH</th>
+                      <th className="px-2 py-1.5 text-left">Ghi chú</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {preview.slice(0, 300).map((r, i) => (
+                      <tr key={i} className={r.status === 'err' ? 'bg-red-50/60' : r.status === 'warn' ? 'bg-amber-50/50' : ''}>
+                        <td className="px-2 py-1 text-slate-400">{i + 1}</td>
+                        <td className="px-2 py-1 font-mono whitespace-nowrap">{r.ma || <span className="text-red-500 italic">—</span>}</td>
+                        <td className="px-2 py-1 text-center whitespace-nowrap">{fmtThang(r.thang)}</td>
+                        <td className="px-2 py-1 max-w-[150px] truncate" title={r.vat_tu}>{r.vat_tu || '—'}</td>
+                        <td className="px-2 py-1 whitespace-nowrap">{r.dien_thoai || '—'}</td>
+                        <td className="px-2 py-1 max-w-[110px] truncate" title={r.nguoi}>{r.nguoi || '—'}</td>
+                        <td className={`px-2 py-1 ${r.status === 'err' ? 'text-red-600' : 'text-amber-600'}`}>{r.note}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {preview.length > 300 && <div className="text-[10px] text-slate-400 px-2 py-1 bg-slate-50">…và {preview.length - 300} dòng nữa (preview 300 dòng đầu, import vẫn đủ).</div>}
+              </div>
             </div>
           )}
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose} className="h-9 text-xs">Đóng</Button>
-            <Button onClick={doImport} disabled={busy} className="h-9 px-4 gap-1.5 text-xs"><Upload className="w-4 h-4" /> {busy ? 'Đang import…' : 'Import'}</Button>
-          </div>
+
+          {result && (
+            <div className="text-xs bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-emerald-800">
+              ✓ Đã import {result.may} máy · +{result.lichsu_them} lượt mới · khớp điểm máy: <b>{result.khop}</b> · chưa khớp: <b className={result.chua_khop ? 'text-amber-700' : ''}>{result.chua_khop}</b>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 p-4 border-t border-slate-100">
+          <Button variant="outline" onClick={onClose} className="h-9 text-xs">Đóng</Button>
+          <Button variant="outline" onClick={kiemTra} disabled={busy} className="h-9 px-4 gap-1.5 text-xs">Kiểm tra</Button>
+          <Button onClick={doImport} disabled={busy || !preview || stat.hople === 0 || !!result} className="h-9 px-4 gap-1.5 text-xs"><Upload className="w-4 h-4" /> {busy ? 'Đang import…' : `Import${preview ? ` (${stat.hople})` : ''}`}</Button>
         </div>
       </div>
     </div>
