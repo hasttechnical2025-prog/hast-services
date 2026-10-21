@@ -14,7 +14,7 @@ import PhiBaoTriModule from "@/components/PhiBaoTriModule"
 import KanbanHdTool from "@/components/KanbanHdTool"
 import KhoMayThueTool from "@/components/KhoMayThueTool"
 import PushToggle from "@/components/PushToggle"
-import CskhTool from "@/components/CskhTool"
+import CskhTool from "@/features/so-cong-tac/CskhTool"
 import { useConfirm } from "@/components/ConfirmDialog"
 import PhieuDeNghiModule from "@/components/PhieuDeNghiModule"
 import LamTiepBanner from "@/components/LamTiepBanner"
@@ -1640,12 +1640,12 @@ export default function AdminDashboard() {
       detail: (
         <div className="border border-amber-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
-            <thead className="bg-amber-50 text-amber-800"><tr><th className="px-2.5 py-1.5 font-medium">Khách hàng</th><th className="px-2 py-1.5 font-medium text-center">Loại</th><th className="px-2 py-1.5 font-medium text-center">Hẹn</th></tr></thead>
+            <thead className="bg-amber-50 text-amber-800"><tr><th className="px-2.5 py-1.5 font-medium">Khách hàng</th><th className="px-2 py-1.5 font-medium text-center">Máy</th><th className="px-2 py-1.5 font-medium text-center">Hẹn</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {henCskh.slice(0, 40).map((h: any) => (
-                <tr key={h.key}>
+                <tr key={h.ma_may}>
                   <td className="px-2.5 py-1.5"><div className="font-medium text-slate-800">{h.ten}</div></td>
-                  <td className="px-2 py-1.5 text-center"><span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${h.loai === 'cum' ? 'bg-sky-50 text-sky-700' : 'bg-indigo-50 text-indigo-700'}`}>{h.loai === 'cum' ? 'Cụm' : 'Tiềm năng'}</span></td>
+                  <td className="px-2 py-1.5 text-center"><span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono">{h.ma_may}</span></td>
                   <td className="px-2 py-1.5 text-center whitespace-nowrap"><span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${h.qua_han ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{formatDate(h.ngay_hen)}{h.qua_han ? ' · quá hạn' : ''}</span></td>
                 </tr>
               ))}

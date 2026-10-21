@@ -3,102 +3,87 @@ import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireTab } from '@/lib/session'
 import { logAudit } from '@/lib/audit'
 import { broadcastCskhChanged } from '@/lib/realtime'
+import { autoPhanLoai, nguongPhanLoai, layMapDiemMay } from '@/lib/cskh'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const gate = () => requireTab('cong_viec', 'cong_viec.cham_soc_kh')
+const todayVN = () => new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
+const GIAI_DOAN = ['chua_lien_he', 'da_lien_he', 'quan_tam', 'da_quay_lai', 'tu_choi']
+const PHAN_LOAI = ['dang_dung', 'nguy_co', 'da_mat']
 
-// GET: danh sách CSKH hợp nhất = khách CỤM (soct_khach_cum) + khách TIỀM NĂNG (soct_cskh_khach),
-// mỗi khách kèm: lần chăm sóc gần nhất, hẹn kế tiếp, số lần chăm sóc. Client tự lọc/sắp.
-export async function GET(request: Request) {
+// GET: danh sách máy CSKH + lần chăm gần nhất / hẹn kế tiếp (từ nhật ký). Phân loại tự suy (trừ khi sửa tay).
+export async function GET() {
   try {
     const session = await gate()
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
-    // Mốc đếm "số lần" / "chăm sóc gần nhất" (ISO YYYY-MM-DD). Rỗng = tất cả. Hẹn kế tiếp KHÔNG bị mốc chặn.
-    const tu = (new URL(request.url).searchParams.get('tu') || '').slice(0, 10)
-
-    const [cum, tn, logs, members, phieuCskh] = await Promise.all([
-      selectAll<any>((f, t) => supabaseAdmin.from('soct_khach_cum').select('ma_khach_hang, ten_khach_hang, dia_chi, ma_so_thue, email_ke_toan').order('ten_khach_hang').range(f, t)),
-      selectAll<any>((f, t) => supabaseAdmin.from('soct_cskh_khach').select('*').eq('an', false).range(f, t)),
-      selectAll<any>((f, t) => supabaseAdmin.from('soct_cskh_log').select('ma_khach_cum, tiem_nang_id, ngay, ngay_hen').range(f, t)),
-      // Máy -> cụm (để quy phiếu CSKH về cụm)
-      selectAll<any>((f, t) => supabaseAdmin.from('soct_khach_hang').select('id, ma_khach_cum').not('ma_khach_cum', 'is', null).range(f, t)),
-      // Phiếu CSKH đã Hoàn thành (chăm sóc hiện trường) -> coi là 1 lần chăm sóc
-      selectAll<any>((f, t) => supabaseAdmin.from('soct_cong_viec').select('id_khach_hang, ngay').eq('loai_cong_viec', 'CSKH').eq('ket_qua', 'Hoàn thành').range(f, t)),
+    const [mays, logs, { nguyco, mat }] = await Promise.all([
+      selectAll<any>((f, t) => supabaseAdmin.from('soct_cskh_may').select('*').eq('an', false).range(f, t)),
+      selectAll<any>((f, t) => supabaseAdmin.from('soct_cskh_log').select('ma_may, ngay, ngay_hen').range(f, t)),
+      nguongPhanLoai(),
     ])
 
-    const today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
-    // Gom log theo khóa: cum:<ma> hoặc tn:<id>
-    const agg = new Map<string, { lan_cham: string | null; hen: string | null; so_lan: number }>()
-    const bump = (key: string, ngay: string | null, ngay_hen: string | null) => {
-      if (!key) return
-      const a = agg.get(key) || { lan_cham: null, hen: null, so_lan: 0 }
-      // "số lần" + "chăm sóc gần nhất" chỉ tính lượt từ mốc `tu` trở đi (rỗng = tất cả).
-      if (ngay && (!tu || ngay >= tu)) {
-        a.so_lan++
-        if (!a.lan_cham || ngay > a.lan_cham) a.lan_cham = ngay
-      }
-      // Hẹn kế tiếp = hẹn gần nhất còn ở tương lai (>= hôm nay), độc lập với mốc đếm.
-      if (ngay_hen && ngay_hen >= today && (!a.hen || ngay_hen < a.hen)) a.hen = ngay_hen
-      agg.set(key, a)
-    }
+    const today = todayVN()
+    const agg = new Map<string, { lan_cham: string | null; hen: string | null }>()
     for (const l of logs || []) {
-      const key = l.tiem_nang_id != null ? `tn:${l.tiem_nang_id}` : (l.ma_khach_cum ? `cum:${l.ma_khach_cum}` : '')
-      bump(key, l.ngay, l.ngay_hen)
-    }
-    // Trộn phiếu CSKH vào "lần chăm sóc" của cụm (không có hẹn).
-    const idToCum = new Map<string, string>()
-    for (const m of (members as any[]) || []) idToCum.set(m.id, m.ma_khach_cum)
-    for (const p of (phieuCskh as any[]) || []) {
-      const cumMa = idToCum.get(p.id_khach_hang)
-      if (cumMa) bump(`cum:${cumMa}`, p.ngay, null)
+      const k = String(l.ma_may)
+      const a = agg.get(k) || { lan_cham: null, hen: null }
+      if (l.ngay && (!a.lan_cham || l.ngay > a.lan_cham)) a.lan_cham = l.ngay
+      if (l.ngay_hen && l.ngay_hen >= today && (!a.hen || l.ngay_hen < a.hen)) a.hen = l.ngay_hen
+      agg.set(k, a)
     }
 
-    const rows: any[] = []
-    for (const c of cum || []) {
-      const a = agg.get(`cum:${c.ma_khach_hang}`)
-      rows.push({
-        key: `cum:${c.ma_khach_hang}`, loai: 'cum', ma_khach_cum: c.ma_khach_hang,
-        ten_khach_hang: c.ten_khach_hang, dia_chi: c.dia_chi || '', email: c.email_ke_toan || '', dien_thoai: '',
-        nguon: '', trang_thai: '', ghi_chu: '',
-        lan_cham: a?.lan_cham || null, hen: a?.hen || null, so_lan: a?.so_lan || 0,
-      })
-    }
-    for (const k of tn || []) {
-      const a = agg.get(`tn:${k.id}`)
-      rows.push({
-        key: `tn:${k.id}`, loai: 'tiem_nang', id: k.id,
-        ten_khach_hang: k.ten_khach_hang, dia_chi: k.dia_chi || '', email: k.email || '', dien_thoai: k.dien_thoai || '',
-        nguoi_lien_he: k.nguoi_lien_he || '', nguon: k.nguon || '', trang_thai: k.trang_thai || 'moi', ghi_chu: k.ghi_chu || '',
-        lan_cham: a?.lan_cham || null, hen: a?.hen || null, so_lan: a?.so_lan || 0,
-      })
-    }
-    return NextResponse.json({ data: rows })
+    const rows = (mays || []).map((m: any) => {
+      const a = agg.get(String(m.ma_may))
+      const phan_loai = m.phan_loai_tay && m.phan_loai ? m.phan_loai : autoPhanLoai(m.lan_cuoi, nguyco, mat)
+      return {
+        id: m.id, ma_may: m.ma_may, ten_khach_hang: m.ten_khach_hang || '', ma_khach_cum: m.ma_khach_cum || '',
+        ten_cum: m.ten_cum || '', model: m.model || '', dia_chi: m.dia_chi || '',
+        nguoi_lien_he: m.nguoi_lien_he || '', dien_thoai: m.dien_thoai || '',
+        lan_cuoi: m.lan_cuoi || '', so_lan_lay: m.so_lan_lay || 0, vat_tu_gan_nhat: m.vat_tu_gan_nhat || '',
+        phan_loai, phan_loai_tay: !!m.phan_loai_tay, giai_doan: m.giai_doan || 'chua_lien_he',
+        khop_diem_may: !!m.khop_diem_may, ghi_chu: m.ghi_chu || '',
+        lan_cham: a?.lan_cham || null, hen: a?.hen || null,
+      }
+    })
+    return NextResponse.json({ data: rows, nguong: { nguyco, mat } })
   } catch (error: any) {
     console.error('Error GET cskh:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
 
-// POST: thêm khách TIỀM NĂNG mới.
+// POST: thêm MÁY thủ công (tra điểm máy nếu khớp).
 export async function POST(request: Request) {
   try {
     const session = await gate()
     if (!session) return NextResponse.json({ error: 'Không có quyền' }, { status: 401 })
     const b = await request.json()
-    const ten = String(b.ten_khach_hang || '').trim()
-    if (!ten) return NextResponse.json({ error: 'Nhập tên khách' }, { status: 400 })
-    const { data, error } = await supabaseAdmin.from('soct_cskh_khach').insert({
-      ten_khach_hang: ten,
-      nguoi_lien_he: b.nguoi_lien_he || null, dien_thoai: b.dien_thoai || null, email: b.email || null,
-      dia_chi: b.dia_chi || null, nguon: b.nguon || null,
-      trang_thai: ['moi', 'dang_tiep_can', 'thanh_khach', 'khong_thanh'].includes(b.trang_thai) ? b.trang_thai : 'moi',
-      ghi_chu: b.ghi_chu || null, created_by: session.id,
-    }).select('id').single()
-    if (error) throw error
-    await logAudit(session, 'Thêm khách tiềm năng (CSKH)', ten)
+    const ma_may = String(b.ma_may || '').trim()
+    if (!ma_may) return NextResponse.json({ error: 'Nhập mã máy' }, { status: 400 })
+
+    const byMa = await layMapDiemMay()
+    const app = byMa.get(ma_may)
+    const row: any = {
+      ma_may,
+      ten_khach_hang: app?.ten_khach_hang || String(b.ten_khach_hang || '').trim() || null,
+      ma_khach_cum: app?.ma_khach_cum || null, ten_cum: app?.ten_cum || null,
+      model: app?.model || String(b.model || '').trim() || null,
+      dia_chi: app?.dia_chi || String(b.dia_chi || '').trim() || null,
+      nguoi_lien_he: String(b.nguoi_lien_he || '').trim() || null,
+      dien_thoai: String(b.dien_thoai || '').trim() || null,
+      vat_tu_gan_nhat: String(b.vat_tu_gan_nhat || '').trim() || null,
+      lan_cuoi: String(b.lan_cuoi || '').slice(0, 7) || null,
+      khop_diem_may: !!app, created_by: session.id,
+    }
+    const { data, error } = await supabaseAdmin.from('soct_cskh_may').insert(row).select('id').single()
+    if (error) {
+      if (error.code === '23505') return NextResponse.json({ error: 'Mã máy đã có trong danh sách CSKH' }, { status: 409 })
+      throw error
+    }
+    await logAudit(session, 'Thêm máy CSKH', ma_may)
     await broadcastCskhChanged()
     return NextResponse.json({ success: true, id: data?.id })
   } catch (error: any) {
@@ -107,19 +92,21 @@ export async function POST(request: Request) {
   }
 }
 
-// PUT: sửa khách tiềm năng (gồm đổi trạng thái pipeline).
+// PUT: sửa máy — đổi giai đoạn, đè phân loại tay, sửa liên hệ/ghi chú.
 export async function PUT(request: Request) {
   try {
     const session = await gate()
     if (!session) return NextResponse.json({ error: 'Không có quyền' }, { status: 401 })
     const b = await request.json()
     if (!b.id) return NextResponse.json({ error: 'Thiếu id' }, { status: 400 })
-    const up: any = {}
-    for (const k of ['ten_khach_hang', 'nguoi_lien_he', 'dien_thoai', 'email', 'dia_chi', 'nguon', 'ghi_chu']) {
-      if (b[k] !== undefined) up[k] = b[k] || null
+    const up: any = { updated_at: new Date().toISOString() }
+    for (const k of ['nguoi_lien_he', 'dien_thoai', 'ghi_chu']) if (b[k] !== undefined) up[k] = b[k] || null
+    if (b.giai_doan !== undefined && GIAI_DOAN.includes(b.giai_doan)) up.giai_doan = b.giai_doan
+    if (b.phan_loai !== undefined) {
+      if (b.phan_loai === 'auto') { up.phan_loai_tay = false; up.phan_loai = null }
+      else if (PHAN_LOAI.includes(b.phan_loai)) { up.phan_loai_tay = true; up.phan_loai = b.phan_loai }
     }
-    if (b.trang_thai !== undefined && ['moi', 'dang_tiep_can', 'thanh_khach', 'khong_thanh'].includes(b.trang_thai)) up.trang_thai = b.trang_thai
-    const { error } = await supabaseAdmin.from('soct_cskh_khach').update(up).eq('id', b.id)
+    const { error } = await supabaseAdmin.from('soct_cskh_may').update(up).eq('id', b.id)
     if (error) throw error
     await broadcastCskhChanged()
     return NextResponse.json({ success: true })
@@ -129,14 +116,14 @@ export async function PUT(request: Request) {
   }
 }
 
-// DELETE ?id= : ẩn khách tiềm năng (soft).
+// DELETE ?id= : ẩn máy khỏi danh sách (soft).
 export async function DELETE(request: Request) {
   try {
     const session = await gate()
     if (!session) return NextResponse.json({ error: 'Không có quyền' }, { status: 401 })
     const id = new URL(request.url).searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'Thiếu id' }, { status: 400 })
-    const { error } = await supabaseAdmin.from('soct_cskh_khach').update({ an: true }).eq('id', id)
+    const { error } = await supabaseAdmin.from('soct_cskh_may').update({ an: true }).eq('id', id)
     if (error) throw error
     await broadcastCskhChanged()
     return NextResponse.json({ success: true })
