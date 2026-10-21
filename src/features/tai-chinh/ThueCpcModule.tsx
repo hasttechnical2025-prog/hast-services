@@ -104,7 +104,6 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
     <div className="space-y-3">
       <ListFrame paged={!loading && !err && list.length > 0 ? paged : undefined} unit="vật tư" toolbar={
       <div className="space-y-2">
-        <p className="text-xs text-slate-500 leading-relaxed">Ước lượng theo <b>counter DỰ ĐOÁN hôm nay</b> (= counter chốt + mức in/ngày × số ngày đã qua) ÷ định lượng — cảnh báo khi còn <b>≤ {nguong.toLocaleString('vi-VN')}</b> trang <b>hoặc ≤ ~1 tháng in</b>, gồm <b>Mực</b> &amp; <b>Trống</b>. Tự tắt khi <b>còn hộp dự phòng</b> (1 hộp theo máy + đã giao − đã mở) hoặc bấm <b>Đã gửi</b>. Chỉ là ước lượng.</p>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative flex-1 min-w-[180px] max-w-xs"><Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" /><Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm khách / máy / mực…" className="h-9 pl-9 bg-white w-full" /></div>
           <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden shrink-0 text-xs">
@@ -1508,12 +1507,11 @@ function BangKeTab({ showNotification, thang: thangProp, refreshVer = 0 }: { sho
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h3 className="font-bold text-slate-800">Bảng kê thanh toán</h3>
-        {thangProp
-          ? <span className="text-xs text-slate-400">Kỳ theo màn Nhập counter: <b className="text-slate-600">{thang}</b></span>
-          : <label className="flex items-center gap-2 text-xs text-slate-600">Kỳ<MonthField value={thang} onChange={setThang} className="h-9 w-40 text-xs" /></label>}
-      </div>
+      {!thangProp && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <label className="flex items-center gap-2 text-xs text-slate-600">Kỳ<MonthField value={thang} onChange={setThang} className="h-9 w-40 text-xs" /></label>
+        </div>
+      )}
 
       {/* Tạo bảng kê */}
       <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 space-y-3">
