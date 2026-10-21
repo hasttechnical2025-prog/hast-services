@@ -114,14 +114,14 @@ export function BaoCaoKtvTool({ technicians, showNotification }: { technicians: 
           onTo={(v) => { setDenNgay(v); if (v && tuNgay && v < tuNgay) setTuNgay(v) }} />
 
         <div className="flex items-center gap-2 ml-auto">
-          <Button variant="outline" onClick={fetchData} disabled={loading} title="Tải lại" className="h-9 px-3 gap-1.5 text-xs font-medium">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại
-          </Button>
           <Button onClick={exportReportDocx} disabled={exporting || !ktvId || tuNgay !== denNgay}
             className={`h-9 gap-1.5 text-xs ${!ktvId || tuNgay !== denNgay ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'}`}
             title={!ktvId ? 'Vui lòng chọn 1 KTV' : tuNgay !== denNgay ? 'Ngày từ và đến phải trùng nhau' : 'Xuất bản in Word cho KTV này'}>
             <Download className="w-4 h-4" />
             {exporting ? 'Đang xuất...' : 'Xuất báo cáo KTV (.docx)'}
+          </Button>
+          <Button variant="outline" onClick={fetchData} disabled={loading} title="Tải lại" className="h-9 px-3 gap-1.5 text-xs font-medium">
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại
           </Button>
         </div>
       </div>
