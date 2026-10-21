@@ -1006,11 +1006,7 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
           <button onClick={() => setPending(false)} className="text-blue-400 hover:text-blue-600 text-xs">Bỏ qua</button>
         </div>
       )}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h3 className="font-bold text-slate-800">Nhập counter hàng tháng</h3>
-          <p className="text-xs text-slate-500">Nhập chỉ số cuối kỳ; số nhỏ dưới ô là <b>đầu kỳ</b> (kỳ trước) tham khảo.</p>
-        </div>
+      <ListFrame unit="máy" toolbar={
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -1035,7 +1031,7 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
             <Download className={`w-3.5 h-3.5 ${gsBusy ? 'animate-pulse' : ''}`} /> Đồng bộ Google Sheet
           </button>
         </div>
-      </div>
+      } aboveTable={<>
 
       {/* Banner nhắc lấy counter */}
       {!loading && canLay > 0 && (
@@ -1069,10 +1065,11 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
           </div>
         </div>
       )}
-      {!loading && nvFilter !== 'all' && <p className="t2 text-slate-400 -mt-2">Tổng chỉ tính máy LẺ; máy thuộc Hợp đồng khung tính ở phần Bảng kê bên dưới.</p>}
+      {!loading && nvFilter !== 'all' && <p className="t2 text-slate-400">Tổng chỉ tính máy LẺ; máy thuộc Hợp đồng khung tính ở phần Bảng kê bên dưới.</p>}
+      </>}>
 
       {loading ? <div className="text-sm text-slate-400 py-8 text-center"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải danh sách...</div> : (
-        <div className="overflow-x-auto border border-slate-100 rounded-lg">
+        <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
               <tr>
@@ -1225,6 +1222,7 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
           </table>
         </div>
       )}
+      </ListFrame>
 
       {/* MODAL XEM TRƯỚC ĐỒNG BỘ GOOGLE SHEET */}
       {gsPreview && (
