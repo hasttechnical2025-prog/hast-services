@@ -97,6 +97,17 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
     return c
   }, [rows])
 
+  const delMay = async (r: any, e?: any) => {
+    e?.stopPropagation?.()
+    if (!(await confirm(`Xóa máy ${r.ma_may} khỏi danh sách chăm sóc?`, { danger: true, confirmLabel: 'Xóa' }))) return
+    try {
+      const res = await fetch(`/api/admin/cskh?id=${r.id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error((await res.json()).error)
+      showNotification('success', 'Đã xóa khỏi danh sách')
+      load()
+    } catch (err: any) { showNotification('error', err.message || 'Lỗi xóa') }
+  }
+
   return (
     <div className="space-y-4">
       {confirmNode}
@@ -121,9 +132,9 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
             Chưa khớp điểm máy {counts.chua_khop > 0 && <span className="text-amber-600 font-semibold">({counts.chua_khop})</span>}
           </label>
           <div className="ml-auto flex items-center gap-2">
-            <Button variant="outline" onClick={load} disabled={loading} title="Tải lại" className="h-9 px-3 gap-1.5 text-xs"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>
+            <Button onClick={() => setAddOpen(true)} className="h-9 px-3 gap-1.5 text-xs"><Plus className="w-4 h-4" /> Thêm máy</Button>
             {isAdmin && <Button variant="outline" onClick={() => setImportOpen(true)} className="h-9 px-3 gap-1.5 text-xs"><Upload className="w-4 h-4" /> Import</Button>}
-            {isAdmin && <Button onClick={() => setAddOpen(true)} className="h-9 px-3 gap-1.5 text-xs"><Plus className="w-4 h-4" /> Thêm máy</Button>}
+            <Button variant="outline" onClick={load} disabled={loading} title="Tải lại" className="h-9 px-3 gap-1.5 text-xs"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>
           </div>
         </div>
       } aboveTable={
@@ -141,7 +152,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
               <Th f="phan_loai" label="Phân loại" />
               <Th f="giai_doan" label="Giai đoạn" />
               <Th f="hen" label="Hẹn" align="center" />
-              <th className="px-3 py-2.5 w-10"></th>
+              <th className="px-3 py-2.5 text-center">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -155,9 +166,9 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
               return (
                 <tr key={r.id} onClick={() => setSel(r)} className={`cursor-pointer hover:bg-blue-50/40 ${!r.khop_diem_may ? 'bg-amber-50/40' : ''}`}>
                   <td className="px-3 py-2 font-mono whitespace-nowrap">{r.ma_may}{!r.khop_diem_may && <AlertTriangle className="inline w-3.5 h-3.5 text-amber-500 ml-1" aria-label="chưa khớp điểm máy" />}</td>
-                  <td className="px-3 py-2 max-w-[220px]">
+                  <td className="px-3 py-2 max-w-[240px]">
                     <div className="truncate font-medium text-slate-700">{r.ten_khach_hang || '—'}{!r.khop_diem_may && <span className="text-[10px] text-amber-600 ml-1">(Excel)</span>}</div>
-                    <div className="truncate text-[11px] text-slate-400">{r.ten_cum ? `Cụm: ${r.ten_cum}` : ''}{r.nguoi_lien_he ? `${r.ten_cum ? ' · ' : ''}${r.nguoi_lien_he}` : ''}{r.dien_thoai ? ` ${r.dien_thoai}` : ''}</div>
+                    <div className="truncate text-[11px] text-slate-400">{r.dia_chi || ''}{r.ten_cum ? `${r.dia_chi ? ' · ' : ''}Cụm: ${r.ten_cum}` : ''}</div>
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">{r.model || '—'}</td>
                   <td className="px-3 py-2 max-w-[160px] truncate">{r.vat_tu_gan_nhat || '—'}</td>
@@ -166,7 +177,12 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
                   <td className="px-3 py-2"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold ${p.chip}`}><span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />{p.label}</span></td>
                   <td className={`px-3 py-2 whitespace-nowrap ${(GIAI[r.giai_doan] || GIAI.chua_lien_he).cls}`}>{(GIAI[r.giai_doan] || GIAI.chua_lien_he).label}</td>
                   <td className={`px-3 py-2 text-center whitespace-nowrap ${henQuaHan ? 'text-red-600 font-semibold' : 'text-slate-500'}`}>{r.hen ? (henQuaHan ? 'quá hạn' : fmtDate(r.hen)) : '—'}</td>
-                  <td className="px-3 py-2 text-center"><button onClick={e => { e.stopPropagation(); setSel(r) }} title="Ghi chăm sóc" className="text-blue-600 hover:text-blue-800"><Headset className="w-4 h-4" /></button></td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center justify-center gap-2.5">
+                      <button onClick={e => { e.stopPropagation(); setSel(r) }} title="Ghi chăm sóc" className="text-blue-600 hover:text-blue-800"><Headset className="w-4 h-4" /></button>
+                      {isAdmin && <button onClick={e => delMay(r, e)} title="Xóa khỏi danh sách" className="text-slate-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>}
+                    </div>
+                  </td>
                 </tr>
               )
             })}
@@ -249,7 +265,7 @@ function ProfileModal({ row, role, onClose, onChanged, showNotification, confirm
                 <option value="da_mat">Đã mất</option>
               </select>
             )}
-            <select value={row.giai_doan} onChange={e => put({ giai_doan: e.target.value })} disabled={!isAdmin} className="h-8 rounded-md border border-slate-300 bg-white px-2 text-xs">
+            <select value={row.giai_doan} onChange={e => put({ giai_doan: e.target.value })} className="h-8 rounded-md border border-slate-300 bg-white px-2 text-xs">
               {GIAI_KEYS.map(k => <option key={k} value={k}>{GIAI[k].label}</option>)}
             </select>
             <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
@@ -289,7 +305,7 @@ function ProfileModal({ row, role, onClose, onChanged, showNotification, confirm
                           <span>{l.kenh || '—'} · {fmtDate(l.ngay)}{l.nguoi_ten ? ` · ${l.nguoi_ten}` : ''}</span>
                           <div className="flex items-center gap-2">
                             {l.ngay_hen && <span className="text-blue-600">→ hẹn {fmtDate(l.ngay_hen)}</span>}
-                            {isAdmin && <button onClick={() => delLog(l.id)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 className="w-3.5 h-3.5" /></button>}
+                            <button onClick={() => delLog(l.id)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
                         </div>
                         {l.noi_dung && <div className="text-slate-700 mt-0.5">{l.noi_dung}</div>}
@@ -301,7 +317,7 @@ function ProfileModal({ row, role, onClose, onChanged, showNotification, confirm
             </div>
           </div>
 
-          {isAdmin && (
+          {(
             <div className="bg-slate-50 rounded-lg p-3 space-y-2">
               <div className="text-xs font-semibold text-slate-600">Ghi lượt chăm sóc mới</div>
               <div className="flex flex-wrap gap-2">

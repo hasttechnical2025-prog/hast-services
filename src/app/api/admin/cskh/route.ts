@@ -19,10 +19,11 @@ export async function GET() {
     const session = await gate()
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
-    const [mays, logs, { nguyco, mat }] = await Promise.all([
+    const [mays, logs, { nguyco, mat }, byMa] = await Promise.all([
       selectAll<any>((f, t) => supabaseAdmin.from('soct_cskh_may').select('*').eq('an', false).range(f, t)),
       selectAll<any>((f, t) => supabaseAdmin.from('soct_cskh_log').select('ma_may, ngay, ngay_hen').range(f, t)),
       nguongPhanLoai(),
+      layMapDiemMay(),  // khớp điểm máy ĐỘNG lúc đọc: thêm máy vào điểm máy xong, Tải lại là khớp lại
     ])
 
     const today = todayVN()
@@ -38,13 +39,18 @@ export async function GET() {
     const rows = (mays || []).map((m: any) => {
       const a = agg.get(String(m.ma_may))
       const phan_loai = m.phan_loai_tay && m.phan_loai ? m.phan_loai : autoPhanLoai(m.lan_cuoi, nguyco, mat)
+      const app = byMa.get(String(m.ma_may).trim())  // ưu tiên dữ liệu điểm máy app (nếu đã khớp)
       return {
-        id: m.id, ma_may: m.ma_may, ten_khach_hang: m.ten_khach_hang || '', ma_khach_cum: m.ma_khach_cum || '',
-        ten_cum: m.ten_cum || '', model: m.model || '', dia_chi: m.dia_chi || '',
+        id: m.id, ma_may: m.ma_may,
+        ten_khach_hang: app?.ten_khach_hang || m.ten_khach_hang || '',
+        ma_khach_cum: app?.ma_khach_cum || m.ma_khach_cum || '',
+        ten_cum: app?.ten_cum || m.ten_cum || '',
+        model: app?.model || m.model || '',
+        dia_chi: app?.dia_chi || m.dia_chi || '',
         nguoi_lien_he: m.nguoi_lien_he || '', dien_thoai: m.dien_thoai || '',
         lan_cuoi: m.lan_cuoi || '', so_lan_lay: m.so_lan_lay || 0, vat_tu_gan_nhat: m.vat_tu_gan_nhat || '',
         phan_loai, phan_loai_tay: !!m.phan_loai_tay, giai_doan: m.giai_doan || 'chua_lien_he',
-        khop_diem_may: !!m.khop_diem_may, ghi_chu: m.ghi_chu || '',
+        khop_diem_may: !!app, ghi_chu: m.ghi_chu || '',
         lan_cham: a?.lan_cham || null, hen: a?.hen || null,
       }
     })
