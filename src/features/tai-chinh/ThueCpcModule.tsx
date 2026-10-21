@@ -1027,7 +1027,7 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
           </label>
           <div className="ml-auto flex items-center gap-2 flex-wrap">
             <button onClick={gsOpenPreview} disabled={gsBusy} title="Đọc counter từ Google Sheet, điền vào các máy CHƯA có số ở kỳ này (xem trước rồi mới ghi)"
-              className="h-9 px-3 rounded-md text-xs font-semibold border border-emerald-300 text-emerald-700 bg-white hover:bg-emerald-50 whitespace-nowrap disabled:opacity-50 inline-flex items-center gap-1.5">
+              className="h-9 px-3 rounded-md text-xs font-medium border border-slate-300 text-slate-700 bg-white shadow-2xs hover:bg-slate-50 hover:border-slate-400 whitespace-nowrap disabled:opacity-50 inline-flex items-center gap-1.5">
               <Download className={`w-3.5 h-3.5 ${gsBusy ? 'animate-pulse' : ''}`} /> Đồng bộ Google Sheet
             </button>
             <button onClick={() => setShowGhiChu(v => !v)} className={`h-9 px-3 rounded-md text-xs font-medium border whitespace-nowrap ${showGhiChu ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white text-slate-500 border-slate-200'}`} title="Bật/tắt cột Ghi chú">Ghi chú</button>

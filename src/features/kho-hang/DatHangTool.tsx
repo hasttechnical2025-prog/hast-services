@@ -388,7 +388,7 @@ export function DatHangTool({
               {(leftSearch || leftModel || leftHang || leftLowStock || leftUnderWarn) && (
                 <button onClick={() => { setLeftSearch(""); setLeftModel(""); setLeftHang(""); setLeftLowStock(false); setLeftUnderWarn(false) }} className="text-xs text-rose-600 hover:underline font-medium ml-1">Bỏ lọc</button>
               )}
-              <button type="button" onClick={exportLeftInventory} title="Xuất Excel đúng danh sách đang hiển thị (sau lọc mã/tên, model, hãng…) để đối chiếu" className="ml-auto shrink-0 h-9 px-2.5 rounded-md border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold inline-flex items-center gap-1.5">
+              <button type="button" onClick={exportLeftInventory} title="Xuất Excel đúng danh sách đang hiển thị (sau lọc mã/tên, model, hãng…) để đối chiếu" className="ml-auto shrink-0 h-9 px-2.5 rounded-md border border-slate-300 text-slate-700 bg-white shadow-2xs hover:bg-slate-50 hover:border-slate-400 text-xs font-medium inline-flex items-center gap-1.5">
                 <Download className="w-3.5 h-3.5" /> Xuất DS tồn (đang lọc) ({sortedLeftInventory.length})
               </button>
             </div>
@@ -578,8 +578,8 @@ export function DatHangTool({
             <button onClick={() => setOrderFilters({ maHang: "", ncc: "", trangThai: "con_thieu", hvTu: "", hvDen: "" })} className="text-xs text-red-600 hover:underline font-medium">Bỏ lọc</button>
           )}
           <div className="ml-auto flex items-center gap-2">
-            <Button variant="outline" onClick={exportPendingItemsExcel} className="gap-2 h-9 text-xs border-amber-200 text-amber-700 hover:bg-amber-50"><AlertTriangle className="w-4 h-4" /> Xuất hàng chưa về</Button>
-            <Button variant="outline" onClick={exportOrdersExcel} className="gap-2 h-9 text-xs border-blue-200 text-blue-700 hover:bg-blue-50"><Download className="w-4 h-4" /> Xuất DS đơn hàng</Button>
+            <Button variant="outline" onClick={exportPendingItemsExcel} className="gap-2 h-9 text-xs"><AlertTriangle className="w-4 h-4" /> Xuất hàng chưa về</Button>
+            <Button variant="outline" onClick={exportOrdersExcel} className="gap-2 h-9 text-xs"><Download className="w-4 h-4" /> Xuất DS đơn hàng</Button>
           </div>
         </div>
       }>

@@ -435,7 +435,7 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
               </section>
             </div>
             <div className="bg-slate-50 px-5 py-3 flex items-center justify-between gap-2 border-t border-slate-100 shrink-0">
-              <Button variant="outline" onClick={() => delCluster(sel.ma_khach_hang)} className="h-9 text-xs gap-1.5 border-rose-200 text-rose-600 hover:bg-rose-50"><Trash2 className="w-4 h-4" /> Xóa cụm</Button>
+              <Button variant="outline" onClick={() => delCluster(sel.ma_khach_hang)} className="h-9 text-xs gap-1.5 border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400"><Trash2 className="w-4 h-4" /> Xóa cụm</Button>
               <div className="flex items-center gap-2">
                 <Button variant="outline" onClick={() => setSelMa(null)} className="h-9 text-xs">Đóng</Button>
                 <Button onClick={saveEdit} disabled={working} className="h-9 text-xs">Lưu thông tin</Button>

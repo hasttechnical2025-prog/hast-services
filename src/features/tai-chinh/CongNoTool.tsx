@@ -356,7 +356,7 @@ export function CongNoTool({ showNotification }: { showNotification: (type: 'suc
             allowAddRow={false}
             emptyText="Chưa chọn phiếu nào (hoặc phiếu đã chọn không có vật tư). Tick phiếu ở trên."
             rightToolbarExtra={
-              <Button variant="outline" onClick={exportBangKe} disabled={exportingXlsx || selCusts.length === 0} className="h-9 gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50" title="Xuất Excel bảng kê công nợ (itemized theo mẫu 'Bảng kê lẻ')">
+              <Button variant="outline" onClick={exportBangKe} disabled={exportingXlsx || selCusts.length === 0} className="h-9 gap-1.5" title="Xuất Excel bảng kê công nợ (itemized theo mẫu 'Bảng kê lẻ')">
                 <FileSpreadsheet className={`w-4 h-4 ${exportingXlsx ? 'animate-pulse' : ''}`} /> Xuất bảng kê công nợ
               </Button>
             }

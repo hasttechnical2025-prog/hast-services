@@ -159,7 +159,7 @@ export function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSucce
 
         <div className="flex items-center gap-2 flex-wrap">
           <Button onClick={openAdd} className="h-9 gap-1.5 text-xs"><Plus className="w-4 h-4" /> Thêm mới</Button>
-          <Button variant="outline" onClick={onClearAll} disabled={inventory.length === 0} title="Xóa toàn bộ vật tư trong kho" className="h-9 px-3 gap-1.5 text-xs border-rose-200 text-rose-600 hover:bg-rose-50"><Trash2 className="w-4 h-4" /> Xóa toàn bộ</Button>
+          <Button variant="outline" onClick={onClearAll} disabled={inventory.length === 0} title="Xóa toàn bộ vật tư trong kho" className="h-9 px-3 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400"><Trash2 className="w-4 h-4" /> Xóa toàn bộ</Button>
         </div>
       </div>}>
         <table className="w-full text-left text-sm text-slate-600">

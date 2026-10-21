@@ -752,10 +752,10 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                   {dcQ && (<button type="button" onClick={() => setDcQ('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>)}
                 </div>
               </div>
-              <Button onClick={exportDoiChieu} disabled={dcLoading || dcFiltered.length === 0} title={`Xuất đối chiếu năm (${dcFiltered.length} máy)`} className="h-9 px-3 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700">
+              <Button variant="outline" onClick={exportDoiChieu} disabled={dcLoading || dcFiltered.length === 0} title={`Xuất đối chiếu năm (${dcFiltered.length} máy)`} className="h-9 px-3 gap-1.5 text-xs">
                 <Download className="w-4 h-4" /> Xuất đối chiếu năm
               </Button>
-              <Button onClick={inHangLoatSo} disabled={dcLoading || batchBusy || dcFiltered.length === 0} title={`In hàng loạt sổ theo dõi máy — tất cả ${dcFiltered.length} máy đang lọc (mỗi máy 2 trang A4 ngang)`} className="h-9 px-3 gap-1.5 text-xs font-semibold">
+              <Button variant="outline" onClick={inHangLoatSo} disabled={dcLoading || batchBusy || dcFiltered.length === 0} title={`In hàng loạt sổ theo dõi máy — tất cả ${dcFiltered.length} máy đang lọc (mỗi máy 2 trang A4 ngang)`} className="h-9 px-3 gap-1.5 text-xs">
                 🖨 {batchBusy ? 'Đang dựng…' : `In sổ (${dcFiltered.length})`}
               </Button>
             </div>
@@ -859,7 +859,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                 <Button variant="outline" onClick={xuatBaoTriExcel} disabled={records.length === 0} title={`Xuất Excel (${records.length} máy)`} className="h-9 px-3 gap-1.5 text-xs">
                   <Download className="w-4 h-4" /> Xuất DS đã bảo trì
                 </Button>
-                <Button variant="outline" onClick={xoaTatCaThang} disabled={records.length === 0} title="Xóa toàn bộ bảo trì tháng này" className="h-9 px-3 gap-1.5 text-xs border-rose-200 text-rose-600 hover:bg-rose-50">
+                <Button variant="outline" onClick={xoaTatCaThang} disabled={records.length === 0} title="Xóa toàn bộ bảo trì tháng này" className="h-9 px-3 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400">
                   <Trash2 className="w-4 h-4" /> Xóa toàn bộ
                 </Button>
               </div>
