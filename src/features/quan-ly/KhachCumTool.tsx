@@ -266,14 +266,16 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
       </StatRow>
 
       <ListFrame paged={paged} unit="cụm" toolbar={
-        <div className="flex items-center justify-end gap-2 flex-wrap">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="relative w-full sm:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input placeholder="Tìm mã / tên cụm..." className="pl-9 pr-7 bg-white h-9 text-xs" value={cumSearch} onChange={e => setCumSearch(e.target.value)} />
             {cumSearch && <button type="button" onClick={() => setCumSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>}
           </div>
-          <Button variant="outline" onClick={() => setDoiChieuOpen(true)} className="gap-1.5 h-9 text-xs shrink-0"><FileSpreadsheet className="w-4 h-4" /> Đối chiếu minVoice</Button>
-          <Button onClick={openCreate} className="gap-1 h-9 text-xs shrink-0"><Plus className="w-4 h-4" /> Tạo cụm mới</Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button onClick={openCreate} className="gap-1 h-9 text-xs shrink-0"><Plus className="w-4 h-4" /> Tạo cụm mới</Button>
+            <Button variant="outline" onClick={() => setDoiChieuOpen(true)} className="gap-1.5 h-9 text-xs shrink-0"><FileSpreadsheet className="w-4 h-4" /> Đối chiếu minVoice</Button>
+          </div>
         </div>
       }>
         <table className="w-full table-fixed text-sm text-slate-600">

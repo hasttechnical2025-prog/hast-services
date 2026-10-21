@@ -198,19 +198,19 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
       {view === 'ds' && (
       <ListFrame paged={paged} unit="khách" toolbar={
         <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[180px] max-w-xs"><Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" /><Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm tên / SĐT / địa chỉ…" className="h-9 pl-9 bg-white" /></div>
-        <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden text-xs">
-          {([['all', 'Tất cả'], ['cum', 'Khách cụm'], ['tiem_nang', 'Tiềm năng']] as const).map(([v, l]) => (
-            <button key={v} onClick={() => setLoaiFilter(v)} className={`px-3 h-9 font-semibold border-l first:border-l-0 border-slate-200 ${loaiFilter === v ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>{l}</button>
-          ))}
-        </div>
-        {isAdmin && <Button onClick={() => setAddOpen(true)} className="h-9 gap-1.5 text-xs"><Plus className="w-4 h-4" /> Thêm khách tiềm năng</Button>}
-        <div className="inline-flex items-center gap-1.5 ml-auto">
+        <div className="relative w-full sm:w-64"><Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" /><Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm tên / SĐT / địa chỉ…" className="h-9 pl-9 bg-white" /></div>
+        <select value={loaiFilter} onChange={e => setLoaiFilter(e.target.value as 'all' | 'cum' | 'tiem_nang')} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700">
+          <option value="all">Tất cả</option>
+          <option value="cum">Khách cụm</option>
+          <option value="tiem_nang">Tiềm năng</option>
+        </select>
+        <div className="inline-flex items-center gap-1.5">
           <span className="t2 text-slate-500 whitespace-nowrap">Tính từ:</span>
           <select value={period} onChange={e => setPeriod(e.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700" title="Mốc đếm Số lần & Chăm sóc gần nhất">
             {PERIODS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </div>
+        {isAdmin && <Button onClick={() => setAddOpen(true)} className="h-9 gap-1.5 text-xs ml-auto"><Plus className="w-4 h-4" /> Thêm khách tiềm năng</Button>}
       </div>
       }>
         <table className="w-full text-left text-xs text-slate-600">

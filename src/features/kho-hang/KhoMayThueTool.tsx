@@ -170,7 +170,7 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
           <input type="checkbox" checked={chuaChoThue} onChange={e => setChuaChoThue(e.target.checked)} className="w-4 h-4 accent-amber-600" />
           Chỉ máy chưa cho thuê {chuaThueCount > 0 && <span className="text-amber-600 font-semibold">({chuaThueCount})</span>}
         </label>
-        <Button variant="outline" onClick={fetchList} disabled={loading} className="gap-1 h-9 text-xs px-3">
+        <Button variant="outline" onClick={fetchList} disabled={loading} className="gap-1 h-9 text-xs px-3 ml-auto">
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Tải lại
         </Button>
       </div>}>

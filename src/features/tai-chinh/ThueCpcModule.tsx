@@ -115,7 +115,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
             ))}
           </div>
           <label className="inline-flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none whitespace-nowrap"><input type="checkbox" checked={xemTatCa} onChange={e => setXemTatCa(e.target.checked)} className="w-4 h-4 accent-blue-600" /> Xem tất cả máy</label>
-          <Button variant="outline" onClick={load} className="h-9 px-3 gap-1.5 text-xs font-medium shrink-0" title="Tải lại"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>
+          <Button variant="outline" onClick={load} className="h-9 px-3 gap-1.5 text-xs font-medium shrink-0 ml-auto" title="Tải lại"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>
         </div>
       </div>}>
         <table className="w-full text-left text-xs text-slate-600">
@@ -1022,14 +1022,16 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
               </button>
             )}
           </div>
-          <button onClick={() => setShowGhiChu(v => !v)} className={`h-9 px-3 rounded-md text-xs font-medium border whitespace-nowrap ${showGhiChu ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white text-slate-500 border-slate-200'}`} title="Bật/tắt cột Ghi chú">Ghi chú</button>
           <label className="flex items-center gap-2 text-xs text-slate-600">Kỳ
             <MonthField value={thang} onChange={setThang} className="h-9 w-40 text-xs" />
           </label>
-          <button onClick={gsOpenPreview} disabled={gsBusy} title="Đọc counter từ Google Sheet, điền vào các máy CHƯA có số ở kỳ này (xem trước rồi mới ghi)"
-            className="h-9 px-3 rounded-md text-xs font-semibold border border-emerald-300 text-emerald-700 bg-white hover:bg-emerald-50 whitespace-nowrap disabled:opacity-50 inline-flex items-center gap-1.5">
-            <Download className={`w-3.5 h-3.5 ${gsBusy ? 'animate-pulse' : ''}`} /> Đồng bộ Google Sheet
-          </button>
+          <div className="ml-auto flex items-center gap-2 flex-wrap">
+            <button onClick={gsOpenPreview} disabled={gsBusy} title="Đọc counter từ Google Sheet, điền vào các máy CHƯA có số ở kỳ này (xem trước rồi mới ghi)"
+              className="h-9 px-3 rounded-md text-xs font-semibold border border-emerald-300 text-emerald-700 bg-white hover:bg-emerald-50 whitespace-nowrap disabled:opacity-50 inline-flex items-center gap-1.5">
+              <Download className={`w-3.5 h-3.5 ${gsBusy ? 'animate-pulse' : ''}`} /> Đồng bộ Google Sheet
+            </button>
+            <button onClick={() => setShowGhiChu(v => !v)} className={`h-9 px-3 rounded-md text-xs font-medium border whitespace-nowrap ${showGhiChu ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white text-slate-500 border-slate-200'}`} title="Bật/tắt cột Ghi chú">Ghi chú</button>
+          </div>
         </div>
       } aboveTable={<>
 

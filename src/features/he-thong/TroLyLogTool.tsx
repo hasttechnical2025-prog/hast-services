@@ -36,11 +36,10 @@ export function TroLyLogTool({ showNotification }: { showNotification: (type: 's
   return (
     <ListFrame paged={paged} unit="câu hỏi" toolbar={
       <div className="flex flex-wrap items-center gap-3">
-        <p className="flex-1 min-w-0 text-sm text-slate-500">Xem user hỏi gì. Lọc <b>câu trượt</b> (không hiểu / 0 kết quả) để thêm biệt danh hoặc báo lập trình bổ sung.</p>
         <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
           <input type="checkbox" checked={miss} onChange={e => setMiss(e.target.checked)} className="w-4 h-4 accent-blue-600" /> Chỉ xem câu trượt
         </label>
-        <Button variant="outline" onClick={() => load(miss)} className="gap-1 h-9"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>
+        <Button variant="outline" onClick={() => load(miss)} className="gap-1 h-9 ml-auto"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>
       </div>
     }>
         <table className="w-full text-left text-sm text-slate-600">
