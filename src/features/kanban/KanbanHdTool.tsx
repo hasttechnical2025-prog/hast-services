@@ -2086,8 +2086,8 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
             <Button onClick={load} disabled={loading} size="sm" variant="outline" title="Tải lại" className="h-9 px-3 gap-1.5 text-xs font-medium bg-white">
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Tải lại
             </Button>
-            <Button onClick={() => setExportOpen(true)} size="sm" variant="outline" title="Xuất công nợ (kế toán)" className="h-9 w-9 p-0 bg-white">
-              <Download className="w-3.5 h-3.5" />
+            <Button onClick={() => setExportOpen(true)} size="sm" variant="outline" title="Xuất công nợ (kế toán)" className="h-9 px-3 gap-1.5 text-xs font-medium bg-white">
+              <Download className="w-3.5 h-3.5" /> Xuất công nợ
             </Button>
           </div>
         </div>
