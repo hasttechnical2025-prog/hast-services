@@ -118,9 +118,10 @@ export const V2_SUBTABS: Record<string, { slug: string; label: string }[]> = {
     { slug: 'thong-ke', label: 'HĐBT cụm' },
   ],
   'tai-chinh/thue-cpc': [
-    { slug: 'danh-sach', label: 'Danh sách máy' },
     { slug: 'counter', label: 'Nhập counter' },
+    { slug: 'bang-ke', label: 'Bảng kê' },
     { slug: 'canh-bao-vat-tu', label: 'Cảnh báo vật tư' },
+    { slug: 'danh-sach', label: 'Danh sách máy' },
   ],
   'so-cong-tac/cham-soc-kh': [
     { slug: 'can', label: 'Cần chăm sóc' },
@@ -181,9 +182,9 @@ export const V2_PERM_ROWS: V2PermRow[] = [
   { label: 'Tài chính', key: 'tai_chinh', level: 1 },
   { label: 'Công nợ', key: 'tai_chinh.cong_no', level: 2, deps: ['tai_chinh'] },
   { label: 'Thuê / CPC', key: 'tai_chinh.thue_cpc', level: 2, deps: ['tai_chinh'] },
-  // 3 tab cháu khớp UI: mỗi tab 1 key (các section con hiện cùng tab). don_gia = tab "Danh sách máy"
-  // (gồm Đơn giá HĐ + Hợp đồng khung); counter = tab "Nhập counter" (gồm Counter + Bảng kê).
+  // 4 tab cháu khớp UI: mỗi tab 1 key. don_gia = tab "Danh sách máy" (gồm Đơn giá HĐ + Hợp đồng khung).
   { label: 'Nhập counter', key: 'tai_chinh.thue_cpc.counter', level: 3, deps: ['tai_chinh', 'tai_chinh.thue_cpc'] },
+  { label: 'Bảng kê', key: 'tai_chinh.thue_cpc.bang_ke', level: 3, deps: ['tai_chinh', 'tai_chinh.thue_cpc'] },
   { label: 'Cảnh báo vật tư', key: 'tai_chinh.thue_cpc.canh_bao_muc', level: 3, deps: ['tai_chinh', 'tai_chinh.thue_cpc'] },
   { label: 'Danh sách máy', key: 'tai_chinh.thue_cpc.don_gia', level: 3, deps: ['tai_chinh', 'tai_chinh.thue_cpc'] },
   { label: 'Phí bảo trì', key: 'tai_chinh.phi_bao_tri', level: 2, deps: ['tai_chinh'] },

@@ -253,7 +253,7 @@ function SearchSelect({ options, value, onChange, placeholder }: { options: { va
 
 export default function ThueCpcModule({ showNotification, canSub }: { showNotification: Notify, canSub?: (g: string) => boolean }) {
   const canS = canSub || (() => true)
-  const [sub, setSub] = useState<'danh_sach' | 'counter' | 'canh_bao_muc'>('counter')
+  const [sub, setSub] = useState<'danh_sach' | 'counter' | 'bang_ke' | 'canh_bao_muc'>('counter')
   const [mucCount, setMucCount] = useState(0) // badge: số máy sắp hết mực
   const [dueCount, setDueCount] = useState(0) // số máy cần lấy counter (badge tab) — theo kỳ đang chọn
   const [counterThang, setCounterThang] = useState(monthNow()) // kỳ đang chọn ở tab Nhập counter (nâng lên để badge bám theo)
@@ -271,10 +271,10 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
   const [badgeVer, setBadgeVer] = useState(0) // tăng sau mỗi lần lưu counter -> badge tính lại
   const [refreshVer, setRefreshVer] = useState(0) // realtime: tăng khi có thay đổi -> BÁO NHẸ cho CounterTab (KHÔNG remount, tránh trôi danh sách đang nhập)
   useRealtimeRefetch(THUECPC_TOPIC, DATA_EVENT, () => { setRefreshVer(v => v + 1); setBadgeVer(v => v + 1) })
-  // 3 tab = 3 quyền (khớp ma trận phân quyền). Mỗi tab 1 key; section con trong tab hiện cùng nhau:
-  //  Danh sách máy = Đơn giá HĐ + Hợp đồng khung · Nhập counter = Counter + Bảng kê.
+  // 4 tab = 4 quyền (khớp ma trận phân quyền). Mỗi tab 1 key. Danh sách máy = Đơn giá HĐ + Hợp đồng khung.
   const allTabs: [typeof sub, string, boolean][] = [
     ['counter', 'Nhập counter', canS('counter')],
+    ['bang_ke', 'Bảng kê', canS('bang_ke')],
     ['canh_bao_muc', 'Cảnh báo vật tư', canS('canh_bao_muc')],
     ['danh_sach', 'Danh sách máy', canS('don_gia')],
   ]
@@ -316,23 +316,21 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
           ))}
         </div>
       </div>
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
       {active === 'danh_sach' && (
-        <div className="space-y-8">
+        <div className="space-y-4">
           <DonGiaTab showNotification={showNotification} />
-          <div className="pt-2 border-t border-slate-100"><KhungTab showNotification={showNotification} /></div>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6"><KhungTab showNotification={showNotification} /></div>
         </div>
       )}
       {active === 'counter' && (
-        <div className="space-y-8">
-          <CounterTab showNotification={showNotification} thang={counterThang} setThang={(v: string) => { setThangTouched(true); setCounterThang(v) }} chuyenKyNgay={chuyenKyNgay} onSaved={() => setBadgeVer(v => v + 1)} refreshVer={refreshVer} />
-          <div className="pt-2 border-t border-slate-100"><BangKeTab showNotification={showNotification} thang={counterThang} refreshVer={refreshVer} /></div>
-        </div>
+        <CounterTab showNotification={showNotification} thang={counterThang} setThang={(v: string) => { setThangTouched(true); setCounterThang(v) }} chuyenKyNgay={chuyenKyNgay} onSaved={() => setBadgeVer(v => v + 1)} refreshVer={refreshVer} />
+      )}
+      {active === 'bang_ke' && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6"><BangKeTab showNotification={showNotification} thang={counterThang} refreshVer={refreshVer} /></div>
       )}
       {active === 'canh_bao_muc' && canS('canh_bao_muc') && (
         <CanhBaoMucTab showNotification={showNotification} onCount={setMucCount} refreshVer={refreshVer} />
       )}
-      </div>
     </div>
   )
 }
