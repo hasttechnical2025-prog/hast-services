@@ -292,7 +292,10 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
   ]
 
   const fieldCls = 'h-9 px-2.5 text-xs rounded-md border border-slate-200 bg-white outline-none focus:border-blue-500'
-  const btnOutline = 'h-9 px-3 rounded-md border border-slate-200 text-slate-600 text-xs font-medium flex items-center gap-1.5 hover:bg-slate-50 disabled:opacity-50'
+  // Hệ nút 3 cấp: ① chính (nền đặc) · ② phụ (viền trung tính) · ③ cảnh báo (viền đỏ) — cùng cỡ h-9/text-xs/font-medium
+  const btnPrimary = 'h-9 px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium flex items-center gap-1.5 shadow-xs disabled:opacity-50'
+  const btnOutline = 'h-9 px-3 rounded-md border border-slate-300 bg-white text-slate-700 text-xs font-medium flex items-center gap-1.5 shadow-2xs hover:bg-slate-50 hover:border-slate-400 disabled:opacity-50'
+  const btnDanger = 'h-9 px-3 rounded-md border border-red-300 bg-white text-red-600 text-xs font-medium flex items-center gap-1.5 shadow-2xs hover:bg-red-50 disabled:opacity-50'
 
   const daXemFuture = tuNgay === tomorrow && denNgay === ''
   const ganNhat = futureJobs.length ? futureJobs.reduce((m, j) => (m && m <= j.ngay ? m : j.ngay), futureJobs[0].ngay) : ''
@@ -334,13 +337,13 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
           {/* Dòng 2 — nhóm nút phụ (trái) · Giao việc mới (phải, hay dùng -> dễ thao tác) */}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <button onClick={exportExcel} className="h-9 px-3 rounded-md border border-emerald-200 text-emerald-700 text-xs font-medium flex items-center gap-1.5 hover:bg-emerald-50"><FileDown className="w-3.5 h-3.5" /> Xuất DS giao việc</button>
+              <button onClick={exportExcel} className={btnOutline}><FileDown className="w-3.5 h-3.5" /> Xuất DS giao việc</button>
               {canAdminTools && <button onClick={cuonNgay} disabled={busyTool} className={btnOutline}><CalendarArrowDown className="w-3.5 h-3.5" /> Cuốn ngày</button>}
-              {isAdmin && <button onClick={xoaTrung} disabled={busyTool} className="h-9 px-3 rounded-md border border-amber-300 text-amber-700 text-xs font-medium flex items-center gap-1.5 hover:bg-amber-50 disabled:opacity-50"><CopyX className="w-3.5 h-3.5" /> Xóa phiếu trùng</button>}
+              {isAdmin && <button onClick={xoaTrung} disabled={busyTool} className={btnDanger}><CopyX className="w-3.5 h-3.5" /> Xóa phiếu trùng</button>}
               <button onClick={() => load()} className={btnOutline}><RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Tải lại</button>
             </div>
             {canCreate
-              ? <button onClick={openCreate} className="h-9 px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold flex items-center gap-1.5 shadow-xs"><Plus className="w-4 h-4" /> Giao việc mới</button>
+              ? <button onClick={openCreate} className={btnPrimary}><Plus className="w-4 h-4" /> Giao việc mới</button>
               : <span />}
           </div>
         </div>
