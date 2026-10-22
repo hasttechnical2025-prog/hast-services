@@ -37,6 +37,8 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
     gsheet_thue_tab: cauHinh.gsheet_thue_tab || 'Danh sách',
     bao_cao_khach_loai: cauHinh.bao_cao_khach_loai || 'Sửa máy',
     bao_cao_cho_phep_ngay: cauHinh.bao_cao_cho_phep_ngay || '7',
+    cskh_nguong_nguyco: cauHinh.cskh_nguong_nguyco || '6',
+    cskh_nguong_mat: cauHinh.cskh_nguong_mat || '12',
     phien_van_phong_ngay: cauHinh.phien_van_phong_ngay || '7',
     phien_ktv_ngay: cauHinh.phien_ktv_ngay || '30',
     mac_dinh_hom_nay: (cauHinh.mac_dinh_hom_nay ?? '1') !== '0',
@@ -117,6 +119,8 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
       gsheet_thue_tab: cfg.gsheet_thue_tab.trim() || 'Danh sách',
       bao_cao_khach_loai: cfg.bao_cao_khach_loai.trim() || 'Sửa máy',
       bao_cao_cho_phep_ngay: String(Number.isFinite(parseInt(cfg.bao_cao_cho_phep_ngay)) ? parseInt(cfg.bao_cao_cho_phep_ngay) : 7),
+      cskh_nguong_nguyco: String(Math.max(1, parseInt(cfg.cskh_nguong_nguyco) || 6)),
+      cskh_nguong_mat: String(Math.max((parseInt(cfg.cskh_nguong_nguyco) || 6) + 1, parseInt(cfg.cskh_nguong_mat) || 12)),
       phien_van_phong_ngay: String(parseInt(cfg.phien_van_phong_ngay) || 7),
       phien_ktv_ngay: String(parseInt(cfg.phien_ktv_ngay) || 30),
       mac_dinh_hom_nay: cfg.mac_dinh_hom_nay ? '1' : '0',
@@ -144,7 +148,7 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setSaving(false) }
   }
 
-  const numField = (label: string, key: 'repeat_ngay' | 'hdbt_canh_bao_thang' | 'nguong_ton_thap' | 'vp_lat' | 'vp_lng' | 'phien_van_phong_ngay' | 'phien_ktv_ngay' | 'phieu_cung_canh_bao_ngay' | 'counter_bao_truoc_ngay' | 'counter_chuyen_ky_ngay' | 'muc_canh_bao_con_trang' | 'bao_cao_cho_phep_ngay', hint?: string, step?: string) => (
+  const numField = (label: string, key: 'repeat_ngay' | 'hdbt_canh_bao_thang' | 'nguong_ton_thap' | 'vp_lat' | 'vp_lng' | 'phien_van_phong_ngay' | 'phien_ktv_ngay' | 'phieu_cung_canh_bao_ngay' | 'counter_bao_truoc_ngay' | 'counter_chuyen_ky_ngay' | 'muc_canh_bao_con_trang' | 'bao_cao_cho_phep_ngay' | 'cskh_nguong_nguyco' | 'cskh_nguong_mat', hint?: string, step?: string) => (
     <div className="space-y-1">
       <label className="text-xs font-semibold text-slate-600">{label}</label>
       <Input value={(cfg as any)[key]} onChange={(e) => setCfg({ ...cfg, [key]: e.target.value })} className="bg-white" inputMode="decimal" {...(step ? { step } : {})} />
@@ -206,6 +210,8 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
             <label className="text-xs font-semibold text-slate-600">Loại việc cần báo cáo khách</label>
             <Input value={cfg.bao_cao_khach_loai} onChange={(e) => setCfg({ ...cfg, bao_cao_khach_loai: e.target.value })} placeholder="Sửa máy" className="bg-white" />
           </div>
+          {numField('CSKH — ngưỡng Nguy cơ (tháng)', 'cskh_nguong_nguyco', 'Máy lấy vật tư gần nhất ≥ số tháng này → Nguy cơ. Mặc định 6')}
+          {numField('CSKH — ngưỡng Đã mất (tháng)', 'cskh_nguong_mat', 'Lấy gần nhất ≥ số tháng này → Đã mất (phải > ngưỡng Nguy cơ). Mặc định 12')}
         </div>
         <div className="flex flex-wrap gap-6">
           <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
