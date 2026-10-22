@@ -137,8 +137,6 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
             <Button variant="outline" onClick={load} disabled={loading} title="Tải lại" className="h-9 px-3 gap-1.5 text-xs"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>
           </div>
         </div>
-      } aboveTable={
-        <p className="t2 text-slate-400">Ngưỡng: lấy vật tư gần nhất ≥ <b>{nguong.nguyco}</b> tháng → <span className="text-amber-700">nguy cơ</span>, ≥ <b>{nguong.mat}</b> tháng → <span className="text-red-600">đã mất</span> (tự suy, có thể sửa tay trong hồ sơ).</p>
       }>
         <table className="w-full text-left text-xs text-slate-600">
           <thead className="bg-slate-50 text-slate-500 t2 font-semibold uppercase border-b border-slate-200 select-none">
