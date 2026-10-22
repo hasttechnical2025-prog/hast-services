@@ -201,17 +201,19 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
       <>
       <div className="border border-slate-200 rounded-lg p-6 bg-white space-y-4">
         <h3 className="text-lg font-semibold text-slate-700">Nghiệp vụ Sổ công tác</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {numField('Cửa sổ "đã sửa gần đây" (ngày)', 'repeat_ngay')}
           {numField('Cảnh báo HĐBT trước (tháng)', 'hdbt_canh_bao_thang')}
           {numField('Cảnh báo trễ nộp phiếu (ngày)', 'phieu_cung_canh_bao_ngay')}
           {numField('KTV nộp báo cáo trễ tối đa (ngày)', 'bao_cao_cho_phep_ngay')}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {numField('CSKH — ngưỡng Nguy cơ (tháng)', 'cskh_nguong_nguyco', 'Lấy vật tư gần nhất ≥ số tháng này → Nguy cơ. Mặc định 6')}
+          {numField('CSKH — ngưỡng Đã mất (tháng)', 'cskh_nguong_mat', 'Lấy gần nhất ≥ số tháng này → Đã mất (phải > Nguy cơ). Mặc định 12')}
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">Loại việc cần báo cáo khách</label>
             <Input value={cfg.bao_cao_khach_loai} onChange={(e) => setCfg({ ...cfg, bao_cao_khach_loai: e.target.value })} placeholder="Sửa máy" className="bg-white" />
           </div>
-          {numField('CSKH — ngưỡng Nguy cơ (tháng)', 'cskh_nguong_nguyco', 'Máy lấy vật tư gần nhất ≥ số tháng này → Nguy cơ. Mặc định 6')}
-          {numField('CSKH — ngưỡng Đã mất (tháng)', 'cskh_nguong_mat', 'Lấy gần nhất ≥ số tháng này → Đã mất (phải > ngưỡng Nguy cơ). Mặc định 12')}
         </div>
         <div className="flex flex-wrap gap-6">
           <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
