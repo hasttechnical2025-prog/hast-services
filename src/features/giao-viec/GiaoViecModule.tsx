@@ -284,7 +284,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
             {canDelete && j.ket_qua === 'Hoàn thành' && hasVt && (
               <button onClick={() => setTraJobId(j.id)} title="Vật tư / Trả về kho" className="w-7 h-7 rounded border border-indigo-200 text-indigo-600 hover:bg-indigo-50 flex items-center justify-center"><Boxes className="w-3.5 h-3.5" /></button>
             )}
-            {canDelete && <button onClick={() => onDelete(j)} title="Xóa phiếu" className="w-7 h-7 rounded border border-rose-200 text-rose-600 hover:bg-rose-50 flex items-center justify-center"><Trash2 className="w-3.5 h-3.5" /></button>}
+            {(j.ket_qua === 'Hoàn thành' ? isAdmin : canDelete) && <button onClick={() => onDelete(j)} title="Xóa phiếu" className="w-7 h-7 rounded border border-rose-200 text-rose-600 hover:bg-rose-50 flex items-center justify-center"><Trash2 className="w-3.5 h-3.5" /></button>}
           </div>
         )
       },

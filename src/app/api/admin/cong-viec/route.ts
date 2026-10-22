@@ -1066,6 +1066,14 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
     }
 
+    // Phiếu đã HOÀN THÀNH: chỉ admin được xóa (tech_admin không được).
+    if (session.role !== 'admin') {
+      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('ket_qua').eq('id', id).single()
+      if (cur?.ket_qua === 'Hoàn thành') {
+        return NextResponse.json({ error: 'Phiếu đã hoàn thành — chỉ admin được xóa.' }, { status: 403 })
+      }
+    }
+
     const { error } = await supabaseAdmin
       .from('soct_cong_viec')
       .delete()
