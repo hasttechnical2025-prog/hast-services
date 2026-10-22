@@ -242,9 +242,10 @@ function ProfileModal({ row, role, onClose, onChanged, showNotification, confirm
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-start justify-between gap-3 p-4 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl flex-wrap">
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+        <button onClick={onClose} className="absolute top-3 right-3 z-10 text-slate-400 hover:text-slate-600" title="Đóng"><X className="w-5 h-5" /></button>
+        <div className="flex items-start justify-between gap-3 p-4 pr-10 border-b border-slate-100 rounded-t-2xl flex-wrap shrink-0">
           <div className="min-w-0">
             <div className="text-base font-semibold text-slate-800 truncate">{row.ten_khach_hang || '(chưa rõ khách)'}{!row.khop_diem_may && <span className="text-xs text-amber-600 ml-1.5 font-normal">⚠ chưa khớp điểm máy</span>}</div>
             <div className="text-xs text-slate-500">Máy <b className="font-mono">{row.ma_may}</b>{row.model ? ` · ${row.model}` : ''}{row.ten_cum ? ` · Cụm: ${row.ten_cum}` : ''}</div>
@@ -266,11 +267,10 @@ function ProfileModal({ row, role, onClose, onChanged, showNotification, confirm
             <select value={row.giai_doan} onChange={e => put({ giai_doan: e.target.value })} className="h-8 rounded-md border border-slate-300 bg-white px-2 text-xs">
               {GIAI_KEYS.map(k => <option key={k} value={k}>{GIAI[k].label}</option>)}
             </select>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
           </div>
         </div>
 
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 overflow-y-auto">
           <div className="flex gap-3 flex-wrap">
             <div className="flex-1 min-w-[110px] bg-slate-50 rounded-lg px-3 py-2"><div className="text-[10px] text-slate-400 uppercase">Lần cuối lấy</div><div className="text-sm font-semibold">{fmtThang(row.lan_cuoi)}</div></div>
             <div className="flex-1 min-w-[110px] bg-slate-50 rounded-lg px-3 py-2"><div className="text-[10px] text-slate-400 uppercase">Số lần lấy</div><div className="text-sm font-semibold">{row.so_lan_lay || 0} lần</div></div>
@@ -335,6 +335,9 @@ function ProfileModal({ row, role, onClose, onChanged, showNotification, confirm
               </div>
             </div>
           )}
+        </div>
+        <div className="flex justify-end p-4 border-t border-slate-100 shrink-0">
+          <Button variant="outline" onClick={onClose} className="h-9 px-5 text-xs">Đóng</Button>
         </div>
       </div>
     </div>
