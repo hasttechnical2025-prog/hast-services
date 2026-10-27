@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark, Pencil, Search, Download, Upload, Info, GripVertical, Send } from "lucide-react"
+import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark, Pencil, Search, Download, Upload, Info, GripVertical, Send, Lock, LockOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import MonthField from "@/components/MonthField"
@@ -88,6 +88,10 @@ type Ticket = {
   minvoice_luc?: string | null // lần xuất M-invoice gần nhất (NULL = chưa xuất) — chống xuất trùng
   minvoice_lan?: number // số lần đã xuất M-invoice
   nguoi_xuat?: { full_name: string } | null // người lập hóa đơn (kế toán bấm Hoàn tất)
+  khoa_boi?: string | null // KHÓA Cột 1: user đang giữ phiếu (NULL=chưa khóa)
+  khoa_luc?: string | null // thời điểm khóa (giờ VN) — chỉ tham khảo
+  nguoi_tao?: { full_name: string } | null // người đẩy (created_by) — cho hộp xác nhận "phiếu đồng nghiệp"
+  nguoi_khoa?: { full_name: string } | null // tên người đang khóa — cho tooltip/toast
   _co_mau?: boolean // khách có mẫu tên/giá đã lưu (để hiện nút "Áp mẫu khách")
   soct_khach_hang: Customer | null
   soct_users: { full_name: string } | null
@@ -318,7 +322,7 @@ function sellerFromCfg(cfg: Record<string, string>): InvSeller {
   }
 }
 
-export default function KanbanHdTool({ role = 'staff', showNotification, v2Layout = false }: { role?: string, showNotification: (type: 'success' | 'error', msg: string) => void, v2Layout?: boolean }) {
+export default function KanbanHdTool({ role = 'staff', currentUserId, showNotification, v2Layout = false }: { role?: string, currentUserId?: string, showNotification: (type: 'success' | 'error', msg: string) => void, v2Layout?: boolean }) {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [kdTickets, setKdTickets] = useState<KdTicket[]>([]) // nguồn kinh doanh (lệnh xuất) — chỉ admin/kthc
   const [kdActive, setKdActive] = useState<KdTicket | null>(null) // modal xem thẻ KD
@@ -546,6 +550,28 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
     e.dataTransfer.setData("text/plain", JSON.stringify(cardData))
   }
 
+  // KHÓA / MỞ KHÓA thẻ Cột 1 ("tôi đang làm dở, đừng động"). Icon = trạng thái hiện tại:
+  // ổ khóa MỞ = chưa khóa (bấm để khóa), ổ khóa ĐÓNG = đang khóa (bấm để mở — chủ phiếu/admin).
+  const toggleLock = async (card: any) => {
+    const t0 = card.tickets[0]
+    const lockedBy = t0?.khoa_boi || null
+    const locked = !!lockedBy
+    const canUnlock = role === 'admin' || (lockedBy && lockedBy === currentUserId)
+    if (locked && !canUnlock) {
+      showNotification('error', `Phiếu đang được ${t0?.nguoi_khoa?.full_name || 'người khác'} khóa.`)
+      return
+    }
+    const action = locked ? 'mo' : 'khoa'
+    try {
+      const res = await fetch('/api/admin/kanban-hd/khoa', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: card.tickets.map((t: any) => t.id), action }),
+      })
+      if (res.ok) { showNotification('success', action === 'khoa' ? 'Đã khóa phiếu.' : 'Đã mở khóa phiếu.'); load() }
+      else { const e = await res.json().catch(() => ({})); showNotification('error', e.error || 'Lỗi khóa/mở phiếu') }
+    } catch { showNotification('error', 'Lỗi kết nối') }
+  }
+
   // Xuất Đề nghị thanh toán (.docx) cho 1 số hóa đơn. Tải file + cập nhật badge (load lại).
   const exportDntt = async (so_hd: string) => {
     try {
@@ -579,6 +605,13 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
 
       const targetIds = cardData.ids || [cardData.id]
       const sourceState = cardData.currentState
+
+      // 0. KHÓA phiếu Cột 1: người khác (không phải admin) không kéo được thẻ đang bị đồng
+      //    nghiệp khóa. (Server cũng chặn lại ở PUT — đây chỉ là chặn sớm cho mượt.)
+      if (role !== 'admin' && currentUserId) {
+        const lk = tickets.find(t => targetIds.includes(t.id) && t.khoa_boi && t.khoa_boi !== currentUserId)
+        if (lk) return showNotification('error', `Phiếu đang được ${lk.nguoi_khoa?.full_name || 'người khác'} khóa — không kéo được.`)
+      }
 
       // 1. Kiểm tra phân quyền kéo/thả
       if (role !== 'admin') {
@@ -662,7 +695,22 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
         }
         // Bàn giao kế toán (Cột 1 -> 2): LUÔN mở chốt review (soi Tên hàng/SL/ĐVT) trước khi đẩy — khóa sửa sau đó.
         if (sourceState === 'Chờ xuất HĐ' && targetState === 'Đang xử lý HĐ') {
-          setGiaoReview({ tickets: tickets.filter(t => targetIds.includes(t.id)), onConfirm: doMove })
+          const mt = tickets.filter(t => targetIds.includes(t.id))
+          const openReview = () => setGiaoReview({ tickets: mt, onConfirm: doMove })
+          // CHỦ PHIẾU MỀM: nếu thẻ do ĐỒNG NGHIỆP đẩy (created_by khác mình) -> hỏi xác nhận
+          // trước, tránh kéo nhầm phiếu người khác. Mọi office xác nhận là tiếp tục được.
+          const fo = currentUserId ? mt.find(t => t.created_by && t.created_by !== currentUserId) : null
+          if (fo) {
+            const cum = fo.soct_khach_hang?.soct_khach_cum
+            const tenKh = fo.ten_khach_hd || (cum ? cum.ten_khach_hang : fo.soct_khach_hang?.ten_khach_hang) || 'khách'
+            setConfirmDialog({
+              title: 'Phiếu của đồng nghiệp',
+              message: `Thẻ "${tenKh}" do ${fo.nguoi_tao?.full_name || 'đồng nghiệp'} đẩy sang. Bạn chắc chắn muốn bàn giao cho Kế toán?`,
+              onConfirm: async () => { openReview() },
+            })
+            return
+          }
+          openReview()
           return
         }
         await doMove()
@@ -1748,6 +1796,23 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
                           )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
+                        {/* KHÓA phiếu (chỉ Cột 1): icon = trạng thái hiện tại. Ổ khóa MỞ = chưa khóa
+                            (bấm để khóa); ổ khóa ĐÓNG (nền xanh) = đang khóa (bấm để mở). */}
+                        {state === 'Chờ xuất HĐ' && (() => {
+                          const lockedBy = card.tickets[0]?.khoa_boi || null
+                          const locked = !!lockedBy
+                          const nguoiKhoa = card.tickets[0]?.nguoi_khoa?.full_name || 'người khác'
+                          return (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); toggleLock(card) }}
+                              title={locked ? `Đang khóa bởi ${nguoiKhoa} — bấm để mở (chủ phiếu/admin)` : 'Khóa phiếu — đang làm dở, không cho người khác động'}
+                              aria-label={locked ? 'Mở khóa phiếu' : 'Khóa phiếu'}
+                              className={`p-1 rounded transition border ${locked ? 'text-blue-600 bg-blue-50 border-blue-200 hover:bg-blue-100' : 'text-slate-400 border-slate-200 hover:text-slate-600 hover:bg-slate-50'}`}
+                            >
+                              {locked ? <Lock className="w-3.5 h-3.5" /> : <LockOpen className="w-3.5 h-3.5" />}
+                            </button>
+                          )
+                        })()}
                         {/* Xuất riêng THẺ NÀY ra M-invoice (1 chạm) — chỉ kế toán, chỉ cột KT-HC lên hóa đơn.
                             Thẻ đã xuất -> nút chuyển "Xuất lại" (cam) + XÁC NHẬN, vì xuất lại = có thể tạo HĐ trùng. */}
                         {state === 'Đang xử lý HĐ' && isKeToan && (() => {
@@ -2015,7 +2080,10 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
   // Chỉ được sửa tên/đơn giá/nhập Excel khi phiếu CÒN Ở "Chờ xuất HĐ" (chưa đưa sang kế toán).
   // Đã chuyển sang kế toán để lên hóa đơn -> mọi role chỉ COPY, không sửa (khóa để đúng số liệu HĐ).
   // Cần sửa thì admin kéo thẻ về cột "Chờ lên hóa đơn" trước.
-  const canEditItems = activeCard?.tickets[0]?.trang_thai_hd === 'Chờ xuất HĐ'
+  // Thẻ đang bị ĐỒNG NGHIỆP khóa -> office khác chỉ XEM (không sửa tên/giá/ĐVT/làm tròn/sắp xếp).
+  // Chủ phiếu + admin vẫn sửa bình thường.
+  const activeLockedByOther = !!activeCard && role !== 'admin' && !!activeCard.tickets[0]?.khoa_boi && activeCard.tickets[0]?.khoa_boi !== currentUserId
+  const canEditItems = activeCard?.tickets[0]?.trang_thai_hd === 'Chờ xuất HĐ' && !activeLockedByOther
   // Chỉ kế toán (admin/kthc) mới nhập số HĐ + hoàn tất xuất hóa đơn. tech_admin/staff chỉ bàn giao.
   const isKeToan = role === 'admin' || role === 'kthc'
 
@@ -2544,6 +2612,12 @@ export default function KanbanHdTool({ role = 'staff', showNotification, v2Layou
 
               {/* Bảng chi tiết sản phẩm / dịch vụ */}
               <div className="space-y-2">
+                {activeLockedByOther && (
+                  <div className="flex items-center gap-1.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-xs px-2.5 py-1.5">
+                    <Lock className="w-3.5 h-3.5 shrink-0" />
+                    <span>Phiếu đang được <b>{activeCard?.tickets[0]?.nguoi_khoa?.full_name || 'đồng nghiệp'}</b> khóa — chỉ xem, không sửa được.</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Danh sách sản phẩm dịch vụ ({modalDisplayRows.length} mặt hàng){canEditItems && <span className="ml-1.5 normal-case font-normal t3 text-slate-400">· kéo ⠿ để đổi thứ tự</span>}</div>
                   <div className="flex items-center gap-1.5">

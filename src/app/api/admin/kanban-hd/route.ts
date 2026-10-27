@@ -50,7 +50,7 @@ export async function GET(request: Request) {
       return supabaseAdmin
         .from('soct_cong_viec')
         .select(`
-          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, mien_phi, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, ngay_xuat_hd, thanh_toan_luc, ban_giao_kt_luc, nguoi_xuat_hd, dntt_luc, so_dntt, dntt_lan, lam_tron, ten_khach_hd, nguon, ly_do_tra, minvoice_luc, minvoice_lan, tach_rieng, hd_lo,
+          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, mien_phi, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, ngay_xuat_hd, thanh_toan_luc, ban_giao_kt_luc, nguoi_xuat_hd, dntt_luc, so_dntt, dntt_lan, lam_tron, ten_khach_hd, nguon, ly_do_tra, minvoice_luc, minvoice_lan, tach_rieng, hd_lo, khoa_boi, khoa_luc,
           nguoi_xuat:soct_users!nguoi_xuat_hd ( full_name ),
           soct_khach_hang (
             id,
@@ -128,6 +128,19 @@ export async function GET(request: Request) {
       }
     }
 
+    // Tên NGƯỜI ĐẨY (created_by) + NGƯỜI KHÓA (khoa_boi) cho Cột 1 — tra riêng để tránh
+    // rối embed nhiều FK→soct_users. nguoi_tao dùng cho hộp xác nhận "phiếu của đồng nghiệp".
+    const uidSet = new Set<string>()
+    for (const t of filtered as any[]) { if (t.created_by) uidSet.add(t.created_by); if (t.khoa_boi) uidSet.add(t.khoa_boi) }
+    if (uidSet.size) {
+      const { data: us } = await supabaseAdmin.from('soct_users').select('id, full_name').in('id', [...uidSet])
+      const um = new Map((us || []).map((u: any) => [u.id, u.full_name]))
+      for (const t of filtered as any[]) {
+        t.nguoi_tao = t.created_by ? { full_name: um.get(t.created_by) || '' } : null
+        t.nguoi_khoa = t.khoa_boi ? { full_name: um.get(t.khoa_boi) || '' } : null
+      }
+    }
+
     return NextResponse.json({ data: filtered })
   } catch (error: any) {
     console.error('Error fetching kanban data:', error)
@@ -152,6 +165,17 @@ export async function PUT(request: Request) {
     }
 
     let targetIds = ids || [id]
+
+    // KHÓA phiếu Cột 1: người KHÁC (không phải admin) không được kéo/bàn giao/thu hồi phiếu
+    // đang bị đồng nghiệp khóa ("tôi đang làm dở, đừng động"). Chốt chặn server (bịt kẽ hở gọi API).
+    if (session.role !== 'admin') {
+      const { data: locks } = await supabaseAdmin.from('soct_cong_viec').select('id, khoa_boi').in('id', targetIds)
+      const locked = (locks || []).find((r: any) => r.khoa_boi && r.khoa_boi !== session.id)
+      if (locked) {
+        const { data: u } = await supabaseAdmin.from('soct_users').select('full_name').eq('id', locked.khoa_boi).single()
+        return NextResponse.json({ error: `Phiếu đang được ${u?.full_name || 'người khác'} khóa — không thao tác được.` }, { status: 403 })
+      }
+    }
 
     // Validate trạng thái
     const allowedStates = ['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn', 'Đã thanh toán', 'Chưa hóa đơn']
@@ -206,7 +230,11 @@ export async function PUT(request: Request) {
     }
 
     const updates: any = {
-      trang_thai_hd
+      trang_thai_hd,
+      // Khóa chỉ là khái niệm ở Cột 1. Mọi lần đổi trạng thái đều GỠ khóa: rời Cột 1 (bàn giao/
+      // thu hồi) hoặc quay lại Cột 1 do reset (phiếu coi như mới, chưa ai giữ).
+      khoa_boi: null,
+      khoa_luc: null,
     }
 
     // Ý định gom/tách lúc bàn giao kế toán (cột 1 -> 2): lưu để cột 2 hiển thị đúng cho MỌI người
