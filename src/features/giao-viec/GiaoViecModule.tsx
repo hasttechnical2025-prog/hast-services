@@ -160,7 +160,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
 
   // Xuất Excel — CHỈ danh sách đang lọc (visibleRows), 14 cột khớp bản admin.
   const exportExcel = async () => {
-    const headers = ['Ngày', 'Số phiếu', 'Khách hàng', 'Địa chỉ', 'Mã máy', 'Model', 'SL', 'Loại việc', 'Mã hàng', 'Tên hàng', 'KTV', 'KM', 'Trạng thái', 'Ghi chú']
+    const headers = ['Ngày', 'Số phiếu', 'Khách hàng', 'Địa chỉ', 'Mã máy', 'Model', 'SL', 'Loại việc', 'Mã hàng', 'Tên hàng', 'SL hàng', 'KTV', 'KM', 'Trạng thái', 'Ghi chú']
     const rows = visibleRows.map(j => {
       const vt = j.soct_chi_tiet_vat_tu || []
       return [
@@ -169,6 +169,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
         j.soct_khach_hang?.model || '', j.so_luong || 1, j.loai_cong_viec,
         vt.map(v => v.ma_hang).filter(Boolean).join(', '),
         vt.map(v => v.soct_kho_hang?.ten_hang || v.ma_hang).filter(Boolean).join(', '),
+        vt.filter(v => v.ma_hang).map(v => v.so_luong ?? '').join(', '),
         j.soct_users?.full_name || 'Chưa giao', j.km, j.ket_qua, j.ghi_chu || '',
       ]
     })

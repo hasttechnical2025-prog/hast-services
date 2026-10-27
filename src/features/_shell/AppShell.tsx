@@ -11,7 +11,6 @@ import { useSession } from './SessionProvider'
 import { useBadges } from './BadgeProvider'
 import { NotificationCenter } from './NotificationCenter'
 import TroLyAI from './TroLyAI'
-import DraggableFab from '@/components/DraggableFab'
 
 // Badge đỏ đếm (như bản cũ) bám phải trong mục sidebar.
 function CountPill({ n }: { n: number }) {
@@ -282,8 +281,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </section>
       {/* Trợ lý AI — nút nổi (mặc định góc trên phải, kéo được), gate quyền tro_ly. */}
       {tabVisible('tro_ly') && <TroLyAI />}
-      {/* Nút nổi KÉO-THẢ quay lại giao diện cũ (/admin) — mặc định bên trái (trên footer sidebar), tránh che bảng. */}
-      <DraggableFab href="/admin" label="Giao diện cũ" icon={<Icons.ArrowLeft className="w-4 h-4" />} storageKey="v2:fab-back" defaultPos="bottom-20 left-4" className="bg-slate-700 hover:bg-slate-800" />
     </div>
   )
 }

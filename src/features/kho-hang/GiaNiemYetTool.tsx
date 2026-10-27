@@ -119,8 +119,8 @@ export function GiaNiemYetTool({ showNotification, hangOptions }: { showNotifica
 
   const toolbar = (
     <div className="flex flex-wrap gap-2.5 items-center">
-      <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã / tên vật tư..." className="h-9 w-56" />
-      <Input value={qModel} onChange={e => setQModel(e.target.value)} placeholder="Tìm model..." className="h-9 w-44" />
+      <div className="relative w-56"><Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã / tên vật tư..." className="h-9 w-full pr-7" />{q && <button type="button" onClick={() => setQ('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>}</div>
+      <div className="relative w-44"><Input value={qModel} onChange={e => setQModel(e.target.value)} placeholder="Tìm model..." className="h-9 w-full pr-7" />{qModel && <button type="button" onClick={() => setQModel('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>}</div>
       <select value={fHang} onChange={e => setFHang(e.target.value)} className="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-700">
         <option value="">Tất cả hãng</option>
         {hangOptions.map(h => <option key={h} value={h}>{h}</option>)}

@@ -97,6 +97,16 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
     return c
   }, [rows])
 
+  const delAll = async () => {
+    if (!(await confirm(`XÓA TOÀN BỘ danh sách chăm sóc (${rows.length} máy) kèm lịch sử & nhật ký?\nHành động KHÔNG thể hoàn tác.`, { danger: true, confirmLabel: 'Xóa toàn bộ' }))) return
+    try {
+      const res = await fetch('/api/admin/cskh?all=1', { method: 'DELETE' })
+      if (!res.ok) throw new Error((await res.json()).error)
+      showNotification('success', 'Đã xóa toàn bộ danh sách CSKH')
+      load()
+    } catch (err: any) { showNotification('error', err.message || 'Lỗi xóa') }
+  }
+
   const delMay = async (r: any, e?: any) => {
     e?.stopPropagation?.()
     if (!(await confirm(`Xóa máy ${r.ma_may} khỏi danh sách chăm sóc?`, { danger: true, confirmLabel: 'Xóa' }))) return
@@ -115,7 +125,8 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[180px] max-w-xs">
             <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã máy / khách / SĐT / vật tư…" className="h-9 pl-9 bg-white" />
+            <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã máy / khách / SĐT / vật tư…" className="h-9 pl-9 pr-7 bg-white" />
+            {q && <button type="button" onClick={() => setQ('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>}
           </div>
           <select value={fPhan} onChange={e => setFPhan(e.target.value as any)} className="h-9 rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-700">
             <option value="all">Phân loại: Tất cả ({rows.length})</option>
@@ -135,6 +146,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
             <Button onClick={() => setAddOpen(true)} className="h-9 px-3 gap-1.5 text-xs"><Plus className="w-4 h-4" /> Thêm máy</Button>
             {isAdmin && <Button variant="outline" onClick={() => setImportOpen(true)} className="h-9 px-3 gap-1.5 text-xs"><Upload className="w-4 h-4" /> Import</Button>}
             <Button variant="outline" onClick={load} disabled={loading} title="Tải lại" className="h-9 px-3 gap-1.5 text-xs"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>
+            {isAdmin && rows.length > 0 && <Button variant="outline" onClick={delAll} title="Xóa toàn bộ danh sách CSKH" className="h-9 px-3 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400"><Trash2 className="w-4 h-4" /> Xóa toàn bộ</Button>}
           </div>
         </div>
       }>

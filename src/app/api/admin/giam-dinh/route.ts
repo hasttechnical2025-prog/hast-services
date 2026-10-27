@@ -15,6 +15,12 @@ export async function GET(request: Request) {
     const ma_may = searchParams.get('ma_may')
     const chuaThay = searchParams.get('chua_thay') // '1' -> chỉ lấy biên bản chưa thay
 
+    // ?count=1 : chỉ trả SỐ biên bản CHƯA THAY (badge sidebar) — nhẹ, không kèm quan hệ.
+    if (searchParams.get('count') === '1') {
+      const { count } = await supabaseAdmin.from('soct_giam_dinh').select('id', { count: 'exact', head: true }).eq('da_thay', false)
+      return NextResponse.json({ count: count || 0 })
+    }
+
     const data = await selectAll((from, to) => {
       let query = supabaseAdmin
         .from('soct_giam_dinh')

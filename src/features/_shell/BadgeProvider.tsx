@@ -78,6 +78,15 @@ export function BadgeProvider({ children }: { children: React.ReactNode }) {
       } else finish()
     } else setKey('tai_chinh.thue_cpc', 0)
 
+    // ── Theo dõi máy ──
+    if (subVisible('theo_doi_may', 'bao_tri')) {
+      fetch('/api/admin/bao-tri/count').then(r => r.ok ? r.json() : { count: 0 }).then(j => setKey('theo_doi_may.bao_tri', j.count ?? 0)).catch(() => {})
+    } else setKey('theo_doi_may.bao_tri', 0)
+
+    if (subVisible('theo_doi_may', 'giam_dinh')) {
+      fetch('/api/admin/giam-dinh?count=1').then(r => r.ok ? r.json() : { count: 0 }).then(j => setKey('theo_doi_may.giam_dinh', j.count ?? 0)).catch(() => {})
+    } else setKey('theo_doi_may.giam_dinh', 0)
+
     // ── Kanban Hóa đơn: số PHIẾU cột 2 (Đang xử lý HĐ) chưa xuất M-invoice ──
     if (subVisible('tai_chinh', 'kanban')) {
       fetch('/api/admin/kanban-hd?count=1').then(r => r.ok ? r.json() : { col2_chua_minv: 0 }).then(j => setKey('tai_chinh.kanban', j.col2_chua_minv ?? 0)).catch(() => {})

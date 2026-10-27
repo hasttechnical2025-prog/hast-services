@@ -105,7 +105,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
       <ListFrame paged={!loading && !err && list.length > 0 ? paged : undefined} unit="vật tư" toolbar={
       <div className="space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative flex-1 min-w-[180px] max-w-xs"><Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" /><Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm khách / máy / mực…" className="h-9 pl-9 bg-white w-full" /></div>
+          <div className="relative flex-1 min-w-[180px] max-w-xs"><Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" /><Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm khách / máy / mực…" className="h-9 pl-9 pr-7 bg-white w-full" />{q && <button type="button" onClick={() => setQ('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>}</div>
           <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden shrink-0 text-xs">
             {([['all', 'Tất cả'], ['muc', 'Mực'], ['trong', 'Trống']] as const).map(([v, label]) => (
               <button key={v} type="button" onClick={() => setNhom(v)}

@@ -452,7 +452,8 @@ export function NhapHangThangTool({
               <label className="text-xs font-semibold text-slate-600">Tìm mã hàng / tên vật tư</label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input value={q} onChange={e => setQ(e.target.value)} placeholder="VD: TN326, trống lấy ảnh..." className="pl-8 h-9 text-xs w-56 bg-white" />
+                <Input value={q} onChange={e => setQ(e.target.value)} placeholder="VD: TN326, trống lấy ảnh..." className="pl-8 pr-7 h-9 text-xs w-56 bg-white" />
+                {q && <button type="button" onClick={() => setQ('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>}
               </div>
             </div>
             <div className="space-y-1">

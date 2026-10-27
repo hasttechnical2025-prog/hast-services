@@ -127,7 +127,21 @@ export async function DELETE(request: Request) {
   try {
     const session = await gate()
     if (!session) return NextResponse.json({ error: 'Không có quyền' }, { status: 401 })
-    const id = new URL(request.url).searchParams.get('id')
+    const sp = new URL(request.url).searchParams
+
+    // Xóa TOÀN BỘ danh sách CSKH (chỉ admin) — máy + lịch sử + nhật ký.
+    if (sp.get('all') === '1') {
+      if (session.role !== 'admin') return NextResponse.json({ error: 'Chỉ admin được xóa toàn bộ' }, { status: 403 })
+      for (const tbl of ['soct_cskh_log', 'soct_cskh_lichsu', 'soct_cskh_may']) {
+        const { error } = await supabaseAdmin.from(tbl).delete().not('id', 'is', null)
+        if (error) throw error
+      }
+      await logAudit(session, 'Xóa TOÀN BỘ danh sách CSKH', '')
+      await broadcastCskhChanged()
+      return NextResponse.json({ success: true })
+    }
+
+    const id = sp.get('id')
     if (!id) return NextResponse.json({ error: 'Thiếu id' }, { status: 400 })
     const { error } = await supabaseAdmin.from('soct_cskh_may').update({ an: true }).eq('id', id)
     if (error) throw error
