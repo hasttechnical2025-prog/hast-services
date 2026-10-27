@@ -18,18 +18,26 @@ export async function POST(request: Request) {
     // Chỉ khóa/mở phiếu CÒN ở Cột 1 (Chờ xuất HĐ).
     const { data: rows } = await supabaseAdmin
       .from('soct_cong_viec')
-      .select('id, khoa_boi, trang_thai_hd')
+      .select('id, khoa_boi, created_by, trang_thai_hd')
       .in('id', ids)
     const col1 = (rows || []).filter((r: any) => r.trang_thai_hd === 'Chờ xuất HĐ')
     if (col1.length === 0) return NextResponse.json({ error: 'Phiếu không còn ở cột Chờ xuất HĐ.' }, { status: 400 })
     const col1Ids = col1.map((r: any) => r.id)
 
-    // Phiếu đang bị người KHÁC khóa -> chỉ admin được chiếm/mở (chủ phiếu tự mở được của mình).
-    const other = col1.find((r: any) => r.khoa_boi && r.khoa_boi !== session.id)
-    if (other && session.role !== 'admin') {
-      const { data: u } = await supabaseAdmin.from('soct_users').select('full_name').eq('id', other.khoa_boi).single()
-      const ten = u?.full_name || 'người khác'
-      return NextResponse.json({ error: `Phiếu đang được ${ten} khóa — chỉ ${ten} hoặc admin mới mở được.` }, { status: 403 })
+    if (action === 'khoa') {
+      // KHÓA: chỉ CHỦ PHIẾU (created_by) hoặc admin. Không được khóa phiếu do người khác đẩy.
+      if (session.role !== 'admin') {
+        const notOwn = col1.find((r: any) => r.created_by !== session.id)
+        if (notOwn) return NextResponse.json({ error: 'Chỉ khóa được phiếu do chính bạn đẩy.' }, { status: 403 })
+      }
+    } else {
+      // MỞ: chủ của KHÓA (khoa_boi) hoặc admin. Phiếu người khác khóa -> không mở được (trừ admin).
+      const other = col1.find((r: any) => r.khoa_boi && r.khoa_boi !== session.id)
+      if (other && session.role !== 'admin') {
+        const { data: u } = await supabaseAdmin.from('soct_users').select('full_name').eq('id', other.khoa_boi).single()
+        const ten = u?.full_name || 'người khác'
+        return NextResponse.json({ error: `Phiếu đang được ${ten} khóa — chỉ ${ten} hoặc admin mới mở được.` }, { status: 403 })
+      }
     }
 
     if (action === 'khoa') {

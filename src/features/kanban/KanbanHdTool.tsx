@@ -556,20 +556,29 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
     const t0 = card.tickets[0]
     const lockedBy = t0?.khoa_boi || null
     const locked = !!lockedBy
-    const canUnlock = role === 'admin' || (lockedBy && lockedBy === currentUserId)
-    if (locked && !canUnlock) {
-      showNotification('error', `Phiếu đang được ${t0?.nguoi_khoa?.full_name || 'người khác'} khóa.`)
-      return
-    }
+    const isAdmin = role === 'admin'
     const action = locked ? 'mo' : 'khoa'
+    // Chặn sớm (phản hồi tức thì, trùng luật server):
+    if (action === 'mo') {
+      const canUnlock = isAdmin || (lockedBy && lockedBy === currentUserId)
+      if (!canUnlock) { showNotification('error', `Phiếu đang được ${t0?.nguoi_khoa?.full_name || 'người khác'} khóa — chỉ người đó hoặc admin mới mở được.`); return }
+    } else {
+      const ownAll = card.tickets.every((t: any) => t.created_by && t.created_by === currentUserId)
+      if (!isAdmin && !ownAll) { showNotification('error', 'Chỉ khóa được phiếu do chính bạn đẩy.'); return }
+    }
+    const ids: string[] = card.tickets.map((t: any) => t.id)
+    const newKhoaBoi = action === 'khoa' ? (currentUserId || null) : null
+    const newNguoiKhoa = action === 'khoa' ? { full_name: 'Bạn' } : null
+    // Cập nhật LẠC QUAN: đổi icon ngay tại chỗ, không chờ refetch toàn bảng. Lỗi -> load() revert.
+    setTickets(prev => prev.map(t => ids.includes(t.id) ? { ...t, khoa_boi: newKhoaBoi, nguoi_khoa: newNguoiKhoa } : t))
     try {
       const res = await fetch('/api/admin/kanban-hd/khoa', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: card.tickets.map((t: any) => t.id), action }),
+        body: JSON.stringify({ ids, action }),
       })
-      if (res.ok) { showNotification('success', action === 'khoa' ? 'Đã khóa phiếu.' : 'Đã mở khóa phiếu.'); load() }
-      else { const e = await res.json().catch(() => ({})); showNotification('error', e.error || 'Lỗi khóa/mở phiếu') }
-    } catch { showNotification('error', 'Lỗi kết nối') }
+      if (res.ok) { showNotification('success', action === 'khoa' ? 'Đã khóa phiếu.' : 'Đã mở khóa phiếu.') }
+      else { const e = await res.json().catch(() => ({})); showNotification('error', e.error || 'Lỗi khóa/mở phiếu'); load() }
+    } catch { showNotification('error', 'Lỗi kết nối'); load() }
   }
 
   // Xuất Đề nghị thanh toán (.docx) cho 1 số hóa đơn. Tải file + cập nhật badge (load lại).
