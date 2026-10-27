@@ -46,6 +46,8 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
   const [sel, setSel] = useState<any | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
+  const [syncLuc, setSyncLuc] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -55,9 +57,23 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
       if (!r.ok) throw new Error(j.error || 'Lỗi tải')
       setRows(j.data || [])
       if (j.nguong) setNguong(j.nguong)
+      setSyncLuc(j.sync_luc || null)
     } catch (e: any) { showNotification('error', e.message || 'Lỗi tải danh sách') }
     finally { setLoading(false) }
   }, [showNotification])
+
+  // Đồng bộ CSKH từ phiếu giao việc đã Hoàn thành (nút tay).
+  const syncPhieu = async () => {
+    setSyncing(true)
+    try {
+      const r = await fetch('/api/admin/cskh/sync-phieu', { method: 'POST' })
+      const j = await r.json()
+      if (!r.ok) throw new Error(j.error || 'Lỗi đồng bộ')
+      showNotification('success', `Đồng bộ xong: ${j.may} máy · +${j.lichsu_them} lượt${j.tao_moi ? ` · ${j.tao_moi} máy mới` : ''}`)
+      load()
+    } catch (e: any) { showNotification('error', e.message || 'Lỗi đồng bộ') }
+    finally { setSyncing(false) }
+  }
 
   useEffect(() => { load() }, [load])
   useRealtimeRefetch(CSKH_TOPIC, DATA_EVENT, load)
@@ -143,6 +159,8 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
             Chưa khớp điểm máy {counts.chua_khop > 0 && <span className="text-amber-600 font-semibold">({counts.chua_khop})</span>}
           </label>
           <div className="ml-auto flex items-center gap-2">
+            {syncLuc && <span className="text-[11px] text-slate-400 hidden md:inline" title="Lần cuối đồng bộ từ phiếu giao việc">Đồng bộ {fmtDate(syncLuc)} {String(syncLuc).slice(11, 16)}</span>}
+            <Button variant="outline" onClick={syncPhieu} disabled={syncing} title="Lấy dữ liệu từ phiếu giao việc đã Hoàn thành (Sửa chữa/Thay vật tư/Giao mực/Lắp đặt)" className="h-9 px-3 gap-1.5 text-xs"><RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} /> Đồng bộ từ phiếu</Button>
             <Button onClick={() => setAddOpen(true)} className="h-9 px-3 gap-1.5 text-xs"><Plus className="w-4 h-4" /> Thêm máy</Button>
             {isAdmin && <Button variant="outline" onClick={() => setImportOpen(true)} className="h-9 px-3 gap-1.5 text-xs"><Upload className="w-4 h-4" /> Import</Button>}
             <Button variant="outline" onClick={load} disabled={loading} title="Tải lại" className="h-9 px-3 gap-1.5 text-xs"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</Button>
@@ -162,14 +180,15 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
               <Th f="phan_loai" label="Phân loại" />
               <Th f="giai_doan" label="Giai đoạn" />
               <Th f="hen" label="Hẹn" align="center" />
+              <th className="px-3 py-2.5 text-center">Nguồn</th>
               <th className="px-3 py-2.5 text-center">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? (
-              <tr><td colSpan={10} className="text-center py-10 text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải…</td></tr>
+              <tr><td colSpan={11} className="text-center py-10 text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải…</td></tr>
             ) : paged.pageItems.length === 0 ? (
-              <tr><td colSpan={10} className="text-center py-10 text-slate-400 italic">{rows.length === 0 ? 'Chưa có dữ liệu. Bấm Import để nạp danh sách.' : 'Không khớp bộ lọc.'}</td></tr>
+              <tr><td colSpan={11} className="text-center py-10 text-slate-400 italic">{rows.length === 0 ? 'Chưa có dữ liệu. Bấm Import để nạp danh sách.' : 'Không khớp bộ lọc.'}</td></tr>
             ) : paged.pageItems.map(r => {
               const p = PHAN[r.phan_loai] || PHAN.dang_dung
               const henQuaHan = r.hen && r.hen < todayVN()
@@ -187,6 +206,13 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
                   <td className="px-3 py-2"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold ${p.chip}`}><span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />{p.label}</span></td>
                   <td className={`px-3 py-2 whitespace-nowrap ${(GIAI[r.giai_doan] || GIAI.chua_lien_he).cls}`}>{(GIAI[r.giai_doan] || GIAI.chua_lien_he).label}</td>
                   <td className={`px-3 py-2 text-center whitespace-nowrap ${henQuaHan ? 'text-red-600 font-semibold' : 'text-slate-500'}`}>{r.hen ? (henQuaHan ? 'quá hạn' : fmtDate(r.hen)) : '—'}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div className="flex items-center justify-center gap-1">
+                      {r.co_app && <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-semibold" title="Có dữ liệu từ phiếu giao việc">App</span>}
+                      {r.co_import && <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[10px] font-semibold" title="Có dữ liệu import từ phần mềm khác">Import</span>}
+                      {!r.co_app && !r.co_import && <span className="text-slate-300">—</span>}
+                    </div>
+                  </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center justify-center gap-2.5">
                       <button onClick={e => { e.stopPropagation(); setSel(r) }} title="Ghi chăm sóc" className="text-blue-600 hover:text-blue-800"><Headset className="w-4 h-4" /></button>
@@ -296,9 +322,12 @@ function ProfileModal({ row, role, onClose, onChanged, showNotification, confirm
                 {!detail ? <div className="p-3 text-xs text-slate-400">Đang tải…</div>
                   : detail.lichsu.length === 0 ? <div className="p-3 text-xs text-slate-400 italic">Chưa có lịch sử.</div>
                     : detail.lichsu.map((h, i) => (
-                      <div key={i} className="flex justify-between gap-2 px-3 py-1.5 text-xs">
+                      <div key={i} className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs">
                         <span className="font-mono text-slate-500 shrink-0">{fmtThang(h.thang)}</span>
-                        <span className="text-slate-600 text-right truncate">{h.vat_tu || '—'}</span>
+                        <span className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-slate-600 text-right truncate">{h.vat_tu || '—'}</span>
+                          <span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-semibold ${h.nguon === 'phieu' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-500'}`} title={h.nguon === 'phieu' ? 'Từ phiếu giao việc' : 'Import từ phần mềm khác'}>{h.nguon === 'phieu' ? 'App' : 'Import'}</span>
+                        </span>
                       </div>
                     ))}
               </div>

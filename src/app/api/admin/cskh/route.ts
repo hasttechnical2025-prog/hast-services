@@ -4,6 +4,7 @@ import { requireTab } from '@/lib/session'
 import { logAudit } from '@/lib/audit'
 import { broadcastCskhChanged } from '@/lib/realtime'
 import { autoPhanLoai, nguongPhanLoai, layMapDiemMay } from '@/lib/cskh'
+import { getCauHinh } from '@/lib/config'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -19,12 +20,23 @@ export async function GET() {
     const session = await gate()
     if (!session) return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 })
 
-    const [mays, logs, { nguyco, mat }, byMa] = await Promise.all([
+    const [mays, logs, lichsuNguon, { nguyco, mat }, byMa, cfg] = await Promise.all([
       selectAll<any>((f, t) => supabaseAdmin.from('soct_cskh_may').select('*').eq('an', false).range(f, t)),
       selectAll<any>((f, t) => supabaseAdmin.from('soct_cskh_log').select('ma_may, ngay, ngay_hen').range(f, t)),
+      selectAll<any>((f, t) => supabaseAdmin.from('soct_cskh_lichsu').select('ma_may, nguon').range(f, t)),
       nguongPhanLoai(),
       layMapDiemMay(),  // khớp điểm máy ĐỘNG lúc đọc: thêm máy vào điểm máy xong, Tải lại là khớp lại
+      getCauHinh(),
     ])
+
+    // Nguồn lịch sử theo máy (App=phiếu / Import) -> nhãn ở danh sách.
+    const nguonMap = new Map<string, { app: boolean; imp: boolean }>()
+    for (const l of lichsuNguon || []) {
+      const k = String(l.ma_may)
+      const o = nguonMap.get(k) || { app: false, imp: false }
+      if (l.nguon === 'phieu') o.app = true; else o.imp = true
+      nguonMap.set(k, o)
+    }
 
     const today = todayVN()
     const agg = new Map<string, { lan_cham: string | null; hen: string | null }>()
@@ -52,9 +64,10 @@ export async function GET() {
         phan_loai, phan_loai_tay: !!m.phan_loai_tay, giai_doan: m.giai_doan || 'chua_lien_he',
         khop_diem_may: !!app, ghi_chu: m.ghi_chu || '',
         lan_cham: a?.lan_cham || null, hen: a?.hen || null,
+        co_app: !!nguonMap.get(String(m.ma_may))?.app, co_import: !!nguonMap.get(String(m.ma_may))?.imp,
       }
     })
-    return NextResponse.json({ data: rows, nguong: { nguyco, mat } })
+    return NextResponse.json({ data: rows, nguong: { nguyco, mat }, sync_luc: cfg['cskh_sync_phieu_luc'] || null })
   } catch (error: any) {
     console.error('Error GET cskh:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })

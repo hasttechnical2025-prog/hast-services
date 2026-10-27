@@ -6,6 +6,7 @@ import { getCauHinh } from '@/lib/config'
 import { logAudit } from '@/lib/audit'
 import { clampTapISO, clampPhut } from '@/lib/thoi-gian'
 import { sendTelegramMessage, editTelegramMessageText } from '@/lib/telegram'
+import { laLoaiPhucVuCSKH, syncCskhFromPhieu } from '@/lib/cskh'
 
 // Giao mực / Thay vật tư BẮT BUỘC có Số phiếu + ít nhất 1 vật tư (loại khác thì không).
 // Chặn ở server để gọi API trực tiếp cũng không lọt. Trả chuỗi lỗi hoặc null.
@@ -1027,6 +1028,12 @@ export async function PUT(request: Request) {
       await supabaseAdmin
         .from('soct_bao_tri')
         .upsert({ ma_may: data.ma_may, thang_nam, ngay: data.ngay, ktv_id: data.ktv_id || null }, { onConflict: 'ma_may,thang_nam' })
+    }
+
+    // Nối CSKH: phiếu PHỤC VỤ (Sửa chữa/Thay vật tư/Giao mực/Lắp đặt, không miễn phí) vừa Hoàn thành
+    // -> đồng bộ máy đó vào Chăm sóc KH (nguồn sống). Best-effort: lỗi KHÔNG làm hỏng cập nhật phiếu.
+    if (updates.ket_qua === 'Hoàn thành' && data.ma_may && !data.mien_phi && laLoaiPhucVuCSKH(data.loai_cong_viec)) {
+      try { await syncCskhFromPhieu([String(data.ma_may)]) } catch (e) { console.error('Sync CSKH từ phiếu lỗi:', e) }
     }
 
     await broadcastJobsChanged()

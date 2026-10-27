@@ -86,7 +86,7 @@ export async function POST(request: Request) {
         const key = `${o.ma}|${h.thang}|${h.vat_tu || ''}`
         if (seen.has(key)) continue
         seen.add(key)
-        newLichsu.push({ ma_may: o.ma, thang: h.thang, vat_tu: h.vat_tu || null as any })
+        newLichsu.push({ ma_may: o.ma, thang: h.thang, vat_tu: h.vat_tu || null as any, nguon: 'import' } as any)
         newCount.set(o.ma, (newCount.get(o.ma) || 0) + 1)
       }
     }

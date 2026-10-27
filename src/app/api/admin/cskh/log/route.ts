@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
     const [logs, lichsu] = await Promise.all([
       selectAll<any>((f, t) => supabaseAdmin.from('soct_cskh_log').select('*').eq('ma_may', ma).order('ngay', { ascending: false }).range(f, t)),
-      selectAll<any>((f, t) => supabaseAdmin.from('soct_cskh_lichsu').select('thang, vat_tu').eq('ma_may', ma).order('thang', { ascending: false }).range(f, t)),
+      selectAll<any>((f, t) => supabaseAdmin.from('soct_cskh_lichsu').select('thang, vat_tu, nguon').eq('ma_may', ma).order('thang', { ascending: false }).range(f, t)),
     ])
     return NextResponse.json({ logs: logs || [], lichsu: lichsu || [] })
   } catch (error: any) {
