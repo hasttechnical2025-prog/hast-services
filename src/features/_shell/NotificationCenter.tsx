@@ -14,7 +14,7 @@ type Section = { key: string; icon: any; label: string; count: number; tone: Ton
 
 // Chuông cảnh báo xuyên-module — kiểu /admin: gom nhiều nhóm, mỗi nhóm bung chi tiết + link ĐÚNG vùng v2.
 export function NotificationCenter() {
-  const { subVisible, tabVisible } = useSession()
+  const { subVisible, tabVisible, user } = useSession()
   const a = useAlerts()
   const [open, setOpen] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -145,7 +145,8 @@ export function NotificationCenter() {
     },
     {
       key: 'kanban_c1', icon: ClipboardList, tone: 'amber', label: 'Thẻ chờ lên hóa đơn (Kanban Cột 1)', count: a.kanban.col1,
-      navHref: `${V2_BASE}/kanban`, navLabel: '→ Mở Kanban Hóa đơn', canSee: subVisible('tai_chinh', 'kanban'),
+      // Cột 1 = cột OFFICE bàn giao; kthc không có Cột 1 trên bàn → không hiện cho kthc.
+      navHref: `${V2_BASE}/kanban`, navLabel: '→ Mở Kanban Hóa đơn', canSee: subVisible('tai_chinh', 'kanban') && user?.role !== 'kthc',
       detail: (
         <div className="text-xs text-slate-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 leading-relaxed">
           <b>{a.kanban.col1}</b> thẻ{a.kanban.col1_phieu !== a.kanban.col1 ? ` (gồm ${a.kanban.col1_phieu} phiếu)` : ''} đang ở Cột 1 (Chờ lên hóa đơn) — mỗi thẻ = 1 hóa đơn. Vào <b>Kanban Hóa đơn</b>: <b>bàn giao kế toán</b> lên hóa đơn, hoặc <b>thu hồi</b> về Công nợ nếu chưa cần.
@@ -229,7 +230,9 @@ export function NotificationCenter() {
     },
   ]
 
-  const active = sections.filter(s => s.count > 0)
+  // Chỉ hiện section role được phép xem (canSee) — trước đây chỉ lọc count>0 nên kthc thấy cả
+  // cảnh báo của office (đặt trước, HĐBT, Kanban Cột 1…). canSee undefined coi như được xem.
+  const active = sections.filter(s => s.count > 0 && s.canSee !== false)
   const total = active.reduce((s, x) => s + x.count, 0)
   const worst = active.some(s => s.tone === 'red') ? 'red' : active.some(s => s.tone === 'amber') ? 'amber' : active.length ? 'blue' : 'none'
   const btnCls = worst === 'red' ? 'bg-red-50 border-red-200 text-red-600' : worst === 'amber' ? 'bg-amber-50 border-amber-200 text-amber-600' : worst === 'blue' ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-slate-200 text-slate-400'
