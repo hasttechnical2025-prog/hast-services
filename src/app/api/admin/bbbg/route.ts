@@ -34,7 +34,7 @@ export async function GET(request: Request) {
 
     const { data: job, error } = await supabaseAdmin
       .from('soct_cong_viec')
-      .select(`id, report, ma_may,
+      .select(`id, report, ma_may, id_khach_hang,
         soct_khach_hang ( ten_khach_hang, dia_chi, vi_tri_dat_may, ma_khach_cum, soct_khach_cum ( ten_khach_hang, dia_chi ) ),
         soct_chi_tiet_vat_tu ( ma_hang, ten_hang_hd, don_vi_tinh, so_luong, da_tra, don_gia, vat, thanh_tien, soct_kho_hang ( ten_hang ) )`)
       .eq('id', id).single()
@@ -42,6 +42,16 @@ export async function GET(request: Request) {
 
     const kh: any = job.soct_khach_hang
     const cum: any = kh?.soct_khach_cum          // khách cụm (nếu điểm máy đã gán)
+
+    // MẪU KHÁCH (soct_ten_hang_rieng): tên/ĐVT đã LƯU cho khách nhưng CHƯA ghi xuống dòng phiếu
+    // (office áp mẫu ở Công nợ mà chưa đẩy Kanban). Tra theo scope cụm/điểm máy — y hệt Công nợ gom.
+    const scopeKey = kh?.ma_khach_cum ? `cum:${kh.ma_khach_cum}` : (job.id_khach_hang ? `may:${job.id_khach_hang}` : '')
+    const tplMau: Record<string, { ten?: string | null; dvt?: string | null }> = {}
+    if (scopeKey) {
+      const { data: tplRows } = await supabaseAdmin
+        .from('soct_ten_hang_rieng').select('ma_hang, ten_hang, don_vi_tinh').eq('scope_key', scopeKey)
+      for (const t of (tplRows || []) as any[]) tplMau[t.ma_hang] = { ten: t.ten_hang, dvt: t.don_vi_tinh }
+    }
     // allLines: mẫu chung lấy TOÀN BỘ vật tư; mẫu cũ chỉ lấy dòng chưa trả.
     const allVt = (job.soct_chi_tiet_vat_tu || []) as any[]
     const lines = tpl.allLines ? allVt : allVt.filter(v => !v.da_tra)
@@ -53,9 +63,10 @@ export async function GET(request: Request) {
     const ds: any[] = lines.map((v, i) => {
       const row: any = {
         stt: String(i + 1),
-        // Tên ưu tiên tên áp cho khách (hóa đơn) -> kho -> mã, để biên bản KHỚP hóa đơn.
-        ten: v.ten_hang_hd || v.soct_kho_hang?.ten_hang || v.ma_hang,
-        dvt: v.don_vi_tinh || 'Cái',    // ĐVT theo dòng (khách áp), thiếu thì "Cái"
+        // Tên: dòng (ten_hang_hd) -> MẪU khách đã lưu -> kho -> mã, để BBBG khớp tên đã áp cho khách
+        // (kể cả khi chưa đẩy Kanban nên dòng phiếu chưa ghi ten_hang_hd).
+        ten: v.ten_hang_hd || tplMau[v.ma_hang]?.ten || v.soct_kho_hang?.ten_hang || v.ma_hang,
+        dvt: v.don_vi_tinh || tplMau[v.ma_hang]?.dvt || 'Cái',    // ĐVT: dòng -> mẫu khách -> "Cái"
         sl: String(v.so_luong ?? ''),
         ma: v.ma_hang || '',            // cột Mã hàng (chỉ mẫu VP TW Đảng dùng)
         tinh_trang: 'Hàng mới 100%',
