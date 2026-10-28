@@ -257,8 +257,8 @@ export default function AdminBatchScanQR() {
             {loginLoading ? "Đang xác thực..." : "Đăng nhập"}
           </Button>
           <div className="text-center pt-4 border-t border-slate-100">
-             <Button variant="link" onClick={() => window.location.href = '/admin'} className="text-xs text-slate-500 hover:text-blue-600">
-               Quay lại Dashboard PC
+             <Button variant="link" onClick={() => window.location.href = '/m'} className="text-xs text-slate-500 hover:text-blue-600">
+               Quay lại
              </Button>
           </div>
         </form>

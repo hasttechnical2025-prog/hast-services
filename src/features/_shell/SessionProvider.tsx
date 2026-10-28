@@ -68,10 +68,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
             const cRes = await fetch('/api/admin/cau-hinh')
             if (cRes.ok) cfg = (await cRes.json())?.data || {}
           } catch { /* dùng mặc định -> fail-closed cho role khác admin */ }
-          // Chặn vào giao diện mới nếu role chưa được cấp quyền (admin LUÔN được). Đá về /admin.
+          // Chặn vào giao diện mới nếu role chưa được cấp quyền (admin LUÔN được).
+          // Về màn đăng nhập '/' (KHÔNG đá /admin — tránh vòng lặp với redirect office→/qlkt
+          // của trang /admin; admin cần bản classic thì vào /admin?classic=1 thủ công).
           if (j.data.role !== 'admin') {
             const allowed = String(cfg.v2_roles || '').split(',').map(s => s.trim()).filter(Boolean)
-            if (!allowed.includes(j.data.role)) { router.replace('/admin'); return }
+            if (!allowed.includes(j.data.role)) { router.replace('/'); return }
           }
           setUser(j.data)
           if (alive) setConfig(cfg)

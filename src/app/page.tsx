@@ -28,11 +28,11 @@ export default function Home() {
 
         <div className="flex flex-col gap-4">
           <Link
-            href="/admin"
+            href="/qlkt"
             onClick={handleAdminLinkClick}
             className="w-full py-3 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-medium block"
           >
-            Dashboard Admin (Văn phòng)
+            Dashboard (Văn phòng)
           </Link>
 
           <Link
