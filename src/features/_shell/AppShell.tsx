@@ -11,6 +11,7 @@ import { useSession } from './SessionProvider'
 import { useBadges } from './BadgeProvider'
 import { NotificationCenter } from './NotificationCenter'
 import TroLyAI from './TroLyAI'
+import PushToggle from '@/components/PushToggle'
 
 // Badge đỏ đếm (như bản cũ) bám phải trong mục sidebar.
 function CountPill({ n }: { n: number }) {
@@ -220,6 +221,7 @@ function UserFooter() {
 }
 
 function TopBar({ parent, child }: { parent?: string; child?: string }) {
+  const { user } = useSession()
   const p = parent ? findParent(parent) : undefined
   const c = p?.children.find(x => x.slug === child)
   return (
@@ -234,6 +236,8 @@ function TopBar({ parent, child }: { parent?: string; child?: string }) {
       {/* Chuông đặt cạnh breadcrumb, cách ml-2 để không lẫn với link */}
       <div className="ml-2"><NotificationCenter /></div>
       <div className="flex-1" />
+      {/* Bật/tắt Web Push "có hóa đơn cần xuất" — chỉ kthc (như header /admin cũ) */}
+      {user?.role === 'kthc' && <PushToggle />}
     </header>
   )
 }
