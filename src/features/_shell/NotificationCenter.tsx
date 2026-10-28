@@ -26,7 +26,7 @@ export function NotificationCenter() {
       detail: (
         <div className="border border-red-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
-            <thead className="bg-red-50 text-red-800"><tr><th className="px-2.5 py-1.5 font-medium">Mã / tên mực</th><th className="px-2 py-1.5 font-medium text-center">Khả dụng</th><th className="px-2 py-1.5 font-medium text-center">Chờ về</th><th className="px-2 py-1.5 font-medium text-center">Máy</th></tr></thead>
+            <thead className="bg-red-50 text-red-800"><tr><th className="px-2.5 py-1.5 font-medium">Mã / tên mực</th><th className="px-2 py-1.5 font-medium text-center">Khả dụng</th><th className="px-2 py-1.5 font-medium text-center">Chờ về</th><th className="px-2 py-1.5 font-medium text-center">Máy thuê</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {a.mucCanhBao.map((m: any) => (
                 <tr key={m.ma_hang}>
