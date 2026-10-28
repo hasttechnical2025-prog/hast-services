@@ -105,6 +105,30 @@ export async function PUT(request: Request) {
 
     } else if (pham_vi === 'khach') {
       const scope_key = String(body.scope_key || '').trim()
+
+      // BULK "Lưu mẫu" hàng loạt (nhiều mã) trong 1 REQUEST -> 1 lần ghi DB, KHÔNG broadcast
+      // (chỉ lưu mẫu, không đụng dữ liệu công nợ) -> hết cảnh nháy "Đang tải công nợ" N lần.
+      if (Array.isArray(body.items)) {
+        if (!scope_key) return NextResponse.json({ error: 'Thiếu khách' }, { status: 400 })
+        const rows = (body.items as any[]).map(it => {
+          const ma = String(it.ma_hang || '').trim()
+          if (!ma) return null
+          return {
+            scope_key, ma_hang: ma,
+            ten_hang: it.ten_hang !== undefined ? (String(it.ten_hang).trim() || null) : null,
+            don_gia: parseGia(it.don_gia) ?? null,
+            don_vi_tinh: it.don_vi_tinh !== undefined ? (String(it.don_vi_tinh).trim() || null) : null,
+            updated_at: new Date().toISOString(),
+          }
+        }).filter((r): r is NonNullable<typeof r> => !!r && (r.ten_hang != null || r.don_gia != null || r.don_vi_tinh != null))
+        if (rows.length) {
+          const { error } = await supabaseAdmin.from('soct_ten_hang_rieng').upsert(rows, { onConflict: 'scope_key,ma_hang' })
+          if (error) throw error
+        }
+        await logAudit(session, 'Lưu mẫu tên/giá/ĐVT khách (hàng loạt)', `${scope_key} · ${rows.length} mã`)
+        return NextResponse.json({ success: true, saved: rows.length })  // KHÔNG broadcast -> không nháy
+      }
+
       const ma_hang = String(body.ma_hang || '').trim()
       if (!scope_key || !ma_hang) return NextResponse.json({ error: 'Thiếu khách / mã hàng' }, { status: 400 })
       const { data: cur } = await supabaseAdmin.from('soct_ten_hang_rieng')

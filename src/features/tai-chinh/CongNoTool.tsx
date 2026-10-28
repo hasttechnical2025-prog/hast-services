@@ -177,18 +177,18 @@ export function CongNoTool({ showNotification }: { showNotification: (type: 'suc
     const scope = selIds[0]
     if (!scope) return
     const items = rows.filter((r: any) => r.maHang)
+      .map((r: any) => ({ ma_hang: r.maHang, ten_hang: r.ten, don_gia: r.gia, don_vi_tinh: r.dvt }))
     if (items.length === 0) return showNotification('error', 'Không có mặt hàng có mã để lưu mẫu.')
     setWorking(true)
     try {
-      let ok = 0
-      for (const r of items) {
-        const res = await fetch('/api/admin/ten-hang-rieng', {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pham_vi: 'khach', scope_key: scope, ma_hang: r.maHang, ten_hang: r.ten, don_gia: r.gia, don_vi_tinh: r.dvt }),
-        })
-        if (res.ok) ok++
-      }
-      showNotification('success', `Đã lưu mẫu ${ok}/${items.length} mặt hàng cho khách này.`)
+      // GỬI 1 REQUEST (bulk) -> server ghi 1 lần, không broadcast -> không nháy danh sách công nợ.
+      const res = await fetch('/api/admin/ten-hang-rieng', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pham_vi: 'khach', scope_key: scope, items }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (res.ok) showNotification('success', `Đã lưu mẫu ${j.saved ?? items.length} mặt hàng cho khách này.`)
+      else showNotification('error', j.error || 'Lỗi lưu mẫu.')
       await fetchTpl(scope)
     } catch { showNotification('error', 'Lỗi lưu mẫu.') } finally { setWorking(false) }
   }
