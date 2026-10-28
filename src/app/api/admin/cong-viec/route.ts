@@ -552,6 +552,22 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: true })
     }
 
+    // CHUYỂN 'Chưa hoàn thành' -> 'Hoàn thành' (KTV hiểu lầm: VD mang mực đến, khách từ chối nhận).
+    // Chỉ admin. Kho SẼ tự trừ vật tư (trigger chạy khi -> 'Hoàn thành'); nếu khách trả hàng thì office
+    // dùng nút "Trả về kho" sau. Giữ nguyên mốc/so_phut đã đóng dấu lúc bấm Chưa hoàn thành.
+    if (body.chuyenHoanThanh === true) {
+      if (session.role !== 'admin') return NextResponse.json({ error: 'Chỉ admin được chuyển phiếu sang "Hoàn thành".' }, { status: 403 })
+      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('ket_qua, report, ma_may').eq('id', id).single()
+      if (!cur) return NextResponse.json({ error: 'Không tìm thấy phiếu' }, { status: 404 })
+      if (cur.ket_qua !== 'Chưa hoàn thành') return NextResponse.json({ error: 'Chỉ chuyển sang "Hoàn thành" từ trạng thái "Chưa hoàn thành".' }, { status: 409 })
+      const upd: any = { ket_qua: 'Hoàn thành', ngay_hen: null }
+      const { error: cErr } = await supabaseAdmin.from('soct_cong_viec').update(upd).eq('id', id)
+      if (cErr) throw cErr
+      await broadcastJobsChanged()
+      await logAudit(session, 'Chuyển phiếu sang Hoàn thành', `phiếu ${cur.report || id}${cur.ma_may ? ` — máy ${cur.ma_may}` : ''} (từ "Chưa hoàn thành")`)
+      return NextResponse.json({ success: true })
+    }
+
     // SỬA TOÀN PHẦN phiếu (admin/tech_admin/staff) — chỉ khi KTV chưa nhận (ket_qua = 'Chờ nhận')
     if (edit) {
       if (!['admin', 'tech_admin', 'staff'].includes(session.role)) {

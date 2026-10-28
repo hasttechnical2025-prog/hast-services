@@ -41,65 +41,63 @@ export async function GET(request: Request) {
   }
 }
 
-// POST { id, ktv_id? }: TẠO PHIẾU TIẾP từ phiếu gốc (sao chép khách/máy/loại + toàn bộ vật tư).
+// POST { id }: LÀM TIẾP — KHÔNG đẻ phiếu mới. Đóng băng buổi dở thành 1 LƯỢT (snapshot, giữ công
+// theo lượt) rồi RESET chính phiếu đó về 'Chờ nhận' + ngày hôm nay để KTV đi tiếp. Giữ nguyên
+// report + vật tư trên phiếu (kho chỉ trừ 1 lần khi phiếu cuối cùng 'Hoàn thành').
 export async function POST(request: Request) {
   try {
     const session = await requireRole('admin', 'tech_admin', 'staff')
     if (!session) return NextResponse.json({ error: 'Không có quyền thực hiện thao tác này' }, { status: 401 })
 
-    const { id, ktv_id } = await request.json()
-    if (!id) return NextResponse.json({ error: 'Thiếu phiếu gốc' }, { status: 400 })
+    const { id } = await request.json()
+    if (!id) return NextResponse.json({ error: 'Thiếu phiếu' }, { status: 400 })
 
     const { data: goc, error } = await supabaseAdmin
       .from('soct_cong_viec')
-      .select('id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, so_luong, ghi_chu, ket_qua, report, ngay_hen')
+      .select('id, ngay, ma_may, loai_cong_viec, report, ghi_chu_ktv, counter, bat_dau_luc, hoan_thanh_luc, so_phut_xu_ly, ket_qua, ktv_id, ktv2_id, soct_khach_hang ( ten_khach_hang, dia_chi )')
       .eq('id', id).single()
     if (error) throw error
-    if (goc.ket_qua !== 'Chưa hoàn thành') return NextResponse.json({ error: 'Phiếu gốc không ở trạng thái "Chưa hoàn thành".' }, { status: 400 })
+    if (goc.ket_qua !== 'Chưa hoàn thành') return NextResponse.json({ error: 'Chỉ làm tiếp phiếu đang "Chưa hoàn thành".' }, { status: 400 })
 
-    const { data: existedChild } = await supabaseAdmin.from('soct_cong_viec').select('id').eq('phieu_goc_id', id).maybeSingle()
-    if (existedChild) return NextResponse.json({ error: 'Phiếu này đã có phiếu tiếp rồi.' }, { status: 409 })
+    const kh: any = goc.soct_khach_hang
 
-    // Ghi chú: nêu rõ làm tiếp phiếu nào + giữ ghi chú gốc.
-    const nhanhGoc = goc.report ? `số ${goc.report}` : `ngày ${fmtDMY(goc.ngay)}`
-    const ghiChu = [`Làm tiếp phiếu ${nhanhGoc}`, goc.ghi_chu].filter(Boolean).join(' — ')
+    // 1) Đóng băng buổi vừa làm dở thành 1 lượt (snapshot để báo cáo ngày cũ không vỡ).
+    const { error: lErr } = await supabaseAdmin.from('soct_cong_viec_luot').insert({
+      id_cong_viec: id,
+      ktv_id: goc.ktv_id || null,
+      ktv2_id: goc.ktv2_id || null,
+      ngay: goc.ngay,
+      bat_dau_luc: goc.bat_dau_luc || null,
+      hoan_thanh_luc: goc.hoan_thanh_luc || null,
+      so_phut: goc.so_phut_xu_ly ?? null,
+      ket_qua_luot: 'Chưa hoàn thành',
+      ghi_chu_ktv: goc.ghi_chu_ktv || null,
+      counter: goc.counter ?? null,
+      ma_may: goc.ma_may || null,
+      loai_cong_viec: goc.loai_cong_viec || null,
+      ten_khach_hang: kh?.ten_khach_hang || null,
+      dia_chi: kh?.dia_chi || null,
+      report: goc.report || null,
+    })
+    if (lErr) throw lErr
 
-    const { data: phieu, error: pErr } = await supabaseAdmin
-      .from('soct_cong_viec')
-      .insert({
-        ngay: goc.ngay_hen || todayVN(),
-        ma_may: goc.ma_may,
-        id_khach_hang: goc.id_khach_hang,
-        loai_cong_viec: goc.loai_cong_viec,
-        km: goc.km || 0,
-        so_luong: goc.so_luong || 1,
-        ghi_chu: ghiChu,
-        phieu_goc_id: id,
-        ktv_id: ktv_id || null,
-        ket_qua: ktv_id ? 'Đã nhận' : 'Chờ nhận',
-        nguon_nhan: ktv_id ? 'giao' : null,
-        nhan_luc: ktv_id ? new Date().toISOString() : null,
-        created_by: session.id,
-        telegram_sent: true, // không tự bắn tin (office tạo chủ động); phiếu hiện trong app
-      })
-      .select('id')
-      .single()
-    if (pErr) throw pErr
+    // 2) Reset chính phiếu về 'Chờ nhận' + ngày hôm nay. Xóa dấu buổi + hẹn + gán KTV (về pool).
+    //    GIỮ report + vật tư. KTV (hoặc đồng nghiệp) nhận lại và đi tiếp.
+    const { error: uErr } = await supabaseAdmin.from('soct_cong_viec').update({
+      ket_qua: 'Chờ nhận',
+      ngay: todayVN(),
+      ngay_hen: null,
+      ktv_id: null, ktv2_id: null,
+      nguon_nhan: null, nhan_luc: null, nhac_luc: null,
+      bat_dau_luc: null, hoan_thanh_luc: null, so_phut_xu_ly: null,
+      ghi_chu_ktv: null, counter: null,
+      telegram_sent: true, // office chủ động đẩy lại; không tự bắn tin
+    }).eq('id', id)
+    if (uErr) throw uErr
 
-    // Sao chép TOÀN BỘ vật tư của phiếu gốc sang phiếu tiếp (dồn hết -> phiếu cuối trừ kho 1 lần).
-    const { data: vt } = await supabaseAdmin
-      .from('soct_chi_tiet_vat_tu')
-      .select('ma_hang, so_luong, don_gia, vat, thanh_tien, hoa_don, ten_hang_hd, don_vi_tinh, thu_tu')
-      .eq('id_cong_viec', id)
-    if (vt && vt.length > 0) {
-      const rows = vt.map((v: any) => ({ ...v, id_cong_viec: phieu.id, hoa_don: false }))
-      const { error: vtErr } = await supabaseAdmin.from('soct_chi_tiet_vat_tu').insert(rows)
-      if (vtErr) throw vtErr
-    }
-
-    await logAudit(session, 'Tạo phiếu làm tiếp', `gốc ${id} -> phiếu ${phieu.id}`)
+    await logAudit(session, 'Làm tiếp phiếu', `phiếu ${goc.report || id}${goc.ma_may ? ` — máy ${goc.ma_may}` : ''} (đóng băng buổi ${fmtDMY(goc.ngay)}, đưa về Chờ nhận)`)
     await broadcastJobsChanged()
-    return NextResponse.json({ success: true, id: phieu.id })
+    return NextResponse.json({ success: true, id })
   } catch (error: any) {
     console.error('Error lam-tiep POST:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })

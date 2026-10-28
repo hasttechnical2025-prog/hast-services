@@ -54,6 +54,27 @@ export async function GET(request: Request) {
       return q
     })
 
+    // 2b. Lấy các LƯỢT đã đóng băng (buổi dở đã "Làm tiếp") — đếm công theo LƯỢT. Reshape thành
+    //     dạng "job" (snapshot sẵn tên khách/máy/loại) để client dùng y như phiếu, không phải sửa UI.
+    const luot = await selectAll((from, to) => {
+      let q = supabaseAdmin
+        .from('soct_cong_viec_luot')
+        .select('id, id_cong_viec, ngay, ktv_id, ktv2_id, ma_may, loai_cong_viec, ket_qua_luot, counter, ghi_chu_ktv, so_phut, ten_khach_hang, dia_chi')
+        .order('ngay', { ascending: false })
+        .range(from, to)
+      if (ktv_id) q = q.or(`ktv_id.eq.${ktv_id},ktv2_id.eq.${ktv_id}`)
+      if (tuNgay) q = q.gte('ngay', tuNgay)
+      if (denNgay) q = q.lte('ngay', denNgay)
+      return q
+    })
+    const luotAsJobs = (luot || []).map((l: any) => ({
+      id: 'luot_' + l.id, ngay: l.ngay, ktv_id: l.ktv_id, ktv2_id: l.ktv2_id,
+      ma_may: l.ma_may, loai_cong_viec: l.loai_cong_viec, ket_qua: l.ket_qua_luot,
+      counter: l.counter, ghi_chu_ktv: l.ghi_chu_ktv, so_phut_xu_ly: l.so_phut,
+      soct_khach_hang: { ten_khach_hang: l.ten_khach_hang, dia_chi: l.dia_chi },
+      _luot: true,
+    }))
+
     // 3. Lấy việc ngoài luồng
     const extras = await selectAll((from, to) => {
       let q = supabaseAdmin
@@ -73,7 +94,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       data: {
         trang_thai: ttList || [],
-        jobs: jobs || [],
+        jobs: [...(jobs || []), ...luotAsJobs],
         extras: extras || []
       }
     })
@@ -133,6 +154,14 @@ export async function POST(request: Request) {
 
     if (jErr) throw jErr
 
+    // 2b. Các LƯỢT đã đóng băng (buổi dở đã "Làm tiếp") trong ngày — vẫn là buổi KTV đã đi.
+    const { data: dbLuot } = await supabaseAdmin
+      .from('soct_cong_viec_luot')
+      .select('ma_may, loai_cong_viec, ghi_chu_ktv, ten_khach_hang, dia_chi, ktv2_id')
+      .eq('ngay', ngay)
+      .or(`ktv_id.eq.${ktv_id},ktv2_id.eq.${ktv_id}`)
+      .order('created_at', { ascending: true })
+
     // 3. Lấy dữ liệu công việc ngoài sổ
     const { data: dbExtras, error: eErr } = await supabaseAdmin
       .from('soct_nhat_ky_ktv')
@@ -171,6 +200,21 @@ export async function POST(request: Request) {
           ten_khach_hang,
           loai_cong_viec,
           ghi_chu_ktv
+        })
+      })
+    }
+
+    // A2. Thêm các LƯỢT đã đóng băng (buổi dở đã làm tiếp) — mỗi lượt = 1 buổi đi.
+    if (dbLuot) {
+      dbLuot.forEach((l: any) => {
+        const isKtv2 = l.ktv2_id === ktv_id
+        const khName = l.ten_khach_hang || '—'
+        const ten_khach_hang = l.dia_chi ? `${khName}\n${l.dia_chi}` : khName
+        jobsList.push({
+          stt: String(stt++),
+          ten_khach_hang,
+          loai_cong_viec: (l.loai_cong_viec || '') + (isKtv2 ? ' (kèm)' : ''),
+          ghi_chu_ktv: l.ghi_chu_ktv || '—'
         })
       })
     }

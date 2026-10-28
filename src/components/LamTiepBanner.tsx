@@ -38,8 +38,8 @@ export default function LamTiepBanner({ showNotification, onCreated }: { showNot
     try {
       const res = await fetch('/api/admin/cong-viec/lam-tiep', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: it.id }) })
       const j = await res.json()
-      if (res.ok) { showNotification('success', 'Đã tạo phiếu làm tiếp (vào danh sách chờ nhận).'); load(); onCreated?.() }
-      else showNotification('error', j.error || 'Lỗi tạo phiếu tiếp')
+      if (res.ok) { showNotification('success', 'Đã đưa phiếu về "Chờ nhận" (giữ nguyên số phiếu) — KTV nhận lại để đi tiếp.'); load(); onCreated?.() }
+      else showNotification('error', j.error || 'Lỗi làm tiếp phiếu')
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setBusy(null) }
   }
 
@@ -75,8 +75,8 @@ export default function LamTiepBanner({ showNotification, onCreated }: { showNot
                 {it.ghi_chu && <div className="text-slate-400 truncate">{it.ghi_chu}</div>}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <button onClick={() => taoTiep(it)} disabled={busy === it.id} className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
-                  <Plus className="w-3.5 h-3.5" /> Tạo phiếu tiếp
+                <button onClick={() => taoTiep(it)} disabled={busy === it.id} title="Giữ nguyên phiếu (số phiếu + vật tư), đưa về Chờ nhận + ngày hôm nay để đi tiếp" className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+                  <Plus className="w-3.5 h-3.5" /> Làm tiếp
                 </button>
                 <button onClick={() => boQua(it)} disabled={busy === it.id} title="Không làm tiếp (bỏ nhắc)" className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-red-600 px-1.5 py-1.5 disabled:opacity-50">
                   <X className="w-3.5 h-3.5" /> Không làm tiếp

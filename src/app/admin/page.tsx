@@ -723,6 +723,20 @@ export default function AdminDashboard() {
     } catch { showNotification('error', 'Lỗi kết nối!') }
   }
 
+  // Chuyển 'Chưa hoàn thành' -> 'Hoàn thành' (KTV hiểu lầm, VD khách từ chối nhận mực). Chỉ admin.
+  const chuyenHoanThanh = async (job: any) => {
+    const coVatTu = (job.soct_chi_tiet_vat_tu || []).length > 0
+    const canhBaoKho = coVatTu ? '\n\n⚠️ Kho sẽ TRỪ vật tư trên phiếu. Nếu khách trả hàng, dùng nút "Trả về kho" sau khi chuyển.' : ''
+    if (!(await confirm(`Chuyển phiếu ${job.report || ''}${job.ma_may ? ` (máy ${job.ma_may})` : ''} sang "Hoàn thành"?${canhBaoKho}`, { confirmLabel: 'Chuyển Hoàn thành', danger: false }))) return
+    try {
+      const res = await fetch('/api/admin/cong-viec', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: job.id, chuyenHoanThanh: true }) })
+      const j = await res.json()
+      if (!res.ok) { showNotification('error', j.error || 'Lỗi'); return }
+      showNotification('success', 'Đã chuyển phiếu sang "Hoàn thành".')
+      fetchData()
+    } catch { showNotification('error', 'Lỗi kết nối!') }
+  }
+
   // Mở modal sửa phiếu. Admin sửa được mọi trạng thái (kể cả đã Hoàn thành);
   // vai trò khác chỉ sửa khi KTV chưa nhận việc.
   const handleEditJob = (job: any) => {
@@ -2168,6 +2182,11 @@ export default function AdminDashboard() {
                           {currentUserRole === 'admin' && job.ket_qua === 'Đang làm' && (
                             <button onClick={() => revertToDaNhan(job)} title={'Đưa về "Đã nhận" (KTV bấm nhầm Đang làm)'} className="text-amber-600 hover:text-amber-700 p-1 rounded hover:bg-amber-50 transition ml-1">
                               <ChevronLeft className="w-4 h-4" />
+                            </button>
+                          )}
+                          {currentUserRole === 'admin' && job.ket_qua === 'Chưa hoàn thành' && (
+                            <button onClick={() => chuyenHoanThanh(job)} title={'Chuyển sang "Hoàn thành" (KTV hiểu lầm — VD khách từ chối nhận hàng)'} className="text-emerald-600 hover:text-emerald-700 p-1 rounded hover:bg-emerald-50 transition ml-1">
+                              <CheckCircle2 className="w-4 h-4" />
                             </button>
                           )}
                           {currentUserRole !== 'staff' && job.ket_qua === 'Hoàn thành' && (job.soct_chi_tiet_vat_tu || []).length > 0 && (

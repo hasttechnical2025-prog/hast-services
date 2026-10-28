@@ -156,6 +156,18 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
       notify('success', 'Đã đưa phiếu về "Đã nhận".'); load(true)
     } catch { notify('error', 'Lỗi kết nối!') }
   }
+  // Chuyển 'Chưa hoàn thành' -> 'Hoàn thành' (KTV hiểu lầm, VD khách từ chối nhận mực). Chỉ admin.
+  const chuyenHoanThanh = async (j: Job) => {
+    const coVatTu = (j.soct_chi_tiet_vat_tu || []).length > 0
+    const canhBaoKho = coVatTu ? '\n\n⚠️ Kho sẽ TRỪ vật tư trên phiếu. Nếu khách trả hàng, dùng nút "Trả về kho" sau khi chuyển.' : ''
+    if (!(await confirm(`Chuyển phiếu ${j.report || ''}${j.ma_may ? ` (máy ${j.ma_may})` : ''} sang "Hoàn thành"?${canhBaoKho}`, { confirmLabel: 'Chuyển Hoàn thành', danger: false }))) return
+    try {
+      const res = await fetch('/api/admin/cong-viec', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: j.id, chuyenHoanThanh: true }) })
+      const jr = await res.json().catch(() => ({}))
+      if (!res.ok) { notify('error', jr.error || 'Lỗi'); return }
+      notify('success', 'Đã chuyển phiếu sang "Hoàn thành".'); load(true)
+    } catch { notify('error', 'Lỗi kết nối!') }
+  }
   const traJob = traJobId ? jobs.find(j => j.id === traJobId) || null : null
 
   // Xuất Excel — CHỈ danh sách đang lọc (visibleRows), 14 cột khớp bản admin.
@@ -281,6 +293,9 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
             )}
             {role === 'admin' && j.ket_qua === 'Đang làm' && (
               <button onClick={() => revertDaNhan(j)} title='Đưa về "Đã nhận" (KTV bấm nhầm Đang làm)' className="w-7 h-7 rounded border border-amber-200 text-amber-600 hover:bg-amber-50 flex items-center justify-center"><ChevronLeft className="w-3.5 h-3.5" /></button>
+            )}
+            {role === 'admin' && j.ket_qua === 'Chưa hoàn thành' && (
+              <button onClick={() => chuyenHoanThanh(j)} title='Chuyển sang "Hoàn thành" (KTV hiểu lầm — VD khách từ chối nhận hàng)' className="w-7 h-7 rounded border border-emerald-200 text-emerald-600 hover:bg-emerald-50 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5" /></button>
             )}
             {canDelete && j.ket_qua === 'Hoàn thành' && hasVt && (
               <button onClick={() => setTraJobId(j.id)} title="Vật tư / Trả về kho" className="w-7 h-7 rounded border border-indigo-200 text-indigo-600 hover:bg-indigo-50 flex items-center justify-center"><Boxes className="w-3.5 h-3.5" /></button>

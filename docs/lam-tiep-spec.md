@@ -1,3 +1,12 @@
+> ⚠️ **CẬP NHẬT 2026-10-28 (mig 99) — MÔ HÌNH ĐỔI, phần dưới là lịch sử.**
+> Bỏ hẳn "phiếu con" (đẻ phiếu mới). Lý do: report có UNIQUE INDEX → phiếu con không mang được số
+> report cũ, mà thực tế office DÙNG LẠI đúng số report cũ (KTV chỉ đi lần 2 vì lần 1 không gặp khách).
+> **Mô hình mới:** giữ NGUYÊN 1 phiếu (1 report xuyên nhiều buổi). "Làm tiếp" = đóng băng buổi dở thành
+> 1 dòng ở bảng `soct_cong_viec_luot` (snapshot) rồi RESET phiếu về 'Chờ nhận' + ngày hôm nay. Công KTV
+> đếm theo LƯỢT = (phiếu hiện tại) ∪ (các lượt đóng băng); báo cáo KTV gộp cả 2 (BaoCaoKtvTool + Word).
+> Thêm nút admin "Chuyển về Hoàn thành" cho phiếu KTV bấm nhầm (VD khách từ chối nhận hàng) — kho tự trừ,
+> office dùng "Trả về kho" nếu cần. `phieu_goc_id` GIỮ cột (tách hóa đơn còn dùng), chỉ không đẻ con nữa.
+
 # "Chưa hoàn thành" — việc làm nhiều buổi (Mô hình B) — SPEC
 
 > Thay cơ chế "Lắp tiếp" cũ (giữ 1 phiếu treo mở) bằng **phiếu tiếp nối có liên kết**:
