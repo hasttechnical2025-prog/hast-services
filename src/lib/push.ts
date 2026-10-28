@@ -15,7 +15,7 @@ function ensureVapid(): boolean {
 
 // Gửi Web Push tới MỌI đăng ký của user role 'kthc'. payload: {title, body, url}.
 // Đăng ký hết hạn (404/410) -> tự xóa. Không ném lỗi ra ngoài (không chặn luồng chính).
-export async function sendPushToKthc(title: string, body: string, url = '/admin'): Promise<number> {
+export async function sendPushToKthc(title: string, body: string, url = '/qlkt/kanban'): Promise<number> {
   try {
     if (!ensureVapid()) return 0
     const { data: subs } = await supabaseAdmin

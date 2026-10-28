@@ -9,7 +9,7 @@ export async function POST() {
   try {
     const session = await requireRole('admin')
     if (!session) return NextResponse.json({ error: 'Chỉ admin được gửi thử' }, { status: 401 })
-    const sent = await sendPushToKthc('Có hóa đơn cần xuất', 'Thử nghiệm thông báo · Công ty ABC', '/admin')
+    const sent = await sendPushToKthc('Có hóa đơn cần xuất', 'Thử nghiệm thông báo · Công ty ABC', '/qlkt/kanban')
     return NextResponse.json({ success: true, sent })
   } catch (error: any) {
     console.error('Error POST push/test:', error)

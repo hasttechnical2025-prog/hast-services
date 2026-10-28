@@ -10,18 +10,18 @@ self.addEventListener('push', function (event) {
     tag: data.tag || 'hast-invoice',
     renotify: true,
     requireInteraction: true,
-    data: { url: data.url || '/admin' },
+    data: { url: data.url || '/qlkt/kanban' },
   }
   event.waitUntil(self.registration.showNotification(title, options))
 })
 
 self.addEventListener('notificationclick', function (event) {
   event.notification.close()
-  const url = (event.notification.data && event.notification.data.url) || '/admin'
+  const url = (event.notification.data && event.notification.data.url) || '/qlkt/kanban'
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (wins) {
       for (const w of wins) {
-        if (w.url.indexOf('/admin') !== -1 && 'focus' in w) return w.focus()
+        if (w.url.indexOf('/qlkt') !== -1 && 'focus' in w) return w.focus()
       }
       if (self.clients.openWindow) return self.clients.openWindow(url)
     })

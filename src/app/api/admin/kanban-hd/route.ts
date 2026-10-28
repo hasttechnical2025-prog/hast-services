@@ -308,7 +308,7 @@ export async function PUT(request: Request) {
           .in('id', targetIds)
         const names = [...new Set((khs || []).map((k: any) => String(k.ten_khach_hd || k.soct_khach_hang?.ten_khach_hang || '').trim()).filter(Boolean))]
         const body = names.length === 0 ? `${targetIds.length} phiếu` : names.length === 1 ? names[0] : `${names[0]} +${names.length - 1} khách khác`
-        await sendPushToKthc('Có hóa đơn cần xuất', body, '/admin')
+        await sendPushToKthc('Có hóa đơn cần xuất', body, '/qlkt/kanban')
       }
     }
 
