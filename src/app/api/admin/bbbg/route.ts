@@ -36,7 +36,7 @@ export async function GET(request: Request) {
       .from('soct_cong_viec')
       .select(`id, report, ma_may,
         soct_khach_hang ( ten_khach_hang, dia_chi, vi_tri_dat_may, ma_khach_cum, soct_khach_cum ( ten_khach_hang, dia_chi ) ),
-        soct_chi_tiet_vat_tu ( ma_hang, so_luong, da_tra, don_gia, vat, thanh_tien, soct_kho_hang ( ten_hang ) )`)
+        soct_chi_tiet_vat_tu ( ma_hang, ten_hang_hd, don_vi_tinh, so_luong, da_tra, don_gia, vat, thanh_tien, soct_kho_hang ( ten_hang ) )`)
       .eq('id', id).single()
     if (error || !job) return NextResponse.json({ error: 'Không tìm thấy phiếu' }, { status: 404 })
 
@@ -53,9 +53,11 @@ export async function GET(request: Request) {
     const ds: any[] = lines.map((v, i) => {
       const row: any = {
         stt: String(i + 1),
-        ten: v.soct_kho_hang?.ten_hang || v.ma_hang,
-        dvt: 'Cái',                 // kho chưa có ĐVT -> mặc định "Cái"
+        // Tên ưu tiên tên áp cho khách (hóa đơn) -> kho -> mã, để biên bản KHỚP hóa đơn.
+        ten: v.ten_hang_hd || v.soct_kho_hang?.ten_hang || v.ma_hang,
+        dvt: v.don_vi_tinh || 'Cái',    // ĐVT theo dòng (khách áp), thiếu thì "Cái"
         sl: String(v.so_luong ?? ''),
+        ma: v.ma_hang || '',            // cột Mã hàng (chỉ mẫu VP TW Đảng dùng)
         tinh_trang: 'Hàng mới 100%',
         ghi_chu: '',
       }
@@ -77,6 +79,7 @@ export async function GET(request: Request) {
       VI_TRI: kh?.vi_tri_dat_may || kh?.dia_chi || '',
       TEN_KH: (cum?.ten_khach_hang || kh?.ten_khach_hang || '').toUpperCase(),
       DIA_CHI: cum?.dia_chi || kh?.dia_chi || '',
+      NAM: String(new Date(Date.now() + 7 * 3600 * 1000).getUTCFullYear()),  // năm hiện tại (giờ VN); ngày/tháng ký tay
     }
     if (tpl.price) {
       const tongChua = lines.reduce((s, v) => s + (Number(v.thanh_tien) || 0), 0)

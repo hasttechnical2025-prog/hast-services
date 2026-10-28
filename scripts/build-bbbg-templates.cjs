@@ -24,6 +24,22 @@ function replaceHighlights(xml, reps) {
   })
 }
 
+// VP TW Đảng: bảng có 18 hàng DỮ LIỆU MẪU -> gộp về 1 hàng LẶP ({{#ds}}..{{/ds}} đã đặt sẵn qua
+// reps ở hàng đầu), xoá 17 hàng mẫu còn lại. Cột: STT | Tên hàng | Đvt | SLg | Mã hàng.
+function vptwLoopRows(xml) {
+  const tbls = xml.match(/<w:tbl>[\s\S]*?<\/w:tbl>/g) || []
+  const tbl = tbls.find(t => t.includes('{{ten}}'))
+  if (!tbl) throw new Error('VPTW: không thấy bảng vật tư ({{ten}})')
+  const rows = tbl.match(/<w:tr\b[\s\S]*?<\/w:tr>/g) || []
+  const dataIdx = rows.findIndex(r => r.includes('{{ten}}'))
+  if (dataIdx < 0) throw new Error('VPTW: không thấy hàng dữ liệu')
+  const keptRows = rows.slice(0, dataIdx + 1)   // header + 1 hàng loop; bỏ 17 hàng mẫu sau
+  const headerPrefix = tbl.slice(0, tbl.indexOf(rows[0]))
+  const newTbl = headerPrefix + keptRows.join('') + '</w:tbl>'
+  // Dọn SẠCH mọi highlight vàng còn sót (ở dấu đoạn pPr) để file không loang vàng.
+  return xml.replace(tbl, newTbl).replace(/<w:highlight w:val="yellow"\s*\/>/g, '')
+}
+
 // NHNN: biến hàng vật tư thành hàng LẶP + xoá các hàng trống phía sau.
 function nhnnLoopRows(xml) {
   const tbls = xml.match(/<w:tbl>[\s\S]*?<\/w:tbl>/g) || []
@@ -48,8 +64,10 @@ function nhnnLoopRows(xml) {
   return xml.replace(tbl, newTbl)
 }
 
-function build(srcName, outName, reps, extra) {
-  const zip = new PizZip(fs.readFileSync(path.join(SRC, srcName)))
+function build(srcName, outName, reps, extra, srcDir) {
+  const srcPath = path.join(srcDir || SRC, srcName)
+  if (!fs.existsSync(srcPath)) { console.log('  (bỏ qua, không thấy nguồn):', outName); return }  // nguồn cũ đã dọn -> giữ file đã dựng
+  const zip = new PizZip(fs.readFileSync(srcPath))
   let xml = zip.file('word/document.xml').asText()
   xml = replaceHighlights(xml, reps)
   if (extra) xml = extra(xml)
@@ -66,6 +84,11 @@ build('Bien ban Ban giao _Ngan hang Nha nuoc.docx', 'bbbg-nhnn.docx',
   ['{{VI_TRI}}', '{{ten}}', '', '{{dvt}}', '{{sl}}', '{{tinh_trang}}'], nhnnLoopRows)
 build('Đe nghi Thanh toan _Mau chung.docx', 'dntt.docx',
   ['{{SO_DNTT}}', '{{NGAY}}', '{{THANG}}', '{{NAM}}', '{{TEN_KH}}', '', '{{NGAY_HD}}', '{{SO_HD}}', '{{TIEN}}', '{{GHI_CHU}}', '{{CONG}}', '{{TONG}}', '{{BANG_CHU}}'])
+// VP TW Đảng (nguồn ngay trên Desktop): năm + 1 hàng loop (stt/tên/đvt/sl/mã); 17 hàng mẫu còn lại
+// auto thành '' (reps hết) rồi bị vptwLoopRows xoá.
+build('Cuc Quan tri - VP TW Đang.docx', 'bbbg-vp-tw-dang.docx',
+  ['{{NAM}}', '{{#ds}}{{stt}}', '{{ten}}', '{{dvt}}', '{{sl}}', '{{ma}}{{/ds}}'],
+  vptwLoopRows, 'C:/Users/anonymous/Desktop')
 
 // ---- VERIFY: render thử với dữ liệu mẫu, in lại text để chắc placeholder chạy ----
 function extractText(buf) {
@@ -80,13 +103,14 @@ function render(file, data) {
   return doc.getZip().generate({ type: 'nodebuffer' })
 }
 const dsVT = [
-  { stt: '1', ten: 'Mực in TN628', dvt: 'Cái', sl: '2', tinh_trang: 'Hàng mới 100%', ghi_chu: '' },
-  { stt: '2', ten: 'Trống DR017', dvt: 'Cái', sl: '1', tinh_trang: 'Hàng mới 100%', ghi_chu: '' },
+  { stt: '1', ten: 'Mực in TN628', dvt: 'Cái', sl: '2', ma: 'TN628', tinh_trang: 'Hàng mới 100%', ghi_chu: '' },
+  { stt: '2', ten: 'Trống DR017', dvt: 'Hộp', sl: '1', ma: 'DR017', tinh_trang: 'Hàng mới 100%', ghi_chu: '' },
 ]
 console.log('\nVERIFY render:')
 for (const [f, data] of [
   ['bbbg-cuc-tha.docx', { ds: dsVT, VI_TRI: 'Phòng 403 - 139 Nguyễn Thái Học' }],
   ['bbbg-nhnn.docx', { ds: dsVT, VI_TRI: 'P1203. Thanh tra NHNN' }],
+  ['bbbg-vp-tw-dang.docx', { ds: dsVT, NAM: '2026' }],
   ['dntt.docx', { SO_DNTT: '26-146', NGAY: '15', THANG: '08', NAM: '2026', TEN_KH: 'CÔNG TY ABC', NGAY_HD: '15/08/2026', SO_HD: '873', TIEN: '2.376.000', GHI_CHU: '', CONG: '2.376.000', TONG: '2.376.000', BANG_CHU: 'Hai triệu...' }],
 ]) {
   try {

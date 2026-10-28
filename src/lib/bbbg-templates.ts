@@ -8,6 +8,7 @@
 export const BBBG_TEMPLATES: Record<string, { file: string; label: string; padRows?: number; price?: boolean; allLines?: boolean }> = {
   'cuc-tha': { file: 'bbbg-cuc-tha.docx', label: 'Cục Quản lý THA Dân sự' },
   'nhnn': { file: 'bbbg-nhnn.docx', label: 'Ngân hàng Nhà nước', padRows: 10 },
+  'vp-tw-dang': { file: 'bbbg-vp-tw-dang.docx', label: 'VP TW Đảng' },  // cột Mã hàng, không tình trạng/ghi chú
   'chung-price': { file: 'bbbg-chung-price.docx', label: 'Mẫu chung (có giá)', price: true, allLines: true },
   'chung-noprice': { file: 'bbbg-chung-noprice.docx', label: 'Mẫu chung (không giá)', allLines: true },
 }
