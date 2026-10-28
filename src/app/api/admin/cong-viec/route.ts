@@ -276,6 +276,9 @@ export async function GET(request: Request) {
     const q = (searchParams.get('q') || '').trim()
     // Lọc ký tự phá cú pháp PostgREST .or()/.in() rồi mới nội suy.
     const qSafe = q.replace(/[,()]/g, ' ').trim()
+    // Tìm theo VẬT TƯ (UI 2027): lọc phiếu CÓ CHỨA mã/tên hàng. Toàn cục (bỏ lọc ngày) như Số phiếu.
+    const vatTu = (searchParams.get('vat_tu') || '').trim()
+    const vatTuSafe = vatTu.replace(/[,()]/g, ' ').trim()
 
     // q có giá trị -> tìm trước các khách khớp tên/địa chỉ (embed không OR được với bảng gốc),
     // rồi lọc cong_viec theo (mã máy ilike q) HOẶC (id_khach_hang thuộc danh sách khách khớp).
@@ -287,6 +290,20 @@ export async function GET(request: Request) {
         .or(`ten_khach_hang.ilike.%${qSafe}%,dia_chi.ilike.%${qSafe}%,vi_tri_dat_may.ilike.%${qSafe}%`)
         .limit(2000)
       khIdsForQ = (khs || []).map((k: any) => k.id)
+    }
+
+    // Khớp vật tư: mã hàng (ilike) + tên trên dòng (ten_hang_hd) + tên trong kho (ten_hang -> ma_hang).
+    // Lọc phiếu qua embed !inner nên KHÔNG phải tải danh sách id phiếu khổng lồ khi mã phổ biến.
+    let vtOr = ''
+    if (vatTuSafe) {
+      const { data: khoM } = await supabaseAdmin
+        .from('soct_kho_hang').select('ma_hang').ilike('ten_hang', `%${vatTuSafe}%`).limit(500)
+      const maList = Array.from(new Set((khoM || [])
+        .map((k: any) => String(k.ma_hang || '').trim())
+        .filter((m: string) => m && !/[,()]/.test(m))))
+      const parts = [`ma_hang.ilike.%${vatTuSafe}%`, `ten_hang_hd.ilike.%${vatTuSafe}%`]
+      if (maList.length) parts.push(`ma_hang.in.(${maList.join(',')})`)
+      vtOr = parts.join(',')
     }
 
     const data = await selectAll((from, to) => {
@@ -326,6 +343,7 @@ export async function GET(request: Request) {
               ten_hang
             )
           )
+          ${vatTuSafe ? ', vt_filter:soct_chi_tiet_vat_tu!inner(id)' : ''}
         `)
         .order('ngay', { ascending: false })
         .order('created_at', { ascending: false })
@@ -342,11 +360,11 @@ export async function GET(request: Request) {
         query = query.or(`ktv_id.eq.${session.id},ktv2_id.eq.${session.id},moi_ktv_id.eq.${session.id},ktv_id.is.null`)
       }
       if (dateStr) query = query.eq('ngay', dateStr)
-      // Tìm theo Số phiếu là tìm TOÀN CỤC (bỏ qua lọc ngày) để luôn thấy phiếu cũ;
-      // nếu không tìm số phiếu thì áp lọc khoảng ngày. Đều lọc phía server -> thấy được phiếu cũ.
-      if (report) {
-        query = query.ilike('report', `%${report}%`)
-      } else {
+      // Tìm theo Số phiếu / Vật tư = tìm TOÀN CỤC (bỏ lọc ngày) để luôn thấy phiếu cũ; có thể kết
+      // hợp cả hai (AND). Không tìm cả hai thì mới áp lọc khoảng ngày. Đều lọc phía server.
+      if (report) query = query.ilike('report', `%${report}%`)
+      if (vatTuSafe && vtOr) query = query.or(vtOr, { referencedTable: 'vt_filter' })
+      if (!report && !vatTuSafe) {
         if (tuNgay) query = query.gte('ngay', tuNgay)
         if (denNgay) query = query.lte('ngay', denNgay)
       }

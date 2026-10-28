@@ -1,13 +1,18 @@
 // Lớp gọi API Giao việc — tái dùng ĐÚNG route handler cũ (/api/admin/cong-viec, khach-hang).
 import type { Job, JobForm } from './types'
 
-export type JobQuery = { tuNgay?: string; denNgay?: string; date?: string; report?: string; ket_qua?: string; q?: string }
+export type JobQuery = { tuNgay?: string; denNgay?: string; date?: string; report?: string; ket_qua?: string; q?: string; vatTu?: string }
 
 export function buildJobsUrl(query: JobQuery): string {
   const p = new URLSearchParams()
+  // Số phiếu / Vật tư = tìm TOÀN CỤC -> bỏ lọc ngày (thấy cả phiếu cũ).
+  const global = !!(query.report?.trim() || query.vatTu?.trim())
   if (query.report?.trim()) p.set('report', query.report.trim())
-  else if (query.date) p.set('date', query.date)
-  else { if (query.tuNgay) p.set('tuNgay', query.tuNgay); if (query.denNgay) p.set('denNgay', query.denNgay) }
+  if (query.vatTu?.trim()) p.set('vat_tu', query.vatTu.trim())
+  if (!global) {
+    if (query.date) p.set('date', query.date)
+    else { if (query.tuNgay) p.set('tuNgay', query.tuNgay); if (query.denNgay) p.set('denNgay', query.denNgay) }
+  }
   if (query.ket_qua) p.set('ket_qua', query.ket_qua)
   if (query.q?.trim()) p.set('q', query.q.trim())   // tìm toàn cục (server)
   return `/api/admin/cong-viec?${p.toString()}`

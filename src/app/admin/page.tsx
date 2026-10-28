@@ -785,12 +785,19 @@ export default function AdminDashboard() {
     return '/api/admin/cong-viec' + (qs ? `?${qs}` : '')
   }
 
+  // Chống đua ghi đè danh sách phiếu: fetchData (toàn trang, KHÔNG mang số phiếu) về muộn từng đè
+  // kết quả fetchJobsOnly (có số phiếu) -> phải tìm 2 lần. Mỗi lần nạp tăng seq; chỉ response MỚI
+  // NHẤT được setJobs. Dùng CHUNG cho cả 2 hàm.
+  const jobsReqSeq = useRef(0)
+
   // Chỉ tải lại danh sách phiếu (khi đổi bộ lọc số phiếu / ngày) — không tải lại mọi thứ
   const fetchJobsOnly = async (customFilters?: typeof jobFilters) => {
+    const my = ++jobsReqSeq.current
     try {
       const res = await fetch(buildJobsUrl(customFilters))
       if (res.status === 401) { setCurrentAdmin(null); return }
       const j = await res.json()
+      if (my !== jobsReqSeq.current) return   // đã có lần nạp mới hơn -> bỏ kết quả cũ
       if (j.data) setJobs(j.data)
     } catch { /* giữ nguyên danh sách hiện tại nếu lỗi mạng */ }
   }
@@ -798,6 +805,7 @@ export default function AdminDashboard() {
   // silent=true: refetch NGẦM (realtime/poll) — KHÔNG bật spinner toàn màn, tránh cảm giác "reload".
   const fetchData = async (silent = false) => {
     if (!silent) setLoading(true)
+    const myJobs = ++jobsReqSeq.current   // seq chung với fetchJobsOnly -> latest-wins cho setJobs
     try {
       const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0]
       // "Ngày mai" theo giờ VN -> lọc phiếu đặt trước cho tương lai (ngay >= ngày mai).
@@ -832,7 +840,7 @@ export default function AdminDashboard() {
       const unfinishedData = await unfinishedRes.json()
       const futureData = await futureRes.json()
 
-      if (jobsData.data) setJobs(jobsData.data)
+      if (jobsData.data && myJobs === jobsReqSeq.current) setJobs(jobsData.data)   // chỉ ghi nếu còn mới nhất
       if (customersData.data) setCustomers(customersData.data)
       if (usersData.data) setTechnicians(usersData.data)
       if (inventoryData.data) setInventory(inventoryData.data)

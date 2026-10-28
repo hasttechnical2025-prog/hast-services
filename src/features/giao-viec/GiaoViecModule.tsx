@@ -1,5 +1,5 @@
 'use client'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ClipboardList, CheckCircle2, Clock, Wallet, RefreshCw, Plus, Pencil, Trash2, MapPin, Send, Hand, Search, Hash, FileDown, CalendarArrowDown, CopyX, Boxes, ChevronLeft } from 'lucide-react'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { fmtThoiLuong } from '@/lib/thoi-gian'
@@ -48,6 +48,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
   const [denNgay, setDenNgay] = useState(todayVN())
   const [q, setQ] = useState('')          // tìm mã máy / tên khách (toàn cục)
   const [report, setReport] = useState('') // số phiếu (toàn cục, bỏ qua ngày)
+  const [vatTu, setVatTu] = useState('')   // mã/tên vật tư — lọc phiếu CÓ CHỨA (toàn cục, bỏ ngày)
   // 4 bộ lọc CLIENT (trong cột, dạng phễu)
   const [colFilters, setColFilters] = useState<Record<string, string>>({})
   const [formOpen, setFormOpen] = useState(false)
@@ -56,15 +57,21 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
   const [traJobId, setTraJobId] = useState<string | null>(null)
   const [futureJobs, setFutureJobs] = useState<Job[]>([])   // phiếu đặt trước (ngay >= ngày mai), chưa hoàn thành
 
+  // Chống đua ghi đè: mỗi lần nạp tăng seq; chỉ response MỚI NHẤT được setJobs (tránh lần tải nền
+  // về muộn đè kết quả tìm số phiếu/vật tư -> hết cảnh "phải tìm 2 lần").
+  const jobsSeq = useRef(0)
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true)
+    const my = ++jobsSeq.current
     try {
-      const data = await listJobs({ tuNgay, denNgay, q, report })
+      const data = await listJobs({ tuNgay, denNgay, q, report, vatTu })
+      if (my !== jobsSeq.current) return
       setJobs(data)
     } catch (e: any) {
+      if (my !== jobsSeq.current) return
       if (e?.message !== 'UNAUTH') notify('error', e?.message || 'Lỗi tải danh sách')
-    } finally { setLoading(false) }
-  }, [tuNgay, denNgay, q, report, notify])
+    } finally { if (my === jobsSeq.current) setLoading(false) }
+  }, [tuNgay, denNgay, q, report, vatTu, notify])
 
   // Đổi bộ lọc server -> debounce nạp lại dữ liệu.
   useEffect(() => { const t = setTimeout(() => load(), 300); return () => clearTimeout(t) }, [load])
@@ -131,8 +138,8 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
 
   // Bỏ lọc: về khoảng ngày HÔM NAY + xóa Tìm/Số phiếu + xóa phễu cột.
   const today = todayVN()
-  const anyFilterActive = !!(q || report || tuNgay !== today || denNgay !== today || Object.values(colFilters).some(Boolean))
-  const clearAll = () => { setTuNgay(today); setDenNgay(today); setQ(''); setReport(''); setColFilters({}) }
+  const anyFilterActive = !!(q || report || vatTu || tuNgay !== today || denNgay !== today || Object.values(colFilters).some(Boolean))
+  const clearAll = () => { setTuNgay(today); setDenNgay(today); setQ(''); setReport(''); setVatTu(''); setColFilters({}) }
 
   const canEditJob = (j: Job) => ['Chờ nhận', 'Đã nhận'].includes(j.ket_qua) || role === 'admin'
   const openCreate = () => { setEditing(null); setFormOpen(true) }
@@ -347,6 +354,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
             <DateRangeField from={tuNgay} to={denNgay} onFrom={setTuNgay} onTo={setDenNgay} />
             <div className="relative w-60"><Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã máy, tên khách hàng…" className={`${fieldCls} w-full pl-9`} /></div>
             <div className="relative w-44"><Hash className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" /><input value={report} onChange={e => setReport(e.target.value)} placeholder="Số phiếu…" className={`${fieldCls} w-full pl-9`} /></div>
+            <div className="relative w-48"><Boxes className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" /><input value={vatTu} onChange={e => setVatTu(e.target.value)} placeholder="Mã / tên vật tư…" title="Lọc phiếu CÓ CHỨA vật tư này (toàn cục, bỏ lọc ngày)" className={`${fieldCls} w-full pl-9`} /></div>
             {anyFilterActive && <button onClick={clearAll} className="text-xs text-rose-600 hover:underline font-medium px-1">Bỏ lọc</button>}
             <span className="t2 text-slate-400 ml-auto">{visibleRows.length}/{jobs.length} việc</span>
           </div>
