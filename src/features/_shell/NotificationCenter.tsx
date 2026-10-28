@@ -30,7 +30,7 @@ export function NotificationCenter() {
             <tbody className="divide-y divide-slate-100">
               {a.mucCanhBao.map((m: any) => (
                 <tr key={m.ma_hang}>
-                  <td className="px-2.5 py-1.5"><span className="font-mono font-semibold text-slate-700">{m.ma_hang}</span><div className="text-slate-500" title={m.ten_hang}>{m.ten_hang}{m.models?.length ? ` · ${m.models.join(', ')}` : ''}</div></td>
+                  <td className="px-2.5 py-1.5"><span className="font-mono font-semibold text-slate-700">{m.ma_hang}</span><div className="text-slate-500" title={m.ten_hang}>{m.ten_hang}{m.hang ? ` [${m.hang}]` : ''}{m.model ? ` · ${m.model}` : ''}</div></td>
                   <td className="px-2 py-1.5 text-center font-semibold text-red-600">{m.kha_dung}{m.giu > 0 && <div className="text-[10px] text-slate-400 font-normal">tồn {m.ton} · giữ {m.giu}</div>}</td>
                   <td className="px-2 py-1.5 text-center">{m.cho_ve > 0 ? <span className="font-semibold text-emerald-600">{m.cho_ve}</span> : <span className="text-slate-300">—</span>}</td>
                   <td className="px-2 py-1.5 text-center">{m.so_may}</td>

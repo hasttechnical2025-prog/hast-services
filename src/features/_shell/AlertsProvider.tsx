@@ -108,7 +108,9 @@ export function BellAlertsProvider({ children }: { children: React.ReactNode }) 
       const modelArr = [...models]
       const soMay = modelArr.reduce((s, m) => s + (rentalCount.get(normModel(m)) || 0), 0)
       if (soMay === 0) continue
-      out.push({ ma_hang: ma, ten_hang: inv?.ten_hang || ma, ton, giu, kha_dung: khaDung, cho_ve: choVe[ma] || 0, models: modelArr, so_may: soMay })
+      // model/hãng lấy từ KHO HÀNG (chuỗi gộp sẵn) cho gọn — giống chuông "Hàng dưới ngưỡng tồn kho";
+      // modelArr (từ danh sách máy thuê) chỉ dùng đếm số máy phụ thuộc.
+      out.push({ ma_hang: ma, ten_hang: inv?.ten_hang || ma, model: inv?.model || '', hang: inv?.hang || '', ton, giu, kha_dung: khaDung, cho_ve: choVe[ma] || 0, models: modelArr, so_may: soMay })
     }
     return out.sort((a, b) => a.kha_dung - b.kha_dung)
   }, [mucMap, customers, inventory, committed, choVe])
