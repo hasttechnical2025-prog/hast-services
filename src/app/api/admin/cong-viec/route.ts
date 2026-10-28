@@ -11,6 +11,12 @@ import { laLoaiPhucVuCSKH, syncCskhFromPhieu } from '@/lib/cskh'
 // Giao mực / Thay vật tư BẮT BUỘC có Số phiếu + ít nhất 1 vật tư (loại khác thì không).
 // Chặn ở server để gọi API trực tiếp cũng không lọt. Trả chuỗi lỗi hoặc null.
 const LOAI_CV_CAN_VAT_TU = ['Giao mực', 'Thay vật tư']
+// KM = 0 khi: ghi chú có "CPN" (gửi chuyển phát, KTV không đi) HOẶC loại việc "Hỗ trợ online".
+// Lưới an toàn phía server (áp cả /admin, /m, PDF import) — áp từ lúc tạo/sửa trở đi.
+function kmZeroRule(loai_cong_viec: any, ghi_chu: any): boolean {
+  if (String(loai_cong_viec || '').trim().toLowerCase() === 'hỗ trợ online') return true
+  return /cpn/i.test(String(ghi_chu || ''))
+}
 function loiThieuVatTu(loai_cong_viec: any, report: any, vat_tu: any): string | null {
   if (!LOAI_CV_CAN_VAT_TU.includes(String(loai_cong_viec || '').trim())) return null
   if (!String(report || '').trim()) return `"${loai_cong_viec}" bắt buộc phải có Số phiếu (Report).`
@@ -456,7 +462,7 @@ export async function POST(request: Request) {
         ma_may,
         id_khach_hang,
         loai_cong_viec,
-        km: km || 0,
+        km: kmZeroRule(loai_cong_viec, ghi_chu) ? 0 : (km || 0),
         so_luong: parseInt(so_luong) || 1,
         ktv_id: ktv_id || null,
         ktv2_id: ktv2_id || null,
@@ -648,7 +654,7 @@ export async function PUT(request: Request) {
         .update({
           ngay: ngay || new Date().toISOString().split('T')[0],
           ma_may: ma_may || null, id_khach_hang, loai_cong_viec,
-          km: km || 0, so_luong: parseInt(so_luong) || 1,
+          km: kmZeroRule(loai_cong_viec, ghi_chu) ? 0 : (km || 0), so_luong: parseInt(so_luong) || 1,
           ktv_id: ktv_id || null,
           ktv2_id: ktv2_id || null,
           report: reportNorm || null, ghi_chu,

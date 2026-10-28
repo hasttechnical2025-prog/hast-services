@@ -57,6 +57,13 @@ export function jobTien(job: Job): { tong: number; coHD: boolean } {
   return { tong: Math.round(tong), coHD: vt.some(v => v.hoa_don) }
 }
 
+// KM = 0 khi: ghi chú có "CPN" (gửi chuyển phát, KTV không đi) HOẶC loại việc "Hỗ trợ online".
+// Dùng chung cho form (khóa ô KM) và server (ép km=0 lúc lưu). Áp từ lúc tạo/sửa trở đi.
+export function kmZeroRule(loaiCongViec?: string | null, ghiChu?: string | null): boolean {
+  if (String(loaiCongViec || '').trim().toLowerCase() === 'hỗ trợ online') return true
+  return /cpn/i.test(String(ghiChu || ''))
+}
+
 export const LOAI_CV_CAN_VAT_TU = ['Giao mực', 'Thay vật tư']
 export const LOAI_CV_FALLBACK = ['Sửa chữa', 'Bảo trì', 'Lắp đặt', 'Giao mực', 'Thay vật tư', 'Kiểm tra', 'Khác']
 export const RENTAL_LOAI_HD = ['Máy thuê', 'Máy CPC']

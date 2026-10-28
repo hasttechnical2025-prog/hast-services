@@ -8,7 +8,7 @@ import { LOAI_HD_BAO_TRI, nghiBaoTri, coBaoTriThang, moTaLichBaoTri, fmtThang } 
 import { CustomerCombobox } from './CustomerCombobox'
 import { MaterialCombobox } from './MaterialCombobox'
 import { createCustomer, saveJob, importPdf, fetchMayStatus, addKhoItem, closeGiamDinh } from './api'
-import { emptyForm, emptyVatTu, todayVN, LOAI_CV_CAN_VAT_TU, RENTAL_LOAI_HD, type Job, type JobForm as JForm } from './types'
+import { emptyForm, emptyVatTu, todayVN, LOAI_CV_CAN_VAT_TU, RENTAL_LOAI_HD, kmZeroRule, type Job, type JobForm as JForm } from './types'
 
 type GdItem = { id: string; ma_hang: string; ten_hang: string; so_luong: number; selected: boolean }
 
@@ -78,13 +78,22 @@ export function JobFormModal({ editingJob, onClose, onSaved, notify, customers, 
     else setForm(prev => ({ ...prev, ma_may: val, id_khach_hang: prev.id_khach_hang === 'NEW' ? 'NEW' : '' }))
   }
 
-  // Autofill km khi chọn khách; điền mã máy theo khách nếu đang trống.
+  // KM = 0 khi gửi CPN (ghi chú) hoặc loại việc "Hỗ trợ online" — KTV không di chuyển.
+  const kmZero = kmZeroRule(form.loai_cong_viec, form.ghi_chu)
+
+  // Autofill km khi chọn khách; điền mã máy theo khách nếu đang trống. KHÔNG autofill km nếu đang thuộc luật km=0.
   useEffect(() => {
     if (!form.id_khach_hang || form.id_khach_hang === 'NEW') return
     const c = customers.find(x => x.id === form.id_khach_hang)
-    if (c) setForm(prev => ({ ...prev, km: c.km_mac_dinh ?? prev.km, ma_may: prev.ma_may || c.ma_may || '' }))
+    if (c) setForm(prev => ({ ...prev, km: kmZero ? prev.km : (c.km_mac_dinh ?? prev.km), ma_may: prev.ma_may || c.ma_may || '' }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.id_khach_hang])
+
+  // Trúng luật km=0 → tự đưa KM về 0 (minh bạch, thấy ngay khi gõ "CPN" / chọn "Hỗ trợ online").
+  useEffect(() => {
+    if (kmZero && form.km !== 0) set('km', 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kmZero])
 
   // MF-auto theo mã máy (chỉ tạo mới).
   useEffect(() => {
@@ -333,7 +342,10 @@ export function JobFormModal({ editingJob, onClose, onSaved, notify, customers, 
             </div>
             <div className="space-y-1.5 col-span-1 md:col-span-2"><label className={lbl}>Số lượng</label><input type="number" min={1} className={inp} value={form.so_luong} onChange={e => set('so_luong', parseInt(e.target.value) || 1)} /></div>
             <div className="space-y-1.5 col-span-2 md:col-span-4"><label className={lbl}>Số phiếu (Report)</label><input className={inp} placeholder="VD: 958102" value={form.report} onChange={e => set('report', e.target.value)} /></div>
-            <div className="space-y-1.5 col-span-1 md:col-span-2"><label className={lbl}>Khoảng cách (KM)</label><input type="number" step="0.1" min={0} className={inp} value={form.km} onChange={e => set('km', parseFloat(e.target.value) || 0)} /></div>
+            <div className="space-y-1.5 col-span-1 md:col-span-2"><label className={lbl}>Khoảng cách (KM)</label>
+              <input type="number" step="0.1" min={0} disabled={kmZero} title={kmZero ? 'Gửi CPN / Hỗ trợ online — không tính km' : undefined} className={`${inp} ${kmZero ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''}`} value={form.km} onChange={e => set('km', parseFloat(e.target.value) || 0)} />
+              {kmZero && <p className="t3 text-amber-600">{form.loai_cong_viec?.trim().toLowerCase() === 'hỗ trợ online' ? 'Hỗ trợ online' : 'Gửi CPN'} — không tính km</p>}
+            </div>
           </div>
 
           {/* Hình thức xuất */}
