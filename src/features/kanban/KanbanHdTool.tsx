@@ -346,6 +346,11 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
   // trường THỰC SỰ đổi — tránh vô tình ghi ten_hang_hd (làm rớt phần ghép "Tên - Mã") khi chỉ sửa ĐVT.
   const [editName, setEditName] = useState<{ ma_hang: string; ten: string; gia: string; dvt: string; ten0: string; gia0: string; dvt0: string } | null>(null)
   const [savingName, setSavingName] = useState(false)
+  // Nhập Excel vật tư vào thẻ hóa đơn: cờ riêng để nút phản hồi chính xác + dải tóm tắt kết quả
+  const [importingXlsx, setImportingXlsx] = useState(false)
+  const [itemImportResult, setItemImportResult] = useState<{ count: number } | null>(null)
+  // Đổi thẻ hóa đơn (hoặc đóng modal) -> xóa dải tóm tắt nhập Excel vật tư của thẻ trước
+  useEffect(() => { setItemImportResult(null) }, [activeCard?.tickets?.[0]?.id])
   // Import thanh toán FAST (đối ứng công nợ Cột 3)
   const [payImporting, setPayImporting] = useState(false)
   const [payResult, setPayResult] = useState<any>(null)
@@ -1164,7 +1169,7 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
   // Nhập lại Excel -> cập nhật ĐƠN GIÁ (thật) + TÊN (ghi đè hóa đơn) cho dòng của phiếu này, khớp mã hàng.
   const importExcel = async (file: File) => {
     if (!activeCard) return
-    setSavingName(true)
+    setSavingName(true); setImportingXlsx(true); setItemImportResult(null)
     try {
       const mod: any = await import('exceljs'); const ExcelJS = mod.default ?? mod
       const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer())
@@ -1186,9 +1191,9 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
         // scope_key -> lưu luôn tên/giá/ĐVT thành MẪU cho khách (kỳ sau tự áp).
         body: JSON.stringify({ pham_vi: 'hoa_don', ticket_ids: activeCard.tickets.map(t => t.id), items, scope_key: modalScopeKey }),
       })
-      if (res.ok) { showNotification('success', `Đã cập nhật ${items.length} mặt hàng từ Excel.`); load() }
+      if (res.ok) { showNotification('success', `Đã cập nhật ${items.length} mặt hàng từ Excel.`); setItemImportResult({ count: items.length }); load() }
       else { const e = await res.json(); showNotification('error', e.error || 'Lỗi nhập Excel') }
-    } catch { showNotification('error', 'Lỗi đọc file Excel') } finally { setSavingName(false) }
+    } catch { showNotification('error', 'Lỗi đọc file Excel') } finally { setSavingName(false); setImportingXlsx(false) }
   }
 
   // Tìm kiếm: khách hàng (cụm/lẻ) + số phiếu (report) + số hóa đơn. Áp cho CẢ 4 cột ->
@@ -2640,13 +2645,21 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
                       <Button size="sm" variant="outline" onClick={() => activeCard && exportMinvoice([{ tickets: activeCard.tickets, soDonHang: soDonHangCard(activeCard.tickets) }], `minvoice-${soDonHangCard(activeCard.tickets)}.xlsx`)} className="h-8 text-xs gap-1 border-blue-300 text-blue-700 hover:bg-blue-50" title="Xuất file Excel đúng mẫu M-invoice để import (Tạo hóa đơn từ file excel)"><Download className="w-3.5 h-3.5" /> Xuất M-invoice</Button>
                     )}
                     {canEditItems && (
-                      <label className="h-8 px-3 text-xs gap-1 inline-flex items-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer text-slate-700">
-                        <Upload className="w-3.5 h-3.5" /> Nhập Excel
-                        <input type="file" accept=".xlsx" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) importExcel(f); e.target.value = '' }} />
+                      <label className={`h-8 px-3 text-xs gap-1 inline-flex items-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer text-slate-700 ${importingXlsx ? 'opacity-60 pointer-events-none' : ''}`}>
+                        {importingXlsx ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />} {importingXlsx ? 'Đang nhập…' : 'Nhập Excel'}
+                        <input type="file" accept=".xlsx" className="hidden" disabled={importingXlsx} onChange={e => { const f = e.target.files?.[0]; if (f) importExcel(f); e.target.value = '' }} />
                       </label>
                     )}
                   </div>
                 </div>
+                {/* Dải tóm tắt sau khi nhập Excel: để office THẤY việc đã xảy ra trước khi qua Xem như hóa đơn */}
+                {itemImportResult && (
+                  <div className="-mt-1 flex items-center gap-2 t2 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-md px-2.5 py-1.5">
+                    <CheckCircle className="w-4 h-4 shrink-0 text-emerald-600" />
+                    <span>Đã nhập Excel: cập nhật <b>{itemImportResult.count}</b> mặt hàng cho hóa đơn. Kiểm tra lại bảng bên dưới trước khi bàn giao.</span>
+                    <button onClick={() => setItemImportResult(null)} className="ml-auto text-emerald-600 hover:text-emerald-800 shrink-0" title="Đóng">✕</button>
+                  </div>
+                )}
                 <p className="t3 text-slate-400 -mt-1">Vật tư dùng tên kho sẽ tự ghép <b>mã hàng</b> vào tên khi lên hóa đơn (Tên - Mã). Tên tự đặt / áp mẫu khách và dòng dịch vụ giữ nguyên — muốn bỏ mã thì bấm ✏️ đặt tên riêng.</p>
                 {/* Copy CẢ CỘT (số thô) -> dán xuống 1 cột M-invoice nếu phần mềm cho phép. Chỉ kế toán, không hiện ở cột "Chờ lên hóa đơn". */}
                 {modalDisplayRows.length > 0 && isKeToan && !canEditItems && (

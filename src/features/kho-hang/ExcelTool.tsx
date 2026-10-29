@@ -1,6 +1,6 @@
 'use client'
 import { useRef, useState } from 'react'
-import { Download, Upload } from 'lucide-react'
+import { Download, Upload, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 // Công cụ Nhập/Xuất Excel (.xlsx) dùng chung — port NGUYÊN từ admin.
@@ -96,9 +96,9 @@ export function ExcelTool({ columns, rows, filename, endpoint, payloadKey, requi
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" onClick={exportExcel} disabled={busy} className="gap-2"><Download className="w-4 h-4" /> {exportLabel} ({rows.length})</Button>
+        <Button variant="outline" onClick={exportExcel} disabled={busy} className="gap-2">{busy ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} {busy ? 'Đang xử lý…' : `${exportLabel} (${rows.length})`}</Button>
         <input ref={fileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={onFile} className="hidden" />
-        <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={busy} className="gap-2"><Upload className="w-4 h-4" /> Nhập từ Excel</Button>
+        <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={busy} className="gap-2">{busy ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} {busy ? 'Đang đọc file…' : 'Nhập từ Excel'}</Button>
       </div>
       {parsed && (
         <div className="space-y-3">
