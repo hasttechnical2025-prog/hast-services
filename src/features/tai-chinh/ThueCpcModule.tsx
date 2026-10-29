@@ -11,7 +11,7 @@ import MonthField from "@/components/MonthField"
 import { usePaged, ListFrame } from "@/ui"
 import { chotSoDate, counterStatus, CounterStatus, kyTruoc, tinhDongMay } from "@/lib/thue-cpc"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
-import { Save, FileText, RefreshCw, ArrowRight, Check, PenSquare, Search, ChevronUp, ChevronDown, Download, Droplets, MapPin } from "lucide-react"
+import { Save, FileText, RefreshCw, ArrowRight, Check, PenSquare, Search, ChevronUp, ChevronDown, Download, Droplets, MapPin, Mail } from "lucide-react"
 
 // Tab "Cảnh báo mực" — máy thuê sắp hết mực (ước lượng chia dư). Office bấm "Đã gửi mực" để tắt.
 function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotification: Notify; onCount?: (n: number) => void; refreshVer?: number }) {
@@ -499,8 +499,10 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
                   <td className="px-3 py-2">
                     <div className="font-medium text-slate-700">{r.ten_khach_hang}</div>
                     {r.vi_tri_dat_may && <div className="text-xs text-slate-400">{r.vi_tri_dat_may}</div>}
-                    {/* Onsite = phải đến điểm máy đọc counter (mặc định); online (email/Zalo) thì không gắn badge */}
-                    {!r.counter_online && <span className="inline-flex items-center gap-1 mt-1 text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200" title="Lấy counter tại điểm máy — cần đến đọc chỉ số"><MapPin className="w-3 h-3" />Onsite</span>}
+                    {/* Cách lấy counter: Online (khách gửi email/Zalo) = xanh lá; Onsite (KTV đến đọc) = xám */}
+                    {r.counter_online
+                      ? <span className="inline-flex items-center gap-1 mt-1 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200" title="Khách gửi chỉ số qua email/Zalo — không cần đến đọc"><Mail className="w-3 h-3" />Online</span>
+                      : <span className="inline-flex items-center gap-1 mt-1 text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200" title="Lấy counter tại điểm máy — cần đến đọc chỉ số"><MapPin className="w-3 h-3" />Onsite</span>}
                   </td>
                   <td className="px-3 py-2 font-mono text-slate-500">
                     <div>{r.ma_may || '—'}</div>
@@ -1153,8 +1155,10 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
                   </td>
                   <td className="px-3 py-2 text-center whitespace-nowrap text-slate-500">
                     <div>{chotLabelShort(r)}</div>
-                    {/* Onsite = phải đến điểm máy đọc counter (mặc định); online (email/Zalo) thì không gắn badge */}
-                    {!r.counter_online && <span className="inline-flex items-center gap-1 mt-1 t3 px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200" title="Lấy counter tại điểm máy — cần đến đọc chỉ số"><MapPin className="w-3 h-3" />Onsite</span>}
+                    {/* Cách lấy counter: Online (khách gửi email/Zalo) = xanh lá; Onsite (KTV đến đọc) = xám */}
+                    {r.counter_online
+                      ? <span className="inline-flex items-center gap-1 mt-1 t3 px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200" title="Khách gửi chỉ số qua email/Zalo — không cần đến đọc"><Mail className="w-3 h-3" />Online</span>
+                      : <span className="inline-flex items-center gap-1 mt-1 t3 px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200" title="Lấy counter tại điểm máy — cần đến đọc chỉ số"><MapPin className="w-3 h-3" />Onsite</span>}
                   </td>
                   <td className="px-3 py-2">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap ${STATUS_BADGE[st.status as CounterStatus].cls}`}>{STATUS_BADGE[st.status as CounterStatus].label(st.days)}</span>
