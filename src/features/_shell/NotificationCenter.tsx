@@ -10,7 +10,9 @@ import { useSession } from './SessionProvider'
 import { useAlerts } from './AlertsProvider'
 
 type Tone = 'red' | 'amber' | 'blue'
-type Section = { key: string; icon: any; label: string; count: number; tone: Tone; detail: React.ReactNode; navHref?: string; navLabel?: string; canSee?: boolean }
+// canSee = ĐỐI TƯỢNG được cảnh báo (hiện dòng). canNav = mở được TRANG ĐÍCH (hiện link).
+// Tách 2 cờ: role cần biết nhưng không mở được đích -> vẫn thấy cảnh báo, ẩn link. canNav bỏ trống = theo canSee.
+type Section = { key: string; icon: any; label: string; count: number; tone: Tone; detail: React.ReactNode; navHref?: string; navLabel?: string; canSee?: boolean; canNav?: boolean }
 
 // Chuông cảnh báo xuyên-module — kiểu /admin: gom nhiều nhóm, mỗi nhóm bung chi tiết + link ĐÚNG vùng v2.
 export function NotificationCenter() {
@@ -164,7 +166,9 @@ export function NotificationCenter() {
     },
     {
       key: 'hdbt', icon: ClipboardCheck, tone: 'amber', label: `HĐBT/thuê sắp hết hạn (${a.hdbtCanhBaoThang} tháng)`, count: a.hdbtExpiring.length,
-      navHref: `${V2_BASE}/quan-ly/khach-hang?hd=expiring`, navLabel: '→ Mở Quản lý › Khách hàng (Sắp hết hạn)', canSee: subVisible('quan_ly', 'khach_hang'),
+      // Office (staff) + admin đều THẤY để liên hệ khách; nhưng Khách hàng là trang admin-only -> link chỉ hiện cho ai mở được.
+      navHref: `${V2_BASE}/quan-ly/khach-hang?hd=expiring`, navLabel: '→ Mở Quản lý › Khách hàng (Sắp hết hạn)',
+      canSee: user?.role === 'admin' || user?.role === 'staff', canNav: subVisible('quan_ly', 'khach_hang'),
       detail: (
         <div className="border border-amber-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
@@ -273,7 +277,7 @@ export function NotificationCenter() {
                       {isOpen && (
                         <div className="px-1 pb-2 space-y-1.5">
                           {s.detail}
-                          {s.navHref && s.canSee && (
+                          {s.navHref && (s.canNav ?? s.canSee) && (
                             <Link href={s.navHref} onClick={() => setOpen(false)}
                               className={`block w-full text-center t2 font-semibold rounded-lg border py-1.5 ${s.tone === 'red' ? 'text-red-700 bg-red-50 hover:bg-red-100 border-red-100' : s.tone === 'amber' ? 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-100' : 'text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-100'}`}>
                               {s.navLabel}
