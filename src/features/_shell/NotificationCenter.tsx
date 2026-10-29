@@ -164,7 +164,7 @@ export function NotificationCenter() {
     },
     {
       key: 'hdbt', icon: ClipboardCheck, tone: 'amber', label: `HĐBT/thuê sắp hết hạn (${a.hdbtCanhBaoThang} tháng)`, count: a.hdbtExpiring.length,
-      navHref: `${V2_BASE}/theo-doi-may/bao-tri`, navLabel: '→ Mở Theo dõi máy › Bảo trì', canSee: subVisible('theo_doi_may', 'bao_tri'),
+      navHref: `${V2_BASE}/quan-ly/khach-hang?hd=expiring`, navLabel: '→ Mở Quản lý › Khách hàng (Sắp hết hạn)', canSee: subVisible('quan_ly', 'khach_hang'),
       detail: (
         <div className="border border-amber-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">

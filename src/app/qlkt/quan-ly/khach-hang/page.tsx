@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useToast, fmtDate } from '@/ui'
 import { useShared } from '@/features/_shell/SharedDataProvider'
 import { useSession } from '@/features/_shell/SessionProvider'
@@ -69,7 +69,9 @@ export default function KhachHangPage() {
 
       {active === 'diem-may' && canDiemMay && (
         <div className="space-y-6">
-          <CustomerListTool customers={customers} loaiHdOptions={loaiHdOptions} hangOptions={hangOptions} hdbtCanhBaoThang={hdbtCanhBaoThang} onUpdateSuccess={refetchAll} showNotification={notify} />
+          <Suspense fallback={null}>
+            <CustomerListTool customers={customers} loaiHdOptions={loaiHdOptions} hangOptions={hangOptions} hdbtCanhBaoThang={hdbtCanhBaoThang} onUpdateSuccess={refetchAll} showNotification={notify} />
+          </Suspense>
           <div className="border border-slate-200 rounded-lg p-6 bg-white">
             <h3 className="text-lg font-semibold text-slate-700 mb-2">Nhập / Xuất khách hàng (Excel)</h3>
             <p className="text-sm text-slate-500 mb-4">

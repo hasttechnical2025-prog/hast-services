@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Users, ClipboardCheck, Clock, AlertTriangle, Search, Plus, ChevronUp, ChevronDown, PenSquare, MapPin, Printer, FileText, CalendarClock, ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,8 +25,18 @@ const CUSTOMER_COLS: ColDef[] = [
 
 export function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCanhBaoThang, onUpdateSuccess, showNotification }: { customers: any[], loaiHdOptions: string[], hangOptions: string[], hdbtCanhBaoThang: number, onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void }) {
   const col = useColView('customers', CUSTOMER_COLS)
+  // Chuông "HĐBT/thuê sắp hết hạn" điều hướng tới đây kèm ?hd=expiring -> mở sẵn bộ lọc.
+  const searchParams = useSearchParams()
+  const HD_FILTERS = ['all', 'has', 'expiring', 'expired']
+  const hdParam0 = searchParams.get('hd')
   const [search, setSearch] = useState("")
-  const [hdFilter, setHdFilter] = useState("all")
+  const [hdFilter, setHdFilter] = useState(hdParam0 && HD_FILTERS.includes(hdParam0) ? hdParam0 : "all")
+  // Bấm chuông khi đang ở trang này -> query đổi mà không remount -> đồng bộ bộ lọc.
+  useEffect(() => {
+    const h = searchParams.get('hd')
+    if (h && HD_FILTERS.includes(h)) setHdFilter(h)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
   const [filterOpen, setFilterOpen] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
   const [saving, setSaving] = useState(false)
