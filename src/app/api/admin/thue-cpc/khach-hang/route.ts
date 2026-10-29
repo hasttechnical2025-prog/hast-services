@@ -9,7 +9,7 @@ const LOAI_HD_BILLING = ['Máy thuê', 'Máy CPC']
 
 const BILLING_SELECT =
   'id, ten_khach_hang, dia_chi, ma_may, serial, model, hang, loai_hd, ' +
-  'may_mau, phi_thue_thang, don_gia_bw, don_gia_mau, dinh_muc_mien_phi_bw, dinh_muc_mien_phi_mau, ' +
+  'may_mau, counter_online, phi_thue_thang, don_gia_bw, don_gia_mau, dinh_muc_mien_phi_bw, dinh_muc_mien_phi_mau, ' +
   'cam_ket_toi_thieu_bw, cam_ket_toi_thieu_mau, vat_thue_cpc, trach_nhiem_ky_thuat, ' +
   'ten_doi_tac_ky_thuat, ngay_chot_so, chot_so_ngay, chot_so_cuoi_thang, kieu_ky, ten_may_hd, vi_tri_dat_may, nguoi_lien_he, email, ngay_lap_may, ngay_het_han_hdbt, nv_kinh_doanh, id_hop_dong_khung, ' +
   // Thông tin XUẤT HÓA ĐƠN (chỉ đọc) — ưu tiên khách cụm, fallback điểm máy
@@ -65,6 +65,8 @@ export async function PUT(request: Request) {
     if (body.kieu_ky !== undefined) updates.kieu_ky = body.kieu_ky === 'tu_den' ? 'tu_den' : 'thang'
     // Máy màu / đen trắng -> tab Nhập counter khóa ô Màu khi là máy đen trắng
     if (body.may_mau !== undefined) updates.may_mau = !!body.may_mau
+    // Lấy counter online (true) / onsite (false, mặc định -> badge "Onsite" ở Nhập counter)
+    if (body.counter_online !== undefined) updates.counter_online = !!body.counter_online
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'Không có dữ liệu cập nhật' }, { status: 400 })

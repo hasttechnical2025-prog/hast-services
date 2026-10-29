@@ -11,7 +11,7 @@ import MonthField from "@/components/MonthField"
 import { usePaged, ListFrame } from "@/ui"
 import { chotSoDate, counterStatus, CounterStatus, kyTruoc, tinhDongMay } from "@/lib/thue-cpc"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
-import { Save, FileText, RefreshCw, ArrowRight, Check, PenSquare, Search, ChevronUp, ChevronDown, Download, Droplets } from "lucide-react"
+import { Save, FileText, RefreshCw, ArrowRight, Check, PenSquare, Search, ChevronUp, ChevronDown, Download, Droplets, MapPin } from "lucide-react"
 
 // Tab "Cảnh báo mực" — máy thuê sắp hết mực (ước lượng chia dư). Office bấm "Đã gửi mực" để tắt.
 function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotification: Notify; onCount?: (n: number) => void; refreshVer?: number }) {
@@ -552,6 +552,8 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
     id_hop_dong_khung: row.id_hop_dong_khung ?? '', serial: row.serial ?? '',
     // Chưa xác định (null) -> coi như máy màu, không khóa gì
     may_mau: row.may_mau !== false,
+    // Lấy counter online (email/Zalo) hay onsite; mặc định false = onsite
+    counter_online: !!row.counter_online,
   })
   const [saving, setSaving] = useState(false)
   const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }))
@@ -666,14 +668,19 @@ function DonGiaModal({ row, khung, nvkd, onClose, onSaved, showNotification }: {
                   {khung.map(k => <option key={k.id} value={k.id}>{k.ten_hop_dong}</option>)}
                 </select>
               </label>
-              <label className="block">
+              <div className="block">
                 <span className="text-xs font-medium text-slate-500">Ngày chốt số</span>
                 <select value={f.chot_pick} onChange={e => set('chot_pick', e.target.value)} className="h-9 mt-1 w-full rounded-md border border-slate-200 text-sm px-2 bg-white">
                   <option value="">— Chưa đặt —</option>
                   {Array.from({ length: 31 }, (_, i) => i + 1).map(d => <option key={d} value={String(d)}>Ngày {d}</option>)}
                   <option value="cuoi">Cuối tháng</option>
                 </select>
-              </label>
+                {/* Lấy counter online (email/Zalo) = KHÔNG badge; bỏ tick = onsite -> badge "Onsite" ở tab Nhập counter */}
+                <label className="flex items-center gap-1.5 mt-1.5 text-xs text-slate-600 cursor-pointer select-none" title="Bật nếu khách gửi chỉ số qua email/Zalo (không cần KTV đến đọc)">
+                  <input type="checkbox" checked={f.counter_online} onChange={e => set('counter_online', e.target.checked)} className="w-3.5 h-3.5 accent-blue-600" />
+                  Lấy counter online
+                </label>
+              </div>
               <label className="block lg:col-span-3">
                 <span className="text-xs font-medium text-slate-500">Cách ghi kỳ (dòng thuê máy)</span>
                 <select value={f.kieu_ky} onChange={e => set('kieu_ky', e.target.value)} className="h-9 mt-1 w-full rounded-md border border-slate-200 text-sm px-2 bg-white">
@@ -1142,7 +1149,11 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
                     {r.model && <div className={`t3 font-sans font-semibold ${r.may_mau === false ? 'text-slate-500' : 'text-fuchsia-600'}`} title={r.may_mau === false ? 'Máy đen trắng' : 'Máy màu'}>{r.model}</div>}
                     {r.serial && <div className="t3 text-slate-400">SN: {r.serial}</div>}
                   </td>
-                  <td className="px-3 py-2 text-center whitespace-nowrap text-slate-500">{chotLabelShort(r)}</td>
+                  <td className="px-3 py-2 text-center whitespace-nowrap text-slate-500">
+                    <div>{chotLabelShort(r)}</div>
+                    {/* Onsite = phải đến điểm máy đọc counter (mặc định); online (email/Zalo) thì không gắn badge */}
+                    {!r.counter_online && <span className="inline-flex items-center gap-1 mt-1 t3 px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200" title="Lấy counter tại điểm máy — cần đến đọc chỉ số"><MapPin className="w-3 h-3" />Onsite</span>}
+                  </td>
                   <td className="px-3 py-2">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap ${STATUS_BADGE[st.status as CounterStatus].cls}`}>{STATUS_BADGE[st.status as CounterStatus].label(st.days)}</span>
                   </td>
