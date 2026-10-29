@@ -1324,6 +1324,18 @@ export default function AdminDashboard() {
           window.location.href = '/lenh-xuat-hang'
           return
         }
+        // Office TỰ CHUYỂN sang giao diện mới /qlkt (giống restoreSession) — trừ khi ?classic=1
+        // hoặc role chưa được cấp quyền v2 (admin LUÔN được). /admin chỉ là cổng đăng nhập + bãi đáp khẩn.
+        const classic = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('classic') === '1'
+        if (!classic && ['admin', 'tech_admin', 'staff', 'kthc'].includes(user.role)) {
+          if (user.role === 'admin') { window.location.replace(V2_BASE); return }
+          try {
+            const cRes = await fetch('/api/admin/cau-hinh')
+            const cfg = cRes.ok ? ((await cRes.json())?.data || {}) : {}
+            const allowed = String(cfg.v2_roles || '').split(',').map((s: string) => s.trim()).filter(Boolean)
+            if (allowed.includes(user.role)) { window.location.replace(V2_BASE); return }
+          } catch { /* lỗi cấu hình -> ở lại /admin cũ */ }
+        }
         setCurrentAdmin(user)
         setLoginForm({ username: "", password: "" })
         showNotification('success', `Chào mừng ${user.full_name} đăng nhập thành công!`)

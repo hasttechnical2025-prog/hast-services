@@ -28,7 +28,7 @@ export default function Home() {
 
         <div className="flex flex-col gap-4">
           <Link
-            href="/qlkt"
+            href="/admin"
             onClick={handleAdminLinkClick}
             className="w-full py-3 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-medium block"
           >
