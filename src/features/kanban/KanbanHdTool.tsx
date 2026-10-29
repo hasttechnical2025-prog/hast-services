@@ -1851,10 +1851,17 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
                             </button>
                           )
                         })()}
-                        {(state === 'Chờ xuất HĐ' || role === 'admin') && (
+                        {(state === 'Chờ xuất HĐ' || role === 'admin') && (() => {
+                          // Vá UX: phiếu đang bị người KHÁC khóa -> non-admin không thu hồi được
+                          // (nhất quán với nút Khóa + chốt chặn server 403, khỏi bấm rồi mới báo lỗi).
+                          const lockedByOther = role !== 'admin' && !!card.tickets[0]?.khoa_boi && card.tickets[0]?.khoa_boi !== currentUserId
+                          const nguoiKhoaTH = card.tickets[0]?.nguoi_khoa?.full_name || 'người khác'
+                          return (
                           <button
+                            disabled={lockedByOther}
                             onClick={(e) => {
                               e.stopPropagation()
+                              if (lockedByOther) return
                               const laThueCpc = card.tickets.every((t: any) => t.nguon === 'thue_cpc')
                               const laPhiBT = card.tickets.every((t: any) => t.nguon === 'phi_bao_tri')
                               const laBilling = laThueCpc || laPhiBT
@@ -1886,12 +1893,13 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
                                 }
                               })
                             }}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50 px-1 py-0.5 rounded transition t3 font-bold shrink-0 border border-red-200"
-                            title="Thu hồi quay lại Công nợ"
+                            className={`px-1 py-0.5 rounded transition t3 font-bold shrink-0 border ${lockedByOther ? 'text-slate-300 border-slate-200 cursor-not-allowed' : 'text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200'}`}
+                            title={lockedByOther ? `Đang khóa bởi ${nguoiKhoaTH} — không thu hồi được` : "Thu hồi quay lại Công nợ"}
                           >
                             Thu hồi
                           </button>
-                        )}
+                          )
+                        })()}
                         </div>
                       </div>
 
