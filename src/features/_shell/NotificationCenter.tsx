@@ -166,9 +166,9 @@ export function NotificationCenter() {
     },
     {
       key: 'hdbt', icon: ClipboardCheck, tone: 'amber', label: `HĐBT/thuê sắp hết hạn (${a.hdbtCanhBaoThang} tháng)`, count: a.hdbtExpiring.length,
-      // Office (staff) + admin đều THẤY để liên hệ khách; nhưng Khách hàng là trang admin-only -> link chỉ hiện cho ai mở được.
+      // Office (staff) + tech_admin + admin đều THẤY để liên hệ khách; nhưng Khách hàng là trang admin-only -> link chỉ hiện cho ai mở được.
       navHref: `${V2_BASE}/quan-ly/khach-hang?hd=expiring`, navLabel: '→ Mở Quản lý › Khách hàng (Sắp hết hạn)',
-      canSee: user?.role === 'admin' || user?.role === 'staff', canNav: subVisible('quan_ly', 'khach_hang'),
+      canSee: ['admin', 'staff', 'tech_admin'].includes(user?.role || ''), canNav: subVisible('quan_ly', 'khach_hang'),
       detail: (
         <div className="border border-amber-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
