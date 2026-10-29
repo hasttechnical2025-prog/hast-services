@@ -11,6 +11,8 @@ import MonthField from "@/components/MonthField"
 import { usePaged, ListFrame } from "@/ui"
 import { chotSoDate, counterStatus, CounterStatus, kyTruoc, tinhDongMay } from "@/lib/thue-cpc"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
+import { useShared } from "@/features/_shell/SharedDataProvider"
+import MucMayThueTool from "@/features/kho-hang/MucMayThueTool"
 import { Save, FileText, RefreshCw, ArrowRight, Check, PenSquare, Search, ChevronUp, ChevronDown, Download, Droplets, MapPin, Mail } from "lucide-react"
 
 // Tab "Cảnh báo mực" — máy thuê sắp hết mực (ước lượng chia dư). Office bấm "Đã gửi mực" để tắt.
@@ -250,9 +252,16 @@ function SearchSelect({ options, value, onChange, placeholder }: { options: { va
   )
 }
 
+// Tab "Vật tư máy thuê" — bản CHỈ-ĐỌC của định mức vật tư tiêu hao (office tra cứu).
+// Dùng lại MucMayThueTool ở chế độ readOnly, dữ liệu từ context chung (useShared) — không fetch thừa.
+function VatTuMayThueTab({ showNotification }: { showNotification: Notify }) {
+  const { customers, inventory, committed } = useShared()
+  return <MucMayThueTool readOnly customers={customers} inventory={inventory} committed={committed} showNotification={showNotification} />
+}
+
 export default function ThueCpcModule({ showNotification, canSub }: { showNotification: Notify, canSub?: (g: string) => boolean }) {
   const canS = canSub || (() => true)
-  const [sub, setSub] = useState<'danh_sach' | 'counter' | 'bang_ke' | 'canh_bao_muc'>('counter')
+  const [sub, setSub] = useState<'danh_sach' | 'counter' | 'bang_ke' | 'canh_bao_muc' | 'vat_tu'>('counter')
   const [mucCount, setMucCount] = useState(0) // badge: số máy sắp hết mực
   const [dueCount, setDueCount] = useState(0) // số máy cần lấy counter (badge tab) — theo kỳ đang chọn
   const [counterThang, setCounterThang] = useState(monthNow()) // kỳ đang chọn ở tab Nhập counter (nâng lên để badge bám theo)
@@ -275,6 +284,7 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
     ['counter', 'Nhập counter', canS('counter')],
     ['bang_ke', 'Bảng kê', canS('bang_ke')],
     ['canh_bao_muc', 'Cảnh báo vật tư', canS('canh_bao_muc')],
+    ['vat_tu', 'Vật tư máy thuê', canS('canh_bao_muc')],
     ['danh_sach', 'Danh sách máy', canS('don_gia')],
   ]
   // Badge số vật tư cần cảnh báo (cho tab) — ĐẾM THEO BỘ LỌC nhóm admin đã lưu (Tất cả/Mực/Trống).
@@ -329,6 +339,9 @@ export default function ThueCpcModule({ showNotification, canSub }: { showNotifi
       )}
       {active === 'canh_bao_muc' && canS('canh_bao_muc') && (
         <CanhBaoMucTab showNotification={showNotification} onCount={setMucCount} refreshVer={refreshVer} />
+      )}
+      {active === 'vat_tu' && canS('canh_bao_muc') && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6"><VatTuMayThueTab showNotification={showNotification} /></div>
       )}
     </div>
   )

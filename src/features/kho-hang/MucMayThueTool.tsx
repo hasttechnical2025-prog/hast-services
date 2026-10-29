@@ -7,8 +7,11 @@ import { Search, X, Droplets } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { MaterialCombobox } from '@/features/giao-viec/MaterialCombobox'
 
-function MucRow({ r, inv, kd, busy, onSave, onRemove }: {
-  r: any; inv: any; kd: number; busy: boolean
+// Nhãn counter theo loại (dùng cho cả bản sửa và bản chỉ-đọc)
+const LOAI_LABEL: Record<string, string> = { bw: 'BW', mau: 'Màu', tong: 'Tổng' }
+
+function MucRow({ r, inv, kd, busy, onSave, onRemove, readOnly }: {
+  r: any; inv: any; kd: number; busy: boolean; readOnly?: boolean
   onSave: (id: string, dinh_luong: string, loai: string, nhom: string, dinh_luong_dau: string) => void; onRemove: (id: string) => void
 }) {
   const [dl, setDl] = useState<string>(r.dinh_luong != null ? String(r.dinh_luong) : '')
@@ -16,6 +19,23 @@ function MucRow({ r, inv, kd, busy, onSave, onRemove }: {
   const [loai, setLoai] = useState<string>(r.loai || 'bw')
   const [nhom, setNhom] = useState<string>(r.nhom || 'muc')
   const dirty = (dl !== (r.dinh_luong != null ? String(r.dinh_luong) : '')) || (dlDau !== (r.dinh_luong_dau != null ? String(r.dinh_luong_dau) : '')) || (loai !== (r.loai || 'bw')) || (nhom !== (r.nhom || 'muc'))
+  // BẢN CHỈ-ĐỌC (office): tất cả control -> chữ/badge tĩnh. Giữ "Có sẵn N" (đỏ nếu ≤0).
+  if (readOnly) {
+    const groupTrong = (r.nhom || 'muc') === 'trong'
+    return (
+      <div className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 text-xs ${kd <= 0 ? 'bg-red-50/60 border-red-200' : groupTrong ? 'bg-violet-100 border-violet-300' : 'bg-slate-50 border-slate-200'}`}>
+        <span className="font-mono font-semibold text-slate-700 shrink-0">{r.ma_hang}</span>
+        <span className="text-slate-600 truncate min-w-0 flex-1" title={inv?.ten_hang}>{inv?.ten_hang || '—'}</span>
+        <span className="flex items-center gap-1.5 shrink-0">
+          <span className={`px-1.5 py-0.5 rounded-full border font-semibold ${groupTrong ? 'bg-violet-50 text-violet-700 border-violet-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>{groupTrong ? 'Trống' : 'Mực'}</span>
+          <span className="text-slate-600 whitespace-nowrap" title="Định lượng: số trang/hộp mực thay (nhà SX)">{r.dinh_luong ? `${Number(r.dinh_luong).toLocaleString('vi-VN')} tr/hộp` : <span className="text-slate-400 italic">chưa có định lượng</span>}</span>
+          {r.dinh_luong_dau ? <span className="text-amber-700 whitespace-nowrap" title="Dung lượng hộp theo máy (factory) lắp lúc lắp máy">(hộp máy {Number(r.dinh_luong_dau).toLocaleString('vi-VN')})</span> : null}
+          <span className="px-1.5 py-0.5 rounded-full border bg-slate-100 text-slate-600 border-slate-200 font-medium" title="Counter tính theo">{LOAI_LABEL[r.loai || 'bw'] || 'BW'}</span>
+          <span className={`whitespace-nowrap font-semibold ${kd <= 0 ? 'text-red-600' : 'text-slate-400'}`} title="Số lượng còn dùng được = tồn kho − đang giữ">{kd <= 0 ? '⚠ ' : ''}Có sẵn {kd}</span>
+        </span>
+      </div>
+    )
+  }
   return (
     <div className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 text-xs ${kd <= 0 ? 'bg-red-50/60 border-red-200' : nhom === 'trong' ? 'bg-violet-100 border-violet-300' : 'bg-slate-50 border-slate-200'}`}>
       <span className="font-mono font-semibold text-slate-700 shrink-0">{r.ma_hang}</span>
@@ -40,9 +60,9 @@ function MucRow({ r, inv, kd, busy, onSave, onRemove }: {
   )
 }
 
-export default function MucMayThueTool({ customers, inventory, committed, showNotification }: {
+export default function MucMayThueTool({ customers, inventory, committed, showNotification, readOnly }: {
   customers: any[], inventory: any[], committed: Record<string, number>,
-  showNotification: (t: 'success' | 'error', m: string) => void
+  showNotification: (t: 'success' | 'error', m: string) => void, readOnly?: boolean
 }) {
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState(false)
@@ -101,7 +121,9 @@ export default function MucMayThueTool({ customers, inventory, committed, showNo
       <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
         <p className="text-xs text-slate-500 flex items-start gap-1.5 flex-1 min-w-[260px]">
           <Droplets className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-          <span>Gán mã vật tư (<b>Mực</b>/<b>Trống</b>) cho từng model + <b>định lượng</b> (trang/hộp) &amp; <b>counter theo</b> (BW/Màu/Tổng) để cảnh báo sắp cần thay. Khả dụng ≤ 0 → chuông cảnh báo tồn. <i>Trống đen máy màu → Tổng; trống màu → Màu; máy đen trắng → BW.</i></span>
+          {readOnly
+            ? <span>Định mức vật tư tiêu hao (<b>Mực</b>/<b>Trống</b>) theo từng model máy thuê — <b>định lượng</b> (trang/hộp), <b>counter theo</b> (BW/Màu/Tổng) và <b>tồn khả dụng</b>. Dùng để hệ thống cảnh báo khi sắp cần thay. <i>Chỉ xem.</i></span>
+            : <span>Gán mã vật tư (<b>Mực</b>/<b>Trống</b>) cho từng model + <b>định lượng</b> (trang/hộp) &amp; <b>counter theo</b> (BW/Màu/Tổng) để cảnh báo sắp cần thay. Khả dụng ≤ 0 → chuông cảnh báo tồn. <i>Trống đen máy màu → Tổng; trống màu → Màu; máy đen trắng → BW.</i></span>}
         </p>
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -126,12 +148,14 @@ export default function MucMayThueTool({ customers, inventory, committed, showNo
                 {rows.length === 0 ? <span className="text-xs text-slate-400 italic">Chưa gán mực</span> : rows.map((r: any) => {
                   const inv = inventory.find(i => i.ma_hang === r.ma_hang)
                   const kd = (Number(inv?.ton_kho) || 0) - (committed[r.ma_hang] || 0)
-                  return <MucRow key={r.id} r={r} inv={inv} kd={kd} busy={busy} onSave={saveYield} onRemove={removeMuc} />
+                  return <MucRow key={r.id} r={r} inv={inv} kd={kd} busy={busy} onSave={saveYield} onRemove={removeMuc} readOnly={readOnly} />
                 })}
               </div>
-              <div className="max-w-md">
-                <MaterialCombobox inventory={inventory} value="" onChange={(ma) => addMuc(model, ma)} committed={committed} />
-              </div>
+              {!readOnly && (
+                <div className="max-w-md">
+                  <MaterialCombobox inventory={inventory} value="" onChange={(ma) => addMuc(model, ma)} committed={committed} />
+                </div>
+              )}
             </div>
           )
         })}
