@@ -661,7 +661,7 @@ export function DatHangTool({
                           <tr className="bg-blue-50/40">
                             <td colSpan={7} className="px-3 pb-3 pt-1">
                               <div className="rounded-md border border-blue-200 bg-blue-50/60 px-3 py-2.5">
-                                <div className="flex flex-wrap items-end gap-3">
+                                <div className="flex flex-wrap items-end justify-end gap-3">
                                   <div className="flex flex-col gap-0.5">
                                     <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Ngày nhận</label>
                                     <DateField value={receiving.ngay_nhan} onChange={(v) => setReceiving({ ...receiving, ngay_nhan: v })} heightClass="h-8" className="w-36" />
@@ -674,7 +674,7 @@ export function DatHangTool({
                                     <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Mã thực nhận</label>
                                     <Input list="dathang-ma-thuc" value={receiving.ma_hang} onChange={(e) => setReceiving({ ...receiving, ma_hang: e.target.value.trim() })} className={`h-8 bg-white w-44 font-mono ${receiving.ma_hang !== receiving.ma_dat ? 'border-amber-400' : ''}`} title="Mặc định = mã đã đặt; đổi nếu NCC giao mã khác" />
                                   </div>
-                                  <div className="flex items-center gap-2 ml-auto">
+                                  <div className="flex items-center gap-2">
                                     <Button onClick={saveReceipt} className="h-8 text-xs px-4 bg-emerald-600 hover:bg-emerald-700">Lưu</Button>
                                     <Button variant="outline" onClick={() => setReceiving(null)} className="h-8 text-xs px-4">Hủy</Button>
                                   </div>
