@@ -4,6 +4,7 @@
 // 2 tab: "Danh sách máy" (Đơn giá HĐ + Hợp đồng khung — thiết lập) · "Nhập counter"
 // (nhập chỉ số + ước tính tiền live + Tổng doanh số theo NV/kỹ thuật + Bảng kê/xuất Word/Đẩy Kanban).
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import DateField from "@/components/DateField"
@@ -261,7 +262,19 @@ function VatTuMayThueTab({ showNotification }: { showNotification: Notify }) {
 
 export default function ThueCpcModule({ showNotification, canSub }: { showNotification: Notify, canSub?: (g: string) => boolean }) {
   const canS = canSub || (() => true)
-  const [sub, setSub] = useState<'danh_sach' | 'counter' | 'bang_ke' | 'canh_bao_muc' | 'vat_tu'>('counter')
+  // Chuông/điều hướng có thể truyền ?tab=... để mở đúng tab cháu (vd Cảnh báo vật tư).
+  const searchParams = useSearchParams()
+  const VALID_SUBS = ['danh_sach', 'counter', 'bang_ke', 'canh_bao_muc', 'vat_tu']
+  const tabParam0 = searchParams.get('tab')
+  const [sub, setSub] = useState<'danh_sach' | 'counter' | 'bang_ke' | 'canh_bao_muc' | 'vat_tu'>(
+    (tabParam0 && VALID_SUBS.includes(tabParam0) ? tabParam0 : 'counter') as any
+  )
+  // Bấm chuông khi ĐANG ở trang này -> query đổi mà không remount -> đồng bộ lại tab.
+  useEffect(() => {
+    const t = searchParams.get('tab')
+    if (t && VALID_SUBS.includes(t)) setSub(t as any)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
   const [mucCount, setMucCount] = useState(0) // badge: số máy sắp hết mực
   const [dueCount, setDueCount] = useState(0) // số máy cần lấy counter (badge tab) — theo kỳ đang chọn
   const [counterThang, setCounterThang] = useState(monthNow()) // kỳ đang chọn ở tab Nhập counter (nâng lên để badge bám theo)

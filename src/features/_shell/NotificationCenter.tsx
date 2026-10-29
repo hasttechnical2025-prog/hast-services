@@ -22,7 +22,7 @@ export function NotificationCenter() {
   const sections: Section[] = [
     {
       key: 'muc', icon: Droplets, tone: 'red', label: 'Mực máy thuê đã hết', count: a.mucCanhBao.length,
-      navHref: `${V2_BASE}/tai-chinh/thue-cpc`, navLabel: '→ Mở Thuê/CPC › Cảnh báo vật tư', canSee: subVisible('tai_chinh', 'thue_cpc'),
+      navHref: `${V2_BASE}/tai-chinh/thue-cpc?tab=canh_bao_muc`, navLabel: '→ Mở Thuê/CPC › Cảnh báo vật tư', canSee: subVisible('tai_chinh', 'thue_cpc'),
       detail: (
         <div className="border border-red-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
@@ -43,7 +43,7 @@ export function NotificationCenter() {
     },
     {
       key: 'muc_sap_het', icon: Droplets, tone: 'amber', label: 'Máy thuê sắp cần thay vật tư', count: a.mucSapHet.length,
-      navHref: `${V2_BASE}/tai-chinh/thue-cpc`, navLabel: '→ Mở Thuê/CPC › Cảnh báo vật tư', canSee: subVisible('tai_chinh', 'thue_cpc'),
+      navHref: `${V2_BASE}/tai-chinh/thue-cpc?tab=canh_bao_muc`, navLabel: '→ Mở Thuê/CPC › Cảnh báo vật tư', canSee: subVisible('tai_chinh', 'thue_cpc'),
       detail: (
         <div className="border border-amber-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
@@ -187,7 +187,7 @@ export function NotificationCenter() {
     },
     {
       key: 'counter', icon: Clock, tone: 'amber', label: 'Máy thuê/CPC đến hạn lấy counter', count: a.counterDueList.length,
-      navHref: `${V2_BASE}/tai-chinh/thue-cpc`, navLabel: '→ Mở Thuê/CPC › Nhập counter', canSee: subVisible('tai_chinh', 'thue_cpc'),
+      navHref: `${V2_BASE}/tai-chinh/thue-cpc?tab=counter`, navLabel: '→ Mở Thuê/CPC › Nhập counter', canSee: subVisible('tai_chinh', 'thue_cpc'),
       detail: (
         <div className="border border-amber-100 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs text-slate-600">
