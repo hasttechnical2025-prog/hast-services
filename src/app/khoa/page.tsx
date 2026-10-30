@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Lock, Unlock, ShieldAlert, RefreshCw, CheckCircle2, LogIn } from 'lucide-react'
+import { Lock, Unlock, ShieldAlert, RefreshCw, CheckCircle2, LogIn, ArrowLeft } from 'lucide-react'
 import { useConfirm } from '@/components/ConfirmDialog'
 
 // Trang KHÓA / MỞ app bảo trì bằng 1 nút — thêm vào màn hình chính điện thoại (/khoa).
@@ -16,6 +16,9 @@ export default function KhoaPage() {
   const [working, setWorking] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const { confirm, confirmNode } = useConfirm()
+
+  // Về lại app: trong PWA standalone (nhất là iOS) không có nút back -> tự quay lại /m nếu không có lịch sử.
+  const goBack = () => { if (window.history.length > 1) window.history.back(); else window.location.href = '/m' }
 
   const loadState = async () => {
     try {
@@ -86,6 +89,7 @@ export default function KhoaPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-5">
       <div className="w-full max-w-sm space-y-5">
+        <button onClick={goBack} className="text-sm text-slate-400 hover:text-slate-600 inline-flex items-center gap-1"><ArrowLeft className="w-4 h-4" /> Quay lại ứng dụng</button>
         <div className="text-center">
           <img src="/logo.png" alt="Logo" className="h-12 w-auto object-contain mx-auto mb-2" />
           <p className="text-xs text-slate-400">Xin chào {me.full_name}</p>

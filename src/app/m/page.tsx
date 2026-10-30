@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { QrCode, ClipboardList, FileText, Boxes, AlertTriangle, LogOut, Settings, Home, CalendarCheck, Search, Users, MapPin, X, RefreshCw, Palmtree } from "lucide-react"
+import { QrCode, ClipboardList, FileText, Boxes, AlertTriangle, LogOut, Settings, Home, CalendarCheck, Search, Users, MapPin, X, RefreshCw, Palmtree, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import AccountSettings from "@/components/AccountSettings"
@@ -135,6 +135,10 @@ export default function OfficeMobile() {
           <h1 className="font-bold text-slate-800 text-sm">{user.full_name}</h1>
         </div>
         <div className="flex items-center">
+          {/* Khóa/mở app bảo trì — CHỈ admin. Mở /khoa NGAY TRONG app (PWA) nên giữ nguyên phiên. */}
+          {user.role === 'admin' && (
+            <button onClick={() => { window.location.href = '/khoa' }} className="text-slate-400 hover:text-rose-600 p-2" title="Khóa / mở app (bảo trì)"><Lock className="w-5 h-5" /></button>
+          )}
           <button onClick={() => setShowSettings(true)} className="text-slate-400 hover:text-blue-600 p-2" title="Cài đặt"><Settings className="w-5 h-5" /></button>
           <button onClick={logout} className="text-slate-400 hover:text-red-500 p-2" title="Đăng xuất"><LogOut className="w-5 h-5" /></button>
         </div>
