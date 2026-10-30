@@ -133,7 +133,7 @@ export default function NghiPhepDuyet({ notify, onPending }: {
         </div>
       </div>
 
-      {loading ? (
+      {loading && pending.length === 0 ? (
         <div className="text-center text-sm text-slate-400 py-8"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải đơn nghỉ phép...</div>
       ) : pending.length === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 p-6 text-center text-sm text-slate-400">Không có đơn nào chờ duyệt.</div>

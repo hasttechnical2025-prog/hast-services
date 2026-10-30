@@ -185,7 +185,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {loading ? (
+            {loading && rows.length === 0 ? (
               <tr><td colSpan={11} className="text-center py-10 text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải…</td></tr>
             ) : paged.pageItems.length === 0 ? (
               <tr><td colSpan={11} className="text-center py-10 text-slate-400 italic">{rows.length === 0 ? 'Chưa có dữ liệu. Bấm Import để nạp danh sách.' : 'Không khớp bộ lọc.'}</td></tr>

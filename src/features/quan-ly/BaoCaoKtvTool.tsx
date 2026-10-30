@@ -148,7 +148,7 @@ export function BaoCaoKtvTool({ technicians, showNotification }: { technicians: 
         )}
       </div>
 
-      {loading ? (
+      {loading && reportDays.length === 0 ? (
         <BoxLoading label="Đang tải nhật ký..." />
       ) : reportDays.length === 0 ? (
         <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">

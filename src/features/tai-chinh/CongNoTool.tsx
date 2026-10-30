@@ -317,7 +317,7 @@ export function CongNoTool({ showNotification }: { showNotification: (type: 'suc
         </div>
       </div>
 
-      {loading ? (
+      {loading && list.length === 0 ? (
         <BoxLoading label="Đang tải công nợ..." className="py-6" />
       ) : selCusts.length === 0 ? (
         <p className="text-sm text-slate-400 text-center py-6">Lựa chọn khách hàng để xuất công nợ hoặc lập báo giá</p>

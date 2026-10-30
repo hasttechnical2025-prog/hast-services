@@ -862,7 +862,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                 </table>
           </ListFrame>
         ) : active === 'da_bao_tri' ? (
-          <ListFrame paged={!loading && sortedRecords.length > 0 ? paged : undefined} unit="máy" toolbar={
+          <ListFrame paged={sortedRecords.length > 0 ? paged : undefined} unit="máy" toolbar={
             <div className="flex items-center gap-2 flex-wrap">
               <div className="relative w-full sm:w-72">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -906,7 +906,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {loading ? (
+                  {loading && records.length === 0 ? (
                     <TableLoading colSpan={4} label="Đang tải danh sách..." />
                   ) : records.length === 0 ? (
                     <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Chưa có máy nào được đánh dấu bảo trì tháng này.</td></tr>
@@ -930,7 +930,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
               </table>
           </ListFrame>
         ) : (
-          <ListFrame paged={!loading && chuaBaoTri.length > 0 ? chuaBaoTriPaged : undefined} unit="máy">
+          <ListFrame paged={chuaBaoTri.length > 0 ? chuaBaoTriPaged : undefined} unit="máy">
               <table className="w-full text-left text-sm text-slate-600">
                 <thead className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide border-b border-slate-200 shadow-sm">
                   <tr>

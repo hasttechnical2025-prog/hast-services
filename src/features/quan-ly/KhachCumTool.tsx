@@ -322,7 +322,7 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {loading ? (
+            {loading && clusters.length === 0 ? (
               <tr><td colSpan={6} className="px-4 py-8 text-center"><BoxLoading label="Đang tải khách cụm..." /></td></tr>
             ) : sortedCumList.length === 0 ? (
               <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">{clusters.length === 0 ? 'Chưa có cụm nào. Bấm "Tạo cụm mới".' : 'Không khớp tìm kiếm.'}</td></tr>

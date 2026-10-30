@@ -1085,7 +1085,7 @@ export default function PhieuDeNghiModule({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {loading ? (
+              {loading && sortedRows.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-4 py-8 text-center text-sm text-slate-400">
                     <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />

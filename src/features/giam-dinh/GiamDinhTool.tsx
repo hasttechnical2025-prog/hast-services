@@ -277,7 +277,7 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
           <Button onClick={openForm} className="h-9 gap-1.5 text-xs ml-auto bg-blue-600 hover:bg-blue-700"><ClipboardCheck className="w-4 h-4" /> Lập BBGĐ</Button>
           </div>
         }>
-        {loading ? (
+        {loading && records.length === 0 ? (
           <BoxLoading label="Đang tải giám định..." />
         ) : records.length === 0 ? (
           <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm">Chưa có biên bản giám định nào.</div>

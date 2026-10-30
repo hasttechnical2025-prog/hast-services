@@ -223,7 +223,7 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {loading && sortedRows.length === 0 ? (
               <tr><td colSpan={8} className="text-center text-sm text-slate-400 py-8"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải máy thuê...</td></tr>
             ) : sortedRows.length === 0 ? (
               <tr><td colSpan={8} className="text-center text-slate-400 py-8">Không có biên bản nào.</td></tr>

@@ -105,7 +105,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
   }
   return (
     <div className="space-y-3">
-      <ListFrame paged={!loading && !err && list.length > 0 ? paged : undefined} unit="vật tư" toolbar={
+      <ListFrame paged={!err && list.length > 0 ? paged : undefined} unit="vật tư" toolbar={
       <div className="space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative flex-1 min-w-[180px] max-w-xs"><Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" /><Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm khách / máy / mực…" className="h-9 pl-9 pr-7 bg-white w-full" />{q && <button type="button" onClick={() => setQ('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>}</div>
@@ -135,7 +135,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {loading ? <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải cảnh báo vật tư...</td></tr>
+            {loading && list.length === 0 ? <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải cảnh báo vật tư...</td></tr>
               : err ? <tr><td colSpan={8} className="px-4 py-8 text-center text-rose-600">⚠ {err} — bấm Tải lại để thử lại.</td></tr>
               : list.length === 0 ? <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">{xemTatCa ? 'Không có máy khớp tìm kiếm.' : 'Không có máy nào sắp cần thay vật tư. 🎉'}</td></tr>
                 : paged.pageItems.map((r, i) => {
@@ -455,7 +455,7 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
           )}
         </div>
       }>
-        {loading ? (
+        {loading && rows.length === 0 ? (
           <div className="text-sm text-slate-400 py-8 text-center"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải danh sách...</div>
         ) : (
           <table className="w-full text-sm">
