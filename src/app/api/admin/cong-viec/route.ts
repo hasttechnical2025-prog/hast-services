@@ -17,6 +17,15 @@ function kmZeroRule(loai_cong_viec: any, ghi_chu: any): boolean {
   if (String(loai_cong_viec || '').trim().toLowerCase() === 'hỗ trợ online') return true
   return /cpn/i.test(String(ghi_chu || ''))
 }
+// Chốt km khi lưu phiếu: CPN/Hỗ trợ online -> 0; client gửi km>0 -> dùng; km trống/0 (vd mobile gửi cứng 0) -> TỰ lấy km_mac_dinh của điểm máy.
+async function resolveKm(loai_cong_viec: any, ghi_chu: any, km: any, id_khach_hang: any): Promise<number> {
+  if (kmZeroRule(loai_cong_viec, ghi_chu)) return 0
+  const kmNum = Number(km) || 0
+  if (kmNum > 0) return kmNum
+  if (!id_khach_hang) return 0
+  const { data: kh } = await supabaseAdmin.from('soct_khach_hang').select('km_mac_dinh').eq('id', id_khach_hang).single()
+  return Number(kh?.km_mac_dinh) || 0
+}
 function loiThieuVatTu(loai_cong_viec: any, report: any, vat_tu: any): string | null {
   if (!LOAI_CV_CAN_VAT_TU.includes(String(loai_cong_viec || '').trim())) return null
   if (!String(report || '').trim()) return `"${loai_cong_viec}" bắt buộc phải có Số phiếu (Report).`
@@ -462,7 +471,7 @@ export async function POST(request: Request) {
         ma_may,
         id_khach_hang,
         loai_cong_viec,
-        km: kmZeroRule(loai_cong_viec, ghi_chu) ? 0 : (km || 0),
+        km: await resolveKm(loai_cong_viec, ghi_chu, km, id_khach_hang),
         so_luong: parseInt(so_luong) || 1,
         ktv_id: ktv_id || null,
         ktv2_id: ktv2_id || null,
@@ -654,7 +663,7 @@ export async function PUT(request: Request) {
         .update({
           ngay: ngay || new Date().toISOString().split('T')[0],
           ma_may: ma_may || null, id_khach_hang, loai_cong_viec,
-          km: kmZeroRule(loai_cong_viec, ghi_chu) ? 0 : (km || 0), so_luong: parseInt(so_luong) || 1,
+          km: await resolveKm(loai_cong_viec, ghi_chu, km, id_khach_hang), so_luong: parseInt(so_luong) || 1,
           ktv_id: ktv_id || null,
           ktv2_id: ktv2_id || null,
           report: reportNorm || null, ghi_chu,
