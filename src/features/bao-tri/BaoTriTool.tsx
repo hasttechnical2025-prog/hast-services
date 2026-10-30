@@ -109,12 +109,20 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
 
   const [daSortField, setDaSortField] = useState<string>("ma_may")
   const [daSortAsc, setDaSortAsc] = useState<boolean>(true)
+  const [daSearch, setDaSearch] = useState("") // tìm trong danh sách Đã bảo trì (mã máy / tên khách / model / địa chỉ)
   const handleDaSort = (field: string) => {
     if (daSortField === field) setDaSortAsc(prev => !prev)
     else { setDaSortField(field); setDaSortAsc(true) }
   }
   const sortedRecords = useMemo(() => {
-    const list = [...records]
+    // Lọc theo từ khóa (không dấu): mã máy / tên khách / model / địa chỉ / vị trí
+    const norm = (s: any) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd')
+    const kw = norm(daSearch.trim())
+    const base = kw ? records.filter((r: any) => {
+      const kh = customerByMaMay.get(String(r.ma_may).toLowerCase())
+      return [r.ma_may, kh?.ten_khach_hang, kh?.model, kh?.dia_chi, kh?.vi_tri_dat_may].some(x => norm(x).includes(kw))
+    }) : records
+    const list = [...base]
     list.sort((a: any, b: any) => {
       let cmp = 0
       const khA = customerByMaMay.get(String(a.ma_may).toLowerCase())
@@ -140,7 +148,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
       return daSortAsc ? cmp : -cmp
     })
     return list
-  }, [records, daSortField, daSortAsc, customers]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [records, daSortField, daSortAsc, customers, daSearch]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [chuaSortField, setChuaSortField] = useState<string>("ma_may")
   const [chuaSortAsc, setChuaSortAsc] = useState<boolean>(true)
@@ -394,7 +402,8 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
 
   const xuatBaoTriExcel = async () => {
     const headers = ['Mã máy', 'Khách hàng', 'Model', 'Counter', 'Ngày ghi nhận']
-    const rows = records.map((r: any) => {
+    // Xuất đúng danh sách ĐANG hiển thị (đã lọc + sắp xếp)
+    const rows = sortedRecords.map((r: any) => {
       const kh = customerByMaMay.get(String(r.ma_may).toLowerCase())
       return [r.ma_may, kh?.ten_khach_hang || '', kh?.model || '', r.counter ?? '', r.ngay ? formatDate(r.ngay) : '']
     })
@@ -853,10 +862,15 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                 </table>
           </ListFrame>
         ) : active === 'da_bao_tri' ? (
-          <ListFrame paged={!loading && records.length > 0 ? paged : undefined} unit="máy" toolbar={
-            <div className="flex items-center gap-2">
+          <ListFrame paged={!loading && sortedRecords.length > 0 ? paged : undefined} unit="máy" toolbar={
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative w-full sm:w-72">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Input value={daSearch} onChange={e => setDaSearch(e.target.value)} placeholder="Tìm mã máy / tên khách / model…" className="pl-9 pr-7 bg-white h-9 text-xs" />
+                {daSearch && <button type="button" onClick={() => setDaSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>}
+              </div>
               <div className="ml-auto flex items-center gap-2">
-                <Button variant="outline" onClick={xuatBaoTriExcel} disabled={records.length === 0} title={`Xuất Excel (${records.length} máy)`} className="h-9 px-3 gap-1.5 text-xs">
+                <Button variant="outline" onClick={xuatBaoTriExcel} disabled={sortedRecords.length === 0} title={`Xuất Excel (${sortedRecords.length} máy)`} className="h-9 px-3 gap-1.5 text-xs">
                   <Download className="w-4 h-4" /> Xuất DS đã bảo trì
                 </Button>
                 <Button variant="outline" onClick={xoaTatCaThang} disabled={records.length === 0} title="Xóa toàn bộ bảo trì tháng này" className="h-9 px-3 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400">
@@ -896,6 +910,8 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
                     <TableLoading colSpan={4} label="Đang tải danh sách..." />
                   ) : records.length === 0 ? (
                     <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Chưa có máy nào được đánh dấu bảo trì tháng này.</td></tr>
+                  ) : sortedRecords.length === 0 ? (
+                    <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Không tìm thấy máy khớp &quot;{daSearch}&quot;.</td></tr>
                   ) : paged.pageItems.map((r) => {
                     const kh = customerByMaMay.get(String(r.ma_may).toLowerCase())
                     return (
