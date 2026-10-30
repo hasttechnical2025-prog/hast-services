@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
     return [
       { source: '/v2', destination: '/qlkt', permanent: true },
       { source: '/v2/:path*', destination: '/qlkt/:path*', permanent: true },
+      // Form đăng nhập nằm ở /login (ngoài guard /qlkt). Ai gõ nhầm /qlkt/login sẽ rơi vào
+      // catch-all [...slug] -> "module chưa port"; đưa về đúng /login. 307 (có thể đổi sau).
+      { source: '/qlkt/login', destination: '/login', permanent: false },
     ]
   },
   // Đảm bảo template .docx được đóng gói cho từng serverless route đọc nó (Vercel).
