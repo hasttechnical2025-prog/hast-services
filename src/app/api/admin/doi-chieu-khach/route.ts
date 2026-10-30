@@ -25,14 +25,14 @@ export async function POST(request: Request) {
     const scope = b.scope === 'cum' || b.scope === 'kd' ? b.scope : 'both'
     if (!rows.length) return NextResponse.json({ error: 'Chưa có dòng nào để đối chiếu' }, { status: 400 })
 
-    const recs: { source: string; key: string; ma: string; ten: string; dia_chi: string; mst: string; email: string }[] = []
+    const recs: { source: string; key: string; ma: string; ten: string; dia_chi: string; mst: string; email: string; qhns: string }[] = []
     if (scope === 'cum' || scope === 'both') {
-      const cum = await selectAll<any>((f, t) => supabaseAdmin.from('soct_khach_cum').select('ma_khach_hang, ten_khach_hang, dia_chi, ma_so_thue, email_ke_toan').range(f, t))
-      for (const c of cum || []) recs.push({ source: 'KT', key: c.ma_khach_hang || '', ma: c.ma_khach_hang || '', ten: c.ten_khach_hang || '', dia_chi: c.dia_chi || '', mst: c.ma_so_thue || '', email: c.email_ke_toan || '' })
+      const cum = await selectAll<any>((f, t) => supabaseAdmin.from('soct_khach_cum').select('ma_khach_hang, ten_khach_hang, dia_chi, ma_so_thue, ma_qhns, email_ke_toan').range(f, t))
+      for (const c of cum || []) recs.push({ source: 'KT', key: c.ma_khach_hang || '', ma: c.ma_khach_hang || '', ten: c.ten_khach_hang || '', dia_chi: c.dia_chi || '', mst: c.ma_so_thue || '', email: c.email_ke_toan || '', qhns: c.ma_qhns || '' })
     }
     if (scope === 'kd' || scope === 'both') {
       const kd = await selectAll<any>((f, t) => supabaseAdmin.from('soct_kh_kinh_doanh').select('id, ten_khach_hang, dia_chi, ma_so_thue, email_nhan_hd').eq('an', false).range(f, t))
-      for (const k of kd || []) recs.push({ source: 'KD', key: k.id || '', ma: '', ten: k.ten_khach_hang || '', dia_chi: k.dia_chi || '', mst: k.ma_so_thue || '', email: k.email_nhan_hd || '' })
+      for (const k of kd || []) recs.push({ source: 'KD', key: k.id || '', ma: '', ten: k.ten_khach_hang || '', dia_chi: k.dia_chi || '', mst: k.ma_so_thue || '', email: k.email_nhan_hd || '', qhns: '' })
     }
     // Index theo MST (có giá trị) + theo tên chuẩn hóa
     const byMst = new Map<string, any[]>()
@@ -57,7 +57,11 @@ export async function POST(request: Request) {
         const mstLech = !!mst && normMst(m.mst) !== mst // minVoice có MST mà app khác (thường do khớp theo TÊN)
         const inEmails = emailSet(row.email), appEmails = emailSet(m.email)
         const emailThieu = [...inEmails].filter(e => !appEmails.has(e)) // email minVoice có mà app thiếu
-        if (tenLech || diaChiLech || mstLech || emailThieu.length) {
+        // QHNS: MỘT CHIỀU (minVoice = chuẩn). Chỉ cụm (KT) có cột ma_qhns. Chỉ báo khi minVoice
+        // CÓ mã mà app thiếu/khác -> tránh nhiễu (đa số DN để trống, trống↔trống không báo).
+        const qhnsMv = normMst(row.qhns) // bỏ khoảng trắng; mã số thuần
+        const qhnsLech = m.source === 'KT' && !!qhnsMv && normMst(m.qhns) !== qhnsMv
+        if (tenLech || diaChiLech || mstLech || emailThieu.length || qhnsLech) {
           anyDiff = true
           lech.push({
             source: m.source, ma: m.ma, key: m.key,
@@ -65,6 +69,7 @@ export async function POST(request: Request) {
             mst, mst_app: m.mst || '', mst_lech: mstLech,
             dia_chi_mv: row.dia_chi || '', dia_chi_app: m.dia_chi, dia_chi_lech: diaChiLech,
             email_mv: row.email || '', email_app: m.email, email_thieu: emailThieu,
+            qhns_mv: String(row.qhns || '').trim(), qhns_app: m.qhns || '', qhns_lech: qhnsLech,
           })
         }
       }
@@ -77,9 +82,12 @@ export async function POST(request: Request) {
   }
 }
 
-// PUT: ÁP 1 trường từ minVoice vào bản app (CHỈ admin). { source: 'KT'|'KD', key, field: 'ten'|'dia_chi'|'email', value }
+// PUT: ÁP từ minVoice vào bản app (CHỈ admin).
+//  - Đơn trường: { source:'KT'|'KD', key, field:'ten'|'dia_chi'|'email'|'mst'|'qhns', value }
+//  - Bulk QHNS:  { bulk:'qhns', items:[{ key, value }] } -> áp ma_qhns hàng loạt cho cụm (KT).
+// qhns CHỈ có ở KT (soct_khach_cum.ma_qhns); KD không có -> chặn.
 const COL: Record<string, Record<string, string>> = {
-  KT: { ten: 'ten_khach_hang', dia_chi: 'dia_chi', email: 'email_ke_toan', mst: 'ma_so_thue' },
+  KT: { ten: 'ten_khach_hang', dia_chi: 'dia_chi', email: 'email_ke_toan', mst: 'ma_so_thue', qhns: 'ma_qhns' },
   KD: { ten: 'ten_khach_hang', dia_chi: 'dia_chi', email: 'email_nhan_hd', mst: 'ma_so_thue' },
 }
 export async function PUT(request: Request) {
@@ -87,11 +95,28 @@ export async function PUT(request: Request) {
     const session = await requireRole('admin')
     if (!session) return NextResponse.json({ error: 'Chỉ admin được áp thông tin' }, { status: 401 })
     const b = await request.json()
+
+    // Nhánh BULK: áp ma_qhns hàng loạt cho cụm (KT).
+    if (b.bulk === 'qhns') {
+      const items: any[] = Array.isArray(b.items) ? b.items : []
+      let count = 0
+      for (const it of items) {
+        const key = String(it.key || '').trim()
+        if (!key) continue
+        const value = String(it.value ?? '').trim() || null
+        const { error } = await supabaseAdmin.from('soct_khach_cum').update({ ma_qhns: value }).eq('ma_khach_hang', key)
+        if (error) throw error
+        count++
+      }
+      return NextResponse.json({ success: true, count })
+    }
+
     const source = b.source === 'KT' || b.source === 'KD' ? b.source : ''
-    const field = ['ten', 'dia_chi', 'email', 'mst'].includes(b.field) ? b.field : ''
+    const field = ['ten', 'dia_chi', 'email', 'mst', 'qhns'].includes(b.field) ? b.field : ''
     const key = String(b.key || '').trim()
     if (!source || !field || !key) return NextResponse.json({ error: 'Thiếu tham số' }, { status: 400 })
     const col = COL[source][field]
+    if (!col) return NextResponse.json({ error: `Trường "${field}" không áp được cho nguồn ${source}` }, { status: 400 })
     const value = String(b.value ?? '').trim() || null
     const table = source === 'KT' ? 'soct_khach_cum' : 'soct_kh_kinh_doanh'
     const whereCol = source === 'KT' ? 'ma_khach_hang' : 'id'

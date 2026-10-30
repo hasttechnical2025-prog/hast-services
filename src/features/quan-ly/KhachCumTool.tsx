@@ -14,7 +14,10 @@ function DoiChieuMinvoiceModal({ onClose, showNotification, isAdmin }: { onClose
   const [busy, setBusy] = useState(false)
   const [res, setRes] = useState<any>(null)
   const [applying, setApplying] = useState('')
-  const apply = async (x: any, field: 'ten' | 'dia_chi' | 'email' | 'mst', value: string) => {
+  const [bulkQhns, setBulkQhns] = useState(false)
+  // Lọc dòng còn lệch (dùng chung cho apply đơn + bulk).
+  const stillLech = (it: any) => it.ten_lech || it.dia_chi_lech || it.mst_lech || (it.email_thieu && it.email_thieu.length) || it.qhns_lech
+  const apply = async (x: any, field: 'ten' | 'dia_chi' | 'email' | 'mst' | 'qhns', value: string) => {
     setApplying(`${x.key}|${field}`)
     try {
       const r = await fetch('/api/admin/doi-chieu-khach', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: x.source, key: x.key, field, value }) })
@@ -30,24 +33,45 @@ function DoiChieuMinvoiceModal({ onClose, showNotification, isAdmin }: { onClose
           if (field === 'dia_chi') { n.dia_chi_app = value; n.dia_chi_lech = false }
           if (field === 'email') { n.email_app = value; n.email_thieu = [] }
           if (field === 'mst') { n.mst_app = value; n.mst_lech = false }
+          if (field === 'qhns') { n.qhns_app = value; n.qhns_lech = false }
           return n
-        }).filter((it: any) => it.ten_lech || it.dia_chi_lech || it.mst_lech || (it.email_thieu && it.email_thieu.length))
+        }).filter(stillLech)
         return { ...prev, lech }
       })
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setApplying('') }
   }
-  const ApBtn = ({ x, field, value }: { x: any, field: 'ten' | 'dia_chi' | 'email' | 'mst', value: string }) => isAdmin
+  // Áp HÀNG LOẠT QHNS: gom mọi dòng đang lệch QHNS (cụm KT) -> 1 request bulk.
+  const qhnsLechItems = res ? res.lech.filter((x: any) => x.qhns_lech) : []
+  const applyAllQhns = async () => {
+    if (!qhnsLechItems.length) return
+    setBulkQhns(true)
+    try {
+      const items = qhnsLechItems.map((x: any) => ({ key: x.key, value: x.qhns_mv }))
+      const r = await fetch('/api/admin/doi-chieu-khach', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bulk: 'qhns', items }) })
+      const j = await r.json()
+      if (!r.ok) { showNotification('error', j.error || 'Lỗi áp'); return }
+      showNotification('success', `Đã áp Mã QHNS cho ${j.count ?? items.length} cụm.`)
+      const keys = new Set(items.map((i: any) => i.key))
+      setRes((prev: any) => {
+        if (!prev) return prev
+        const lech = prev.lech.map((it: any) => keys.has(it.key) && it.qhns_lech ? { ...it, qhns_app: it.qhns_mv, qhns_lech: false } : it).filter(stillLech)
+        return { ...prev, lech }
+      })
+    } catch { showNotification('error', 'Lỗi kết nối') } finally { setBulkQhns(false) }
+  }
+  const ApBtn = ({ x, field, value }: { x: any, field: 'ten' | 'dia_chi' | 'email' | 'mst' | 'qhns', value: string }) => isAdmin
     ? <button onClick={() => apply(x, field, value)} disabled={applying === `${x.key}|${field}`} className="mt-1 h-6 px-2 rounded t3 font-semibold bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50">{applying === `${x.key}|${field}` ? '...' : 'Áp minVoice'}</button>
     : null
   const stripH = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().trim()
-  const parse = (): { ten: string, dia_chi: string, mst: string, email: string }[] | null => {
+  const parse = (): { ten: string, dia_chi: string, mst: string, email: string, qhns: string }[] | null => {
     const lines = text.split(/\r?\n/).map(l => l.replace(/\s+$/, '')).filter(l => l.trim())
     if (lines.length < 2) return null
     const header = lines[0].split('\t').map(stripH)
     const find = (...keys: string[]) => header.findIndex(h => keys.some(k => h.includes(k)))
     const iTen = find('doi tuong', 'ten', 'khach'), iDc = find('dia chi'), iMst = find('ma so thue', 'mst'), iEmail = find('email')
+    const iQhns = find('quan he ngan sach', 'qhns', 'ngan sach') // "Mã đơn vị QHNS" / "quan hệ ngân sách"
     if (iTen < 0) return null
-    return lines.slice(1).map(l => { const c = l.split('\t'); return { ten: (c[iTen] || '').trim(), dia_chi: iDc >= 0 ? (c[iDc] || '').trim() : '', mst: iMst >= 0 ? (c[iMst] || '').trim() : '', email: iEmail >= 0 ? (c[iEmail] || '').trim() : '' } }).filter(r => r.ten)
+    return lines.slice(1).map(l => { const c = l.split('\t'); return { ten: (c[iTen] || '').trim(), dia_chi: iDc >= 0 ? (c[iDc] || '').trim() : '', mst: iMst >= 0 ? (c[iMst] || '').trim() : '', email: iEmail >= 0 ? (c[iEmail] || '').trim() : '', qhns: iQhns >= 0 ? (c[iQhns] || '').trim() : '' } }).filter(r => r.ten)
   }
   const run = async () => {
     const rows = parse()
@@ -78,7 +102,7 @@ function DoiChieuMinvoiceModal({ onClose, showNotification, isAdmin }: { onClose
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-5 overflow-y-auto space-y-3 flex-1 text-xs">
-          <p className="t2 text-slate-500 leading-relaxed">Copy từ Excel minVoice (gồm <b>dòng tiêu đề</b>: Tên Đối Tượng · Địa Chỉ · Mã Số Thuế · Email) rồi dán vào đây. minVoice là <b>chuẩn</b> → báo chỗ <b>lệch</b> & <b>chưa có</b> trong app (chỉ đọc, không ghi đè).</p>
+          <p className="t2 text-slate-500 leading-relaxed">Copy từ Excel minVoice (gồm <b>dòng tiêu đề</b>: Tên Đối Tượng · Địa Chỉ · Mã Số Thuế · Email · Mã đơn vị QHNS) rồi dán vào đây. minVoice là <b>chuẩn</b> → báo chỗ <b>lệch</b> & <b>chưa có</b> trong app. <b>Mã QHNS</b> chỉ đối chiếu cho khách <b>cụm (KT)</b>; có thể bấm <b>Áp tất cả QHNS</b> để điền hàng loạt.</p>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-slate-500">Đối chiếu với:</span>
             {([['both', 'Cả hai'], ['cum', 'Khách kỹ thuật'], ['kd', 'Khách kinh doanh']] as const).map(([k, l]) => (
@@ -100,10 +124,17 @@ function DoiChieuMinvoiceModal({ onClose, showNotification, isAdmin }: { onClose
 
               {res.lech.length > 0 && (
                 <div>
-                  <p className="t2 font-semibold text-amber-700 mb-1">Lệch thông tin (minVoice ≠ app)</p>
+                  <div className="flex items-center justify-between mb-1 gap-2">
+                    <p className="t2 font-semibold text-amber-700">Lệch thông tin (minVoice ≠ app)</p>
+                    {isAdmin && qhnsLechItems.length > 0 && (
+                      <button onClick={applyAllQhns} disabled={bulkQhns} className="h-7 px-2.5 rounded-lg t3 font-semibold bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-50 shrink-0" title="Áp Mã QHNS từ minVoice cho tất cả cụm đang lệch">
+                        {bulkQhns ? 'Đang áp…' : `Áp tất cả QHNS (${qhnsLechItems.length})`}
+                      </button>
+                    )}
+                  </div>
                   <div className="border border-amber-200 rounded-lg overflow-hidden max-h-64 overflow-y-auto">
                     <table className="w-full text-left t2 text-slate-600">
-                      <thead className="bg-amber-50 text-amber-800 sticky top-0 select-none"><tr>{thL('source', 'Nguồn · MST')}{thL('ten', 'Tên')}{thL('dia_chi', 'Địa chỉ')}<th className="px-2 py-1.5">Email thiếu</th></tr></thead>
+                      <thead className="bg-amber-50 text-amber-800 sticky top-0 select-none"><tr>{thL('source', 'Nguồn · MST')}{thL('ten', 'Tên')}{thL('dia_chi', 'Địa chỉ')}<th className="px-2 py-1.5">Email thiếu</th><th className="px-2 py-1.5">Mã QHNS</th></tr></thead>
                       <tbody className="divide-y divide-slate-100">
                         {lechSorted.map((x: any, i: number) => (
                           <tr key={i} className="align-top">
@@ -111,6 +142,7 @@ function DoiChieuMinvoiceModal({ onClose, showNotification, isAdmin }: { onClose
                             <td className="px-2 py-1.5">{x.ten_lech ? <div><span className="text-slate-800">{x.ten_mv}</span><div className="text-rose-600">app: {x.ten_app || '(trống)'}</div><ApBtn x={x} field="ten" value={x.ten_mv} /></div> : <span className="text-slate-500">{x.ten_mv}</span>}</td>
                             <td className="px-2 py-1.5">{x.dia_chi_lech ? <div className="text-slate-800">{x.dia_chi_mv || '(trống)'}<div className="text-rose-600">app: {x.dia_chi_app || '(trống)'}</div><ApBtn x={x} field="dia_chi" value={x.dia_chi_mv} /></div> : <span className="text-emerald-600">khớp</span>}</td>
                             <td className="px-2 py-1.5">{x.email_thieu?.length ? <div className="text-rose-600">{x.email_thieu.join(', ')}<ApBtn x={x} field="email" value={x.email_mv} /></div> : <span className="text-emerald-600">đủ</span>}</td>
+                            <td className="px-2 py-1.5">{x.qhns_lech ? <div className="text-slate-800 font-mono">{x.qhns_mv}<div className="text-rose-600">app: {x.qhns_app || '(trống)'}</div><ApBtn x={x} field="qhns" value={x.qhns_mv} /></div> : (x.source === 'KT' ? <span className="text-emerald-600">khớp</span> : <span className="text-slate-300">—</span>)}</td>
                           </tr>
                         ))}
                       </tbody>
