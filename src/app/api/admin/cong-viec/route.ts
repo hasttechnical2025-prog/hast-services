@@ -379,14 +379,15 @@ export async function GET(request: Request) {
       // hợp cả hai (AND). Không tìm cả hai thì mới áp lọc khoảng ngày. Đều lọc phía server.
       if (report) query = query.ilike('report', `%${report}%`)
       if (vatTuSafe && vtOr) query = query.or(vtOr, { referencedTable: 'vt_filter' })
-      if (!report && !vatTuSafe) {
+      // Tìm mã máy / tên khách (q) cũng TOÀN CỤC như Số phiếu & Vật tư -> gõ q thì bỏ lọc khoảng ngày.
+      if (!report && !vatTuSafe && !qSafe) {
         if (tuNgay) query = query.gte('ngay', tuNgay)
         if (denNgay) query = query.lte('ngay', denNgay)
       }
       if (ketQuaList) {
         query = query.in('ket_qua', ketQuaList.split(','))
       }
-      // Tìm toàn cục: mã máy khớp HOẶC thuộc khách khớp tên/địa chỉ (áp CÙNG khoảng ngày ở trên).
+      // Tìm toàn cục: mã máy khớp HOẶC thuộc khách khớp tên/địa chỉ (đã bỏ lọc ngày ở trên).
       if (qSafe) {
         const ors = [`ma_may.ilike.%${qSafe}%`]
         if (khIdsForQ.length > 0) ors.push(`id_khach_hang.in.(${khIdsForQ.join(',')})`)
