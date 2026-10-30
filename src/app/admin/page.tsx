@@ -249,25 +249,17 @@ export default function AdminDashboard() {
   // Khôi phục phiên đăng nhập từ cookie httpOnly (qua API /api/auth/me)
   useEffect(() => {
     const restoreSession = async () => {
+      // DISABLE CỨNG /admin (vẫn GIỮ cửa khẩn ?classic=1): mọi lối vào /admin KHÔNG kèm
+      // ?classic=1 -> đẩy thẳng sang /qlkt (mọi role, kể cả chưa đăng nhập). Bản classic
+      // chỉ còn mở CÓ CHỦ ĐÍCH bằng /admin?classic=1. Muốn mở lại /admin như cũ: XÓA khối này.
+      const classic = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('classic') === '1'
+      if (!classic) { window.location.replace(V2_BASE); return }
       try {
         const res = await fetch('/api/auth/me')
         if (res.ok) {
           const { data: user } = await res.json()
-          // Trang Admin chỉ chấp nhận các role văn phòng
+          // Trang Admin chỉ chấp nhận các role văn phòng (chỉ chạy khi có ?classic=1).
           if (['admin', 'tech_admin', 'staff'].includes(user.role)) {
-            // Office TỰ CHUYỂN sang giao diện mới /qlkt (mặc định). Thêm ?classic=1 để ở lại /admin cũ.
-            // Chỉ chuyển role mà /qlkt CHẤP NHẬN (admin luôn; tech_admin/staff phải nằm trong v2_roles)
-            // -> tránh /qlkt đá ngược về /admin gây vòng lặp. Chuyển TRƯỚC setCurrentAdmin nên không dựng dashboard.
-            const classic = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('classic') === '1'
-            if (!classic) {
-              if (user.role === 'admin') { window.location.replace(V2_BASE); return }
-              try {
-                const cRes = await fetch('/api/admin/cau-hinh')
-                const cfg = cRes.ok ? ((await cRes.json())?.data || {}) : {}
-                const allowed = String(cfg.v2_roles || '').split(',').map((s: string) => s.trim()).filter(Boolean)
-                if (allowed.includes(user.role)) { window.location.replace(V2_BASE); return }
-              } catch { /* lỗi cấu hình -> ở lại /admin cũ */ }
-            }
             setCurrentAdmin(user)
           }
         }
