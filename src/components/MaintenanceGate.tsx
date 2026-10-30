@@ -6,28 +6,23 @@ const BYPASS_FLAG = 'hast_qt_ok'
 
 /**
  * Màn chặn phủ toàn trang cho MỌI user trừ admin (bật/tắt bằng cờ `bao_tri` ở Cấu hình).
- * Đặt ở root layout -> áp cho tất cả trang (/, /admin, /m, /ktv, /admin/scan), PC & mobile.
+ * Đặt ở root layout -> áp cho tất cả trang (/, /admin, /m, /ktv, /qlkt, /khoa, /admin/scan), PC & mobile.
  *
- * CỐ Ý trông như MỘT SỰ CỐ MÁY CHỦ THẬT, không phải thông báo bảo trì:
- *   - không nhắc chữ "bảo trì", không icon bánh răng (bánh răng = có người đang chỉnh = cố ý)
- *   - nền trắng trơn, không thẻ bo tròn/đổ bóng, không logo -> giống trang lỗi thô
- *   - có mã lỗi 503 + nút "Thử lại" y như trang lỗi thật (bấm vẫn hỏng -> càng thật)
- *   - KHÔNG có bất kỳ nút/link đăng nhập nào: chỉ cần một gợi ý là lộ ngay việc app bị
- *     khóa có chủ đích và có cửa riêng cho admin.
- * Thông điệp lấy từ BAO_TRI_MSG (dùng chung với lỗi 503 ở các route đăng nhập) để giọng
- * điệu khớp nhau — lệch một chỗ là lộ.
+ * CỐ Ý TRÔNG Y HỆT TRANG 404 MẶC ĐỊNH CỦA NEXT.JS (không phải thông báo bảo trì):
+ *   - "404 | This page could not be found." — markup + style inline khớp framework,
+ *     KHÔNG dùng font/thương hiệu của app -> giống hệt một trang không tồn tại.
+ *   - KHÔNG nút/link đăng nhập, KHÔNG nhắc "bảo trì": lộ một gợi ý là lộ việc khóa có chủ đích.
+ *   - Khóa app -> trang trông đúng như "không có trang này", không phân biệt được với 404 thật.
  *
- * Admin vào lại bằng link kín ?qt=<khóa> (khóa đặt ở Hệ thống > Cấu hình, đối chiếu Ở
- * SERVER nên không lộ trong JS). Nhớ trong sessionStorage để không mất khi chuyển trang
- * trước lúc đăng nhập xong.
+ * Admin vào lại bằng link kín ?qt=<khóa> (đặt ở Hệ thống > Cấu hình, đối chiếu Ở SERVER nên
+ * không lộ trong JS). Nhớ trong sessionStorage để không mất khi chuyển trang trước lúc đăng nhập xong.
+ * Hết khóa (admin mở) -> poll 30s tự phát hiện và gỡ màn chặn, không cần bấm gì.
  *
  * ĐÂY CHỈ LÀ LỚP GIAO DIỆN. Chặn thật nằm ở server: requireRole() + các route đăng nhập
  * + cron + Telegram. Tắt JS hay gọi thẳng API vẫn không qua được.
  */
 export default function MaintenanceGate() {
   const [blocked, setBlocked] = useState(false)
-  const [msg, setMsg] = useState('')
-  const [trying, setTrying] = useState(false)
 
   const check = useCallback(async () => {
     try {
@@ -43,7 +38,6 @@ export default function MaintenanceGate() {
       const allowed = j.allow || sessionStorage.getItem(BYPASS_FLAG) === '1'
 
       setBlocked(j.ok === false && !allowed)
-      setMsg(j.msg || '')
     } catch { /* lỗi mạng -> không khóa nhầm */ }
   }, [])
 
@@ -54,33 +48,21 @@ export default function MaintenanceGate() {
     return () => clearInterval(t)
   }, [check])
 
-  // Nút "Thử lại" của trang lỗi thật: có khựng một nhịp rồi vẫn hỏng.
-  const retry = async () => {
-    setTrying(true)
-    await new Promise(res => setTimeout(res, 600))
-    await check()
-    setTrying(false)
-  }
-
   if (!blocked) return null
 
+  // Sao chép đúng trang 404 mặc định của Next.js (inline style, font hệ thống) -> không lộ.
   return (
-    <div className="fixed inset-0 z-[999] bg-white flex items-center justify-center p-6">
-      <div className="max-w-md w-full text-center space-y-4">
-        <svg className="w-12 h-12 mx-auto text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-        </svg>
-        <h1 className="text-xl font-semibold text-slate-700">Không thể kết nối tới máy chủ</h1>
-        <p className="text-sm text-slate-500">{msg || 'Máy chủ không phản hồi. Vui lòng thử lại sau ít phút.'}</p>
-        <p className="text-xs text-slate-400 font-mono pt-1">HTTP 503 — Service Unavailable</p>
-        <div className="pt-2">
-          <button
-            onClick={retry}
-            disabled={trying}
-            className="px-4 h-9 rounded-md border border-slate-300 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-60"
-          >
-            {trying ? 'Đang thử lại…' : 'Thử lại'}
-          </button>
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 999, background: '#fff', color: '#000',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji"',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <h1 style={{ margin: 0, marginRight: 20, padding: '0 23px 0 0', fontSize: 24, fontWeight: 500, lineHeight: '49px', borderRight: '1px solid rgba(0,0,0,.3)' }}>404</h1>
+        <div style={{ display: 'inline-block' }}>
+          <h2 style={{ margin: 0, fontSize: 14, fontWeight: 400, lineHeight: '49px' }}>This page could not be found.</h2>
         </div>
       </div>
     </div>
