@@ -205,8 +205,8 @@ function UserFooter() {
   const router = useRouter()
   const initials = (user?.full_name || '?').split(' ').slice(-2).map(s => s[0]).join('').toUpperCase()
   const logout = async () => {
-    try { await fetch('/api/auth/logout', { method: 'POST' }) } catch { /* vẫn điều hướng về landing */ }
-    router.replace('/')
+    try { await fetch('/api/auth/logout', { method: 'POST' }) } catch { /* vẫn điều hướng về cổng đăng nhập */ }
+    router.replace('/login')
   }
   return (
     <div className="px-3 py-2 border-t border-slate-200 flex items-center gap-2">

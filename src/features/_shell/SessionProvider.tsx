@@ -55,7 +55,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     ;(async () => {
       try {
         const res = await fetch('/api/auth/me')
-        if (res.status === 401) { router.replace('/'); return }
+        if (res.status === 401) { router.replace('/login'); return }
         const j = await res.json()
         if (!alive) return
         if (res.ok && j.data) {
@@ -79,10 +79,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           if (alive) setConfig(cfg)
           try { if (alive) setTabVisCfg(JSON.parse(cfg.tab_visibility || '{}') || {}) } catch { /* giữ mặc định */ }
         } else {
-          router.replace('/')
+          router.replace('/login')
         }
       } catch {
-        if (alive) router.replace('/')
+        if (alive) router.replace('/login')
       } finally {
         if (alive) setLoading(false)
       }

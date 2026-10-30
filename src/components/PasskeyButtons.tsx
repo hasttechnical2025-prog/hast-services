@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { startRegistration, startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser"
 import { useConfirm } from "@/components/ConfirmDialog"
+import { postLoginPath } from "@/lib/post-login"
 
 // Quản lý sinh trắc học (dùng khi ĐÃ đăng nhập, trong Cài đặt của app mobile):
 // hiện trạng thái Đã bật ✓ / Chưa bật + nút Thêm thiết bị / Gỡ.
@@ -91,12 +92,8 @@ export function PasskeyLoginButton({ className, onResult }: { className?: string
       })
       const j = await verRes.json()
       if (!verRes.ok) throw new Error(j.error || 'Đăng nhập thất bại')
-      const role = j.data?.role
-      if (role === 'ktv') { window.location.href = '/ktv'; return }
-      // Office: trên điện thoại vào bản Office Mobile gọn (/m), PC vào giao diện mới /qlkt
-      // (/qlkt tự định tuyến theo role: kinh_doanh→/kho-thue, office→module mặc định).
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768
-      window.location.href = isMobile ? '/m' : '/qlkt'
+      // Điều hướng theo vai trò × thiết bị (dùng chung với form /login).
+      window.location.href = postLoginPath(j.data?.role)
     } catch (e: any) {
       if (e?.name === 'NotAllowedError') onResult?.('Đã hủy hoặc chưa có khóa trên thiết bị.', false)
       else onResult?.(e?.message || 'Không đăng nhập được.', false)

@@ -11,15 +11,6 @@ export default function Home() {
   useEffect(() => {
     setIsMobile(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768)
   }, [])
-  const handleAdminLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    // Phát hiện thiết bị di động (Mobile User-Agent hoặc chiều rộng màn hình nhỏ)
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768
-    if (isMobile) {
-      e.preventDefault()
-      window.location.href = '/m'
-    }
-  }
-
   return (
     <main className="min-h-screen p-8 flex flex-col items-center justify-center bg-gray-50 font-sans">
       <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-md text-center">
@@ -28,8 +19,7 @@ export default function Home() {
 
         <div className="flex flex-col gap-4">
           <Link
-            href="/admin"
-            onClick={handleAdminLinkClick}
+            href="/login"
             className="w-full py-3 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-medium block"
           >
             Dashboard (Văn phòng)
