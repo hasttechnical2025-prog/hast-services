@@ -45,6 +45,15 @@ export default function RootLayout({
       className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        {/* No-FOUC khóa app: nếu lần trước thấy app ĐANG KHÓA -> đặt data-maint NGAY (trước khi vẽ
+            {children}) để phủ 404 không nháy. MaintenanceGate (client) xác nhận/gỡ sau /api/status. */}
+        <script dangerouslySetInnerHTML={{ __html: `try{if(localStorage.getItem('hast_maint')==='1')document.documentElement.setAttribute('data-maint','1')}catch(e){}` }} />
+        <div id="maint-404" aria-hidden="true">
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <h1 style={{ margin: '0 20px 0 0', padding: '0 23px 0 0', fontSize: 24, fontWeight: 500, lineHeight: '49px', borderRight: '1px solid rgba(0,0,0,.3)' }}>404</h1>
+            <h2 style={{ margin: 0, fontSize: 14, fontWeight: 400, lineHeight: '49px' }}>This page could not be found.</h2>
+          </div>
+        </div>
         {children}
         <NoPinchZoom />
         <NoKeyShortcuts />

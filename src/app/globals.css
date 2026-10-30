@@ -64,3 +64,13 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .v2-shell button:active, .v2-shell [role="button"]:active { scale: none; }
 }
+
+/* Màn khóa app (bảo trì) ngụy trang 404 — chống NHÁY (no-FOUC).
+   Script inline ở layout đặt html[data-maint="1"] TRƯỚC khi vẽ nội dung -> 404 phủ ngay
+   khung hình đầu, không lộ app/login. MaintenanceGate (client) bật/tắt attribute theo /api/status. */
+#maint-404 { display: none; }
+html[data-maint="1"] #maint-404 {
+  display: flex; position: fixed; inset: 0; z-index: 2147483647;
+  align-items: center; justify-content: center; background: #fff; color: #000;
+  font-family: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+}
