@@ -50,6 +50,7 @@ type Customer = {
     ten_khach_hang: string
     dia_chi: string | null
     ma_so_thue: string | null
+    ma_qhns: string | null
     email_ke_toan: string | null
   } | null
 }
@@ -183,6 +184,8 @@ function buildMinvoiceRows(tickets: Ticket[], kyHieu: string, ngayHD: Date, soDo
   const mst = (cum ? cum.ma_so_thue : kh?.ma_so_thue) || ''
   const diaChi = (cum ? cum.dia_chi : kh?.dia_chi) || ''
   const email = (cum ? cum.email_ke_toan : kh?.email_ke_toan) || ''
+  // Mã đơn vị QHNS: chỉ có ở cụm (đơn vị hưởng ngân sách). Khách lẻ không có.
+  const maQhns = (cum ? cum.ma_qhns : '') || ''
   const items = aggVatTu(tickets.flatMap(t => t.soct_chi_tiet_vat_tu || []))
   return items.map((it, idx) => {
     const thanhTien = Math.round(it.so_luong * it.don_gia)
@@ -194,6 +197,7 @@ function buildMinvoiceRows(tickets: Ticket[], kyHieu: string, ngayHD: Date, soDo
       row[3] = 'VND'; row[11] = 1
       // Tên đơn vị mua IN HOA (chuẩn hóa đơn); địa chỉ giữ chữ thường như nhập.
       row[6] = tenDonVi.toUpperCase(); row[7] = mst; row[8] = diaChi; row[10] = email
+      row[28] = maQhns                              // cột 29: Mã đơn vị quan (thệ) ngân sách
     }
     row[14] = 1; row[15] = idx + 1                  // Tính chất=hàng hoá; STT
     row[16] = it.ma_hang; row[17] = tenHangKeToan(it.ten_hang, it.ma_hang, it.ghepMa); row[18] = it.dvt || 'Cái'
@@ -208,7 +212,7 @@ function buildMinvoiceRows(tickets: Ticket[], kyHieu: string, ngayHD: Date, soDo
 // Dựng tờ HĐ GTGT theo mẫu M-invoice. Nhận shape đã chuẩn hóa: tên hàng đã giải quyết sẵn
 // (kỹ thuật ghép "Tên - Mã"; KD dùng tên kinh doanh). 1 nguồn chân lý cho giao diện hóa đơn.
 type InvSeller = { ten: string; mst: string; dia_chi: string; dien_thoai: string; email: string; stk1: string; stk2: string }
-type InvBuyer = { ten: string; dia_chi: string; mst: string }
+type InvBuyer = { ten: string; dia_chi: string; mst: string; ma_qhns?: string }
 type InvItem = { ten: string; dvt: string; so_luong: number; don_gia: number; vat: number }
 function InvoiceSheet({ seller, buyer, items, kyHieu, lamTron = 0 }: { seller: InvSeller; buyer: InvBuyer; items: InvItem[]; kyHieu: string; lamTron?: number }) {
   const Dash = ({ w = 120 }: { w?: number }) => <span style={{ display: 'inline-block', width: w, borderBottom: '1px dotted #94a3b8', height: '0.85em', verticalAlign: 'middle' }} />
@@ -223,6 +227,7 @@ function InvoiceSheet({ seller, buyer, items, kyHieu, lamTron = 0 }: { seller: I
   const bTen = String(buyer.ten || '').trim().toUpperCase()
   const bDC = String(buyer.dia_chi || '').trim()
   const bMST = String(buyer.mst || '').trim()
+  const bQhns = String(buyer.ma_qhns || '').trim()
   return (
     <div className="mx-auto bg-white border-[3px] border-double border-[#2f6db5] shadow-sm" style={{ maxWidth: 760, fontFamily: '"Times New Roman", Times, serif', color: '#0f172a' }}>
       <div className="p-5 space-y-2 text-[12.5px] leading-relaxed">
@@ -256,6 +261,8 @@ function InvoiceSheet({ seller, buyer, items, kyHieu, lamTron = 0 }: { seller: I
           <div><span className="text-slate-600">Địa chỉ: </span>{bDC || <span className="text-rose-600 font-bold">⚠ Thiếu địa chỉ</span>}</div>
           <div><span className="text-slate-600">Số tài khoản: </span><Dash w={90} /><span className="ml-6 text-slate-600">Tại: </span><Dash w={90} /></div>
           <div><span className="text-slate-600">Hình thức thanh toán: </span>TM/CK<span className="ml-6 text-[#2f6db5] font-semibold">Mã số thuế: </span>{bMST ? <b>{bMST}</b> : <span className="text-rose-600 font-bold">⚠ Thiếu MST</span>}</div>
+          {/* Mã đơn vị QHNS: trống là hợp lệ với DN thường -> KHÔNG tô đỏ cảnh báo. */}
+          <div><span className="text-slate-600">Mã đơn vị QHNS: </span>{bQhns && <b>{bQhns}</b>}</div>
         </div>
         {/* Bảng hàng hóa */}
         <table className="w-full border-collapse text-[12px] mt-1">
@@ -2073,6 +2080,7 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
   const modalCum = modalKh?.soct_khach_cum
   const modalTenKh = activeCard?.tickets[0]?.ten_khach_hd || (modalCum ? (modalCum.ten_khach_hang || '') : (modalKh?.ten_khach_hang || 'Khách hàng lẻ'))
   const modalMst = modalCum ? modalCum.ma_so_thue : modalKh?.ma_so_thue
+  const modalQhns = modalCum ? modalCum.ma_qhns : null  // chỉ cụm (đơn vị ngân sách) mới có
   const modalEmail = modalCum ? modalCum.email_ke_toan : modalKh?.email_ke_toan
   const modalDiaChi = modalCum ? modalCum.dia_chi : modalKh?.dia_chi
 
@@ -2563,7 +2571,7 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
               )}
 
               {/* Thông tin khách hàng & MST */}
-              <div className="bg-slate-50/70 p-4 rounded-lg border border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-slate-50/70 p-4 rounded-lg border border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <div className="t3 font-bold text-slate-400 uppercase">Tên khách hàng</div>
                   <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
@@ -2587,6 +2595,22 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
                         onClick={() => handleCopy(modalMst, 'mst')}
                         className={`p-1 bg-white hover:bg-slate-100 border border-slate-200 rounded text-slate-500 transition ${copiedKey === 'mst' ? 'text-emerald-600 border-emerald-200' : ''}`}
                         title="Copy Mã số thuế"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="t3 font-bold text-slate-400 uppercase" title="Mã đơn vị quan hệ ngân sách — chỉ đơn vị hưởng ngân sách NN; khai ở Quản lý › Khách hàng cụm">Mã đơn vị QHNS</div>
+                  <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                    {modalQhns || <span className="text-slate-400 italic">Không có</span>}
+                    {modalQhns && (
+                      <button
+                        onClick={() => handleCopy(modalQhns, 'qhns')}
+                        className={`p-1 bg-white hover:bg-slate-100 border border-slate-200 rounded text-slate-500 transition ${copiedKey === 'qhns' ? 'text-emerald-600 border-emerald-200' : ''}`}
+                        title="Copy Mã đơn vị QHNS"
                       >
                         <Copy className="w-3.5 h-3.5" />
                       </button>
@@ -2993,6 +3017,7 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
         const muaTen = String(t0?.ten_khach_hd || cum?.ten_khach_hang || kh?.ten_khach_hang || '').trim().toUpperCase()
         const muaDC = String(cum?.dia_chi || kh?.dia_chi || '').trim()
         const muaMST = String(cum?.ma_so_thue || kh?.ma_so_thue || '').trim()
+        const muaQhns = String(cum?.ma_qhns || '').trim()
         const S = sellerFromCfg(cfg)
         return (
           <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
@@ -3010,7 +3035,7 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
                   </div>
                   <InvoiceSheet
                     seller={S}
-                    buyer={{ ten: muaTen, dia_chi: muaDC, mst: muaMST }}
+                    buyer={{ ten: muaTen, dia_chi: muaDC, mst: muaMST, ma_qhns: muaQhns }}
                     items={items.map((it: any) => ({ ten: tenHangKeToan(it.ten_hang, it.ma_hang, it.ghepMa), dvt: it.dvt, so_luong: it.so_luong, don_gia: it.don_gia, vat: it.vat }))}
                     kyHieu={kyHieuMinvoice}
                     lamTron={lt}

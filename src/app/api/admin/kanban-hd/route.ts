@@ -65,6 +65,7 @@ export async function GET(request: Request) {
               ten_khach_hang,
               dia_chi,
               ma_so_thue,
+              ma_qhns,
               email_ke_toan
             )
           ),

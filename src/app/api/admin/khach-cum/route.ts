@@ -15,7 +15,7 @@ export async function GET() {
 
     const clusters = await selectAll((from, to) => supabaseAdmin
       .from('soct_khach_cum')
-      .select('ma_khach_hang, ten_khach_hang, dia_chi, ma_so_thue, email_ke_toan')
+      .select('ma_khach_hang, ten_khach_hang, dia_chi, ma_so_thue, ma_qhns, email_ke_toan')
       .order('ten_khach_hang')
       .range(from, to))
 
@@ -56,6 +56,7 @@ export async function POST(request: Request) {
     const ten = String(body.ten_khach_hang ?? '').trim()
     const dia_chi = String(body.dia_chi ?? '').trim()
     const ma_so_thue = String(body.ma_so_thue ?? '').trim()
+    const ma_qhns = String(body.ma_qhns ?? '').trim()
     const email_ke_toan = String(body.email_ke_toan ?? '').trim()
     if (!ma || !ten) return NextResponse.json({ error: 'Thiếu mã hoặc tên khách hàng' }, { status: 400 })
 
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
         ten_khach_hang: ten,
         dia_chi: dia_chi || null,
         ma_so_thue: ma_so_thue || null,
+        ma_qhns: ma_qhns || null,
         email_ke_toan: email_ke_toan || null
       })
       .select()
@@ -103,6 +105,7 @@ export async function PUT(request: Request) {
     }
     if (body.dia_chi !== undefined) updates.dia_chi = String(body.dia_chi).trim() || null
     if (body.ma_so_thue !== undefined) updates.ma_so_thue = String(body.ma_so_thue).trim() || null
+    if (body.ma_qhns !== undefined) updates.ma_qhns = String(body.ma_qhns).trim() || null
     if (body.email_ke_toan !== undefined) updates.email_ke_toan = String(body.email_ke_toan).trim() || null
     // Đổi mã cụm: cột FK soct_khach_hang.ma_khach_cum có ON UPDATE CASCADE -> các máy
     // trong cụm tự cập nhật theo, không thất lạc.

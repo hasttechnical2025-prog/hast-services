@@ -146,15 +146,15 @@ function DoiChieuMinvoiceModal({ onClose, showNotification, isAdmin }: { onClose
 
 export function KhachCumTool({ customers, onUpdateSuccess, showNotification, currentUserRole }: { customers: any[], onUpdateSuccess: () => void, showNotification: (type: 'success' | 'error', msg: string) => void, currentUserRole: string }) {
   const { confirm, confirmNode } = useConfirm()
-  const [clusters, setClusters] = useState<{ ma_khach_hang: string, ten_khach_hang: string, dia_chi: string, ma_so_thue?: string | null, email_ke_toan?: string | null, so_may: number, members: { id: string, ma_may: string, ten_khach_hang: string }[] }[]>([])
+  const [clusters, setClusters] = useState<{ ma_khach_hang: string, ten_khach_hang: string, dia_chi: string, ma_so_thue?: string | null, ma_qhns?: string | null, email_ke_toan?: string | null, so_may: number, members: { id: string, ma_may: string, ten_khach_hang: string }[] }[]>([])
   const [assignedIds, setAssignedIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [selMa, setSelMa] = useState<string | null>(null)
   const [working, setWorking] = useState(false)
   const [newMa, setNewMa] = useState(''), [newTen, setNewTen] = useState(''), [newDc, setNewDc] = useState('')
   const [edMa, setEdMa] = useState(''), [edTen, setEdTen] = useState(''), [edDc, setEdDc] = useState('')
-  const [newMst, setNewMst] = useState(''), [newEmail, setNewEmail] = useState('')
-  const [edMst, setEdMst] = useState(''), [edEmail, setEdEmail] = useState('')
+  const [newMst, setNewMst] = useState(''), [newEmail, setNewEmail] = useState(''), [newQhns, setNewQhns] = useState('')
+  const [edMst, setEdMst] = useState(''), [edEmail, setEdEmail] = useState(''), [edQhns, setEdQhns] = useState('')
   const [cumSearch, setCumSearch] = useState(''), [maySearch, setMaySearch] = useState('')
   const [pickIds, setPickIds] = useState<string[]>([])
 
@@ -192,19 +192,19 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
     const ma = newMa.trim(), ten = newTen.trim()
     if (!ma || !ten) return showNotification('error', 'Nhập mã và tên khách hàng')
     if (dupCluster) return showNotification('error', `Mã ${ma} đã dùng cho cụm: ${dupCluster.ten_khach_hang}`)
-    const dc = newDc.trim(), mst = newMst.trim(), email = newEmail.trim()
-    if (await call('POST', { ma_khach_hang: ma, ten_khach_hang: ten, dia_chi: dc, ma_so_thue: mst, email_ke_toan: email })) {
+    const dc = newDc.trim(), mst = newMst.trim(), email = newEmail.trim(), qhns = newQhns.trim()
+    if (await call('POST', { ma_khach_hang: ma, ten_khach_hang: ten, dia_chi: dc, ma_so_thue: mst, ma_qhns: qhns, email_ke_toan: email })) {
       showNotification('success', 'Đã tạo cụm. Thêm máy vào cụm bên dưới.')
-      setNewMa(''); setNewTen(''); setNewDc(''); setNewMst(''); setNewEmail(''); setCreateOpen(false); await fetchClusters(); onUpdateSuccess()
+      setNewMa(''); setNewTen(''); setNewDc(''); setNewMst(''); setNewEmail(''); setNewQhns(''); setCreateOpen(false); await fetchClusters(); onUpdateSuccess()
       // Mở luôn modal Chỉnh sửa cụm vừa tạo -> user thêm máy ngay, không phải mở lại.
-      setSelMa(ma); setEdMa(ma); setEdTen(ten); setEdDc(dc); setEdMst(mst); setEdEmail(email); setPickIds([]); setMaySearch('')
+      setSelMa(ma); setEdMa(ma); setEdTen(ten); setEdDc(dc); setEdMst(mst); setEdEmail(email); setEdQhns(qhns); setPickIds([]); setMaySearch('')
     }
   }
   const saveEdit = async () => {
     if (!sel || !edTen.trim()) return showNotification('error', 'Tên không được để trống')
     const maMoi = edMa.trim()
     if (!maMoi) return showNotification('error', 'Mã khách hàng không được để trống')
-    if (await call('PUT', { ma_khach_hang: sel.ma_khach_hang, ma_moi: maMoi, ten_khach_hang: edTen.trim(), dia_chi: edDc.trim(), ma_so_thue: edMst.trim(), email_ke_toan: edEmail.trim() })) {
+    if (await call('PUT', { ma_khach_hang: sel.ma_khach_hang, ma_moi: maMoi, ten_khach_hang: edTen.trim(), dia_chi: edDc.trim(), ma_so_thue: edMst.trim(), ma_qhns: edQhns.trim(), email_ke_toan: edEmail.trim() })) {
       showNotification('success', 'Đã lưu thông tin cụm.'); setSelMa(null); await fetchClusters(); onUpdateSuccess()
     }
   }
@@ -248,7 +248,7 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
   }, [cumList, sortField, sortAsc])
   const paged = usePaged(sortedCumList)
   const openCreate = () => { setNewMa(''); setNewTen(''); setNewDc(''); setNewMst(''); setNewEmail(''); setCreateOpen(true) }
-  const openEdit = (c: typeof clusters[number]) => { setSelMa(c.ma_khach_hang); setEdMa(c.ma_khach_hang); setEdTen(c.ten_khach_hang); setEdDc(c.dia_chi || ''); setEdMst(c.ma_so_thue || ''); setEdEmail(c.email_ke_toan || ''); setPickIds([]); setMaySearch('') }
+  const openEdit = (c: typeof clusters[number]) => { setSelMa(c.ma_khach_hang); setEdMa(c.ma_khach_hang); setEdTen(c.ten_khach_hang); setEdDc(c.dia_chi || ''); setEdMst(c.ma_so_thue || ''); setEdQhns(c.ma_qhns || ''); setEdEmail(c.email_ke_toan || ''); setPickIds([]); setMaySearch('') }
   const thCum = (f: typeof sortField, label: string, w: string) => (
     <th onClick={() => handleSort(f)} className={`px-3 py-2.5 text-left cursor-pointer select-none transition-colors hover:bg-slate-100 ${w} ${sortField === f ? 'text-blue-600 font-bold bg-blue-50/60' : ''}`}>
       <span className="inline-flex items-center gap-1 align-middle">{label}{sortField === f && (sortAsc ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />)}</span>
@@ -339,12 +339,16 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
                 <label className="text-xs font-semibold text-slate-600">Địa chỉ <span className="font-normal text-slate-400">(xuất hóa đơn)</span></label>
                 <Input placeholder="Địa chỉ hóa đơn" className="bg-white h-9" value={newDc} onChange={e => setNewDc(e.target.value)} />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-600">Mã số thuế</label>
                   <Input placeholder="MST" className="bg-white h-9 font-mono" value={newMst} onChange={e => setNewMst(e.target.value)} />
                 </div>
                 <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600" title="Mã đơn vị quan hệ ngân sách (chỉ đơn vị hưởng ngân sách NN)">Mã QHNS</label>
+                  <Input placeholder="— nếu có —" className="bg-white h-9 font-mono" value={newQhns} onChange={e => setNewQhns(e.target.value)} />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
                   <label className="text-xs font-semibold text-slate-600">Email kế toán</label>
                   <Input placeholder="Email nhận hóa đơn" className="bg-white h-9" value={newEmail} onChange={e => setNewEmail(e.target.value)} />
                 </div>
@@ -384,12 +388,16 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
                   <label className="text-xs font-semibold text-slate-600">Địa chỉ <span className="font-normal text-slate-400">(xuất hóa đơn)</span></label>
                   <Input className="bg-white h-9" value={edDc} onChange={e => setEdDc(e.target.value)} />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-600">Mã số thuế</label>
                     <Input className="bg-white h-9 font-mono" value={edMst} onChange={e => setEdMst(e.target.value)} />
                   </div>
                   <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-600" title="Mã đơn vị quan hệ ngân sách (chỉ đơn vị hưởng ngân sách NN)">Mã QHNS</label>
+                    <Input placeholder="— nếu có —" className="bg-white h-9 font-mono" value={edQhns} onChange={e => setEdQhns(e.target.value)} />
+                  </div>
+                  <div className="space-y-1 sm:col-span-2">
                     <label className="text-xs font-semibold text-slate-600">Email kế toán</label>
                     <Input className="bg-white h-9" value={edEmail} onChange={e => setEdEmail(e.target.value)} />
                   </div>
