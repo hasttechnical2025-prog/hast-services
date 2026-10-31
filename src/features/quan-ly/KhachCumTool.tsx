@@ -1,10 +1,10 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
-import { Users, Boxes, Package, Plus, Search, PenSquare, Trash2, X, FileSpreadsheet, ChevronUp, ChevronDown } from 'lucide-react'
+import { Users, Boxes, Package, Plus, PenSquare, Trash2, X, FileSpreadsheet, ChevronUp, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useConfirm } from '@/components/ConfirmDialog'
-import { StatCard, StatRow, BoxLoading, usePaged, ListFrame } from '@/ui'
+import { StatCard, StatRow, BoxLoading, usePaged, ListFrame, SearchInput } from '@/ui'
 
 // Port NGUYÊN KhachCumTool + DoiChieuMinvoiceModal từ admin (y hệt). Gọi lại /api/admin/khach-cum,
 // /api/admin/doi-chieu-khach.
@@ -299,11 +299,7 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
 
       <ListFrame paged={paged} unit="cụm" toolbar={
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="relative w-full sm:w-56">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Tìm mã / tên cụm..." className="pl-9 pr-7 bg-white h-9 text-xs" value={cumSearch} onChange={e => setCumSearch(e.target.value)} />
-            {cumSearch && <button type="button" onClick={() => setCumSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>}
-          </div>
+          <SearchInput value={cumSearch} onChange={setCumSearch} placeholder="Tìm mã / tên cụm..." className="w-full sm:w-56" />
           <div className="flex items-center gap-2 flex-wrap">
             <Button onClick={openCreate} className="gap-1 h-9 text-xs shrink-0"><Plus className="w-4 h-4" /> Tạo cụm mới</Button>
             <Button variant="outline" onClick={() => setDoiChieuOpen(true)} className="gap-1.5 h-9 text-xs shrink-0"><FileSpreadsheet className="w-4 h-4" /> Đối chiếu minVoice</Button>
@@ -452,11 +448,7 @@ export function KhachCumTool({ customers, onUpdateSuccess, showNotification, cur
 
               <section className="space-y-2">
                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-100 pb-1.5 flex items-center gap-1.5"><Plus className="w-3.5 h-3.5 text-slate-400" /> Thêm máy vào cụm <span className="normal-case tracking-normal font-normal text-slate-400">— chỉ máy lẻ chưa thuộc cụm</span></div>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <Input placeholder="Tìm theo tên / mã máy / model..." className="pl-9 pr-7 bg-white h-9 text-xs" value={maySearch} onChange={e => setMaySearch(e.target.value)} />
-                  {maySearch && <button type="button" onClick={() => setMaySearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>}
-                </div>
+                <SearchInput value={maySearch} onChange={setMaySearch} placeholder="Tìm theo tên / mã máy / model..." />
                 {q && (
                   <div className="bg-white rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-52 overflow-y-auto">
                     {mayResults.length === 0 ? <p className="text-sm text-slate-400 text-center py-4">Không có máy lẻ khớp.</p>

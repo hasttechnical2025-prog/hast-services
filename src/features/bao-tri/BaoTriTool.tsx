@@ -10,7 +10,7 @@ import { useRealtimeRefetch } from '@/lib/useRealtime'
 import { BAOTRI_TOPIC, DATA_EVENT } from '@/lib/realtime'
 import { exportRowsToExcel } from '@/lib/excel'
 import { LOAI_HD_BAO_TRI, canBaoTriThang, dangTamDung, nghiBaoTri, moTaLichBaoTri, doiChieuNam, thangDaToi, fmtThang, CELL_DA_LAM, CELL_THIEU, CELL_CHUA_TOI } from '@/lib/bao-tri'
-import { usePaged, ListFrame, useColView, TableLoading, type ColDef } from '@/ui'
+import { usePaged, ListFrame, useColView, TableLoading, SearchInput, type ColDef } from '@/ui'
 
 // Port NGUYÊN BaoTriTool từ admin/page.tsx (y hệt giao diện + nghiệp vụ). Chỉ đổi import sang
 // helper dùng chung + thay ClearAllButton bằng xác nhận useConfirm.
@@ -677,11 +677,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
               <div className="text-sm text-slate-600">
                 <b className="text-indigo-700">{thongKeFiltered.length}</b> khách · <b className="text-indigo-700">{thongKeTongMay.toLocaleString('vi-VN')}</b> máy HĐ bảo trì
               </div>
-              <div className="relative w-full sm:w-72">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input placeholder="Tìm tên khách / cụm…" className="pl-9 pr-7 bg-white h-9" value={tkQ} onChange={e => setTkQ(e.target.value)} />
-                {tkQ && <button type="button" onClick={() => setTkQ('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa">✕</button>}
-              </div>
+              <SearchInput value={tkQ} onChange={setTkQ} placeholder="Tìm tên khách / cụm…" className="w-full sm:w-72" />
               <Button onClick={exportThongKe} disabled={thongKeFiltered.length === 0} title={`Xuất thống kê cụm (${thongKeFiltered.length} khách)`} variant="outline" className="h-9 px-3 gap-1.5 text-xs ml-auto shrink-0">
                 <Download className="w-4 h-4" /> Xuất thống kê cụm
               </Button>
@@ -864,11 +860,7 @@ export function BaoTriTool({ customers, showNotification, canSub, role }: { cust
         ) : active === 'da_bao_tri' ? (
           <ListFrame paged={sortedRecords.length > 0 ? paged : undefined} unit="máy" toolbar={
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="relative w-full sm:w-72">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <Input value={daSearch} onChange={e => setDaSearch(e.target.value)} placeholder="Tìm mã máy / tên khách / model…" className="pl-9 pr-7 bg-white h-9 text-xs" />
-                {daSearch && <button type="button" onClick={() => setDaSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>}
-              </div>
+              <SearchInput value={daSearch} onChange={setDaSearch} placeholder="Tìm mã máy / tên khách / model…" className="w-full sm:w-72" />
               <div className="ml-auto flex items-center gap-2">
                 <Button variant="outline" onClick={xuatBaoTriExcel} disabled={sortedRecords.length === 0} title={`Xuất Excel (${sortedRecords.length} máy)`} className="h-9 px-3 gap-1.5 text-xs">
                   <Download className="w-4 h-4" /> Xuất DS đã bảo trì

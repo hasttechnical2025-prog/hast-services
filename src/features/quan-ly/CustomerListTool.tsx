@@ -1,13 +1,13 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Users, ClipboardCheck, Clock, AlertTriangle, Search, Plus, ChevronUp, ChevronDown, PenSquare, MapPin, Printer, FileText, CalendarClock, ArrowDown } from 'lucide-react'
+import { Users, ClipboardCheck, Clock, AlertTriangle, Plus, ChevronUp, ChevronDown, PenSquare, MapPin, Printer, FileText, CalendarClock, ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import DateField from '@/components/DateField'
 import { hdbtStatus } from '@/lib/hd-status'
 import { LOAI_HD_BAO_TRI, fmtThang, moTaLichBaoTri, coBaoTriThang, parseThangBaoTri, formatThangBaoTri } from '@/lib/bao-tri'
-import { usePaged, ListFrame, useColView, ColumnMenu, StatCard, StatRow, type ColDef } from '@/ui'
+import { usePaged, ListFrame, useColView, ColumnMenu, StatCard, StatRow, SearchInput, type ColDef } from '@/ui'
 
 // Port NGUYÊN CustomerListTool từ admin (y hệt). Gọi lại /api/admin/khach-hang.
 const CUSTOMER_COLS: ColDef[] = [
@@ -183,11 +183,7 @@ export function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCa
       <ListFrame paged={paged} unit="khách hàng" toolbar={
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex gap-2 w-full sm:w-auto">
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Tìm mã máy, serial, tên KH, địa chỉ, model, HĐ..." className="pl-9 pr-7 bg-white h-9 text-xs" value={search} onChange={(e) => setSearch(e.target.value)} />
-            {search && <button type="button" onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>}
-          </div>
+          <SearchInput value={search} onChange={setSearch} placeholder="Tìm mã máy, serial, tên KH, địa chỉ, model, HĐ..." className="w-full sm:w-72" />
           <div className="relative shrink-0">
             <button type="button" onClick={() => setFilterOpen(o => !o)} className="h-9 px-3 rounded-md border border-slate-200 text-xs bg-white flex items-center gap-2 min-w-[13rem] justify-between hover:border-slate-300">
               <span className="truncate">{filterLabel}</span>

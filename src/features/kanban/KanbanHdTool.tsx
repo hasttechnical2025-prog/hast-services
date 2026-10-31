@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark, Pencil, Search, Download, Upload, Info, GripVertical, Send, Lock, LockOpen } from "lucide-react"
+import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark, Pencil, Download, Upload, Info, GripVertical, Send, Lock, LockOpen } from "lucide-react"
+import { SearchInput } from "@/ui"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import MonthField from "@/components/MonthField"
@@ -2134,20 +2135,7 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
         {/* Hàng 1: LỌC (trái) · HÀNH ĐỘNG (phải) */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm khách / số phiếu / số HĐ..." className="pl-8 pr-7 h-9 w-64 bg-white text-sm" />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
-                  title="Xóa tìm kiếm"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+            <SearchInput value={search} onChange={setSearch} placeholder="Tìm khách / số phiếu / số HĐ..." className="w-64" />
             <label className="flex items-center gap-1.5 text-xs text-slate-600">
               Kỳ đối chiếu:
               <MonthField value={thang} onChange={setThang} className="h-9 px-2 text-xs w-36" />

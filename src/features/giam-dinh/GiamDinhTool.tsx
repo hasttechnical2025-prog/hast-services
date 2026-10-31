@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { ClipboardCheck, Plus, Trash2, RefreshCw, Search, Clock, CheckCircle2, Wallet, Wrench, Download } from 'lucide-react'
+import { ClipboardCheck, Plus, Trash2, RefreshCw, Clock, CheckCircle2, Wallet, Wrench, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import DateField from '@/components/DateField'
@@ -8,7 +8,7 @@ import BaoGiaEditor, { type BaoGiaRow } from '@/components/BaoGiaEditor'
 import { MaterialCombobox } from '@/features/giao-viec/MaterialCombobox'
 import { useRealtimeRefetch } from '@/lib/useRealtime'
 import { GIAMDINH_TOPIC, DATA_EVENT } from '@/lib/realtime'
-import { usePaged, ListFrame, StatCard, StatRow, BoxLoading } from '@/ui'
+import { usePaged, ListFrame, StatCard, StatRow, BoxLoading, SearchInput, ClearFilters } from '@/ui'
 
 // Port NGUYÊN GiamDinhTool từ admin/page.tsx (y hệt), gọi lại /api/admin/giam-dinh + /api/admin/bao-gia.
 function modelNumber(model: string) { const m = (model || '').match(/\d+/); return m ? m[0] : '' }
@@ -256,13 +256,7 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
         </StatRow>
         <ListFrame variant="cards" paged={loading ? undefined : gdPaged} unit="biên bản" toolbar={
           <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-full sm:w-56">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Lọc theo mã máy / khách / địa chỉ..." className="pl-9 pr-7 bg-white h-9 text-xs" value={gdFilters.maMay} onChange={(e) => setGdFilters({ ...gdFilters, maMay: e.target.value })} />
-            {gdFilters.maMay && (
-              <button type="button" onClick={() => setGdFilters({ ...gdFilters, maMay: '' })} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>
-            )}
-          </div>
+          <SearchInput value={gdFilters.maMay} onChange={(v) => setGdFilters({ ...gdFilters, maMay: v })} placeholder="Lọc theo mã máy / khách / địa chỉ..." className="w-full sm:w-56" />
           <select value={gdFilters.trangThai} onChange={(e) => setGdFilters({ ...gdFilters, trangThai: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-xs bg-white outline-none">
             <option value="">Trạng thái: Tất cả</option>
             <option value="cho_thay">Chờ thay</option>
@@ -273,7 +267,7 @@ export function GiamDinhTool({ customers, inventory, ktvOptions, tinhTrangOption
             <option value="chua">Chưa báo giá</option>
             <option value="co">Đã báo giá</option>
           </select>
-          {gdFilterActive && <button onClick={() => setGdFilters({ maMay: "", trangThai: "", baoGia: "" })} className="text-xs text-red-600 hover:underline font-medium">Bỏ lọc</button>}
+          <ClearFilters show={gdFilterActive} onClear={() => setGdFilters({ maMay: "", trangThai: "", baoGia: "" })} />
           <Button onClick={openForm} className="h-9 gap-1.5 text-xs ml-auto bg-blue-600 hover:bg-blue-700"><ClipboardCheck className="w-4 h-4" /> Lập BBGĐ</Button>
           </div>
         }>
