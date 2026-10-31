@@ -1,6 +1,6 @@
 'use client'
 import { useState, Suspense } from 'react'
-import { useToast, fmtDate } from '@/ui'
+import { useToast, fmtDate, BoxLoading } from '@/ui'
 import { useShared } from '@/features/_shell/SharedDataProvider'
 import { useSession } from '@/features/_shell/SessionProvider'
 import { CustomerListTool } from '@/features/quan-ly/CustomerListTool'
@@ -16,7 +16,7 @@ function parseDDMMYYYY(s: string): string | null {
 }
 
 export default function KhachHangPage() {
-  const { customers, dmOptions, refetchAll } = useShared()
+  const { customers, dmOptions, refetchAll, loading } = useShared()
   const { user, config, subVisible } = useSession()
   const { notify, toastNode } = useToast()
 
@@ -67,7 +67,10 @@ export default function KhachHangPage() {
         </div>
       )}
 
-      {active === 'diem-may' && canDiemMay && (
+      {active === 'diem-may' && canDiemMay && (loading && customers.length === 0 ? (
+        // useShared -> hiện loading thay vì nháy "Chưa có khách hàng" + KPI 0 lúc đang tải.
+        <BoxLoading label="Đang tải khách hàng..." />
+      ) : (
         <div className="space-y-6">
           <Suspense fallback={null}>
             <CustomerListTool customers={customers} loaiHdOptions={loaiHdOptions} hangOptions={hangOptions} hdbtCanhBaoThang={hdbtCanhBaoThang} onUpdateSuccess={refetchAll} showNotification={notify} />
@@ -82,7 +85,7 @@ export default function KhachHangPage() {
             <ExcelTool rows={customers} filename="khach-hang" endpoint="/api/admin/khach-hang/bulk" payloadKey="customers" unit="khách hàng" requiredKeys={['ma_may', 'ten_khach_hang', 'dia_chi']} columns={excelCols} onSuccess={refetchAll} showNotification={notify} exportLabel="Xuất DS khách hàng" />
           </div>
         </div>
-      )}
+      ))}
 
       {active === 'khach-cum' && canCum && (
         <KhachCumTool customers={customers} onUpdateSuccess={refetchAll} showNotification={notify} currentUserRole={user?.role || ''} />

@@ -1,5 +1,5 @@
 'use client'
-import { useToast } from '@/ui'
+import { useToast, BoxLoading } from '@/ui'
 import { useShared } from '@/features/_shell/SharedDataProvider'
 import { useSession } from '@/features/_shell/SessionProvider'
 import { InventoryManagementTool } from '@/features/kho-hang/InventoryManagementTool'
@@ -15,7 +15,7 @@ const EXCEL_COLS: ExcelCol[] = [
 ]
 
 export default function TonKhoPage() {
-  const { inventory, danhMuc, refetchInventory } = useShared()
+  const { inventory, danhMuc, refetchInventory, loading } = useShared()
   const { config } = useSession()
   const { notify, toastNode } = useToast()
   const lowStock = parseInt(config?.nguong_ton_thap || '0') || 0
@@ -23,7 +23,10 @@ export default function TonKhoPage() {
   return (
     <div className="space-y-8">
       <div>
-        <InventoryManagementTool inventory={inventory} lowStock={lowStock} danhMuc={danhMuc} onUpdateSuccess={refetchInventory} showNotification={notify} />
+        {/* Dùng useShared -> hiện loading thay vì nháy "Kho hàng đang trống" + KPI 0 lúc đang tải. */}
+        {loading && inventory.length === 0
+          ? <BoxLoading label="Đang tải kho hàng..." />
+          : <InventoryManagementTool inventory={inventory} lowStock={lowStock} danhMuc={danhMuc} onUpdateSuccess={refetchInventory} showNotification={notify} />}
       </div>
       <div className="bg-white rounded-lg border border-slate-200 p-5">
         <h3 className="text-base font-bold text-slate-800 mb-3">Nhập / Xuất kho hàng (Excel)</h3>
