@@ -75,7 +75,13 @@ export default function KhoaPage() {
             <h1 className="text-lg font-bold text-slate-800">Cần đăng nhập Admin</h1>
             <p className="text-sm text-slate-500 mt-1">{me ? `Tài khoản hiện tại (${me.full_name}) không có quyền khóa app.` : 'Chưa đăng nhập. Hãy đăng nhập bằng tài khoản Admin để khóa / mở app.'}</p>
           </div>
-          <a href="/login" className="inline-flex items-center justify-center gap-2 w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold">
+          {/* Giữ ?qt khi chuyển sang /login: nếu đang bảo trì + mở /khoa?qt=<khóa> thì không bị
+              proxy 404 ở trang đăng nhập (href trơn "/login" sẽ bị chặn). */}
+          <a
+            href="/login"
+            onClick={(e) => { e.preventDefault(); window.location.href = '/login' + (window.location.search || '') }}
+            className="inline-flex items-center justify-center gap-2 w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+          >
             <LogIn className="w-5 h-5" /> Đăng nhập
           </a>
         </div>
