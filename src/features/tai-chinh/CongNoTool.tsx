@@ -1,12 +1,12 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Users, ClipboardList, Wallet, Search, CheckCircle2, FileSpreadsheet, RefreshCw, Save, Scissors, Upload, Download } from 'lucide-react'
+import { Users, ClipboardList, Wallet, CheckCircle2, FileSpreadsheet, RefreshCw, Save, Scissors, Upload, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import BaoGiaEditor, { type BaoGiaRow } from '@/components/BaoGiaEditor'
 import { useRealtimeRefetch } from '@/lib/useRealtime'
 import { CONGNO_TOPIC, JOBS_TOPIC, DATA_EVENT } from '@/lib/realtime'
-import { StatCard, StatRow, BoxLoading } from '@/ui'
+import { StatCard, StatRow, BoxLoading, SearchInput } from '@/ui'
 
 // Port NGUYÊN CongNoTool từ admin (y hệt): gom phiếu theo khách/cụm → báo giá (BaoGiaEditor)
 // → đánh dấu / đẩy Kanban / tách hóa đơn / xuất-nhập Excel. Gọi lại /api/admin/cong-no.
@@ -285,11 +285,7 @@ export function CongNoTool({ showNotification }: { showNotification: (type: 'suc
         <div className="flex flex-wrap items-center gap-2">
           <label className="text-sm font-semibold text-slate-600">Chọn điểm máy / cụm (chọn 1 khách)</label>
           <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">{selIds.length} chọn · {selTickets.length} phiếu</span>
-          <div className="relative w-full sm:w-64 ml-auto">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Tìm tên khách..." className="pl-9 pr-7 bg-white h-9" value={khSearch} onChange={e => setKhSearch(e.target.value)} />
-            {khSearch && <button type="button" onClick={() => setKhSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>}
-          </div>
+          <SearchInput value={khSearch} onChange={setKhSearch} placeholder="Tìm tên khách..." className="w-full sm:w-64 ml-auto" />
         </div>
         <div className="bg-white border border-slate-200 rounded-lg max-h-[500px] overflow-y-auto divide-y divide-slate-100">
           {custs.length === 0 ? (

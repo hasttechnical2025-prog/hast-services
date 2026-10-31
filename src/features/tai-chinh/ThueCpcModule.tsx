@@ -9,12 +9,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import DateField from "@/components/DateField"
 import MonthField from "@/components/MonthField"
-import { usePaged, ListFrame } from "@/ui"
+import { usePaged, ListFrame, SearchInput } from "@/ui"
 import { chotSoDate, counterStatus, CounterStatus, kyTruoc, tinhDongMay } from "@/lib/thue-cpc"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
 import { useShared } from "@/features/_shell/SharedDataProvider"
 import MucMayThueTool from "@/features/kho-hang/MucMayThueTool"
-import { Save, FileText, RefreshCw, ArrowRight, Check, PenSquare, Search, ChevronUp, ChevronDown, Download, Droplets, MapPin, Mail } from "lucide-react"
+import { Save, FileText, RefreshCw, ArrowRight, Check, PenSquare, ChevronUp, ChevronDown, Download, Droplets, MapPin, Mail } from "lucide-react"
 
 // Tab "Cảnh báo mực" — máy thuê sắp hết mực (ước lượng chia dư). Office bấm "Đã gửi mực" để tắt.
 function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotification: Notify; onCount?: (n: number) => void; refreshVer?: number }) {
@@ -108,7 +108,7 @@ function CanhBaoMucTab({ showNotification, onCount, refreshVer }: { showNotifica
       <ListFrame paged={!err && list.length > 0 ? paged : undefined} unit="vật tư" toolbar={
       <div className="space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative flex-1 min-w-[180px] max-w-xs"><Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" /><Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm khách / máy / mực…" className="h-9 pl-9 pr-7 bg-white w-full" />{q && <button type="button" onClick={() => setQ('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>}</div>
+          <SearchInput value={q} onChange={setQ} placeholder="Tìm khách / máy / mực…" className="flex-1 min-w-[180px] max-w-xs" />
           <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden shrink-0 text-xs">
             {([['all', 'Tất cả'], ['muc', 'Mực'], ['trong', 'Trống']] as const).map(([v, label]) => (
               <button key={v} type="button" onClick={() => setNhom(v)}
@@ -447,13 +447,7 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
   return (
     <div className="space-y-4">
       <ListFrame paged={loading ? undefined : paged} unit="máy" toolbar={
-        <div className="relative w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input placeholder="Tìm tên khách / mã máy / serial…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 pr-7 w-full h-9 bg-white text-xs" />
-          {search && (
-            <button type="button" onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>
-          )}
-        </div>
+        <SearchInput value={search} onChange={setSearch} placeholder="Tìm tên khách / mã máy / serial…" className="w-64" />
       }>
         {loading && rows.length === 0 ? (
           <div className="text-sm text-slate-400 py-8 text-center"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải danh sách...</div>
@@ -1045,20 +1039,7 @@ function CounterTab({ showNotification, thang, setThang, chuyenKyNgay = 20, onSa
       )}
       <ListFrame unit="máy" toolbar={
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative w-56">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Tìm khách / mã máy / serial / vị trí…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 pr-7 w-full h-9 bg-white text-xs" />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
-                title="Xóa tìm kiếm"
-              >
-                ✕
-              </button>
-            )}
-          </div>
+          <SearchInput value={search} onChange={setSearch} placeholder="Tìm khách / mã máy / serial / vị trí…" className="w-56" />
           <label className="flex items-center gap-2 text-xs text-slate-600">Kỳ
             <MonthField value={thang} onChange={setThang} className="h-9 w-40 text-xs" />
           </label>
