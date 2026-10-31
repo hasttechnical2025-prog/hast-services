@@ -1,0 +1,37 @@
+name: CI
+
+# Gác cổng nhẹ: chạy type-check + build trên mỗi push/PR -> hiện trạng thái xanh/đỏ
+# trên commit, bắt lỗi biên dịch TRƯỚC khi Vercel deploy production.
+# (Repo đẩy thẳng main; CI này là lưới an toàn song song, không chặn merge.)
+
+on:
+  push:
+    branches: [main, feat/ui-2027]
+  pull_request:
+
+# Hủy run cũ khi có push mới cùng nhánh -> đỡ tốn phút Actions (GitHub Free 2000'/tháng).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Type-check (tsc)
+        run: npx tsc --noEmit
+      - name: Build (next build)
+        run: npm run build
+        # Env giả — app có fallback placeholder; build chỉ cần biên dịch, KHÔNG gọi mạng.
+        # Bí mật thật nằm ở Vercel, KHÔNG để trong CI.
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
+          SESSION_SECRET: ci-dummy-session-secret-not-real
