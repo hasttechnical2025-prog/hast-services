@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyPassword, hashPassword } from '@/lib/password'
 import { setSessionCookie } from '@/lib/session'
 import { getSessionMaxAge, isBaoTri, BAO_TRI_MSG } from '@/lib/config'
+import { clientIp, isLoginBlocked, recordLoginAttempt, RATE_LIMIT_MSG } from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
   try {
@@ -10,6 +11,12 @@ export async function POST(request: Request) {
 
     if (!username || !password) {
       return NextResponse.json({ error: 'Thiếu tên đăng nhập hoặc mật khẩu' }, { status: 400 })
+    }
+
+    // Rate-limit: chặn brute-force (đếm lần SAI theo username/IP trong 15 phút). Fail-open.
+    const ip = clientIp(request)
+    if (await isLoginBlocked(ip, username)) {
+      return NextResponse.json({ error: RATE_LIMIT_MSG }, { status: 429 })
     }
 
     // Tìm KTV theo username
@@ -21,13 +28,16 @@ export async function POST(request: Request) {
       .single()
 
     if (error || !data) {
+      await recordLoginAttempt(ip, username, false)
       return NextResponse.json({ error: 'Tên đăng nhập hoặc mật khẩu không chính xác' }, { status: 401 })
     }
 
     const { valid, needsUpgrade } = verifyPassword(password, data.password)
     if (!valid) {
+      await recordLoginAttempt(ip, username, false)
       return NextResponse.json({ error: 'Tên đăng nhập hoặc mật khẩu không chính xác' }, { status: 401 })
     }
+    await recordLoginAttempt(ip, username, true) // mật khẩu đúng -> reset đếm của username
 
     // Chế độ bảo trì: KTV luôn bị chặn (chỉ admin được vào)
     if (await isBaoTri()) {
