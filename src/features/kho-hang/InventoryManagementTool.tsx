@@ -4,7 +4,7 @@ import { Package, Boxes, AlertTriangle, Trash2, ChevronUp, ChevronDown, ToggleLe
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useConfirm } from '@/components/ConfirmDialog'
-import { usePaged, ListFrame, useColView, StatCard, StatRow, SearchInput, type ColDef } from '@/ui'
+import { usePaged, ListFrame, useColView, StatCard, StatRow, SearchInput, ClearFilters, type ColDef } from '@/ui'
 
 // Port NGUYÊN InventoryManagementTool từ admin (y hệt), gọi lại /api/admin/kho-hang.
 // Thay confirmDelete + ClearAllButton bằng useConfirm nội bộ.
@@ -150,7 +150,7 @@ export function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSucce
             <option value="discontinued">Ngưng dùng ({invDiscontinued})</option>
           </select>
           <SearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Tìm mã, tên, model, mã tương đương..." className="w-52 sm:w-60" />
-          {(statusFilter !== 'all' || searchTerm) && <button type="button" onClick={() => { setStatusFilter('all'); setSearchTerm('') }} className="h-9 px-2.5 text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition" title="Bỏ lọc">Bỏ lọc</button>}
+          <ClearFilters show={statusFilter !== 'all' || !!searchTerm} onClear={() => { setStatusFilter('all'); setSearchTerm('') }} />
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
