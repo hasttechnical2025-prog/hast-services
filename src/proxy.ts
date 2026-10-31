@@ -70,7 +70,12 @@ export async function proxy(request: NextRequest) {
     if (key && qt === key) return NextResponse.next()
 
     // non-admin + đang khóa -> 404 THẬT (status 404, không gửi app).
-    return new NextResponse(NOT_FOUND_HTML, { status: 404, headers: { 'content-type': 'text/html; charset=utf-8' } })
+    // no-store: thiết bị KHÔNG lưu trang 404 -> mở khóa xong, lần tải sau ra app ngay (không kẹt 404);
+    // và đang khóa thì mỗi lần tải đều chạm proxy (không phục vụ 404 từ cache).
+    return new NextResponse(NOT_FOUND_HTML, {
+      status: 404,
+      headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store, must-revalidate' },
+    })
   } catch {
     return NextResponse.next() // FAIL-OPEN: bất kỳ lỗi nào -> cho qua, tuyệt đối không 404 nhầm.
   }
