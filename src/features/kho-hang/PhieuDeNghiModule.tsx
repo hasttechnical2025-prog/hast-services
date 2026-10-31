@@ -5,9 +5,9 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import DateField from "@/components/DateField"
 import { useConfirm } from "@/components/ConfirmDialog"
-import { usePaged, ListFrame, DateRangeField } from "@/ui"
+import { usePaged, ListFrame, DateRangeField, SearchInput, ClearFilters } from "@/ui"
 import {
-  FileText, Search, Plus, Printer, PenSquare, Trash2,
+  FileText, Plus, Printer, PenSquare, Trash2,
   RefreshCw, X, Save, ArrowUpDown, ChevronUp, ChevronDown
 } from "lucide-react"
 
@@ -997,37 +997,11 @@ export default function PhieuDeNghiModule({
 
       {/* Filter toolbar + bảng — khung chuẩn ListFrame */}
       <ListFrame paged={paged} unit="phiếu" toolbar={<div className="flex flex-wrap items-center gap-2.5">
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input
-            placeholder="Tìm số phiếu, model, serial, PX..."
-            className="pl-9 pr-7 bg-white h-9 text-xs"
-            value={q}
-            onChange={e => setQ(e.target.value)}
-          />
-          {q && (
-            <button
-              type="button"
-              onClick={() => setQ('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
-              title="Xóa tìm kiếm"
-            >
-              ✕
-            </button>
-          )}
-        </div>
+        <SearchInput value={q} onChange={setQ} placeholder="Tìm số phiếu, model, serial, PX..." className="w-full sm:w-64" />
 
         <DateRangeField from={tuNgay} to={denNgay} onFrom={setTuNgay} onTo={setDenNgay} width="w-32" />
 
-        {(tuNgay || denNgay || q) && (
-          <Button
-            variant="ghost"
-            onClick={() => { setTuNgay(''); setDenNgay(''); setQ('') }}
-            className="h-9 text-xs text-slate-600 hover:text-slate-900 px-2.5"
-          >
-            Bỏ lọc
-          </Button>
-        )}
+        <ClearFilters show={!!tuNgay || !!denNgay || !!q} onClear={() => { setTuNgay(''); setDenNgay(''); setQ('') }} />
         {v2Layout && (
           <div className="ml-auto flex items-center gap-2">
             <span className="text-xs text-slate-400 whitespace-nowrap">{sortedRows.length} phiếu</span>

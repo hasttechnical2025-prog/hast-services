@@ -8,7 +8,7 @@ import { useConfirm } from '@/components/ConfirmDialog'
 import { useRealtimeRefetch } from '@/lib/useRealtime'
 import { DATHANG_TOPIC, DATA_EVENT } from '@/lib/realtime'
 import { exportRowsToExcel } from '@/lib/excel'
-import { usePaged, ListFrame, StatCard, StatRow, BoxLoading, DateRangeField } from '@/ui'
+import { usePaged, ListFrame, StatCard, StatRow, BoxLoading, DateRangeField, SearchInput, ClearFilters } from '@/ui'
 import type { DatHangLine } from './useDatHangCart'
 
 // Port NGUYÊN DatHangTool từ admin (y hệt): rà soát tồn + giỏ hàng + đơn đặt + hàng về.
@@ -360,15 +360,8 @@ export function DatHangTool({
               <Search className="w-4 h-4 text-slate-500" /> Rà soát kho & Chọn vật tư đặt hàng
             </h3>
             <div className="flex flex-wrap gap-2 items-center">
-              <div className="relative w-44">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                <Input placeholder="Gõ mã / tên vật tư..." className="pl-8 pr-6 h-9 text-xs bg-white" value={leftSearch} onChange={(e) => setLeftSearch(e.target.value)} />
-                {leftSearch && <button onClick={() => setLeftSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs" title="Xóa tìm kiếm">✕</button>}
-              </div>
-              <div className="relative w-40">
-                <Input placeholder="Tìm / gõ model..." className="h-9 text-xs bg-white pr-6" value={leftModel} onChange={(e) => setLeftModel(e.target.value)} />
-                {leftModel && <button onClick={() => setLeftModel("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs" title="Xóa bộ lọc model">✕</button>}
-              </div>
+              <SearchInput value={leftSearch} onChange={setLeftSearch} placeholder="Gõ mã / tên vật tư..." className="w-44" />
+              <SearchInput value={leftModel} onChange={setLeftModel} placeholder="Tìm / gõ model..." className="w-40" />
               <select value={leftHang} onChange={(e) => setLeftHang(e.target.value)} className="h-9 px-2 w-36 rounded-md border border-slate-200 text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500">
                 <option value="">Hãng: Tất cả</option>
                 {hangOptions.map(h => <option key={h} value={h}>{h}</option>)}
@@ -385,9 +378,7 @@ export function DatHangTool({
                 <input type="checkbox" checked={leftUnderWarn} onChange={(e) => setLeftUnderWarn(e.target.checked)} className="w-3.5 h-3.5 accent-rose-600" />
                 <span>🔔 Dưới ngưỡng ({underWarnItems.length})</span>
               </label>
-              {(leftSearch || leftModel || leftHang || leftLowStock || leftUnderWarn) && (
-                <button onClick={() => { setLeftSearch(""); setLeftModel(""); setLeftHang(""); setLeftLowStock(false); setLeftUnderWarn(false) }} className="text-xs text-rose-600 hover:underline font-medium ml-1">Bỏ lọc</button>
-              )}
+              <ClearFilters show={!!leftSearch || !!leftModel || !!leftHang || leftLowStock || leftUnderWarn} onClear={() => { setLeftSearch(""); setLeftModel(""); setLeftHang(""); setLeftLowStock(false); setLeftUnderWarn(false) }} />
               <button type="button" onClick={exportLeftInventory} title="Xuất Excel đúng danh sách đang hiển thị (sau lọc mã/tên, model, hãng…) để đối chiếu" className="ml-auto shrink-0 h-9 px-2.5 rounded-md border border-slate-300 text-slate-700 bg-white shadow-2xs hover:bg-slate-50 hover:border-slate-400 text-xs font-medium inline-flex items-center gap-1.5">
                 <Download className="w-3.5 h-3.5" /> Xuất DS tồn (đang lọc) ({sortedLeftInventory.length})
               </button>
@@ -555,11 +546,7 @@ export function DatHangTool({
       {/* DANH SÁCH ĐƠN + BỘ LỌC — khung chuẩn ListFrame (dạng thẻ) */}
       <ListFrame unit="đơn" paged={dhPaged} variant="cards" toolbar={
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-full sm:w-56">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Lọc theo mã hàng / tên..." className="pl-9 pr-7 bg-white h-9 text-xs" value={orderFilters.maHang} onChange={(e) => setOrderFilters({ ...orderFilters, maHang: e.target.value })} />
-            {orderFilters.maHang && <button type="button" onClick={() => setOrderFilters({ ...orderFilters, maHang: '' })} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>}
-          </div>
+          <SearchInput value={orderFilters.maHang} onChange={(v) => setOrderFilters({ ...orderFilters, maHang: v })} placeholder="Lọc theo mã hàng / tên..." className="w-full sm:w-56" />
           <select value={orderFilters.ncc} onChange={(e) => setOrderFilters({ ...orderFilters, ncc: e.target.value })} className="h-9 px-2 rounded-md border border-slate-200 text-xs bg-white outline-none">
             <option value="">NCC: Tất cả</option>
             {nhaCungCapOptions.map(n => <option key={n} value={n}>{n}</option>)}
@@ -574,9 +561,7 @@ export function DatHangTool({
           <DateRangeField label="Hàng về" from={orderFilters.hvTu} to={orderFilters.hvDen}
             onFrom={(v) => setOrderFilters({ ...orderFilters, hvTu: v })}
             onTo={(v) => setOrderFilters({ ...orderFilters, hvDen: v })} />
-          {(orderFilters.maHang || orderFilters.ncc || orderFilters.trangThai !== 'con_thieu' || orderFilters.hvTu || orderFilters.hvDen) && (
-            <button onClick={() => setOrderFilters({ maHang: "", ncc: "", trangThai: "con_thieu", hvTu: "", hvDen: "" })} className="text-xs text-red-600 hover:underline font-medium">Bỏ lọc</button>
-          )}
+          <ClearFilters show={!!orderFilters.maHang || !!orderFilters.ncc || orderFilters.trangThai !== 'con_thieu' || !!orderFilters.hvTu || !!orderFilters.hvDen} onClear={() => setOrderFilters({ maHang: "", ncc: "", trangThai: "con_thieu", hvTu: "", hvDen: "" })} />
           <div className="ml-auto flex items-center gap-2">
             <Button variant="outline" onClick={exportPendingItemsExcel} className="gap-2 h-9 text-xs"><AlertTriangle className="w-4 h-4" /> Xuất hàng chưa về</Button>
             <Button variant="outline" onClick={exportOrdersExcel} className="gap-2 h-9 text-xs"><Download className="w-4 h-4" /> Xuất DS đơn hàng</Button>

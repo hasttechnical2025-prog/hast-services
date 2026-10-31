@@ -3,8 +3,9 @@
 // Tự fetch mucMap qua /api/admin/muc-may-thue; dữ liệu customers/inventory/committed lấy từ useShared.
 // Bỏ header tiêu đề (đã có tên tab). Giữ nguyên nghiệp vụ: gán Mực/Trống theo model + định lượng + counter.
 import { useState, useEffect, useCallback } from 'react'
-import { Search, X, Droplets } from 'lucide-react'
+import { X, Droplets } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { SearchInput } from '@/ui'
 import { MaterialCombobox } from '@/features/giao-viec/MaterialCombobox'
 
 // Nhãn counter theo loại (dùng cho cả bản sửa và bản chỉ-đọc)
@@ -125,13 +126,7 @@ export default function MucMayThueTool({ customers, inventory, committed, showNo
             ? <span>Định mức vật tư tiêu hao (<b>Mực</b>/<b>Trống</b>) theo từng model máy thuê — <b>định lượng</b> (trang/hộp), <b>counter theo</b> (BW/Màu/Tổng) và <b>tồn khả dụng</b>. Dùng để hệ thống cảnh báo khi sắp cần thay. <i>Chỉ xem.</i></span>
             : <span>Gán mã vật tư (<b>Mực</b>/<b>Trống</b>) cho từng model + <b>định lượng</b> (trang/hộp) &amp; <b>counter theo</b> (BW/Màu/Tổng) để cảnh báo sắp cần thay. Khả dụng ≤ 0 → chuông cảnh báo tồn. <i>Trống đen máy màu → Tổng; trống màu → Màu; máy đen trắng → BW.</i></span>}
         </p>
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input placeholder="Tìm model máy..." className="pl-9 pr-7 bg-white h-9" value={q} onChange={(e) => setQ(e.target.value)} />
-          {q && (
-            <button type="button" onClick={() => setQ('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>
-          )}
-        </div>
+        <SearchInput value={q} onChange={setQ} placeholder="Tìm model máy..." className="w-full sm:w-64" />
       </div>
       <div className="space-y-2">
         {shown.length === 0 ? (

@@ -5,7 +5,7 @@ import { Package, Boxes, Search, ShoppingCart, ChevronUp, ChevronDown } from 'lu
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import MonthField from '@/components/MonthField'
-import { TableLoading, usePaged, ListFrame, Pagination } from '@/ui'
+import { TableLoading, usePaged, ListFrame, Pagination, SearchInput, ClearFilters } from '@/ui'
 
 // Port NGUYÊN NhapHangThangTool từ admin (y hệt): panel Cảnh báo tồn + Thống kê nhập theo tháng.
 // Gọi lại /api/admin/nhap-hang-thang và /api/admin/canh-bao-ton.
@@ -297,20 +297,13 @@ export function NhapHangThangTool({
         </div>
 
         <div className="flex flex-wrap gap-2 items-center pt-1 border-t border-slate-100">
-          <div className="relative w-56">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-            <Input placeholder="Gõ mã / tên vật tư..." className="pl-8 pr-6 h-9 text-xs bg-white" value={filterSearch} onChange={(e) => setFilterSearch(e.target.value)} />
-            {filterSearch && <button onClick={() => setFilterSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs" title="Xóa tìm kiếm mã / tên">✕</button>}
-          </div>
-          <div className="relative w-44">
-            <Input placeholder="Tìm / gõ model..." className="h-9 text-xs bg-white pr-6" value={filterModel} onChange={(e) => setFilterModel(e.target.value)} />
-            {filterModel && <button onClick={() => setFilterModel("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs" title="Xóa bộ lọc model">✕</button>}
-          </div>
+          <SearchInput value={filterSearch} onChange={setFilterSearch} placeholder="Gõ mã / tên vật tư..." className="w-56" />
+          <SearchInput value={filterModel} onChange={setFilterModel} placeholder="Tìm / gõ model..." className="w-44" />
           <select value={filterHang} onChange={(e) => setFilterHang(e.target.value)} className="h-9 px-2 w-36 rounded-md border border-slate-200 text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500">
             <option value="">Hãng: Tất cả</option>
             {allHangOptions.map(h => <option key={h} value={h}>{h}</option>)}
           </select>
-          {(filterSearch || filterModel || filterHang) && <button onClick={() => { setFilterSearch(""); setFilterModel(""); setFilterHang("") }} className="text-xs text-rose-600 hover:underline font-medium ml-1">Bỏ lọc</button>}
+          <ClearFilters show={!!filterSearch || !!filterModel || !!filterHang} onClear={() => { setFilterSearch(""); setFilterModel(""); setFilterHang("") }} />
           <div className="ml-auto flex items-center gap-2 flex-wrap">
             {cartCount != null && cartCount > 0 && onGoToCart && (
               <button type="button" onClick={onGoToCart} className="text-xs font-semibold px-2.5 py-1.5 rounded border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 flex items-center gap-1.5 transition" title="Chuyển sang tab Đặt hàng để xem giỏ hàng">

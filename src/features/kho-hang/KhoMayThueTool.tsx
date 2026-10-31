@@ -2,8 +2,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { RefreshCw, Search, PenSquare, X, FileText, AlertTriangle, Printer, ChevronUp, ChevronDown } from "lucide-react"
-import { usePaged, ListFrame } from "@/ui"
+import { RefreshCw, PenSquare, X, FileText, AlertTriangle, Printer, ChevronUp, ChevronDown } from "lucide-react"
+import { usePaged, ListFrame, SearchInput } from "@/ui"
 
 // Kho máy thuê: danh sách biên bản giám định máy thuê/CPC lấy từ app Techbot (bảng
 // `inspections`, chung Supabase). Xem chi tiết vật tư + sửa; cảnh báo máy đã cho khách khác thuê.
@@ -152,20 +152,7 @@ export default function KhoMayThueTool({ showNotification }: { showNotification:
   return (
     <div className="space-y-4">
       <ListFrame paged={paged} unit="máy" toolbar={<div className="flex items-center gap-3 flex-wrap">
-        <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm serial / khách / model..." className="pl-9 pr-7 bg-white w-72 h-9 text-xs" />
-          {q && (
-            <button
-              type="button"
-              onClick={() => setQ('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold"
-              title="Xóa tìm kiếm"
-            >
-              ✕
-            </button>
-          )}
-        </div>
+        <SearchInput value={q} onChange={setQ} placeholder="Tìm serial / khách / model..." className="w-72" />
         <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
           <input type="checkbox" checked={chuaChoThue} onChange={e => setChuaChoThue(e.target.checked)} className="w-4 h-4 accent-amber-600" />
           Chỉ máy chưa cho thuê {chuaThueCount > 0 && <span className="text-amber-600 font-semibold">({chuaThueCount})</span>}
