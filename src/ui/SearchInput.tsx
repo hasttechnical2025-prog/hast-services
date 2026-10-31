@@ -1,16 +1,19 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Search, X } from 'lucide-react'
+import { Search, X, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// Ô tìm kiếm — debounce + để trang tự lọc không dấu (dùng normVi từ ui/format).
+// Ô tìm kiếm CHUẨN CHUNG — debounce + để trang tự lọc không dấu (dùng normVi từ ui/format).
 // Trả raw query; việc so khớp không dấu do nơi dùng (normVi) đảm nhiệm.
-export function SearchInput({ value, onChange, placeholder = 'Tìm…', debounceMs = 200, className }: {
+// `icon`: đổi icon dẫn (mặc định Search) khi cần phân biệt nhiều ô lọc cạnh nhau (vd Hash cho
+// "số phiếu", Boxes cho "vật tư") — vẫn giữ 1 kiểu dáng chung.
+export function SearchInput({ value, onChange, placeholder = 'Tìm…', debounceMs = 200, className, icon: Icon = Search }: {
   value: string
   onChange: (v: string) => void
   placeholder?: string
   debounceMs?: number
   className?: string
+  icon?: LucideIcon
 }) {
   const [local, setLocal] = useState(value)
   useEffect(() => { setLocal(value) }, [value])
@@ -22,7 +25,7 @@ export function SearchInput({ value, onChange, placeholder = 'Tìm…', debounce
 
   return (
     <div className={cn('relative', className)}>
-      <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+      <Icon className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
       <input
         type="text"
         value={local}

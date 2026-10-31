@@ -1,11 +1,11 @@
 'use client'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ClipboardList, AlertTriangle, Users, Search, X, Send, ClipboardCheck, Loader2, RefreshCw } from 'lucide-react'
+import { ClipboardList, AlertTriangle, Users, Send, ClipboardCheck, Loader2, RefreshCw } from 'lucide-react'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { JOBS_TOPIC, JOBS_EVENT } from '@/lib/realtime'
 import { useRealtimeRefetch } from '@/lib/useRealtime'
 import { useSession } from '@/features/_shell/SessionProvider'
-import { StatCard, StatRow, DataTable, type Column, Card, DateText } from '@/ui'
+import { StatCard, StatRow, DataTable, type Column, Card, DateText, SearchInput } from '@/ui'
 import { listPhieuCung, togglePhieu, submitAllPhieu, remindPhieu } from './api'
 
 type Row = {
@@ -110,11 +110,7 @@ export function HoanPhieuModule({ notify }: { notify: (type: 'success' | 'error'
 
       <Card>
         <div className="p-3 border-b border-slate-100 flex flex-wrap items-center gap-2">
-          <div className="relative w-full sm:w-56">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input placeholder="Tìm số phiếu..." className="w-full h-9 pl-9 pr-7 text-xs rounded-md border border-slate-200 bg-white outline-none focus:border-blue-500" value={search} onChange={e => setSearch(e.target.value)} />
-            {search && <button type="button" onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><X className="w-3.5 h-3.5" /></button>}
-          </div>
+          <SearchInput value={search} onChange={setSearch} placeholder="Tìm số phiếu..." className="w-full sm:w-56" />
           <select value={fKtv} onChange={e => setFKtv(e.target.value)} className={selCls}>
             <option value="">KTV: Tất cả</option>
             <option value="none">Chưa giao</option>

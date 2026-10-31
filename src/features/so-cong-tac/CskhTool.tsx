@@ -3,11 +3,11 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import DateField from "@/components/DateField"
-import { Search, Plus, X, Trash2, Upload, RefreshCw, ChevronUp, ChevronDown, Phone, User, Headset, AlertTriangle, MapPin, History } from "lucide-react"
+import { Plus, X, Trash2, Upload, RefreshCw, ChevronUp, ChevronDown, Phone, User, Headset, AlertTriangle, MapPin, History } from "lucide-react"
 import { useConfirm } from "@/components/ConfirmDialog"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
 import { CSKH_TOPIC, DATA_EVENT } from "@/lib/realtime"
-import { usePaged, ListFrame } from "@/ui"
+import { usePaged, ListFrame, SearchInput } from "@/ui"
 
 type Notify = (type: 'success' | 'error', msg: string) => void
 
@@ -139,11 +139,7 @@ export default function CskhTool({ role = 'admin', showNotification }: { role?: 
       {confirmNode}
       <ListFrame paged={paged} unit="máy" toolbar={
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[180px] max-w-xs">
-            <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã máy / khách / SĐT / vật tư…" className="h-9 pl-9 pr-7 bg-white" />
-            {q && <button type="button" onClick={() => setQ('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>}
-          </div>
+          <SearchInput value={q} onChange={setQ} placeholder="Tìm mã máy / khách / SĐT / vật tư…" className="flex-1 min-w-[180px] max-w-xs" />
           <select value={fPhan} onChange={e => setFPhan(e.target.value as any)} className="h-9 rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-700">
             <option value="all">Phân loại: Tất cả ({rows.length})</option>
             <option value="dang_dung">Đang dùng ({counts.dang_dung})</option>

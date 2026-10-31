@@ -1,10 +1,10 @@
 'use client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Search, RefreshCw, ChevronRight, Copy, CheckCircle2, Trash2 } from 'lucide-react'
+import { RefreshCw, ChevronRight, Copy, CheckCircle2, Trash2 } from 'lucide-react'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { JOBS_TOPIC, JOBS_EVENT } from '@/lib/realtime'
 import { useRealtimeRefetch } from '@/lib/useRealtime'
-import { normVi, BoxLoading, usePaged, ListFrame } from '@/ui'
+import { normVi, BoxLoading, usePaged, ListFrame, SearchInput } from '@/ui'
 import { listBaoCao, markBaoCao, deleteBaoCao } from './api'
 
 const dmy = (s: any) => { if (!s) return ''; const p = String(s).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : '' }
@@ -105,11 +105,7 @@ export function BaoCaoSuaChuaModule({ notify }: { notify: (type: 'success' | 'er
         ) : undefined}
         toolbar={
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm tên khách / mã máy / model / KTV…" className="w-full pl-9 pr-7 h-9 text-xs rounded-md border border-slate-200 bg-white outline-none focus:border-blue-500" />
-            {search && <button type="button" onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold" title="Xóa tìm kiếm">✕</button>}
-          </div>
+          <SearchInput value={search} onChange={setSearch} placeholder="Tìm tên khách / mã máy / model / KTV…" className="w-full sm:w-72" />
           <button onClick={load} className="h-9 px-3 rounded-md text-xs font-medium border border-slate-200 text-slate-600 bg-white hover:bg-blue-50 hover:text-blue-600 inline-flex items-center gap-1.5 ml-auto" title="Tải lại"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Tải lại</button>
       </div>
       }>
