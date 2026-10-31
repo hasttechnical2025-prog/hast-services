@@ -108,33 +108,12 @@ export const V2_NAV: V2Parent[] = [
   },
 ]
 
-// Tab cháu (cấp 3) nội bộ — dùng cho SegTabs (URL: .../<slug>/<childTab>).
-// Mã hoá theo UI THỰC TẾ (ThueCpc 3 tab gộp từ 5 key quyền; xem docs 02 §1).
-export const V2_SUBTABS: Record<string, { slug: string; label: string }[]> = {
-  'theo-doi-may/bao-tri': [
-    { slug: 'da-bao-tri', label: 'Đã bảo trì' },
-    { slug: 'chua-bao-tri', label: 'Chưa bảo trì' },
-    { slug: 'tam-dung', label: 'Tạm dừng' },
-    { slug: 'doi-chieu', label: 'Đối chiếu năm' },
-    { slug: 'thong-ke', label: 'HĐBT cụm' },
-  ],
-  'tai-chinh/thue-cpc': [
-    { slug: 'counter', label: 'Nhập counter' },
-    { slug: 'bang-ke', label: 'Bảng kê' },
-    { slug: 'canh-bao-vat-tu', label: 'Cảnh báo vật tư' },
-    { slug: 'danh-sach', label: 'Danh sách máy' },
-  ],
-  'so-cong-tac/cham-soc-kh': [
-    { slug: 'can', label: 'Cần chăm sóc' },
-    { slug: 'ds', label: 'Danh sách' },
-    { slug: 'pipeline', label: 'Pipeline' },
-    { slug: 'kpi', label: 'KPI' },
-  ],
-  'so-cong-tac/bao-cao-sua-chua': [
-    { slug: 'cho-gui', label: 'Chờ gửi' },
-    { slug: 'da-gui', label: 'Đã gửi' },
-  ],
-}
+// Tab cháu (cấp 3) ROUTE-BASED cho placeholder `[...slug]` của module CHƯA port (SegTabs theo URL).
+// HIỆN RỖNG: toàn bộ 6 cụm đã port, mỗi module tự quản tab nội bộ (state/`?tab=`), KHÔNG dùng
+// route cấp 3. Các entry cũ (bao-tri/thue-cpc/cham-soc-kh/bao-cao-sua-chua) đã CŨ/lệch UI thật
+// (vd CSKH rebuild thành danh sách phẳng; Bảo trì lồng 5 view dưới "Danh sách") -> đã xoá để
+// tránh placeholder hiện sai. Thêm lại CHỈ khi có module port dở dùng SegTabs theo path.
+export const V2_SUBTABS: Record<string, { slug: string; label: string }[]> = {}
 
 // Module mặc định khi vào /v2 (redirect theo role).
 export function defaultModuleFor(role: string): string {

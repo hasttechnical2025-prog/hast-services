@@ -1,10 +1,10 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
-import { Search, Package, Boxes, AlertTriangle, Trash2, ChevronUp, ChevronDown, ToggleLeft, ToggleRight, PenSquare, Plus } from 'lucide-react'
+import { Package, Boxes, AlertTriangle, Trash2, ChevronUp, ChevronDown, ToggleLeft, ToggleRight, PenSquare, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useConfirm } from '@/components/ConfirmDialog'
-import { usePaged, ListFrame, useColView, StatCard, StatRow, type ColDef } from '@/ui'
+import { usePaged, ListFrame, useColView, StatCard, StatRow, SearchInput, type ColDef } from '@/ui'
 
 // Port NGUYÊN InventoryManagementTool từ admin (y hệt), gọi lại /api/admin/kho-hang.
 // Thay confirmDelete + ClearAllButton bằng useConfirm nội bộ.
@@ -149,11 +149,7 @@ export function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSucce
             <option value="active">Đang dùng ({invActive})</option>
             <option value="discontinued">Ngưng dùng ({invDiscontinued})</option>
           </select>
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Tìm mã, tên, model, mã tương đương..." className="h-9 pl-8 pr-7 text-xs rounded-md border border-slate-200 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 w-52 sm:w-60" />
-            {searchTerm && <button type="button" onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs" title="Xóa tìm kiếm">✕</button>}
-          </div>
+          <SearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Tìm mã, tên, model, mã tương đương..." className="w-52 sm:w-60" />
           {(statusFilter !== 'all' || searchTerm) && <button type="button" onClick={() => { setStatusFilter('all'); setSearchTerm('') }} className="h-9 px-2.5 text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition" title="Bỏ lọc">Bỏ lọc</button>}
         </div>
 

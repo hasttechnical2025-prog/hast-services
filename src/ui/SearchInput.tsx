@@ -22,13 +22,13 @@ export function SearchInput({ value, onChange, placeholder = 'Tìm…', debounce
 
   return (
     <div className={cn('relative', className)}>
-      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+      <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
       <input
         type="text"
         value={local}
         placeholder={placeholder}
         onChange={(e) => setLocal(e.target.value)}
-        className="w-full h-8 pl-8 pr-7 text-xs rounded-md border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-blue-500 outline-none"
+        className="w-full h-9 pl-9 pr-7 text-xs rounded-md border border-slate-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
       />
       {local && (
         <button
