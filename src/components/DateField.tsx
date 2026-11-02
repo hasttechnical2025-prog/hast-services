@@ -5,7 +5,9 @@ import { useState, useEffect } from "react"
 // Ô chọn ngày DD/MM/YYYY: ô gõ tay bên trái + native date input TRONG SUỐT phủ lên vùng
 // icon lịch (opacity-0 nhưng vẫn nhận chạm) — chạm icon = chạm thẳng native input nên iOS
 // Safari mở được lịch (không phụ thuộc showPicker). value/onChange dùng chuỗi ISO 'YYYY-MM-DD'.
-export default function DateField({ value, onChange, className, heightClass = "h-8", placeholder = "dd/mm/yyyy" }: { value: string, onChange: (v: string) => void, className?: string, heightClass?: string, placeholder?: string }) {
+// onCommit (tùy chọn): bắn khi RỜI Ô (blur). Dùng cho bộ lọc muốn "chỉ áp dụng khi chọn xong"
+// — tránh reload giữa chừng khi trình duyệt tự chốt ngày lúc lướt tháng trong lịch native.
+export default function DateField({ value, onChange, onCommit, className, heightClass = "h-8", placeholder = "dd/mm/yyyy" }: { value: string, onChange: (v: string) => void, onCommit?: () => void, className?: string, heightClass?: string, placeholder?: string }) {
   const fmt = (s: string) => { if (!s) return ''; const d = new Date(s); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` }
   const [text, setText] = useState(fmt(value))
   useEffect(() => { setText(fmt(value)) }, [value])
@@ -25,7 +27,7 @@ export default function DateField({ value, onChange, className, heightClass = "h
 
   return (
     <div className={`relative flex items-center min-w-0 ${heightClass} ${widthCls} rounded-md border border-slate-200 bg-white shadow-2xs ${className || ''}`}>
-      <input type="text" inputMode="numeric" placeholder={placeholder} value={text} onChange={(e) => onText(e.target.value)} className="flex-1 min-w-0 h-full pl-2.5 pr-1 bg-transparent text-xs text-slate-700 outline-none rounded-md" />
+      <input type="text" inputMode="numeric" placeholder={placeholder} value={text} onChange={(e) => onText(e.target.value)} onBlur={() => onCommit?.()} className="flex-1 min-w-0 h-full pl-2.5 pr-1 bg-transparent text-xs text-slate-700 outline-none rounded-md" />
       {/* Vùng icon lịch — native date input trong suốt đè lên để chạm là mở lịch (iOS + Android) */}
       <div className="relative h-full w-7.5 shrink-0">
         <span className="absolute inset-0 flex items-center justify-center text-slate-400 pointer-events-none">
@@ -35,6 +37,7 @@ export default function DateField({ value, onChange, className, heightClass = "h
           type="date"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onBlur={() => onCommit?.()}
           onClick={(e) => { try { (e.currentTarget as any).showPicker?.() } catch { /* không hỗ trợ showPicker */ } }}
           aria-label="Chọn ngày"
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none bg-transparent border-0 p-0"
