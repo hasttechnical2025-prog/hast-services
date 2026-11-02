@@ -70,3 +70,32 @@ Khôi phục vào **1 project Supabase TEST** (hoặc Postgres local) — **đ�
 ## ⚠️ Nên làm định kỳ
 - **Test khôi phục** 1–2 lần/quý vào project test — *backup chưa test coi như chưa có*.
 - Kiểm tra file mới sinh ra hàng tuần trong `backups/` (kích thước > 0).
+
+---
+
+## Staging local — THỬ MIGRATION trước khi chạy prod
+
+Supabase cloud đã full 2 project? Dựng **DB staging ngay trên máy** bằng Docker (không tốn slot cloud, không đụng dữ liệu thật). Cần: **Docker Desktop đang chạy** + **Supabase CLI** + **PostgreSQL client** (pg_dump/psql).
+
+Script: `scripts/staging-local.ps1` — dump **schema** prod (chỉ cấu trúc, KHÔNG dữ liệu) → nạp vào Postgres local → (tuỳ chọn) chạy thử 1 migration.
+
+```powershell
+# Dựng/khởi động staging local + nạp schema prod (lần đầu tải Docker image ~vài phút)
+scripts\staging-local.ps1
+
+# Dựng xong rồi CHẠY THỬ migration mới — OK mới dám chạy lên prod
+scripts\staging-local.ps1 -Migration migrations\supabase_migration_104_xxx.sql
+
+# Tắt stack (giải phóng Docker)
+scripts\staging-local.ps1 -Stop
+```
+
+Sau khi start:
+- **Studio** (xem/sửa DB như trên cloud): http://127.0.0.1:54323
+- **Chuỗi kết nối local**: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`
+
+Quy trình khuyến nghị cho mỗi migration mới:
+1. `scripts\staging-local.ps1 -Migration <file>` → thấy **✅ Migration CHẠY OK** thì mới yên tâm.
+2. Chạy migration đó lên **prod** (Supabase SQL Editor).
+
+> Dùng chung chuỗi kết nối prod ở `scripts/.backup-conn` (đã gitignore) để dump schema. Thư mục `supabase/` do CLI sinh ra đã được gitignore.

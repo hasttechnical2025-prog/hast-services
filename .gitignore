@@ -53,3 +53,6 @@ next-env.d.ts
 /scripts/make-deck-assets.js
 /scripts/make-deck-assets-2.js
 /scripts/make-leaflet-assets.js
+
+# Supabase local (staging qua Docker) - do `supabase init/start` sinh ra, KHONG commit
+/supabase/

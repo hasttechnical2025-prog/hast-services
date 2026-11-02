@@ -95,7 +95,7 @@ export default function KtvMobileWeb() {
   const [releasing, setReleasing] = useState(false)
 
   // State phục vụ nghiệp vụ Báo cáo & Nhật ký KTV
-  const [ktvTab, setKtvTab] = useState<"jobs" | "report" | "nghi" | "doi">("jobs")
+  const [ktvTab, setKtvTab] = useState<"jobs" | "report" | "nghi">("jobs")
   const [selectedReportDate, setSelectedReportDate] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -104,7 +104,6 @@ export default function KtvMobileWeb() {
   const [extraInput, setExtraInput] = useState("")
   const [submittingReport, setSubmittingReport] = useState(false)
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false)
-  const [reportStatusByDate, setReportStatusByDate] = useState<Record<string, boolean>>({}) // lưu da_nop theo ngày để vẽ màu lịch nhanh
   const [loadingReport, setLoadingReport] = useState(false) // State loading khi chuyển ngày nộp báo cáo
 
   // State lưu trữ dữ liệu điền báo cáo tạm thời trong RAM (counter & ghi_chu_ktv)
@@ -135,9 +134,6 @@ export default function KtvMobileWeb() {
       if (res.ok) {
         const json = await res.json()
         setReportData(json.data)
-        if (json.data.statuses) {
-          setReportStatusByDate(json.data.statuses)
-        }
         // Nạp dữ liệu các ca máy hiện có vào draftReports để sửa
         const initialDrafts: Record<string, { counter: string, ghi_chu_ktv: string, so_phut: string }> = {}
         if (json.data.jobs) {

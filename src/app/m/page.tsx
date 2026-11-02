@@ -532,13 +532,14 @@ function TheoDoiHdMobile({ notify }: { notify: (t: 'success' | 'error', m: strin
   const [filter, setFilter] = useState<'cho_hd' | 'cho_tt' | 'da_tt'>('cho_tt') // mặc định Chờ thanh toán (quan tâm nhất)
   const [q, setQ] = useState('')
 
-  const load = async () => {
-    setLoading(true)
-    try { const r = await fetch('/api/admin/kanban-hd'); const j = await r.json(); if (r.ok) setJobs(j.data || []); else notify('error', j.error || 'Lỗi tải') }
-    catch { notify('error', 'Lỗi kết nối') } finally { setLoading(false) }
+  // silent=true: refetch NGẦM (realtime) — không bật spinner, không toast lỗi, tránh chớp nháy.
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true)
+    try { const r = await fetch('/api/admin/kanban-hd'); const j = await r.json(); if (r.ok) setJobs(j.data || []); else if (!silent) notify('error', j.error || 'Lỗi tải') }
+    catch { if (!silent) notify('error', 'Lỗi kết nối') } finally { if (!silent) setLoading(false) }
   }
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => load(), true)
+  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => load(true), true)
 
   const thisMonth = new Date().toISOString().slice(0, 7)
   // Tổng sau thuế (bỏ dòng đã trả kho) + làm tròn — khớp cách tính trên PC.
@@ -606,7 +607,7 @@ function TheoDoiHdMobile({ notify }: { notify: (t: 'success' | 'error', m: strin
             </button>
           )}
         </div>
-        <button onClick={load} className="p-2 text-slate-400 hover:text-blue-600"><RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} /></button>
+        <button onClick={() => load()} className="p-2 text-slate-400 hover:text-blue-600"><RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} /></button>
       </div>
 
       {noDong.n > 0 && (
