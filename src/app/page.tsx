@@ -3,19 +3,19 @@
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { PasskeyLoginButton } from '@/components/PasskeyButtons'
+import { isMobileDevice } from '@/lib/post-login'
 
 export default function Home() {
   const [msg, setMsg] = useState<string | null>(null)
   // Lệnh xuất hàng (Kinh doanh) BẮT BUỘC làm trên PC -> ẩn lựa chọn này trên thiết bị di động.
   const [isMobile, setIsMobile] = useState(false)
-  useEffect(() => {
-    setIsMobile(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768)
-  }, [])
+  useEffect(() => { setIsMobile(isMobileDevice()) }, [])
   return (
     <main className="min-h-screen p-8 flex flex-col items-center justify-center bg-gray-50 font-sans">
       <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-md text-center">
-        <h1 className="text-3xl font-bold mb-6 text-slate-800">Tech-Service App</h1>
-        <p className="mb-8 text-slate-600">Hệ thống Quản lý Giao việc & Kho hàng</p>
+        <img src="/logo.png" alt="HAST" className="h-12 w-auto object-contain mx-auto mb-4" />
+        <h1 className="text-3xl font-bold mb-2 text-slate-800">HAST</h1>
+        <p className="mb-8 text-slate-600">Sổ công tác &amp; Kho hàng</p>
 
         <div className="flex flex-col gap-4">
           <Link
