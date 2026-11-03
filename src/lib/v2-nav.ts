@@ -92,6 +92,15 @@ export const V2_NAV: V2Parent[] = [
     ],
   },
   {
+    // Bảo hành hãng: cụm riêng, mỗi hãng 1 menu con (nay chỉ FBVN; chừa chỗ hãng khác).
+    // Phase 1 CHỈ admin (adminOnly) — non-admin ẩn do permKey 'bao_hanh_hang' không có trong
+    // DEFAULT_TAB_VIS (tabVisible=false). Mở cho tech_admin/staff sau: bỏ adminOnly + khai perm.
+    slug: 'bao-hanh-hang', label: 'Bảo hành hãng', icon: 'shield-check', permKey: 'bao_hanh_hang',
+    children: [
+      { slug: 'fbvn', label: 'FBVN', permParent: 'bao_hanh_hang', permSub: 'fbvn', adminOnly: true },
+    ],
+  },
+  {
     // Hệ thống: tab con KHÔNG khai trong tabs.ts — gate theo role ở trang (đa phần admin-only;
     // Đổi mật khẩu mở cho mọi role). Ở đây để permKey he_thong cho tabVisible luôn true.
     slug: 'he-thong', label: 'Hệ thống', icon: 'settings', permKey: 'he_thong',
