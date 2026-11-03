@@ -14,3 +14,4 @@ export { usePaged, Pagination, useColView, ColumnMenu, PAGE_SIZE, type ColDef } 
 export { ListFrame, type PagedLike } from './ListFrame'
 export { DateRangeField } from './DateRangeField'
 export { TableLoading, BoxLoading } from './Loading'
+export { useComboboxKeys } from './useComboboxKeys'

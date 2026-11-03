@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { normVi } from '@/ui'
+import { normVi, useComboboxKeys } from '@/ui'
 
 // Combobox tìm khách hàng (port y hệt admin): token-AND theo tên + mã máy + model + địa chỉ
 // (đã bỏ dấu) → "tư pháp 305" khớp "Bộ Tư pháp — Phòng 305". Có "+ Tạo khách mới". Portal fixed.
@@ -42,6 +42,9 @@ export function CustomerCombobox({ customers, value, onPick, onCreateNew }: {
         .sort((a, b) => b.score - a.score).map(s => s.c).slice(0, 50)
   )
 
+  const pick = (c: any) => { onPick(c.id); setQuery(''); setOpen(false) }
+  const { activeIndex, setActiveIndex, onKeyDown, listRef } = useComboboxKeys({ open, results, onSelect: pick })
+
   return (
     <>
       <input
@@ -52,14 +55,15 @@ export function CustomerCombobox({ customers, value, onPick, onCreateNew }: {
         onFocus={() => { setOpen(true); setQuery('') }}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
+        onKeyDown={onKeyDown}
       />
       {open && rect && createPortal(
-        <div style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, width: rect.width, zIndex: 100 }} className="max-h-72 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg">
+        <div ref={listRef} style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, width: rect.width, zIndex: 100 }} className="max-h-72 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg">
           <button type="button" onMouseDown={(e) => { e.preventDefault(); onCreateNew(); setQuery(''); setOpen(false) }} className="w-full text-left px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 border-b border-slate-100">+ Tạo khách hàng (máy) mới</button>
           {results.length === 0 ? (
             <div className="px-3 py-2 text-sm text-slate-400">Không tìm thấy khách hàng khớp.</div>
-          ) : results.map(c => (
-            <button type="button" key={c.id} onMouseDown={(e) => { e.preventDefault(); onPick(c.id); setQuery(''); setOpen(false) }} className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${c.id === value ? 'bg-blue-50' : ''}`}>
+          ) : results.map((c, idx) => (
+            <button type="button" key={c.id} data-cbi={idx} onMouseEnter={() => setActiveIndex(idx)} onMouseDown={(e) => { e.preventDefault(); onPick(c.id); setQuery(''); setOpen(false) }} className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${idx === activeIndex ? 'bg-blue-100' : c.id === value ? 'bg-blue-50' : ''}`}>
               <div className="font-medium text-slate-700 truncate">{c.ten_khach_hang}</div>
               <div className="text-xs text-slate-400 flex gap-2 flex-wrap">
                 {c.ma_may && <span className="font-mono">Mã: {c.ma_may}</span>}

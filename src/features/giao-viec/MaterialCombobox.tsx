@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { useComboboxKeys } from '@/ui'
 
 // Ô tìm vật tư kiểu "Google" (port từ admin): gõ mã/tên/model để lọc, chọn từ gợi ý.
 // Gợi ý render qua portal (position:fixed) để không bị modal/overflow che. Gợi ý mã thay thế
@@ -40,6 +41,9 @@ export function MaterialCombobox({ inventory, value, onChange, committed }: {
     : inventory.filter(i => !i.ngung_su_dung || (Number(i.ton_kho) || 0) > 0)
   ).slice(0, 30)
 
+  const pick = (item: any) => { onChange(item.ma_hang); setQuery(''); setOpen(false) }
+  const { activeIndex, setActiveIndex, onKeyDown, listRef } = useComboboxKeys({ open, results, onSelect: pick })
+
   return (
     <>
       <input
@@ -50,9 +54,10 @@ export function MaterialCombobox({ inventory, value, onChange, committed }: {
         onFocus={() => { setOpen(true); setQuery('') }}
         onBlur={() => setTimeout(() => setOpen(false), 200)}
         onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
+        onKeyDown={onKeyDown}
       />
       {open && rect && createPortal(
-        <div style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, width: rect.width, zIndex: 100 }} className="max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg">
+        <div ref={listRef} style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, width: rect.width, zIndex: 100 }} className="max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg">
           {obsoleteMatch && (
             <div className="p-2.5 bg-amber-50 border-b border-amber-200 text-xs text-amber-900">
               <div className="font-semibold flex items-center gap-1 text-amber-800">⚠ Mã <span className="font-mono font-bold">{obsoleteMatch.ma_hang}</span> đã ngưng sử dụng (hết tồn kho).</div>
@@ -68,13 +73,13 @@ export function MaterialCombobox({ inventory, value, onChange, committed }: {
           )}
           {results.length === 0 && !obsoleteMatch ? (
             <div className="px-3 py-2 text-sm text-slate-400">Không tìm thấy vật tư khớp.</div>
-          ) : results.map(item => {
+          ) : results.map((item, idx) => {
             const giu = committed?.[item.ma_hang] || 0
             const kd = (Number(item.ton_kho) || 0) - giu
             const isDiscontinued = !!item.ngung_su_dung
             return (
-              <button type="button" key={item.ma_hang} onMouseDown={(e) => { e.preventDefault(); onChange(item.ma_hang); setQuery(''); setOpen(false) }}
-                className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex justify-between items-center gap-2 border-b border-slate-50 last:border-0 ${item.ma_hang === value ? 'bg-blue-50' : ''} ${isDiscontinued ? 'bg-amber-50/40' : ''}`}>
+              <button type="button" key={item.ma_hang} data-cbi={idx} onMouseEnter={() => setActiveIndex(idx)} onMouseDown={(e) => { e.preventDefault(); onChange(item.ma_hang); setQuery(''); setOpen(false) }}
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex justify-between items-center gap-2 border-b border-slate-50 last:border-0 ${idx === activeIndex ? 'bg-blue-100' : item.ma_hang === value ? 'bg-blue-50' : ''} ${isDiscontinued ? 'bg-amber-50/40' : ''}`}>
                 <div className="truncate flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="font-mono font-medium text-slate-700">{item.ma_hang}</span>
