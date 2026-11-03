@@ -334,57 +334,86 @@ function FbvnForm({ initial, plinvoice, dmhang, ktvOptions, customers, notify, o
   )
 }
 
+// Ngày hợp lệ? (dd/mm/yyyy hoặc yyyy-mm-dd)
+const dateOk = (s: string) => !s || /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s.trim()) || /^\d{4}-\d{2}-\d{2}/.test(s.trim())
+
 // ─────────────────────────────── PL-INVOICE ───────────────────────────────
 function PlInvoiceTab({ rows, notify, confirm, reload }: any) {
   const [q, setQ] = useState('')
-  const [importing, setImporting] = useState(false)
   const filtered = useMemo(() => {
     const n = q.trim().toLowerCase()
     return (rows as any[]).filter(r => !n || `${r.serial} ${r.model} ${r.invoice_no} ${r.do_no} ${r.item_no}`.toLowerCase().includes(n))
   }, [rows, q])
   const tpl = () => downloadCSV('mau-pl-invoice.csv', [['DO No.', 'Item No. (mã máy)', 'Serial', 'Model', 'Date of Invoice (FOB)', 'Invoice No'], ['60004721', 'TM100216', '250020', 'Apeos 7580 (D-B610)', '24/09/2026', '1C26TAS-1172']])
-  const doImport = async (text: string) => {
+  // Parse + kiểm tra: trả { items (hợp lệ), issues (dòng lỗi + lý do) }.
+  const parseRows = (text: string) => {
     const lines = parsePaste(text)
-    if (!lines.length) return
-    const start = /serial/i.test(lines[0].join(' ')) ? 1 : 0
-    const items = lines.slice(start).map(c => ({ do_no: c[0], item_no: c[1], serial: c[2], model: c[3], fob_date: c[4], invoice_no: c[5] })).filter(x => x.serial)
-    if (!items.length) { notify('error', 'Không có dòng hợp lệ'); return }
-    setImporting(true)
+    const start = lines.length && /serial/i.test(lines[0].join(' ')) ? 1 : 0
+    const have = new Set((rows as any[]).map(r => String(r.serial)))
+    const seen = new Set<string>()
+    const items: any[] = [], issues: { line: number; reason: string }[] = []
+    lines.slice(start).forEach((c, i) => {
+      const ln = i + start + 1
+      const it = { do_no: c[0] || '', item_no: c[1] || '', serial: (c[2] || '').trim(), model: c[3] || '', fob_date: (c[4] || '').trim(), invoice_no: c[5] || '' }
+      if (!it.serial) { issues.push({ line: ln, reason: 'thiếu Serial' }); return }
+      if (!dateOk(it.fob_date)) { issues.push({ line: ln, reason: `ngày FOB sai: "${it.fob_date}"` }); return }
+      const dup = have.has(it.serial) || seen.has(it.serial)
+      seen.add(it.serial)
+      items.push({ ...it, _dup: dup })
+    })
+    return { items, issues }
+  }
+  const onCommit = async (items: any[]) => {
     const res = await fetch('/api/admin/bao-hanh/plinvoice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }) })
-    const j = await res.json(); setImporting(false)
+    const j = await res.json()
     if (res.ok) { notify('success', `Đã nhập ${j.count} dòng`); reload() } else notify('error', j.error || 'Lỗi')
   }
   const del = async (r: any) => { if (!(await confirm('Xóa dòng này?', { confirmLabel: 'Xóa', danger: true }))) return; const res = await fetch(`/api/admin/bao-hanh/plinvoice?id=${r.id}`, { method: 'DELETE' }); if (res.ok) reload() }
 
-  return <RefTable title="PL-Invoice (dữ liệu giao hàng FUJIFILM)" q={q} setQ={setQ} onTpl={tpl} onImport={doImport} importing={importing}
+  return <RefTable title="PL-Invoice (dữ liệu giao hàng FUJIFILM)" q={q} setQ={setQ} onTpl={tpl} parseRows={parseRows} onCommit={onCommit} unit="dòng"
     columns={[['do_no', 'DO No.'], ['item_no', 'Mã máy'], ['serial', 'Serial'], ['model', 'Model'], ['fob_date', 'FOB', fmtVN], ['invoice_no', 'Invoice No']]} rows={filtered} onDel={del} />
 }
 
 // ─────────────────────────────── DM HÀNG ───────────────────────────────
 function DmHangTab({ rows, notify, confirm, reload }: any) {
   const [q, setQ] = useState('')
-  const [importing, setImporting] = useState(false)
   const filtered = useMemo(() => { const n = q.trim().toLowerCase(); return (rows as any[]).filter(r => !n || `${r.ma_hang} ${r.ten_hang} ${r.model}`.toLowerCase().includes(n)) }, [rows, q])
   const tpl = () => downloadCSV('mau-dm-hang.csv', [['Mã hàng', 'Tên hàng', 'Model', 'Ghi chú'], ['930K06510', 'CIS', 'Apeos 4570/5570', '']])
-  const doImport = async (text: string) => {
-    const lines = parsePaste(text); if (!lines.length) return
-    const start = /mã hàng|ma_hang|ma hang/i.test(lines[0].join(' ')) ? 1 : 0
-    const items = lines.slice(start).map(c => ({ ma_hang: c[0], ten_hang: c[1], model: c[2], ghi_chu: c[3] })).filter(x => x.ma_hang)
-    if (!items.length) { notify('error', 'Không có dòng hợp lệ'); return }
-    setImporting(true)
+  const parseRows = (text: string) => {
+    const lines = parsePaste(text)
+    const start = lines.length && /mã hàng|ma_hang|ma hang/i.test(lines[0].join(' ')) ? 1 : 0
+    const have = new Set((rows as any[]).map(r => String(r.ma_hang)))
+    const seen = new Set<string>()
+    const items: any[] = [], issues: { line: number; reason: string }[] = []
+    lines.slice(start).forEach((c, i) => {
+      const ln = i + start + 1
+      const it = { ma_hang: (c[0] || '').trim(), ten_hang: c[1] || '', model: c[2] || '', ghi_chu: c[3] || '' }
+      if (!it.ma_hang) { issues.push({ line: ln, reason: 'thiếu Mã hàng' }); return }
+      const dup = have.has(it.ma_hang) || seen.has(it.ma_hang)
+      seen.add(it.ma_hang)
+      items.push({ ...it, _dup: dup })
+    })
+    return { items, issues }
+  }
+  const onCommit = async (items: any[]) => {
     const res = await fetch('/api/admin/bao-hanh/dmhang', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }) })
-    const j = await res.json(); setImporting(false)
+    const j = await res.json()
     if (res.ok) { notify('success', `Đã nhập ${j.count} mã`); reload() } else notify('error', j.error || 'Lỗi')
   }
   const del = async (r: any) => { if (!(await confirm('Xóa mã này?', { confirmLabel: 'Xóa', danger: true }))) return; const res = await fetch(`/api/admin/bao-hanh/dmhang?id=${r.id}`, { method: 'DELETE' }); if (res.ok) reload() }
-  return <RefTable title="DM Hàng (mã vật tư claim của hãng)" q={q} setQ={setQ} onTpl={tpl} onImport={doImport} importing={importing}
+  return <RefTable title="DM Hàng (mã vật tư claim của hãng)" q={q} setQ={setQ} onTpl={tpl} parseRows={parseRows} onCommit={onCommit} unit="mã"
     columns={[['ma_hang', 'Mã hàng'], ['ten_hang', 'Tên hàng'], ['model', 'Model'], ['ghi_chu', 'Ghi chú']]} rows={filtered} onDel={del} />
 }
 
-// Bảng tra cứu dùng chung (PL-Invoice + DM Hàng): tìm · tải mẫu · nhập Excel (dán) · bảng · xóa.
-function RefTable({ title, q, setQ, onTpl, onImport, importing, columns, rows, onDel }: any) {
+// Bảng tra cứu dùng chung (PL-Invoice + DM Hàng): tìm · tải mẫu · nhập Excel (dán → XEM TRƯỚC → ghi) · bảng · xóa.
+function RefTable({ title, q, setQ, onTpl, parseRows, onCommit, unit, columns, rows, onDel }: any) {
   const [paste, setPaste] = useState('')
   const [showPaste, setShowPaste] = useState(false)
+  const [preview, setPreview] = useState<{ items: any[]; issues: { line: number; reason: string }[] } | null>(null)
+  const [committing, setCommitting] = useState(false)
+  const resetImport = () => { setPaste(''); setShowPaste(false); setPreview(null) }
+  const dupCount = preview ? preview.items.filter((x: any) => x._dup).length : 0
+
   return (
     <div>
       <div className="flex flex-wrap gap-2 items-center mb-2 px-1">
@@ -392,16 +421,53 @@ function RefTable({ title, q, setQ, onTpl, onImport, importing, columns, rows, o
         <div className="max-w-xs flex-1 min-w-[160px]"><SearchInput value={q} onChange={setQ} placeholder="Tìm…" /></div>
         <div className="flex-1" />
         <button onClick={onTpl} className="h-9 px-3 rounded-md border border-slate-300 text-sm font-medium text-slate-700 inline-flex items-center gap-1.5 hover:bg-slate-50"><FileDown className="w-4 h-4" />Tải mẫu</button>
-        <button onClick={() => setShowPaste(s => !s)} className="h-9 px-3 rounded-md border border-slate-300 text-sm font-medium text-slate-700 inline-flex items-center gap-1.5 hover:bg-slate-50"><Upload className="w-4 h-4" />Nhập Excel</button>
+        <button onClick={() => { setShowPaste(s => !s); setPreview(null) }} className="h-9 px-3 rounded-md border border-slate-300 text-sm font-medium text-slate-700 inline-flex items-center gap-1.5 hover:bg-slate-50"><Upload className="w-4 h-4" />Nhập Excel</button>
       </div>
       {showPaste && (
         <div className="bg-white border border-slate-200 rounded-lg p-3 mb-2 mx-1">
-          <div className="text-xs text-slate-500 mb-1">Dán dữ liệu từ Excel (gồm hoặc không gồm dòng tiêu đề). Cột theo đúng thứ tự file mẫu.</div>
-          <textarea value={paste} onChange={e => setPaste(e.target.value)} rows={5} className="w-full border border-slate-200 rounded-md p-2 text-sm font-mono" placeholder="Dán vào đây…" />
-          <div className="flex gap-2 mt-2">
-            <button disabled={importing} onClick={async () => { await onImport(paste); setPaste(''); setShowPaste(false) }} className="h-8 px-3 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-60">{importing ? 'Đang nhập…' : 'Nhập'}</button>
-            <button onClick={() => setShowPaste(false)} className="h-8 px-3 rounded-md border border-slate-300 text-sm text-slate-600">Hủy</button>
-          </div>
+          {!preview ? (
+            <>
+              <div className="text-xs text-slate-500 mb-1">Dán dữ liệu từ Excel (gồm hoặc không gồm dòng tiêu đề). Cột theo đúng thứ tự file mẫu.</div>
+              <textarea value={paste} onChange={e => setPaste(e.target.value)} rows={5} className="w-full border border-slate-200 rounded-md p-2 text-sm font-mono" placeholder="Dán vào đây…" />
+              <div className="flex gap-2 mt-2">
+                <button disabled={!paste.trim()} onClick={() => setPreview(parseRows(paste))} className="h-8 px-3 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"><Search className="w-3.5 h-3.5 inline mr-1" />Xem trước</button>
+                <button onClick={resetImport} className="h-8 px-3 rounded-md border border-slate-300 text-sm text-slate-600">Hủy</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-3 text-sm mb-2">
+                <span className="inline-flex items-center gap-1 text-emerald-700 font-medium"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />{preview.items.length} dòng hợp lệ</span>
+                {preview.issues.length > 0 && <span className="inline-flex items-center gap-1 text-rose-600 font-medium"><span className="w-2.5 h-2.5 rounded-full bg-rose-500" />{preview.issues.length} dòng lỗi (bỏ qua)</span>}
+                {dupCount > 0 && <span className="inline-flex items-center gap-1 text-amber-600 font-medium"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" />{dupCount} dòng trùng (vẫn nhập)</span>}
+              </div>
+              {preview.issues.length > 0 && (
+                <div className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-md p-2 mb-2 max-h-24 overflow-y-auto">
+                  {preview.issues.slice(0, 30).map((is, i) => <div key={i}>Dòng {is.line}: {is.reason}</div>)}
+                  {preview.issues.length > 30 && <div>… và {preview.issues.length - 30} dòng nữa</div>}
+                </div>
+              )}
+              <div className="border border-slate-200 rounded-md overflow-auto max-h-64 mb-2">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-slate-50"><tr className="text-left text-slate-500">{columns.map((c: any) => <th key={c[0]} className="px-2 py-1.5 font-medium whitespace-nowrap">{c[1]}</th>)}</tr></thead>
+                  <tbody>
+                    {preview.items.slice(0, 100).map((it: any, i: number) => (
+                      <tr key={i} className={`border-t border-slate-100 ${it._dup ? 'bg-amber-50' : ''}`}>
+                        {columns.map((c: any) => <td key={c[0]} className="px-2 py-1 text-slate-700 whitespace-nowrap">{c[2] ? c[2](it[c[0]]) : it[c[0]]}{c[0] === columns[0][0] && it._dup ? <span className="ml-1 text-amber-600 t3">trùng</span> : ''}</td>)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {preview.items.length > 100 && <div className="text-xs text-slate-400 px-2 py-1">… xem trước 100/{preview.items.length} dòng</div>}
+              </div>
+              <div className="flex gap-2">
+                <button disabled={committing || preview.items.length === 0} onClick={async () => { setCommitting(true); await onCommit(preview.items); setCommitting(false); resetImport() }}
+                  className="h-8 px-3 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">{committing ? 'Đang nhập…' : `Nhập ${preview.items.length} ${unit}`}</button>
+                <button disabled={committing} onClick={() => setPreview(null)} className="h-8 px-3 rounded-md border border-slate-300 text-sm text-slate-600">← Sửa lại</button>
+                <button disabled={committing} onClick={resetImport} className="h-8 px-3 rounded-md border border-slate-300 text-sm text-slate-600">Hủy</button>
+              </div>
+            </>
+          )}
         </div>
       )}
       <div className="bg-white border border-slate-200 rounded-lg overflow-x-auto mx-1">
