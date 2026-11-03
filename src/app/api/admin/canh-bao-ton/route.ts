@@ -30,7 +30,7 @@ const notNgung = (k: any) => !k.ngung_su_dung && String(k.ngung_su_dung).toLower
 //   - hàng đã từng nhập trong 12 tháng gần nhất, VÀ
 //   - hàng ĐÃ đặt ngưỡng (nguong_dat != null) — dù nhập đã lâu, vẫn ở lại danh sách + vẫn cảnh báo.
 // Mỗi mặt hàng kèm: tồn kho, hãng, model, ngưỡng đã đặt (nguong_dat), số lượng ĐANG CHỜ VỀ (đơn đã đặt, chưa nhận đủ).
-// Client tự lọc "cần cảnh báo" = nguong_dat > 0 && ton_kho <= nguong_dat.
+// Client tự lọc "cần cảnh báo" = nguong_dat > 0 && ton_kho < nguong_dat (ngưỡng = mức tối thiểu).
 // ?find=<từ khóa>: tra TOÀN kho theo mã/tên (không giới hạn 12 tháng) để thêm ngưỡng cho mặt hàng cũ.
 export async function GET(request: Request) {
   try {

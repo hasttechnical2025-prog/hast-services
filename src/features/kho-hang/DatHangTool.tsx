@@ -73,8 +73,9 @@ export function DatHangTool({
       const nguong = g.nguong_dat != null ? Number(g.nguong_dat) : null
       if (nguong != null && nguong > 0) {
         const tonNhom = Number(g.ton_kho) || 0
-        // Thiếu xét theo TỒN GỘP; badge CHỈ hiện trên mã đại diện (mã cũ trong nhóm không tự kêu).
-        if (tonNhom <= nguong && g.ma_hang === item.ma_hang) {
+        // Ngưỡng = MỨC TỐI THIỂU muốn giữ -> báo khi tồn < ngưỡng (tồn = ngưỡng là ĐỦ, không báo).
+        // Xét theo TỒN GỘP; badge CHỈ hiện trên mã đại diện (mã cũ trong nhóm không tự kêu).
+        if (tonNhom < nguong && g.ma_hang === item.ma_hang) {
           return { isUnder: true, nguong, thieu: Math.max(1, nguong - tonNhom), tonNhom, rep: g.ma_hang as string }
         }
       }

@@ -665,7 +665,7 @@ export default function AdminDashboard() {
 
   // Cảnh báo tồn kho: chỉ mặt hàng ĐÃ đặt ngưỡng (>0) và tồn <= ngưỡng. Thiếu nhiều lên đầu.
   const canhBaoTonList = canhBaoTon
-    .filter((x: any) => Number(x.nguong_dat) > 0 && Number(x.ton_kho) <= Number(x.nguong_dat))
+    .filter((x: any) => Number(x.nguong_dat) > 0 && Number(x.ton_kho) < Number(x.nguong_dat))
     .sort((a: any, b: any) => (Number(b.nguong_dat) - Number(b.ton_kho)) - (Number(a.nguong_dat) - Number(a.ton_kho)))
 
   const [formData, setFormData] = useState({
@@ -5725,10 +5725,10 @@ function NhapHangThangTool({
     setNgMap(p => ({ ...p, [ma]: digits }))
     setDirtyNg(d => { const n = new Set(d); n.add(ma); return n })
   }
-  const isWarn = (x: any) => { const n = Number(ngOf(x.ma_hang) || 0); return n > 0 && Number(x.ton_kho) <= n }
+  const isWarn = (x: any) => { const n = Number(ngOf(x.ma_hang) || 0); return n > 0 && Number(x.ton_kho) < n }
   // Trạng thái cảnh báo ban đầu (đã lưu trong DB) dùng riêng cho việc sắp xếp và lọc hiển thị,
   // tránh việc vừa gõ dở ngưỡng trong ô input làm dòng bị nhảy lên đầu bảng gây mất focus.
-  const isSavedWarn = (x: any) => { const n = Number(x.nguong_dat || 0); return n > 0 && Number(x.ton_kho) <= n }
+  const isSavedWarn = (x: any) => { const n = Number(x.nguong_dat || 0); return n > 0 && Number(x.ton_kho) < n }
   const cbRows = canhBaoMerged
     .filter((x: any) => showAll || isSavedWarn(x) || dirtyNg.has(x.ma_hang))
     .filter((x: any) => {
@@ -6288,7 +6288,7 @@ function DatHangTool({
     const nguong = cb?.nguong_dat != null ? Number(cb.nguong_dat) : (item.nguong_dat != null ? Number(item.nguong_dat) : null)
     if (nguong != null && nguong > 0) {
       const ton = Number(item.ton_kho) || 0
-      if (ton <= nguong) {
+      if (ton < nguong) {
         const thieu = Math.max(1, nguong - ton)
         return { isUnder: true, nguong, thieu }
       }

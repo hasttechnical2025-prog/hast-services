@@ -206,8 +206,9 @@ export function NhapHangThangTool({
     setNgMap(p => ({ ...p, [ma]: digits }))
     setDirtyNg(d => { const n = new Set(d); n.add(ma); return n })
   }
-  const isWarn = (x: any) => { const n = Number(ngOf(x.ma_hang) || 0); return n > 0 && Number(x.ton_kho) <= n }
-  const isSavedWarn = (x: any) => { const n = Number(x.nguong_dat || 0); return n > 0 && Number(x.ton_kho) <= n }
+  // Ngưỡng = mức tối thiểu muốn giữ -> báo khi tồn < ngưỡng (tồn = ngưỡng là đủ, không báo).
+  const isWarn = (x: any) => { const n = Number(ngOf(x.ma_hang) || 0); return n > 0 && Number(x.ton_kho) < n }
+  const isSavedWarn = (x: any) => { const n = Number(x.nguong_dat || 0); return n > 0 && Number(x.ton_kho) < n }
   const cbRows = canhBaoMerged
     .filter((x: any) => showAll || isSavedWarn(x) || dirtyNg.has(x.ma_hang))
     .filter((x: any) => {

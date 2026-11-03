@@ -116,7 +116,7 @@ export function BellAlertsProvider({ children }: { children: React.ReactNode }) 
   }, [mucMap, customers, inventory, committed, choVe])
 
   const canhBaoTonList = useMemo(() => canhBaoTon
-    .filter((x: any) => Number(x.nguong_dat) > 0 && Number(x.ton_kho) <= Number(x.nguong_dat))
+    .filter((x: any) => Number(x.nguong_dat) > 0 && Number(x.ton_kho) < Number(x.nguong_dat))
     .sort((a: any, b: any) => (Number(b.nguong_dat) - Number(b.ton_kho)) - (Number(a.nguong_dat) - Number(a.ton_kho))), [canhBaoTon])
 
   const value: AlertsData = {
