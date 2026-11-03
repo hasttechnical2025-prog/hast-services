@@ -119,32 +119,49 @@ export async function GET(request: Request) {
       .from('soct_kho_hang').select(KHO_COLS).range(from, to))
     const info = new Map<string, any>()
     for (const r of (allKho || [])) if (r?.ma_hang) info.set(r.ma_hang, r)
-    // Đại diện = CUỐI chuỗi ma_thay_the (mã mới nhất). Chặn vòng lặp bằng seen.
-    const rootOf = (ma: string): string => {
-      let cur = ma; const seen = new Set<string>()
-      for (; ;) {
-        const nxt = info.get(cur)?.ma_thay_the
-        const n = nxt ? String(nxt).trim() : ''
-        if (!n || !info.has(n) || seen.has(cur)) return cur
-        seen.add(cur); cur = n
-      }
+    // Nhóm tương đương = THÀNH PHẦN LIÊN THÔNG của đồ thị ma_thay_the, coi liên kết VÔ HƯỚNG -> bắt được
+    // cả chuỗi A→B→C LẪN liên kết 2 CHIỀU / VÒNG (user hay set ma_thay_the cả 2 phía). Union-Find.
+    const parent = new Map<string, string>()
+    const ufFind = (x: string): string => {
+      let r = x
+      while ((parent.get(r) ?? r) !== r) r = parent.get(r)!
+      let c = x
+      while ((parent.get(c) ?? c) !== c) { const nx = parent.get(c)!; parent.set(c, r); c = nx }
+      return r
     }
-    // Gom MỌI mã trong kho theo root -> thành viên đầy đủ của từng nhóm.
+    const ufUnion = (a: string, b: string) => { const ra = ufFind(a), rb = ufFind(b); if (ra !== rb) parent.set(ra, rb) }
+    for (const ma of info.keys()) parent.set(ma, ma)
+    for (const [ma, r] of info) {
+      const t = r?.ma_thay_the ? String(r.ma_thay_the).trim() : ''
+      if (t && info.has(t)) ufUnion(ma, t)
+    }
+    // Gom MỌI mã theo gốc union-find -> thành viên đầy đủ của từng nhóm.
     const membersByRoot = new Map<string, string[]>()
     for (const ma of info.keys()) {
-      const r = rootOf(ma)
+      const r = ufFind(ma)
       if (!membersByRoot.has(r)) membersByRoot.set(r, [])
       membersByRoot.get(r)!.push(ma)
     }
-    // Chỉ phát nhóm chứa ÍT NHẤT 1 ứng viên (kho). Dedup theo root (đại diện).
-    const emitRoots = new Set<string>(kho.map((k: any) => rootOf(k.ma_hang)))
+    // Đại diện nhóm (đặt hàng + gắn badge): ưu tiên mã CÒN DÙNG, rồi TỒN cao nhất, rồi mã lớn nhất.
+    const pickRep = (members: string[]): string => {
+      let best = members[0], bs: [number, number, string] = [-1, -1, '']
+      for (const m of members) {
+        const mi = info.get(m); if (!mi) continue
+        const s: [number, number, string] = [mi.ngung_su_dung ? 0 : 1, Number(mi.ton_kho) || 0, m]
+        if (s[0] > bs[0] || (s[0] === bs[0] && (s[1] > bs[1] || (s[1] === bs[1] && s[2] > bs[2])))) { best = m; bs = s }
+      }
+      return best
+    }
+    // Chỉ phát nhóm chứa ÍT NHẤT 1 ứng viên (kho). Dedup theo gốc union-find.
+    const emitRoots = new Set<string>(kho.map((k: any) => ufFind(k.ma_hang)))
     const emitMas = new Set<string>()
     for (const r of emitRoots) for (const m of (membersByRoot.get(r) || [r])) emitMas.add(m)
     const choVe = await computeChoVe([...emitMas])
 
     const items = [...emitRoots].map(root => {
       const members = membersByRoot.get(root) || [root]
-      const rep = info.get(root) || {}
+      const repMa = pickRep(members)
+      const rep = info.get(repMa) || {}
       let ton = 0, choVeSum = 0, nguong: number | null = null
       const memberList: any[] = []
       for (const m of members) {
@@ -153,14 +170,14 @@ export async function GET(request: Request) {
         ton += mt; choVeSum += choVe[m] || 0
         const ng = mi.nguong_dat == null ? null : Number(mi.nguong_dat)
         if (ng != null && Number.isFinite(ng)) nguong = nguong == null ? ng : Math.max(nguong, ng)
-        if (m !== root) memberList.push({ ma_hang: m, ton_kho: mt, ngung_su_dung: !!mi.ngung_su_dung })
+        if (m !== repMa) memberList.push({ ma_hang: m, ton_kho: mt, ngung_su_dung: !!mi.ngung_su_dung })
       }
       return {
-        ma_hang: root, ten_hang: rep.ten_hang, model: rep.model, hang: rep.hang,
+        ma_hang: repMa, ten_hang: rep.ten_hang, model: rep.model, hang: rep.hang,
         ton_kho: ton,             // TỒN GỘP cả nhóm
         nguong_dat: nguong,       // MAX ngưỡng các mã trong nhóm
         cho_ve: choVeSum,
-        members: memberList,      // mã tương đương khác (thường là mã cũ) -> hiển thị ≡ + chẩn
+        members: memberList,      // mã tương đương khác trong nhóm -> hiển thị ≡ + chẩn
       }
     })
     return NextResponse.json({ items })
