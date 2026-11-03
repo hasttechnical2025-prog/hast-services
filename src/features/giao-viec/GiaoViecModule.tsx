@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ClipboardList, CheckCircle2, Clock, Wallet, RefreshCw, Plus, Pencil, Trash2, MapPin, Send, Hand, Hash, FileDown, CalendarArrowDown, CopyX, Boxes, ChevronLeft } from 'lucide-react'
+import { ClipboardList, CheckCircle2, Clock, Wallet, RefreshCw, Plus, Pencil, Trash2, MapPin, Send, Hand, Hash, FileDown, CalendarArrowDown, CopyX, Boxes, ChevronLeft, AlertTriangle } from 'lucide-react'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { fmtThoiLuong } from '@/lib/thoi-gian'
 import { phieuTaoChip, buoiGio, PHIEU_TAO_TONE } from '@/lib/phieu-tao'
@@ -56,6 +56,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
   const [busyTool, setBusyTool] = useState(false)
   const [traJobId, setTraJobId] = useState<string | null>(null)
   const [futureJobs, setFutureJobs] = useState<Job[]>([])   // phiếu đặt trước (ngay >= ngày mai), chưa hoàn thành
+  const [overdueJobs, setOverdueJobs] = useState<Job[]>([]) // phiếu TỒN từ ngày trước chưa được cuốn (lưới an toàn khi cron lỡ chạy)
 
   // Chống đua ghi đè: mỗi lần nạp tăng seq; chỉ response MỚI NHẤT được setJobs (tránh lần tải nền
   // về muộn đè kết quả tìm số phiếu/vật tư -> hết cảnh "phải tìm 2 lần").
@@ -76,14 +77,25 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
   // Đổi bộ lọc server -> debounce nạp lại dữ liệu.
   useEffect(() => { const t = setTimeout(() => load(), 300); return () => clearTimeout(t) }, [load])
 
+  // Ngày mai / hôm qua theo giờ VN — tính TƯƠI mỗi render (KHÔNG memo []): nếu không, trang mở
+  // xuyên nửa đêm sẽ "đóng băng" ngày cũ -> banner phiếu tương lai hiểu nhầm hôm nay là tương lai.
+  // (Chuỗi ổn định theo ngày nên useCallback/effect phụ thuộc nó không chạy thừa.)
+  const tomorrow = new Date(Date.parse(todayVN() + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10)
+  const yesterday = new Date(Date.parse(todayVN() + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10)
   // Phiếu đặt trước (ngày mai trở đi, chưa hoàn thành) — độc lập bộ lọc ngày để luôn nhắc.
-  const tomorrow = useMemo(() => new Date(Date.parse(todayVN() + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10), [])
   const loadFuture = useCallback(() => {
     listJobs({ tuNgay: tomorrow, ket_qua: 'Chờ nhận,Đã nhận,Đang làm,Chưa hoàn thành' }).then(setFutureJobs).catch(() => {})
   }, [tomorrow])
+  // LƯỚI AN TOÀN: phiếu TỒN từ ngày trước (ngay <= hôm qua) CHƯA được cuốn -> cron có thể đã lỡ chạy.
+  // Chỉ các trạng thái cron cuốn (Chờ nhận / Đã nhận / Chưa hoàn thành; bỏ 'Đang làm'). Chỉ admin/tech_admin.
+  const loadOverdue = useCallback(() => {
+    if (!canAdminTools) return
+    listJobs({ denNgay: yesterday, ket_qua: 'Chờ nhận,Đã nhận,Chưa hoàn thành' }).then(setOverdueJobs).catch(() => {})
+  }, [yesterday, canAdminTools])
   useEffect(() => { loadFuture() }, [loadFuture])
+  useEffect(() => { loadOverdue() }, [loadOverdue])
 
-  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => { load(true); loadFuture() }, true, 30000)
+  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => { load(true); loadFuture(); loadOverdue() }, true, 30000)
 
   const loaiOptions = dmOptions('loai_cong_viec', LOAI_CV_FALLBACK)
 
@@ -205,7 +217,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
       const j = await res.json()
       if (!res.ok) throw new Error(j.error || 'Lỗi')
       notify('success', `Đã cuốn ${j.cuon ?? 0} phiếu.`)
-      load(true)
+      load(true); loadFuture(); loadOverdue()
     } catch (e: any) { notify('error', e?.message || 'Lỗi cuốn ngày') }
     finally { setBusyTool(false) }
   }
@@ -334,6 +346,15 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
         <StatCard label="Đang làm / Chờ" value={(stats.doing + stats.waiting).toLocaleString('vi-VN')} sub={`${stats.unassigned.toLocaleString('vi-VN')} chưa giao`} tone="amber" icon={Clock} />
         <StatCard label="Phát sinh tiền" value={`${fmtMoney(stats.revenue)} đ`} sub={`có HĐ: ${fmtMoney(stats.revenueHD)} đ`} tone="indigo" icon={Wallet} />
       </StatRow>
+
+      {/* LƯỚI AN TOÀN: phiếu tồn từ ngày trước chưa cuốn (phòng khi Vercel cron lỡ không chạy) */}
+      {canAdminTools && overdueJobs.length > 0 && (
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 text-xs">
+          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+          <span className="text-amber-800"><b>{overdueJobs.length}</b> phiếu từ ngày trước chưa được cuốn sang hôm nay (có thể cron tự động đã lỡ chạy).</span>
+          <button onClick={cuonNgay} disabled={busyTool} className="ml-auto shrink-0 font-semibold text-amber-700 hover:underline disabled:opacity-50">Cuốn ngay →</button>
+        </div>
+      )}
 
       {/* Phiếu đặt trước cho ngày tới — nằm giữa thẻ KPI và danh sách */}
       {futureJobs.length > 0 && (

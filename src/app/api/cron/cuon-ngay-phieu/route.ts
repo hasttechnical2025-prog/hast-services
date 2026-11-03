@@ -20,7 +20,14 @@ export async function GET(request: Request) {
     const isCron = !!secret && authHeader === `Bearer ${secret}`
     if (!isCron) {
       const session = await requireRole('admin', 'tech_admin')
-      if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      if (!session) {
+        // Ghi log cả ca auth-fail -> nếu Vercel cron gọi mà THIẾU/SAI CRON_SECRET sẽ có dấu vết
+        // (trước đây 401 trả về lặng lẽ, không log -> mù). meta giúp chẩn nhanh nguyên nhân.
+        await logCronRun('cuon-ngay-phieu', 'error', 'cron', {
+          reason: 'Unauthorized', hasAuthHeader: !!authHeader, hasSecretEnv: !!secret,
+        })
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
     }
     const source: 'cron' | 'manual' = isCron ? 'cron' : 'manual'
     if (await isBaoTri()) {
