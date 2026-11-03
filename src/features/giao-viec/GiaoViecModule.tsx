@@ -154,6 +154,9 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
   const clearAll = () => { setTuNgay(today); setDenNgay(today); setQ(''); setReport(''); setVatTu(''); setColFilters({}) }
 
   const canEditJob = (j: Job) => ['Chờ nhận', 'Đã nhận'].includes(j.ket_qua) || role === 'admin'
+  // Xóa: tech_admin CHỈ xóa phiếu CHƯA động tay (Chờ nhận/Đã nhận). Đã vào việc (Đang làm /
+  // Chưa hoàn thành / Hoàn thành) = CHỈ admin — khớp (và không lỏng hơn) luật Sửa. Enforce cả server.
+  const canDeleteJob = (j: Job) => role === 'admin' || (canDelete && ['Chờ nhận', 'Đã nhận'].includes(j.ket_qua ?? 'Chờ nhận'))
   const openCreate = () => { setEditing(null); setFormOpen(true) }
   const openEdit = (j: Job) => {
     if (!canEditJob(j)) { notify('error', 'KTV đã bắt đầu việc — không thể sửa phiếu này.'); return }
@@ -319,7 +322,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
             {canDelete && j.ket_qua === 'Hoàn thành' && hasVt && (
               <button onClick={() => setTraJobId(j.id)} title="Vật tư / Trả về kho" className="w-7 h-7 rounded border border-indigo-200 text-indigo-600 hover:bg-indigo-50 flex items-center justify-center"><Boxes className="w-3.5 h-3.5" /></button>
             )}
-            {(j.ket_qua === 'Hoàn thành' ? isAdmin : canDelete) && <button onClick={() => onDelete(j)} title="Xóa phiếu" className="w-7 h-7 rounded border border-rose-200 text-rose-600 hover:bg-rose-50 flex items-center justify-center"><Trash2 className="w-3.5 h-3.5" /></button>}
+            {canDeleteJob(j) && <button onClick={() => onDelete(j)} title="Xóa phiếu" className="w-7 h-7 rounded border border-rose-200 text-rose-600 hover:bg-rose-50 flex items-center justify-center"><Trash2 className="w-3.5 h-3.5" /></button>}
           </div>
         )
       },

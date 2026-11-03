@@ -1123,11 +1123,13 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Thiếu ID công việc' }, { status: 400 })
     }
 
-    // Phiếu đã HOÀN THÀNH: chỉ admin được xóa (tech_admin không được).
+    // Phiếu ĐÃ VÀO VIỆC (Đang làm / Chưa hoàn thành / Hoàn thành): CHỈ admin được xóa.
+    // tech_admin chỉ xóa phiếu CHƯA động tay (Chờ nhận / Đã nhận) — khớp luật Sửa, tránh "xóa bất tử".
     if (session.role !== 'admin') {
       const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('ket_qua').eq('id', id).single()
-      if (cur?.ket_qua === 'Hoàn thành') {
-        return NextResponse.json({ error: 'Phiếu đã hoàn thành — chỉ admin được xóa.' }, { status: 403 })
+      const k = cur?.ket_qua ?? 'Chờ nhận' // NULL = dữ liệu cũ dạng Chờ nhận
+      if (!['Chờ nhận', 'Đã nhận'].includes(k)) {
+        return NextResponse.json({ error: 'Phiếu đã vào việc (Đang làm / Chưa hoàn thành / Hoàn thành) — chỉ admin được xóa.' }, { status: 403 })
       }
     }
 
