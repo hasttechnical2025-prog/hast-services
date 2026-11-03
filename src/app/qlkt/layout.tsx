@@ -3,6 +3,7 @@ import { SharedDataProvider } from '@/features/_shell/SharedDataProvider'
 import { BadgeProvider } from '@/features/_shell/BadgeProvider'
 import { BellAlertsProvider } from '@/features/_shell/AlertsProvider'
 import { AppShell } from '@/features/_shell/AppShell'
+import { AutoCuonNgay } from '@/features/_shell/AutoCuonNgay'
 
 // Vỏ route /v2 (UI 2027). Nằm TRONG root layout (đã có html/body + guard bảo trì),
 // nên chỉ dựng provider + shell. Auth guard thực hiện client-side trong SessionProvider
@@ -14,6 +15,7 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
       <SharedDataProvider>
         <BadgeProvider>
           <BellAlertsProvider>
+            <AutoCuonNgay />
             <AppShell>{children}</AppShell>
           </BellAlertsProvider>
         </BadgeProvider>
