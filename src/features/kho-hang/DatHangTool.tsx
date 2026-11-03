@@ -54,21 +54,34 @@ export function DatHangTool({
   const [leftSortField, setLeftSortField] = useState<string>("model")
   const [leftSortAsc, setLeftSortAsc] = useState<boolean>(true)
 
-  const canhBaoMap = useMemo(() => {
+  // canhBao đã GỘP NHÓM tương đương (server): mỗi item là 1 nhóm, ma_hang = ĐẠI DIỆN (mã mới nhất),
+  // ton_kho = tồn GỘP, nguong_dat = ngưỡng MAX nhóm, members = các mã cũ cùng nhóm. Map MỌI mã (đại
+  // diện + thành viên) -> nhóm, để badge xét theo tồn gộp, KHÔNG để mã cũ tự kêu khi nhóm còn đủ hàng.
+  const groupByMa = useMemo(() => {
     const m = new Map<string, any>()
-    for (const c of (canhBao || [])) { if (c?.ma_hang) m.set(c.ma_hang, c) }
+    for (const g of (canhBao || [])) {
+      if (!g?.ma_hang) continue
+      m.set(g.ma_hang, g)
+      for (const mem of (g.members || [])) { if (mem?.ma_hang) m.set(mem.ma_hang, g) }
+    }
     return m
   }, [canhBao])
 
   const getUnderWarnInfo = useMemo(() => (item: any) => {
-    const cb = canhBaoMap.get(item.ma_hang)
-    const nguong = cb?.nguong_dat != null ? Number(cb.nguong_dat) : (item.nguong_dat != null ? Number(item.nguong_dat) : null)
-    if (nguong != null && nguong > 0) {
-      const ton = Number(item.ton_kho) || 0
-      if (ton <= nguong) { const thieu = Math.max(1, nguong - ton); return { isUnder: true, nguong, thieu } }
+    const g = groupByMa.get(item.ma_hang)
+    if (g) {
+      const nguong = g.nguong_dat != null ? Number(g.nguong_dat) : null
+      if (nguong != null && nguong > 0) {
+        const tonNhom = Number(g.ton_kho) || 0
+        // Thiếu xét theo TỒN GỘP; badge CHỈ hiện trên mã đại diện (mã cũ trong nhóm không tự kêu).
+        if (tonNhom <= nguong && g.ma_hang === item.ma_hang) {
+          return { isUnder: true, nguong, thieu: Math.max(1, nguong - tonNhom), tonNhom, rep: g.ma_hang as string }
+        }
+      }
+      return { isUnder: false, nguong, thieu: 0, tonNhom: Number(g.ton_kho) || 0, rep: g.ma_hang as string }
     }
-    return { isUnder: false, nguong: null as number | null, thieu: 0 }
-  }, [canhBaoMap])
+    return { isUnder: false, nguong: null as number | null, thieu: 0, tonNhom: 0, rep: '' }
+  }, [groupByMa])
 
   const underWarnItems = useMemo(() => inventory.filter(item => !item.ngung_su_dung && getUnderWarnInfo(item).isUnder), [inventory, getUnderWarnInfo])
 
@@ -429,10 +442,11 @@ export function DatHangTool({
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="font-mono font-bold text-slate-700">{item.ma_hang}</span>
-                          {underInfo.isUnder && <span className="inline-flex items-center px-1.5 py-0.5 rounded t3 font-bold bg-rose-100 text-rose-700 border border-rose-300 whitespace-nowrap" title={`Tồn: ${item.ton_kho} / Ngưỡng: ${underInfo.nguong} → Cần đặt bù tối thiểu ${underInfo.thieu}`}>🔔 Thiếu {underInfo.thieu}</span>}
+                          {underInfo.isUnder && <span className="inline-flex items-center px-1.5 py-0.5 rounded t3 font-bold bg-rose-100 text-rose-700 border border-rose-300 whitespace-nowrap" title={`Tồn${underInfo.tonNhom !== (Number(item.ton_kho) || 0) ? ' (gộp nhóm tương đương)' : ''}: ${underInfo.tonNhom} / Ngưỡng: ${underInfo.nguong} → Cần đặt bù tối thiểu ${underInfo.thieu}`}>🔔 Thiếu {underInfo.thieu}</span>}
                         </div>
                         <div className="text-slate-500 font-normal leading-relaxed">{item.ten_hang}</div>
                         {item.ma_thay_the && <div className="t3 text-blue-600 font-mono leading-tight mt-0.5" title={`Mã tương đương: ${item.ma_thay_the}`}>≡ {item.ma_thay_the}</div>}
+                        {(() => { const g = groupByMa.get(item.ma_hang); const mem = (g && g.ma_hang === item.ma_hang) ? (g.members || []) : []; return mem.length > 0 ? <div className="t3 text-slate-400 font-mono leading-tight mt-0.5" title={`Gộp tồn với mã cũ: ${mem.map((x: any) => `${x.ma_hang} (tồn ${x.ton_kho})`).join(', ')}`}>≡ +{mem.length} mã cũ</div> : null })()}
                       </td>
                       <td className="px-3 py-2.5 text-center text-[11px] text-slate-500 leading-tight w-32 max-w-[150px] break-words whitespace-normal">{item.model || '—'}</td>
                       {(() => {

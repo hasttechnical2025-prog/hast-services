@@ -23,7 +23,7 @@ function chunkArray<T>(arr: T[], size = 150): T[][] {
   return chunks
 }
 
-const KHO_COLS = 'ma_hang, ten_hang, model, hang, ton_kho, nguong_dat, ngung_su_dung'
+const KHO_COLS = 'ma_hang, ten_hang, model, hang, ton_kho, nguong_dat, ngung_su_dung, ma_thay_the'
 const notNgung = (k: any) => !k.ngung_su_dung && String(k.ngung_su_dung).toLowerCase() !== 'true'
 
 // GET: danh sách ỨNG VIÊN cảnh báo tồn (mọi hãng), gồm:
@@ -82,35 +82,87 @@ export async function GET(request: Request) {
         .range(from, to)))
     }
 
-    const maAll = kho.map((k: any) => k.ma_hang)
-    if (maAll.length === 0) return NextResponse.json({ items: [] })
+    if (kho.length === 0) return NextResponse.json({ items: [] })
 
-    // (3) Số lượng ĐANG CHỜ VỀ: dòng đơn đã ĐẶT (header da_dat), dòng CHƯA hoàn thành -> sl_dat trừ đã nhận.
-    const choVe: Record<string, number> = {}
-    for (const batch of chunkArray(maAll, 150)) {
-      const cts = await selectAll<any>((from, to) => supabaseAdmin
-        .from('soct_dat_hang_ct')
-        .select('ma_hang, sl_dat, soct_dat_hang!inner ( da_dat ), soct_hang_ve_dot ( so_luong_nhan )')
-        .in('ma_hang', batch)
-        .eq('hoan_thanh', false)
-        .eq('soct_dat_hang.da_dat', true)
-        .range(from, to))
-      for (const c of (cts || [])) {
-        const daNhan = (c.soct_hang_ve_dot || []).reduce((s: number, r: any) => s + (Number(r.so_luong_nhan) || 0), 0)
-        const conVe = Math.max(0, (Number(c.sl_dat) || 0) - daNhan)
-        if (conVe > 0) choVe[c.ma_hang] = (choVe[c.ma_hang] || 0) + conVe
+    // Số lượng ĐANG CHỜ VỀ (đơn đã ĐẶT, dòng CHƯA hoàn thành -> sl_dat trừ đã nhận) cho 1 tập mã.
+    const computeChoVe = async (mas: string[]): Promise<Record<string, number>> => {
+      const choVe: Record<string, number> = {}
+      for (const batch of chunkArray(mas, 150)) {
+        const cts = await selectAll<any>((from, to) => supabaseAdmin
+          .from('soct_dat_hang_ct')
+          .select('ma_hang, sl_dat, soct_dat_hang!inner ( da_dat ), soct_hang_ve_dot ( so_luong_nhan )')
+          .in('ma_hang', batch).eq('hoan_thanh', false).eq('soct_dat_hang.da_dat', true).range(from, to))
+        for (const c of (cts || [])) {
+          const daNhan = (c.soct_hang_ve_dot || []).reduce((s: number, r: any) => s + (Number(r.so_luong_nhan) || 0), 0)
+          const conVe = Math.max(0, (Number(c.sl_dat) || 0) - daNhan)
+          if (conVe > 0) choVe[c.ma_hang] = (choVe[c.ma_hang] || 0) + conVe
+        }
       }
+      return choVe
     }
 
-    const items = kho.map((k: any) => ({
-      ma_hang: k.ma_hang,
-      ten_hang: k.ten_hang,
-      model: k.model,
-      hang: k.hang,
-      ton_kho: Number(k.ton_kho) || 0,
-      nguong_dat: k.nguong_dat == null ? null : Number(k.nguong_dat),
-      cho_ve: choVe[k.ma_hang] || 0,
-    }))
+    // Chế độ FIND (tra để ĐẶT/SỬA ngưỡng từng mã): trả PER-ITEM, KHÔNG gộp nhóm — để nhắm đúng 1 mã.
+    if (find) {
+      const choVe = await computeChoVe(kho.map((k: any) => k.ma_hang))
+      const items = kho.map((k: any) => ({
+        ma_hang: k.ma_hang, ten_hang: k.ten_hang, model: k.model, hang: k.hang,
+        ton_kho: Number(k.ton_kho) || 0,
+        nguong_dat: k.nguong_dat == null ? null : Number(k.nguong_dat),
+        cho_ve: choVe[k.ma_hang] || 0,
+      }))
+      return NextResponse.json({ items })
+    }
+
+    // === GỘP NHÓM TƯƠNG ĐƯƠNG (chuỗi ma_thay_the): cảnh báo theo TỒN GỘP + ngưỡng MAX của nhóm ===
+    // Nạp TOÀN kho (nhẹ) để cộng tồn mọi thành viên — kể cả mã mới chưa là ứng viên / mã ngưng dùng còn tồn.
+    const allKho = await selectAll<any>((from, to) => supabaseAdmin
+      .from('soct_kho_hang').select(KHO_COLS).range(from, to))
+    const info = new Map<string, any>()
+    for (const r of (allKho || [])) if (r?.ma_hang) info.set(r.ma_hang, r)
+    // Đại diện = CUỐI chuỗi ma_thay_the (mã mới nhất). Chặn vòng lặp bằng seen.
+    const rootOf = (ma: string): string => {
+      let cur = ma; const seen = new Set<string>()
+      for (; ;) {
+        const nxt = info.get(cur)?.ma_thay_the
+        const n = nxt ? String(nxt).trim() : ''
+        if (!n || !info.has(n) || seen.has(cur)) return cur
+        seen.add(cur); cur = n
+      }
+    }
+    // Gom MỌI mã trong kho theo root -> thành viên đầy đủ của từng nhóm.
+    const membersByRoot = new Map<string, string[]>()
+    for (const ma of info.keys()) {
+      const r = rootOf(ma)
+      if (!membersByRoot.has(r)) membersByRoot.set(r, [])
+      membersByRoot.get(r)!.push(ma)
+    }
+    // Chỉ phát nhóm chứa ÍT NHẤT 1 ứng viên (kho). Dedup theo root (đại diện).
+    const emitRoots = new Set<string>(kho.map((k: any) => rootOf(k.ma_hang)))
+    const emitMas = new Set<string>()
+    for (const r of emitRoots) for (const m of (membersByRoot.get(r) || [r])) emitMas.add(m)
+    const choVe = await computeChoVe([...emitMas])
+
+    const items = [...emitRoots].map(root => {
+      const members = membersByRoot.get(root) || [root]
+      const rep = info.get(root) || {}
+      let ton = 0, choVeSum = 0, nguong: number | null = null
+      const memberList: any[] = []
+      for (const m of members) {
+        const mi = info.get(m); if (!mi) continue
+        const mt = Number(mi.ton_kho) || 0
+        ton += mt; choVeSum += choVe[m] || 0
+        const ng = mi.nguong_dat == null ? null : Number(mi.nguong_dat)
+        if (ng != null && Number.isFinite(ng)) nguong = nguong == null ? ng : Math.max(nguong, ng)
+        if (m !== root) memberList.push({ ma_hang: m, ton_kho: mt, ngung_su_dung: !!mi.ngung_su_dung })
+      }
+      return {
+        ma_hang: root, ten_hang: rep.ten_hang, model: rep.model, hang: rep.hang,
+        ton_kho: ton,             // TỒN GỘP cả nhóm
+        nguong_dat: nguong,       // MAX ngưỡng các mã trong nhóm
+        cho_ve: choVeSum,
+        members: memberList,      // mã tương đương khác (thường là mã cũ) -> hiển thị ≡ + chẩn
+      }
+    })
     return NextResponse.json({ items })
   } catch (error: any) {
     console.error('Error GET canh-bao-ton:', error)
