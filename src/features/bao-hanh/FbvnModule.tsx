@@ -190,7 +190,7 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
 const lblR = (t: string) => <label className={lbl}>{t} <span className="text-rose-500">*</span></label>
 function FbvnForm({ initial, list, plinvoice, dmhang, ktvOptions, customers, notify, onClose, onSaved }: any) {
   const [f, setF] = useState<any>(() => ({
-    co_claim: true, co_ban_giao: true, judg_goods: true, att_invoice: true, att_faulty: true, att_po: true,
+    co_claim: true, co_ban_giao: true,
     don_vi: 'piece', ngay: vnTodayISO(), huong_giai_quyet: 'Trả hàng bảo hành', ...initial,
   }))
   const [saving, setSaving] = useState(false)
@@ -341,11 +341,7 @@ function FbvnForm({ initial, list, plinvoice, dmhang, ktvOptions, customers, not
                 <div className="md:col-span-4">{lblR('Contents of Quality Problem')}<input className={inp} value={f.contents || ''} onChange={e => set('contents', e.target.value)} placeholder="vd: Machine cannot boot" /></div>
                 <div className="md:col-span-4">{lblR('Possible Cause')}<input className={inp} value={f.possible_cause || ''} onChange={e => set('possible_cause', e.target.value)} placeholder="vd: LVPS fault" /></div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div><div className={lbl}>Judgment (CE)</div><Chk k="judg_install" label="Installation Confirmation" /><Chk k="judg_tech" label="Technical Evaluation by CE" /><Chk k="judg_goods" label="Goods Confirmation" /><Chk k="judg_info" label="Technical Information" /></div>
-                <div><div className={lbl}>Attached material</div><Chk k="att_invoice" label="Commercial Invoice (Copy)" /><Chk k="att_faulty" label="Faulty Goods" /><Chk k="att_po" label="P/O (Copy)" /><Chk k="att_mhc" label="Machine history card" /><Chk k="att_sample" label="Faulty Copy Sample" /><Chk k="att_license" label="License for Software" /></div>
-              </div>
-              <div className="border-t border-slate-100 pt-3">
+              <div className="pt-1">
                 <div className={lbl}>Tiến trình</div>
                 <div className="flex flex-wrap gap-4 items-center text-sm">
                   <Chk k="claim_sent" label="Đã gửi hãng" />

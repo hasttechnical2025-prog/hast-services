@@ -48,22 +48,27 @@ function drawingsToCheckbox(xml, anchor, keys) {
   return xml.replace(tbl, newTbl)
 }
 
-// ── Form A ──
+// Gỡ sạch MỌI highlight còn sót (kể cả tô vàng dính ở dấu kết đoạn pPr mà replaceHighlights
+// — vốn chỉ quét cấp run — không với tới). Chạy sau cùng để template không còn nền vàng.
+function stripHighlights(xml) {
+  return xml.replace(/<w:highlight w:val="[^"]*"\s*\/>/g, '')
+}
+
+// ── Form A (mẫu mới "FBVN CLAIM FORM.docx") ──
+// 17 ô tô vàng theo ĐÚNG thứ tự xuất hiện trong file. Checkbox để TĨNH trong mẫu (không map).
 const FORMA_REPS = [
-  'HST-', '', '{{SO_FORMA}}',              // 1-3 Số
-  '{{NGAY}}',                               // 4 Date (ngày lập claim)
-  '{{MODEL}}', '', '', '', '', '', '',      // 5-11 M/C Model
-  '{{SERIAL}}',                             // 12 Serial
-  '{{CE}}', '', '',                         // 13-15 Name (CE)
-  '{{FOB_D}}', '{{FOB_M}}', '{{FOB_Y}}',    // 16-18 FOB D/M/Y
-  '{{DEF_D}}', '{{DEF_M}}', '{{DEF_Y}}',    // 19-21 Defect D/M/Y
-  '{{TEN_CLAIM}}', '{{MA}}', '{{DVT}}',     // 22-24 Tên/Mã/ĐVT
-  '-', ' ', '{{CONTENTS}}', '', '',         // 25-29 Contents ("- ...")
-  '-', ' ', '{{CAUSE}}', '', '',            // 30-34 Possible Cause ("- ...")
-  '{{CE}}', '', '',                         // 35-37 Prepared by CE
+  '{{SO_FORMA}}',                           // 1  Số (cả cụm, vd HST-26.001)
+  '{{NGAY}}',                               // 2  Date (ngày lập claim)
+  '{{MODEL}}',                              // 3  M/C Model
+  '{{SERIAL}}',                             // 4  Serial
+  '{{CE}}',                                 // 5  Name (CE)
+  '{{FOB_D}}', '{{FOB_M}}', '{{FOB_Y}}',    // 6-8   FOB D/M/Y
+  '{{DEF_D}}', '{{DEF_M}}', '{{DEF_Y}}',    // 9-11  Defect D/M/Y
+  '{{TEN_CLAIM}}', '{{MA}}', '{{DVT}}',     // 12-14 Tên/Mã/ĐVT
+  '{{CONTENTS}}',                           // 15 Contents
+  '{{CAUSE}}',                              // 16 Possible Cause
+  '{{CE}}',                                 // 17 Prepared by CE
 ]
-const ATT_KEYS = ['cb_att_invoice', 'cb_att_mhc', 'cb_att_faulty', 'cb_att_sample', 'cb_att_po', 'cb_att_license']
-const JUDG_KEYS = ['cb_judg_install', 'cb_judg_tech', 'cb_judg_goods', 'cb_judg_info']
 
 // ── BB Bàn giao ──
 const BB_REPS = [
@@ -87,11 +92,6 @@ function build(srcName, outName, apply) {
 }
 
 console.log('Dựng template FBVN:')
-build('Form A.docx', 'fbvn-form-a.docx', xml => {
-  xml = replaceHighlights(xml, FORMA_REPS)
-  xml = drawingsToCheckbox(xml, 'Attached', ATT_KEYS)
-  xml = drawingsToCheckbox(xml, 'Judgment: (by CE)', JUDG_KEYS)
-  return xml
-})
-build('BB Bàn giao.docx', 'fbvn-bb.docx', xml => replaceHighlights(xml, BB_REPS))
+build('FBVN CLAIM FORM.docx', 'fbvn-form-a.docx', xml => stripHighlights(replaceHighlights(xml, FORMA_REPS)))
+build('BB Bàn giao.docx', 'fbvn-bb.docx', xml => stripHighlights(replaceHighlights(xml, BB_REPS)))
 console.log('Xong.')

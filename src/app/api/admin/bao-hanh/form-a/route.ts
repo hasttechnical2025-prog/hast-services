@@ -18,7 +18,6 @@ function render(templateFile: string, data: Record<string, any>) {
 }
 
 const dmy = (s: any) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s ?? '')); return m ? { d: m[3], m: m[2], y: m[1] } : { d: '', m: '', y: '' } }
-const cb = (f: any) => (f ? '☒' : '☐')
 
 // GET ?id= : xuất Form (A) .docx cho 1 ca. Cấp số HST-{YY}.{nnn} (reset năm) nếu chưa có, lưu lại.
 export async function GET(request: Request) {
@@ -47,16 +46,13 @@ export async function GET(request: Request) {
 
     const fob = dmy(r.fob_date), def = dmy(r.defect_date), ng = dmy(r.ngay)
     const data = {
-      SO_FORMA: soFormShort,
+      SO_FORMA: soForm,   // số đầy đủ, vd HST-26.001 (mẫu mới tô vàng cả cụm)
       NGAY: ng.d ? `${ng.d}/${ng.m}/${ng.y}` : '',
       MODEL: r.model || '', SERIAL: r.serial || '', CE: r.ktv || '',
       FOB_D: fob.d, FOB_M: fob.m, FOB_Y: fob.y,
       DEF_D: def.d, DEF_M: def.m, DEF_Y: def.y,
       TEN_CLAIM: r.ten_claim || '', MA: r.product_code || '', DVT: r.don_vi || '',
       CONTENTS: r.contents || '', CAUSE: r.possible_cause || '',
-      cb_att_invoice: cb(r.att_invoice), cb_att_mhc: cb(r.att_mhc), cb_att_faulty: cb(r.att_faulty),
-      cb_att_sample: cb(r.att_sample), cb_att_po: cb(r.att_po), cb_att_license: cb(r.att_license),
-      cb_judg_install: cb(r.judg_install), cb_judg_tech: cb(r.judg_tech), cb_judg_goods: cb(r.judg_goods), cb_judg_info: cb(r.judg_info),
     }
 
     const buf = render('fbvn-form-a.docx', data)
