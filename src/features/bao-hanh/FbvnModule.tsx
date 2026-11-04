@@ -180,13 +180,13 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
         </table>
       </div>
 
-      {editing && <FbvnForm initial={editing} plinvoice={plinvoice} dmhang={dmhang} ktvOptions={ktvOptions} customers={customers} notify={notify} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload() }} />}
+      {editing && <FbvnForm initial={editing} list={list} plinvoice={plinvoice} dmhang={dmhang} ktvOptions={ktvOptions} customers={customers} notify={notify} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload() }} />}
     </div>
   )
 }
 
 // ─────────────────────────────── FORM 1 CA ───────────────────────────────
-function FbvnForm({ initial, plinvoice, dmhang, ktvOptions, customers, notify, onClose, onSaved }: any) {
+function FbvnForm({ initial, list, plinvoice, dmhang, ktvOptions, customers, notify, onClose, onSaved }: any) {
   const [f, setF] = useState<any>(() => ({
     co_claim: true, co_ban_giao: true, judg_goods: true, att_invoice: true, att_faulty: true, att_po: true,
     huong_giai_quyet: 'Trả hàng bảo hành', ...initial,
@@ -194,11 +194,16 @@ function FbvnForm({ initial, plinvoice, dmhang, ktvOptions, customers, notify, o
   const [saving, setSaving] = useState(false)
   const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }))
 
-  // Tra PL-Invoice theo serial → tự điền item_no/model/fob/invoice/do.
-  const lookupSerial = (serial: string) => {
-    const hit = (plinvoice as any[]).find(p => String(p.serial) === String(serial).trim())
-    if (hit) setF((p: any) => ({ ...p, item_no: hit.item_no || '', model: hit.model || '', fob_date: hit.fob_date || '', invoice_no: hit.invoice_no || '', do_no: hit.do_no || '' }))
+  const serialTrim = String(f.serial || '').trim()
+  // Serial LÀ khóa tra cứu: đổi serial → tự điền (hoặc XÓA) item_no/model/fob/invoice/do từ PL-Invoice.
+  const onSerialChange = (serial: string) => {
+    const hit = (plinvoice as any[]).find(p => String(p.serial) === serial.trim())
+    setF((p: any) => ({ ...p, serial, item_no: hit?.item_no || '', model: hit?.model || '', fob_date: hit?.fob_date || '', invoice_no: hit?.invoice_no || '', do_no: hit?.do_no || '' }))
   }
+  // Serial đã nhập nhưng KHÔNG có trong PL-Invoice → cảnh báo (không auto điền được máy).
+  const serialNotFound = !!serialTrim && !(plinvoice as any[]).some(p => String(p.serial) === serialTrim)
+  // Serial ĐÃ có ca bảo hành khác trong Sổ → cảnh báo trùng.
+  const dupCases = useMemo(() => serialTrim ? (list as any[] || []).filter(r => String(r.serial) === serialTrim && r.id !== f.id) : [], [list, serialTrim, f.id])
   // Chọn mã vật tư → điền tên claim (từ DM Hàng).
   const lookupMa = (ma: string) => {
     const hit = (dmhang as any[]).find(d => String(d.ma_hang) === String(ma).trim())
@@ -243,14 +248,14 @@ function FbvnForm({ initial, plinvoice, dmhang, ktvOptions, customers, notify, o
   )
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-y-auto p-4" onMouseDown={onClose}>
-      <div className="bg-slate-50 rounded-xl w-full max-w-4xl my-4 shadow-xl" onMouseDown={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-white rounded-t-xl sticky top-0 z-10">
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onMouseDown={onClose}>
+      <div className="bg-slate-50 rounded-xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-xl" onMouseDown={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-white rounded-t-xl shrink-0">
           <div className="font-semibold text-slate-800">{f.id ? 'Sửa ca bảo hành' : 'Thêm ca bảo hành'}{f.so_form_a ? ` · ${f.so_form_a}` : ''}</div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X className="w-5 h-5" /></button>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-4 overflow-y-auto flex-1">
           <div className="flex gap-4 items-center">
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700"><input type="checkbox" checked={!!f.co_claim} onChange={e => set('co_claim', e.target.checked)} /> ① Claim hãng (Form A)</label>
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700"><input type="checkbox" checked={!!f.co_ban_giao} onChange={e => set('co_ban_giao', e.target.checked)} /> ② Bàn giao khách (BB)</label>
@@ -262,13 +267,13 @@ function FbvnForm({ initial, plinvoice, dmhang, ktvOptions, customers, notify, o
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div><label className={lbl}>Ngày lập</label><DateField value={f.ngay || ''} onChange={v => set('ngay', v)} heightClass="h-9" className="w-full" /></div>
                 <div><label className={lbl}>KTV (CE)</label><select value={f.ktv || ''} onChange={e => set('ktv', e.target.value)} className={inp}><option value="">—</option>{ktvOptions.map((k: string) => <option key={k} value={k}>{k}</option>)}</select></div>
-                <div><label className={lbl}>Serial</label><input list="pl-serials" className={inp} value={f.serial || ''} onChange={e => { set('serial', e.target.value); lookupSerial(e.target.value) }} placeholder="Tra PL-Invoice" />
+                <div><label className={lbl}>Serial</label><input list="pl-serials" className={inp} value={f.serial || ''} onChange={e => onSerialChange(e.target.value)} placeholder="Tra PL-Invoice" />
                   <datalist id="pl-serials">{(plinvoice as any[]).slice(0, 500).map(p => <option key={p.id} value={p.serial}>{p.model}</option>)}</datalist></div>
-                <div><label className={lbl}>Mã máy</label><input className={inp} value={f.item_no || ''} onChange={e => set('item_no', e.target.value)} /></div>
-                <div className="md:col-span-2"><label className={lbl}>Model</label><input className={inp} value={f.model || ''} onChange={e => set('model', e.target.value)} /></div>
-                <div><label className={lbl}>Invoice No</label><input className={inp} value={f.invoice_no || ''} onChange={e => set('invoice_no', e.target.value)} /></div>
-                <div><label className={lbl}>DO / PL</label><input className={inp} value={f.do_no || ''} onChange={e => set('do_no', e.target.value)} /></div>
-                <div><label className={lbl}>FOB Date</label><DateField value={f.fob_date || ''} onChange={v => set('fob_date', v)} heightClass="h-9" className="w-full" /></div>
+                <div><label className={lbl}>Mã máy <span className="text-slate-300">(tự điền)</span></label><input readOnly tabIndex={-1} title="Tự điền từ PL-Invoice theo Serial" className={`${inp} bg-slate-100 text-slate-500 cursor-not-allowed`} value={f.item_no || ''} /></div>
+                <div className="md:col-span-2"><label className={lbl}>Model <span className="text-slate-300">(tự điền)</span></label><input readOnly tabIndex={-1} className={`${inp} bg-slate-100 text-slate-500 cursor-not-allowed`} value={f.model || ''} /></div>
+                <div><label className={lbl}>Invoice No <span className="text-slate-300">(tự điền)</span></label><input readOnly tabIndex={-1} className={`${inp} bg-slate-100 text-slate-500 cursor-not-allowed`} value={f.invoice_no || ''} /></div>
+                <div><label className={lbl}>DO / PL <span className="text-slate-300">(tự điền)</span></label><input readOnly tabIndex={-1} className={`${inp} bg-slate-100 text-slate-500 cursor-not-allowed`} value={f.do_no || ''} /></div>
+                <div><label className={lbl}>FOB Date <span className="text-slate-300">(tự điền)</span></label><input readOnly tabIndex={-1} className={`${inp} bg-slate-100 text-slate-500 cursor-not-allowed`} value={fmtVN(f.fob_date)} /></div>
                 <div className="md:col-span-3 flex items-end">
                   {onAir ? (
                     <div className={`flex items-center gap-2 text-sm rounded-md px-3 h-9 border w-full ${expired ? 'bg-rose-50 border-rose-300 text-rose-700' : 'bg-emerald-50 border-emerald-300 text-emerald-800'}`}>
@@ -278,6 +283,18 @@ function FbvnForm({ initial, plinvoice, dmhang, ktvOptions, customers, notify, o
                   ) : <div className="text-xs text-slate-400 h-9 flex items-end pb-2">On-air tự tính khi có FOB Date</div>}
                 </div>
               </div>
+              {serialNotFound && (
+                <div className="flex items-start gap-2 text-sm rounded-md px-3 py-2 bg-amber-50 border border-amber-300 text-amber-800">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>Serial <b>{serialTrim}</b> chưa có trong PL-Invoice — chưa tự điền được máy/FOB. Hãy thêm vào tab <b>PL-Invoice</b> trước (hoặc kiểm tra lại serial).</span>
+                </div>
+              )}
+              {dupCases.length > 0 && (
+                <div className="flex items-start gap-2 text-sm rounded-md px-3 py-2 bg-rose-50 border border-rose-300 text-rose-700">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>Serial <b>{serialTrim}</b> đã có <b>{dupCases.length}</b> ca bảo hành: {dupCases.slice(0, 5).map((r: any) => `${r.so_form_a || '(chưa số)'}${r.ngay ? ' · ' + fmtVN(r.ngay) : ''}`).join(' ; ')}{dupCases.length > 5 ? '…' : ''}. Kiểm tra kẻo trùng.</span>
+                </div>
+              )}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div><label className={lbl}>Mã vật tư</label><input list="dm-ma" className={inp} value={f.product_code || ''} onChange={e => { set('product_code', e.target.value); lookupMa(e.target.value) }} />
                   <datalist id="dm-ma">{(dmhang as any[]).map(d => <option key={d.id} value={d.ma_hang}>{d.ten_hang}</option>)}</datalist></div>
@@ -322,7 +339,7 @@ function FbvnForm({ initial, plinvoice, dmhang, ktvOptions, customers, notify, o
           )}
         </div>
 
-        <div className="flex gap-2 px-5 py-3 border-t border-slate-200 bg-white rounded-b-xl sticky bottom-0 flex-wrap">
+        <div className="flex gap-2 px-5 py-3 border-t border-slate-200 bg-white rounded-b-xl shrink-0 flex-wrap">
           <button disabled={saving} onClick={save} className="h-9 px-4 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-60">{saving ? 'Đang lưu…' : 'Lưu'}</button>
           {f.co_claim && <button disabled={saving} onClick={() => exportDoc('form-a')} className="h-9 px-3 rounded-md border border-slate-300 text-sm font-medium text-slate-700 inline-flex items-center gap-1.5 hover:bg-slate-50 disabled:opacity-60"><FileText className="w-4 h-4" />Xuất Form (A)</button>}
           {f.co_ban_giao && <button disabled={saving} onClick={() => exportDoc('bb')} className="h-9 px-3 rounded-md border border-slate-300 text-sm font-medium text-slate-700 inline-flex items-center gap-1.5 hover:bg-slate-50 disabled:opacity-60"><ClipboardList className="w-4 h-4" />Xuất BB Bàn giao</button>}
