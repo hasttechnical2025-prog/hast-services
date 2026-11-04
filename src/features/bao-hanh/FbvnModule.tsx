@@ -323,7 +323,7 @@ function FbvnForm({ initial, list, plinvoice, dmhang, ktvOptions, customers, not
                 </div>
               )}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div>{f.co_claim ? lblR('Mã vật tư') : <label className={lbl}>Mã vật tư</label>}<input list="dm-ma" className={inp} value={f.product_code || ''} onChange={e => { set('product_code', e.target.value); lookupMa(e.target.value) }} />
+                <div>{f.co_claim ? lblR('Mã vật tư') : <label className={lbl}>Mã vật tư</label>}<input list="dm-ma" className={inp} value={f.product_code || ''} onChange={e => { const v = e.target.value.toUpperCase(); set('product_code', v); lookupMa(v) }} />
                   <datalist id="dm-ma">{(dmhang as any[]).map(d => <option key={d.id} value={d.ma_hang}>{d.ten_hang}</option>)}</datalist></div>
                 <div className="md:col-span-2">{lblR('Tên hàng (Name of Goods / Hàng hóa)')}<input className={inp} value={f.ten_claim || ''} onChange={e => set('ten_claim', e.target.value)} /></div>
                 <div>{f.co_claim ? lblR('ĐVT') : <label className={lbl}>ĐVT</label>}<input className={inp} value={f.don_vi || ''} onChange={e => set('don_vi', e.target.value)} placeholder="piece" /></div>
@@ -349,7 +349,7 @@ function FbvnForm({ initial, list, plinvoice, dmhang, ktvOptions, customers, not
                 <div className={lbl}>Tiến trình</div>
                 <div className="flex flex-wrap gap-4 items-center text-sm">
                   <Chk k="claim_sent" label="Đã gửi hãng" />
-                  <span className="inline-flex items-center gap-2">Số claim FBVN <input className="h-8 px-2 rounded-md border border-slate-200 text-sm w-40" value={f.fbvn_claim_no || ''} onChange={e => set('fbvn_claim_no', e.target.value)} placeholder="hãng cấp sau…" /></span>
+                  <span className="inline-flex items-center gap-2">Số claim FBVN <input className="h-8 px-2 rounded-md border border-slate-200 text-sm w-40" value={f.fbvn_claim_no || ''} onChange={e => set('fbvn_claim_no', e.target.value.toUpperCase())} placeholder="hãng cấp sau…" /></span>
                   <Chk k="goods_received" label="Hàng về" />
                   <span className="inline-flex items-center gap-2 text-slate-500">ngày <DateField value={f.goods_received_date || ''} onChange={v => set('goods_received_date', v)} heightClass="h-8" className="w-32" /></span>
                   <Chk k="back_to_customer" label="Đã trả khách" />
