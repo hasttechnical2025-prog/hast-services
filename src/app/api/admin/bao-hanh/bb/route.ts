@@ -44,7 +44,7 @@ export async function GET(request: Request) {
       SO_BB: soBb,
       KHACH: r.customer || '', DIACHI: r.dia_chi || '',
       MODEL: r.model || '', SERIAL: r.serial || '', COUNTER: r.counter || '',
-      HANGHOA: r.ten_claim || '', TINHTRANG: r.contents || '', NGUYENNHAN: r.possible_cause || '',
+      HANGHOA: r.ten_claim || '', TINHTRANG: r.tinh_trang_vi || '', NGUYENNHAN: r.nguyen_nhan_vi || '',
       HUONG: r.huong_giai_quyet || 'Trả hàng bảo hành',
       NGAY_D: String(now.getUTCDate()), NGAY_M: String(now.getUTCMonth() + 1), NGAY_Y: String(nam),
     }

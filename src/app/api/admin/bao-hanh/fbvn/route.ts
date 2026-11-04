@@ -27,6 +27,7 @@ function buildPayload(b: any) {
     on_air: onAirFromFob(fob) || null,
     product_code: str(b.product_code), ten_claim: str(b.ten_claim), don_vi: str(b.don_vi),
     defect_date: toISODate(b.defect_date), contents: str(b.contents), possible_cause: str(b.possible_cause),
+    tinh_trang_vi: str(b.tinh_trang_vi), nguyen_nhan_vi: str(b.nguyen_nhan_vi),
     judg_install: bool(b.judg_install), judg_tech: bool(b.judg_tech), judg_goods: bool(b.judg_goods), judg_info: bool(b.judg_info),
     att_invoice: bool(b.att_invoice), att_mhc: bool(b.att_mhc), att_faulty: bool(b.att_faulty),
     att_sample: bool(b.att_sample), att_po: bool(b.att_po), att_license: bool(b.att_license),
