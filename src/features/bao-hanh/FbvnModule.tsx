@@ -4,7 +4,7 @@ import { useToast, SearchInput, ClearFilters } from '@/ui'
 import { useConfirm } from '@/components/ConfirmDialog'
 import DateField from '@/components/DateField'
 import { useShared } from '@/features/_shell/SharedDataProvider'
-import { onAirFromFob, isExpired, bhStatus, BH_STATUS_META } from '@/lib/bao-hanh'
+import { onAirFromFob, isExpired, bhStatus, BH_STATUS_META, vnTodayISO } from '@/lib/bao-hanh'
 import { Plus, Upload, FileDown, Download, FileText, ClipboardList, Pencil, Trash2, Search, ShieldCheck, AlertTriangle, X } from 'lucide-react'
 
 type Tab = 'so' | 'plinvoice' | 'dmhang' | 'cauhinh'
@@ -186,10 +186,12 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
 }
 
 // ─────────────────────────────── FORM 1 CA ───────────────────────────────
+// Nhãn trường BẮT BUỘC (có dấu *).
+const lblR = (t: string) => <label className={lbl}>{t} <span className="text-rose-500">*</span></label>
 function FbvnForm({ initial, list, plinvoice, dmhang, ktvOptions, customers, notify, onClose, onSaved }: any) {
   const [f, setF] = useState<any>(() => ({
     co_claim: true, co_ban_giao: true, judg_goods: true, att_invoice: true, att_faulty: true, att_po: true,
-    huong_giai_quyet: 'Trả hàng bảo hành', ...initial,
+    don_vi: 'piece', ngay: vnTodayISO(), huong_giai_quyet: 'Trả hàng bảo hành', ...initial,
   }))
   const [saving, setSaving] = useState(false)
   const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }))
@@ -200,11 +202,8 @@ function FbvnForm({ initial, list, plinvoice, dmhang, ktvOptions, customers, not
     const hit = (plinvoice as any[]).find(p => String(p.serial) === serial.trim())
     setF((p: any) => ({ ...p, serial, item_no: hit?.item_no || '', model: hit?.model || '', fob_date: hit?.fob_date || '', invoice_no: hit?.invoice_no || '', do_no: hit?.do_no || '' }))
   }
-  // Serial đã nhập nhưng KHÔNG có trong PL-Invoice → cảnh báo (không auto điền được máy).
   const serialNotFound = !!serialTrim && !(plinvoice as any[]).some(p => String(p.serial) === serialTrim)
-  // Serial ĐÃ có ca bảo hành khác trong Sổ → cảnh báo trùng.
   const dupCases = useMemo(() => serialTrim ? (list as any[] || []).filter(r => String(r.serial) === serialTrim && r.id !== f.id) : [], [list, serialTrim, f.id])
-  // Chọn mã vật tư → điền tên claim (từ DM Hàng).
   const lookupMa = (ma: string) => {
     const hit = (dmhang as any[]).find(d => String(d.ma_hang) === String(ma).trim())
     if (hit) setF((p: any) => ({ ...p, ten_claim: hit.ten_hang || p.ten_claim }))
@@ -215,32 +214,55 @@ function FbvnForm({ initial, list, plinvoice, dmhang, ktvOptions, customers, not
   }
 
   const onAir = useMemo(() => onAirFromFob(f.fob_date), [f.fob_date])
-  const expired = f.co_claim && onAir && isExpired(onAir)
+  const oaExpired = !!onAir && isExpired(onAir)
+  const expired = f.co_claim && oaExpired
+
+  // Kiểm tra TOÀN BỘ trường bắt buộc (bỏ qua ô cố ý trống: liên hệ/ĐT/hẹn trả/ghi chú/tiến trình).
+  const miss = useMemo(() => {
+    const m: string[] = []
+    const s = (v: any) => String(v ?? '').trim()
+    if (!f.co_claim && !f.co_ban_giao) { m.push('bật ít nhất 1 mặt'); return m }
+    // Khối chung (Máy & vật tư lỗi)
+    if (!serialTrim) m.push('Serial')
+    else if (!f.fob_date) m.push('Serial hợp lệ trong PL-Invoice')
+    if (!s(f.product_code)) m.push('Mã vật tư')
+    if (!s(f.ten_claim)) m.push('Tên claim')
+    if (!s(f.don_vi)) m.push('ĐVT')
+    if (!f.defect_date) m.push('Ngày hỏng')
+    if (!s(f.contents)) m.push('Tình trạng')
+    if (!s(f.possible_cause)) m.push('Nguyên nhân')
+    if (f.co_claim) { if (!f.ngay) m.push('Ngày lập'); if (!s(f.ktv)) m.push('KTV') }
+    if (f.co_ban_giao) {
+      if (!s(f.customer)) m.push('Khách hàng'); if (!s(f.dia_chi)) m.push('Địa chỉ')
+      if (!s(f.counter)) m.push('Counter'); if (!s(f.huong_giai_quyet)) m.push('Hướng giải quyết')
+    }
+    return m
+  }, [f, serialTrim])
+  const canSave = miss.length === 0 && !expired
+
+  const persist = async () => {
+    const method = f.id ? 'PUT' : 'POST'
+    const res = await fetch('/api/admin/bao-hanh/fbvn', { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f) })
+    const j = await res.json()
+    if (!res.ok) { notify('error', j.error || 'Lỗi lưu'); return null }
+    return f.id || j.id
+  }
+  const blockReason = () => expired
+    ? `Máy hết hạn bảo hành (On-air ${fmtVN(onAir)}) — bỏ tick "Claim hãng" nếu chỉ bàn giao.`
+    : `Chưa đủ dữ liệu, còn thiếu: ${miss.join(', ')}`
 
   const save = async () => {
-    if (expired) { notify(`Máy đã hết hạn bảo hành (On-air ${fmtVN(onAir)}) — không lập claim được. Bỏ tick "Claim hãng" nếu chỉ bàn giao.`, 'error'); return }
+    if (!canSave) { notify('error', blockReason()); return }
     setSaving(true)
-    try {
-      const method = f.id ? 'PUT' : 'POST'
-      const res = await fetch('/api/admin/bao-hanh/fbvn', { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f) })
-      const j = await res.json()
-      if (!res.ok) { notify('error', j.error || 'Lỗi lưu'); return }
-      notify('success', 'Đã lưu'); onSaved()
-    } catch { notify('error', 'Lỗi lưu') } finally { setSaving(false) }
+    try { const id = await persist(); if (id) { notify('success', 'Đã lưu'); onSaved() } }
+    catch { notify('error', 'Lỗi lưu') } finally { setSaving(false) }
   }
-  // Xuất Word: lưu trước rồi tải (đảm bảo bản ghi mới nhất + có số).
+  // Xuất Word (A): lưu-rồi-tải, CHỈ khi đã đủ dữ liệu (tránh bản ghi + file rác, đốt số HST).
   const exportDoc = async (kind: 'form-a' | 'bb') => {
-    if (expired && kind === 'form-a') { notify('error', 'Máy hết hạn BH — không xuất Form (A).'); return }
+    if (!canSave) { notify('error', blockReason()); return }
     setSaving(true)
-    try {
-      const method = f.id ? 'PUT' : 'POST'
-      const res = await fetch('/api/admin/bao-hanh/fbvn', { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f) })
-      const j = await res.json()
-      if (!res.ok) { notify('error', j.error || 'Lỗi lưu'); return }
-      const id = f.id || j.id
-      dl(`/api/admin/bao-hanh/${kind}?id=${id}`)
-      onSaved()
-    } catch { notify('error', 'Lỗi') } finally { setSaving(false) }
+    try { const id = await persist(); if (id) { dl(`/api/admin/bao-hanh/${kind}?id=${id}`); onSaved() } }
+    catch { notify('error', 'Lỗi') } finally { setSaving(false) }
   }
 
   const Chk = ({ k, label }: { k: string; label: string }) => (
@@ -261,26 +283,24 @@ function FbvnForm({ initial, list, plinvoice, dmhang, ktvOptions, customers, not
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700"><input type="checkbox" checked={!!f.co_ban_giao} onChange={e => set('co_ban_giao', e.target.checked)} /> ② Bàn giao khách (BB)</label>
           </div>
 
-          {f.co_claim && (
+          {(f.co_claim || f.co_ban_giao) && (
             <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
-              <div className="text-sm font-semibold text-blue-700">① Claim hãng → Form (A)</div>
+              <div className="text-sm font-semibold text-slate-700">Máy &amp; vật tư lỗi (dùng chung 2 form)</div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div><label className={lbl}>Ngày lập</label><DateField value={f.ngay || ''} onChange={v => set('ngay', v)} heightClass="h-9" className="w-full" /></div>
-                <div><label className={lbl}>KTV (CE)</label><select value={f.ktv || ''} onChange={e => set('ktv', e.target.value)} className={inp}><option value="">—</option>{ktvOptions.map((k: string) => <option key={k} value={k}>{k}</option>)}</select></div>
-                <div><label className={lbl}>Serial</label><input list="pl-serials" className={inp} value={f.serial || ''} onChange={e => onSerialChange(e.target.value)} placeholder="Tra PL-Invoice" />
+                <div><label className={lbl}>Serial <span className="text-rose-500">*</span></label><input list="pl-serials" className={inp} value={f.serial || ''} onChange={e => onSerialChange(e.target.value)} placeholder="Tra PL-Invoice" />
                   <datalist id="pl-serials">{(plinvoice as any[]).slice(0, 500).map(p => <option key={p.id} value={p.serial}>{p.model}</option>)}</datalist></div>
                 <div><label className={lbl}>Mã máy <span className="text-slate-300">(tự điền)</span></label><input readOnly tabIndex={-1} title="Tự điền từ PL-Invoice theo Serial" className={`${inp} bg-slate-100 text-slate-500 cursor-not-allowed`} value={f.item_no || ''} /></div>
                 <div className="md:col-span-2"><label className={lbl}>Model <span className="text-slate-300">(tự điền)</span></label><input readOnly tabIndex={-1} className={`${inp} bg-slate-100 text-slate-500 cursor-not-allowed`} value={f.model || ''} /></div>
                 <div><label className={lbl}>Invoice No <span className="text-slate-300">(tự điền)</span></label><input readOnly tabIndex={-1} className={`${inp} bg-slate-100 text-slate-500 cursor-not-allowed`} value={f.invoice_no || ''} /></div>
                 <div><label className={lbl}>DO / PL <span className="text-slate-300">(tự điền)</span></label><input readOnly tabIndex={-1} className={`${inp} bg-slate-100 text-slate-500 cursor-not-allowed`} value={f.do_no || ''} /></div>
                 <div><label className={lbl}>FOB Date <span className="text-slate-300">(tự điền)</span></label><input readOnly tabIndex={-1} className={`${inp} bg-slate-100 text-slate-500 cursor-not-allowed`} value={fmtVN(f.fob_date)} /></div>
-                <div className="md:col-span-3 flex items-end">
+                <div className="flex items-end">
                   {onAir ? (
-                    <div className={`flex items-center gap-2 text-sm rounded-md px-3 h-9 border w-full ${expired ? 'bg-rose-50 border-rose-300 text-rose-700' : 'bg-emerald-50 border-emerald-300 text-emerald-800'}`}>
-                      {expired ? <AlertTriangle className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
-                      {expired ? `Hết bảo hành — On-air ${fmtVN(onAir)} (chặn lập claim)` : `Còn bảo hành — On-air ${fmtVN(onAir)}`}
+                    <div className={`flex items-center gap-2 text-sm rounded-md px-3 h-9 border w-full ${oaExpired ? 'bg-rose-50 border-rose-300 text-rose-700' : 'bg-emerald-50 border-emerald-300 text-emerald-800'}`}>
+                      {oaExpired ? <AlertTriangle className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+                      {oaExpired ? `Hết BH — On-air ${fmtVN(onAir)}${f.co_claim ? ' (chặn claim)' : ''}` : `Còn BH — On-air ${fmtVN(onAir)}`}
                     </div>
-                  ) : <div className="text-xs text-slate-400 h-9 flex items-end pb-2">On-air tự tính khi có FOB Date</div>}
+                  ) : <div className="text-xs text-slate-400 h-9 flex items-end pb-2">On-air tự tính khi có FOB</div>}
                 </div>
               </div>
               {serialNotFound && (
@@ -296,13 +316,23 @@ function FbvnForm({ initial, list, plinvoice, dmhang, ktvOptions, customers, not
                 </div>
               )}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div><label className={lbl}>Mã vật tư</label><input list="dm-ma" className={inp} value={f.product_code || ''} onChange={e => { set('product_code', e.target.value); lookupMa(e.target.value) }} />
+                <div>{lblR('Mã vật tư')}<input list="dm-ma" className={inp} value={f.product_code || ''} onChange={e => { set('product_code', e.target.value); lookupMa(e.target.value) }} />
                   <datalist id="dm-ma">{(dmhang as any[]).map(d => <option key={d.id} value={d.ma_hang}>{d.ten_hang}</option>)}</datalist></div>
-                <div className="md:col-span-2"><label className={lbl}>Tên claim</label><input className={inp} value={f.ten_claim || ''} onChange={e => set('ten_claim', e.target.value)} /></div>
-                <div><label className={lbl}>ĐVT</label><input className={inp} value={f.don_vi || ''} onChange={e => set('don_vi', e.target.value)} placeholder="piece" /></div>
-                <div><label className={lbl}>Ngày hỏng</label><DateField value={f.defect_date || ''} onChange={v => set('defect_date', v)} heightClass="h-9" className="w-full" /></div>
-                <div className="md:col-span-3"><label className={lbl}>Tình trạng (Contents)</label><input className={inp} value={f.contents || ''} onChange={e => set('contents', e.target.value)} /></div>
-                <div className="md:col-span-4"><label className={lbl}>Nguyên nhân (Possible cause)</label><input className={inp} value={f.possible_cause || ''} onChange={e => set('possible_cause', e.target.value)} /></div>
+                <div className="md:col-span-2">{lblR('Tên claim')}<input className={inp} value={f.ten_claim || ''} onChange={e => set('ten_claim', e.target.value)} /></div>
+                <div>{lblR('ĐVT')}<input className={inp} value={f.don_vi || ''} onChange={e => set('don_vi', e.target.value)} placeholder="piece" /></div>
+                <div>{lblR('Ngày hỏng')}<DateField value={f.defect_date || ''} onChange={v => set('defect_date', v)} heightClass="h-9" className="w-full" /></div>
+                <div className="md:col-span-3">{lblR('Tình trạng (Contents)')}<input className={inp} value={f.contents || ''} onChange={e => set('contents', e.target.value)} /></div>
+                <div className="md:col-span-4">{lblR('Nguyên nhân (Possible cause)')}<input className={inp} value={f.possible_cause || ''} onChange={e => set('possible_cause', e.target.value)} /></div>
+              </div>
+            </div>
+          )}
+
+          {f.co_claim && (
+            <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+              <div className="text-sm font-semibold text-blue-700">① Claim hãng → Form (A)</div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div>{lblR('Ngày lập')}<DateField value={f.ngay || ''} onChange={v => set('ngay', v)} heightClass="h-9" className="w-full" /></div>
+                <div>{lblR('KTV (CE)')}<select value={f.ktv || ''} onChange={e => set('ktv', e.target.value)} className={inp}><option value="">—</option>{ktvOptions.map((k: string) => <option key={k} value={k}>{k}</option>)}</select></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div><div className={lbl}>Judgment (CE)</div><Chk k="judg_install" label="Installation Confirmation" /><Chk k="judg_tech" label="Technical Evaluation by CE" /><Chk k="judg_goods" label="Goods Confirmation" /><Chk k="judg_info" label="Technical Information" /></div>
@@ -325,25 +355,33 @@ function FbvnForm({ initial, list, plinvoice, dmhang, ktvOptions, customers, not
             <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
               <div className="text-sm font-semibold text-blue-700">② Bàn giao khách → BB Bàn giao{f.so_bb ? ` · ${f.so_bb}` : ''}</div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="md:col-span-2"><label className={lbl}>Khách hàng</label><input list="kh-list" className={inp} value={f.customer || ''} onChange={e => { set('customer', e.target.value); layKhach(e.target.value) }} />
+                <div className="md:col-span-2">{lblR('Khách hàng')}<input list="kh-list" className={inp} value={f.customer || ''} onChange={e => { set('customer', e.target.value); layKhach(e.target.value) }} />
                   <datalist id="kh-list">{(customers as any[]).slice(0, 500).map((c: any) => <option key={c.id} value={c.ten_khach_hang} />)}</datalist></div>
-                <div className="md:col-span-2"><label className={lbl}>Địa chỉ</label><input className={inp} value={f.dia_chi || ''} onChange={e => set('dia_chi', e.target.value)} /></div>
-                <div><label className={lbl}>Người liên hệ</label><input className={inp} value={f.nguoi_lien_he || ''} onChange={e => set('nguoi_lien_he', e.target.value)} /></div>
-                <div><label className={lbl}>Điện thoại</label><input className={inp} value={f.dien_thoai || ''} onChange={e => set('dien_thoai', e.target.value)} /></div>
-                <div><label className={lbl}>Counter (số đếm)</label><input className={inp} value={f.counter || ''} onChange={e => set('counter', e.target.value)} /></div>
-                <div><label className={lbl}>Ngày hẹn trả</label><DateField value={f.ngay_hen_tra || ''} onChange={v => set('ngay_hen_tra', v)} heightClass="h-9" className="w-full" /></div>
-                <div className="md:col-span-2"><label className={lbl}>Hướng giải quyết</label><input className={inp} value={f.huong_giai_quyet || ''} onChange={e => set('huong_giai_quyet', e.target.value)} /></div>
-                <div className="md:col-span-2"><label className={lbl}>Ghi chú</label><input className={inp} value={f.ghi_chu || ''} onChange={e => set('ghi_chu', e.target.value)} /></div>
+                <div className="md:col-span-2">{lblR('Địa chỉ')}<input className={inp} value={f.dia_chi || ''} onChange={e => set('dia_chi', e.target.value)} /></div>
+                <div>{lblR('Counter (số đếm)')}<input className={inp} value={f.counter || ''} onChange={e => set('counter', e.target.value)} /></div>
+                <div>{lblR('Hướng giải quyết')}<input className={inp} value={f.huong_giai_quyet || ''} onChange={e => set('huong_giai_quyet', e.target.value)} /></div>
+                <div><label className={lbl}>Người liên hệ <span className="text-slate-300">(viết tay)</span></label><input className={inp} value={f.nguoi_lien_he || ''} onChange={e => set('nguoi_lien_he', e.target.value)} /></div>
+                <div><label className={lbl}>Điện thoại <span className="text-slate-300">(viết tay)</span></label><input className={inp} value={f.dien_thoai || ''} onChange={e => set('dien_thoai', e.target.value)} /></div>
+                <div><label className={lbl}>Ngày hẹn trả <span className="text-slate-300">(viết tay)</span></label><DateField value={f.ngay_hen_tra || ''} onChange={v => set('ngay_hen_tra', v)} heightClass="h-9" className="w-full" /></div>
+                <div className="md:col-span-3"><label className={lbl}>Ghi chú</label><input className={inp} value={f.ghi_chu || ''} onChange={e => set('ghi_chu', e.target.value)} /></div>
               </div>
             </div>
           )}
         </div>
 
-        <div className="flex gap-2 px-5 py-3 border-t border-slate-200 bg-white rounded-b-xl shrink-0 flex-wrap">
-          <button disabled={saving} onClick={save} className="h-9 px-4 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-60">{saving ? 'Đang lưu…' : 'Lưu'}</button>
-          {f.co_claim && <button disabled={saving} onClick={() => exportDoc('form-a')} className="h-9 px-3 rounded-md border border-slate-300 text-sm font-medium text-slate-700 inline-flex items-center gap-1.5 hover:bg-slate-50 disabled:opacity-60"><FileText className="w-4 h-4" />Xuất Form (A)</button>}
-          {f.co_ban_giao && <button disabled={saving} onClick={() => exportDoc('bb')} className="h-9 px-3 rounded-md border border-slate-300 text-sm font-medium text-slate-700 inline-flex items-center gap-1.5 hover:bg-slate-50 disabled:opacity-60"><ClipboardList className="w-4 h-4" />Xuất BB Bàn giao</button>}
-          <button onClick={onClose} className="h-9 px-3 rounded-md border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 ml-auto">Đóng</button>
+        <div className="border-t border-slate-200 bg-white rounded-b-xl shrink-0">
+          {!canSave && (
+            <div className="px-5 pt-2 text-xs text-rose-600 flex items-start gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <span>{expired ? blockReason() : (miss.length ? `Chưa đủ để lưu/xuất — thiếu: ${miss.join(', ')}` : '')}</span>
+            </div>
+          )}
+          <div className="flex gap-2 px-5 py-3 flex-wrap">
+            <button disabled={saving || !canSave} onClick={save} className="h-9 px-4 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">{saving ? 'Đang lưu…' : 'Lưu'}</button>
+            {f.co_claim && <button disabled={saving || !canSave} onClick={() => exportDoc('form-a')} className="h-9 px-3 rounded-md border border-slate-300 text-sm font-medium text-slate-700 inline-flex items-center gap-1.5 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"><FileText className="w-4 h-4" />Xuất Form (A)</button>}
+            {f.co_ban_giao && <button disabled={saving || !canSave} onClick={() => exportDoc('bb')} className="h-9 px-3 rounded-md border border-slate-300 text-sm font-medium text-slate-700 inline-flex items-center gap-1.5 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"><ClipboardList className="w-4 h-4" />Xuất BB Bàn giao</button>}
+            <button onClick={onClose} className="h-9 px-3 rounded-md border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 ml-auto">Đóng</button>
+          </div>
         </div>
       </div>
     </div>

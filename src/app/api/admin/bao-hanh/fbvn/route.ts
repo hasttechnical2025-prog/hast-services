@@ -68,6 +68,7 @@ export async function POST(request: Request) {
     if (!session) return NextResponse.json({ error: 'Không có quyền' }, { status: 401 })
     const b = await request.json()
     const p = buildPayload(b)
+    if (!p.serial && !p.customer) return NextResponse.json({ error: 'Bản ghi rỗng — cần ít nhất Serial hoặc Khách hàng.' }, { status: 400 })
     const err = expiredError(p)
     if (err) return NextResponse.json({ error: err }, { status: 400 })
     p.created_by = session.full_name || null
