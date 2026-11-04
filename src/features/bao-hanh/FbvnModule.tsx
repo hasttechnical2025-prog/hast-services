@@ -56,18 +56,17 @@ export function FbvnModule() {
   ]
 
   return (
-    <div className="max-w-[1400px] mx-auto">
-      <div className="flex items-center gap-2 mb-3 px-1">
-        <ShieldCheck className="w-5 h-5 text-blue-600" />
-        <h1 className="text-base font-bold text-slate-800">Bảo hành hãng — FBVN</h1>
-      </div>
-      <div className="flex gap-1 border-b border-slate-200 mb-3 overflow-x-auto bg-white rounded-t-lg px-1">
-        {TABS.map(t => (
-          <button key={t.k} onClick={() => setTab(t.k)}
-            className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition ${tab === t.k ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
-            {t.label}
-          </button>
-        ))}
+    <div className="space-y-3">
+      {/* Thanh tab con STICKY kiểu UNDERLINE trên NỀN XÁM (chuẩn chung v2, [[ui-tab-chau-kieu-a]]). */}
+      <div className="sticky top-0 z-20 -mx-2 px-2 pt-1 bg-slate-200/95 backdrop-blur">
+        <div className="bg-slate-200 -mx-2 px-2 flex gap-1 border-b border-slate-200 overflow-x-auto">
+          {TABS.map(t => (
+            <button key={t.k} onClick={() => setTab(t.k)}
+              className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition ${tab === t.k ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {tab === 'so' && <SoTab list={list} loading={loading} plinvoice={plinvoice} dmhang={dmhang} ktvOptions={ktvOptions} customers={customers} notify={notify} confirm={confirm} reload={load} />}
@@ -370,8 +369,14 @@ function PlInvoiceTab({ rows, notify, confirm, reload }: any) {
   }
   const del = async (r: any) => { if (!(await confirm('Xóa dòng này?', { confirmLabel: 'Xóa', danger: true }))) return; const res = await fetch(`/api/admin/bao-hanh/plinvoice?id=${r.id}`, { method: 'DELETE' }); if (res.ok) reload() }
 
+  // Cột On-air (FOB+12th cuối tháng) + cờ "Hết BH" (đỏ) nếu quá hạn.
+  const onAirCell = (r: any) => {
+    const oa = onAirFromFob(r.fob_date); if (!oa) return <span className="text-slate-300">—</span>
+    const ex = isExpired(oa)
+    return <span className={ex ? 'text-rose-600 font-medium' : 'text-slate-600'}>{fmtVN(oa)}{ex && <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-rose-100 text-rose-700">Hết BH</span>}</span>
+  }
   return <RefTable title="PL-Invoice (dữ liệu giao hàng FUJIFILM)" q={q} setQ={setQ} onTpl={tpl} parseRows={parseRows} onCommit={onCommit} unit="dòng"
-    columns={[['do_no', 'DO No.'], ['item_no', 'Mã máy'], ['serial', 'Serial'], ['model', 'Model'], ['fob_date', 'FOB', fmtVN], ['invoice_no', 'Invoice No']]} rows={filtered} onDel={del} />
+    columns={[['do_no', 'DO No.'], ['item_no', 'Mã máy'], ['serial', 'Serial'], ['model', 'Model'], ['fob_date', 'FOB', fmtVN], ['on_air', 'On-air', undefined, onAirCell], ['invoice_no', 'Invoice No']]} rows={filtered} onDel={del} />
 }
 
 // ─────────────────────────────── DM HÀNG ───────────────────────────────
@@ -453,7 +458,7 @@ function RefTable({ title, q, setQ, onTpl, parseRows, onCommit, unit, columns, r
                   <tbody>
                     {preview.items.slice(0, 100).map((it: any, i: number) => (
                       <tr key={i} className={`border-t border-slate-100 ${it._dup ? 'bg-amber-50' : ''}`}>
-                        {columns.map((c: any) => <td key={c[0]} className="px-2 py-1 text-slate-700 whitespace-nowrap">{c[2] ? c[2](it[c[0]]) : it[c[0]]}{c[0] === columns[0][0] && it._dup ? <span className="ml-1 text-amber-600 t3">trùng</span> : ''}</td>)}
+                        {columns.map((c: any) => <td key={c[0]} className="px-2 py-1 text-slate-700 whitespace-nowrap">{c[3] ? c[3](it) : c[2] ? c[2](it[c[0]]) : it[c[0]]}{c[0] === columns[0][0] && it._dup ? <span className="ml-1 text-amber-600 t3">trùng</span> : ''}</td>)}
                       </tr>
                     ))}
                   </tbody>
@@ -477,7 +482,7 @@ function RefTable({ title, q, setQ, onTpl, parseRows, onCommit, unit, columns, r
             {rows.length === 0 ? <tr><td colSpan={columns.length + 1} className="text-center py-8 text-slate-400">Chưa có dữ liệu.</td></tr>
               : rows.map((r: any) => (
                 <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50">
-                  {columns.map((c: any) => <td key={c[0]} className="px-2.5 py-1.5 text-slate-700">{c[2] ? c[2](r[c[0]]) : r[c[0]]}</td>)}
+                  {columns.map((c: any) => <td key={c[0]} className="px-2.5 py-1.5 text-slate-700">{c[3] ? c[3](r) : c[2] ? c[2](r[c[0]]) : r[c[0]]}</td>)}
                   <td className="px-2.5 py-1.5 text-right"><button title="Xóa" onClick={() => onDel(r)} className="text-slate-400 hover:text-rose-600"><Trash2 className="w-4 h-4 inline" /></button></td>
                 </tr>
               ))}

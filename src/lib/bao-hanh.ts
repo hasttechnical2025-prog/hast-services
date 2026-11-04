@@ -5,7 +5,10 @@
 // Nhận chuỗi 'YYYY-MM-DD' (hoặc Date) -> trả 'YYYY-MM-DD' hoặc '' nếu không hợp lệ.
 export function onAirFromFob(fob: string | Date | null | undefined): string {
   if (!fob) return ''
-  const s = typeof fob === 'string' ? fob : fob.toISOString()
+  let s = typeof fob === 'string' ? fob.trim() : fob.toISOString()
+  // Chấp nhận dd/mm/yyyy (dữ liệu dán Excel) -> đổi về yyyy-mm-dd trước khi tính.
+  const dmy = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s)
+  if (dmy) s = `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s)
   if (!m) return ''
   const y = parseInt(m[1], 10), mon = parseInt(m[2], 10) // mon: 1..12
