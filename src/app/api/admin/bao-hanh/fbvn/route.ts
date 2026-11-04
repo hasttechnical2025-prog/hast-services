@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { logAudit } from '@/lib/audit'
-import { onAirFromFob, isExpired } from '@/lib/bao-hanh'
+import { onAirFromFob, isExpired, vnTodayISO } from '@/lib/bao-hanh'
 
 export const runtime = 'nodejs'
 
@@ -42,10 +42,14 @@ function buildPayload(b: any) {
   return p
 }
 
-// Chặn lập claim cho máy HẾT HẠN BH (chỉ khi có mặt Claim + có on_air đã quá hạn).
+// Chặn lập claim khi NGÀY LẬP CLAIM (p.ngay, mặc định hôm nay) đã quá On-air — chỉ khi có mặt Claim.
+// So theo ngày lập (không phải hôm nay) để nhập được danh sách cũ còn hạn tại thời điểm lập.
 function expiredError(p: any): string | null {
-  if (p.co_claim && p.on_air && isExpired(p.on_air)) {
-    return `Máy đã hết hạn bảo hành (On-air ${p.on_air}) — không lập claim được.`
+  if (p.co_claim && p.on_air) {
+    const claimRef = p.ngay || vnTodayISO()
+    if (isExpired(p.on_air, claimRef)) {
+      return `Ngày lập claim (${claimRef}) đã quá hạn bảo hành (On-air ${p.on_air}) — không lập claim được.`
+    }
   }
   return null
 }

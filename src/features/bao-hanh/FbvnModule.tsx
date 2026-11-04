@@ -214,7 +214,10 @@ function FbvnForm({ initial, list, plinvoice, dmhang, ktvOptions, customers, not
   }
 
   const onAir = useMemo(() => onAirFromFob(f.fob_date), [f.fob_date])
-  const oaExpired = !!onAir && isExpired(onAir)
+  // Chặn claim theo NGÀY LẬP CLAIM vs On-air (không phải hôm nay) — để nhập được danh sách cũ
+  // mà lúc lập vẫn còn hạn. Ca mới chưa điền ngày → mặc định hôm nay (giữ cảnh báo như cũ).
+  const claimRef = f.ngay || vnTodayISO()
+  const oaExpired = !!onAir && isExpired(onAir, claimRef)
   const expired = f.co_claim && oaExpired
 
   // Kiểm tra trường bắt buộc theo ĐÚNG mặt đang bật (tắt mặt nào → không đòi trường của mặt đó).
@@ -255,7 +258,7 @@ function FbvnForm({ initial, list, plinvoice, dmhang, ktvOptions, customers, not
     return f.id || j.id
   }
   const blockReason = () => expired
-    ? `Máy hết hạn bảo hành (On-air ${fmtVN(onAir)}) — bỏ tick "Claim hãng" nếu chỉ bàn giao.`
+    ? `Ngày lập claim (${fmtVN(claimRef)}) đã quá hạn bảo hành (On-air ${fmtVN(onAir)}) — sửa ngày lập hoặc bỏ tick "Claim hãng".`
     : `Thiếu: ${miss.join(', ')}`
 
   const save = async () => {
