@@ -429,6 +429,11 @@ function PlInvoiceTab({ rows, notify, confirm, reload }: any) {
     const j = await res.json()
     if (res.ok) { notify('success', `Đã nhập ${j.count} dòng`); reload() } else notify('error', j.error || 'Lỗi')
   }
+  const onAdd = async (row: any) => {
+    const res = await fetch('/api/admin/bao-hanh/plinvoice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(row) })
+    const j = await res.json()
+    if (res.ok) { notify('success', 'Đã thêm 1 dòng'); reload() } else notify('error', j.error || 'Lỗi')
+  }
   const del = async (r: any) => { if (!(await confirm('Xóa dòng này?', { confirmLabel: 'Xóa', danger: true }))) return; const res = await fetch(`/api/admin/bao-hanh/plinvoice?id=${r.id}`, { method: 'DELETE' }); if (res.ok) reload() }
 
   // Cột On-air (FOB+12th cuối tháng) + cờ "Hết BH" (đỏ) nếu quá hạn.
@@ -438,6 +443,7 @@ function PlInvoiceTab({ rows, notify, confirm, reload }: any) {
     return <span className={ex ? 'text-rose-600 font-medium' : 'text-slate-600'}>{fmtVN(oa)}{ex && <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-rose-100 text-rose-700">Hết BH</span>}</span>
   }
   return <RefTable title="PL-Invoice (dữ liệu giao hàng FUJIFILM)" q={q} setQ={setQ} onTpl={tpl} parseRows={parseRows} onCommit={onCommit} unit="dòng"
+    onAdd={onAdd} addFields={[{ key: 'serial', label: 'Serial', req: true }, { key: 'model', label: 'Model' }, { key: 'item_no', label: 'Mã máy' }, { key: 'do_no', label: 'DO No.' }, { key: 'invoice_no', label: 'Invoice No' }, { key: 'fob_date', label: 'FOB (ngày HĐ)', type: 'date' }]}
     columns={[['do_no', 'DO No.'], ['item_no', 'Mã máy'], ['serial', 'Serial'], ['model', 'Model'], ['fob_date', 'FOB', fmtVN], ['on_air', 'On-air', undefined, onAirCell], ['invoice_no', 'Invoice No']]} rows={filtered} onDel={del} />
 }
 
@@ -467,19 +473,29 @@ function DmHangTab({ rows, notify, confirm, reload }: any) {
     const j = await res.json()
     if (res.ok) { notify('success', `Đã nhập ${j.count} mã`); reload() } else notify('error', j.error || 'Lỗi')
   }
+  const onAdd = async (row: any) => {
+    const res = await fetch('/api/admin/bao-hanh/dmhang', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(row) })
+    const j = await res.json()
+    if (res.ok) { notify('success', 'Đã thêm 1 mã'); reload() } else notify('error', j.error || 'Lỗi')
+  }
   const del = async (r: any) => { if (!(await confirm('Xóa mã này?', { confirmLabel: 'Xóa', danger: true }))) return; const res = await fetch(`/api/admin/bao-hanh/dmhang?id=${r.id}`, { method: 'DELETE' }); if (res.ok) reload() }
   return <RefTable title="DM Hàng (mã vật tư claim của hãng)" q={q} setQ={setQ} onTpl={tpl} parseRows={parseRows} onCommit={onCommit} unit="mã"
+    onAdd={onAdd} addFields={[{ key: 'ma_hang', label: 'Mã hàng', req: true }, { key: 'ten_hang', label: 'Tên hàng' }, { key: 'model', label: 'Model' }, { key: 'ghi_chu', label: 'Ghi chú' }]}
     columns={[['ma_hang', 'Mã hàng'], ['ten_hang', 'Tên hàng'], ['model', 'Model'], ['ghi_chu', 'Ghi chú']]} rows={filtered} onDel={del} />
 }
 
-// Bảng tra cứu dùng chung (PL-Invoice + DM Hàng): tìm · tải mẫu · nhập Excel (dán → XEM TRƯỚC → ghi) · bảng · xóa.
-function RefTable({ title, q, setQ, onTpl, parseRows, onCommit, unit, columns, rows, onDel }: any) {
+// Bảng tra cứu dùng chung (PL-Invoice + DM Hàng): tìm · thêm 1 dòng · tải mẫu · nhập Excel (dán → XEM TRƯỚC → ghi) · bảng · xóa.
+function RefTable({ title, q, setQ, onTpl, parseRows, onCommit, unit, columns, rows, onDel, addFields, onAdd }: any) {
   const [paste, setPaste] = useState('')
   const [showPaste, setShowPaste] = useState(false)
   const [preview, setPreview] = useState<{ items: any[]; issues: { line: number; reason: string }[] } | null>(null)
   const [committing, setCommitting] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
+  const [addRow, setAddRow] = useState<any>({})
+  const [adding, setAdding] = useState(false)
   const resetImport = () => { setPaste(''); setShowPaste(false); setPreview(null) }
   const dupCount = preview ? preview.items.filter((x: any) => x._dup).length : 0
+  const addReqOk = (addFields || []).filter((fl: any) => fl.req).every((fl: any) => String(addRow[fl.key] || '').trim())
 
   return (
     <div>
@@ -487,9 +503,29 @@ function RefTable({ title, q, setQ, onTpl, parseRows, onCommit, unit, columns, r
         <div className="text-sm font-semibold text-slate-700 mr-2">{title}</div>
         <div className="max-w-xs flex-1 min-w-[160px]"><SearchInput value={q} onChange={setQ} placeholder="Tìm…" /></div>
         <div className="flex-1" />
+        <button onClick={() => { setShowAdd(s => !s); setShowPaste(false); setPreview(null) }} className="h-9 px-3 rounded-md bg-blue-600 text-white text-sm font-semibold inline-flex items-center gap-1.5 hover:bg-blue-700"><Plus className="w-4 h-4" />Thêm</button>
         <button onClick={onTpl} className="h-9 px-3 rounded-md border border-slate-300 text-sm font-medium text-slate-700 inline-flex items-center gap-1.5 hover:bg-slate-50"><FileDown className="w-4 h-4" />Tải mẫu</button>
-        <button onClick={() => { setShowPaste(s => !s); setPreview(null) }} className="h-9 px-3 rounded-md border border-slate-300 text-sm font-medium text-slate-700 inline-flex items-center gap-1.5 hover:bg-slate-50"><Upload className="w-4 h-4" />Nhập Excel</button>
+        <button onClick={() => { setShowPaste(s => !s); setShowAdd(false); setPreview(null) }} className="h-9 px-3 rounded-md border border-slate-300 text-sm font-medium text-slate-700 inline-flex items-center gap-1.5 hover:bg-slate-50"><Upload className="w-4 h-4" />Nhập Excel</button>
       </div>
+      {showAdd && (
+        <div className="bg-white border border-slate-200 rounded-lg p-3 mb-2 mx-1">
+          <div className="text-xs text-slate-500 mb-2">Thêm nhanh 1 dòng (không cần Excel).</div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {(addFields || []).map((fl: any) => (
+              <div key={fl.key}>
+                <label className={lbl}>{fl.label}{fl.req && <span className="text-rose-500"> *</span>}</label>
+                {fl.type === 'date'
+                  ? <DateField value={addRow[fl.key] || ''} onChange={v => setAddRow((p: any) => ({ ...p, [fl.key]: v }))} heightClass="h-9" className="w-full" />
+                  : <input className={inp} value={addRow[fl.key] || ''} onChange={e => setAddRow((p: any) => ({ ...p, [fl.key]: e.target.value }))} placeholder={fl.placeholder || ''} />}
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2 mt-3">
+            <button disabled={adding || !addReqOk} onClick={async () => { setAdding(true); await onAdd(addRow); setAdding(false); setAddRow({}); setShowAdd(false) }} className="h-8 px-3 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">{adding ? 'Đang lưu…' : 'Lưu'}</button>
+            <button onClick={() => { setShowAdd(false); setAddRow({}) }} className="h-8 px-3 rounded-md border border-slate-300 text-sm text-slate-600">Hủy</button>
+          </div>
+        </div>
+      )}
       {showPaste && (
         <div className="bg-white border border-slate-200 rounded-lg p-3 mb-2 mx-1">
           {!preview ? (
