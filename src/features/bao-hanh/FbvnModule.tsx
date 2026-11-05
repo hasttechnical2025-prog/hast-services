@@ -4,8 +4,8 @@ import { useToast, SearchInput, ClearFilters } from '@/ui'
 import { useConfirm } from '@/components/ConfirmDialog'
 import DateField from '@/components/DateField'
 import { useShared } from '@/features/_shell/SharedDataProvider'
-import { onAirFromFob, isExpired, bhStatus, BH_STATUS_META, vnTodayISO } from '@/lib/bao-hanh'
-import { Plus, Upload, FileDown, Download, FileText, ClipboardList, Pencil, Trash2, Search, ShieldCheck, AlertTriangle, X } from 'lucide-react'
+import { onAirFromFob, isExpired, vnTodayISO } from '@/lib/bao-hanh'
+import { Plus, Upload, FileDown, Download, FileText, ClipboardList, Pencil, Trash2, Search, ShieldCheck, AlertTriangle, X, Check, Minus } from 'lucide-react'
 
 type Tab = 'so' | 'plinvoice' | 'dmhang' | 'cauhinh'
 const fmtVN = (iso: any) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso ?? '')); return m ? `${m[3]}/${m[2]}/${m[1]}` : '' }
@@ -79,11 +79,37 @@ export function FbvnModule() {
 }
 
 // ─────────────────────────────── SỔ BẢO HÀNH ───────────────────────────────
+// 3 bước độc lập của 1 ca (tiến trình). Hiển thị = 3 chip xếp dọc; lọc theo từng bước.
+const BH_STEPS: { key: 'claim_sent' | 'goods_received' | 'back_to_customer'; label: string }[] = [
+  { key: 'claim_sent', label: 'Gửi hãng' },
+  { key: 'goods_received', label: 'Hàng về' },
+  { key: 'back_to_customer', label: 'Trả khách' },
+]
+// Xếp hạng tiến trình để SORT cột Trạng thái (gửi×4 + về×2 + trả×1).
+const progRank = (r: any) => (r.claim_sent ? 4 : 0) + (r.goods_received ? 2 : 0) + (r.back_to_customer ? 1 : 0)
+function StepChips({ r }: { r: any }) {
+  return (
+    <div className="flex flex-col gap-0.5 items-start">
+      {BH_STEPS.map(s => {
+        const on = !!r[s.key]
+        return (
+          <span key={s.key} className="inline-flex items-center gap-1 text-[10px] leading-none px-1.5 py-0.5 rounded-full border whitespace-nowrap"
+            style={on ? { borderColor: '#0F6E56', background: '#E1F5EE', color: '#0F6E56' } : { borderColor: '#D3D1C7', color: '#9a988f' }}>
+            {on ? <Check className="w-2.5 h-2.5" /> : <Minus className="w-2.5 h-2.5" />}{s.label}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify, confirm, reload }: any) {
   const [q, setQ] = useState('')
   const [fYear, setFYear] = useState('')
   const [fKtv, setFKtv] = useState('')
-  const [fStatus, setFStatus] = useState('')
+  const [fSent, setFSent] = useState('')   // '' | 'yes' | 'no' — Gửi hãng
+  const [fGoods, setFGoods] = useState('') // '' | 'yes' | 'no' — Hàng về
+  const [fCust, setFCust] = useState('')   // '' | 'yes' | 'no' — Trả khách
   const [sort, setSort] = useState<{ k: string; dir: 1 | -1 }>({ k: 'id', dir: -1 })
   const [editing, setEditing] = useState<any | null>(null)
 
@@ -94,7 +120,9 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
     let rows = (list as any[]).filter(r => {
       if (fYear && String(r.ngay || '').slice(0, 4) !== fYear) return false
       if (fKtv && r.ktv !== fKtv) return false
-      if (fStatus && bhStatus(r) !== fStatus) return false
+      if (fSent && (fSent === 'yes') !== !!r.claim_sent) return false
+      if (fGoods && (fGoods === 'yes') !== !!r.goods_received) return false
+      if (fCust && (fCust === 'yes') !== !!r.back_to_customer) return false
       if (needle) {
         const hay = `${r.serial || ''} ${r.product_code || ''} ${r.ten_claim || ''} ${r.model || ''} ${r.customer || ''} ${r.so_form_a || ''} ${r.fbvn_claim_no || ''}`.toLowerCase()
         if (!hay.includes(needle)) return false
@@ -103,11 +131,12 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
     })
     const { k, dir } = sort
     rows = [...rows].sort((a, b) => {
-      const va = a[k] ?? '', vb = b[k] ?? ''
+      const va = k === '_prog' ? progRank(a) : (a[k] ?? '')
+      const vb = k === '_prog' ? progRank(b) : (b[k] ?? '')
       return (va < vb ? -1 : va > vb ? 1 : 0) * dir
     })
     return rows
-  }, [list, q, fYear, fKtv, fStatus, sort])
+  }, [list, q, fYear, fKtv, fSent, fGoods, fCust, sort])
 
   const toggleSort = (k: string) => setSort(s => s.k === k ? { k, dir: (s.dir * -1) as 1 | -1 } : { k, dir: 1 })
   const th = (k: string, label: string, cls = '') => (
@@ -122,8 +151,9 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
     if (res.ok) { notify('success', 'Đã xóa'); reload() } else notify('error', 'Lỗi xóa')
   }
   const exportCSV = () => {
-    const head = ['Số', 'Ngày', 'Serial', 'Model', 'Mã VT', 'Tên hàng', 'On-air', 'Trạng thái', 'FBVN No.', 'Khách']
-    const rows = filtered.map((r: any) => [r.so_form_a || '', fmtVN(r.ngay), r.serial || '', r.model || '', r.product_code || '', r.ten_claim || '', fmtVN(r.on_air), BH_STATUS_META[bhStatus(r)].label, r.fbvn_claim_no || '', r.customer || ''])
+    const head = ['Số', 'Ngày', 'Serial', 'Model', 'Mã VT', 'Tên hàng', 'On-air', 'Gửi hãng', 'Hàng về', 'Trả khách', 'FBVN No.', 'Khách']
+    const yn = (v: any) => (v ? 'x' : '')
+    const rows = filtered.map((r: any) => [r.so_form_a || '', fmtVN(r.ngay), r.serial || '', r.model || '', r.product_code || '', r.ten_claim || '', fmtVN(r.on_air), yn(r.claim_sent), yn(r.goods_received), yn(r.back_to_customer), r.fbvn_claim_no || '', r.customer || ''])
     downloadCSV('so-bao-hanh-fbvn.csv', [head, ...rows])
   }
 
@@ -135,37 +165,46 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
         </div>
         <select value={fYear} onChange={e => setFYear(e.target.value)} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white"><option value="">Mọi năm</option>{years.map(y => <option key={y} value={y}>{y}</option>)}</select>
         <select value={fKtv} onChange={e => setFKtv(e.target.value)} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white"><option value="">Mọi KTV</option>{ktvOptions.map((k: string) => <option key={k} value={k}>{k}</option>)}</select>
-        <select value={fStatus} onChange={e => setFStatus(e.target.value)} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white"><option value="">Mọi trạng thái</option>{Object.entries(BH_STATUS_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select>
-        <ClearFilters show={!!(q || fYear || fKtv || fStatus)} onClear={() => { setQ(''); setFYear(''); setFKtv(''); setFStatus('') }} />
+        <select value={fSent} onChange={e => setFSent(e.target.value)} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white"><option value="">Gửi hãng: tất cả</option><option value="yes">Đã gửi</option><option value="no">Chưa gửi</option></select>
+        <select value={fGoods} onChange={e => setFGoods(e.target.value)} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white"><option value="">Hàng về: tất cả</option><option value="yes">Đã về</option><option value="no">Chưa về</option></select>
+        <select value={fCust} onChange={e => setFCust(e.target.value)} className="h-9 px-2 rounded-md border border-slate-200 text-sm bg-white"><option value="">Trả khách: tất cả</option><option value="yes">Đã trả</option><option value="no">Chưa trả</option></select>
+        <ClearFilters show={!!(q || fYear || fKtv || fSent || fGoods || fCust)} onClear={() => { setQ(''); setFYear(''); setFKtv(''); setFSent(''); setFGoods(''); setFCust('') }} />
         <div className="flex-1" />
         <button onClick={() => setEditing({})} className="h-9 px-3 rounded-md bg-blue-600 text-white text-sm font-semibold inline-flex items-center gap-1.5 hover:bg-blue-700"><Plus className="w-4 h-4" />Thêm ca</button>
         <button onClick={exportCSV} className="h-9 px-3 rounded-md border border-slate-300 text-sm font-medium text-slate-700 inline-flex items-center gap-1.5 hover:bg-slate-50"><Download className="w-4 h-4" />CSV</button>
       </div>
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500 px-1 mb-2">
-        {Object.entries(BH_STATUS_META).map(([k, v]) => <span key={k} className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: v.dot }} />{v.label}</span>)}
+        <span className="inline-flex items-center gap-1"><Check className="w-3 h-3 text-emerald-700" /> đã xong</span>
+        <span className="inline-flex items-center gap-1"><Minus className="w-3 h-3 text-slate-400" /> chưa làm</span>
+        <span className="text-slate-400">· Viền trái dòng:</span>
+        <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: '#888780' }} />chưa gửi</span>
+        <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: '#EF9F27' }} />đang xử lý</span>
+        <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: '#639922' }} />hoàn tất cả 3 bước</span>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-lg overflow-x-auto">
         <table className="w-full text-xs">
           <thead><tr className="text-left text-slate-500 border-b border-slate-200">
             {th('so_form_a', 'Số')}{th('ngay', 'Ngày')}{th('serial', 'Serial')}{th('model', 'Model')}{th('product_code', 'Vật tư')}{th('on_air', 'On-air')}
-            <th className="px-2.5 py-2 font-medium">Trạng thái</th>{th('fbvn_claim_no', 'FBVN No.')}{th('customer', 'Khách')}<th className="px-2.5 py-2 font-medium">Thao tác</th>
+            {th('_prog', 'Trạng thái')}{th('fbvn_claim_no', 'FBVN No.')}{th('customer', 'Khách')}<th className="px-2.5 py-2 font-medium">Thao tác</th>
           </tr></thead>
           <tbody>
             {loading ? <tr><td colSpan={10} className="text-center py-8 text-slate-400">Đang tải…</td></tr>
               : filtered.length === 0 ? <tr><td colSpan={10} className="text-center py-8 text-slate-400">Chưa có ca nào.</td></tr>
                 : filtered.map((r: any) => {
-                  const st = bhStatus(r); const meta = BH_STATUS_META[st]
-                  const td = `px-2.5 py-1.5 ${meta.done ? 'text-slate-400 line-through' : 'text-slate-700'}`
+                  const allDone = !!r.claim_sent && !!r.goods_received && !!r.back_to_customer
+                  const none = !r.claim_sent && !r.goods_received && !r.back_to_customer
+                  const borderColor = allDone ? '#639922' : none ? '#888780' : '#EF9F27'
+                  const td = `px-2.5 py-1.5 ${allDone ? 'text-slate-400 line-through' : 'text-slate-700'}`
                   return (
-                    <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50" style={{ borderLeft: `3px solid ${meta.dot}` }}>
+                    <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50" style={{ borderLeft: `3px solid ${borderColor}` }}>
                       <td className={`${td} font-mono whitespace-nowrap`}>{r.so_form_a || '—'}</td>
                       <td className={td}>{fmtVN(r.ngay)}</td>
                       <td className={`${td} font-mono`}>{r.serial || ''}</td><td className={td}>{r.model || ''}</td>
                       <td className={td}>{r.product_code || ''}<span className="text-slate-400"> {r.ten_claim ? `· ${r.ten_claim}` : ''}</span></td>
                       <td className={td}>{fmtVN(r.on_air)}</td>
-                      <td className="px-2.5 py-1.5"><span className="text-[11px] px-2 py-0.5 rounded-full whitespace-nowrap" style={{ background: meta.bg, color: meta.fg }}>{meta.label}</span></td>
+                      <td className="px-2.5 py-1.5"><StepChips r={r} /></td>
                       <td className={`${td} font-mono whitespace-nowrap`}>{r.fbvn_claim_no || ''}</td>
                       <td className={td}>{r.customer || ''}</td>
                       <td className="px-2.5 py-1.5 whitespace-nowrap text-slate-500">
