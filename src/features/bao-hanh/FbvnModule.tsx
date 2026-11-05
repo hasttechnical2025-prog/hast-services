@@ -404,8 +404,8 @@ function FbvnForm({ initial, list, plinvoice, dmhang, ktvOptions, customers, not
                       <StepDot on={!!f.claim_sent} short="G" />
                       <Chk k="claim_sent" label="Đã gửi hãng" />
                     </div>
-                    <div className="text-[11px] text-slate-500 mb-1">Số claim FBVN</div>
-                    <input className="h-8 px-2 rounded-md border border-slate-200 text-sm w-full font-mono" value={f.fbvn_claim_no || ''} onChange={e => set('fbvn_claim_no', e.target.value.toUpperCase())} placeholder="hãng cấp sau…" />
+                    <div className={`text-[11px] mb-1 ${f.claim_sent ? 'text-slate-500' : 'text-slate-300'}`}>Số claim FBVN</div>
+                    <input disabled={!f.claim_sent} className="h-8 px-2 rounded-md border border-slate-200 text-sm w-full font-mono disabled:opacity-50 disabled:bg-slate-50 disabled:cursor-not-allowed" value={f.fbvn_claim_no || ''} onChange={e => set('fbvn_claim_no', e.target.value.toUpperCase())} placeholder="hãng cấp sau…" />
                   </div>
                   {/* V — Hàng về */}
                   <div className="bg-white border border-slate-200 rounded-md p-3">
@@ -415,12 +415,12 @@ function FbvnForm({ initial, list, plinvoice, dmhang, ktvOptions, customers, not
                     </div>
                     <div className="space-y-2">
                       <div>
-                        <div className="text-[11px] text-slate-500 mb-1">Ngày về</div>
-                        <DateField value={f.goods_received_date || ''} onChange={v => set('goods_received_date', v)} heightClass="h-8" className="w-full" />
+                        <div className={`text-[11px] mb-1 ${f.goods_received ? 'text-slate-500' : 'text-slate-300'}`}>Ngày về</div>
+                        <DateField value={f.goods_received_date || ''} onChange={v => set('goods_received_date', v)} heightClass="h-8" className="w-full" disabled={!f.goods_received} />
                       </div>
                       <div>
-                        <div className="text-[11px] text-slate-500 mb-1" title="Chỉ nhập khi hãng trả về mã KHÁC mã đã gửi (mã mới / mã thay thế). Để trống = trả đúng mã gửi.">Mã trả về</div>
-                        <input list="dm-ma" className="h-8 px-2 rounded-md border border-slate-200 text-sm w-full font-mono uppercase" value={f.ma_tra_ve || ''} onChange={e => set('ma_tra_ve', e.target.value.toUpperCase())} placeholder="nếu khác mã gửi…" />
+                        <div className={`text-[11px] mb-1 ${f.goods_received ? 'text-slate-500' : 'text-slate-300'}`} title="Chỉ nhập khi hãng trả về mã KHÁC mã đã gửi (mã mới / mã thay thế). Để trống = trả đúng mã gửi.">Mã trả về</div>
+                        <input list="dm-ma" disabled={!f.goods_received} className="h-8 px-2 rounded-md border border-slate-200 text-sm w-full font-mono uppercase disabled:opacity-50 disabled:bg-slate-50 disabled:cursor-not-allowed" value={f.ma_tra_ve || ''} onChange={e => set('ma_tra_ve', e.target.value.toUpperCase())} placeholder="nếu khác mã gửi…" />
                       </div>
                     </div>
                   </div>

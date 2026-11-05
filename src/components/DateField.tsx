@@ -7,7 +7,7 @@ import { useState, useEffect } from "react"
 // Safari mở được lịch (không phụ thuộc showPicker). value/onChange dùng chuỗi ISO 'YYYY-MM-DD'.
 // onCommit (tùy chọn): bắn khi RỜI Ô (blur). Dùng cho bộ lọc muốn "chỉ áp dụng khi chọn xong"
 // — tránh reload giữa chừng khi trình duyệt tự chốt ngày lúc lướt tháng trong lịch native.
-export default function DateField({ value, onChange, onCommit, className, heightClass = "h-8", placeholder = "dd/mm/yyyy" }: { value: string, onChange: (v: string) => void, onCommit?: () => void, className?: string, heightClass?: string, placeholder?: string }) {
+export default function DateField({ value, onChange, onCommit, className, heightClass = "h-8", placeholder = "dd/mm/yyyy", disabled = false }: { value: string, onChange: (v: string) => void, onCommit?: () => void, className?: string, heightClass?: string, placeholder?: string, disabled?: boolean }) {
   const fmt = (s: string) => { if (!s) return ''; const d = new Date(s); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` }
   const [text, setText] = useState(fmt(value))
   useEffect(() => { setText(fmt(value)) }, [value])
@@ -26,8 +26,8 @@ export default function DateField({ value, onChange, onCommit, className, height
   const widthCls = hasWidth ? '' : 'w-36'
 
   return (
-    <div className={`relative flex items-center min-w-0 ${heightClass} ${widthCls} rounded-md border border-slate-200 bg-white shadow-2xs ${className || ''}`}>
-      <input type="text" inputMode="numeric" placeholder={placeholder} value={text} onChange={(e) => onText(e.target.value)} onBlur={() => onCommit?.()} className="flex-1 min-w-0 h-full pl-2.5 pr-1 bg-transparent text-xs text-slate-700 outline-none rounded-md" />
+    <div className={`relative flex items-center min-w-0 ${heightClass} ${widthCls} rounded-md border border-slate-200 bg-white shadow-2xs ${disabled ? 'opacity-50 bg-slate-50 pointer-events-none' : ''} ${className || ''}`}>
+      <input type="text" inputMode="numeric" disabled={disabled} placeholder={placeholder} value={text} onChange={(e) => onText(e.target.value)} onBlur={() => onCommit?.()} className="flex-1 min-w-0 h-full pl-2.5 pr-1 bg-transparent text-xs text-slate-700 outline-none rounded-md disabled:cursor-not-allowed" />
       {/* Vùng icon lịch — native date input trong suốt đè lên để chạm là mở lịch (iOS + Android) */}
       <div className="relative h-full w-7.5 shrink-0">
         <span className="absolute inset-0 flex items-center justify-center text-slate-400 pointer-events-none">
@@ -36,6 +36,7 @@ export default function DateField({ value, onChange, onCommit, className, height
         <input
           type="date"
           value={value}
+          disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
           onBlur={() => onCommit?.()}
           onClick={(e) => { try { (e.currentTarget as any).showPicker?.() } catch { /* không hỗ trợ showPicker */ } }}
