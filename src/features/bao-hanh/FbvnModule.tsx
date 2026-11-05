@@ -176,17 +176,6 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
         <button onClick={exportCSV} className="h-9 px-3 rounded-md border border-slate-300 text-sm font-medium text-slate-700 inline-flex items-center gap-1.5 hover:bg-slate-50"><Download className="w-4 h-4" />CSV</button>
       </div>
 
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500 px-1 mb-2">
-        <span className="inline-flex items-center gap-1">
-          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold text-white" style={{ background: '#0F6E56' }}>G</span>
-          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold border" style={{ borderColor: '#D3D1C7', color: '#9a988f' }}>V</span>
-          Gửi hãng · hàng Về · Trả khách (tròn xanh = xong)
-        </span>
-        <span className="text-slate-400">· Viền trái dòng:</span>
-        <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: '#888780' }} />chưa gửi</span>
-        <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: '#EF9F27' }} />đang xử lý</span>
-        <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: '#639922' }} />hoàn tất cả 3 bước</span>
-      </div>
 
       <div className="bg-white border border-slate-200 rounded-lg overflow-x-auto">
         <table className="w-full text-xs">
