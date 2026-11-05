@@ -34,6 +34,7 @@ function buildPayload(b: any) {
     co_claim: bool(b.co_claim), co_ban_giao: bool(b.co_ban_giao),
     claim_sent: bool(b.claim_sent), fbvn_claim_no: str(b.fbvn_claim_no),
     goods_received: bool(b.goods_received), goods_received_date: toISODate(b.goods_received_date),
+    ma_tra_ve: str(b.ma_tra_ve),  // mã hãng trả về (nếu khác mã gửi); trống = trả đúng mã
     back_to_customer: bool(b.back_to_customer),
     customer: str(b.customer), dia_chi: str(b.dia_chi), nguoi_lien_he: str(b.nguoi_lien_he),
     dien_thoai: str(b.dien_thoai), counter: str(b.counter),

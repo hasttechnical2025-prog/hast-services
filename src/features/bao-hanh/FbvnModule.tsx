@@ -126,7 +126,7 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
       if (fGoods && (fGoods === 'yes') !== !!r.goods_received) return false
       if (fCust && (fCust === 'yes') !== !!r.back_to_customer) return false
       if (needle) {
-        const hay = `${r.serial || ''} ${r.product_code || ''} ${r.ten_claim || ''} ${r.model || ''} ${r.customer || ''} ${r.so_form_a || ''} ${r.fbvn_claim_no || ''}`.toLowerCase()
+        const hay = `${r.serial || ''} ${r.product_code || ''} ${r.ma_tra_ve || ''} ${r.ten_claim || ''} ${r.model || ''} ${r.customer || ''} ${r.so_form_a || ''} ${r.fbvn_claim_no || ''}`.toLowerCase()
         if (!hay.includes(needle)) return false
       }
       return true
@@ -153,9 +153,9 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
     if (res.ok) { notify('success', 'Đã xóa'); reload() } else notify('error', 'Lỗi xóa')
   }
   const exportCSV = () => {
-    const head = ['Số', 'Ngày', 'Serial', 'Model', 'Mã VT', 'Tên hàng', 'On-air', 'Gửi hãng', 'Hàng về', 'Trả khách', 'FBVN No.', 'Khách']
+    const head = ['Số', 'Ngày', 'Serial', 'Model', 'Mã VT', 'Mã trả về', 'Tên hàng', 'On-air', 'Gửi hãng', 'Hàng về', 'Trả khách', 'FBVN No.', 'Khách']
     const yn = (v: any) => (v ? 'x' : '')
-    const rows = filtered.map((r: any) => [r.so_form_a || '', fmtVN(r.ngay), r.serial || '', r.model || '', r.product_code || '', r.ten_claim || '', fmtVN(r.on_air), yn(r.claim_sent), yn(r.goods_received), yn(r.back_to_customer), r.fbvn_claim_no || '', r.customer || ''])
+    const rows = filtered.map((r: any) => [r.so_form_a || '', fmtVN(r.ngay), r.serial || '', r.model || '', r.product_code || '', r.ma_tra_ve || '', r.ten_claim || '', fmtVN(r.on_air), yn(r.claim_sent), yn(r.goods_received), yn(r.back_to_customer), r.fbvn_claim_no || '', r.customer || ''])
     downloadCSV('so-bao-hanh-fbvn.csv', [head, ...rows])
   }
 
@@ -196,7 +196,17 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
                       <td className={`${td} font-mono whitespace-nowrap`}>{r.so_form_a || '—'}</td>
                       <td className={td}>{fmtVN(r.ngay)}</td>
                       <td className={`${td} font-mono`}>{r.serial || ''}</td><td className={td}>{r.model || ''}</td>
-                      <td className={td}>{r.product_code || ''}<span className="text-slate-400"> {r.ten_claim ? `· ${r.ten_claim}` : ''}</span></td>
+                      <td className={td}>
+                        {r.product_code || ''}
+                        {r.ma_tra_ve && String(r.ma_tra_ve).trim() && String(r.ma_tra_ve).trim().toUpperCase() !== String(r.product_code || '').trim().toUpperCase() && (
+                          <span title={`Hãng trả mã ${r.ma_tra_ve}${r.goods_received_date ? ` ngày ${fmtVN(r.goods_received_date)}` : ''}`}>
+                            <span className="text-slate-400"> → </span>
+                            <span className="font-medium text-emerald-700">{r.ma_tra_ve}</span>
+                            <span className="ml-1 text-[9px] leading-none px-1 py-0.5 rounded bg-amber-100 text-amber-700 align-middle">mã mới</span>
+                          </span>
+                        )}
+                        <span className="text-slate-400"> {r.ten_claim ? `· ${r.ten_claim}` : ''}</span>
+                      </td>
                       <td className={td}>{fmtVN(r.on_air)}</td>
                       <td className="px-2.5 py-1.5"><StepChips r={r} /></td>
                       <td className={`${td} font-mono whitespace-nowrap`}>{r.fbvn_claim_no || ''}</td>
@@ -382,6 +392,7 @@ function FbvnForm({ initial, list, plinvoice, dmhang, ktvOptions, customers, not
                   <span className="inline-flex items-center gap-2">Số claim FBVN <input className="h-8 px-2 rounded-md border border-slate-200 text-sm w-40" value={f.fbvn_claim_no || ''} onChange={e => set('fbvn_claim_no', e.target.value.toUpperCase())} placeholder="hãng cấp sau…" /></span>
                   <Chk k="goods_received" label="Hàng về" />
                   <span className="inline-flex items-center gap-2 text-slate-500">ngày <DateField value={f.goods_received_date || ''} onChange={v => set('goods_received_date', v)} heightClass="h-8" className="w-32" /></span>
+                  <span className="inline-flex items-center gap-2 text-slate-500" title="Chỉ nhập khi hãng trả về mã KHÁC mã đã gửi (mã mới / mã thay thế). Để trống = trả đúng mã gửi.">mã trả về <input list="dm-ma" className="h-8 px-2 rounded-md border border-slate-200 text-sm w-40 uppercase" value={f.ma_tra_ve || ''} onChange={e => set('ma_tra_ve', e.target.value.toUpperCase())} placeholder="nếu khác mã gửi…" /></span>
                   <Chk k="back_to_customer" label="Đã trả khách" />
                 </div>
               </div>
