@@ -5,7 +5,7 @@ import { useConfirm } from '@/components/ConfirmDialog'
 import DateField from '@/components/DateField'
 import { useShared } from '@/features/_shell/SharedDataProvider'
 import { onAirFromFob, isExpired, vnTodayISO } from '@/lib/bao-hanh'
-import { Plus, Upload, FileDown, Download, FileText, ClipboardList, Pencil, Trash2, Search, ShieldCheck, AlertTriangle, X, Check, Minus } from 'lucide-react'
+import { Plus, Upload, FileDown, Download, FileText, ClipboardList, Pencil, Trash2, Search, ShieldCheck, AlertTriangle, X } from 'lucide-react'
 
 type Tab = 'so' | 'plinvoice' | 'dmhang' | 'cauhinh'
 const fmtVN = (iso: any) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso ?? '')); return m ? `${m[3]}/${m[2]}/${m[1]}` : '' }
@@ -80,22 +80,24 @@ export function FbvnModule() {
 
 // ─────────────────────────────── SỔ BẢO HÀNH ───────────────────────────────
 // 3 bước độc lập của 1 ca (tiến trình). Hiển thị = 3 chip xếp dọc; lọc theo từng bước.
-const BH_STEPS: { key: 'claim_sent' | 'goods_received' | 'back_to_customer'; label: string }[] = [
-  { key: 'claim_sent', label: 'Gửi hãng' },
-  { key: 'goods_received', label: 'Hàng về' },
-  { key: 'back_to_customer', label: 'Trả khách' },
+const BH_STEPS: { key: 'claim_sent' | 'goods_received' | 'back_to_customer'; label: string; short: string }[] = [
+  { key: 'claim_sent', label: 'Gửi hãng', short: 'G' },
+  { key: 'goods_received', label: 'Hàng về', short: 'V' },
+  { key: 'back_to_customer', label: 'Trả khách', short: 'T' },
 ]
 // Xếp hạng tiến trình để SORT cột Trạng thái (gửi×4 + về×2 + trả×1).
 const progRank = (r: any) => (r.claim_sent ? 4 : 0) + (r.goods_received ? 2 : 0) + (r.back_to_customer ? 1 : 0)
+// Phương án B: 3 chấm tròn G·V·T trên 1 hàng ngang. Xong = tròn xanh đặc chữ trắng; chưa = viền xám.
 function StepChips({ r }: { r: any }) {
   return (
-    <div className="flex flex-col gap-0.5 items-start">
+    <div className="flex items-center gap-1">
       {BH_STEPS.map(s => {
         const on = !!r[s.key]
         return (
-          <span key={s.key} className="inline-flex items-center gap-1 text-[10px] leading-none px-1.5 py-0.5 rounded-full border whitespace-nowrap"
-            style={on ? { borderColor: '#0F6E56', background: '#E1F5EE', color: '#0F6E56' } : { borderColor: '#D3D1C7', color: '#9a988f' }}>
-            {on ? <Check className="w-2.5 h-2.5" /> : <Minus className="w-2.5 h-2.5" />}{s.label}
+          <span key={s.key} title={`${s.label}: ${on ? 'đã xong' : 'chưa'}`}
+            className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold leading-none border"
+            style={on ? { borderColor: '#0F6E56', background: '#0F6E56', color: '#fff' } : { borderColor: '#D3D1C7', color: '#9a988f' }}>
+            {s.short}
           </span>
         )
       })}
@@ -175,8 +177,11 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
       </div>
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500 px-1 mb-2">
-        <span className="inline-flex items-center gap-1"><Check className="w-3 h-3 text-emerald-700" /> đã xong</span>
-        <span className="inline-flex items-center gap-1"><Minus className="w-3 h-3 text-slate-400" /> chưa làm</span>
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold text-white" style={{ background: '#0F6E56' }}>G</span>
+          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold border" style={{ borderColor: '#D3D1C7', color: '#9a988f' }}>V</span>
+          Gửi hãng · hàng Về · Trả khách (tròn xanh = xong)
+        </span>
         <span className="text-slate-400">· Viền trái dòng:</span>
         <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: '#888780' }} />chưa gửi</span>
         <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: '#EF9F27' }} />đang xử lý</span>
