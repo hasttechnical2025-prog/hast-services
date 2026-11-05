@@ -413,12 +413,12 @@ function FbvnForm({ initial, list, plinvoice, dmhang, ktvOptions, customers, not
                       <StepDot on={!!f.goods_received} short="V" />
                       <Chk k="goods_received" label="Hàng về" />
                     </div>
-                    <div className="flex gap-2">
-                      <div className="flex-1">
+                    <div className="space-y-2">
+                      <div>
                         <div className="text-[11px] text-slate-500 mb-1">Ngày về</div>
                         <DateField value={f.goods_received_date || ''} onChange={v => set('goods_received_date', v)} heightClass="h-8" className="w-full" />
                       </div>
-                      <div className="flex-1">
+                      <div>
                         <div className="text-[11px] text-slate-500 mb-1" title="Chỉ nhập khi hãng trả về mã KHÁC mã đã gửi (mã mới / mã thay thế). Để trống = trả đúng mã gửi.">Mã trả về</div>
                         <input list="dm-ma" className="h-8 px-2 rounded-md border border-slate-200 text-sm w-full font-mono uppercase" value={f.ma_tra_ve || ''} onChange={e => set('ma_tra_ve', e.target.value.toUpperCase())} placeholder="nếu khác mã gửi…" />
                       </div>
