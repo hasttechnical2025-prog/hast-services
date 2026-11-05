@@ -70,13 +70,14 @@ const FORMA_REPS = [
   '{{CE}}',                                 // 17 Prepared by CE
 ]
 
-// ── BB Bàn giao ──
+// ── BB Bàn giao (mẫu mới "BB Ban giao.docx") — 14 ô tô vàng, thêm Mã hàng ──
 const BB_REPS = [
-  '{{SO_BB}}',                                                   // 1 Số
-  '{{KHACH}}', '{{DIACHI}}',                                     // 2-3
-  '{{MODEL}}', '{{SERIAL}}', '{{COUNTER}}',                      // 4-6
-  '{{HANGHOA}}', '{{TINHTRANG}}', '{{NGUYENNHAN}}', '{{HUONG}}', // 7-10
-  '{{NGAY_D}}', '{{NGAY_M}}', '{{NGAY_Y}}',                      // 11-13
+  '{{SO_BB}}',                                                   // 1  Số (cả cụm, vd HST-2026.021)
+  '{{KHACH}}', '{{DIACHI}}',                                     // 2-3  Khách / Địa chỉ
+  '{{MODEL}}', '{{SERIAL}}', '{{COUNTER}}',                      // 4-6  Model / Serial / Số đếm
+  '{{HANGHOA}}', '{{MA}}',                                       // 7-8  Tên hàng / Mã hàng
+  '{{TINHTRANG}}', '{{NGUYENNHAN}}', '{{HUONG}}',               // 9-11 Tình trạng / Nguyên nhân / Hướng
+  '{{NGAY_D}}', '{{NGAY_M}}', '{{NGAY_Y}}',                      // 12-14 Ngày lập D/M/Y
 ]
 
 function build(srcName, outName, apply) {
@@ -93,5 +94,5 @@ function build(srcName, outName, apply) {
 
 console.log('Dựng template FBVN:')
 build('FBVN CLAIM FORM.docx', 'fbvn-form-a.docx', xml => stripHighlights(replaceHighlights(xml, FORMA_REPS)))
-build('BB Bàn giao.docx', 'fbvn-bb.docx', xml => stripHighlights(replaceHighlights(xml, BB_REPS)))
+build('BB Ban giao.docx', 'fbvn-bb.docx', xml => stripHighlights(replaceHighlights(xml, BB_REPS)))
 console.log('Xong.')
