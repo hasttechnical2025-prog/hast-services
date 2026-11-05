@@ -640,10 +640,14 @@ export async function PUT(request: Request) {
             : {}
 
       // Đồng bộ trạng thái hóa đơn (công nợ) với cờ hoa_don của vật tư:
-      //  - có vật tư đã HĐ  -> 'Đã lên hóa đơn' (ra khỏi công nợ)
-      //  - không có (BỎ TICK HĐ) -> đưa về 'Chưa hóa đơn' từ MỌI trạng thái đã-hóa-đơn, KỂ CẢ
-      //    'Đã thanh toán' (phiếu pre-1/8/2026 bị "vơ đũa" gán Đã thanh toán nhưng chưa có số HĐ thật
-      //    -> admin sửa phiếu, bỏ tick HĐ để đẩy về Công nợ lên HĐ lại). Ngược lại giữ nguyên (mốc 'Đã báo giá').
+      //  - CÒN tick HĐ  -> GIỮ NGUYÊN nếu đang ở mốc đã-chốt ('Đang xử lý HĐ'/'Đã lên hóa đơn'/
+      //    'Đã thanh toán'); các mốc khác (Chưa HĐ/Đã báo giá) -> 'Chờ xuất HĐ' để lên HĐ.
+      //    ⚠️ PHẢI giữ 'Đã thanh toán': nếu không, SỬA phiếu CŨ đã thanh toán (vd fix mã hàng) sẽ bị
+      //    ép về 'Chờ xuất HĐ' -> nhảy vào Kanban cột 1 thành "phiếu ma" 0đ (bug đã gặp 2026-11-05,
+      //    xem [[sua-phieu-cu-reset-trangthai]]).
+      //  - KHÔNG còn tick (BỎ TICK HĐ cố ý) -> đưa về 'Chưa hóa đơn' từ MỌI trạng thái đã-hóa-đơn,
+      //    KỂ CẢ 'Đã thanh toán' (phiếu pre-1/8/2026 "vơ đũa" -> admin bỏ tick để đẩy về Công nợ lên
+      //    HĐ lại). Giữ workflow này. Ngược lại giữ nguyên (mốc 'Đã báo giá').
       const hasHD = Array.isArray(vat_tu) && vat_tu.some((v: any) => v.hoa_don && v.ma_hang && Number(v.so_luong) > 0)
       // MF -> trạng thái KẾT THÚC 'Miễn phí' (ra khỏi Kanban/Công nợ). Bỏ MF thì tính lại từ đầu
       // (coi mốc cũ 'Miễn phí' như 'Chưa hóa đơn' để không bị kẹt).
@@ -651,7 +655,7 @@ export async function PUT(request: Request) {
       const nextTrangThaiHd = mien_phi
         ? 'Miễn phí'
         : hasHD
-          ? (['Đang xử lý HĐ', 'Đã lên hóa đơn'].includes(baseHd) ? baseHd : 'Chờ xuất HĐ')
+          ? (['Đang xử lý HĐ', 'Đã lên hóa đơn', 'Đã thanh toán'].includes(baseHd) ? baseHd : 'Chờ xuất HĐ')
           : (['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn', 'Đã thanh toán'].includes(baseHd) ? 'Chưa hóa đơn' : (baseHd || 'Chưa hóa đơn'))
 
       // Về 'Chưa hóa đơn' = KHỞI ĐỘNG LẠI vòng hóa đơn -> reset số HĐ/ngày xuất/người lập cho sạch
