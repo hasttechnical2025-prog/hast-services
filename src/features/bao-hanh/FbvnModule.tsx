@@ -87,6 +87,15 @@ const BH_STEPS: { key: 'claim_sent' | 'goods_received' | 'back_to_customer'; lab
 ]
 // Xếp hạng tiến trình để SORT cột Trạng thái (gửi×4 + về×2 + trả×1).
 const progRank = (r: any) => (r.claim_sent ? 4 : 0) + (r.goods_received ? 2 : 0) + (r.back_to_customer ? 1 : 0)
+// 1 chấm tròn G/V/T (dùng ở form Thêm/Sửa, trước mỗi checkbox tiến trình). Xong = xanh đặc; chưa = viền xám.
+function StepDot({ on, short }: { on: boolean; short: string }) {
+  return (
+    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold leading-none border shrink-0"
+      style={on ? { borderColor: '#0F6E56', background: '#0F6E56', color: '#fff' } : { borderColor: '#D3D1C7', color: '#9a988f' }}>
+      {short}
+    </span>
+  )
+}
 // Phương án B: 3 chấm tròn G·V·T trên 1 hàng ngang. Xong = tròn xanh đặc chữ trắng; chưa = viền xám.
 function StepChips({ r }: { r: any }) {
   return (
@@ -387,13 +396,42 @@ function FbvnForm({ initial, list, plinvoice, dmhang, ktvOptions, customers, not
               </div>
               <div className="pt-1">
                 <div className={lbl}>Tiến trình</div>
-                <div className="flex flex-wrap gap-4 items-center text-sm">
-                  <Chk k="claim_sent" label="Đã gửi hãng" />
-                  <span className="inline-flex items-center gap-2">Số claim FBVN <input className="h-8 px-2 rounded-md border border-slate-200 text-sm w-40" value={f.fbvn_claim_no || ''} onChange={e => set('fbvn_claim_no', e.target.value.toUpperCase())} placeholder="hãng cấp sau…" /></span>
-                  <Chk k="goods_received" label="Hàng về" />
-                  <span className="inline-flex items-center gap-2 text-slate-500">ngày <DateField value={f.goods_received_date || ''} onChange={v => set('goods_received_date', v)} heightClass="h-8" className="w-32" /></span>
-                  <span className="inline-flex items-center gap-2 text-slate-500" title="Chỉ nhập khi hãng trả về mã KHÁC mã đã gửi (mã mới / mã thay thế). Để trống = trả đúng mã gửi.">mã trả về <input list="dm-ma" className="h-8 px-2 rounded-md border border-slate-200 text-sm w-40 uppercase" value={f.ma_tra_ve || ''} onChange={e => set('ma_tra_ve', e.target.value.toUpperCase())} placeholder="nếu khác mã gửi…" /></span>
-                  <Chk k="back_to_customer" label="Đã trả khách" />
+                {/* 3 cột theo dòng chảy nghiệp vụ Gửi (G) → Về (V) → Trả (T); mỗi cột gắn chấm cùng màu cột Trạng thái. */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* G — Gửi hãng */}
+                  <div className="bg-white border border-slate-200 rounded-md p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <StepDot on={!!f.claim_sent} short="G" />
+                      <Chk k="claim_sent" label="Đã gửi hãng" />
+                    </div>
+                    <div className="text-[11px] text-slate-500 mb-1">Số claim FBVN</div>
+                    <input className="h-8 px-2 rounded-md border border-slate-200 text-sm w-full font-mono" value={f.fbvn_claim_no || ''} onChange={e => set('fbvn_claim_no', e.target.value.toUpperCase())} placeholder="hãng cấp sau…" />
+                  </div>
+                  {/* V — Hàng về */}
+                  <div className="bg-white border border-slate-200 rounded-md p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <StepDot on={!!f.goods_received} short="V" />
+                      <Chk k="goods_received" label="Hàng về" />
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <div className="text-[11px] text-slate-500 mb-1">Ngày về</div>
+                        <DateField value={f.goods_received_date || ''} onChange={v => set('goods_received_date', v)} heightClass="h-8" className="w-full" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-[11px] text-slate-500 mb-1" title="Chỉ nhập khi hãng trả về mã KHÁC mã đã gửi (mã mới / mã thay thế). Để trống = trả đúng mã gửi.">Mã trả về</div>
+                        <input list="dm-ma" className="h-8 px-2 rounded-md border border-slate-200 text-sm w-full font-mono uppercase" value={f.ma_tra_ve || ''} onChange={e => set('ma_tra_ve', e.target.value.toUpperCase())} placeholder="nếu khác mã gửi…" />
+                      </div>
+                    </div>
+                  </div>
+                  {/* T — Trả khách */}
+                  <div className="bg-white border border-slate-200 rounded-md p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <StepDot on={!!f.back_to_customer} short="T" />
+                      <Chk k="back_to_customer" label="Đã trả khách" />
+                    </div>
+                    <div className="text-[11px] text-slate-400 leading-relaxed">Ngày trả + ký nhận ghi trên <b>BB Bàn giao</b> (khối ② bên dưới).</div>
+                  </div>
                 </div>
               </div>
             </div>
