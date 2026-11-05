@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark, Pencil, Download, Upload, Info, GripVertical, Send, Lock, LockOpen } from "lucide-react"
-import { SearchInput } from "@/ui"
+import { SearchInput, DateRangeField } from "@/ui"
+import { exportRowsToExcel } from "@/lib/excel"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import MonthField from "@/components/MonthField"
@@ -395,6 +396,24 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
   const [expCutoff, setExpCutoff] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })
   const [expTu, setExpTu] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01` })
   const [expDen, setExpDen] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })
+
+  // Xuất DS phiếu MIỄN PHÍ (MF) — kthc tự khai thác hàng tháng để đối chiếu phần mềm kế toán.
+  // Mặc định: từ đầu tháng này -> hôm nay. Lấy trực tiếp từ CSDL (API riêng, cột khớp "Xuất DS giao việc").
+  const [mfTu, setMfTu] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01` })
+  const [mfDen, setMfDen] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })
+  const [mfExporting, setMfExporting] = useState(false)
+  const exportMf = async () => {
+    setMfExporting(true)
+    try {
+      const res = await fetch(`/api/admin/kanban-hd/export-mf?tu=${mfTu}&den=${mfDen}`)
+      const j = await res.json()
+      if (!res.ok) { showNotification('error', j.error || 'Lỗi xuất DS phiếu MF'); return }
+      if (!j.rows?.length) { showNotification('error', 'Không có phiếu MF nào trong khoảng ngày đã chọn.'); return }
+      await exportRowsToExcel('phieu-mf', j.headers, j.rows)
+      showNotification('success', `Đã xuất ${j.rows.length} phiếu MF.`)
+    } catch { showNotification('error', 'Lỗi kết nối') }
+    finally { setMfExporting(false) }
+  }
 
   // Đặt tổng sau thuế mục tiêu (làm tròn) trong modal.
   const [roundOpen, setRoundOpen] = useState(false)
@@ -2200,6 +2219,16 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
               }} className="w-3.5 h-3.5 accent-blue-600" />
               Tự động gom nhóm theo khách hàng
             </label>
+          )}
+          {/* Xuất DS phiếu MIỄN PHÍ (MF) — CHỈ kế toán (admin/kthc). Lấy trực tiếp từ CSDL theo khoảng ngày phiếu; cột khớp "Xuất DS giao việc". */}
+          {isKeToan && (
+            <div className="flex items-center gap-2 ml-auto">
+              <span className="t2 font-medium text-slate-600 whitespace-nowrap">Phiếu MF</span>
+              <DateRangeField label="" from={mfTu} to={mfDen} onFrom={setMfTu} onTo={setMfDen} width="w-32" />
+              <Button onClick={exportMf} disabled={mfExporting} size="sm" title="Xuất Excel danh sách phiếu Miễn phí (MF) đã Hoàn thành trong khoảng ngày — để kế toán đối chiếu phần mềm kế toán." className="h-9 px-3 gap-1.5 text-xs font-medium">
+                {mfExporting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />} {mfExporting ? 'Đang xuất…' : 'Xuất phiếu MF'}
+              </Button>
+            </div>
           )}
         </div>
       </div>
