@@ -122,8 +122,8 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
     if (res.ok) { notify('success', 'Đã xóa'); reload() } else notify('error', 'Lỗi xóa')
   }
   const exportCSV = () => {
-    const head = ['Số Form A', 'Ngày', 'KTV', 'Serial', 'Model', 'Mã VT', 'Tên claim', 'FOB', 'On-air', 'Tình trạng', 'Trạng thái', 'Số claim FBVN', 'Khách']
-    const rows = filtered.map((r: any) => [r.so_form_a || '', fmtVN(r.ngay), r.ktv || '', r.serial || '', r.model || '', r.product_code || '', r.ten_claim || '', fmtVN(r.fob_date), fmtVN(r.on_air), r.contents || '', BH_STATUS_META[bhStatus(r)].label, r.fbvn_claim_no || '', r.customer || ''])
+    const head = ['Số', 'Ngày', 'Serial', 'Model', 'Mã VT', 'Tên hàng', 'On-air', 'Trạng thái', 'FBVN No.', 'Khách']
+    const rows = filtered.map((r: any) => [r.so_form_a || '', fmtVN(r.ngay), r.serial || '', r.model || '', r.product_code || '', r.ten_claim || '', fmtVN(r.on_air), BH_STATUS_META[bhStatus(r)].label, r.fbvn_claim_no || '', r.customer || ''])
     downloadCSV('so-bao-hanh-fbvn.csv', [head, ...rows])
   }
 
@@ -149,8 +149,8 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
       <div className="bg-white border border-slate-200 rounded-lg overflow-x-auto">
         <table className="w-full text-xs">
           <thead><tr className="text-left text-slate-500 border-b border-slate-200">
-            {th('so_form_a', 'Số')}{th('ngay', 'Ngày')}{th('ktv', 'KTV')}{th('serial', 'Serial')}{th('model', 'Model')}{th('product_code', 'Vật tư')}{th('on_air', 'On-air')}
-            <th className="px-2.5 py-2 font-medium">Trạng thái</th>{th('customer', 'Khách')}<th className="px-2.5 py-2"></th>
+            {th('so_form_a', 'Số')}{th('ngay', 'Ngày')}{th('serial', 'Serial')}{th('model', 'Model')}{th('product_code', 'Vật tư')}{th('on_air', 'On-air')}
+            <th className="px-2.5 py-2 font-medium">Trạng thái</th>{th('fbvn_claim_no', 'FBVN No.')}{th('customer', 'Khách')}<th className="px-2.5 py-2 font-medium">Thao tác</th>
           </tr></thead>
           <tbody>
             {loading ? <tr><td colSpan={10} className="text-center py-8 text-slate-400">Đang tải…</td></tr>
@@ -161,11 +161,12 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
                   return (
                     <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50" style={{ borderLeft: `3px solid ${meta.dot}` }}>
                       <td className={`${td} font-mono whitespace-nowrap`}>{r.so_form_a || '—'}</td>
-                      <td className={td}>{fmtVN(r.ngay)}</td><td className={td}>{r.ktv || ''}</td>
+                      <td className={td}>{fmtVN(r.ngay)}</td>
                       <td className={`${td} font-mono`}>{r.serial || ''}</td><td className={td}>{r.model || ''}</td>
                       <td className={td}>{r.product_code || ''}<span className="text-slate-400"> {r.ten_claim ? `· ${r.ten_claim}` : ''}</span></td>
                       <td className={td}>{fmtVN(r.on_air)}</td>
                       <td className="px-2.5 py-1.5"><span className="text-[11px] px-2 py-0.5 rounded-full whitespace-nowrap" style={{ background: meta.bg, color: meta.fg }}>{meta.label}</span></td>
+                      <td className={`${td} font-mono whitespace-nowrap`}>{r.fbvn_claim_no || ''}</td>
                       <td className={td}>{r.customer || ''}</td>
                       <td className="px-2.5 py-1.5 whitespace-nowrap text-slate-500">
                         {r.co_claim && <button title="Xuất Form (A)" onClick={() => dl(`/api/admin/bao-hanh/form-a?id=${r.id}`)} className="hover:text-blue-600 mr-2"><FileText className="w-4 h-4 inline" /></button>}
