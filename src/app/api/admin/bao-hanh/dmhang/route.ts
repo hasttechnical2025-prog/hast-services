@@ -54,10 +54,22 @@ export async function GET() {
     const hasCat: Record<string, boolean> = {}
     for (const row of cat || []) { const r = find(norm(row.ma_hang)); hasCat[r] = true; if (!(r in groupTon)) groupTon[r] = 0 }
 
-    // 4) Làm giàu dòng danh mục: ton_nhom + chi_tiet.
+    // 3b) Thành viên NHÓM theo gốc (để hiển thị ≡ 2 CHIỀU: dòng nào cũng thấy các mã tương đương).
+    const groupMembers: Record<string, string[]> = {}
+    for (const code of Object.keys(parent)) { const r = find(code); (groupMembers[r] = groupMembers[r] || []).push(code) }
+
+    // 4) Làm giàu dòng danh mục: ton (THỰC theo mã) + nhom_other (≡ 2 chiều) + ton_nhom/chi_tiet (tooltip).
     const data = (cat || []).map((row: any) => {
-      const r = find(norm(row.ma_hang))
-      return { ...row, ton_nhom: groupTon[r] || 0, chi_tiet: (groupDetail[r] || []).sort((a, b) => a.ma.localeCompare(b.ma)) }
+      const m = norm(row.ma_hang)
+      const r = find(m)
+      const nhomOther = (groupMembers[r] || []).filter(x => x !== m).sort((a, b) => a.localeCompare(b))
+      return {
+        ...row,
+        ton: delta[m] || 0,                                   // tồn THỰC của riêng mã này
+        nhom_other: nhomOther,                                // mã tương đương (2 chiều, gồm cả mã kia khai ngược)
+        ton_nhom: groupTon[r] || 0,                           // tổng tồn nhóm (chỉ dùng cho tooltip)
+        chi_tiet: (groupDetail[r] || []).sort((a, b) => a.ma.localeCompare(b.ma)),
+      }
     })
 
     // 5) Mã NGOÀI DANH MỤC: có phát sinh nhập/xuất nhưng nhóm KHÔNG chứa mã danh mục nào.

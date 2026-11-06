@@ -531,11 +531,12 @@ function PlInvoiceTab({ rows, notify, confirm, reload }: any) {
 }
 
 // ─────────────────────────────── DM HÀNG ───────────────────────────────
-// Ô tồn nhóm: >0 xanh, =0 xám, <0 đỏ ("đang mượn" = đã tháo máy mới làm BH trước, chờ hãng trả bù).
+// Ô tồn THỰC theo mã: >0 xanh, =0 xám, <0 đỏ ("đang mượn" = đã tháo máy mới làm BH trước, chờ hãng trả bù).
+// Tooltip cho biết tổng tồn cả NHÓM tương đương (để đối chiếu), nhưng số chính là tồn riêng mã này.
 function TonCell({ r }: { r: any }) {
-  const t = Number(r.ton_nhom || 0)
+  const t = Number(r.ton || 0)
   const ct = (r.chi_tiet || []) as { ma: string; ton: number }[]
-  const tip = ct.length > 1 ? ct.map(x => `${x.ma}: ${x.ton > 0 ? '+' : ''}${x.ton}`).join(' · ') : ''
+  const tip = (r.nhom_other || []).length > 0 ? `Nhóm tương đương — tổng tồn ${r.ton_nhom || 0} (${ct.map(x => `${x.ma}: ${x.ton > 0 ? '+' : ''}${x.ton}`).join(' · ') || 'chưa phát sinh'})` : ''
   const cls = t > 0 ? 'bg-emerald-100 text-emerald-700' : t < 0 ? 'bg-rose-100 text-rose-700' : 'text-slate-400'
   return (
     <span title={tip} className="inline-flex items-center gap-1">
@@ -547,7 +548,7 @@ function TonCell({ r }: { r: any }) {
 
 function DmHangTab({ rows, orphan, notify, confirm, reload }: any) {
   const [q, setQ] = useState('')
-  const filtered = useMemo(() => { const n = q.trim().toLowerCase(); return (rows as any[]).filter(r => !n || `${r.ma_hang} ${r.ten_hang} ${r.model} ${r.ma_thay_the || ''}`.toLowerCase().includes(n)) }, [rows, q])
+  const filtered = useMemo(() => { const n = q.trim().toLowerCase(); return (rows as any[]).filter(r => !n || `${r.ma_hang} ${r.ten_hang} ${r.model} ${(r.nhom_other || []).join(' ')}`.toLowerCase().includes(n)) }, [rows, q])
   const tpl = () => downloadCSV('mau-kho-bao-hanh.csv', [['Mã hàng', 'Tên hàng', 'Model', 'Mã tương đương', 'Ghi chú'], ['930K06510', 'CIS', 'Apeos 4570/5570', '', '']])
   const parseRows = (text: string) => {
     const lines = parsePaste(text)
@@ -575,9 +576,9 @@ function DmHangTab({ rows, orphan, notify, confirm, reload }: any) {
     const j = await res.json()
     if (res.ok) { notify('success', 'Đã lưu mã'); reload() } else notify('error', j.error || 'Lỗi')
   }
-  // Chặn xóa khi tồn nhóm ≠ 0 (còn hàng trong kho hoặc đang mượn chờ bù).
+  // Chặn xóa khi tồn THỰC của mã ≠ 0 (còn hàng trong kho hoặc đang mượn chờ bù).
   const del = async (r: any) => {
-    if (Number(r.ton_nhom || 0) !== 0) { notify('error', `Không xóa được: mã này còn tồn nhóm = ${r.ton_nhom} (còn hàng/đang mượn trong kho).`); return }
+    if (Number(r.ton || 0) !== 0) { notify('error', `Không xóa được: mã này còn tồn = ${r.ton} (còn hàng/đang mượn trong kho).`); return }
     if (!(await confirm('Xóa mã này khỏi kho bảo hành?', { confirmLabel: 'Xóa', danger: true }))) return
     const res = await fetch(`/api/admin/bao-hanh/dmhang?id=${r.id}`, { method: 'DELETE' }); if (res.ok) reload()
   }
@@ -595,8 +596,9 @@ function DmHangTab({ rows, orphan, notify, confirm, reload }: any) {
       {r.ngung_su_dung && <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-slate-100 text-slate-500">ngưng dùng</span>}
     </span>
   )
-  const eqCell = (r: any) => r.ma_thay_the
-    ? <span className="text-blue-600 font-mono" title={`Mã tương đương: ${r.ma_thay_the}`}>≡ {r.ma_thay_the}</span>
+  // ≡ hiển thị 2 CHIỀU: lấy từ nhom_other (gồm cả mã do dòng khác khai ngược), không chỉ ma_thay_the của riêng dòng.
+  const eqCell = (r: any) => (r.nhom_other && r.nhom_other.length > 0)
+    ? <span className="text-blue-600 font-mono" title={`Mã tương đương: ${r.nhom_other.join(', ')}`}>≡ {r.nhom_other.join(', ')}</span>
     : <span className="text-slate-300">—</span>
   const columns = [
     ['ma_hang', 'Mã hàng', null, maCell],
