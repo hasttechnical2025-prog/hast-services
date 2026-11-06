@@ -63,7 +63,8 @@ export default function LamThemGio() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/admin/users').then(r => r.ok ? r.json() : null).then(j => {
+    // Chỉ KTV (giống form giao việc) — OT phân cho kỹ thuật viên.
+    fetch('/api/admin/users?ktv=true').then(r => r.ok ? r.json() : null).then(j => {
       if (j?.data) setUsers((j.data as User[]).filter(u => u.full_name))
     }).catch(() => { /* bỏ qua */ })
   }, [])
