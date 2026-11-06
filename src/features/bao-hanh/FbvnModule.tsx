@@ -583,10 +583,10 @@ function DmHangTab({ rows, orphan, notify, confirm, reload }: any) {
     const res = await fetch(`/api/admin/bao-hanh/dmhang?id=${r.id}`, { method: 'DELETE' }); if (res.ok) reload()
   }
   const fields = [
-    { key: 'ma_hang', label: 'Mã hàng', req: true, upper: true },
+    { key: 'ma_hang', label: 'Mã hàng', req: true, upper: true, w: 'w-36 shrink-0' },
     { key: 'ten_hang', label: 'Tên hàng' },
     { key: 'model', label: 'Model' },
-    { key: 'ma_thay_the', label: 'Mã tương đương', upper: true, placeholder: 'nhiều mã cách dấu phẩy, VD 948K59323' },
+    { key: 'ma_thay_the', label: 'Mã tương đương', upper: true, w: 'flex-1 min-w-[180px]', placeholder: 'nhiều mã cách dấu phẩy, VD 948K59323' },
     { key: 'ngung_su_dung', label: 'Ngưng dùng', type: 'checkbox' },
     { key: 'ghi_chu', label: 'Ghi chú' },
   ]
@@ -659,9 +659,9 @@ function RefTable({ title, q, setQ, onTpl, parseRows, onCommit, unit, columns, r
       {showAdd && (
         <div className="bg-white border border-slate-200 rounded-lg p-3 mb-2 mx-1">
           <div className="text-xs text-slate-500 mb-2">{editingId ? 'Sửa dòng.' : 'Thêm nhanh 1 dòng (không cần Excel).'}</div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="flex flex-wrap items-end gap-3">
             {(addFields || []).map((fl: any) => (
-              <div key={fl.key} className={fl.type === 'checkbox' ? 'flex items-end pb-1.5' : ''}>
+              <div key={fl.key} className={fl.type === 'checkbox' ? 'flex items-center pb-1.5 shrink-0' : (fl.w || 'flex-1 min-w-[140px]')}>
                 {fl.type === 'checkbox'
                   ? <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={!!addRow[fl.key]} onChange={e => setAddRow((p: any) => ({ ...p, [fl.key]: e.target.checked }))} />{fl.label}</label>
                   : <>
