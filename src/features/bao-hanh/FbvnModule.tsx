@@ -35,6 +35,7 @@ export function FbvnModule() {
   const [list, setList] = useState<any[]>([])
   const [plinvoice, setPlinvoice] = useState<any[]>([])
   const [dmhang, setDmhang] = useState<any[]>([])
+  const [dmOrphan, setDmOrphan] = useState<any[]>([]) // mã hãng trả về nhưng chưa khai trong DM
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
@@ -45,7 +46,7 @@ export function FbvnModule() {
         fetch('/api/admin/bao-hanh/plinvoice').then(r => r.json()),
         fetch('/api/admin/bao-hanh/dmhang').then(r => r.json()),
       ])
-      setList(a.data || []); setPlinvoice(b.data || []); setDmhang(c.data || [])
+      setList(a.data || []); setPlinvoice(b.data || []); setDmhang(c.data || []); setDmOrphan(c.orphan || [])
     } catch { notify('error', 'Lỗi tải dữ liệu') } finally { setLoading(false) }
   }, [notify])
   useEffect(() => { load() }, [load])
@@ -71,7 +72,7 @@ export function FbvnModule() {
 
       {tab === 'so' && <SoTab list={list} loading={loading} plinvoice={plinvoice} dmhang={dmhang} ktvOptions={ktvOptions} customers={customers} notify={notify} confirm={confirm} reload={load} />}
       {tab === 'plinvoice' && <PlInvoiceTab rows={plinvoice} notify={notify} confirm={confirm} reload={load} />}
-      {tab === 'dmhang' && <DmHangTab rows={dmhang} notify={notify} confirm={confirm} reload={load} />}
+      {tab === 'dmhang' && <DmHangTab rows={dmhang} orphan={dmOrphan} notify={notify} confirm={confirm} reload={load} />}
       {tab === 'cauhinh' && <CauHinhTab />}
       {toastNode}{confirmNode}
     </div>
@@ -530,10 +531,24 @@ function PlInvoiceTab({ rows, notify, confirm, reload }: any) {
 }
 
 // ─────────────────────────────── DM HÀNG ───────────────────────────────
-function DmHangTab({ rows, notify, confirm, reload }: any) {
+// Ô tồn nhóm: >0 xanh, =0 xám, <0 đỏ ("đang mượn" = đã tháo máy mới làm BH trước, chờ hãng trả bù).
+function TonCell({ r }: { r: any }) {
+  const t = Number(r.ton_nhom || 0)
+  const ct = (r.chi_tiet || []) as { ma: string; ton: number }[]
+  const tip = ct.length > 1 ? ct.map(x => `${x.ma}: ${x.ton > 0 ? '+' : ''}${x.ton}`).join(' · ') : ''
+  const cls = t > 0 ? 'bg-emerald-100 text-emerald-700' : t < 0 ? 'bg-rose-100 text-rose-700' : 'text-slate-400'
+  return (
+    <span title={tip} className="inline-flex items-center gap-1">
+      <span className={`inline-block min-w-[26px] text-center px-1.5 py-0.5 rounded-full font-semibold ${cls}`}>{t}</span>
+      {t < 0 && <span className="text-[10px] text-rose-600">đang mượn</span>}
+    </span>
+  )
+}
+
+function DmHangTab({ rows, orphan, notify, confirm, reload }: any) {
   const [q, setQ] = useState('')
-  const filtered = useMemo(() => { const n = q.trim().toLowerCase(); return (rows as any[]).filter(r => !n || `${r.ma_hang} ${r.ten_hang} ${r.model}`.toLowerCase().includes(n)) }, [rows, q])
-  const tpl = () => downloadCSV('mau-dm-hang.csv', [['Mã hàng', 'Tên hàng', 'Model', 'Ghi chú'], ['930K06510', 'CIS', 'Apeos 4570/5570', '']])
+  const filtered = useMemo(() => { const n = q.trim().toLowerCase(); return (rows as any[]).filter(r => !n || `${r.ma_hang} ${r.ten_hang} ${r.model} ${r.ma_thay_the || ''}`.toLowerCase().includes(n)) }, [rows, q])
+  const tpl = () => downloadCSV('mau-kho-bao-hanh.csv', [['Mã hàng', 'Tên hàng', 'Model', 'Mã tương đương', 'Ghi chú'], ['930K06510', 'CIS', 'Apeos 4570/5570', '', '']])
   const parseRows = (text: string) => {
     const lines = parsePaste(text)
     const start = lines.length && /mã hàng|ma_hang|ma hang/i.test(lines[0].join(' ')) ? 1 : 0
@@ -542,7 +557,7 @@ function DmHangTab({ rows, notify, confirm, reload }: any) {
     const items: any[] = [], issues: { line: number; reason: string }[] = []
     lines.slice(start).forEach((c, i) => {
       const ln = i + start + 1
-      const it = { ma_hang: (c[0] || '').trim(), ten_hang: c[1] || '', model: c[2] || '', ghi_chu: c[3] || '' }
+      const it = { ma_hang: (c[0] || '').trim(), ten_hang: c[1] || '', model: c[2] || '', ma_thay_the: c[3] || '', ghi_chu: c[4] || '' }
       if (!it.ma_hang) { issues.push({ line: ln, reason: 'thiếu Mã hàng' }); return }
       const dup = have.has(it.ma_hang) || seen.has(it.ma_hang)
       seen.add(it.ma_hang)
@@ -558,23 +573,73 @@ function DmHangTab({ rows, notify, confirm, reload }: any) {
   const onAdd = async (row: any) => {
     const res = await fetch('/api/admin/bao-hanh/dmhang', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(row) })
     const j = await res.json()
-    if (res.ok) { notify('success', 'Đã thêm 1 mã'); reload() } else notify('error', j.error || 'Lỗi')
+    if (res.ok) { notify('success', 'Đã lưu mã'); reload() } else notify('error', j.error || 'Lỗi')
   }
-  const del = async (r: any) => { if (!(await confirm('Xóa mã này?', { confirmLabel: 'Xóa', danger: true }))) return; const res = await fetch(`/api/admin/bao-hanh/dmhang?id=${r.id}`, { method: 'DELETE' }); if (res.ok) reload() }
-  return <RefTable title="DM Hàng (mã vật tư claim của hãng)" q={q} setQ={setQ} onTpl={tpl} parseRows={parseRows} onCommit={onCommit} unit="mã"
-    onAdd={onAdd} addFields={[{ key: 'ma_hang', label: 'Mã hàng', req: true }, { key: 'ten_hang', label: 'Tên hàng' }, { key: 'model', label: 'Model' }, { key: 'ghi_chu', label: 'Ghi chú' }]}
-    columns={[['ma_hang', 'Mã hàng'], ['ten_hang', 'Tên hàng'], ['model', 'Model'], ['ghi_chu', 'Ghi chú']]} rows={filtered} onDel={del} />
+  // Chặn xóa khi tồn nhóm ≠ 0 (còn hàng trong kho hoặc đang mượn chờ bù).
+  const del = async (r: any) => {
+    if (Number(r.ton_nhom || 0) !== 0) { notify('error', `Không xóa được: mã này còn tồn nhóm = ${r.ton_nhom} (còn hàng/đang mượn trong kho).`); return }
+    if (!(await confirm('Xóa mã này khỏi kho bảo hành?', { confirmLabel: 'Xóa', danger: true }))) return
+    const res = await fetch(`/api/admin/bao-hanh/dmhang?id=${r.id}`, { method: 'DELETE' }); if (res.ok) reload()
+  }
+  const fields = [
+    { key: 'ma_hang', label: 'Mã hàng', req: true, upper: true },
+    { key: 'ten_hang', label: 'Tên hàng' },
+    { key: 'model', label: 'Model' },
+    { key: 'ma_thay_the', label: 'Mã tương đương', upper: true, placeholder: 'nhiều mã cách dấu phẩy, VD 948K59323' },
+    { key: 'ngung_su_dung', label: 'Ngưng dùng', type: 'checkbox' },
+    { key: 'ghi_chu', label: 'Ghi chú' },
+  ]
+  const maCell = (r: any) => (
+    <span>
+      <span className="font-mono">{r.ma_hang}</span>
+      {r.ngung_su_dung && <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-slate-100 text-slate-500">ngưng dùng</span>}
+    </span>
+  )
+  const eqCell = (r: any) => r.ma_thay_the
+    ? <span className="text-blue-600 font-mono" title={`Mã tương đương: ${r.ma_thay_the}`}>≡ {r.ma_thay_the}</span>
+    : <span className="text-slate-300">—</span>
+  const columns = [
+    ['ma_hang', 'Mã hàng', null, maCell],
+    ['ten_hang', 'Tên hàng'],
+    ['model', 'Model'],
+    ['ton_nhom', 'Tồn kho', null, (r: any) => <TonCell r={r} />],
+    ['ma_thay_the', 'Mã tương đương', null, eqCell],
+  ]
+  return (
+    <div>
+      {orphan && orphan.length > 0 && (
+        <div className="mx-1 mb-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <div className="text-xs font-semibold text-amber-800 mb-1.5">⚠ {orphan.length} mã hãng trả về nhưng chưa khai trong danh mục</div>
+          <div className="flex flex-wrap gap-2">
+            {orphan.map((o: any) => (
+              <button key={o.ma_hang} onClick={() => onAdd({ ma_hang: o.ma_hang })}
+                title="Thêm vào danh mục rồi bấm ✎ để bổ sung Tên/Model"
+                className="inline-flex items-center gap-1.5 h-7 px-2 rounded-md bg-white border border-amber-300 text-xs text-amber-800 hover:bg-amber-100">
+                <span className="font-mono">{o.ma_hang}</span>
+                <span className="px-1 rounded-full bg-amber-100 text-amber-700 font-semibold">tồn {o.ton_nhom}</span>
+                <Plus className="w-3 h-3" /> Thêm vào DM
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <RefTable title="Kho hàng bảo hành (tồn tính từ Sổ bảo hành)" q={q} setQ={setQ} onTpl={tpl} parseRows={parseRows} onCommit={onCommit} unit="mã"
+        onAdd={onAdd} onEdit={onAdd} addFields={fields} columns={columns} rows={filtered} onDel={del} />
+    </div>
+  )
 }
 
 // Bảng tra cứu dùng chung (PL-Invoice + DM Hàng): tìm · thêm 1 dòng · tải mẫu · nhập Excel (dán → XEM TRƯỚC → ghi) · bảng · xóa.
-function RefTable({ title, q, setQ, onTpl, parseRows, onCommit, unit, columns, rows, onDel, addFields, onAdd }: any) {
+function RefTable({ title, q, setQ, onTpl, parseRows, onCommit, unit, columns, rows, onDel, addFields, onAdd, onEdit }: any) {
   const [paste, setPaste] = useState('')
   const [showPaste, setShowPaste] = useState(false)
   const [preview, setPreview] = useState<{ items: any[]; issues: { line: number; reason: string }[] } | null>(null)
   const [committing, setCommitting] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [addRow, setAddRow] = useState<any>({})
+  const [editingId, setEditingId] = useState<any>(null) // id đang sửa (null = thêm mới)
   const [adding, setAdding] = useState(false)
+  const openEdit = (r: any) => { setAddRow({ ...r }); setEditingId(r.id); setShowAdd(true); setShowPaste(false); setPreview(null) }
   const resetImport = () => { setPaste(''); setShowPaste(false); setPreview(null) }
   const dupCount = preview ? preview.items.filter((x: any) => x._dup).length : 0
   const addReqOk = (addFields || []).filter((fl: any) => fl.req).every((fl: any) => String(addRow[fl.key] || '').trim())
@@ -585,26 +650,30 @@ function RefTable({ title, q, setQ, onTpl, parseRows, onCommit, unit, columns, r
         <div className="text-sm font-semibold text-slate-700 mr-2">{title}</div>
         <div className="max-w-xs flex-1 min-w-[160px]"><SearchInput value={q} onChange={setQ} placeholder="Tìm…" /></div>
         <div className="flex-1" />
-        <button onClick={() => { setShowAdd(s => !s); setShowPaste(false); setPreview(null) }} className="h-9 px-3 rounded-md bg-blue-600 text-white text-sm font-semibold inline-flex items-center gap-1.5 hover:bg-blue-700"><Plus className="w-4 h-4" />Thêm</button>
+        <button onClick={() => { setShowAdd(s => !s); setEditingId(null); setAddRow({}); setShowPaste(false); setPreview(null) }} className="h-9 px-3 rounded-md bg-blue-600 text-white text-sm font-semibold inline-flex items-center gap-1.5 hover:bg-blue-700"><Plus className="w-4 h-4" />Thêm</button>
         <button onClick={onTpl} className="h-9 px-3 rounded-md border border-slate-300 text-sm font-medium text-slate-700 inline-flex items-center gap-1.5 hover:bg-slate-50"><FileDown className="w-4 h-4" />Tải mẫu</button>
         <button onClick={() => { setShowPaste(s => !s); setShowAdd(false); setPreview(null) }} className="h-9 px-3 rounded-md border border-slate-300 text-sm font-medium text-slate-700 inline-flex items-center gap-1.5 hover:bg-slate-50"><Upload className="w-4 h-4" />Nhập Excel</button>
       </div>
       {showAdd && (
         <div className="bg-white border border-slate-200 rounded-lg p-3 mb-2 mx-1">
-          <div className="text-xs text-slate-500 mb-2">Thêm nhanh 1 dòng (không cần Excel).</div>
+          <div className="text-xs text-slate-500 mb-2">{editingId ? 'Sửa dòng.' : 'Thêm nhanh 1 dòng (không cần Excel).'}</div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {(addFields || []).map((fl: any) => (
-              <div key={fl.key}>
-                <label className={lbl}>{fl.label}{fl.req && <span className="text-rose-500"> *</span>}</label>
-                {fl.type === 'date'
-                  ? <DateField value={addRow[fl.key] || ''} onChange={v => setAddRow((p: any) => ({ ...p, [fl.key]: v }))} heightClass="h-9" className="w-full" />
-                  : <input className={inp} value={addRow[fl.key] || ''} onChange={e => setAddRow((p: any) => ({ ...p, [fl.key]: e.target.value }))} placeholder={fl.placeholder || ''} />}
+              <div key={fl.key} className={fl.type === 'checkbox' ? 'flex items-end pb-1.5' : ''}>
+                {fl.type === 'checkbox'
+                  ? <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={!!addRow[fl.key]} onChange={e => setAddRow((p: any) => ({ ...p, [fl.key]: e.target.checked }))} />{fl.label}</label>
+                  : <>
+                    <label className={lbl}>{fl.label}{fl.req && <span className="text-rose-500"> *</span>}</label>
+                    {fl.type === 'date'
+                      ? <DateField value={addRow[fl.key] || ''} onChange={v => setAddRow((p: any) => ({ ...p, [fl.key]: v }))} heightClass="h-9" className="w-full" />
+                      : <input className={`${inp} ${fl.upper ? 'uppercase' : ''}`} value={addRow[fl.key] || ''} onChange={e => setAddRow((p: any) => ({ ...p, [fl.key]: fl.upper ? e.target.value.toUpperCase() : e.target.value }))} placeholder={fl.placeholder || ''} />}
+                  </>}
               </div>
             ))}
           </div>
           <div className="flex gap-2 mt-3">
-            <button disabled={adding || !addReqOk} onClick={async () => { setAdding(true); await onAdd(addRow); setAdding(false); setAddRow({}); setShowAdd(false) }} className="h-8 px-3 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">{adding ? 'Đang lưu…' : 'Lưu'}</button>
-            <button onClick={() => { setShowAdd(false); setAddRow({}) }} className="h-8 px-3 rounded-md border border-slate-300 text-sm text-slate-600">Hủy</button>
+            <button disabled={adding || !addReqOk} onClick={async () => { setAdding(true); await (editingId && onEdit ? onEdit(addRow) : onAdd(addRow)); setAdding(false); setAddRow({}); setEditingId(null); setShowAdd(false) }} className="h-8 px-3 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">{adding ? 'Đang lưu…' : 'Lưu'}</button>
+            <button onClick={() => { setShowAdd(false); setAddRow({}); setEditingId(null) }} className="h-8 px-3 rounded-md border border-slate-300 text-sm text-slate-600">Hủy</button>
           </div>
         </div>
       )}
@@ -663,7 +732,10 @@ function RefTable({ title, q, setQ, onTpl, parseRows, onCommit, unit, columns, r
               : rows.map((r: any) => (
                 <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50">
                   {columns.map((c: any) => <td key={c[0]} className="px-2.5 py-1.5 text-slate-700">{c[3] ? c[3](r) : c[2] ? c[2](r[c[0]]) : r[c[0]]}</td>)}
-                  <td className="px-2.5 py-1.5 text-right"><button title="Xóa" onClick={() => onDel(r)} className="text-slate-400 hover:text-rose-600"><Trash2 className="w-4 h-4 inline" /></button></td>
+                  <td className="px-2.5 py-1.5 text-right whitespace-nowrap">
+                    {onEdit && <button title="Sửa" onClick={() => openEdit(r)} className="text-slate-400 hover:text-blue-600 mr-2"><Pencil className="w-4 h-4 inline" /></button>}
+                    <button title="Xóa" onClick={() => onDel(r)} className="text-slate-400 hover:text-rose-600"><Trash2 className="w-4 h-4 inline" /></button>
+                  </td>
                 </tr>
               ))}
           </tbody>
