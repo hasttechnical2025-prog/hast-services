@@ -142,7 +142,7 @@ export function DataTable<T>({ columns, rows, rowKey, loading, loadingText = 'Đ
                   <th key={col.key} className={cn('px-3.5 py-2', alignCls(col.align), filterOn && 'text-blue-600', col.thClassName)}>
                     <span className={cn('inline-flex items-center gap-1', col.align === 'right' && 'flex-row-reverse')}>
                       {col.sortValue ? (
-                        <button type="button" onClick={() => toggleSort(col)} className={cn('inline-flex items-center gap-1 hover:text-slate-700 transition-colors', col.align === 'right' && 'flex-row-reverse', activeSort && 'text-blue-600')}>
+                        <button type="button" onClick={() => toggleSort(col)} className={cn('inline-flex items-center gap-1 uppercase hover:text-slate-700 transition-colors', col.align === 'right' && 'flex-row-reverse', activeSort && 'text-blue-600')}>
                           {col.header}
                           {activeSort ? (asc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : <ChevronsUpDown className="w-3 h-3 text-slate-300" />}
                         </button>
