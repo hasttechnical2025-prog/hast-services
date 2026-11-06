@@ -18,18 +18,24 @@ export async function GET() {
 
     const [cat, cases] = await Promise.all([
       selectAll<any>((from, to) => supabaseAdmin.from('soct_bh_dmhang').select('*').order('ma_hang', { ascending: true }).range(from, to)),
-      selectAll<any>((from, to) => supabaseAdmin.from('soct_bh_fbvn').select('product_code, ma_tra_ve, goods_received, back_to_customer').range(from, to)),
+      selectAll<any>((from, to) => supabaseAdmin.from('soct_bh_fbvn').select('product_code, ma_tra_ve, goods_received, back_to_customer, lap_tra, lap_tra_ma, lap_tra_sl').range(from, to)),
     ])
 
-    // 1) Delta tồn theo MÃ THỰC NHẬN: hàng về +1, trả khách −1.
+    // 1) Delta tồn: hàng về +1, trả khách −1 (theo mã thực nhận). LẮP TRẢ (mig 109): con mượn
+    //    (mã gửi) VỀ KHO +SL, con lắp vào máy TIÊU THỤ −SL (mã lắp, mặc định = mã trả về).
     const delta: Record<string, number> = {}
+    const add = (code: string, d: number) => { if (code && d) delta[code] = (delta[code] || 0) + d }
     for (const c of cases || []) {
-      const code = norm(c.ma_tra_ve) || norm(c.product_code)
-      if (!code) continue
-      let d = 0
-      if (c.goods_received) d += 1
-      if (c.back_to_customer) d -= 1
-      if (d) delta[code] = (delta[code] || 0) + d
+      const sent = norm(c.product_code)
+      const rcode = norm(c.ma_tra_ve) || sent   // mã thực nhận (hàng về / trả khách)
+      if (!rcode) continue
+      if (c.goods_received) add(rcode, 1)
+      if (c.back_to_customer) add(rcode, -1)
+      if (c.lap_tra) {
+        const sl = Number(c.lap_tra_sl) || 1
+        add(sent, sl)                           // con dự phòng mượn → trả về kho
+        add(norm(c.lap_tra_ma) || rcode, -sl)   // con lắp vào máy → tiêu thụ
+      }
     }
 
     // 2) Union-Find gộp nhóm tương đương theo ma_thay_the (2 chiều).
