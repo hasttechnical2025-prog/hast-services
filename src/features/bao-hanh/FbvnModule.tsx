@@ -213,15 +213,20 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
                       <td className={td}>{fmtVN(r.ngay)}</td>
                       <td className={`${td} font-mono`}>{r.serial || ''}</td><td className={td}>{r.model || ''}</td>
                       <td className={td}>
-                        {r.product_code || ''}
-                        {r.ma_tra_ve && String(r.ma_tra_ve).trim() && String(r.ma_tra_ve).trim().toUpperCase() !== String(r.product_code || '').trim().toUpperCase() && (
-                          <span title={`Hãng trả mã ${r.ma_tra_ve}${r.goods_received_date ? ` ngày ${fmtVN(r.goods_received_date)}` : ''}`}>
-                            <span className="text-slate-400"> → </span>
-                            <span className="font-medium text-emerald-700">{r.ma_tra_ve}</span>
-                            <span className="ml-1 text-[9px] leading-none px-1 py-0.5 rounded bg-amber-100 text-amber-700 align-middle">mã mới</span>
-                          </span>
-                        )}
-                        <span className="text-slate-400"> {r.ten_claim ? `· ${r.ten_claim}` : ''}</span>
+                        {/* Dòng 1: mã gửi + tên hàng (cột thẳng hàng). Dòng 2: mã trả về (mã mới) nếu khác. */}
+                        <div className="leading-snug">
+                          <div>
+                            <span className="font-mono">{r.product_code || ''}</span>
+                            {r.ten_claim && <span className="text-slate-400"> · {r.ten_claim}</span>}
+                          </div>
+                          {r.ma_tra_ve && String(r.ma_tra_ve).trim() && String(r.ma_tra_ve).trim().toUpperCase() !== String(r.product_code || '').trim().toUpperCase() && (
+                            <div className="flex items-center gap-1 mt-0.5 text-emerald-700" title={`Hãng trả mã ${r.ma_tra_ve}${r.goods_received_date ? ` ngày ${fmtVN(r.goods_received_date)}` : ''}`}>
+                              <span className="text-[11px] leading-none" aria-hidden="true">▸</span>
+                              <span className="font-mono font-medium">{r.ma_tra_ve}</span>
+                              <span className="text-[9px] leading-none px-1 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">mã mới</span>
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className={td}>{fmtVN(r.on_air)}</td>
                       <td className="px-2.5 py-1.5"><StepChips r={r} /></td>
