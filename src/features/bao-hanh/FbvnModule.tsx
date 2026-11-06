@@ -584,7 +584,7 @@ function DmHangTab({ rows, orphan, notify, confirm, reload }: any) {
   }
   const fields = [
     { key: 'ma_hang', label: 'Mã hàng', req: true, upper: true, w: 'w-36 shrink-0' },
-    { key: 'ten_hang', label: 'Tên hàng', w: 'w-44 shrink-0' },
+    { key: 'ten_hang', label: 'Tên hàng', w: 'flex-1 min-w-[160px]' },
     { key: 'model', label: 'Model', w: 'w-32 shrink-0' },
     { key: 'ma_thay_the', label: 'Mã tương đương', upper: true, w: 'w-36 shrink-0', placeholder: 'nhiều mã, cách dấu phẩy' },
     { key: 'ngung_su_dung', label: 'Ngưng dùng', type: 'checkbox' },
@@ -661,7 +661,7 @@ function RefTable({ title, q, setQ, onTpl, parseRows, onCommit, unit, columns, r
           <div className="text-xs text-slate-500 mb-2">{editingId ? 'Sửa dòng.' : 'Thêm nhanh 1 dòng (không cần Excel).'}</div>
           <div className="flex flex-wrap items-end gap-3">
             {(addFields || []).map((fl: any) => (
-              <div key={fl.key} className={fl.type === 'checkbox' ? 'flex items-center pb-1.5 shrink-0' : (fl.w || 'w-40 shrink-0')}>
+              <div key={fl.key} className={fl.type === 'checkbox' ? 'flex items-center pb-1.5 shrink-0' : (fl.w || 'flex-1 min-w-[140px]')}>
                 {fl.type === 'checkbox'
                   ? <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={!!addRow[fl.key]} onChange={e => setAddRow((p: any) => ({ ...p, [fl.key]: e.target.checked }))} />{fl.label}</label>
                   : <>
