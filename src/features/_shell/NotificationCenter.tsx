@@ -64,6 +64,40 @@ export function NotificationCenter() {
       ),
     },
     {
+      key: 'chua_map_muc', icon: Droplets, tone: 'amber', label: 'Model máy thuê chưa gán vật tư (Mực/Trống)', count: a.modelsChuaMapMuc.length,
+      navHref: `${V2_BASE}/kho-hang/may-thue`, navLabel: '→ Mở Kho hàng › Kho máy thuê', canSee: subVisible('kho_hang', 'may_thue'),
+      detail: (
+        <div className="px-1 py-1 space-y-1">
+          <p className="text-[11px] text-slate-500 px-1">Chưa gán Mực/Trống → không cảnh báo được tồn. Vào <b>Kho hàng › Kho máy thuê › Vật tư tiêu hao</b> để gán.</p>
+          <div className="flex flex-wrap gap-1.5">
+            {a.modelsChuaMapMuc.map((m: string) => <span key={m} className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded px-2 py-0.5">{m}</span>)}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'vat_tu_chua_dinh_luong', icon: Droplets, tone: 'amber', label: 'Vật tư máy thuê chưa có định lượng', count: a.vatTuChuaDinhLuong.length,
+      navHref: `${V2_BASE}/kho-hang/may-thue`, navLabel: '→ Mở Kho hàng › Kho máy thuê', canSee: subVisible('kho_hang', 'may_thue'),
+      detail: (
+        <div className="border border-amber-100 rounded-lg overflow-hidden">
+          <p className="text-[11px] text-slate-500 px-2 py-1 bg-amber-50/50">Đã gán nhưng chưa nhập định lượng → KHÔNG cảnh báo được sắp cần thay. Vào <b>Kho hàng › Kho máy thuê › Vật tư tiêu hao</b> để nhập.</p>
+          <table className="w-full text-left text-xs text-slate-600">
+            <thead className="bg-amber-50 text-amber-800"><tr><th className="px-2.5 py-1.5 font-medium">Model</th><th className="px-2 py-1.5 font-medium">Mã / tên vật tư</th><th className="px-2 py-1.5 font-medium text-center">Nhóm</th></tr></thead>
+            <tbody className="divide-y divide-slate-100">
+              {a.vatTuChuaDinhLuong.slice(0, 40).map((r: any, i: number) => (
+                <tr key={i}>
+                  <td className="px-2.5 py-1.5 whitespace-nowrap">{r.model_may}</td>
+                  <td className="px-2 py-1.5"><span className="font-mono font-semibold text-slate-700">{r.ma_hang}</span>{r.ten_hang ? <span className="text-slate-500"> · {r.ten_hang}</span> : ''}</td>
+                  <td className="px-2 py-1.5 text-center"><span className={`text-[10px] font-semibold ${r.nhom === 'trong' ? 'text-violet-600' : 'text-sky-600'}`}>{r.nhom === 'trong' ? 'Trống' : 'Mực'}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {a.vatTuChuaDinhLuong.length > 40 && <p className="text-[10px] text-slate-400 px-2 py-1">…và {a.vatTuChuaDinhLuong.length - 40} dòng nữa.</p>}
+        </div>
+      ),
+    },
+    {
       key: 'ton_kho_nguong', icon: Package, tone: 'amber', label: 'Hàng dưới ngưỡng tồn kho', count: a.canhBaoTonList.length,
       navHref: `${V2_BASE}/kho-hang/thong-ke`, navLabel: '→ Mở Kho hàng › Thống kê nhập', canSee: subVisible('kho_hang', 'thong_ke'),
       detail: (

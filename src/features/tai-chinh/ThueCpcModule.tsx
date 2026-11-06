@@ -391,7 +391,7 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
   const filtered = rows.filter(r => {
     const q = norm(search)
     if (!q) return true
-    return norm(r.ten_khach_hang).includes(q) || norm(r.ma_may).includes(q) || norm(r.serial).includes(q) || norm(r.vi_tri_dat_may).includes(q) || norm(r.nv_kinh_doanh).includes(q)
+    return norm(r.ten_khach_hang).includes(q) || norm(r.ma_may).includes(q) || norm(r.serial).includes(q) || norm(r.model).includes(q) || norm(r.vi_tri_dat_may).includes(q) || norm(r.nv_kinh_doanh).includes(q)
   })
 
   const handleSort = (field: string) => {
@@ -447,7 +447,7 @@ function DonGiaTab({ showNotification }: { showNotification: Notify }) {
   return (
     <div className="space-y-4">
       <ListFrame paged={loading ? undefined : paged} unit="máy" toolbar={
-        <SearchInput value={search} onChange={setSearch} placeholder="Tìm tên khách / mã máy / serial…" className="w-64" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Tìm tên khách / mã máy / model / serial…" className="w-64" />
       }>
         {loading && rows.length === 0 ? (
           <div className="text-sm text-slate-400 py-8 text-center"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải danh sách...</div>
