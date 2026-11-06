@@ -202,13 +202,13 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
                   const td = `px-2.5 py-1.5 ${allDone ? 'text-slate-400 line-through' : 'text-slate-700'}`
                   return (
                     <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50" style={{ borderLeft: `3px solid ${borderColor}` }}>
-                      <td className={`${td} font-mono whitespace-nowrap text-xs`}>
+                      <td className={`${td} whitespace-nowrap`}>
                         {(r.so_form_a || r.so_bb) ? (
-                          <div className="flex flex-col gap-0.5">
-                            {r.so_form_a && <span title="Số Form A (claim hãng)"><span className="text-slate-400 mr-1 text-[10px]">A</span>{r.so_form_a}</span>}
-                            {r.so_bb && <span title="Số BB bàn giao khách"><span className="text-slate-400 mr-1 text-[10px]">BB</span>{r.so_bb}</span>}
+                          <div className="flex flex-col items-start gap-0.5">
+                            {r.so_form_a && <span title="Số Form A (claim hãng)" className="inline-block font-mono text-[10px] leading-none px-1.5 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700">{r.so_form_a}</span>}
+                            {r.so_bb && <span title="Số BB bàn giao khách" className="inline-block font-mono text-[10px] leading-none px-1.5 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-700">{r.so_bb}</span>}
                           </div>
-                        ) : '—'}
+                        ) : <span className="text-slate-300">—</span>}
                       </td>
                       <td className={td}>{fmtVN(r.ngay)}</td>
                       <td className={`${td} font-mono`}>{r.serial || ''}</td><td className={td}>{r.model || ''}</td>
