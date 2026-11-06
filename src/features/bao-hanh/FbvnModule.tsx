@@ -584,11 +584,11 @@ function DmHangTab({ rows, orphan, notify, confirm, reload }: any) {
   }
   const fields = [
     { key: 'ma_hang', label: 'Mã hàng', req: true, upper: true, w: 'w-36 shrink-0' },
-    { key: 'ten_hang', label: 'Tên hàng' },
-    { key: 'model', label: 'Model' },
-    { key: 'ma_thay_the', label: 'Mã tương đương', upper: true, w: 'flex-1 min-w-[180px]', placeholder: 'nhiều mã cách dấu phẩy, VD 948K59323' },
+    { key: 'ten_hang', label: 'Tên hàng', w: 'w-44 shrink-0' },
+    { key: 'model', label: 'Model', w: 'w-32 shrink-0' },
+    { key: 'ma_thay_the', label: 'Mã tương đương', upper: true, w: 'w-36 shrink-0', placeholder: 'nhiều mã, cách dấu phẩy' },
     { key: 'ngung_su_dung', label: 'Ngưng dùng', type: 'checkbox' },
-    { key: 'ghi_chu', label: 'Ghi chú' },
+    { key: 'ghi_chu', label: 'Ghi chú', w: 'w-32 shrink-0' },
   ]
   const maCell = (r: any) => (
     <span>
@@ -661,7 +661,7 @@ function RefTable({ title, q, setQ, onTpl, parseRows, onCommit, unit, columns, r
           <div className="text-xs text-slate-500 mb-2">{editingId ? 'Sửa dòng.' : 'Thêm nhanh 1 dòng (không cần Excel).'}</div>
           <div className="flex flex-wrap items-end gap-3">
             {(addFields || []).map((fl: any) => (
-              <div key={fl.key} className={fl.type === 'checkbox' ? 'flex items-center pb-1.5 shrink-0' : (fl.w || 'flex-1 min-w-[140px]')}>
+              <div key={fl.key} className={fl.type === 'checkbox' ? 'flex items-center pb-1.5 shrink-0' : (fl.w || 'w-40 shrink-0')}>
                 {fl.type === 'checkbox'
                   ? <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={!!addRow[fl.key]} onChange={e => setAddRow((p: any) => ({ ...p, [fl.key]: e.target.checked }))} />{fl.label}</label>
                   : <>
@@ -672,10 +672,10 @@ function RefTable({ title, q, setQ, onTpl, parseRows, onCommit, unit, columns, r
                   </>}
               </div>
             ))}
-          </div>
-          <div className="flex gap-2 mt-3">
-            <button disabled={adding || !addReqOk} onClick={async () => { setAdding(true); await (editingId && onEdit ? onEdit(addRow) : onAdd(addRow)); setAdding(false); setAddRow({}); setEditingId(null); setShowAdd(false) }} className="h-8 px-3 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">{adding ? 'Đang lưu…' : 'Lưu'}</button>
-            <button onClick={() => { setShowAdd(false); setAddRow({}); setEditingId(null) }} className="h-8 px-3 rounded-md border border-slate-300 text-sm text-slate-600">Hủy</button>
+            <div className="flex gap-2 shrink-0">
+              <button disabled={adding || !addReqOk} onClick={async () => { setAdding(true); await (editingId && onEdit ? onEdit(addRow) : onAdd(addRow)); setAdding(false); setAddRow({}); setEditingId(null); setShowAdd(false) }} className="h-9 px-3 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">{adding ? 'Đang lưu…' : 'Lưu'}</button>
+              <button onClick={() => { setShowAdd(false); setAddRow({}); setEditingId(null) }} className="h-9 px-3 rounded-md border border-slate-300 text-sm text-slate-600">Hủy</button>
+            </div>
           </div>
         </div>
       )}
