@@ -89,6 +89,7 @@ export const V2_NAV: V2Parent[] = [
       { slug: 'bao-cao-ktv', label: 'Báo cáo KTV', permParent: 'quan_ly', permSub: 'nhat_ky' },
       { slug: 'bao-cao-thang', label: 'Báo cáo tháng', permParent: 'quan_ly', permSub: 'bao_cao' },
       { slug: 'nghi-phep', label: 'Nghỉ phép', permParent: 'quan_ly', permSub: 'nghi_phep' },
+      { slug: 'lam-them-gio', label: 'Làm thêm giờ', permParent: 'quan_ly', permSub: 'lam_them_gio' },
     ],
   },
   {
@@ -189,6 +190,7 @@ export const V2_PERM_ROWS: V2PermRow[] = [
   { label: 'Khách cụm', key: 'quan_ly.khach_cum', level: 3, deps: ['quan_ly'] },
   { label: 'Báo cáo tháng', key: 'quan_ly.bao_cao', level: 2, deps: ['quan_ly'] },
   { label: 'Nghỉ phép', key: 'quan_ly.nghi_phep', level: 2, deps: ['quan_ly'] },
+  { label: 'Làm thêm giờ', key: 'quan_ly.lam_them_gio', level: 2, deps: ['quan_ly'] },
 
   { label: 'Trợ lý AI', key: 'tro_ly', level: 1 },
 ]

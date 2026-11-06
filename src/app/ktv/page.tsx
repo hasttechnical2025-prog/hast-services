@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import AccountSettings from "@/components/AccountSettings"
 import NghiPhepDangKy from "@/components/NghiPhepDangKy"
+import KtvOtXem from "@/components/KtvOtXem"
 import DateField from "@/components/DateField"
 import { useConfirm } from "@/components/ConfirmDialog"
 import { initClockOffset, startQueueSync, enqueueStatus, nowISO, onPendingChange } from "@/lib/status-queue"
@@ -95,7 +96,9 @@ export default function KtvMobileWeb() {
   const [releasing, setReleasing] = useState(false)
 
   // State phục vụ nghiệp vụ Báo cáo & Nhật ký KTV
-  const [ktvTab, setKtvTab] = useState<"jobs" | "report" | "nghi">("jobs")
+  const [ktvTab, setKtvTab] = useState<"jobs" | "report" | "cuatoi">("jobs")
+  // Hub "Của tôi": menu → nghỉ phép / làm thêm giờ (gom mục cá nhân để thanh tab chính chỉ 3 mục).
+  const [cuaToiView, setCuaToiView] = useState<"menu" | "nghi" | "ot">("menu")
   const [selectedReportDate, setSelectedReportDate] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -784,15 +787,44 @@ export default function KtvMobileWeb() {
                     📝 Báo cáo ngày
                   </button>
                   <button
-                    onClick={() => setKtvTab("nghi")}
-                    className={`flex-1 py-2 rounded-md font-semibold text-xs transition flex items-center justify-center gap-1.5 ${ktvTab === 'nghi' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    onClick={() => { setKtvTab("cuatoi"); setCuaToiView("menu") }}
+                    className={`flex-1 py-2 rounded-md font-semibold text-xs transition flex items-center justify-center gap-1.5 ${ktvTab === 'cuatoi' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                   >
-                    🌴 Nghỉ phép
+                    👤 Của tôi
                   </button>
                 </div>
 
-                {ktvTab === "nghi" ? (
-                  <NghiPhepDangKy notify={showNotification} />
+                {ktvTab === "cuatoi" ? (
+                  cuaToiView === "nghi" ? (
+                    <div className="space-y-3">
+                      <button onClick={() => setCuaToiView("menu")} className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-800"><ChevronLeft className="w-4 h-4" /> Của tôi</button>
+                      <NghiPhepDangKy notify={showNotification} />
+                    </div>
+                  ) : cuaToiView === "ot" ? (
+                    <div className="space-y-3">
+                      <button onClick={() => setCuaToiView("menu")} className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-800"><ChevronLeft className="w-4 h-4" /> Của tôi</button>
+                      <KtvOtXem />
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <button onClick={() => setCuaToiView("nghi")} className="w-full bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3 hover:bg-slate-50 transition text-left">
+                        <span className="text-2xl">🌴</span>
+                        <div className="flex-1">
+                          <div className="font-semibold text-slate-800 text-sm">Nghỉ phép</div>
+                          <div className="text-xs text-slate-500">Đăng ký nghỉ phép / ốm, xem trạng thái duyệt</div>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-slate-300" />
+                      </button>
+                      <button onClick={() => setCuaToiView("ot")} className="w-full bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3 hover:bg-slate-50 transition text-left">
+                        <span className="text-2xl">⏰</span>
+                        <div className="flex-1">
+                          <div className="font-semibold text-slate-800 text-sm">Làm thêm giờ</div>
+                          <div className="text-xs text-slate-500">Xem lịch OT được phân công trong tháng</div>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-slate-300" />
+                      </button>
+                    </div>
+                  )
                 ) : ktvTab === "jobs" ? (
                   <>
                     {/* NHẮC: PHIẾU CỨNG CHƯA NỘP */}
