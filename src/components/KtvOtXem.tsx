@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { RefreshCw, Clock, MapPin, ChevronLeft, ChevronRight, CalendarClock } from "lucide-react"
+import { RefreshCw, Clock, MapPin, ChevronLeft, ChevronRight } from "lucide-react"
 import { thuVN, fmtNgayVN, khoangGio, type OtRow } from "@/lib/ot"
 
 // KTV XEM lịch làm thêm giờ (OT) ĐƯỢC PHÂN — READ-ONLY. KTV không tự đăng ký (tech_admin tạo ca).
@@ -60,10 +60,6 @@ export default function KtvOtXem() {
           <div className="text-[11px] text-emerald-600 font-medium">giờ (tạm tính)</div>
         </div>
       </div>
-
-      <p className="text-[11px] text-slate-400 px-1 flex items-center gap-1">
-        <CalendarClock className="w-3.5 h-3.5 shrink-0" /> Lịch OT do văn phòng phân công. Số giờ tính tiền do P. HCNS chốt trên phiếu.
-      </p>
 
       {loading && rows.length === 0 ? (
         <div className="text-center text-sm text-slate-400 py-8"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-emerald-600" />Đang tải lịch OT...</div>
