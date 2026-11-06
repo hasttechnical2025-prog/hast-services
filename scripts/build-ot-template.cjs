@@ -64,6 +64,8 @@ xml = replaceHighlights(xml, [
   '{{DIADIEM}}', '{{DAUVIEC}}', '{{KETQUA}}',
 ])
 xml = loopRows(xml)
+// Bỏ mũi tên Wingdings (char F0E0) user vẽ sau {{TGIAN}} trong ô "Thời gian dự kiến".
+xml = xml.replace(/<w:sym w:font="Wingdings" w:char="F0E0"\/>/g, '')
 zip.file('word/document.xml', xml)
 fs.writeFileSync(OUT, zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' }))
 console.log('✓ phieu-dang-ky-ot.docx (' + fs.statSync(OUT).size + ' bytes)')
