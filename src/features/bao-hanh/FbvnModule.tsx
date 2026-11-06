@@ -53,7 +53,7 @@ export function FbvnModule() {
 
   const TABS: { k: Tab; label: string }[] = [
     { k: 'so', label: 'Sổ bảo hành' }, { k: 'plinvoice', label: 'PL-Invoice' },
-    { k: 'dmhang', label: 'DM Hàng' }, { k: 'cauhinh', label: 'Cấu hình' },
+    { k: 'dmhang', label: 'Kho hàng BH' }, { k: 'cauhinh', label: 'Cấu hình' },
   ]
 
   return (
@@ -624,13 +624,13 @@ function DmHangTab({ rows, orphan, notify, confirm, reload }: any) {
         </div>
       )}
       <RefTable title="Kho hàng bảo hành (tồn tính từ Sổ bảo hành)" q={q} setQ={setQ} onTpl={tpl} parseRows={parseRows} onCommit={onCommit} unit="mã"
-        onAdd={onAdd} onEdit={onAdd} addFields={fields} columns={columns} rows={filtered} onDel={del} />
+        onAdd={onAdd} onEdit={onAdd} addFields={fields} columns={columns} rows={filtered} onDel={del} actionLabel="Thao tác" />
     </div>
   )
 }
 
 // Bảng tra cứu dùng chung (PL-Invoice + DM Hàng): tìm · thêm 1 dòng · tải mẫu · nhập Excel (dán → XEM TRƯỚC → ghi) · bảng · xóa.
-function RefTable({ title, q, setQ, onTpl, parseRows, onCommit, unit, columns, rows, onDel, addFields, onAdd, onEdit }: any) {
+function RefTable({ title, q, setQ, onTpl, parseRows, onCommit, unit, columns, rows, onDel, addFields, onAdd, onEdit, actionLabel = '' }: any) {
   const [paste, setPaste] = useState('')
   const [showPaste, setShowPaste] = useState(false)
   const [preview, setPreview] = useState<{ items: any[]; issues: { line: number; reason: string }[] } | null>(null)
@@ -726,7 +726,7 @@ function RefTable({ title, q, setQ, onTpl, parseRows, onCommit, unit, columns, r
       )}
       <div className="bg-white border border-slate-200 rounded-lg overflow-x-auto mx-1">
         <table className="w-full text-xs">
-          <thead><tr className="text-left text-slate-500 border-b border-slate-200">{columns.map((c: any) => <th key={c[0]} className="px-2.5 py-2 font-medium">{c[1]}</th>)}<th className="px-2.5 py-2"></th></tr></thead>
+          <thead><tr className="text-left text-slate-500 border-b border-slate-200">{columns.map((c: any) => <th key={c[0]} className="px-2.5 py-2 font-medium">{c[1]}</th>)}<th className="px-2.5 py-2 font-medium text-right">{actionLabel}</th></tr></thead>
           <tbody>
             {rows.length === 0 ? <tr><td colSpan={columns.length + 1} className="text-center py-8 text-slate-400">Chưa có dữ liệu.</td></tr>
               : rows.map((r: any) => (
