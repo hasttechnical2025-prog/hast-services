@@ -135,7 +135,7 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
       if (fGoods && (fGoods === 'yes') !== !!r.goods_received) return false
       if (fCust && (fCust === 'yes') !== !!r.back_to_customer) return false
       if (needle) {
-        const hay = `${r.serial || ''} ${r.product_code || ''} ${r.ma_tra_ve || ''} ${r.ten_claim || ''} ${r.model || ''} ${r.customer || ''} ${r.so_form_a || ''} ${r.fbvn_claim_no || ''}`.toLowerCase()
+        const hay = `${r.serial || ''} ${r.product_code || ''} ${r.ma_tra_ve || ''} ${r.ten_claim || ''} ${r.model || ''} ${r.customer || ''} ${r.so_form_a || ''} ${r.so_bb || ''} ${r.fbvn_claim_no || ''}`.toLowerCase()
         if (!hay.includes(needle)) return false
       }
       return true
@@ -162,9 +162,9 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
     if (res.ok) { notify('success', 'Đã xóa'); reload() } else notify('error', 'Lỗi xóa')
   }
   const exportCSV = () => {
-    const head = ['Số', 'Ngày', 'Serial', 'Model', 'Mã VT', 'Mã trả về', 'Tên hàng', 'On-air', 'Gửi hãng', 'Hàng về', 'Trả khách', 'FBVN No.', 'Khách']
+    const head = ['Số Form A', 'Số BB', 'Ngày', 'Serial', 'Model', 'Mã VT', 'Mã trả về', 'Tên hàng', 'On-air', 'Gửi hãng', 'Hàng về', 'Trả khách', 'FBVN No.', 'Khách']
     const yn = (v: any) => (v ? 'x' : '')
-    const rows = filtered.map((r: any) => [r.so_form_a || '', fmtVN(r.ngay), r.serial || '', r.model || '', r.product_code || '', r.ma_tra_ve || '', r.ten_claim || '', fmtVN(r.on_air), yn(r.claim_sent), yn(r.goods_received), yn(r.back_to_customer), r.fbvn_claim_no || '', r.customer || ''])
+    const rows = filtered.map((r: any) => [r.so_form_a || '', r.so_bb || '', fmtVN(r.ngay), r.serial || '', r.model || '', r.product_code || '', r.ma_tra_ve || '', r.ten_claim || '', fmtVN(r.on_air), yn(r.claim_sent), yn(r.goods_received), yn(r.back_to_customer), r.fbvn_claim_no || '', r.customer || ''])
     downloadCSV('so-bao-hanh-fbvn.csv', [head, ...rows])
   }
 
@@ -202,7 +202,14 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
                   const td = `px-2.5 py-1.5 ${allDone ? 'text-slate-400 line-through' : 'text-slate-700'}`
                   return (
                     <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50" style={{ borderLeft: `3px solid ${borderColor}` }}>
-                      <td className={`${td} font-mono whitespace-nowrap`}>{r.so_form_a || '—'}</td>
+                      <td className={`${td} font-mono whitespace-nowrap text-xs`}>
+                        {(r.so_form_a || r.so_bb) ? (
+                          <div className="flex flex-col gap-0.5">
+                            {r.so_form_a && <span title="Số Form A (claim hãng)"><span className="text-slate-400 mr-1 text-[10px]">A</span>{r.so_form_a}</span>}
+                            {r.so_bb && <span title="Số BB bàn giao khách"><span className="text-slate-400 mr-1 text-[10px]">BB</span>{r.so_bb}</span>}
+                          </div>
+                        ) : '—'}
+                      </td>
                       <td className={td}>{fmtVN(r.ngay)}</td>
                       <td className={`${td} font-mono`}>{r.serial || ''}</td><td className={td}>{r.model || ''}</td>
                       <td className={td}>
