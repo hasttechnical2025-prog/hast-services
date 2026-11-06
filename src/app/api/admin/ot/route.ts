@@ -55,6 +55,25 @@ export async function POST(request: Request) {
 
     const b = await request.json()
     const clean = (v: any) => { const s = String(v ?? '').trim(); return s || null }
+
+    // BULK (admin): { items: [{ nhan_vien_id, ngay, tu_gio?, ... }] } — nhập danh sách OT cũ.
+    if (Array.isArray(b.items)) {
+      if (session.role !== 'admin') return NextResponse.json({ error: 'Chỉ Admin được nhập hàng loạt' }, { status: 403 })
+      const rows = b.items
+        .filter((it: any) => it && it.nhan_vien_id && YMD.test(String(it.ngay || '')))
+        .map((it: any) => ({
+          nhan_vien_id: it.nhan_vien_id, ngay: it.ngay,
+          tu_gio: clean(it.tu_gio), den_gio: clean(it.den_gio), dia_diem: clean(it.dia_diem),
+          dau_viec: clean(it.dau_viec), ket_qua: clean(it.ket_qua) || 'Hoàn thành', ghi_chu: clean(it.ghi_chu),
+          nguoi_tao: session.id,
+        }))
+      if (!rows.length) return NextResponse.json({ error: 'Không có dòng hợp lệ (thiếu nhân viên/ngày)' }, { status: 400 })
+      const { error } = await supabaseAdmin.from('soct_ot').insert(rows)
+      if (error) throw error
+      await logAudit(session, 'Nhập OT hàng loạt', `${rows.length} ca`)
+      return NextResponse.json({ success: true, count: rows.length })
+    }
+
     if (!b.nhan_vien_id) return NextResponse.json({ error: 'Thiếu nhân viên' }, { status: 400 })
     if (!YMD.test(String(b.ngay || ''))) return NextResponse.json({ error: 'Thiếu/sai ngày' }, { status: 400 })
 
