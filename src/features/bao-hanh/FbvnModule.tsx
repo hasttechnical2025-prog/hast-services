@@ -7,7 +7,7 @@ import { useShared } from '@/features/_shell/SharedDataProvider'
 import { onAirFromFob, isExpired, vnTodayISO } from '@/lib/bao-hanh'
 import { Plus, Upload, FileDown, Download, FileText, ClipboardList, Pencil, Trash2, Search, ShieldCheck, AlertTriangle, X } from 'lucide-react'
 
-type Tab = 'so' | 'plinvoice' | 'dmhang' | 'cauhinh'
+type Tab = 'so' | 'plinvoice' | 'dmhang'
 const fmtVN = (iso: any) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso ?? '')); return m ? `${m[3]}/${m[2]}/${m[1]}` : '' }
 const dl = (id: string) => { const a = document.createElement('a'); a.href = id; a.click() }
 // Tải CSV (BOM UTF-8) cho Excel đọc tiếng Việt đúng.
@@ -53,7 +53,7 @@ export function FbvnModule() {
 
   const TABS: { k: Tab; label: string }[] = [
     { k: 'so', label: 'Sổ bảo hành' }, { k: 'plinvoice', label: 'PL-Invoice' },
-    { k: 'dmhang', label: 'Kho hàng BH' }, { k: 'cauhinh', label: 'Cấu hình' },
+    { k: 'dmhang', label: 'Kho hàng BH' },
   ]
 
   return (
@@ -73,7 +73,6 @@ export function FbvnModule() {
       {tab === 'so' && <SoTab list={list} loading={loading} plinvoice={plinvoice} dmhang={dmhang} ktvOptions={ktvOptions} customers={customers} notify={notify} confirm={confirm} reload={load} />}
       {tab === 'plinvoice' && <PlInvoiceTab rows={plinvoice} notify={notify} confirm={confirm} reload={load} />}
       {tab === 'dmhang' && <DmHangTab rows={dmhang} orphan={dmOrphan} notify={notify} confirm={confirm} reload={load} />}
-      {tab === 'cauhinh' && <CauHinhTab />}
       {toastNode}{confirmNode}
     </div>
   )
@@ -747,16 +746,3 @@ function RefTable({ title, q, setQ, onTpl, parseRows, onCommit, unit, columns, r
   )
 }
 
-// ─────────────────────────────── CẤU HÌNH ───────────────────────────────
-function CauHinhTab() {
-  const row = (k: string, v: string) => <div className="flex justify-between py-2 border-b border-slate-100 text-sm"><span className="text-slate-500">{k}</span><span className="font-medium text-slate-800">{v}</span></div>
-  return (
-    <div className="max-w-xl mx-1 bg-white border border-slate-200 rounded-lg p-5">
-      <div className="text-sm font-semibold text-slate-700 mb-3">Cấu hình đại lý (đã nhúng cố định trong mẫu Word)</div>
-      {row('Dealer', 'HANOI SIEU THANH JSC')}
-      {row('Email (P.I.C)', 'trankien@sieuthanh.com.vn')}
-      {row('Dealer Technical Manager', 'Tran Kien')}
-      <p className="text-xs text-slate-400 mt-3">Ba giá trị này in cố định trên Form (A). Muốn đổi: sửa trực tiếp trong file mẫu <code>fbvn-form-a.docx</code> rồi dựng lại template.</p>
-    </div>
-  )
-}
