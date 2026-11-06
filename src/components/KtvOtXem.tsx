@@ -46,7 +46,11 @@ export default function KtvOtXem() {
       <div className="flex items-center justify-between bg-white rounded-xl border border-slate-200 p-2">
         <button onClick={() => setThang(t => shiftMonth(t, -1))} className="h-9 w-9 inline-flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500"><ChevronLeft className="w-5 h-5" /></button>
         <div className="text-sm font-bold text-slate-700">{thangLabel(thang)}</div>
-        <button onClick={() => setThang(t => shiftMonth(t, 1))} className="h-9 w-9 inline-flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500"><ChevronRight className="w-5 h-5" /></button>
+        <button
+          onClick={() => setThang(t => (t >= ymNow() ? t : shiftMonth(t, 1)))}
+          disabled={thang >= ymNow()}
+          className="h-9 w-9 inline-flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+        ><ChevronRight className="w-5 h-5" /></button>
       </div>
 
       {/* Tóm tắt */}
