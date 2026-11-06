@@ -126,6 +126,15 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
 
   const years = useMemo(() => Array.from(new Set((list as any[]).map(r => String(r.ngay || '').slice(0, 4)).filter(Boolean))).sort().reverse(), [list])
 
+  // Tên vật tư hiển thị = TÊN KHO BH hiện tại (tra theo mã, ưu tiên) → sửa tên trong Kho là cập nhật ngay
+  // ở Sổ; ten_claim (tên lúc lập ca) chỉ còn là dự phòng khi mã chưa có trong kho.
+  const dmNameMap = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const d of (dmhang || []) as any[]) { const k = String(d.ma_hang || '').trim().toUpperCase(); if (k && d.ten_hang) m[k] = d.ten_hang }
+    return m
+  }, [dmhang])
+  const vtName = (r: any) => dmNameMap[String(r.product_code || '').trim().toUpperCase()] || r.ten_claim || ''
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
     let rows = (list as any[]).filter(r => {
@@ -217,7 +226,7 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
                         <div className="leading-snug">
                           <div>
                             <span className="font-mono">{r.product_code || ''}</span>
-                            {r.ten_claim && <span className="text-slate-400"> · {r.ten_claim}</span>}
+                            {vtName(r) && <span className="text-slate-400"> · {vtName(r)}</span>}
                           </div>
                           {r.ma_tra_ve && String(r.ma_tra_ve).trim() && String(r.ma_tra_ve).trim().toUpperCase() !== String(r.product_code || '').trim().toUpperCase() && (
                             <div className="flex items-center gap-1 mt-0.5 text-emerald-700" title={`Hãng trả mã ${r.ma_tra_ve}${r.goods_received_date ? ` ngày ${fmtVN(r.goods_received_date)}` : ''}`}>
@@ -542,17 +551,23 @@ function PlInvoiceTab({ rows, notify, confirm, reload }: any) {
 }
 
 // ─────────────────────────────── DM HÀNG ───────────────────────────────
-// Ô tồn THỰC theo mã: >0 xanh, =0 xám, <0 đỏ ("đang mượn" = đã tháo máy mới làm BH trước, chờ hãng trả bù).
-// Tooltip cho biết tổng tồn cả NHÓM tương đương (để đối chiếu), nhưng số chính là tồn riêng mã này.
+// Ô tồn THỰC theo mã: >0 xanh, =0 xám. Mã ÂM: "đang mượn" (đỏ) CHỈ khi cả NHÓM tương đương vẫn
+// âm (thực sự thiếu, chờ hãng trả bù). Nếu mã âm nhưng tổng NHÓM ≥ 0 → đã được mã tương đương bù →
+// hiện "≡ đã bù" (vàng, không báo động). Tooltip luôn cho tổng tồn cả nhóm để đối chiếu.
 function TonCell({ r }: { r: any }) {
   const t = Number(r.ton || 0)
+  const tn = Number(r.ton_nhom || 0)
   const ct = (r.chi_tiet || []) as { ma: string; ton: number }[]
-  const tip = (r.nhom_other || []).length > 0 ? `Nhóm tương đương — tổng tồn ${r.ton_nhom || 0} (${ct.map(x => `${x.ma}: ${x.ton > 0 ? '+' : ''}${x.ton}`).join(' · ') || 'chưa phát sinh'})` : ''
-  const cls = t > 0 ? 'bg-emerald-100 text-emerald-700' : t < 0 ? 'bg-rose-100 text-rose-700' : 'text-slate-400'
+  const hasGroup = (r.nhom_other || []).length > 0
+  const tip = hasGroup ? `Nhóm tương đương — tổng tồn ${tn} (${ct.map(x => `${x.ma}: ${x.ton > 0 ? '+' : ''}${x.ton}`).join(' · ') || 'chưa phát sinh'})` : ''
+  const owed = t < 0 && tn < 0        // cả nhóm vẫn thiếu → thực sự đang mượn
+  const covered = t < 0 && tn >= 0    // mã âm nhưng nhóm đã đủ nhờ mã tương đương
+  const cls = t > 0 ? 'bg-emerald-100 text-emerald-700' : owed ? 'bg-rose-100 text-rose-700' : covered ? 'bg-amber-50 text-amber-700' : 'text-slate-400'
   return (
     <span title={tip} className="inline-flex items-center gap-1">
       <span className={`inline-block min-w-[26px] text-center px-1.5 py-0.5 rounded-full font-semibold ${cls}`}>{t}</span>
-      {t < 0 && <span className="text-[10px] text-rose-600">đang mượn</span>}
+      {owed && <span className="text-[10px] text-rose-600">đang mượn</span>}
+      {covered && <span className="text-[10px] text-amber-600">≡ đã bù</span>}
     </span>
   )
 }
