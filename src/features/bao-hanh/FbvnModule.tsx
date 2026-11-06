@@ -256,13 +256,13 @@ function SoTab({ list, loading, plinvoice, dmhang, ktvOptions, customers, notify
                         <div className="flex items-center gap-1.5">
                           <StepChips r={r} />
                           {isDangMuon(r) && <span className="text-[9px] px-1 py-0.5 rounded bg-rose-50 text-rose-600 border border-rose-200 whitespace-nowrap">đang mượn</span>}
-                          {r.lap_tra && <span title={`Lắp con ${r.lap_tra_ma || ''} ×${r.lap_tra_sl || 1}${r.lap_tra_luc ? ' · ' + fmtVN(r.lap_tra_luc) : ''}`} className="text-[9px] px-1 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">đã lắp trả</span>}
+                          {r.lap_tra && <span title={`Lắp vật tư ${r.lap_tra_ma || ''} ×${r.lap_tra_sl || 1}${r.lap_tra_luc ? ' · ' + fmtVN(r.lap_tra_luc) : ''}`} className="text-[9px] px-1 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">đã lắp trả</span>}
                         </div>
                       </td>
                       <td className={`${td} font-mono whitespace-nowrap`}>{r.fbvn_claim_no || ''}</td>
                       <td className={td}>{r.customer || ''}</td>
                       <td className="px-2.5 py-1.5 whitespace-nowrap text-slate-500">
-                        {isDangMuon(r) && <button title="Lắp trả — hoàn con mượn về kho, lắp con hãng trả vào máy" onClick={() => setLapTra(r)} className="hover:text-emerald-600 mr-2"><ArrowLeftRight className="w-4 h-4 inline" /></button>}
+                        {isDangMuon(r) && <button title="Lắp trả — hoàn vật tư mượn về kho, lắp vật tư hãng trả vào máy" onClick={() => setLapTra(r)} className="hover:text-emerald-600 mr-2"><ArrowLeftRight className="w-4 h-4 inline" /></button>}
                         {r.lap_tra && <button title="Hủy lắp trả (mở lại đang mượn)" onClick={() => undoLapTra(r)} className="hover:text-amber-600 mr-2"><ArrowLeftRight className="w-4 h-4 inline opacity-40" /></button>}
                         {r.co_claim && <button title="Xuất Form (A)" onClick={() => dl(`/api/admin/bao-hanh/form-a?id=${r.id}`)} className="hover:text-blue-600 mr-2"><FileText className="w-4 h-4 inline" /></button>}
                         {r.co_ban_giao && <button title="Xuất BB Bàn giao" onClick={() => dl(`/api/admin/bao-hanh/bb?id=${r.id}`)} className="hover:text-blue-600 mr-2"><ClipboardList className="w-4 h-4 inline" /></button>}
@@ -574,8 +574,8 @@ function PlInvoiceTab({ rows, notify, confirm, reload }: any) {
 }
 
 // ─────────────────────────────── DM HÀNG ───────────────────────────────
-// Ô tồn THỰC theo mã: >0 xanh, =0 xám, <0 đỏ "đang mượn" (đã tháo con dự phòng lắp máy khách trước,
-// chờ KTV LẮP TRẢ con hãng trả về — xem nút Lắp trả ở Sổ). Tooltip cho tổng tồn cả nhóm tương đương.
+// Ô tồn THỰC theo mã: >0 xanh, =0 xám, <0 đỏ "đang mượn" (đã tháo vật tư dự phòng lắp máy khách trước,
+// chờ KTV LẮP TRẢ vật tư hãng trả về — xem nút Lắp trả ở Sổ). Tooltip cho tổng tồn cả nhóm tương đương.
 function TonCell({ r }: { r: any }) {
   const t = Number(r.ton || 0)
   const ct = (r.chi_tiet || []) as { ma: string; ton: number }[]
@@ -589,7 +589,7 @@ function TonCell({ r }: { r: any }) {
   )
 }
 
-// Hộp thoại LẮP TRẢ: chọn mã con LẮP vào máy (trừ kho) + số lượng. Con mượn (mã gửi của ca)
+// Hộp thoại LẮP TRẢ: chọn mã vật tư LẮP vào máy (trừ kho) + số lượng. Vật tư mượn (mã gửi của ca)
 // tự hoàn về kho. Mặc định mã lắp = mã trả về (nếu có) hoặc mã gửi.
 function LapTraDialog({ row, dmhang, vtName, notify, onClose, onDone }: any) {
   const defMa = String(row.ma_tra_ve || row.product_code || '').trim().toUpperCase()
@@ -602,7 +602,7 @@ function LapTraDialog({ row, dmhang, vtName, notify, onClose, onDone }: any) {
   const tonLap = tonMap[ma.trim().toUpperCase()]
   const save = async () => {
     const n = parseInt(sl) || 0
-    if (!ma.trim()) { notify('error', 'Chọn mã con lắp vào máy'); return }
+    if (!ma.trim()) { notify('error', 'Chọn mã vật tư lắp vào máy'); return }
     if (n <= 0) { notify('error', 'Số lượng phải > 0'); return }
     setSaving(true)
     try {
@@ -620,15 +620,15 @@ function LapTraDialog({ row, dmhang, vtName, notify, onClose, onDone }: any) {
         </div>
         <div className="p-5 space-y-3">
           <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-2.5 leading-relaxed">
-            Gỡ con dự phòng <b className="font-mono">{maMuon}</b> khỏi máy khách → <b>hoàn về kho</b>; lắp con hãng trả vào máy → <b>trừ kho</b>. Cả mã mượn lẫn mã lắp sẽ về 0.
+            Gỡ vật tư dự phòng <b className="font-mono">{maMuon}</b> khỏi máy khách → <b>hoàn về kho</b>; lắp vật tư hãng trả vào máy → <b>trừ kho</b>. Cả mã mượn lẫn mã lắp sẽ về 0.
           </div>
           <div>
-            <label className={lbl}>Con mượn (hoàn về kho)</label>
+            <label className={lbl}>Vật tư mượn (hoàn về kho)</label>
             <div className="h-9 px-2.5 rounded-md border border-slate-200 bg-slate-50 text-sm font-mono flex items-center text-slate-600">{maMuon || '—'}{vtName && vtName(row) ? <span className="ml-2 text-slate-400 font-sans text-xs">· {vtName(row)}</span> : null}</div>
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div className="col-span-2">
-              <label className={lbl}>Con LẮP vào máy (trừ kho) <span className="text-rose-500">*</span></label>
+              <label className={lbl}>Vật tư LẮP vào máy (trừ kho) <span className="text-rose-500">*</span></label>
               <input list="dm-ma" className={`${inp} font-mono uppercase`} value={ma} onChange={e => setMa(e.target.value.toUpperCase())} placeholder="mã hãng trả về…" />
               <datalist id="dm-ma">{(dmhang || []).map((d: any) => <option key={d.id} value={d.ma_hang}>{d.ten_hang}</option>)}</datalist>
               {ma.trim() && <div className="text-[11px] text-slate-400 mt-0.5">Tồn hiện tại: <b className={Number(tonLap || 0) > 0 ? 'text-emerald-600' : 'text-slate-500'}>{tonLap ?? '—'}</b></div>}

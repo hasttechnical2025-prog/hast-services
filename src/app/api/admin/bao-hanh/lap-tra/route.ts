@@ -5,7 +5,7 @@ import { logAudit } from '@/lib/audit'
 
 export const runtime = 'nodejs'
 
-// POST { id, ma, sl }  -> đánh dấu ca ĐÃ LẮP TRẢ (con mượn về kho, con lắp vào máy trừ kho).
+// POST { id, ma, sl }  -> đánh dấu ca ĐÃ LẮP TRẢ (vật tư mượn về kho, vật tư lắp vào máy trừ kho).
 // POST { id, undo:true } -> HỦY lắp trả (mở lại trạng thái đang mượn).
 export async function POST(request: Request) {
   try {
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
     const ma = String(b.ma || '').trim().toUpperCase()
     const sl = parseInt(String(b.sl)) || 0
-    if (!ma) return NextResponse.json({ error: 'Thiếu mã con lắp vào máy' }, { status: 400 })
+    if (!ma) return NextResponse.json({ error: 'Thiếu mã vật tư lắp vào máy' }, { status: 400 })
     if (sl <= 0) return NextResponse.json({ error: 'Số lượng phải > 0' }, { status: 400 })
 
     const { error } = await supabaseAdmin.from('soct_bh_fbvn')

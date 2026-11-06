@@ -21,8 +21,8 @@ export async function GET() {
       selectAll<any>((from, to) => supabaseAdmin.from('soct_bh_fbvn').select('product_code, ma_tra_ve, goods_received, back_to_customer, lap_tra, lap_tra_ma, lap_tra_sl').range(from, to)),
     ])
 
-    // 1) Delta tồn: hàng về +1, trả khách −1 (theo mã thực nhận). LẮP TRẢ (mig 109): con mượn
-    //    (mã gửi) VỀ KHO +SL, con lắp vào máy TIÊU THỤ −SL (mã lắp, mặc định = mã trả về).
+    // 1) Delta tồn: hàng về +1, trả khách −1 (theo mã thực nhận). LẮP TRẢ (mig 109): vật tư mượn
+    //    (mã gửi) VỀ KHO +SL, vật tư lắp vào máy TIÊU THỤ −SL (mã lắp, mặc định = mã trả về).
     const delta: Record<string, number> = {}
     const add = (code: string, d: number) => { if (code && d) delta[code] = (delta[code] || 0) + d }
     for (const c of cases || []) {
@@ -33,8 +33,8 @@ export async function GET() {
       if (c.back_to_customer) add(rcode, -1)
       if (c.lap_tra) {
         const sl = Number(c.lap_tra_sl) || 1
-        add(sent, sl)                           // con dự phòng mượn → trả về kho
-        add(norm(c.lap_tra_ma) || rcode, -sl)   // con lắp vào máy → tiêu thụ
+        add(sent, sl)                           // vật tư dự phòng mượn → trả về kho
+        add(norm(c.lap_tra_ma) || rcode, -sl)   // vật tư lắp vào máy → tiêu thụ
       }
     }
 
