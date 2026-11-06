@@ -26,7 +26,12 @@ export default function KhachHangPage() {
     ...(canDiemMay ? [{ slug: 'diem-may', label: 'Điểm máy' }] : []),
     ...(canCum ? [{ slug: 'khach-cum', label: 'Khách cụm' }] : []),
   ]
-  const [tab, setTab] = useState(tabs[0]?.slug || 'diem-may')
+  // Khởi tạo tab theo ?tab= (deep-link từ chuông "Công nợ chưa gán khách cụm" → Khách cụm).
+  const [tab, setTab] = useState(() => {
+    if (typeof window === 'undefined') return 'diem-may'
+    const t = new URLSearchParams(window.location.search).get('tab')
+    return t === 'khach-cum' || t === 'diem-may' ? t : (tabs[0]?.slug || 'diem-may')
+  })
   const active = tabs.some(t => t.slug === tab) ? tab : (tabs[0]?.slug || 'diem-may')
 
   const hdbtCanhBaoThang = parseInt(config?.hdbt_canh_bao_thang || '2') || 2

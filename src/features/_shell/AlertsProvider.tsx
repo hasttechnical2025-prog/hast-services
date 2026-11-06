@@ -11,12 +11,12 @@ export type AlertsData = {
   mucCanhBao: any[]; mucSapHet: any[]; canhBaoTonList: any[]; unfinishedPastJobs: any[]; futureJobs: any[]
   henCskh: any[]; kanban: { col1: number; col2: number; col1_phieu: number; col2_phieu: number; col2_chua_minv: number }
   hdbtExpiring: any[]; counterDueList: any[]; leaveToday: any[]; hdbtCanhBaoThang: number
-  modelsChuaMapMuc: string[]; vatTuChuaDinhLuong: any[]
+  modelsChuaMapMuc: string[]; vatTuChuaDinhLuong: any[]; mayChuaViTri: any[]; congNoChuaCum: any[]
   refetch: () => void
 }
 const Ctx = createContext<AlertsData | null>(null)
 export function useAlerts(): AlertsData {
-  return useContext(Ctx) || { mucCanhBao: [], mucSapHet: [], canhBaoTonList: [], unfinishedPastJobs: [], futureJobs: [], henCskh: [], kanban: { col1: 0, col2: 0, col1_phieu: 0, col2_phieu: 0, col2_chua_minv: 0 }, hdbtExpiring: [], counterDueList: [], leaveToday: [], hdbtCanhBaoThang: 2, modelsChuaMapMuc: [], vatTuChuaDinhLuong: [], refetch: () => {} }
+  return useContext(Ctx) || { mucCanhBao: [], mucSapHet: [], canhBaoTonList: [], unfinishedPastJobs: [], futureJobs: [], henCskh: [], kanban: { col1: 0, col2: 0, col1_phieu: 0, col2_phieu: 0, col2_chua_minv: 0 }, hdbtExpiring: [], counterDueList: [], leaveToday: [], hdbtCanhBaoThang: 2, modelsChuaMapMuc: [], vatTuChuaDinhLuong: [], mayChuaViTri: [], congNoChuaCum: [], refetch: () => {} }
 }
 
 const getJson = (u: string, fb: any) => fetch(u).then(r => r.ok ? r.json() : fb).catch(() => fb)
@@ -39,6 +39,7 @@ export function BellAlertsProvider({ children }: { children: React.ReactNode }) 
   const [unfinishedPastJobs, setUnfinished] = useState<any[]>([])
   const [futureJobs, setFuture] = useState<any[]>([])
   const [choVe, setChoVe] = useState<Record<string, number>>({})
+  const [congNoChuaCum, setCongNoChuaCum] = useState<any[]>([])
 
   const refetch = useCallback(() => {
     if (!user) return
@@ -49,6 +50,9 @@ export function BellAlertsProvider({ children }: { children: React.ReactNode }) 
     getJson('/api/admin/kanban-hd?count=1', {}).then(j => { if (j && typeof j.col1 === 'number') setKanban({ col1: j.col1, col2: j.col2, col1_phieu: j.col1_phieu ?? j.col1, col2_phieu: j.col2_phieu ?? j.col2, col2_chua_minv: j.col2_chua_minv ?? j.col2 }) })
     getJson('/api/admin/nghi-phep?today=1', { data: [] }).then(j => setLeaveToday(j.data || []))
     getJson('/api/admin/kho-hang/dang-giu', { choVe: {} }).then(j => setChoVe(j.choVe || {}))
+    // Công nợ chưa gán khách cụm — CHỈ admin (endpoint yêu cầu admin).
+    if (user.role === 'admin') getJson('/api/admin/cong-no/chua-cum', { items: [] }).then(j => setCongNoChuaCum(j.items || []))
+    else setCongNoChuaCum([])
 
     // Phiếu ngày trước chưa hoàn + đặt trước ngày tới
     const vnNow = new Date(Date.now() + 7 * 3600 * 1000)
@@ -123,8 +127,9 @@ export function BellAlertsProvider({ children }: { children: React.ReactNode }) 
   // Dữ liệu máy thuê còn THIẾU (CHỈ admin — người gán). Chỉ xét máy loai_hd ∈ {Máy thuê, Máy CPC}.
   // (1) Model máy thuê CHƯA gán vật tư (Mực/Trống) → không cảnh báo được tồn.
   // (2) Vật tư đã gán nhưng CHƯA nhập định lượng → không cảnh báo được sắp cần thay.
-  const { modelsChuaMapMuc, vatTuChuaDinhLuong } = useMemo(() => {
-    if (user?.role !== 'admin') return { modelsChuaMapMuc: [] as string[], vatTuChuaDinhLuong: [] as any[] }
+  // (3) Máy thuê/CPC CHƯA có Nơi đặt máy (vi_tri_dat_may trống) → KTV dễ đi nhầm địa chỉ hóa đơn.
+  const { modelsChuaMapMuc, vatTuChuaDinhLuong, mayChuaViTri } = useMemo(() => {
+    if (user?.role !== 'admin') return { modelsChuaMapMuc: [] as string[], vatTuChuaDinhLuong: [] as any[], mayChuaViTri: [] as any[] }
     const rentalMays = (customers as any[]).filter(c => ['Máy thuê', 'Máy CPC'].includes(String(c.loai_hd || '').trim()))
     const mappedModelSet = new Set(mucMap.map((r: any) => normModel(r.model_may)))
     const chuaMap = [...new Set(rentalMays.filter(c => c.model && String(c.model).trim()).map(c => String(c.model).trim()))]
@@ -134,12 +139,13 @@ export function BellAlertsProvider({ children }: { children: React.ReactNode }) 
     const chuaDinhLuong = mucMap
       .filter((r: any) => (!r.dinh_luong || Number(r.dinh_luong) <= 0) && rentalModelSet.has(normModel(r.model_may)))
       .map((r: any) => ({ ...r, ten_hang: inventory.find((i: any) => i.ma_hang === r.ma_hang)?.ten_hang || '' }))
-    return { modelsChuaMapMuc: chuaMap, vatTuChuaDinhLuong: chuaDinhLuong }
+    const chuaViTri = rentalMays.filter(c => !String(c.vi_tri_dat_may || '').trim())
+    return { modelsChuaMapMuc: chuaMap, vatTuChuaDinhLuong: chuaDinhLuong, mayChuaViTri: chuaViTri }
   }, [user, customers, mucMap, inventory])
 
   const value: AlertsData = {
     mucCanhBao, mucSapHet, canhBaoTonList, unfinishedPastJobs, futureJobs, henCskh, kanban,
-    hdbtExpiring, counterDueList, leaveToday, hdbtCanhBaoThang, modelsChuaMapMuc, vatTuChuaDinhLuong, refetch,
+    hdbtExpiring, counterDueList, leaveToday, hdbtCanhBaoThang, modelsChuaMapMuc, vatTuChuaDinhLuong, mayChuaViTri, congNoChuaCum, refetch,
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

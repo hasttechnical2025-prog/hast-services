@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { Bell, Droplets, Package, AlertTriangle, Clock, Users, ClipboardList, ClipboardCheck, Palmtree, ChevronDown } from 'lucide-react'
+import { Bell, Droplets, Package, AlertTriangle, Clock, Users, ClipboardList, ClipboardCheck, Palmtree, ChevronDown, MapPin } from 'lucide-react'
 import { fmtDate } from '@/ui'
 import { hdbtStatus } from '@/lib/hd-status'
 import { V2_BASE } from '@/lib/v2-nav'
@@ -94,6 +94,48 @@ export function NotificationCenter() {
             </tbody>
           </table>
           {a.vatTuChuaDinhLuong.length > 40 && <p className="text-[10px] text-slate-400 px-2 py-1">…và {a.vatTuChuaDinhLuong.length - 40} dòng nữa.</p>}
+        </div>
+      ),
+    },
+    {
+      key: 'chua_vi_tri', icon: MapPin, tone: 'amber', label: 'Máy thuê chưa có Nơi đặt máy', count: a.mayChuaViTri.length,
+      navHref: `${V2_BASE}/quan-ly/khach-hang`, navLabel: '→ Mở Quản lý › Khách hàng', canSee: subVisible('quan_ly', 'khach_hang'),
+      detail: (
+        <div className="px-1 py-1 space-y-1">
+          <p className="text-[11px] text-slate-500 px-1">Thiếu nơi đặt máy → KTV thấy địa chỉ hóa đơn, dễ đi nhầm. Điền ở <b>Danh sách khách hàng</b>.</p>
+          <div className="border border-amber-100 rounded-lg overflow-hidden">
+            <table className="w-full text-left text-xs text-slate-600">
+              <tbody className="divide-y divide-slate-100">
+                {a.mayChuaViTri.slice(0, 30).map((c: any) => (
+                  <tr key={c.id}><td className="px-2.5 py-1.5 font-mono">{c.ma_may || '—'}</td><td className="px-2 py-1.5"><span className="font-medium text-slate-800">{c.ten_khach_hang}</span></td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {a.mayChuaViTri.length > 30 && <p className="text-[10px] text-slate-400 px-1">…và {a.mayChuaViTri.length - 30} máy nữa.</p>}
+        </div>
+      ),
+    },
+    {
+      key: 'cong_no_chua_cum', icon: Users, tone: 'amber', label: 'Công nợ chưa gán khách cụm', count: a.congNoChuaCum.length,
+      navHref: `${V2_BASE}/quan-ly/khach-hang?tab=khach-cum`, navLabel: '→ Mở Quản lý › Khách cụm', canSee: subVisible('quan_ly', 'khach_cum'),
+      detail: (
+        <div className="px-1 py-1 space-y-1">
+          <p className="text-[11px] text-slate-500 px-1">Điểm máy đang có công nợ nhưng chưa thuộc khách cụm → công nợ bị tính lẻ. Vào <b>Quản lý › Khách cụm</b> để gán cho gom đúng.</p>
+          <div className="border border-amber-100 rounded-lg overflow-hidden">
+            <table className="w-full text-left text-xs text-slate-600">
+              <thead className="bg-amber-50 text-amber-800"><tr><th className="px-2.5 py-1.5 font-medium">Khách / mã máy</th><th className="px-2 py-1.5 font-medium text-center">Số phiếu</th></tr></thead>
+              <tbody className="divide-y divide-slate-100">
+                {a.congNoChuaCum.slice(0, 40).map((c: any) => (
+                  <tr key={c.id_khach_hang}>
+                    <td className="px-2.5 py-1.5"><div className="font-medium text-slate-800">{c.ten_khach_hang}</div><div className="text-[10px] text-slate-400 font-mono">{c.ma_may || '—'}{c.dia_chi ? ` · ${c.dia_chi}` : ''}</div></td>
+                    <td className="px-2 py-1.5 text-center font-semibold text-amber-700">{c.so_phieu}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {a.congNoChuaCum.length > 40 && <p className="text-[10px] text-slate-400 px-1">…và {a.congNoChuaCum.length - 40} điểm máy nữa.</p>}
         </div>
       ),
     },
