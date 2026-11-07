@@ -294,6 +294,16 @@ export async function GET(request: Request) {
     // Tìm theo VẬT TƯ (UI 2027): lọc phiếu CÓ CHỨA mã/tên hàng. Toàn cục (bỏ lọc ngày) như Số phiếu.
     const vatTu = (searchParams.get('vat_tu') || '').trim()
     const vatTuSafe = vatTu.replace(/[,()]/g, ' ').trim()
+    // GIẢM EGRESS: client KHÔNG cần tiền vật tư (vd /ktv — thợ không xem giá) gửi ?light=1 →
+    // bỏ don_gia/vat/thanh_tien/hoa_don khỏi embed vật tư (payload nhẹ ~40% phần vật tư). Office
+    // (cần tổng tiền/HĐ) KHÔNG gửi → trả đầy đủ như cũ. Xem memory egress-free-plan.
+    const light = searchParams.get('light') === '1'
+    const vtEmbed = light
+      ? 'soct_chi_tiet_vat_tu ( id, ma_hang, so_luong, da_tra, soct_kho_hang ( ten_hang ) )'
+      : `soct_chi_tiet_vat_tu (
+            id, ma_hang, so_luong, don_gia, vat, thanh_tien, hoa_don, da_tra,
+            soct_kho_hang ( ten_hang )
+          )`
 
     // q có giá trị -> tìm trước các khách khớp tên/địa chỉ (embed không OR được với bảng gốc),
     // rồi lọc cong_viec theo (mã máy ilike q) HOẶC (id_khach_hang thuộc danh sách khách khớp).
@@ -345,19 +355,7 @@ export async function GET(request: Request) {
           moi_boi_user:soct_users!moi_boi (
             full_name
           ),
-          soct_chi_tiet_vat_tu (
-            id,
-            ma_hang,
-            so_luong,
-            don_gia,
-            vat,
-            thanh_tien,
-            hoa_don,
-            da_tra,
-            soct_kho_hang (
-              ten_hang
-            )
-          )
+          ${vtEmbed}
           ${vatTuSafe ? ', vt_filter:soct_chi_tiet_vat_tu!inner(id)' : ''}
         `)
         .order('ngay', { ascending: false })

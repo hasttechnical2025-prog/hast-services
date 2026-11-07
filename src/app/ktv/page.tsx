@@ -183,7 +183,7 @@ export default function KtvMobileWeb() {
   const fetchKtvJobs = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
-      const res = await fetch('/api/admin/cong-viec')
+      const res = await fetch('/api/admin/cong-viec?light=1')   // thợ không xem tiền → payload nhẹ (giảm egress)
       if (res.status === 401) {
         setCurrentKtv(null)
         setJobs([])
