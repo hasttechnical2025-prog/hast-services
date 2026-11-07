@@ -74,7 +74,7 @@ export function SharedDataProvider({ children }: { children: React.ReactNode }) 
 
   // Tự đồng bộ: KHO đổi (nhập/hàng về/sửa-tạo mã) HOẶC JOBS đổi (tạo/sửa phiếu → đổi "đang giữ")
   // → refetch tồn + đang giữ. Khách đổi → refetch khách. Poll nền 60s (lưới an toàn nếu broadcast rớt).
-  useRealtimeRefetch([KHO_TOPIC, JOBS_TOPIC], DATA_EVENT, refetchInventory, !!user, 60000)
+  useRealtimeRefetch([KHO_TOPIC, JOBS_TOPIC], DATA_EVENT, refetchInventory, !!user, 120000)
   useRealtimeRefetch(KHACH_TOPIC, DATA_EVENT, refetchCustomers, !!user, 0)
 
   const dmOptions = useCallback((nhom: string, fallback: string[] = []) => {

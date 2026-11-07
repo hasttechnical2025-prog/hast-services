@@ -242,7 +242,7 @@ function ViecHomNay() {
   }
   useEffect(() => { fetchJobs() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // Realtime "tự lành": KTV nhận/đổi trạng thái -> tự cập nhật (+ poll 30s dự phòng khi tab hiển thị)
-  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => fetchJobs(), true, 30000)
+  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => fetchJobs(), true, 60000)
 
   const counts = useMemo(() => {
     let choNhan = 0, dangLam = 0, xong = 0

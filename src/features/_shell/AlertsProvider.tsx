@@ -81,7 +81,7 @@ export function BellAlertsProvider({ children }: { children: React.ReactNode }) 
   }, [user, counterBaoTruocNgay, counterChuyenKyNgay])
 
   useEffect(() => { refetch() }, [refetch])
-  useRealtimeRefetch([JOBS_TOPIC, KHO_TOPIC, CSKH_TOPIC, THUECPC_TOPIC, DATHANG_TOPIC, CONGNO_TOPIC], 'changed', refetch, !!user, 90000)
+  useRealtimeRefetch([JOBS_TOPIC, KHO_TOPIC, CSKH_TOPIC, THUECPC_TOPIC, DATHANG_TOPIC, CONGNO_TOPIC], 'changed', refetch, !!user, 180000)
 
   // HĐBT/thuê sắp hết hạn (từ danh sách khách)
   const hdbtExpiring = useMemo(() => {

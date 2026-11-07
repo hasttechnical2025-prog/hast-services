@@ -95,7 +95,7 @@ export function BadgeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { refetch() }, [refetch])
   useEffect(() => { refetch() }, [pathname]) // eslint-disable-line react-hooks/exhaustive-deps
-  useRealtimeRefetch([JOBS_TOPIC, CSKH_TOPIC, THUECPC_TOPIC], 'changed', refetch, !!user, 90000)
+  useRealtimeRefetch([JOBS_TOPIC, CSKH_TOPIC, THUECPC_TOPIC], 'changed', refetch, !!user, 180000)
 
   return <Ctx.Provider value={{ counts, refetch }}>{children}</Ctx.Provider>
 }

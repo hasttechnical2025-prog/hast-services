@@ -38,7 +38,13 @@ export function useRealtimeRefetch(
   useEffect(() => {
     if (!enabled) return
     const list = key.split('|')
-    const run = () => { try { fnRef.current() } catch { /* refetch tự nuốt lỗi */ } }
+    // GỘP (debounce ~600ms) các tín hiệu dồn dập (nhiều broadcast/focus liên tiếp lúc đông việc)
+    // thành 1 refetch → giảm MẠNH egress Supabase (gói Free). Broadcast vẫn ~tức thì (trễ <1s).
+    let debTimer: ReturnType<typeof setTimeout> | undefined
+    const run = () => {
+      if (debTimer) clearTimeout(debTimer)
+      debTimer = setTimeout(() => { try { fnRef.current() } catch { /* refetch tự nuốt lỗi */ } }, 600)
+    }
     const runPoll = () => { try { pollRef.current() } catch { /* refetch tự nuốt lỗi */ } }
 
     const channels = list.map(topic => {
@@ -74,6 +80,7 @@ export function useRealtimeRefetch(
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('online', onOnline)
       if (timer) clearInterval(timer)
+      if (debTimer) clearTimeout(debTimer)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, event, enabled, pollMs])

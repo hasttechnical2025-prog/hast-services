@@ -95,7 +95,7 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
   useEffect(() => { loadFuture() }, [loadFuture])
   useEffect(() => { loadOverdue() }, [loadOverdue])
 
-  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => { load(true); loadFuture(); loadOverdue() }, true, 30000)
+  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => { load(true); loadFuture(); loadOverdue() }, true, 60000)
 
   const loaiOptions = dmOptions('loai_cong_viec', LOAI_CV_FALLBACK)
 

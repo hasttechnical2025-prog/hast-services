@@ -368,7 +368,7 @@ export default function KtvMobileWeb() {
 
   // Realtime "tự lành" cho pool việc: broadcast (tức thì) + mồi focus/mạng/nối-lại + poll 30s
   // dự phòng khi tab hiển thị (lỡ mất broadcast do WS chết ngầm vẫn tự khớp lại, khỏi phải F5).
-  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => fetchKtvJobs(true), !!currentKtv, 30000)
+  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => fetchKtvJobs(true), !!currentKtv, 60000)
   // Loại việc cần báo cáo gửi khách (cấu hình; mặc định Sửa máy).
   useEffect(() => {
     if (!currentKtv) return
@@ -1721,7 +1721,7 @@ function DoiHomNay() {
     } catch { /* im lặng */ } finally { setLoading(false) }
   }, [])
   useEffect(() => { load() }, [load])
-  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => load(true), true, 30000)
+  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => load(true), true, 60000)
 
   // Gom theo KTV phụ trách; việc chưa ai nhận -> nhóm "Chưa có người nhận" (xếp cuối).
   const groups = new Map<string, { ten: string; jobs: DoiJob[] }>()
