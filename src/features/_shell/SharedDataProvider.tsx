@@ -51,11 +51,15 @@ export function SharedDataProvider({ children }: { children: React.ReactNode }) 
   const [committed, setCommitted] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
 
-  const refetchInventory = useCallback(() => {
-    getJson('/api/admin/kho-hang').then(setInventory)
-    // "Đang giữ" trả object {ma_hang: SL}, không phải mảng -> lấy .data riêng.
+  // "Đang giữ" = SL vật tư phiếu CHƯA hoàn thành (object {ma_hang: SL}) — NHẸ, đổi theo phiếu.
+  const refetchCommitted = useCallback(() => {
     fetch('/api/admin/kho-hang/dang-giu').then(r => r.ok ? r.json() : { data: {} }).then(j => setCommitted(j.data || {})).catch(() => {})
   }, [])
+  // Tồn kho = bảng kho (payload LỚN) — chỉ cần refetch khi KHO đổi thật (nhập/hàng về/phiếu→Hoàn thành).
+  const refetchInventory = useCallback(() => {
+    getJson('/api/admin/kho-hang').then(setInventory)
+    refetchCommitted()
+  }, [refetchCommitted])
   const refetchCustomers = useCallback(() => { getJson('/api/admin/khach-hang').then(setCustomers) }, [])
 
   const refetchAll = useCallback(() => {
@@ -72,9 +76,12 @@ export function SharedDataProvider({ children }: { children: React.ReactNode }) 
   // Chỉ fetch khi đã biết user (sau khi SessionProvider xác thực xong) — tránh gọi lúc chưa login.
   useEffect(() => { if (user) refetchAll() }, [user, refetchAll])
 
-  // Tự đồng bộ: KHO đổi (nhập/hàng về/sửa-tạo mã) HOẶC JOBS đổi (tạo/sửa phiếu → đổi "đang giữ")
-  // → refetch tồn + đang giữ. Khách đổi → refetch khách. Poll nền 60s (lưới an toàn nếu broadcast rớt).
-  useRealtimeRefetch([KHO_TOPIC, JOBS_TOPIC], DATA_EVENT, refetchInventory, !!user, 120000)
+  // GIẢM EGRESS (gói Free): TỒN KHO (payload lớn) chỉ refetch khi KHO đổi — server bắn KHO khi
+  // nhập/hàng về/sửa mã VÀ khi phiếu → Hoàn thành (trigger trừ kho). ĐỔI PHIẾU THƯỜNG (tạo/nhận/
+  // bắt đầu/sửa tiền-xử lý) chỉ refetch "đang giữ" (nhẹ), KHÔNG kéo cả bảng kho. Poll 120s = lưới
+  // an toàn cho ca hiếm (mở lại phiếu Hoàn thành) — xem memory egress-free-plan. ĐỪNG gộp lại KHO+JOBS.
+  useRealtimeRefetch(KHO_TOPIC, DATA_EVENT, refetchInventory, !!user, 120000)
+  useRealtimeRefetch(JOBS_TOPIC, DATA_EVENT, refetchCommitted, !!user, 0)
   useRealtimeRefetch(KHACH_TOPIC, DATA_EVENT, refetchCustomers, !!user, 0)
 
   const dmOptions = useCallback((nhom: string, fallback: string[] = []) => {

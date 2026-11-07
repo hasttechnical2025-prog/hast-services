@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
-import { broadcastJobsChanged } from '@/lib/realtime'
+import { broadcastJobsChanged, broadcastKhoChanged } from '@/lib/realtime'
 import { getCauHinh } from '@/lib/config'
 import { logAudit } from '@/lib/audit'
 import { clampTapISO, clampPhut } from '@/lib/thoi-gian'
@@ -598,6 +598,7 @@ export async function PUT(request: Request) {
       const { error: cErr } = await supabaseAdmin.from('soct_cong_viec').update(upd).eq('id', id)
       if (cErr) throw cErr
       await broadcastJobsChanged()
+      await broadcastKhoChanged()   // → Hoàn thành: trigger trừ kho → báo UI refetch tồn
       await logAudit(session, 'Chuyển phiếu sang Hoàn thành', `phiếu ${cur.report || id}${cur.ma_may ? ` — máy ${cur.ma_may}` : ''} (từ "Chưa hoàn thành")`)
       return NextResponse.json({ success: true })
     }
@@ -736,6 +737,9 @@ export async function PUT(request: Request) {
       if (preWork && (ktvChanged || msgChanged)) await syncGroupJobMessage(id)
 
       await broadcastJobsChanged()
+      // Phiếu đã vào giai đoạn làm/hoàn thành: thay vật tư = trigger điều chỉnh kho → báo refetch tồn.
+      // Phiếu tiền-xử lý (preWork): vật tư chỉ là "đang giữ" (committed), không đụng tồn → bỏ qua.
+      if (!preWork) await broadcastKhoChanged()
       await logAudit(session, 'Sửa công việc', `id ${id}${ma_may ? ` — máy ${ma_may}` : ''}`)
       return NextResponse.json({ success: true })
     }
@@ -1091,6 +1095,9 @@ export async function PUT(request: Request) {
     }
 
     await broadcastJobsChanged()
+    // Phiếu → Hoàn thành: trigger trừ kho → báo UI refetch tồn (SharedData nghe KHO, KHÔNG nghe
+    // JOBS cho tồn → đổi phiếu thường không kéo full kho hàng). Mở lại Hoàn thành (hiếm) → poll 120s bù.
+    if (updates.ket_qua === 'Hoàn thành') await broadcastKhoChanged()
 
     return NextResponse.json({ data })
   } catch (error: any) {
