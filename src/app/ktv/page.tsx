@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { MapPin, Clipboard, CheckCircle, Play, AlertTriangle, RefreshCw, Inbox, Hand, Send, ChevronLeft, ChevronRight, Plus, Trash2, Calendar, CalendarClock, FileText, Settings, Home, Users, X } from "lucide-react"
+import { MapPin, Clipboard, CheckCircle, Play, AlertTriangle, RefreshCw, Inbox, Hand, Send, ChevronLeft, ChevronRight, Plus, Trash2, Calendar, CalendarClock, FileText, Settings, Home, Users, X, Briefcase, ClipboardList, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import AccountSettings from "@/components/AccountSettings"
+import AccountSheet from "@/components/AccountSheet"
 import NghiPhepDangKy from "@/components/NghiPhepDangKy"
 import KtvOtXem from "@/components/KtvOtXem"
 import DateField from "@/components/DateField"
@@ -75,6 +76,7 @@ export default function KtvMobileWeb() {
   const [activeJob, setActiveJob] = useState<Job | null>(null)
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null)
   const [showSettings, setShowSettings] = useState(false)
+  const [showAccount, setShowAccount] = useState(false)
   const [showTeam, setShowTeam] = useState(false) // overlay "Công việc chung của phòng"
   // Modal hủy nhận việc (kèm lý do tùy chọn)
   const [releaseTarget, setReleaseTarget] = useState<Job | null>(null)
@@ -674,12 +676,16 @@ export default function KtvMobileWeb() {
             <button onClick={() => setShowTeam(true)} title="Công việc chung của phòng" className="p-1.5 rounded bg-emerald-700 text-emerald-100 hover:bg-emerald-800 transition">
               <Users className="w-4 h-4" />
             </button>
-            <button onClick={handleLogout} className="text-xs bg-emerald-700 px-2 py-1 rounded text-emerald-100 hover:bg-emerald-800 transition">
-              Đăng xuất
+            {/* Chạm avatar → tấm trượt tài khoản (Chuyển vai trò / Cài đặt / Đăng xuất). */}
+            <button onClick={() => setShowAccount(true)} title="Tài khoản" className="w-8 h-8 rounded-full bg-emerald-700 text-white flex items-center justify-center font-semibold text-xs">
+              {(currentKtv.full_name || '?').trim().split(/\s+/).slice(-2).map(w => w[0] || '').join('').toUpperCase() || '?'}
             </button>
           </div>
         )}
       </header>
+      {showAccount && <AccountSheet accent="emerald" notify={(m, ok) => showNotification(ok ? 'success' : 'error', m)}
+        onSettings={() => { setShowAccount(false); setShowSettings(true) }}
+        onLogout={handleLogout} onClose={() => setShowAccount(false)} />}
 
       {/* Thông báo dạng Banner trượt trên di động */}
       {notification && (
@@ -772,28 +778,6 @@ export default function KtvMobileWeb() {
 
             {!activeJob ? (
               <>
-                {/* THANH TAB KTV */}
-                <div className="flex gap-1 bg-slate-200 p-1 rounded-lg">
-                  <button
-                    onClick={() => setKtvTab("jobs")}
-                    className={`flex-1 py-2 rounded-md font-semibold text-xs transition flex items-center justify-center gap-1.5 ${ktvTab === 'jobs' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                  >
-                    💼 Nhận việc
-                  </button>
-                  <button
-                    onClick={() => setKtvTab("report")}
-                    className={`flex-1 py-2 rounded-md font-semibold text-xs transition flex items-center justify-center gap-1.5 ${ktvTab === 'report' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                  >
-                    📝 Báo cáo ngày
-                  </button>
-                  <button
-                    onClick={() => { setKtvTab("cuatoi"); setCuaToiView("menu") }}
-                    className={`flex-1 py-2 rounded-md font-semibold text-xs transition flex items-center justify-center gap-1.5 ${ktvTab === 'cuatoi' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                  >
-                    👤 Của tôi
-                  </button>
-                </div>
-
                 {ktvTab === "cuatoi" ? (
                   cuaToiView === "nghi" ? (
                     <div className="space-y-3">
@@ -1358,6 +1342,19 @@ export default function KtvMobileWeb() {
           </div>
         )}
       </main>
+
+      {/* THANH ĐIỀU HƯỚNG ĐÁY — trong tầm ngón cái 1 tay; ẩn khi đang làm 1 việc. */}
+      {currentKtv && !activeJob && (
+        <nav className="bg-white border-t border-slate-200 grid grid-cols-3 sticky bottom-0 z-30">
+          {([['jobs', 'Nhận việc', Briefcase], ['report', 'Báo cáo', ClipboardList], ['cuatoi', 'Của tôi', User]] as const).map(([k, label, Icon]) => (
+            <button key={k} onClick={() => { setKtvTab(k); if (k === 'cuatoi') setCuaToiView('menu') }}
+              className={`py-2.5 flex flex-col items-center gap-0.5 text-[11px] font-medium ${ktvTab === k ? 'text-emerald-700' : 'text-slate-400'}`}>
+              <Icon className="w-5 h-5" />
+              <span className="text-center leading-tight">{label}</span>
+            </button>
+          ))}
+        </nav>
+      )}
 
       {showSettings && <AccountSettings notify={(m, ok) => showNotification(ok ? 'success' : 'error', m)} onClose={() => setShowSettings(false)} />}
       {confirmNode}

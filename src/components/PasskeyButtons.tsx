@@ -72,6 +72,21 @@ export function PasskeyManager({ onResult }: { onResult?: (msg: string, ok: bool
   )
 }
 
+// Đăng nhập usernameless bằng passkey rồi điều hướng theo vai trò. Dùng chung cho nút đăng nhập
+// VÀ nút "Chuyển vai trò" (header /m, /ktv) — người có nhiều tài khoản (office ↔ KTV) đổi 1 chạm.
+export async function loginWithPasskeyAndRedirect(): Promise<void> {
+  const optRes = await fetch('/api/auth/webauthn/login/options', { method: 'POST' })
+  const optionsJSON = await optRes.json()
+  if (!optRes.ok) throw new Error(optionsJSON.error || 'Không tạo được yêu cầu')
+  const asr = await startAuthentication({ optionsJSON })
+  const verRes = await fetch('/api/auth/webauthn/login/verify', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(asr),
+  })
+  const j = await verRes.json()
+  if (!verRes.ok) throw new Error(j.error || 'Đăng nhập thất bại')
+  window.location.href = postLoginPath(j.data?.role)
+}
+
 // Nút ĐĂNG NHẬP bằng sinh trắc học (usernameless) — dùng ở màn đăng nhập / chọn vai trò.
 // Thành công -> tự điều hướng theo vai trò của tài khoản đã chọn.
 export function PasskeyLoginButton({ className, onResult }: { className?: string, onResult?: (msg: string, ok: boolean) => void }) {

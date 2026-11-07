@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { QrCode, ClipboardList, FileText, Boxes, AlertTriangle, LogOut, Settings, Home, CalendarCheck, Search, Users, MapPin, X, RefreshCw, Palmtree, Lock } from "lucide-react"
+import { QrCode, ClipboardList, FileText, Boxes, AlertTriangle, Home, CalendarCheck, Search, Users, MapPin, X, RefreshCw, Palmtree, LayoutGrid, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import AccountSettings from "@/components/AccountSettings"
+import AccountSheet from "@/components/AccountSheet"
 import NghiPhepDuyet from "@/components/NghiPhepDuyet"
 import LamTiepBanner from "@/components/LamTiepBanner"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
@@ -29,9 +30,11 @@ export default function OfficeMobile() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [denied, setDenied] = useState(false)
-  const [tab, setTab] = useState<'viec' | 'giao' | 'nghi' | 'kanban_hd' | 'kho_thue'>('viec')
+  const [tab, setTab] = useState<'viec' | 'giao' | 'kanban_hd' | 'them'>('viec')
+  const [themView, setThemView] = useState<'menu' | 'nghi' | 'kho_thue'>('menu')
   const [leaveCount, setLeaveCount] = useState(0)
   const [showSettings, setShowSettings] = useState(false)
+  const [showAccount, setShowAccount] = useState(false)
   const [notif, setNotif] = useState<{ type: 'success' | 'error', msg: string } | null>(null)
   const notify = (type: 'success' | 'error', msg: string) => { setNotif({ type, msg }); setTimeout(() => setNotif(null), 4000) }
 
@@ -134,16 +137,16 @@ export default function OfficeMobile() {
           <p className="text-[11px] text-slate-400">Office Mobile · <span className="uppercase">{user.role}</span></p>
           <h1 className="font-bold text-slate-800 text-sm">{user.full_name}</h1>
         </div>
-        <div className="flex items-center">
-          {/* Khóa/mở app bảo trì — CHỈ admin. Mở /khoa NGAY TRONG app (PWA) nên giữ nguyên phiên. */}
-          {user.role === 'admin' && (
-            <button onClick={() => { window.location.href = '/khoa' }} className="text-slate-400 hover:text-rose-600 p-2" title="Khóa / mở app (bảo trì)"><Lock className="w-5 h-5" /></button>
-          )}
-          <button onClick={() => setShowSettings(true)} className="text-slate-400 hover:text-blue-600 p-2" title="Cài đặt"><Settings className="w-5 h-5" /></button>
-          <button onClick={logout} className="text-slate-400 hover:text-red-500 p-2" title="Đăng xuất"><LogOut className="w-5 h-5" /></button>
-        </div>
+        {/* Chạm avatar → tấm trượt tài khoản (Chuyển vai trò / Cài đặt / Đăng xuất). */}
+        <button onClick={() => setShowAccount(true)} title="Tài khoản" className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-semibold text-sm shrink-0">
+          {(user.full_name || '?').trim().split(/\s+/).slice(-2).map(w => w[0] || '').join('').toUpperCase() || '?'}
+        </button>
       </header>
       {showSettings && <AccountSettings notify={(m, ok) => notify(ok ? 'success' : 'error', m)} onClose={() => setShowSettings(false)} />}
+      {showAccount && <AccountSheet accent="blue" notify={(m, ok) => notify(ok ? 'success' : 'error', m)}
+        onSettings={() => { setShowAccount(false); setShowSettings(true) }}
+        onLock={user.role === 'admin' ? () => { window.location.href = '/khoa' } : undefined}
+        onLogout={logout} onClose={() => setShowAccount(false)} />}
 
       <main className="flex-1 p-4 max-w-md mx-auto w-full">
         {tab === 'viec' && (
@@ -161,20 +164,45 @@ export default function OfficeMobile() {
           <TheoDoiHdMobile notify={notify} />
         )}
 
-        {tab === 'kho_thue' && (
-          <KhoThueMobile notify={notify} />
-        )}
-
-        {tab === 'nghi' && (
-          <NghiPhepDuyet notify={notify} onPending={setLeaveCount} />
+        {tab === 'them' && (
+          themView === 'nghi' ? (
+            <div className="space-y-3">
+              <button onClick={() => setThemView('menu')} className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-800"><ChevronLeft className="w-4 h-4" /> Thêm</button>
+              <NghiPhepDuyet notify={notify} onPending={setLeaveCount} />
+            </div>
+          ) : themView === 'kho_thue' ? (
+            <div className="space-y-3">
+              <button onClick={() => setThemView('menu')} className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-800"><ChevronLeft className="w-4 h-4" /> Thêm</button>
+              <KhoThueMobile notify={notify} />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <button onClick={() => setThemView('nghi')} className="w-full bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3 hover:bg-slate-50 transition text-left">
+                <Palmtree className="w-6 h-6 text-emerald-600 shrink-0" />
+                <div className="flex-1">
+                  <div className="font-semibold text-slate-800 text-sm">Nghỉ phép {leaveCount > 0 && <span className="ml-1 text-[11px] bg-rose-500 text-white px-1.5 py-0.5 rounded-full">{leaveCount}</span>}</div>
+                  <div className="text-xs text-slate-500">Duyệt đơn nghỉ phép / ốm của KTV</div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-300" />
+              </button>
+              <button onClick={() => setThemView('kho_thue')} className="w-full bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3 hover:bg-slate-50 transition text-left">
+                <Boxes className="w-6 h-6 text-blue-600 shrink-0" />
+                <div className="flex-1">
+                  <div className="font-semibold text-slate-800 text-sm">Kho máy thuê</div>
+                  <div className="text-xs text-slate-500">Xem tồn máy thuê / CPC</div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-300" />
+              </button>
+            </div>
+          )
         )}
       </main>
 
-      <nav className="bg-white border-t border-slate-200 grid grid-cols-5 sticky bottom-0 z-30">
-        {([['viec', 'Việc hôm nay', CalendarCheck], ['giao', 'Giao việc', ClipboardList], ['nghi', 'Nghỉ phép', Palmtree], ['kanban_hd', 'Kanban HĐ', FileText], ['kho_thue', 'Kho máy thuê', Boxes]] as const).map(([k, label, Icon]) => (
-          <button key={k} onClick={() => setTab(k)} className={`relative py-2.5 flex flex-col items-center gap-0.5 text-[10px] font-medium ${tab === k ? 'text-blue-600' : 'text-slate-400'}`}>
+      <nav className="bg-white border-t border-slate-200 grid grid-cols-4 sticky bottom-0 z-30">
+        {([['viec', 'Việc hôm nay', CalendarCheck], ['giao', 'Giao việc', ClipboardList], ['kanban_hd', 'Kanban HĐ', FileText], ['them', 'Thêm', LayoutGrid]] as const).map(([k, label, Icon]) => (
+          <button key={k} onClick={() => { setTab(k); if (k === 'them') setThemView('menu') }} className={`relative py-2.5 flex flex-col items-center gap-0.5 text-[11px] font-medium ${tab === k ? 'text-blue-600' : 'text-slate-400'}`}>
             <Icon className="w-5 h-5" />
-            {k === 'nghi' && leaveCount > 0 && (
+            {k === 'them' && leaveCount > 0 && (
               <span className="absolute top-1 right-1/2 translate-x-4 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">{leaveCount}</span>
             )}
             <span className="text-center leading-tight">{label}</span>
