@@ -11,6 +11,7 @@ import KtvOtXem from "@/components/KtvOtXem"
 import DateField from "@/components/DateField"
 import { useConfirm } from "@/components/ConfirmDialog"
 import { initClockOffset, startQueueSync, enqueueStatus, nowISO, onPendingChange } from "@/lib/status-queue"
+import { haptic } from "@/lib/haptic"
 import { phutGiua, lamTronPhut, fmtThoiLuong } from "@/lib/thoi-gian"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
 
@@ -425,6 +426,7 @@ export default function KtvMobileWeb() {
         body: JSON.stringify({ id: jobId, claim: true })
       })
       if (res.ok) {
+        haptic([10, 40, 10])
         showNotification('success', "Đã nhận việc! Việc đã chuyển vào 'Việc của tôi'.")
         setActiveJob(null)
         fetchKtvJobs()
@@ -512,6 +514,7 @@ export default function KtvMobileWeb() {
   // Đổi trạng thái qua HÀNG ĐỢI: cập nhật giao diện ngay (lạc quan) rồi tự gửi server
   // (kể cả sau khi có sóng trở lại) — không mất thao tác dưới hầm. so_phut chỉ dùng cho Hoàn thành.
   const applyStatus = (jobId: string, nextStatus: 'Đang làm' | 'Hoàn thành' | 'Chưa hoàn thành', so_phut?: number, ngay_hen?: string) => {
+    haptic(nextStatus === 'Đang làm' ? 15 : [10, 40, 10])
     const tapped = nowISO()
     setJobs(prev => prev.map(j => {
       if (j.id !== jobId) return j
@@ -695,7 +698,7 @@ export default function KtvMobileWeb() {
         </div>
       )}
 
-      <main className="flex-1 p-4 max-w-md mx-auto w-full space-y-4">
+      <main className="flex-1 px-4 pt-4 pb-24 max-w-md mx-auto w-full space-y-4">
         {/* MÀN HÌNH ĐĂNG NHẬP BAO MẬT */}
         {!currentKtv ? (
           <form onSubmit={handleLogin} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
@@ -1345,7 +1348,7 @@ export default function KtvMobileWeb() {
 
       {/* THANH ĐIỀU HƯỚNG ĐÁY — trong tầm ngón cái 1 tay; ẩn khi đang làm 1 việc. */}
       {currentKtv && !activeJob && (
-        <nav className="bg-white border-t border-slate-200 grid grid-cols-3 sticky bottom-0 z-30">
+        <nav className="bg-white border-t border-slate-200 grid grid-cols-3 sticky bottom-0 z-30 pb-[env(safe-area-inset-bottom)]">
           {([['jobs', 'Nhận việc', Briefcase], ['report', 'Báo cáo', ClipboardList], ['cuatoi', 'Của tôi', User]] as const).map(([k, label, Icon]) => (
             <button key={k} onClick={() => { setKtvTab(k); if (k === 'cuatoi') setCuaToiView('menu') }}
               className={`py-2.5 flex flex-col items-center gap-0.5 text-[11px] font-medium ${ktvTab === k ? 'text-emerald-700' : 'text-slate-400'}`}>

@@ -12,6 +12,7 @@ import { useRealtimeRefetch } from "@/lib/useRealtime"
 import { LEAVE_TOPIC, LEAVE_EVENT } from "@/lib/realtime"
 import { fmtThoiLuong } from "@/lib/thoi-gian"
 import { phieuTaoChip, PHIEU_TAO_TONE } from "@/lib/phieu-tao"
+import { haptic } from "@/lib/haptic"
 
 const JOBS_TOPIC = "soct_jobs"
 const JOBS_EVENT = "changed"
@@ -148,7 +149,7 @@ export default function OfficeMobile() {
         onLock={user.role === 'admin' ? () => { window.location.href = '/khoa' } : undefined}
         onLogout={logout} onClose={() => setShowAccount(false)} />}
 
-      <main className="flex-1 p-4 max-w-md mx-auto w-full">
+      <main className="flex-1 px-4 pt-4 pb-24 max-w-md mx-auto w-full">
         {tab === 'viec' && (
           <div className="space-y-3">
             <LamTiepBanner showNotification={notify} />
@@ -198,7 +199,7 @@ export default function OfficeMobile() {
         )}
       </main>
 
-      <nav className="bg-white border-t border-slate-200 grid grid-cols-4 sticky bottom-0 z-30">
+      <nav className="bg-white border-t border-slate-200 grid grid-cols-4 sticky bottom-0 z-30 pb-[env(safe-area-inset-bottom)]">
         {([['viec', 'Việc hôm nay', CalendarCheck], ['giao', 'Giao việc', ClipboardList], ['kanban_hd', 'Kanban HĐ', FileText], ['them', 'Thêm', LayoutGrid]] as const).map(([k, label, Icon]) => (
           <button key={k} onClick={() => { setTab(k); if (k === 'them') setThemView('menu') }} className={`relative py-2.5 flex flex-col items-center gap-0.5 text-[11px] font-medium ${tab === k ? 'text-blue-600' : 'text-slate-400'}`}>
             <Icon className="w-5 h-5" />
@@ -471,6 +472,7 @@ function GiaoViecMobile({ customers, technicians, loaiOptions, notify }: {
       })
       const j = await res.json()
       if (!res.ok) { notify('error', j.error || 'Không tạo được phiếu'); return }
+      haptic([10, 40, 10])
       notify('success', form.ktv_id ? 'Đã giao việc cho KTV.' : 'Đã tạo việc (chờ nhận).')
       setForm(emptyForm())
     } catch { notify('error', 'Lỗi kết nối') } finally { setSaving(false) }

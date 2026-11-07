@@ -32,6 +32,9 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  // Cho nội dung tràn mép + bật biến env(safe-area-inset-*) → thanh nav đáy không bị
+  // "home indicator" iPhone đè (xem padding env(safe-area-inset-bottom) ở nav /m, /ktv).
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
