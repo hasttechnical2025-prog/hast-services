@@ -17,10 +17,14 @@ function kmZeroRule(loai_cong_viec: any, ghi_chu: any): boolean {
   if (String(loai_cong_viec || '').trim().toLowerCase() === 'hỗ trợ online') return true
   return /cpn/i.test(String(ghi_chu || ''))
 }
-// Chốt km khi lưu phiếu: CPN/Hỗ trợ online -> 0; client gửi km>0 -> dùng; km trống/0 (vd mobile gửi cứng 0) -> TỰ lấy km_mac_dinh của điểm máy.
-async function resolveKm(loai_cong_viec: any, ghi_chu: any, km: any, id_khach_hang: any): Promise<number> {
+// Chốt km khi lưu phiếu: CPN/Hỗ trợ online -> 0; client gửi km>0 -> dùng.
+// honorExplicit=true (SỬA phiếu): lấy ĐÚNG km gửi lên, KỂ CẢ 0 — admin chủ đích đặt km=0.
+// honorExplicit=false (TẠO mới): km trống/0 (vd mobile gửi cứng 0) -> TỰ lấy km_mac_dinh của điểm máy.
+async function resolveKm(loai_cong_viec: any, ghi_chu: any, km: any, id_khach_hang: any, honorExplicit = false): Promise<number> {
   if (kmZeroRule(loai_cong_viec, ghi_chu)) return 0
   const kmNum = Number(km) || 0
+  // Sửa phiếu: có gửi km (số, kể cả 0) -> tôn trọng, KHÔNG lấp km_mac_dinh. Chỉ bỏ qua khi km thực sự trống.
+  if (honorExplicit && km !== null && km !== undefined && km !== '') return kmNum
   if (kmNum > 0) return kmNum
   if (!id_khach_hang) return 0
   const { data: kh } = await supabaseAdmin.from('soct_khach_hang').select('km_mac_dinh').eq('id', id_khach_hang).single()
@@ -697,7 +701,7 @@ export async function PUT(request: Request) {
         .update({
           ngay: ngay || new Date().toISOString().split('T')[0],
           ma_may: ma_may || null, id_khach_hang, loai_cong_viec,
-          km: await resolveKm(loai_cong_viec, ghi_chu, km, id_khach_hang), so_luong: parseInt(so_luong) || 1,
+          km: await resolveKm(loai_cong_viec, ghi_chu, km, id_khach_hang, true), so_luong: parseInt(so_luong) || 1,
           ktv_id: ktv_id || null,
           ktv2_id: ktv2_id || null,
           report: reportNorm || null, ghi_chu,
