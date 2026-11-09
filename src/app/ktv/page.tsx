@@ -183,7 +183,9 @@ export default function KtvMobileWeb() {
   const fetchKtvJobs = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
-      const res = await fetch('/api/admin/cong-viec?light=1')   // thợ không xem tiền → payload nhẹ (giảm egress)
+      // light=1: bỏ field tiền (thợ không xem giá). ktvScope=active: chỉ việc đang hoạt động +
+      // phiếu của mình chưa nộp giấy — KHÔNG kéo cả lịch sử Hoàn thành mỗi lần poll (giảm egress).
+      const res = await fetch('/api/admin/cong-viec?light=1&ktvScope=active')
       if (res.status === 401) {
         setCurrentKtv(null)
         setJobs([])

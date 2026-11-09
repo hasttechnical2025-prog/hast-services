@@ -305,6 +305,59 @@ export async function GET(request: Request) {
             soct_kho_hang ( ten_hang )
           )`
 
+    // Cột chọn dùng chung cho MỌI nhánh GET (giữ 1 nguồn để không lệch cột giữa các nhánh).
+    const baseSelect = `
+          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, mien_phi, bbbg_luc, ktv_id, ktv2_id, so_luong, created_by, created_at, da_nop_phieu, trang_thai_hd, so_hoa_don, nguon_nhan, so_lan_cuon,
+          bat_dau_luc, hoan_thanh_luc, so_phut_xu_ly, moi_ktv_id, moi_boi, moi_luc, nhan_luc, ngay_hen, phieu_goc_id,
+          soct_khach_hang (
+            ten_khach_hang,
+            dia_chi,
+            model,
+            vi_tri_dat_may
+          ),
+          soct_users!ktv_id (
+            full_name
+          ),
+          ktv2:soct_users!ktv2_id (
+            full_name
+          ),
+          moi_ktv:soct_users!moi_ktv_id (
+            full_name
+          ),
+          moi_boi_user:soct_users!moi_boi (
+            full_name
+          ),
+          ${vtEmbed}`
+
+    // GIẢM EGRESS (siết thêm): /ktv chỉ cần việc ĐANG hoạt động (≠ Hoàn thành) + phiếu của MÌNH
+    // đã xong nhưng CHƯA nộp giấy. Trước đây trả CẢ lịch sử phiếu Hoàn thành của KTV mỗi lần poll
+    // (payload lớn, nhiều thợ poll liên tục). ktvScope=active ⇒ 2 truy vấn gọn rồi gộp. UI /ktv KHÔNG đổi.
+    if (session.role === 'ktv' && searchParams.get('ktvScope') === 'active') {
+      const me = session.id
+      const active = await selectAll((from, to) => supabaseAdmin
+        .from('soct_cong_viec')
+        .select(baseSelect)
+        .is('nguon', null)
+        .neq('ket_qua', 'Hoàn thành')
+        .or(`ktv_id.eq.${me},ktv2_id.eq.${me},moi_ktv_id.eq.${me},ktv_id.is.null`)
+        .order('ngay', { ascending: false })
+        .order('created_at', { ascending: false })
+        .range(from, to))
+      // Phiếu cứng của tôi đã Hoàn thành nhưng chưa nộp bản giấy (khớp bộ lọc `unreturned` ở client).
+      const unreturned = await selectAll((from, to) => supabaseAdmin
+        .from('soct_cong_viec')
+        .select(baseSelect)
+        .is('nguon', null)
+        .eq('ktv_id', me)
+        .eq('ket_qua', 'Hoàn thành')
+        .not('report', 'is', null)
+        .neq('report', '')
+        .eq('da_nop_phieu', false)
+        .order('ngay', { ascending: false })
+        .range(from, to))
+      return NextResponse.json({ data: [...active, ...unreturned] })
+    }
+
     // q có giá trị -> tìm trước các khách khớp tên/địa chỉ (embed không OR được với bảng gốc),
     // rồi lọc cong_viec theo (mã máy ilike q) HOẶC (id_khach_hang thuộc danh sách khách khớp).
     let khIdsForQ: string[] = []
@@ -334,30 +387,7 @@ export async function GET(request: Request) {
     const data = await selectAll((from, to) => {
       let query = supabaseAdmin
         .from('soct_cong_viec')
-        .select(`
-          id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, mien_phi, bbbg_luc, ktv_id, ktv2_id, so_luong, created_by, created_at, da_nop_phieu, trang_thai_hd, so_hoa_don, nguon_nhan, so_lan_cuon,
-          bat_dau_luc, hoan_thanh_luc, so_phut_xu_ly, moi_ktv_id, moi_boi, moi_luc, nhan_luc, ngay_hen, phieu_goc_id,
-          soct_khach_hang (
-            ten_khach_hang,
-            dia_chi,
-            model,
-            vi_tri_dat_may
-          ),
-          soct_users!ktv_id (
-            full_name
-          ),
-          ktv2:soct_users!ktv2_id (
-            full_name
-          ),
-          moi_ktv:soct_users!moi_ktv_id (
-            full_name
-          ),
-          moi_boi_user:soct_users!moi_boi (
-            full_name
-          ),
-          ${vtEmbed}
-          ${vatTuSafe ? ', vt_filter:soct_chi_tiet_vat_tu!inner(id)' : ''}
-        `)
+        .select(`${baseSelect}${vatTuSafe ? ', vt_filter:soct_chi_tiet_vat_tu!inner(id)' : ''}`)
         .order('ngay', { ascending: false })
         .order('created_at', { ascending: false })
         .range(from, to)
