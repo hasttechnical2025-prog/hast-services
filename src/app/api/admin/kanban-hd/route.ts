@@ -46,11 +46,8 @@ export async function GET(request: Request) {
       thangStr = `${vn.getUTCFullYear()}-${String(vn.getUTCMonth() + 1).padStart(2, '0')}`
     }
 
-    // Load tất cả các phiếu thuộc 4 trạng thái Kanban
-    const data = await selectAll<any>((from, to) => {
-      return supabaseAdmin
-        .from('soct_cong_viec')
-        .select(`
+    // Chuỗi select dùng chung cho 2 truy vấn (cột 1-3 lũy kế + cột 4 lọc tháng).
+    const kanbanSelect = `
           id, ngay, ma_may, id_khach_hang, loai_cong_viec, km, ket_qua, report, ghi_chu, mien_phi, ktv_id, ktv2_id, so_luong, created_by, da_nop_phieu, trang_thai_hd, so_hoa_don, ngay_xuat_hd, thanh_toan_luc, ban_giao_kt_luc, nguoi_xuat_hd, dntt_luc, so_dntt, dntt_lan, lam_tron, ten_khach_hd, nguon, ly_do_tra, minvoice_luc, minvoice_lan, tach_rieng, hd_lo, khoa_boi, khoa_luc,
           nguoi_xuat:soct_users!nguoi_xuat_hd ( full_name ),
           soct_khach_hang (
@@ -89,11 +86,34 @@ export async function GET(request: Request) {
               ten_hang
             )
           )
-        `)
-        .in('trang_thai_hd', ['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn', 'Đã thanh toán'])
-        .order('ngay', { ascending: false })
-        .range(from, to)
-    })
+        `
+
+    // Mốc tháng cho CỘT 4 (giảm egress): thanh_toan_luc lưu chuỗi ISO giờ VN ('YYYY-MM-DDT…')
+    // -> so sánh chuỗi với 'YYYY-MM-01' khớp đúng slice(0,7) mà client vẫn dùng.
+    const [yy, mm] = thangStr.split('-').map(Number)
+    const monthStart = `${thangStr}-01`
+    const nextMonthStart = `${mm === 12 ? yy + 1 : yy}-${String(mm === 12 ? 1 : mm + 1).padStart(2, '0')}-01`
+
+    // CỘT 1-3 (đang thao tác + công nợ lũy kế): kéo đủ như cũ.
+    const dataActive = await selectAll<any>((from, to) => supabaseAdmin
+      .from('soct_cong_viec')
+      .select(kanbanSelect)
+      .in('trang_thai_hd', ['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn'])
+      .order('ngay', { ascending: false })
+      .range(from, to))
+
+    // CỘT 4 (Đã thanh toán): CHỈ kéo tháng đang chọn — lọc NGAY Ở SERVER thay vì kéo toàn bộ
+    // lịch sử thu rồi lọc client (chặn đà phình egress theo thời gian). Mỗi tháng = 1 lát mỏng.
+    const dataPaid = await selectAll<any>((from, to) => supabaseAdmin
+      .from('soct_cong_viec')
+      .select(kanbanSelect)
+      .eq('trang_thai_hd', 'Đã thanh toán')
+      .gte('thanh_toan_luc', monthStart)
+      .lt('thanh_toan_luc', nextMonthStart)
+      .order('ngay', { ascending: false })
+      .range(from, to))
+
+    const data = [...(dataActive || []), ...(dataPaid || [])]
 
     // Lọc lại phía server:
     // - Cột 3 (Đã lên hóa đơn / Chờ thanh toán): Lũy kế toàn bộ, nhưng loại bỏ các phiếu

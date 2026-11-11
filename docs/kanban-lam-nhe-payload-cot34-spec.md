@@ -1,6 +1,10 @@
 # Spec — Làm nhẹ payload Kanban Hóa đơn (cột 3/4) để giảm egress
 
-**Trạng thái:** SPEC (11/11/2026). Chưa code. Không schema mới; có thể cần 1 RPC aggregate (tùy chọn C).
+**Trạng thái:** Phase 1 (đòn B) ĐÃ CODE 11/11/2026. Đòn A/C HOÃN (xem §7). Không schema mới.
+
+## 0. Đã làm / còn lại
+- ✅ **Đòn (B) — lọc kỳ CỘT 4 ở server** (commit sắp push): `/api/admin/kanban-hd` GET tách 2 truy vấn — cột 1-3 lũy kế như cũ; **cột 4 (Đã thanh toán) lọc `thanh_toan_luc` trong tháng đang chọn NGAY Ở SERVER** (`.gte(YYYY-MM-01).lt(tháng kế)`) thay vì kéo toàn bộ lịch sử thu rồi lọc client. **Hiển thị y hệt** (client vốn chỉ hiện tháng đó). Đã verify parity chuỗi so khớp `slice(0,7)` + biên tháng 12 cuộn năm.
+- ⏸ **Đòn (A) bỏ dòng vật tư cột 3/4 + (C) RPC aggregate — HOÃN** (xem §7).
 
 ## 1. Bối cảnh
 Supabase Free 5 GB egress/chu kỳ đã vượt (111%, grace hết 16/11). Egress phình **tích lũy từ 7/2026**: GET `/api/admin/kanban-hd` là đường nóng (gọi mỗi lần đẩy phiếu + **mọi client refetch** qua `broadcastJobsChanged`), payload lại **phình theo thời gian**.
@@ -55,6 +59,11 @@ Thẻ **cột 3/4 chỉ hiển thị**: tên khách, MST, **tổng tiền** (Th�
 - Mở thẻ cột 3/4 vẫn phải thấy **đủ dòng vật tư** (lazy) — không rơi dữ liệu.
 - Giữ `so_tien_da_thu`, `_co_mau`, badge tuổi nợ, ĐNTT… như cũ.
 - Không đụng cột 1/2, luồng M-invoice, thu tiền, export.
+
+## 7. Vì sao HOÃN đòn (A) — lý do kỹ thuật
+Rà frontend: mảng `soct_chi_tiet_vat_tu` bị đọc ở ~15 chỗ, trong đó cột 3/4 chạm:
+- Tổng tiền thẻ (`getVatTuStats`), sắp xếp (`cardTong`), **modal** (bảng vật tư), và `aggVatTu` cho export — trong đó cờ **`ghepMa` phụ thuộc `!!v.soct_kho_hang`** (embed kho). Bỏ embed/dòng ở cột 3/4 sẽ đổi `ghepMa` → rủi ro **sai tên ghép mã khi xuất** + modal rỗng vật tư nếu không lazy-load.
+→ Đòn (A) cần: nguồn tổng từ field server (`_tong_sau_vat`) + **lazy-load dòng khi mở thẻ** cột 3/4 + giữ đúng `ghepMa`. Đây là refactor lớn, dễ sai **tiền/tên hóa đơn** — mà user KHÔNG test từng phần. Làm riêng 1 phase, có bước đối chiếu tổng cũ=mới + mở thẻ đủ dòng trước khi gỡ. Đòn (B) đã chặn term phình tệ nhất (cột 4 vô hạn) nên (A) không còn gấp.
 
 ## 6. Ngoài phạm vi
 Không nâng Pro (quyết định riêng), không đổi schema (trừ RPC tùy chọn C), không đụng các tab khác (có thể là spec egress riêng sau). Liên quan [[egress-free-plan]], [[supabase-1000-row-cap]], [[ke-toan-kanban]], [[cong-no-bao-gia]].
