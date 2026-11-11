@@ -186,11 +186,26 @@ ${pages}
 </body></html>`
 }
 
+// Kỳ hợp đồng (LUÔN 1 năm) cho sổ theo dõi — xem docs/so-theo-doi-thoi-han-spec.md.
+// CHỈ mượn NGÀY/THÁNG (mốc kỷ niệm HĐ) từ ngày hết hạn; NĂM do HÔM NAY (giờ VN) quyết định
+// -> in TRƯỚC hay SAU khi ký lại hợp đồng đều ra cùng một kỳ đúng (năm đang lưu không tham gia).
+// đến = mốc kỷ niệm sắp tới tính từ hôm nay; từ = đến − 1 năm. base = ngay_het_han_hdbt (YYYY-MM-DD).
+function kyHopDongTheoMoc(base: string, now: Date = new Date()): { tu: string; den: string } {
+  if (!base || base.length < 10) return { tu: '', den: '' }
+  const mm = base.slice(5, 7), dd = base.slice(8, 10)
+  if (!/^\d{2}$/.test(mm) || !/^\d{2}$/.test(dd)) return { tu: '', den: '' }
+  const todayStr = new Date(now.getTime() + 7 * 3600 * 1000).toISOString().slice(0, 10) // hôm nay giờ VN
+  const yNow = Number(todayStr.slice(0, 4))
+  const mocNayNay = `${yNow}-${mm}-${dd}` // mốc kỷ niệm trong năm nay (so chuỗi YYYY-MM-DD an toàn TZ)
+  return todayStr < mocNayNay
+    ? { tu: `${yNow - 1}-${mm}-${dd}`, den: mocNayNay }
+    : { tu: mocNayNay, den: `${yNow + 1}-${mm}-${dd}` }
+}
+
 // Suy các trường tự động (không nhập tay) cho in HÀNG LOẠT — dựa hoàn toàn vào DB.
 function autoMan(may: MayInfo): ManFields {
   const base = may.ngay_het_han_hdbt ? String(may.ngay_het_han_hdbt).slice(0, 10) : ''
-  let hdTu = '', hdDen = ''
-  if (base) { hdTu = base; const d = new Date(base); if (!isNaN(d.getTime())) { d.setFullYear(d.getFullYear() + 1); hdDen = d.toISOString().slice(0, 10) } }
+  const { tu: hdTu, den: hdDen } = kyHopDongTheoMoc(base)
   return {
     tenKhach: may.ten_khach_hang || may.soct_khach_cum?.ten_khach_hang || '',
     diaChi: may.dia_chi || may.soct_khach_cum?.dia_chi || '',
@@ -227,15 +242,11 @@ export default function SoTheoDoiPrintButton({ may, showNotification }: {
   const [busy, setBusy] = useState(false)
   const [f, setF] = useState({ tenKhach: '', diaChi: '', nguoiLienHe: '', soDienThoai: '', hdTu: '', hdDen: '', soSerial: '', hinhThuc: 'HĐBT' })
 
-  // Mở modal + tự điền KỲ KẾ TIẾP: in sổ mới khi hết hạn -> Từ = ngày hết hạn HĐ hiện tại
-  // (ngay_het_han_hdbt), đến = Từ + 1 năm. Số serial ← may.serial. User sửa tay được.
+  // Mở modal + tự điền kỳ hợp đồng theo mốc ngày/tháng + hôm nay (xem kyHopDongTheoMoc).
+  // Đúng cả khi in TRƯỚC/ SAU khi ký lại HĐ. Số serial ← may.serial. User vẫn sửa tay được.
   const openModal = () => {
     const base = may.ngay_het_han_hdbt ? String(may.ngay_het_han_hdbt).slice(0, 10) : ''
-    let tu = '', den = ''
-    if (base) {
-      tu = base
-      const d = new Date(base); if (!isNaN(d.getTime())) { d.setFullYear(d.getFullYear() + 1); den = d.toISOString().slice(0, 10) }
-    }
+    const { tu, den } = kyHopDongTheoMoc(base)
     const hinhThuc = String(may.loai_hd || '').trim().toUpperCase() === 'MF' ? 'MF' : 'HĐBT'
     const tenKhach = may.ten_khach_hang || may.soct_khach_cum?.ten_khach_hang || ''
     const diaChi = may.dia_chi || may.soct_khach_cum?.dia_chi || ''
