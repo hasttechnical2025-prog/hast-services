@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark, Pencil, Download, Upload, Info, GripVertical, Send, Lock, LockOpen } from "lucide-react"
+import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Users, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark, Pencil, Download, Upload, Info, GripVertical, Send, Lock, LockOpen, Scissors } from "lucide-react"
 import { SearchInput, DateRangeField } from "@/ui"
 import { exportRowsToExcel } from "@/lib/excel"
 import { Button } from "@/components/ui/button"
@@ -346,7 +346,8 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
   const [payModal, setPayModal] = useState<{ soHd: string; ticketIds: string[]; tong: number; daThu: number; tenKh: string; soPhieu: string[] } | null>(null)
   const [payInput, setPayInput] = useState("")
   const [paying, setPaying] = useState(false)
-  const [grouped, setGrouped] = useState(false) // Mặc định KHÔNG gom (tránh gộp nhầm HĐ); office tick khi thực sự muốn gom
+  const [selCot1, setSelCot1] = useState<Record<string, boolean>>({}) // Cột 1: thẻ đang chọn để Gộp (key = card.id). Gộp/tách lưu hd_lo xuống DB.
+  const [gopBusy, setGopBusy] = useState(false)
   const [activeCard, setActiveCard] = useState<{ type: 'single' | 'group', tickets: Ticket[] } | null>(null)
   const [invoiceNum, setInvoiceNum] = useState("")
   const [completing, setCompleting] = useState(false)
@@ -720,7 +721,7 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
         const doMove = async () => {
           const moveBody: any = { ids: targetIds, trang_thai_hd: targetState }
           // Bàn giao kế toán (cột 1 -> 2): ghi ý định gom/lẻ theo cờ hiển thị hiện tại -> đi theo phiếu.
-          if (sourceState === 'Chờ xuất HĐ' && targetState === 'Đang xử lý HĐ') moveBody.tach_rieng = !grouped
+          if (sourceState === 'Chờ xuất HĐ' && targetState === 'Đang xử lý HĐ') moveBody.tach_rieng = true
           const res = await fetch('/api/admin/kanban-hd', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -825,7 +826,7 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
       const body: any = { ids: targetIds, trang_thai_hd: targetState }
       if (keepInvoice) { body.so_hoa_don = activeCard.tickets[0]?.so_hoa_don; body.ngay_xuat_hd = activeCard.tickets[0]?.ngay_xuat_hd }
       // Bàn giao kế toán từ nút modal (cột 1 -> 2): ghi ý định gom/lẻ theo cờ hiển thị -> đi theo phiếu.
-      if (targetState === 'Đang xử lý HĐ' && activeCard.tickets[0]?.trang_thai_hd === 'Chờ xuất HĐ') body.tach_rieng = !grouped
+      if (targetState === 'Đang xử lý HĐ' && activeCard.tickets[0]?.trang_thai_hd === 'Chờ xuất HĐ') body.tach_rieng = true
       const res = await fetch('/api/admin/kanban-hd', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       if (res.ok) { showNotification('success', 'Đã chuyển trạng thái.'); setActiveCard(null); load() }
       else { const err = await res.json(); showNotification('error', err.error || 'Lỗi chuyển trạng thái') }
@@ -1262,14 +1263,12 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
     const cumId = t.soct_khach_hang?.ma_khach_cum
     return cumId ? `cum:${cumId}` : `may:${t.id_khach_hang}`
   }
-  // Khóa gom theo LÔ ĐẨY (mặc định) / theo KHÁCH (khi tick "gom nhóm"):
+  // Khóa gom theo LÔ ĐẨY (hd_lo). Gộp/tách thủ công ở cột 1 ghi hd_lo xuống DB -> bền + chung mọi người.
   //  - Thuê/CPC & Phí BT: LUÔN 1 thẻ/phiếu.
-  //  - grouped (tick): gom theo cụm/khách (ghi đè).
-  //  - có hd_lo: gom theo lô đẩy (mỗi lần đẩy = 1 thẻ = 1 HĐ) — đúng nghiệp vụ.
-  //  - phiếu CŨ chưa có hd_lo: giữ hành vi cũ (cột 1 lẻ; cột 2 theo cụm+tach_rieng) -> không phải thu hồi.
+  //  - có hd_lo: gom theo lô (mỗi lô = 1 thẻ = 1 HĐ) — đẩy từ Công nợ HOẶC Gộp tay ở cột 1.
+  //  - phiếu chưa có hd_lo: cột 1 lẻ (solo); cột 2 giữ hành vi cũ (theo cụm+tach_rieng) cho phiếu legacy.
   const groupKeyLo = (t: Ticket, state: string) => {
     if (t.nguon === 'thue_cpc' || t.nguon === 'phi_bao_tri') return `tc:${t.id}`
-    if (grouped) { const cumId = t.soct_khach_hang?.ma_khach_cum; return cumId ? `cum:${cumId}` : `may:${t.id_khach_hang}` }
     if (t.hd_lo) return `lo:${t.hd_lo}`
     return state === 'Chờ xuất HĐ' ? `solo:${t.id}` : groupKeyOf(t, true)
   }
@@ -1295,7 +1294,75 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
   const cardThu = (c: any) => (c.tickets || []).reduce((m: string, t: any) => { const d = String(t.thanh_toan_luc || t.ngay_xuat_hd || ''); return d > m ? d : m }, '')
 
   const cardsCol1 = getColumnCards(col1Tickets, 'Chờ xuất HĐ').sort((a, b) => cardNgay(b).localeCompare(cardNgay(a)))
-  // Cột 2: gom theo LÔ ĐẨY (giữ nguyên qua bàn giao, không phụ thuộc cờ `grouped` per-viewer).
+
+  // ——— GỘP/TÁCH THỦ CÔNG (cột 1) ———
+  // Khóa gộp theo khách (cụm > điểm máy), khớp lan can server. Thuê/CPC & Phí BT không gộp.
+  const billKeyOf = (t: any) => t?.soct_khach_hang?.ma_khach_cum ? `cum:${t.soct_khach_hang.ma_khach_cum}` : `may:${t.id_khach_hang}`
+  const canSelectCard = (card: any) => !card.tickets.some((t: any) => t.nguon === 'thue_cpc' || t.nguon === 'phi_bao_tri')
+  // Thẻ còn hiển thị ở cột 1 -> lọc selection chết (thẻ đã bàn giao/thu hồi).
+  const selCardIds = Object.keys(selCot1).filter(k => selCot1[k] && cardsCol1.some(c => c.id === k))
+  const clearSel = () => setSelCot1({})
+
+  const callGopApi = async (action: 'gop' | 'tach', ids: string[]) => {
+    setGopBusy(true)
+    try {
+      const res = await fetch('/api/admin/kanban-hd/gop', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, ids }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (res.ok) { showNotification('success', action === 'gop' ? 'Đã gộp thành 1 thẻ (1 hóa đơn).' : 'Đã tách phiếu khỏi lô.'); clearSel(); load() }
+      else showNotification('error', j.error || (action === 'gop' ? 'Lỗi gộp thẻ' : 'Lỗi tách phiếu'))
+    } catch { showNotification('error', 'Lỗi kết nối') }
+    finally { setGopBusy(false) }
+  }
+
+  // Gộp các THẺ đang chọn: gom ticket ids, kiểm cùng khách phía client (báo lỗi sớm).
+  const doGopSelected = () => {
+    const cards = cardsCol1.filter(c => selCardIds.includes(c.id))
+    if (cards.length < 2) { showNotification('error', 'Chọn ít nhất 2 thẻ để gộp.'); return }
+    const keys = [...new Set(cards.map(c => billKeyOf(c.tickets[0])))]
+    if (keys.length > 1) { showNotification('error', 'Các thẻ khác khách hàng — không gộp chung hóa đơn.'); return }
+    const ids = cards.flatMap(c => c.tickets.map((t: any) => t.id))
+    callGopApi('gop', ids)
+  }
+
+  // Tách 1 phiếu khỏi lô.
+  const doTach = (ticketId: string) => callGopApi('tach', [ticketId])
+
+  // "Gộp hết theo khách": mỗi nhóm khách ở cột 1 có >=2 thẻ (bỏ Thuê/CPC·Phí BT) -> 1 lô.
+  const doGopHetTheoKhach = () => {
+    const groups = new Map<string, any[]>()
+    cardsCol1.filter(canSelectCard).forEach(c => {
+      const k = billKeyOf(c.tickets[0])
+      if (!groups.has(k)) groups.set(k, [])
+      groups.get(k)!.push(c)
+    })
+    const batches = [...groups.values()].filter(g => g.length >= 2)
+    if (batches.length === 0) { showNotification('error', 'Không có khách nào có từ 2 thẻ trở lên để gộp.'); return }
+    const soThe = batches.reduce((s, g) => s + g.length, 0)
+    setConfirmDialog({
+      title: 'Gộp hết theo khách hàng?',
+      message: `Sẽ gộp ${soThe} thẻ thành ${batches.length} lô (mỗi khách = 1 hóa đơn). Sau đó bạn vẫn Tách lẻ lại được. Tiếp tục?`,
+      onConfirm: async () => {
+        setGopBusy(true)
+        try {
+          for (const g of batches) {
+            const ids = g.flatMap((c: any) => c.tickets.map((t: any) => t.id))
+            await fetch('/api/admin/kanban-hd/gop', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'gop', ids }),
+            })
+          }
+          showNotification('success', `Đã gộp ${soThe} thẻ thành ${batches.length} lô theo khách.`)
+          clearSel(); load()
+        } catch { showNotification('error', 'Lỗi gộp theo khách') }
+        finally { setGopBusy(false) }
+      },
+    })
+  }
+
+  // Cột 2: gom theo LÔ ĐẨY (giữ nguyên qua bàn giao).
   const cardsCol2 = getColumnCards(col2Tickets, 'Đang xử lý HĐ').sort((a, b) => cardBanGiao(b).localeCompare(cardBanGiao(a)))
   // M-invoice: thẻ CHƯA xuất (nút hàng loạt chỉ đụng các thẻ này) & số thẻ đã xuất nhưng CHƯA có số HĐ.
   const cardsCol2ChuaXuat = cardsCol2.filter((c: any) => !cardMinvoiceExported(c.tickets))
@@ -1800,6 +1867,9 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
             const dragData = card.tickets.length > 1
               ? { ids: card.tickets.map((t: any) => t.id), currentState: state }
               : { id: card.tickets[0].id, currentState: state }
+            const selectableCot1 = state === 'Chờ xuất HĐ' && canSelectCard(card)
+            const selected = selectableCot1 && !!selCot1[card.id]
+            const laLo = state === 'Chờ xuất HĐ' && count > 1 && !!card.tickets[0]?.hd_lo // thẻ lô (gộp) ở cột 1 -> cho Tách
 
             return (
               <div
@@ -1815,7 +1885,7 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
                     tickets: card.tickets
                   })
                 }}
-                className={`bg-white border rounded-lg p-3 shadow-sm hover:shadow transition cursor-grab active:cursor-grabbing border-slate-200 relative overflow-hidden hover:bg-slate-50/50`}
+                className={`bg-white border rounded-lg p-3 shadow-sm hover:shadow transition cursor-grab active:cursor-grabbing relative overflow-hidden hover:bg-slate-50/50 ${selected ? 'border-blue-500 ring-1 ring-blue-400' : 'border-slate-200'}`}
               >
                 {/* Đường viền trang trí trạng thái */}
                 <div className={`absolute top-0 left-0 bottom-0 w-1 ${state === 'Chờ xuất HĐ' ? 'bg-blue-400' : state === 'Đang xử lý HĐ' ? 'bg-amber-400' : state === 'Đã lên hóa đơn' ? 'bg-emerald-500' : 'bg-indigo-500'}`}></div>
@@ -1832,11 +1902,22 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
                           <div className="font-bold text-slate-800 t1 leading-snug line-clamp-2">
                             {tenKh}
                           </div>
-                          {state === 'Đang xử lý HĐ' && card.tickets.length > 1 && (
-                            <span className="inline-block mt-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200" title="Lô gộp — kế toán xuất 1 hóa đơn cho cả nhóm phiếu này">Gộp {card.tickets.length} phiếu</span>
+                          {(state === 'Đang xử lý HĐ' || laLo) && card.tickets.length > 1 && (
+                            <span className="inline-block mt-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200" title="Lô gộp — xuất 1 hóa đơn cho cả nhóm phiếu này">Gộp {card.tickets.length} phiếu</span>
                           )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
+                        {/* Chọn thẻ để GỘP (chỉ Cột 1, không hiện với Thuê/CPC·Phí BT). Bấm = không mở modal. */}
+                        {selectableCot1 && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setSelCot1(s => ({ ...s, [card.id]: !s[card.id] })) }}
+                            title={selected ? 'Bỏ chọn thẻ' : 'Chọn thẻ để gộp'}
+                            aria-label={selected ? 'Bỏ chọn thẻ' : 'Chọn thẻ để gộp'}
+                            className={`p-1 rounded border transition ${selected ? 'text-blue-600 bg-blue-50 border-blue-300' : 'text-slate-400 border-slate-200 hover:text-slate-600 hover:bg-slate-50'}`}
+                          >
+                            {selected ? <CheckSquare className="w-3.5 h-3.5" /> : <Layers className="w-3.5 h-3.5" />}
+                          </button>
+                        )}
                         {/* KHÓA phiếu (chỉ Cột 1): icon = trạng thái hiện tại. Ổ khóa MỞ = chưa khóa
                             (bấm để khóa); ổ khóa ĐÓNG (nền xanh) = đang khóa (bấm để mở). */}
                         {state === 'Chờ xuất HĐ' && (() => {
@@ -1974,14 +2055,33 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
                   )
                 })()}
 
-                  <div className="flex justify-between items-start gap-2 t3 text-slate-500">
-                    <span className="bg-slate-100 px-2 py-0.5 rounded font-medium leading-relaxed">
-                      {count > 1 ? `${count} phiếu: ${card.tickets.map((t: any) => t.report || '—').join(', ')}` : `Phiếu: ${card.tickets[0].report || '—'}`}
-                    </span>
-                    <span className="font-mono text-slate-400 shrink-0">
-                      {count === 1 ? fmtDate(card.tickets[0].ngay) : ''}
-                    </span>
-                  </div>
+                  {laLo ? (
+                    /* Thẻ LÔ ở cột 1: liệt kê từng phiếu + nút Tách (gỡ phiếu khỏi lô). */
+                    <div className="space-y-1">
+                      {card.tickets.map((t: any) => (
+                        <div key={t.id} className="flex items-center justify-between gap-2 t3 bg-slate-100 rounded px-2 py-1">
+                          <span className="font-medium text-slate-600 truncate">Phiếu {t.report || '—'}</span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); doTach(t.id) }}
+                            disabled={gopBusy}
+                            title="Tách phiếu này khỏi lô (lên hóa đơn riêng)"
+                            className="inline-flex items-center gap-1 shrink-0 text-slate-500 border border-slate-300 rounded px-1.5 py-0.5 hover:bg-white hover:text-slate-700 disabled:opacity-50"
+                          >
+                            <Scissors className="w-3 h-3" /> Tách
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex justify-between items-start gap-2 t3 text-slate-500">
+                      <span className="bg-slate-100 px-2 py-0.5 rounded font-medium leading-relaxed">
+                        {count > 1 ? `${count} phiếu: ${card.tickets.map((t: any) => t.report || '—').join(', ')}` : `Phiếu: ${card.tickets[0].report || '—'}`}
+                      </span>
+                      <span className="font-mono text-slate-400 shrink-0">
+                        {count === 1 ? fmtDate(card.tickets[0].ngay) : ''}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Timeline chuyển cột: Bàn giao (cột 2) → Lên HĐ (cột 3) → Thu (cột 4). "—" nếu chưa qua. */}
                   {(() => {
@@ -2204,21 +2304,14 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
             Chờ thanh toán: chỉ kỳ này
           </label>
           {role !== 'kthc' && (
-            <label className="flex items-center gap-1.5 t2 text-slate-500 cursor-pointer select-none">
-              <input type="checkbox" checked={grouped} onChange={e => {
-                if (e.target.checked) {
-                  // Tick = GOM cả khách cụm -> dễ gộp nhầm khi danh sách dài. Xác nhận trước.
-                  setConfirmDialog({
-                    title: 'Gom nhóm theo khách hàng?',
-                    message: 'Mọi phiếu của cùng một khách (cụm) sẽ được GỘP lại để lên CHUNG 1 hóa đơn — bỏ qua việc gom theo từng lô đẩy. Đồng ý gom?',
-                    onConfirm: async () => { setGrouped(true) },
-                  })
-                } else {
-                  setGrouped(false)
-                }
-              }} className="w-3.5 h-3.5 accent-blue-600" />
-              Tự động gom nhóm theo khách hàng
-            </label>
+            <button
+              onClick={doGopHetTheoKhach}
+              disabled={gopBusy}
+              title="Gộp các thẻ cùng khách ở cột 1 thành 1 lô/khách (1 hóa đơn). Sau đó vẫn tách lẻ lại được."
+              className="inline-flex items-center gap-1.5 t2 text-slate-600 border border-slate-300 rounded px-2 py-1 hover:bg-slate-50 disabled:opacity-50"
+            >
+              <Users className="w-3.5 h-3.5" /> Gộp hết theo khách
+            </button>
           )}
           {/* Xuất DS phiếu MIỄN PHÍ (MF) — CHỈ kế toán (admin/kthc). Lấy trực tiếp từ CSDL theo khoảng ngày phiếu; cột khớp "Xuất DS giao việc". */}
           {isKeToan && (
@@ -2247,6 +2340,20 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
                   <Clock className="w-4 h-4" /> 1. Chờ lên hóa đơn ({cardsCol1.length})
                 </h3>
               </div>
+              {/* Thanh thao tác GỘP: hiện khi chọn >=1 thẻ ở cột 1. Gộp = lưu hd_lo xuống DB. */}
+              {selCardIds.length > 0 && (
+                <div className="px-3 py-2 bg-blue-50 border-b border-blue-100 flex items-center justify-between gap-2">
+                  <span className="t2 font-semibold text-blue-700">Đã chọn {selCardIds.length} thẻ</span>
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={doGopSelected} disabled={gopBusy || selCardIds.length < 2}
+                      className="inline-flex items-center gap-1 t2 font-semibold px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+                      <Layers className="w-3.5 h-3.5" /> {gopBusy ? 'Đang gộp…' : 'Gộp thẻ đã chọn'}
+                    </button>
+                    <button onClick={clearSel} disabled={gopBusy}
+                      className="t2 px-2 py-1 rounded border border-slate-300 text-slate-600 hover:bg-white disabled:opacity-50">Bỏ chọn</button>
+                  </div>
+                </div>
+              )}
               {renderCardList(cardsCol1, 'Chờ xuất HĐ', kdCol1)}
             </div>
           )}
