@@ -2303,16 +2303,6 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
             <input type="checkbox" checked={col3ChiKyNay} onChange={e => setCol3ChiKyNay(e.target.checked)} className="w-3.5 h-3.5 accent-blue-600" />
             Chờ thanh toán: chỉ kỳ này
           </label>
-          {role !== 'kthc' && (
-            <button
-              onClick={doGopHetTheoKhach}
-              disabled={gopBusy}
-              title="Gộp các thẻ cùng khách ở cột 1 thành 1 lô/khách (1 hóa đơn). Sau đó vẫn tách lẻ lại được."
-              className="inline-flex items-center gap-1.5 t2 text-slate-600 border border-slate-300 rounded px-2 py-1 hover:bg-slate-50 disabled:opacity-50"
-            >
-              <Users className="w-3.5 h-3.5" /> Gộp hết theo khách
-            </button>
-          )}
           {/* Xuất DS phiếu MIỄN PHÍ (MF) — CHỈ kế toán (admin/kthc). Lấy trực tiếp từ CSDL theo khoảng ngày phiếu; cột khớp "Xuất DS giao việc". */}
           {isKeToan && (
             <div className="flex items-center gap-2 ml-auto">
@@ -2335,10 +2325,18 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
           {/* CỘT 1: CHỜ XUẤT HĐ (Chỉ hiện với Admin, Tech_admin, Staff) */}
           {role !== 'kthc' && (
             <div className="border border-slate-200 rounded-xl bg-white flex flex-col shadow-sm">
-              <div className="p-3 bg-blue-50/50 rounded-t-xl flex justify-between items-center">
+              <div className="p-3 bg-blue-50/50 rounded-t-xl flex justify-between items-center gap-2">
                 <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wider flex items-center gap-1.5">
                   <Clock className="w-4 h-4" /> 1. Chờ lên hóa đơn ({cardsCol1.length})
                 </h3>
+                <button
+                  onClick={doGopHetTheoKhach}
+                  disabled={gopBusy}
+                  title="Gộp các thẻ cùng khách ở cột này thành 1 lô/khách (1 hóa đơn). Sau đó vẫn tách lẻ lại được."
+                  className="inline-flex items-center gap-1 t2 font-medium text-blue-800 border border-blue-300 rounded px-2 py-1 bg-white hover:bg-blue-50 disabled:opacity-50 shrink-0"
+                >
+                  <Users className="w-3.5 h-3.5" /> Gộp toàn bộ
+                </button>
               </div>
               {/* Thanh thao tác GỘP: hiện khi chọn >=1 thẻ ở cột 1. Gộp = lưu hd_lo xuống DB. */}
               {selCardIds.length > 0 && (
