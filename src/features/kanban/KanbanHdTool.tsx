@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Copy, AlertCircle, CheckCircle, Clock, ArrowRight, User, Users, Hash, CheckSquare, Layers, FileText, RefreshCw, Landmark, Pencil, Download, Upload, Info, GripVertical, Send, Lock, LockOpen, Scissors } from "lucide-react"
 import { SearchInput, DateRangeField } from "@/ui"
 import { exportRowsToExcel } from "@/lib/excel"
@@ -332,7 +332,14 @@ function sellerFromCfg(cfg: Record<string, string>): InvSeller {
 }
 
 export default function KanbanHdTool({ role = 'staff', currentUserId, showNotification, v2Layout = false }: { role?: string, currentUserId?: string, showNotification: (type: 'success' | 'error', msg: string) => void, v2Layout?: boolean }) {
-  const [tickets, setTickets] = useState<Ticket[]>([])
+  const [tickets, setTickets] = useState<Ticket[]>([]) // scope 'active': cột 1 + cột 2 + cột 3 ≤7 ngày
+  // Lazy-load (giảm egress): cột 3 lũy kế + cột 4 chỉ nạp khi cần, KHÔNG trên đường nóng realtime.
+  const [col3Full, setCol3Full] = useState<Ticket[] | null>(null) // toàn bộ công nợ (Đã lên hóa đơn); null = chưa nạp
+  const col3FullRef = useRef<Ticket[] | null>(null)
+  const [loadingCol3Full, setLoadingCol3Full] = useState(false)
+  const [col4Rows, setCol4Rows] = useState<Ticket[] | null>(null) // cột 4 tháng; null = chưa nạp
+  const [loadingCol4, setLoadingCol4] = useState(false)
+  const [summary, setSummary] = useState<{ col3: number; col4: number } | null>(null) // số đếm rẻ cho header
   const [kdTickets, setKdTickets] = useState<KdTicket[]>([]) // nguồn kinh doanh (lệnh xuất) — chỉ admin/kthc
   const [kdActive, setKdActive] = useState<KdTicket | null>(null) // modal xem thẻ KD
   const [kdInvoice, setKdInvoice] = useState<{ id: string; so_hoa_don: string; ten: string } | null>(null) // modal nhập số HĐ khi lên HĐ lệnh KD (2->3)
@@ -428,27 +435,65 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/admin/kanban-hd?thang_nam=${thang}`)
+      // Đường nóng (mount + mọi realtime refetch): CHỈ scope 'active' = cột 1 + 2 + cột 3 ≤7 ngày.
+      const res = await fetch(`/api/admin/kanban-hd?scope=active&thang_nam=${thang}`)
       const j = await res.json()
       if (res.ok) {
         const fresh: Ticket[] = j.data || []
         setTickets(fresh)
-        // Modal đang mở -> ánh xạ lại thẻ theo dữ liệu mới để tên/tiền cập nhật ngay.
+        // Modal đang mở -> ánh xạ lại thẻ theo dữ liệu mới (gồm cả cột 3 lũy kế / cột 4 đã nạp).
         setActiveCard(prev => {
           if (!prev) return prev
-          const byId = new Map(fresh.map(t => [t.id, t]))
-          const remapped = prev.tickets.map(t => byId.get(t.id)).filter(Boolean) as Ticket[]
+          const byId = new Map([...fresh, ...(col3FullRef.current || [])].map(t => [t.id, t]))
+          const remapped = prev.tickets.map(t => byId.get(t.id) || t).filter(Boolean) as Ticket[]
           return remapped.length ? { ...prev, tickets: remapped } : null
         })
       } else {
         showNotification('error', j.error || 'Lỗi tải danh sách Kanban')
       }
+      // Số đếm cột 3/4 cho header (head count, rẻ) — không phụ thuộc rows đã nạp.
+      fetch(`/api/admin/kanban-hd?summary=1&thang_nam=${thang}`).then(r => r.json())
+        .then(s => { if (typeof s?.col3_count === 'number') setSummary({ col3: s.col3_count, col4: s.col4_count || 0 }) })
+        .catch(() => {})
     } catch {
       showNotification('error', 'Lỗi kết nối hệ thống')
     } finally {
       setLoading(false)
     }
   }, [thang, showNotification])
+
+  // Nạp TOÀN BỘ công nợ (cột 3 lũy kế) THEO YÊU CẦU — trả về mảng để handler khớp ngay (không chờ state).
+  // force=true: luôn nạp mới (Import TT / Đối chiếu NH cần dữ liệu tươi để khớp đúng nợ cũ).
+  const ensureCol3Full = useCallback(async (force = false): Promise<Ticket[]> => {
+    if (!force && col3FullRef.current) return col3FullRef.current
+    setLoadingCol3Full(true)
+    try {
+      const res = await fetch(`/api/admin/kanban-hd?scope=cot3_full&thang_nam=${thang}`)
+      const j = await res.json()
+      const data: Ticket[] = res.ok ? (j.data || []) : []
+      col3FullRef.current = data
+      setCol3Full(data)
+      return data
+    } catch { showNotification('error', 'Lỗi nạp công nợ'); return col3FullRef.current || [] }
+    finally { setLoadingCol3Full(false) }
+  }, [thang, showNotification])
+
+  // Nạp cột 4 (đã thanh toán) tháng đang chọn theo yêu cầu.
+  const loadCol4 = useCallback(async () => {
+    setLoadingCol4(true)
+    try {
+      const res = await fetch(`/api/admin/kanban-hd?scope=cot4&thang_nam=${thang}`)
+      const j = await res.json()
+      setCol4Rows(res.ok ? (j.data || []) : [])
+    } catch { showNotification('error', 'Lỗi nạp danh sách đã thanh toán') }
+    finally { setLoadingCol4(false) }
+  }, [thang, showNotification])
+
+  // Gỡ cache lazy (sau thao tác thu tiền/đối chiếu) -> công nợ/đã thu nạp lại khi cần, không hiện cũ.
+  const invalidateLazy = useCallback(() => { col3FullRef.current = null; setCol3Full(null); setCol4Rows(null) }, [])
+
+  // Đổi tháng -> dữ liệu lazy cũ hết hiệu lực (cột 4 theo tháng; công nợ nạp lại khi cần).
+  useEffect(() => { col3FullRef.current = null; setCol3Full(null); setCol4Rows(null) }, [thang])
 
   // Lấy cấu hình (ký hiệu M-invoice + khối người bán hóa đơn...) 1 lần.
   useEffect(() => {
@@ -858,7 +903,7 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
       })
       if (res.ok) {
         showNotification('success', chuyen ? 'Đã thu đủ — chuyển sang Đã thanh toán.' : 'Đã ghi nhận thanh toán.')
-        setPayModal(null); load()
+        setPayModal(null); invalidateLazy(); load()
       } else { const e = await res.json(); showNotification('error', e.error || 'Lỗi ghi thu') }
     } catch { showNotification('error', 'Lỗi kết nối') } finally { setPaying(false) }
   }
@@ -898,7 +943,7 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
         setPaying(true)
         try {
           const res = await fetch('/api/admin/hd-thu', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ so_hoa_don: payModal.soHd, reset: true }) })
-          if (res.ok) { showNotification('success', 'Đã đặt lại số đã thu.'); setPayModal(null); load() }
+          if (res.ok) { showNotification('success', 'Đã đặt lại số đã thu.'); setPayModal(null); invalidateLazy(); load() }
           else { const e = await res.json(); showNotification('error', e.error || 'Lỗi đặt lại') }
         } catch { showNotification('error', 'Lỗi kết nối') } finally { setPaying(false) }
       },
@@ -1236,12 +1281,20 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
   }
   const shown = tickets.filter(matchSearch)
 
-  // Phân bổ thẻ lên các cột
+  // Phân bổ thẻ lên các cột. Cột 1/2 từ scope 'active'. Cột 3: công nợ ĐẦY ĐỦ nếu đã nạp
+  // (Xem toàn bộ / đối chiếu), ngược lại chỉ 7 ngày (có sẵn trong 'tickets'). Cột 4: chỉ khi đã nạp.
   const col1Tickets = shown.filter(t => t.trang_thai_hd === 'Chờ xuất HĐ')
   const col2Tickets = shown.filter(t => t.trang_thai_hd === 'Đang xử lý HĐ')
-  const col3Tickets = shown.filter(t => t.trang_thai_hd === 'Đã lên hóa đơn'
+  const col3FullLoaded = col3Full !== null
+  // Nguồn cột 3: nếu đã nạp full -> HỢP NHẤT full + cột 3 trong 'active' (HĐ mới ≤7 ngày),
+  // ưu tiên bản active (tươi hơn) -> HĐ vừa lên không bị khuất sau cache full.
+  const col3Base: Ticket[] = col3FullLoaded
+    ? (() => { const m = new Map<string, Ticket>(); for (const t of col3Full!) m.set(t.id, t); for (const t of tickets) if (t.trang_thai_hd === 'Đã lên hóa đơn') m.set(t.id, t); return [...m.values()] })()
+    : tickets
+  const col3Tickets = col3Base.filter(matchSearch).filter(t => t.trang_thai_hd === 'Đã lên hóa đơn'
     && (!col3ChiKyNay || String(t.ngay_xuat_hd || '').startsWith(thang)))
-  const col4Tickets = shown.filter(t => t.trang_thai_hd === 'Đã thanh toán')
+  const col4Loaded = col4Rows !== null
+  const col4Tickets = (col4Rows ?? []).filter(matchSearch).filter(t => t.trang_thai_hd === 'Đã thanh toán')
 
   // ===== Nguồn KINH DOANH (lệnh xuất) — thẻ RIÊNG, 1 lệnh = 1 thẻ (không gom cụm). =====
   const kdMatch = (t: KdTicket) => {
@@ -1456,9 +1509,11 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
         lumpRows.push({ khach, kk: custKey(khach), h, ngay })
       }
 
+      // Nạp TOÀN BỘ công nợ (gồm nợ cũ >7 ngày) rồi khớp — lazy-load không được bỏ sót HĐ cũ.
+      const cardsCol3Full = groupByHd(await ensureCol3Full(true), 'Đã lên hóa đơn')
       // Bản đồ số HĐ -> thẻ Cột 3.
       const col3ByHd = new Map<string, any>()
-      for (const c of cardsCol3) { const hd = String(c.tickets[0].so_hoa_don || '').trim(); if (hd) col3ByHd.set(hd, c) }
+      for (const c of cardsCol3Full) { const hd = String(c.tickets[0].so_hoa_don || '').trim(); if (hd) col3ByHd.set(hd, c) }
 
       const moved: { hd: string; tien: number }[] = []          // thu = tổng -> chuyển Cột 4
       const partial: { hd: string; daThu: number; tong: number }[] = [] // ghi nhận, ở lại Cột 3
@@ -1498,7 +1553,7 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
         lumpMap.set(lr.kk, g)
       }
       const lumps = [...lumpMap.entries()].map(([kk, g]) => {
-        const hds = cardsCol3
+        const hds = cardsCol3Full
           .filter((c: any) => custMatch(custKey(c.customer?.soct_khach_cum?.ten_khach_hang || c.customer?.ten_khach_hang || ''), kk))
           .map((c: any) => ({ hd: c.tickets[0].so_hoa_don, ngayXuat: c.tickets[0].ngay_xuat_hd || '', con: Math.max(0, cardPay(c).con) }))
         if (hds.length === 0) return null
@@ -1517,7 +1572,7 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
         return { khach: g.khach, tienSau, hds, tongCon, tuNgay, denNgay }
       }).filter((l): l is NonNullable<typeof l> => !!l).sort((a, b) => b.tienSau - a.tienSau)
 
-      await load()
+      invalidateLazy(); await load()
       setPayResult({ moved, partial, over, khacCount, failed, lumps })
     } catch (e: any) { showNotification('error', 'Lỗi đọc file FAST: ' + (e?.message || '')) }
     finally { setPayImporting(false) }
@@ -1622,9 +1677,10 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
       const fresh = rows.filter(t => !doneKeys.has(t.tx_key))
       const daDoiChieu = rows.length - fresh.length
 
-      // --- Khớp với Cột 3 (1-1) ---
+      // --- Khớp với Cột 3 (1-1) --- Nạp TOÀN BỘ công nợ (gồm nợ cũ >7 ngày) để không bỏ sót.
+      const cardsCol3Full = groupByHd(await ensureCol3Full(true), 'Đã lên hóa đơn')
       const normHd = (s: any) => String(s ?? '').replace(/\D/g, '').replace(/^0+/, '')
-      const col3 = cardsCol3.map((c: any) => ({
+      const col3 = cardsCol3Full.map((c: any) => ({
         c, hd: normHd(c.tickets[0].so_hoa_don || ''), tong: cardTong(c),
         name: custKey(c.customer?.soct_khach_cum?.ten_khach_hang || c.customer?.ten_khach_hang || ''),
         khach: c.customer?.soct_khach_cum?.ten_khach_hang || c.customer?.ten_khach_hang || '—',
@@ -1696,7 +1752,7 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
       const j = await res.json()
       if (res.ok) {
         showNotification('success', `Đã ghi thu ${j.thu} HĐ, chuyển "Đã thanh toán" ${j.chuyen}.${(j.failed || []).length ? ` ${j.failed.length} lỗi.` : ''}`)
-        setDcResult(null); await load()
+        setDcResult(null); invalidateLazy(); await load()
       } else showNotification('error', j.error || 'Lỗi ghi nhận')
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setDcApplying(false) }
   }
@@ -1786,7 +1842,7 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
           else { const e = await res.json(); failed.push({ soHD: m.soHD, reason: e.error || 'Lỗi cập nhật' }) }
         } catch { failed.push({ soHD: m.soHD, reason: 'Lỗi kết nối' }) }
       }
-      await load()
+      invalidateLazy(); await load()
       setImportResult({ ok, total: dataRows.length, skipped, failed })
     } catch (e: any) { showNotification('error', 'Lỗi đọc file báo cáo: ' + (e?.message || '')) }
     finally { setImportingReport(false) }
@@ -2406,7 +2462,7 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
           <div className="border border-slate-200 rounded-xl bg-white flex flex-col shadow-sm">
             <div className="p-3 bg-emerald-50/50 rounded-t-xl flex flex-col items-stretch gap-2">
               <h3 className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
-                <CheckCircle className="w-4 h-4" /> {role === 'kthc' ? '2.' : '3.'} Chờ thanh toán ({col3Pay !== 'all' || col3Age !== 'all' ? `${cardsCol3Shown.length}/${cardsCol3.length}` : cardsCol3.length})
+                <CheckCircle className="w-4 h-4" /> {role === 'kthc' ? '2.' : '3.'} Chờ thanh toán ({col3FullLoaded ? (col3Pay !== 'all' || col3Age !== 'all' ? `${cardsCol3Shown.length}/${cardsCol3.length}` : cardsCol3.length) : (summary?.col3 ?? cardsCol3.length)})
               </h3>
               {isKeToan && (
                 <div className="flex gap-2 flex-wrap">
@@ -2433,8 +2489,19 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
                 </div>
               )}
             </div>
+            {/* LAZY-LOAD: mặc định chỉ hiện HĐ 7 ngày gần nhất (đủ cho ĐNTT). Nợ cũ + banner nợ đọng
+                nạp khi bấm "Xem toàn bộ công nợ" (hoặc khi Import TT / Đối chiếu NH). */}
+            {!col3FullLoaded && (
+              <div className="mx-3 mt-2 -mb-1 t3 bg-slate-50 border border-slate-200 text-slate-600 rounded px-2 py-1.5 flex items-center justify-between gap-2 flex-wrap">
+                <span>Đang hiện HĐ <b>7 ngày gần nhất</b>{typeof summary?.col3 === 'number' ? ` · tổng ${summary.col3} phiếu công nợ` : ''}</span>
+                <button onClick={() => ensureCol3Full()} disabled={loadingCol3Full}
+                  className="inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded border border-emerald-300 text-emerald-700 bg-white hover:bg-emerald-50 disabled:opacity-50">
+                  <RefreshCw className={`w-3 h-3 ${loadingCol3Full ? 'animate-spin' : ''}`} /> {loadingCol3Full ? 'Đang nạp…' : 'Xem toàn bộ công nợ'}
+                </button>
+              </div>
+            )}
             {/* Banner NỢ ĐỌNG theo tuổi — bấm 1 mức để LỌC theo tuổi (bấm lại bỏ lọc). */}
-            {col3Debt.nAll > 0 && (
+            {col3FullLoaded && col3Debt.nAll > 0 && (
               <div className="mx-3 mt-2 -mb-1 space-y-1">
                 <div className="t3 text-slate-600">
                   Còn nợ: <b className="text-slate-800">{fmtVnd(col3Debt.tAll)} đ</b> · {col3Debt.nAll} hóa đơn
@@ -2472,14 +2539,26 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
             {renderCardList(cardsCol3Shown, 'Đã lên hóa đơn', kdCol3)}
           </div>
 
-          {/* CỘT 4: ĐÃ THANH TOÁN */}
+          {/* CỘT 4: ĐÃ THANH TOÁN — lazy-load (họa hoằn mới xem): mặc định thu gọn, bấm "Tải danh sách". */}
           <div className="border border-slate-200 rounded-xl bg-white flex flex-col shadow-sm">
-            <div className="p-3 bg-indigo-50/50 rounded-t-xl flex justify-between items-center">
+            <div className="p-3 bg-indigo-50/50 rounded-t-xl flex justify-between items-center gap-2">
               <h3 className="text-xs font-bold text-indigo-800 uppercase tracking-wider flex items-center gap-1.5">
-                <Landmark className="w-4 h-4" /> {role === 'kthc' ? '3.' : '4.'} Đã thanh toán ({cardsCol4.length})
+                <Landmark className="w-4 h-4" /> {role === 'kthc' ? '3.' : '4.'} Đã thanh toán ({col4Loaded ? cardsCol4.length : (summary?.col4 ?? 0)})
               </h3>
+              {!col4Loaded && (
+                <button onClick={loadCol4} disabled={loadingCol4}
+                  className="inline-flex items-center gap-1 t3 font-semibold px-2 py-1 rounded border border-indigo-300 text-indigo-700 bg-white hover:bg-indigo-50 disabled:opacity-50">
+                  <RefreshCw className={`w-3 h-3 ${loadingCol4 ? 'animate-spin' : ''}`} /> {loadingCol4 ? 'Đang tải…' : 'Tải danh sách'}
+                </button>
+              )}
             </div>
-            {renderCardList(cardsCol4, 'Đã thanh toán', kdCol4)}
+            {col4Loaded
+              ? renderCardList(cardsCol4, 'Đã thanh toán', kdCol4)
+              : (
+                <div className="flex-1 p-6 text-center text-xs text-slate-400 bg-slate-50 min-h-[200px] rounded-b-xl border-t border-slate-100">
+                  {summary?.col4 ? `${summary.col4} phiếu đã thu trong tháng này.` : 'Chưa tải.'}<br />Bấm <b>Tải danh sách</b> để xem.
+                </div>
+              )}
           </div>
         </div>
       )}

@@ -1,6 +1,6 @@
 # Spec — Lazy-load cột 3/4 Kanban theo tầng (giảm egress, giữ nguyên nghiệp vụ)
 
-**Trạng thái:** SPEC (11/11/2026). Chưa code. Nối tiếp [[kanban-lam-nhe-payload-cot34-spec]] (đòn B cột 4 đã ship — commit 7e6fa86). Có 1 RPC/summary aggregate (khuyến nghị). Không schema mới cho dữ liệu nghiệp vụ.
+**Trạng thái:** ĐÃ CODE 11/11/2026 (chờ push). Nối tiếp [[kanban-lam-nhe-payload-cot34-spec]] (đòn B cột 4 — 7e6fa86). Không schema/migration. Header dùng **head-count rẻ** (số đếm); **tổng tiền công nợ** hiện qua banner nợ đọng **khi bấm "Xem toàn bộ công nợ"** (không tính trên đường nóng) — khác chút với §3.4 (bỏ RPC sum, dùng count + tính tổng lúc nạp full).
 
 ## 1. Gốc vấn đề (đã xác nhận với nghiệp vụ)
 GET `/api/admin/kanban-hd` là **đường nóng**: gọi mỗi lần đẩy phiếu + **mọi client refetch** qua `broadcastJobsChanged` (realtime). Hiện mỗi lần nạp **kéo cả 4 cột**, trong đó **cột 3 lũy kế công nợ** + **cột 4 lịch sử thu** là phần **to, tăng theo tháng, nhưng ít ai nhìn**.

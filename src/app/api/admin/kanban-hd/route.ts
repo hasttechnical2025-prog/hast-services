@@ -94,26 +94,48 @@ export async function GET(request: Request) {
     const monthStart = `${thangStr}-01`
     const nextMonthStart = `${mm === 12 ? yy + 1 : yy}-${String(mm === 12 ? 1 : mm + 1).padStart(2, '0')}-01`
 
-    // CỘT 1-3 (đang thao tác + công nợ lũy kế): kéo đủ như cũ.
-    const dataActive = await selectAll<any>((from, to) => supabaseAdmin
-      .from('soct_cong_viec')
-      .select(kanbanSelect)
-      .in('trang_thai_hd', ['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn'])
-      .order('ngay', { ascending: false })
-      .range(from, to))
+    // Mốc 7 NGÀY cho CỘT 3 "gần đây": ngay_xuat_hd (YYYY-MM-DD) >= hôm nay(VN) − 7 ngày.
+    const vnTodayMs = Date.now() + 7 * 3600 * 1000
+    const col3From = new Date(vnTodayMs - 7 * 86400 * 1000).toISOString().slice(0, 10)
 
-    // CỘT 4 (Đã thanh toán): CHỈ kéo tháng đang chọn — lọc NGAY Ở SERVER thay vì kéo toàn bộ
-    // lịch sử thu rồi lọc client (chặn đà phình egress theo thời gian). Mỗi tháng = 1 lát mỏng.
-    const dataPaid = await selectAll<any>((from, to) => supabaseAdmin
-      .from('soct_cong_viec')
-      .select(kanbanSelect)
-      .eq('trang_thai_hd', 'Đã thanh toán')
-      .gte('thanh_toan_luc', monthStart)
-      .lt('thanh_toan_luc', nextMonthStart)
-      .order('ngay', { ascending: false })
-      .range(from, to))
+    // ?summary=1 -> số đếm RẺ (head count, KHÔNG kéo rows) cho header khi lazy-load.
+    //   col3_count = số phiếu công nợ (Đã lên hóa đơn, đã có ngày xuất) TOÀN BỘ.
+    //   col4_count = số phiếu đã thu trong THÁNG đang chọn.
+    if (searchParams.get('summary') === '1') {
+      const c3 = await supabaseAdmin.from('soct_cong_viec')
+        .select('id', { count: 'exact', head: true })
+        .eq('trang_thai_hd', 'Đã lên hóa đơn').not('ngay_xuat_hd', 'is', null)
+      const c4 = await supabaseAdmin.from('soct_cong_viec')
+        .select('id', { count: 'exact', head: true })
+        .eq('trang_thai_hd', 'Đã thanh toán')
+        .gte('thanh_toan_luc', monthStart).lt('thanh_toan_luc', nextMonthStart)
+      return NextResponse.json({ col3_count: c3.count || 0, col4_count: c4.count || 0 })
+    }
 
-    const data = [...(dataActive || []), ...(dataPaid || [])]
+    // SCOPE (giảm egress — lazy-load cột 3/4):
+    //  - 'active' (mặc định client mới + mọi realtime refetch): cột 1 + cột 2 + CỘT 3 ≤7 ngày.
+    //  - 'cot3_full': toàn bộ công nợ (Đã lên hóa đơn) — nạp khi Xem toàn bộ / Import TT / Đối chiếu NH.
+    //  - 'cot4': Đã thanh toán tháng đang chọn — nạp khi mở cột 4.
+    //  - KHÔNG scope (client CŨ): giữ hành vi cũ (cột 1-3 lũy kế + cột 4 tháng) để tab cũ không vỡ.
+    const scope = searchParams.get('scope')
+    const fetchQ = (apply: (q: any) => any) => selectAll<any>((from, to) =>
+      apply(supabaseAdmin.from('soct_cong_viec').select(kanbanSelect)).order('ngay', { ascending: false }).range(from, to))
+
+    let data: any[]
+    if (scope === 'cot3_full') {
+      data = await fetchQ(q => q.eq('trang_thai_hd', 'Đã lên hóa đơn'))
+    } else if (scope === 'cot4') {
+      data = await fetchQ(q => q.eq('trang_thai_hd', 'Đã thanh toán').gte('thanh_toan_luc', monthStart).lt('thanh_toan_luc', nextMonthStart))
+    } else if (scope === 'active') {
+      const a = await fetchQ(q => q.in('trang_thai_hd', ['Chờ xuất HĐ', 'Đang xử lý HĐ']))
+      const c3 = await fetchQ(q => q.eq('trang_thai_hd', 'Đã lên hóa đơn').gte('ngay_xuat_hd', col3From))
+      data = [...(a || []), ...(c3 || [])]
+    } else {
+      // Client CŨ (không gửi scope): cột 1-3 lũy kế + cột 4 tháng.
+      const a = await fetchQ(q => q.in('trang_thai_hd', ['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn']))
+      const p = await fetchQ(q => q.eq('trang_thai_hd', 'Đã thanh toán').gte('thanh_toan_luc', monthStart).lt('thanh_toan_luc', nextMonthStart))
+      data = [...(a || []), ...(p || [])]
+    }
 
     // Lọc lại phía server:
     // - Cột 3 (Đã lên hóa đơn / Chờ thanh toán): Lũy kế toàn bộ, nhưng loại bỏ các phiếu
