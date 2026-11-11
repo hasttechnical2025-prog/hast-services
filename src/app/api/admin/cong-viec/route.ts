@@ -640,8 +640,10 @@ export async function PUT(request: Request) {
       if (!['admin', 'tech_admin', 'staff'].includes(session.role)) {
         return NextResponse.json({ error: 'Không có quyền sửa phiếu' }, { status: 403 })
       }
-      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('ket_qua, trang_thai_hd, ktv_id, ktv2_id, so_hoa_don, id_khach_hang, ma_may, loai_cong_viec, report, ghi_chu, ngay').eq('id', id).single()
+      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('ket_qua, trang_thai_hd, ktv_id, ktv2_id, so_hoa_don, id_khach_hang, ma_may, loai_cong_viec, report, ghi_chu, ngay, km, mien_phi, minvoice_luc').eq('id', id).single()
       if (!cur) return NextResponse.json({ error: 'Không tìm thấy công việc' }, { status: 404 })
+      // Vật tư hiện tại — để phát hiện "chạm hóa đơn" (Lớp ①) + ghi diff audit (Lớp ③). Phiếu vài dòng, nhẹ.
+      const { data: curVT } = await supabaseAdmin.from('soct_chi_tiet_vat_tu').select('ma_hang, so_luong, don_gia, vat, hoa_don').eq('id_cong_viec', id)
       // Admin sửa được mọi trạng thái; tech_admin/staff chỉ sửa khi phiếu chưa bắt đầu
       // (Chờ nhận / Đã nhận) — sau khi KTV bấm Đang làm thì không cho sửa nữa
       const preWork = ['Chờ nhận', 'Đã nhận'].includes(cur.ket_qua)
@@ -672,36 +674,64 @@ export async function PUT(request: Request) {
           : ktv_id !== cur.ktv_id ? { nhan_luc: new Date().toISOString(), nhac_luc: null }
             : {}
 
-      // Đồng bộ trạng thái hóa đơn (công nợ) với cờ hoa_don của vật tư:
-      //  - CÒN tick HĐ  -> GIỮ NGUYÊN nếu đang ở mốc đã-chốt ('Đang xử lý HĐ'/'Đã lên hóa đơn'/
-      //    'Đã thanh toán'); các mốc khác (Chưa HĐ/Đã báo giá) -> 'Chờ xuất HĐ' để lên HĐ.
-      //    ⚠️ PHẢI giữ 'Đã thanh toán': nếu không, SỬA phiếu CŨ đã thanh toán (vd fix mã hàng) sẽ bị
-      //    ép về 'Chờ xuất HĐ' -> nhảy vào Kanban cột 1 thành "phiếu ma" 0đ (bug đã gặp 2026-11-05,
-      //    xem [[sua-phieu-cu-reset-trangthai]]).
-      //  - KHÔNG còn tick (BỎ TICK HĐ cố ý) -> đưa về 'Chưa hóa đơn' từ MỌI trạng thái đã-hóa-đơn,
-      //    KỂ CẢ 'Đã thanh toán' (phiếu pre-1/8/2026 "vơ đũa" -> admin bỏ tick để đẩy về Công nợ lên
-      //    HĐ lại). Giữ workflow này. Ngược lại giữ nguyên (mốc 'Đã báo giá').
-      const hasHD = Array.isArray(vat_tu) && vat_tu.some((v: any) => v.hoa_don && v.ma_hang && Number(v.so_luong) > 0)
-      // MF -> trạng thái KẾT THÚC 'Miễn phí' (ra khỏi Kanban/Công nợ). Bỏ MF thì tính lại từ đầu
-      // (coi mốc cũ 'Miễn phí' như 'Chưa hóa đơn' để không bị kẹt).
-      const baseHd = cur.trang_thai_hd === 'Miễn phí' ? 'Chưa hóa đơn' : cur.trang_thai_hd
-      const nextTrangThaiHd = mien_phi
-        ? 'Miễn phí'
-        : hasHD
-          ? (['Đang xử lý HĐ', 'Đã lên hóa đơn', 'Đã thanh toán'].includes(baseHd) ? baseHd : 'Chờ xuất HĐ')
-          : (['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn', 'Đã thanh toán'].includes(baseHd) ? 'Chưa hóa đơn' : (baseHd || 'Chưa hóa đơn'))
+      // ===== Lớp ① — CHẶN RESET HÓA ĐƠN NGẦM (spec docs/chan-reset-hoa-don-sua-phieu-spec.md) =====
+      // "Khóa HĐ" = phiếu đã vào tay kế toán: đang xử lý / đã lên HĐ / đã thanh toán, HOẶC đã đóng dấu
+      // M-invoice. Khóa theo LUỒNG HÓA ĐƠN (không theo ket_qua) vì HĐ tách rời việc KTV -> áp mọi role.
+      const HD_LOCK_STATES = ['Đang xử lý HĐ', 'Đã lên hóa đơn', 'Đã thanh toán']
+      const hdLocked = HD_LOCK_STATES.includes(cur.trang_thai_hd) || !!cur.minvoice_luc
 
-      // Về 'Chưa hóa đơn' = KHỞI ĐỘNG LẠI vòng hóa đơn -> reset số HĐ/ngày xuất/người lập cho sạch
-      // (giống nút Thu hồi ở Kanban). Bản ghi thu tiền cũ xóa bên dưới sau khi biết số HĐ cũ.
+      // Diff vật tư + miễn phí giữa payload và DB (dùng cho CẢ guard lẫn audit Lớp ③).
+      const upMa = (s: any) => String(s || '').trim().toUpperCase()
+      const curVTmap = new Map<string, any>(); for (const v of (curVT || [])) curVTmap.set(upMa(v.ma_hang), v)
+      const newVTmap = new Map<string, any>()
+      for (const v of (Array.isArray(vat_tu) ? vat_tu : [])) if (v?.ma_hang && Number(v.so_luong) > 0) newVTmap.set(upMa(v.ma_hang), v)
+      const vtDiffs: string[] = []
+      for (const ma of curVTmap.keys()) if (!newVTmap.has(ma)) vtDiffs.push(`xóa dòng ${ma}`)
+      for (const ma of newVTmap.keys()) if (!curVTmap.has(ma)) vtDiffs.push(`thêm dòng ${ma}`)
+      for (const [ma, nv] of newVTmap) {
+        const cv = curVTmap.get(ma); if (!cv) continue
+        if (!!nv.hoa_don !== !!cv.hoa_don) vtDiffs.push(`${nv.hoa_don ? 'tick' : 'bỏ tick'} HĐ: ${ma}`)
+        else if ((parseInt(nv.so_luong, 10) || 0) !== (Number(cv.so_luong) || 0)
+          || (parseFloat(nv.don_gia) || 0) !== (Number(cv.don_gia) || 0)
+          || (parseFloat(nv.vat) || 0) !== (Number(cv.vat) || 0)) vtDiffs.push(`đổi SL/đơn giá ${ma}`)
+      }
+      const mienPhiChanged = (!!mien_phi) !== (!!cur.mien_phi)
+      const touchesHD = vtDiffs.length > 0 || mienPhiChanged
+
+      // Phiếu đã khóa HĐ + edit CHẠM hóa đơn (đổi vật tư / cờ HĐ / miễn phí) -> TỪ CHỐI, không lưu gì.
+      // Muốn sửa vật tư hoặc hủy HĐ phải "Thu hồi HĐ" ở Kanban trước (đường có chủ đích, có xác nhận).
+      if (hdLocked && touchesHD) {
+        const lyDo = [...vtDiffs, mienPhiChanged ? (mien_phi ? 'bật' : 'tắt') + ' miễn phí' : ''].filter(Boolean).join('; ')
+        await logAudit(session, 'Chặn sửa phiếu đã khóa HĐ', `phiếu ${cur.report || id}${cur.ma_may ? ` — máy ${cur.ma_may}` : ''} — ${lyDo} (đã chặn)`)
+        return NextResponse.json({ error: 'Phiếu đã vào luồng hóa đơn (đã đóng dấu M-invoice / đã lên HĐ). Để sửa vật tư hoặc hủy hóa đơn, vui lòng "Thu hồi HĐ" ở Kanban trước rồi sửa lại.' }, { status: 409 })
+      }
+
+      // Đồng bộ trạng thái hóa đơn với cờ hoa_don của vật tư — CHỈ khi CHƯA khóa HĐ.
+      // Phiếu ĐÃ khóa HĐ (và không chạm hóa đơn, đã qua guard): GIỮ NGUYÊN trạng thái — KHÔNG reset ngầm;
+      // chỉ nút "Thu hồi HĐ" ở Kanban mới được đưa phiếu rời luồng. ⚠️ Vẫn giữ 'Đã thanh toán' khi còn
+      // tick (bug 2026-11-05 [[sua-phieu-cu-reset-trangthai]]); nhánh bỏ-tick nay đã bị guard chặn.
+      const hasHD = Array.isArray(vat_tu) && vat_tu.some((v: any) => v.hoa_don && v.ma_hang && Number(v.so_luong) > 0)
+      const baseHd = cur.trang_thai_hd === 'Miễn phí' ? 'Chưa hóa đơn' : cur.trang_thai_hd
+      const nextTrangThaiHd = hdLocked
+        ? cur.trang_thai_hd
+        : (mien_phi
+          ? 'Miễn phí'
+          : hasHD
+            ? (['Đang xử lý HĐ', 'Đã lên hóa đơn', 'Đã thanh toán'].includes(baseHd) ? baseHd : 'Chờ xuất HĐ')
+            : (['Chờ xuất HĐ', 'Đang xử lý HĐ', 'Đã lên hóa đơn', 'Đã thanh toán'].includes(baseHd) ? 'Chưa hóa đơn' : (baseHd || 'Chưa hóa đơn')))
+
+      // Về 'Chưa hóa đơn' = KHỞI ĐỘNG LẠI vòng hóa đơn -> reset số HĐ/ngày xuất/người lập cho sạch.
+      // (Khi hdLocked, nextTrangThaiHd = trạng thái cũ -> resetHd luôn false -> không đụng số HĐ/hd_thu.)
       const resetHd = nextTrangThaiHd === 'Chưa hóa đơn'
       const resetHdFields = resetHd ? { so_hoa_don: null, ngay_xuat_hd: null, nguoi_xuat_hd: null } : {}
+      const kmResolved = await resolveKm(loai_cong_viec, ghi_chu, km, id_khach_hang, true)
 
       const { error: upErr } = await supabaseAdmin
         .from('soct_cong_viec')
         .update({
           ngay: ngay || new Date().toISOString().split('T')[0],
           ma_may: ma_may || null, id_khach_hang, loai_cong_viec,
-          km: await resolveKm(loai_cong_viec, ghi_chu, km, id_khach_hang, true), so_luong: parseInt(so_luong) || 1,
+          km: kmResolved, so_luong: parseInt(so_luong) || 1,
           ktv_id: ktv_id || null,
           ktv2_id: ktv2_id || null,
           report: reportNorm || null, ghi_chu,
@@ -772,7 +802,14 @@ export async function PUT(request: Request) {
       // Phiếu đã vào giai đoạn làm/hoàn thành: thay vật tư = trigger điều chỉnh kho → báo refetch tồn.
       // Phiếu tiền-xử lý (preWork): vật tư chỉ là "đang giữ" (committed), không đụng tồn → bỏ qua.
       if (!preWork) await broadcastKhoChanged()
-      await logAudit(session, 'Sửa công việc', `id ${id}${ma_may ? ` — máy ${ma_may}` : ''}`)
+      // Lớp ③ — audit ghi SỐ PHIẾU + diff thay đổi nhạy cảm (chống "em chả làm gì cả").
+      const auditDiffs: string[] = []
+      if (nextTrangThaiHd !== cur.trang_thai_hd) auditDiffs.push(`trạng thái HĐ: ${cur.trang_thai_hd || '—'} → ${nextTrangThaiHd}`)
+      auditDiffs.push(...vtDiffs)
+      if (mienPhiChanged) auditDiffs.push(mien_phi ? 'bật miễn phí' : 'tắt miễn phí')
+      if ((Number(kmResolved) || 0) !== (Number(cur.km) || 0)) auditDiffs.push(`km: ${Number(cur.km) || 0} → ${Number(kmResolved) || 0}`)
+      const auditMay = ma_may || cur.ma_may
+      await logAudit(session, 'Sửa công việc', `phiếu ${reportNorm || cur.report || 'chưa có số'}${auditMay ? ` — máy ${auditMay}` : ''}${auditDiffs.length ? ` — ${auditDiffs.join('; ')}` : ''}`)
       return NextResponse.json({ success: true })
     }
 

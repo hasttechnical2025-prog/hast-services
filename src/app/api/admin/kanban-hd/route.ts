@@ -3,6 +3,7 @@ import { supabaseAdmin, selectAll } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { broadcastJobsChanged } from '@/lib/realtime'
 import { sendPushToKthc } from '@/lib/push'
+import { logAudit } from '@/lib/audit'
 
 // GET: Lấy danh sách phiếu phục vụ Kanban Hóa đơn
 export async function GET(request: Request) {
@@ -225,9 +226,12 @@ export async function PUT(request: Request) {
     // Trước đó chỉ null số HĐ/người lập -> "đã thu" cũ vẫn dính khi nhập lại đúng số HĐ.
     const isReset = trang_thai_hd === 'Chờ xuất HĐ' || trang_thai_hd === 'Chưa hóa đơn'
     let oldSoHds: string[] = []
+    let resetRows: any[] = []
     if (isReset) {
-      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('so_hoa_don').in('id', targetIds)
-      oldSoHds = [...new Set((cur || []).map((r: any) => r.so_hoa_don).filter(Boolean))]
+      // Lấy thêm report + trạng thái cũ để GHI AUDIT "Thu hồi HĐ" (Lớp ③ — ai gỡ hóa đơn, phiếu nào, từ đâu).
+      const { data: cur } = await supabaseAdmin.from('soct_cong_viec').select('so_hoa_don, report, trang_thai_hd').in('id', targetIds)
+      resetRows = cur || []
+      oldSoHds = [...new Set(resetRows.map((r: any) => r.so_hoa_don).filter(Boolean))]
     }
 
     const updates: any = {
@@ -342,6 +346,13 @@ export async function PUT(request: Request) {
 
     // Gửi realtime thông báo cho các máy khác
     await broadcastJobsChanged()
+
+    // Lớp ③ — AUDIT "Thu hồi HĐ": mọi lần gỡ phiếu khỏi luồng hóa đơn đều có dấu vết người bấm.
+    if (isReset && resetRows.length > 0) {
+      const phieuList = resetRows.map((r: any) => r.report || '?').join(', ')
+      const ttCu = [...new Set(resetRows.map((r: any) => r.trang_thai_hd).filter(Boolean))].join('/')
+      await logAudit(session, 'Thu hồi HĐ', `phiếu ${phieuList}${ttCu ? ` — từ ${ttCu}` : ''} → ${trang_thai_hd}${oldSoHds.length ? ` (xóa số HĐ ${oldSoHds.join(', ')})` : ''}`)
+    }
 
     return NextResponse.json({ success: true, count: targetIds.length })
   } catch (error: any) {
