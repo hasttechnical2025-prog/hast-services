@@ -256,7 +256,20 @@ function AccessDenied({ role }: { role?: string }) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || ''
   const { parent, child } = parseRoute(pathname)
-  const { loading, user, tabVisible, subVisible } = useSession()
+  const { loading, user, tabVisible, subVisible, config } = useSession()
+
+  // Tiêu đề tab trình duyệt theo route: "HAST · <tên module>" (dễ phân biệt khi mở nhiều tab).
+  // Dùng lại nhãn nav; cha "lá" (Kanban) lấy nhãn cha, còn lại lấy nhãn con. Chỉ đổi document.title.
+  useEffect(() => {
+    const appName = config?.app_ten?.trim() || 'HAST'
+    let moduleLabel = ''
+    if (!parent) moduleLabel = 'Trang chính'
+    else {
+      const p = findParent(parent)
+      if (p) moduleLabel = (p.leaf || !child) ? p.label : (p.children.find(c => c.slug === child)?.label || p.label)
+    }
+    document.title = moduleLabel ? `${appName} · ${moduleLabel}` : appName
+  }, [parent, child, config])
 
   if (loading || !user) {
     return (
