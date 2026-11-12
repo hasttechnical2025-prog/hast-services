@@ -615,6 +615,17 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
     return { truocVat, tienVat, sauVat, activeVt }
   }
 
+  // MỌI phiếu đã nạp (active + công nợ đầy đủ col3Full + cột 4 col4Rows) — resolve theo id cho
+  // thao tác kéo thả / thu tiền. Lazy-load: phiếu nợ CŨ chỉ ở col3Full, phiếu đã thu ở col4Rows,
+  // KHÔNG ở `tickets` -> nếu chỉ tìm trong `tickets` sẽ "kéo sang cột 4 không ăn".
+  const allLoadedTickets: Ticket[] = (() => {
+    const m = new Map<string, Ticket>()
+    for (const t of tickets) m.set(t.id, t)
+    for (const t of (col3Full || [])) if (!m.has(t.id)) m.set(t.id, t)
+    for (const t of (col4Rows || [])) if (!m.has(t.id)) m.set(t.id, t)
+    return [...m.values()]
+  })()
+
   // Copy nhanh text vào clipboard
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text)
@@ -696,7 +707,7 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
       // 0. KHÓA phiếu Cột 1: người khác (không phải admin) không kéo được thẻ đang bị đồng
       //    nghiệp khóa. (Server cũng chặn lại ở PUT — đây chỉ là chặn sớm cho mượt.)
       if (role !== 'admin' && currentUserId) {
-        const lk = tickets.find(t => targetIds.includes(t.id) && t.khoa_boi && t.khoa_boi !== currentUserId)
+        const lk = allLoadedTickets.find(t => targetIds.includes(t.id) && t.khoa_boi && t.khoa_boi !== currentUserId)
         if (lk) return showNotification('error', `Phiếu đang được ${lk.nguoi_khoa?.full_name || 'người khác'} khóa — không kéo được.`)
       }
 
@@ -723,7 +734,7 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
 
       // 2. Thực hiện chuyển trạng thái
       if (targetState === 'Đã lên hóa đơn') {
-        const matchedTickets = tickets.filter(t => targetIds.includes(t.id))
+        const matchedTickets = allLoadedTickets.filter(t => targetIds.includes(t.id))
         if (sourceState === 'Đang xử lý HĐ') {
           // Cột 2 -> Cột 3: mở Modal để nhập Số hóa đơn lần đầu
           setInvoiceNum(matchedTickets[0].so_hoa_don || "")
@@ -881,7 +892,7 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
   // scope_key của khách đang mở modal (khớp cách gom: cụm nếu có, else điểm máy).
   // Mở modal Thu tiền cho một HÓA ĐƠN (theo danh sách phiếu cùng số HĐ).
   const openPayModal = (ticketIds: string[]) => {
-    const ts = tickets.filter(t => ticketIds.includes(t.id))
+    const ts = allLoadedTickets.filter(t => ticketIds.includes(t.id))
     if (ts.length === 0) return
     const soHd = ts[0].so_hoa_don || ''
     const tong = Math.round(getVatTuStats(ts.flatMap(t => t.soct_chi_tiet_vat_tu || [])).sauVat) + cardLamTron(ts)
@@ -2555,8 +2566,15 @@ export default function KanbanHdTool({ role = 'staff', currentUserId, showNotifi
             {col4Loaded
               ? renderCardList(cardsCol4, 'Đã thanh toán', kdCol4)
               : (
-                <div className="flex-1 p-6 text-center text-xs text-slate-400 bg-slate-50 min-h-[200px] rounded-b-xl border-t border-slate-100">
-                  {summary?.col4 ? `${summary.col4} phiếu đã thu trong tháng này.` : 'Chưa tải.'}<br />Bấm <b>Tải danh sách</b> để xem.
+                /* Cột 4 thu gọn (lazy) nhưng VẪN là vùng thả — kéo thẻ "Chờ thanh toán" vào đây
+                   để ghi thu/chuyển Đã thanh toán (mở modal thu tiền), khỏi phải Tải danh sách trước. */
+                <div
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => handleDrop(e, 'Đã thanh toán')}
+                  className="flex-1 p-6 text-center text-xs text-slate-400 bg-slate-50 min-h-[200px] rounded-b-xl border-t border-slate-100"
+                >
+                  {summary?.col4 ? `${summary.col4} phiếu đã thu trong tháng này.` : 'Chưa tải.'}<br />
+                  Kéo thẻ đã thu vào đây để thu tiền, hoặc bấm <b>Tải danh sách</b> để xem.
                 </div>
               )}
           </div>
