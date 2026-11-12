@@ -95,7 +95,11 @@ export function GiaoViecModule({ notify }: { notify: (type: 'success' | 'error',
   useEffect(() => { loadFuture() }, [loadFuture])
   useEffect(() => { loadOverdue() }, [loadOverdue])
 
-  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => { load(true); loadFuture(); loadOverdue() }, true, 60000)
+  // Poll DỰ PHÒNG 120s (giảm egress — gói Free): broadcast JOBS vẫn tức thì cho thay đổi phiếu;
+  // poll chỉ là lưới an toàn khi WS "chết ngầm". Nới 60s→120s cắt ~½ số lần refetch toàn bộ phiếu
+  // (payload nặng, kèm embed). Hệ quả: thay đổi LỠ MẤT broadcast (gồm sửa tên khách — Giao việc không
+  // nghe KHACH) hiện trong ≤120s thay vì ≤60s — chấp nhận được.
+  useRealtimeRefetch(JOBS_TOPIC, JOBS_EVENT, () => { load(true); loadFuture(); loadOverdue() }, true, 120000)
 
   const loaiOptions = dmOptions('loai_cong_viec', LOAI_CV_FALLBACK)
 
