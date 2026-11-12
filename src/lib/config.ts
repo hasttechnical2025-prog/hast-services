@@ -1,9 +1,12 @@
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
-// Cache ngắn: cấu hình được đọc ở MỌI lần gọi API (requireRole kiểm cờ bảo trì),
-// không cache thì mỗi request tốn thêm 1 truy vấn. Đổi cấu hình có độ trễ tối đa TTL
-// (PUT cau-hinh gọi clearCauHinhCache() nên máy của admin thấy ngay).
-const CACHE_TTL_MS = 15_000
+// Cache: cấu hình được đọc ở MỌI lần gọi API (requireRole kiểm cờ bảo trì) -> không cache
+// thì mỗi request tốn thêm 1 truy vấn. Trên Vercel serverless, cache là PER-INSTANCE nên
+// nhiều instance = nhiều fetch (log thực: ~182 lần/22ph). Nâng TTL 15s -> 60s cắt ~3× số
+// fetch (giảm egress + tải DB). Đánh đổi: PUT cau-hinh gọi clearCauHinhCache() -> instance
+// XỬ LÝ thấy NGAY; các instance KHÁC thấy đổi (vd cờ bảo trì) trong tối đa 60s thay vì 15s —
+// chấp nhận được vì bảo trì là công cụ vận hành hiếm, không phải chốt bảo mật.
+const CACHE_TTL_MS = 60_000
 let cache: { at: number, cfg: Record<string, string> } | null = null
 
 export function clearCauHinhCache() { cache = null }
