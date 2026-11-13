@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/sync-cskh",
       "schedule": "0 19 * * *"
+    },
+    {
+      "path": "/api/cron/mo-bang-viec",
+      "schedule": "0 0 * * 1-5"
     }
   ]
 }
