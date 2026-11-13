@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Check, X, CalendarClock, RefreshCw, UploadCloud } from "lucide-react"
+import { Check, X, CalendarClock, RefreshCw, UploadCloud, Trash2 } from "lucide-react"
 import { useRealtimeRefetch } from "@/lib/useRealtime"
 import { LEAVE_TOPIC, LEAVE_EVENT } from "@/lib/realtime"
 import { LOAI_LABEL, moTaKhoang, type LoaiNghi, type Buoi } from "@/lib/nghi-phep"
@@ -31,9 +31,10 @@ const ttBadge = (t: string) =>
       : 'bg-amber-50 text-amber-700 border-amber-200'
 const FILTERS: [string, string][] = [['all', 'Tất cả'], ['cho_duyet', 'Chờ duyệt'], ['da_duyet', 'Đã duyệt'], ['tu_choi', 'Từ chối']]
 
-export default function NghiPhepDuyet({ notify, onPending }: {
+export default function NghiPhepDuyet({ notify, onPending, isAdmin }: {
   notify?: (type: 'success' | 'error', msg: string) => void
   onPending?: (n: number) => void
+  isAdmin?: boolean  // chỉ admin thấy nút Xóa đơn (dọn rác)
 }) {
   const [pending, setPending] = useState<Don[]>([])
   const [all, setAll] = useState<Don[]>([])
@@ -42,6 +43,7 @@ export default function NghiPhepDuyet({ notify, onPending }: {
   const [busy, setBusy] = useState<string | null>(null)
   const [reject, setReject] = useState<Don | null>(null)
   const [rejectReason, setRejectReason] = useState("")
+  const [del, setDel] = useState<Don | null>(null)   // đơn đang chờ xác nhận XÓA (admin)
   const [syncing, setSyncing] = useState(false)
 
   const fetchData = useCallback(async () => {
@@ -78,6 +80,17 @@ export default function NghiPhepDuyet({ notify, onPending }: {
         fetchData()
       }
       else notify?.('error', j.error || 'Không xử lý được')
+    } catch { notify?.('error', 'Lỗi kết nối!') } finally { setBusy(null) }
+  }
+
+  // ADMIN xóa đơn lỗi (dọn rác). Đơn đã duyệt -> server tự gỡ chấm công + báo Telegram.
+  const doDelete = async (d: Don) => {
+    setBusy(d.id)
+    try {
+      const res = await fetch(`/api/admin/nghi-phep?id=${d.id}`, { method: 'DELETE' })
+      const j = await res.json()
+      if (res.ok) { notify?.('success', 'Đã xóa đơn nghỉ.'); fetchData() }
+      else notify?.('error', j.error || 'Không xóa được')
     } catch { notify?.('error', 'Lỗi kết nối!') } finally { setBusy(null) }
   }
 
@@ -118,6 +131,16 @@ export default function NghiPhepDuyet({ notify, onPending }: {
             disabled={busy === d.id}
             className="flex-1 h-9 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 text-sm font-medium flex items-center justify-center gap-1.5 disabled:opacity-50"
           ><X className="w-4 h-4" /> Từ chối</button>
+        </div>
+      )}
+      {isAdmin && (
+        <div className="flex justify-end mt-2">
+          <button
+            onClick={() => setDel(d)}
+            disabled={busy === d.id}
+            title="Xóa đơn lỗi (dọn rác). Đơn đã duyệt sẽ gỡ luôn ngày P bên Chấm công."
+            className="inline-flex items-center gap-1 text-xs text-rose-500 hover:text-rose-700 border border-rose-200 rounded px-2 py-1 hover:bg-rose-50 disabled:opacity-50"
+          ><Trash2 className="w-3.5 h-3.5" /> Xóa đơn</button>
         </div>
       )}
     </div>
@@ -182,6 +205,31 @@ export default function NghiPhepDuyet({ notify, onPending }: {
                 onClick={() => { const d = reject; setReject(null); decide(d.id, 'tu_choi', rejectReason.trim() || undefined) }}
                 className="px-3 h-9 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium"
               >Xác nhận từ chối</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal XÓA đơn (admin) */}
+      {del && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="p-5 space-y-3">
+              <h3 className="text-base font-bold text-rose-600 flex items-center gap-2"><Trash2 className="w-5 h-5" /> Xóa đơn nghỉ</h3>
+              <p className="text-sm text-slate-600">{del.soct_users?.full_name} — {LOAI_LABEL[del.loai]}: {moTaKhoang(del.tu_ngay, del.den_ngay, del.buoi)}</p>
+              {del.trang_thai === 'da_duyet' && (
+                <p className="text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded px-3 py-2 leading-snug">
+                  Đơn này <b>đã duyệt</b> — xóa sẽ <b>gỡ luôn ngày nghỉ (P)</b> bên app Chấm công. Không hoàn tác được.
+                </p>
+              )}
+              <p className="text-xs text-slate-400">Hệ thống sẽ báo Telegram cho người đăng ký.</p>
+            </div>
+            <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
+              <button onClick={() => setDel(null)} className="px-3 h-9 rounded-lg border border-slate-200 text-slate-600 text-sm">Đóng</button>
+              <button
+                onClick={() => { const d = del; setDel(null); doDelete(d) }}
+                className="px-3 h-9 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium"
+              >Xác nhận xóa</button>
             </div>
           </div>
         </div>

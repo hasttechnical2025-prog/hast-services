@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { requireTab } from '@/lib/session'
+import { requireTab, requireRole } from '@/lib/session'
 import { sendTelegramMessage } from '@/lib/telegram'
 import { broadcastLeaveChanged } from '@/lib/realtime'
+import { logAudit } from '@/lib/audit'
 import { moTaKhoang, LOAI_LABEL, type Buoi, type LoaiNghi } from '@/lib/nghi-phep'
-import { syncNghiPhepDuyet, chamcongConfigured } from '@/lib/chamcong'
+import { syncNghiPhepDuyet, unsyncNghiPhep, chamcongConfigured } from '@/lib/chamcong'
 
 function esc(s: any): string {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -128,6 +129,53 @@ export async function PUT(request: Request) {
     return NextResponse.json({ data: { id: row.id, trang_thai }, sync_chamcong })
   } catch (error: any) {
     console.error('Error deciding nghi-phep:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+// DELETE ?id : ADMIN xóa đơn lỗi (mọi trạng thái) để dọn rác. Đơn ĐÃ DUYỆT -> gỡ luôn dòng P bên
+// app Chấm công. CHỈ admin (tech_admin không xóa). Telegram báo người đăng ký + audit.
+export async function DELETE(request: Request) {
+  try {
+    const session = await requireRole('admin')
+    if (!session) return NextResponse.json({ error: 'Chỉ admin được xóa đơn nghỉ' }, { status: 401 })
+
+    const id = new URL(request.url).searchParams.get('id')
+    if (!id) return NextResponse.json({ error: 'Thiếu id' }, { status: 400 })
+
+    const { data: don, error: gErr } = await supabaseAdmin
+      .from('soct_nghi_phep')
+      .select('id, user_id, loai, tu_ngay, den_ngay, buoi, trang_thai, soct_users!user_id ( full_name, telegram_id )')
+      .eq('id', id)
+      .single()
+    if (gErr) {
+      if (gErr.code === 'PGRST116') return NextResponse.json({ error: 'Đơn không tồn tại' }, { status: 404 })
+      throw gErr
+    }
+
+    // Đơn ĐÃ DUYỆT -> gỡ dòng P bên Chấm công (best-effort, KHÔNG chặn xóa).
+    let unsync: { ok: boolean; err?: string } | undefined
+    if (don.trang_thai === 'da_duyet' && chamcongConfigured()) {
+      unsync = await unsyncNghiPhep(don.id)
+      if (!unsync.ok) console.error('Gỡ chấm công khi xóa đơn nghỉ lỗi:', unsync.err)
+    }
+
+    const { error: dErr } = await supabaseAdmin.from('soct_nghi_phep').delete().eq('id', id)
+    if (dErr) throw dErr
+
+    const u: any = don.soct_users
+    const khoang = moTaKhoang(don.tu_ngay, don.den_ngay, don.buoi as Buoi)
+    const loaiLabel = LOAI_LABEL[don.loai as LoaiNghi]
+    // Telegram báo người đăng ký đơn đã bị xóa.
+    if (u?.telegram_id) {
+      await sendTelegramMessage(u.telegram_id, `🗑 <b>Đơn nghỉ đã bị XÓA</b>\n${esc(loaiLabel)}: ${esc(khoang)}\nNếu cần, vui lòng đăng ký lại cho đúng.`)
+    }
+    await logAudit(session, 'Xóa đơn nghỉ phép', `${esc(u?.full_name || don.user_id)} — ${loaiLabel} ${khoang} (${don.trang_thai})${unsync ? (unsync.ok ? ' + gỡ chấm công' : ' + gỡ chấm công LỖI') : ''}`)
+    await broadcastLeaveChanged()
+
+    return NextResponse.json({ success: true, unsync })
+  } catch (error: any) {
+    console.error('Error deleting nghi-phep (admin):', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

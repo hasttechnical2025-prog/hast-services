@@ -169,7 +169,7 @@ export default function OfficeMobile() {
           themView === 'nghi' ? (
             <div className="space-y-3">
               <button onClick={() => setThemView('menu')} className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-800"><ChevronLeft className="w-4 h-4" /> Thêm</button>
-              <NghiPhepDuyet notify={notify} onPending={setLeaveCount} />
+              <NghiPhepDuyet notify={notify} onPending={setLeaveCount} isAdmin={user?.role === 'admin'} />
             </div>
           ) : themView === 'kho_thue' ? (
             <div className="space-y-3">
