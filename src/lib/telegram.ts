@@ -72,6 +72,9 @@ export async function editTelegramMessageText(
 
     if (!response.ok) {
       const errData = await response.json()
+      // "message is not modified" = nội dung y hệt -> coi như THÀNH CÔNG (no-op), KHÔNG phải lỗi.
+      // (Nếu coi là lỗi, caller sẽ tưởng sửa hỏng rồi gửi tin mới -> spam bảng việc hôm nay.)
+      if (typeof errData?.description === 'string' && /not modified/i.test(errData.description)) return true
       console.error('Failed to edit Telegram message:', errData)
       return false
     }

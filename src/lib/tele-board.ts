@@ -84,7 +84,8 @@ export async function refreshTeleBoard(): Promise<void> {
     const res = await sendTelegramMessage(groupChatId, text, undefined, true)
     if (res.success && res.messageId) {
       await pinChatMessage(groupChatId, res.messageId, true)
-      if (board.message_id && board.ngay !== today) await unpinChatMessage(groupChatId, board.message_id)
+      // Bỏ ghim bảng CŨ bất kể cùng ngày hay không (tránh đọng nhiều pin khi lỡ gửi lại).
+      if (board.message_id && board.message_id !== res.messageId) await unpinChatMessage(groupChatId, board.message_id)
       await supabaseAdmin.from('soct_cau_hinh').upsert(
         { khoa: BOARD_KEY, gia_tri: JSON.stringify({ ngay: today, message_id: res.messageId }) },
         { onConflict: 'khoa' },
