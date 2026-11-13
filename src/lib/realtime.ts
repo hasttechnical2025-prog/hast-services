@@ -49,6 +49,9 @@ async function broadcast(topic: string, event: string): Promise<void> {
 }
 
 export function broadcastJobsChanged(): Promise<void> {
+  // Cập nhật "Bảng việc hôm nay" trên nhóm Telegram (fire-and-forget; tự gated config + throttle;
+  // lỗi nuốt gọn) — phủ mọi đường phiếu đổi mà không phải sửa từng endpoint.
+  import('@/lib/tele-board').then(m => m.refreshTeleBoard()).catch(() => { /* bỏ qua */ })
   return broadcast(JOBS_TOPIC, JOBS_EVENT)
 }
 

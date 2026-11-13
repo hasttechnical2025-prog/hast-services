@@ -1,7 +1,7 @@
 import { isBaoTri } from '@/lib/config'
 
 // Hàm gửi tin nhắn Telegram thông qua Telegram Bot API
-export async function sendTelegramMessage(chatId: string, text: string, replyMarkup?: any): Promise<{ success: boolean; messageId?: number }> {
+export async function sendTelegramMessage(chatId: string, text: string, replyMarkup?: any, disableNotification = false): Promise<{ success: boolean; messageId?: number }> {
   // Chế độ bảo trì: dừng HẾT tin nhắn (kể cả do admin thao tác) — chặn ở một chỗ
   // để không luồng nào lọt (giao việc, nghỉ phép, hoàn phiếu, nhắc báo cáo...).
   if (await isBaoTri()) return { success: false }
@@ -23,6 +23,7 @@ export async function sendTelegramMessage(chatId: string, text: string, replyMar
         text: text,
         parse_mode: 'HTML',
         reply_markup: replyMarkup,
+        disable_notification: disableNotification,
       }),
     })
 
@@ -80,6 +81,33 @@ export async function editTelegramMessageText(
     console.error('Error editing Telegram message:', error)
     return false
   }
+}
+
+// Ghim / bỏ ghim 1 tin nhắn (cho "Bảng việc hôm nay"). Cần bot là admin nhóm + quyền ghim.
+// silent=true: ghim KHÔNG gửi thông báo. Thiếu quyền -> trả false (nuốt lỗi, không chặn luồng).
+export async function pinChatMessage(chatId: string, messageId: number, silent = true): Promise<boolean> {
+  const token = process.env.TELEGRAM_BOT_TOKEN
+  if (!token) return false
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${token}/pinChatMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, message_id: messageId, disable_notification: silent }),
+    })
+    if (!r.ok) { console.error('pinChatMessage failed:', await r.json().catch(() => ({}))); return false }
+    return true
+  } catch (e) { console.error('pinChatMessage error:', e); return false }
+}
+
+export async function unpinChatMessage(chatId: string, messageId: number): Promise<boolean> {
+  const token = process.env.TELEGRAM_BOT_TOKEN
+  if (!token) return false
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${token}/unpinChatMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, message_id: messageId }),
+    })
+    return r.ok
+  } catch (e) { console.error('unpinChatMessage error:', e); return false }
 }
 
 // Hàm phản hồi callback query để tắt trạng thái loading spinner trên nút bấm Telegram

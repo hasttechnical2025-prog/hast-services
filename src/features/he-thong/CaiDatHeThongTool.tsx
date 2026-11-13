@@ -45,6 +45,7 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
     thong_bao_cap_nhat: (cauHinh.thong_bao_cap_nhat ?? '1') !== '0',
     auto_bao_tri: (cauHinh.auto_bao_tri ?? '1') !== '0',
     geocode_import: (cauHinh.geocode_import ?? '1') !== '0',
+    tele_board_bat: (cauHinh.tele_board_bat ?? '0') === '1',
     bao_tri: (cauHinh.bao_tri ?? '0') === '1',
     bao_tri_key: cauHinh.bao_tri_key || '',
     hd_ban_ten: cauHinh.hd_ban_ten || '',
@@ -127,6 +128,7 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
       thong_bao_cap_nhat: cfg.thong_bao_cap_nhat ? '1' : '0',
       auto_bao_tri: cfg.auto_bao_tri ? '1' : '0',
       geocode_import: cfg.geocode_import ? '1' : '0',
+      tele_board_bat: cfg.tele_board_bat ? '1' : '0',
       bao_tri: cfg.bao_tri ? '1' : '0',
       bao_tri_key: cfg.bao_tri_key.trim(),
       hd_ban_ten: cfg.hd_ban_ten.trim(),
@@ -225,6 +227,10 @@ export function CaiDatHeThongTool({ cauHinh, onUpdateSuccess, showNotification }
           <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
             <input type="checkbox" checked={cfg.geocode_import} onChange={(e) => setCfg({ ...cfg, geocode_import: e.target.checked })} className="w-4 h-4 accent-blue-600" />
             Tự tính tọa độ &amp; KM khi import CSV khách hàng (dòng thiếu Km)
+          </label>
+          <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
+            <input type="checkbox" checked={cfg.tele_board_bat} onChange={(e) => setCfg({ ...cfg, tele_board_bat: e.target.checked })} className="w-4 h-4 accent-blue-600" />
+            Bảng việc hôm nay trên nhóm Telegram (ghim, tự cập nhật, im lặng)
           </label>
         </div>
       </div>
