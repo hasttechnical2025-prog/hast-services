@@ -36,7 +36,7 @@ async function buildBoardText(today: string): Promise<string> {
     const model = kh?.model || ''
     const ktv = j.soct_users?.full_name || ''
     const viec = j.loai_cong_viec || ''
-    const line = `• ${ktv ? esc(ktv) + ' - ' : ''}${esc(model)}${model ? ' * ' : ''}${esc(tenKh)}${viec ? ` (${esc(viec)})` : ''}`
+    const line = `• ${ktv ? '<b>' + esc(ktv) + '</b> - ' : ''}${esc(model)}${model ? ' * ' : ''}${esc(tenKh)}${viec ? ` (${esc(viec)})` : ''}`
     const kq = j.ket_qua || 'Chờ nhận'
     if (kq === 'Chờ nhận') chuaNhan.push(line)
     else if (kq === 'Hoàn thành') hoanThanh.push(line)
