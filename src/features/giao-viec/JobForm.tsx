@@ -7,7 +7,8 @@ import { loaiHdBadge } from '@/lib/hd-status'
 import { LOAI_HD_BAO_TRI, nghiBaoTri, coBaoTriThang, moTaLichBaoTri, fmtThang } from '@/lib/bao-tri'
 import { CustomerCombobox } from './CustomerCombobox'
 import { MaterialCombobox } from './MaterialCombobox'
-import { createCustomer, saveJob, importPdf, fetchMayStatus, addKhoItem, closeGiamDinh } from './api'
+import { createCustomer, saveJob, importPdf, fetchMayStatus, addKhoItem, closeGiamDinh, checkReport, type ReportDup } from './api'
+import { fmtDate } from '@/ui'
 import { emptyForm, emptyVatTu, todayVN, LOAI_CV_CAN_VAT_TU, RENTAL_LOAI_HD, kmZeroRule, type Job, type JobForm as JForm } from './types'
 
 type GdItem = { id: string; ma_hang: string; ten_hang: string; so_luong: number; selected: boolean }
@@ -58,6 +59,19 @@ export function JobFormModal({ editingJob, onClose, onSaved, notify, customers, 
   const [pdfImporting, setPdfImporting] = useState(false)
   const [pdfWarnings, setPdfWarnings] = useState<string[]>([])
   const [pdfTenByMa, setPdfTenByMa] = useState<Record<string, string>>({})
+  // Pre-check trùng số phiếu (Lớp UX): cảnh báo ngay khi nhập PDF / blur ô số phiếu + chặn lúc Lưu.
+  const [reportDup, setReportDup] = useState<ReportDup | null>(null)
+  const [reportChecking, setReportChecking] = useState(false)
+  // Kiểm tra số phiếu đã tồn tại chưa (bỏ chính phiếu đang sửa). Lỗi mạng -> không chặn ở client
+  // (server vẫn chặn cứng bằng unique index/409); chỉ dùng để cảnh báo sớm.
+  const runReportCheck = async (val: string): Promise<ReportDup | null> => {
+    if (!(val || '').trim()) { setReportDup(null); return null }
+    setReportChecking(true)
+    try { const dup = await checkReport(val, editing ? editingJob!.id : null); setReportDup(dup); return dup }
+    catch { return null }
+    finally { setReportChecking(false) }
+  }
+  const dupLabel = (d: ReportDup) => `phiếu ngày ${fmtDate(d.ngay)}${d.khach ? ` — ${d.khach}` : ''}${d.ma_may ? ` — máy ${d.ma_may}` : ''}${d.ktv ? ` — KTV ${d.ktv}` : ''}${d.ket_qua ? ` — ${d.ket_qua}` : ''}`
   // Giám định
   const [mayStatus, setMayStatus] = useState<any | null>(null)
   const [dongGiamDinh, setDongGiamDinh] = useState(false)
@@ -154,6 +168,11 @@ export function JobFormModal({ editingJob, onClose, onSaved, notify, customers, 
       else if (!matched) warns.push(`Mã máy "${ma_may}" chưa có trong hệ thống — đã điền sẵn khách mới từ phiếu (kiểm tra kỹ), hoặc xóa mã máy để chọn khách có sẵn.`)
       const unknown = (p.vat_tu || []).map((v: any) => String(v.ma_hang)).filter((ma: string, i: number, a: string[]) => ma && a.indexOf(ma) === i && !inventory.find(x => x.ma_hang === ma))
       if (unknown.length) warns.push(role === 'admin' ? `Mã hàng chưa có trong kho: ${unknown.join(', ')}. Khi bấm Lưu sẽ hiện nút "Thêm vào kho".` : `Mã hàng chưa có trong kho: ${unknown.join(', ')}. Cần ADMIN thêm vào kho trước khi lưu được phiếu.`)
+      // Cảnh báo TRÙNG SỐ PHIẾU ngay khi đọc PDF (đưa lên đầu, tô đỏ nhờ cụm "đã tồn tại").
+      if (p.so_phieu) {
+        const dup = await runReportCheck(p.so_phieu)
+        if (dup) warns.unshift(`Số phiếu "${dup.report}" đã tồn tại — KHÔNG thể lưu trùng (${dupLabel(dup)}). Hãy sửa số phiếu hoặc mở phiếu cũ.`)
+      } else setReportDup(null)
       setPdfWarnings(warns)
       notify('success', `Đã đọc phiếu ${p.so_phieu || ''} — ${vat_tu.length} vật tư. Vui lòng rà soát trước khi lưu.`)
     } catch (e: any) { notify('error', e?.message || 'Lỗi đọc phiếu PDF') }
@@ -189,6 +208,12 @@ export function JobFormModal({ editingJob, onClose, onSaved, notify, customers, 
     if (LOAI_CV_CAN_VAT_TU.includes(loai)) {
       if (!form.report.trim()) return notify('error', `"${loai}" bắt buộc có Số phiếu.`)
       if (!form.vat_tu.some(v => v.ma_hang.trim())) return notify('error', `"${loai}" bắt buộc có ít nhất 1 vật tư.`)
+    }
+    // CHẶN TRÙNG SỐ PHIẾU — kiểm TRƯỚC khi tạo khách (tránh tạo khách mồ côi) + báo rõ phiếu đang tồn.
+    // Server vẫn là chốt chặn cứng (unique index/409); đây là cảnh báo sớm, thân thiện.
+    if (form.report.trim()) {
+      const dup = await runReportCheck(form.report)
+      if (dup) return notify('error', `Số phiếu "${dup.report}" đã tồn tại — không thể lưu trùng (${dupLabel(dup)}).`)
     }
     // Mã lạ.
     const unknown = unknownMa()
@@ -341,7 +366,13 @@ export function JobFormModal({ editingJob, onClose, onSaved, notify, customers, 
               </select>
             </div>
             <div className="space-y-1.5 col-span-1 md:col-span-2"><label className={lbl}>Số lượng</label><input type="number" min={1} className={inp} value={form.so_luong} onChange={e => set('so_luong', parseInt(e.target.value) || 1)} /></div>
-            <div className="space-y-1.5 col-span-2 md:col-span-4"><label className={lbl}>Số phiếu (Report)</label><input className={inp} placeholder="VD: 958102" value={form.report} onChange={e => set('report', e.target.value)} /></div>
+            <div className="space-y-1.5 col-span-2 md:col-span-4"><label className={lbl}>Số phiếu (Report)</label>
+              <input className={`${inp} ${reportDup ? 'border-red-400 ring-1 ring-red-300' : ''}`} placeholder="VD: 958102" value={form.report}
+                onChange={e => { set('report', e.target.value); if (reportDup) setReportDup(null) }}
+                onBlur={e => runReportCheck(e.target.value)} />
+              {reportChecking && <div className="text-[11px] text-slate-500">Đang kiểm tra số phiếu…</div>}
+              {reportDup && <div className="text-[11px] text-red-600 font-bold">⚠️ Số phiếu "{reportDup.report}" đã tồn tại — không thể lưu trùng ({dupLabel(reportDup)}).</div>}
+            </div>
             <div className="space-y-1.5 col-span-1 md:col-span-2"><label className={lbl}>Khoảng cách (KM)</label>
               <input type="number" step="0.1" min={0} disabled={kmZero} title={kmZero ? 'Gửi CPN / Hỗ trợ online — không tính km' : undefined} className={`${inp} ${kmZero ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''}`} value={form.km} onChange={e => set('km', parseFloat(e.target.value) || 0)} />
               {kmZero && <p className="t3 text-amber-600">{form.loai_cong_viec?.trim().toLowerCase() === 'hỗ trợ online' ? 'Hỗ trợ online' : 'Gửi CPN'} — không tính km</p>}

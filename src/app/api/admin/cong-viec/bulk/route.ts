@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { logAudit } from '@/lib/audit'
+import { normReport } from '@/lib/report'
 
 export const maxDuration = 120
 
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
     // Số phiếu đã có trong DB -> chặn trùng khi import
     const { data: existing } = await supabaseAdmin
       .from('soct_cong_viec').select('report').not('report', 'is', null).neq('report', '')
-    const existingReports = new Set((existing || []).map((r: any) => String(r.report).trim().toLowerCase()))
+    const existingReports = new Set((existing || []).map((r: any) => normReport(r.report)))
     const seenReports = new Set<string>()   // chống trùng ngay trong file import
     let skippedDup = 0
 
@@ -32,11 +33,10 @@ export async function POST(request: Request) {
     const jobVatTu: any[][] = [] // vật tư tương ứng theo index
     for (const j of jobs) {
       if (!j.id_khach_hang || !j.loai_cong_viec) continue // bỏ dòng thiếu bắt buộc
-      const reportNorm = j.report ? String(j.report).trim() : ''
-      const key = reportNorm.toLowerCase()
-      if (key) {
-        if (existingReports.has(key) || seenReports.has(key)) { skippedDup++; continue } // trùng số phiếu -> bỏ qua
-        seenReports.add(key)
+      const reportNorm = normReport(j.report)
+      if (reportNorm) {
+        if (existingReports.has(reportNorm) || seenReports.has(reportNorm)) { skippedDup++; continue } // trùng số phiếu -> bỏ qua
+        seenReports.add(reportNorm)
       }
       const ket_qua = KET_QUA.includes(j.ket_qua) ? j.ket_qua : 'Hoàn thành'
       const trang_thai_hd = TT_HD.includes(j.trang_thai_hd) ? j.trang_thai_hd : 'Chưa hóa đơn'

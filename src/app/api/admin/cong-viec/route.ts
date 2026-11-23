@@ -7,6 +7,7 @@ import { logAudit } from '@/lib/audit'
 import { clampTapISO, clampPhut } from '@/lib/thoi-gian'
 import { sendTelegramMessage, editTelegramMessageText } from '@/lib/telegram'
 import { laLoaiPhucVuCSKH, syncCskhFromPhieu } from '@/lib/cskh'
+import { normReport } from '@/lib/report'
 
 // Giao mực / Thay vật tư BẮT BUỘC có Số phiếu + ít nhất 1 vật tư (loại khác thì không).
 // Chặn ở server để gọi API trực tiếp cũng không lọt. Trả chuỗi lỗi hoặc null.
@@ -491,8 +492,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // Số phiếu chuẩn hóa (bỏ khoảng trắng); rỗng -> null (không tính trùng)
-    const reportNorm = report ? String(report).trim() : ''
+    // Số phiếu chuẩn hóa dùng chung (bỏ ký tự ẩn + khoảng trắng + viết hoa); rỗng -> null (không tính trùng)
+    const reportNorm = normReport(report)
     // Trạng thái hóa đơn (công nợ) đồng bộ với cờ hoa_don của vật tư
     const hasHD = Array.isArray(vat_tu) && vat_tu.some((v: any) => v.hoa_don && v.ma_hang && Number(v.so_luong) > 0)
 
@@ -660,7 +661,7 @@ export async function PUT(request: Request) {
       // Nếu phiếu còn ở giai đoạn tiền-xử lý: gán KTV -> 'Đã nhận', bỏ gán -> 'Chờ nhận'.
       // Nếu đã Đang làm/Hoàn thành/Chưa hoàn thành (admin sửa): giữ nguyên trạng thái.
       const nextKetQua = preWork ? (ktv_id ? 'Đã nhận' : 'Chờ nhận') : cur.ket_qua
-      const reportNorm = report ? String(report).trim() : ''
+      const reportNorm = normReport(report)
 
       // Nguồn nhận: bỏ gán -> null; gán KTV MỚI (khác chính cũ) -> 'giao'; không đổi
       // chính -> giữ nguyên (không ghi đè, để không xóa dấu 'tu_nhan' của phiếu KTV tự nhận).

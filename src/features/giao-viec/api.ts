@@ -67,6 +67,20 @@ export async function saveJob(form: JobForm, finalCustomerId: string, editingId:
   if (!res.ok) throw new Error(j.error || 'Lỗi lưu phiếu')
 }
 
+// Kiểm tra số phiếu (report) đã tồn tại chưa — pre-check cảnh báo trùng TRƯỚC khi lưu.
+// excludeId: khi đang SỬA, bỏ chính phiếu đó ra khỏi phép so.
+export type ReportDup = { id: string; ngay: string; ma_may: string; report: string; ket_qua: string; khach: string; ktv: string }
+export async function checkReport(report: string, excludeId?: string | null): Promise<ReportDup | null> {
+  const r = (report || '').trim()
+  if (!r) return null
+  const p = new URLSearchParams({ report: r })
+  if (excludeId) p.set('excludeId', excludeId)
+  const res = await fetch(`/api/admin/cong-viec/check-report?${p.toString()}`)
+  if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || 'Lỗi kiểm tra số phiếu')
+  const j = await res.json()
+  return j.exists ? (j.job as ReportDup) : null
+}
+
 // Bóc tách phiếu PDF (server) -> dữ liệu tiền-điền form.
 export async function importPdf(file: File): Promise<any> {
   const fd = new FormData(); fd.append('file', file)

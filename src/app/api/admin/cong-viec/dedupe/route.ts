@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { broadcastJobsChanged } from '@/lib/realtime'
 import { logAudit } from '@/lib/audit'
+import { normReport } from '@/lib/report'
 
 // Tìm các nhóm phiếu TRÙNG số phiếu (report): giữ lại 1 bản (tạo sớm nhất),
 // gom id của phần thừa để xóa. Chỉ xét report khác rỗng.
@@ -21,7 +22,7 @@ async function findDuplicates() {
   const removeIds: string[] = []
   for (const r of data || []) {
     const raw = String(r.report).trim()
-    const key = raw.toLowerCase()
+    const key = normReport(r.report) // CHUNG chuẩn hóa với server/index
     if (!key) continue
     if (keep.has(key)) { removeIds.push(r.id); extras.set(key, (extras.get(key) || 0) + 1) }
     else { keep.set(key, r.id); label.set(key, raw) }
