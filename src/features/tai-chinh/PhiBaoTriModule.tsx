@@ -25,6 +25,8 @@ type May = {
 type Group = { so_hddv: string; mays: May[]; donGias: Set<number>; ngayKy: string | null; hetHan: string | null }
 
 const fmtVnd = (x: any) => (Math.round(Number(x) || 0)).toLocaleString('vi-VN')
+// TỔNG phí BT của 1 HĐ = Σ đơn giá từng máy (đúng cả khi đồng giá lẫn lệch giá). Số tháng/máy bổ sung sau.
+const tongOf = (g: Group) => g.mays.reduce((s, m) => s + (Number(m.don_gia_bt) || 0), 0)
 const fmtDate = (s?: string | null) => { if (!s) return ''; const p = String(s).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : '' }
 const digits = (s: string) => s.replace(/[^\d]/g, '')
 const sanitize = (s: string) => String(s || '').replace(/[^A-Za-z0-9]+/g, '').slice(0, 40)
@@ -35,7 +37,7 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
   const [nam, setNam] = useState(String(new Date().getFullYear()))
-  const [bill, setBill] = useState<{ so_hddv: string; ten_dong: string; soMay: number; donGia: number; khach: string; diaChi: string } | null>(null)
+  const [bill, setBill] = useState<{ so_hddv: string; ten_dong: string; soMay: number; donGia: number; khach: string; diaChi: string; lech: boolean; tong: number; kieu: 'theo_may' | 'gop'; dvt: string } | null>(null)
   const [pushing, setPushing] = useState(false)
   const [dirty, setDirty] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
@@ -118,8 +120,8 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
       let cmp = 0
       const donGiaA = [...a.donGias][0] || 0
       const donGiaB = [...b.donGias][0] || 0
-      const thanhTienA = a.mays.length * donGiaA
-      const thanhTienB = b.mays.length * donGiaB
+      const thanhTienA = tongOf(a)
+      const thanhTienB = tongOf(b)
       const khachA = khName(a.mays[0])
       const khachB = khName(b.mays[0])
 
@@ -206,15 +208,26 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
   const openBill = (g: Group) => {
     const addrs = [...new Set(g.mays.map(m => (m.vi_tri_dat_may || '').trim()).filter(Boolean))]
     const diaChi = addrs.length === 0 ? '' : addrs.length === 1 ? addrs[0] : `${addrs.length} vị trí máy`
-    setBill({ so_hddv: g.so_hddv, ten_dong: defaultTenDong(g), soMay: g.mays.length, donGia: [...g.donGias][0], khach: khName(g.mays[0]), diaChi })
+    const lech = g.donGias.size > 1
+    // Mặc định: đồng giá -> dạng "Theo máy" (ĐVT Máy); lệch giá -> "Gộp cả kỳ" (ĐVT Năm). Staff đổi được.
+    setBill({
+      so_hddv: g.so_hddv, ten_dong: defaultTenDong(g), soMay: g.mays.length,
+      donGia: Math.round([...g.donGias][0] || 0), khach: khName(g.mays[0]), diaChi,
+      lech, tong: Math.round(tongOf(g)), kieu: lech ? 'gop' : 'theo_may', dvt: lech ? 'Năm' : 'Máy',
+    })
   }
+  // Đổi kiểu dòng: cập nhật ĐVT mặc định theo kiểu (giữ ĐVT lạ nếu staff đã sửa tay cho dạng gộp).
+  const setKieu = (k: 'theo_may' | 'gop') => setBill(b => !b ? b : ({
+    ...b, kieu: k,
+    dvt: k === 'theo_may' ? 'Máy' : (b.dvt && b.dvt !== 'Máy' ? b.dvt : 'Năm'),
+  }))
   const doPush = async () => {
     if (!bill) return
     setPushing(true)
     try {
-      const res = await fetch('/api/admin/phi-bao-tri/day-kanban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ so_hddv: bill.so_hddv, nam, ten_dong: bill.ten_dong }) })
+      const res = await fetch('/api/admin/phi-bao-tri/day-kanban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ so_hddv: bill.so_hddv, nam, ten_dong: bill.ten_dong, kieu: bill.kieu, dvt: bill.dvt }) })
       const j = await res.json()
-      if (res.ok) { showNotification('success', `Đã tạo phí BT HĐ ${bill.so_hddv} (${j.so_may} máy) → Kanban "Chờ xuất HĐ".`); setBill(null); load() }
+      if (res.ok) { showNotification('success', `Đã tạo phí BT HĐ ${bill.so_hddv} (${j.so_may} máy, ${fmtVnd(j.thanh_tien)}đ) → Kanban "Chờ xuất HĐ".`); setBill(null); load() }
       else showNotification('error', j.error || 'Lỗi tạo phí bảo trì')
     } catch { showNotification('error', 'Lỗi kết nối!') } finally { setPushing(false) }
   }
@@ -297,15 +310,15 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
                     <td className="px-3 py-2 font-mono font-semibold text-slate-700 whitespace-nowrap">{g.so_hddv}</td>
                     <td className="px-3 py-2">{khName(g.mays[0])}</td>
                     <td className="px-2 py-2 text-center font-semibold">{g.mays.length}</td>
-                    <td className="px-3 py-2 text-right">{lech ? <span className="text-rose-600 text-xs font-semibold" title="Đơn giá không đồng nhất giữa các máy cùng HĐ">lệch giá</span> : fmtVnd(donGia)}</td>
-                    <td className="px-3 py-2 text-right font-semibold text-slate-800">{lech ? '—' : fmtVnd(g.mays.length * donGia)}</td>
+                    <td className="px-3 py-2 text-right">{lech ? <span className="text-amber-600 text-xs font-semibold" title="Đơn giá khác nhau giữa các máy — khi lập sẽ gộp thành 1 dòng">nhiều mức</span> : fmtVnd(donGia)}</td>
+                    <td className="px-3 py-2 text-right font-semibold text-slate-800">{fmtVnd(tongOf(g))}</td>
                     <td className="px-3 py-2 text-center text-xs whitespace-nowrap">{tu && den ? `${tu} → ${den}` : <span className="text-slate-400">—</span>}</td>
                     <td className="px-2 py-2 text-center">
                       {daLap ? (
                         <span className="inline-block px-2 py-0.5 rounded-full t2 font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">✓ Đã lập {nam}</span>
                       ) : (
-                        <Button onClick={() => openBill(g)} disabled={lech || dirty.size > 0} className="h-8 gap-1.5"
-                          title={lech ? 'Sửa đơn giá cho đồng nhất trước' : dirty.size > 0 ? 'Lưu cấu hình trước khi tạo hóa đơn' : 'Tạo hóa đơn phí BT → đẩy Kanban'}>
+                        <Button onClick={() => openBill(g)} disabled={dirty.size > 0} className="h-8 gap-1.5"
+                          title={dirty.size > 0 ? 'Lưu cấu hình trước khi tạo hóa đơn' : 'Tạo hóa đơn phí BT → đẩy Kanban'}>
                           <Send className="w-3.5 h-3.5" /> Đẩy Kanban
                         </Button>
                       )}
@@ -438,10 +451,41 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
               <div className="font-semibold text-slate-800">{bill.khach}</div>
               {bill.diaChi && <div className="text-xs text-slate-500 mt-0.5">📍 {bill.diaChi}</div>}
             </div>
-            <div className="text-sm text-slate-600 bg-slate-50 rounded-lg p-3">
-              <span className="font-semibold">{bill.soMay}</span> máy × <span className="font-semibold">{fmtVnd(bill.donGia)}</span> đ
-              &nbsp;=&nbsp; <b className="text-slate-800">{fmtVnd(bill.soMay * bill.donGia)}</b> đ (chưa VAT) · VAT 8% → <b className="text-slate-800">{fmtVnd(Math.round(bill.soMay * bill.donGia * 1.08))}</b> đ · Năm lập: <b>{nam}</b>
+            {/* Chọn dạng dòng hóa đơn — "Theo máy" chỉ bật khi đồng giá. */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-600">Dạng dòng hóa đơn</label>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setKieu('theo_may')} disabled={bill.lech}
+                  title={bill.lech ? 'Đơn giá lệch — không lập được dạng Theo máy' : ''}
+                  className={`flex-1 rounded-md border px-3 py-2 text-xs font-semibold text-left transition-colors ${bill.kieu === 'theo_may' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'} ${bill.lech ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                  Theo máy
+                  <span className="block font-normal text-[11px] text-slate-500 mt-0.5">ĐVT “Máy” · SL = số máy</span>
+                </button>
+                <button type="button" onClick={() => setKieu('gop')}
+                  className={`flex-1 rounded-md border px-3 py-2 text-xs font-semibold text-left transition-colors ${bill.kieu === 'gop' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                  Gộp cả kỳ
+                  <span className="block font-normal text-[11px] text-slate-500 mt-0.5">ĐVT “{bill.kieu === 'gop' ? bill.dvt : 'Năm'}” · SL = 1 · đơn giá = tổng</span>
+                </button>
+              </div>
+              {bill.lech && <div className="text-[11px] text-amber-600">Đơn giá các máy khác nhau → chỉ lập được dạng <b>Gộp cả kỳ</b>.</div>}
             </div>
+
+            <div className="text-sm text-slate-600 bg-slate-50 rounded-lg p-3">
+              {bill.kieu === 'theo_may' ? (
+                <><span className="font-semibold">{bill.soMay}</span> máy × <span className="font-semibold">{fmtVnd(bill.donGia)}</span> đ &nbsp;=&nbsp; </>
+              ) : (
+                <>Gộp <span className="font-semibold">{bill.soMay}</span> máy{bill.lech ? ' (nhiều mức giá)' : ''} &nbsp;=&nbsp; </>
+              )}
+              <b className="text-slate-800">{fmtVnd(bill.tong)}</b> đ (chưa VAT) · VAT 8% → <b className="text-slate-800">{fmtVnd(Math.round(bill.tong * 1.08))}</b> đ · Năm lập: <b>{nam}</b>
+            </div>
+
+            {bill.kieu === 'gop' && (
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600">ĐVT dòng gộp</label>
+                <Input value={bill.dvt} onChange={e => setBill({ ...bill, dvt: e.target.value })} className="h-8 bg-white w-32" placeholder="Năm" />
+              </div>
+            )}
+
             <div className="space-y-1">
               <label className="text-xs font-semibold text-slate-600">Nội dung dòng dịch vụ (sửa tự do)</label>
               <textarea value={bill.ten_dong} onChange={e => setBill({ ...bill, ten_dong: e.target.value })} rows={3}

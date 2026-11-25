@@ -9,9 +9,12 @@ export const runtime = 'nodejs'
 
 const sanitize = (s: string) => String(s || '').replace(/[^A-Za-z0-9]+/g, '').slice(0, 40)
 
-// POST { so_hddv, nam, ten_dong }: gom mọi máy HĐBT/MF cùng Số HĐDV -> 1 phiếu billing phí bảo trì
-// (nguon='phi_bao_tri') đẩy vào Kanban cột "Chờ xuất HĐ". SL = số máy, đơn giá = don_gia_bt (đồng
-// nhất trong HĐ). Dòng dịch vụ = ten_dong (staff sửa tự do). Chống lập trùng theo report PBT-<năm>-<hddv>.
+// POST { so_hddv, nam, ten_dong, kieu?, dvt? }: gom mọi máy HĐBT/MF cùng Số HĐDV -> 1 phiếu billing
+// phí bảo trì (nguon='phi_bao_tri') đẩy vào Kanban cột "Chờ xuất HĐ". Dòng dịch vụ = ten_dong.
+// Hai dạng dòng (mẫu hóa đơn thật):
+//   • "theo_may": mọi máy ĐỒNG GIÁ -> ĐVT "Máy", SL = số máy, đơn giá = đơn giá/máy, thành tiền = SL×đơn giá.
+//   • "gop":      LỆCH GIÁ (hoặc staff chọn gộp) -> ĐVT "Năm", SL = 1, đơn giá = thành tiền = TỔNG (Σ máy).
+// Nếu không gửi `kieu`, server TỰ nhận: đồng giá -> theo_may, lệch -> gop. Chống lập trùng report PBT-<năm>-<hddv>.
 export async function POST(request: Request) {
   try {
     const session = await requireRole('admin', 'tech_admin', 'staff')
@@ -25,7 +28,7 @@ export async function POST(request: Request) {
     if (!/^\d{4}$/.test(String(nam))) return NextResponse.json({ error: 'Năm không hợp lệ' }, { status: 400 })
     if (!ten_dong) return NextResponse.json({ error: 'Thiếu nội dung dòng dịch vụ' }, { status: 400 })
 
-    // Gom máy cùng Số HĐDV (chỉ HĐBT/MF). SL = số máy; đơn giá phải đồng nhất.
+    // Gom máy cùng Số HĐDV (chỉ HĐBT/MF), chỉ máy có đơn giá > 0.
     const { data: mays, error: mErr } = await supabaseAdmin
       .from('soct_khach_hang')
       .select('id, don_gia_bt, loai_hd')
@@ -35,13 +38,30 @@ export async function POST(request: Request) {
     const list = (mays || []).filter((m: any) => Number(m.don_gia_bt) > 0)
     if (list.length === 0) return NextResponse.json({ error: 'HĐ này chưa có máy nào có đơn giá phí BT (>0).' }, { status: 400 })
 
-    const giaSet = new Set(list.map((m: any) => Number(m.don_gia_bt)))
-    if (giaSet.size > 1) {
-      return NextResponse.json({ error: 'Đơn giá phí BT không đồng nhất giữa các máy cùng HĐ — sửa lại cho khớp trước khi lên hóa đơn.' }, { status: 400 })
-    }
-    const donGia = Math.round([...giaSet][0])
     const soMay = list.length
     const idKhachHang = list[0].id
+    const giaSet = new Set(list.map((m: any) => Math.round(Number(m.don_gia_bt))))
+    const donGong = Math.round(list.reduce((s: number, m: any) => s + Number(m.don_gia_bt), 0)) // TỔNG = Σ máy
+
+    // Dạng dòng: tự nhận hoặc theo yêu cầu client. "theo_may" chỉ hợp lệ khi đồng giá.
+    const kieu = (body.kieu === 'theo_may' || body.kieu === 'gop') ? body.kieu : (giaSet.size === 1 ? 'theo_may' : 'gop')
+    if (kieu === 'theo_may' && giaSet.size > 1) {
+      return NextResponse.json({ error: 'Đơn giá lệch giữa các máy — chọn dạng "Gộp cả kỳ" (không lập được dạng Theo máy).' }, { status: 400 })
+    }
+
+    // SL / ĐVT / đơn giá / thành tiền theo dạng dòng.
+    let soLuong: number, donGia: number, thanhTien: number, dvt: string
+    if (kieu === 'theo_may') {
+      soLuong = soMay
+      donGia = Math.round([...giaSet][0])
+      thanhTien = soMay * donGia
+      dvt = String(body.dvt || '').trim() || 'Máy'
+    } else {
+      soLuong = 1
+      donGia = donGong
+      thanhTien = donGong
+      dvt = String(body.dvt || '').trim() || 'Năm'
+    }
 
     const report = `PBT-${nam}-${sanitize(so_hddv)}`
     const { data: existed } = await supabaseAdmin.from('soct_cong_viec').select('id').eq('report', report).maybeSingle()
@@ -69,20 +89,20 @@ export async function POST(request: Request) {
     const { error: vtErr } = await supabaseAdmin.from('soct_chi_tiet_vat_tu').insert({
       id_cong_viec: phieu.id,
       ma_hang: 'PHIBT',
-      so_luong: soMay,
+      so_luong: soLuong,
       don_gia: donGia,
       vat: 8,
-      thanh_tien: soMay * donGia,
+      thanh_tien: thanhTien,
       hoa_don: false,
       ten_hang_hd: ten_dong,
-      don_vi_tinh: 'Máy',
+      don_vi_tinh: dvt,
       thu_tu: 0,
     })
     if (vtErr) throw vtErr
 
-    await logAudit(session, 'Đẩy phí bảo trì sang Kanban', `HĐ ${so_hddv} năm ${nam}: ${soMay} máy × ${donGia.toLocaleString('vi-VN')} -> phiếu ${phieu.id}`)
+    await logAudit(session, 'Đẩy phí bảo trì sang Kanban', `HĐ ${so_hddv} năm ${nam} [${kieu}]: ${soMay} máy, tổng ${thanhTien.toLocaleString('vi-VN')} -> phiếu ${phieu.id}`)
     await broadcastJobsChanged()
-    return NextResponse.json({ success: true, id_cong_viec: phieu.id, so_may: soMay, don_gia: donGia })
+    return NextResponse.json({ success: true, id_cong_viec: phieu.id, so_may: soMay, kieu, thanh_tien: thanhTien })
   } catch (error: any) {
     console.error('Error day-kanban phi-bao-tri:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
