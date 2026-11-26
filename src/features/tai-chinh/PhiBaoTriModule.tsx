@@ -7,6 +7,7 @@ import DateField from "@/components/DateField"
 import CollapsibleTools from "@/components/CollapsibleTools"
 import { usePaged, ListFrame, SearchInput } from "@/ui"
 import { Landmark, Send, X, RefreshCw, Save, ChevronUp, ChevronDown } from "lucide-react"
+import { demThangHieuLuc } from "@/lib/bao-tri"
 
 type May = {
   id: string
@@ -21,6 +22,13 @@ type May = {
   ngay_ky_hddv: string | null
   don_gia_bt: number | null
   so_thang_bt: number | null
+  // Lịch bảo trì — dùng để TỰ SUY số tháng khi so_thang_bt = null.
+  thang_bao_tri?: string | null
+  bat_dau_tu_thang?: string | null
+  tam_dung_tu_thang?: string | null
+  tam_dung_den_thang?: string | null
+  tam_hoan_cum_tu_thang?: string | null
+  tam_hoan_cum_den_thang?: string | null
   soct_khach_cum?: { ma_khach_hang?: string; ten_khach_hang?: string } | null
 }
 type Group = { so_hddv: string; mays: May[]; donGias: Set<number>; ngayKy: string | null; hetHan: string | null }
@@ -37,8 +45,15 @@ const parseDec = (s: string): number | null => {
   const n = Number(t)
   return Number.isFinite(n) ? n : null
 }
-// Số tháng tính phí/máy: NULL = 12 (đủ kỳ), chặn [0..12].
-const thangOf = (m: May) => { const t = m.so_thang_bt == null ? 12 : Math.trunc(Number(m.so_thang_bt)); return Number.isFinite(t) ? Math.min(12, Math.max(0, t)) : 12 }
+// Kỳ phí BT = 12 tháng kể từ THÁNG KÝ HĐ. 'YYYY-MM' của ngày ký, '' nếu thiếu.
+const startKy = (m: May) => { const s = String(m.ngay_ky_hddv || '').slice(0, 7); return /^\d{4}-\d{2}$/.test(s) ? s : '' }
+// Số tháng TỰ SUY theo lịch (bắt đầu/tạm dừng) cho kỳ của HĐ. Thiếu ngày ký -> 12.
+const autoThangOf = (m: May) => { const sk = startKy(m); return sk ? demThangHieuLuc(m, sk) : 12 }
+// Số tháng tính phí/máy: so_thang_bt là SỐ -> ÉP TAY (chặn 0..12); NULL -> TỰ SUY theo lịch.
+const thangOf = (m: May) => {
+  if (m.so_thang_bt != null) { const t = Math.trunc(Number(m.so_thang_bt)); return Number.isFinite(t) ? Math.min(12, Math.max(0, t)) : 12 }
+  return autoThangOf(m)
+}
 // Thành tiền từng máy = đơn giá × số tháng / 12. ttExactOf giữ thập phân; ttOf làm tròn (hiển thị số nguyên).
 const ttExactOf = (m: May) => (Number(m.don_gia_bt) || 0) * thangOf(m) / 12
 const ttOf = (m: May) => Math.round(ttExactOf(m))
@@ -65,6 +80,27 @@ function DonGiaInput({ value, onChange }: { value: number | null; onChange: (n: 
       onChange={e => setRaw(e.target.value.replace(/[^\d.,]/g, ''))}
       onBlur={() => { setEditing(false); onChange(parseDec(raw)) }}
     />
+  )
+}
+
+// Ô "Số tháng": để trống = TỰ TÍNH theo lịch (hiện số tự tính mờ + nhãn "tự: N"),
+// nhập số = ÉP TAY (nhãn xanh "ép tay"). Chỉ nhận số nguyên 0..12.
+function SoThangCell({ value, auto, onChange }: { value: number | null; auto: number; onChange: (n: number | null) => void }) {
+  const manual = value != null
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <Input
+        value={manual ? String(value) : ''}
+        placeholder={String(auto)}
+        inputMode="numeric"
+        className="h-8 bg-white text-center"
+        title="Để trống = tự tính theo lịch bảo trì; nhập số = ép tay (0..12)"
+        onChange={e => { const d = e.target.value.replace(/[^\d]/g, ''); onChange(d ? Math.min(12, Number(d)) : null) }}
+      />
+      <span className={`text-[10px] leading-none ${manual ? 'text-blue-600 font-semibold' : 'text-slate-400'}`}>
+        {manual ? 'ép tay' : `tự: ${auto}`}
+      </span>
+    </div>
   )
 }
 
@@ -474,9 +510,7 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
                       <DonGiaInput value={m.don_gia_bt} onChange={n => setLocal(m.id, 'don_gia_bt', n)} />
                     </td>
                     <td className="px-3 py-1.5">
-                      <Input value={m.so_thang_bt != null ? String(m.so_thang_bt) : ''}
-                        onChange={e => { const d = digits(e.target.value); const n = d ? Math.min(12, Number(d)) : null; setLocal(m.id, 'so_thang_bt', n) }}
-                        className="h-8 bg-white text-center" placeholder="12" title="Mặc định 12 (đủ kỳ)" />
+                      <SoThangCell value={m.so_thang_bt} auto={autoThangOf(m)} onChange={n => setLocal(m.id, 'so_thang_bt', n)} />
                     </td>
                   </>)}
                 </tr>
@@ -545,6 +579,7 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
                 <tfoot className="bg-slate-50 font-bold text-slate-800 sticky bottom-0"><tr><td className="px-2 py-1" colSpan={3}>TỔNG (chưa VAT)</td><td className="px-2 py-1 text-right">{fmtVnd(bill.tong)}</td></tr></tfoot>
               </table>
             </div>
+            <p className="text-[11px] text-slate-500 -mt-1">Cột <b>Tháng</b> tự tính theo lịch bảo trì (mốc lắp / tạm dừng), kỳ 12 tháng kể từ ngày ký HĐ. Muốn khác, nhập đè ở cột <b>Số tháng</b> bảng cấu hình.{bill.thieuThang > 0 ? ` Đang có ${bill.thieuThang} máy < 12 tháng (nền vàng) — soát lại trước khi đẩy.` : ''}</p>
 
             {bill.kieu === 'gop' && (
               <div className="space-y-1">

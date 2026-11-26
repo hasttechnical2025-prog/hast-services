@@ -83,6 +83,31 @@ export function canBaoTriThang(may: MayBaoTri, thang_nam: string): boolean {
   return coBaoTriThang(may.thang_bao_tri, month)
 }
 
+// Cộng `n` tháng vào 'YYYY-MM' (n có thể âm). '2025-11' +3 -> '2026-02'.
+export function congThang(thang_nam: string, n: number): string {
+  const [y, m] = String(thang_nam).split('-').map(s => parseInt(s, 10))
+  const total = y * 12 + (m - 1) + n
+  const ny = Math.floor(total / 12)
+  const nm = (total % 12 + 12) % 12 + 1
+  return `${ny}-${String(nm).padStart(2, '0')}`
+}
+
+// Đếm số tháng máy CÒN HIỆU LỰC trong kỳ 12 tháng bắt đầu từ `thangDau` ('YYYY-MM' = tháng ký HĐ).
+// Hiệu lực = đã lắp (>= bat_dau_tu_thang) VÀ chưa tạm dừng (lẻ HOẶC cụm) trong tháng đó.
+// KHÔNG xét tần suất thang_bao_tri — phí tính theo THÁNG HỢP ĐỒNG, không theo số lần đi bảo trì.
+// Dùng cho phí bảo trì tự suy số tháng. Thiếu/không hợp lệ `thangDau` -> coi đủ 12. Trả 0..12.
+export function demThangHieuLuc(may: MayBaoTri, thangDau: string): number {
+  if (!/^\d{4}-\d{2}$/.test((thangDau || '').trim())) return 12
+  let n = 0
+  for (let i = 0; i < 12; i++) {
+    const ym = congThang(thangDau, i)
+    if (chuaBatDau(may.bat_dau_tu_thang, ym)) continue
+    if (nghiBaoTri(may, ym)) continue
+    n++
+  }
+  return n
+}
+
 // Mô tả lịch cho cột hiển thị: '' -> 'Hằng tháng'; '2,4,6' -> 'T2, T4, T6'
 export function moTaLichBaoTri(thang_bao_tri: string | null | undefined): string {
   const list = parseThangBaoTri(thang_bao_tri)

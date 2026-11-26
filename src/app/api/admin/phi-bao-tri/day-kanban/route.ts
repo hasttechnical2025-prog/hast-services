@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireRole } from '@/lib/session'
 import { broadcastJobsChanged } from '@/lib/realtime'
 import { logAudit } from '@/lib/audit'
-import { LOAI_HD_BAO_TRI } from '@/lib/bao-tri'
+import { LOAI_HD_BAO_TRI, demThangHieuLuc } from '@/lib/bao-tri'
 
 export const runtime = 'nodejs'
 
@@ -31,7 +31,9 @@ export async function POST(request: Request) {
     // Gom máy cùng Số HĐDV (chỉ HĐBT/MF), chỉ máy có đơn giá > 0.
     const { data: mays, error: mErr } = await supabaseAdmin
       .from('soct_khach_hang')
-      .select('id, don_gia_bt, so_thang_bt, loai_hd')
+      .select(`id, don_gia_bt, so_thang_bt, loai_hd, ngay_ky_hddv,
+        thang_bao_tri, bat_dau_tu_thang, tam_dung_tu_thang, tam_dung_den_thang,
+        tam_hoan_cum_tu_thang, tam_hoan_cum_den_thang`)
       .eq('so_hddv', so_hddv)
       .in('loai_hd', LOAI_HD_BAO_TRI)
     if (mErr) throw mErr
@@ -40,8 +42,13 @@ export async function POST(request: Request) {
 
     const soMay = list.length
     const idKhachHang = list[0].id
-    // Số tháng/máy: NULL = 12 (đủ kỳ). Thành tiền máy (chính xác) = đơn giá × số tháng / 12. Đơn giá có thể LẺ.
-    const thangOf = (m: any) => { const t = m.so_thang_bt == null ? 12 : parseInt(String(m.so_thang_bt), 10); return Number.isFinite(t) ? Math.min(12, Math.max(0, t)) : 12 }
+    // Số tháng/máy: so_thang_bt là SỐ -> ÉP TAY; NULL -> TỰ SUY theo lịch (12 tháng kể từ tháng ký HĐ).
+    // Thành tiền máy (chính xác) = đơn giá × số tháng / 12. Đơn giá có thể LẺ.
+    const startKy = (m: any) => { const s = String(m.ngay_ky_hddv || '').slice(0, 7); return /^\d{4}-\d{2}$/.test(s) ? s : '' }
+    const thangOf = (m: any) => {
+      if (m.so_thang_bt != null) { const t = parseInt(String(m.so_thang_bt), 10); return Number.isFinite(t) ? Math.min(12, Math.max(0, t)) : 12 }
+      const sk = startKy(m); return sk ? demThangHieuLuc(m, sk) : 12
+    }
     const ttOf = (m: any) => Number(m.don_gia_bt) * thangOf(m) / 12
     const giaSet = new Set(list.map((m: any) => Math.round(Number(m.don_gia_bt)))) // so sánh đồng giá (làm tròn)
     const allFull = list.every((m: any) => thangOf(m) === 12) // mọi máy đủ 12 tháng

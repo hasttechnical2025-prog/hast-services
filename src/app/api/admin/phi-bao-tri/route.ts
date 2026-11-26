@@ -18,6 +18,8 @@ export async function GET() {
       .from('soct_khach_hang')
       .select(`id, ten_khach_hang, ma_may, model, loai_hd, ma_khach_cum, vi_tri_dat_may,
         ngay_het_han_hdbt, so_hddv, ngay_ky_hddv, don_gia_bt, so_thang_bt,
+        thang_bao_tri, bat_dau_tu_thang, tam_dung_tu_thang, tam_dung_den_thang,
+        tam_hoan_cum_tu_thang, tam_hoan_cum_den_thang,
         soct_khach_cum ( ma_khach_hang, ten_khach_hang )`)
       .in('loai_hd', LOAI_HD_BAO_TRI)
       .not('ma_may', 'is', null)
