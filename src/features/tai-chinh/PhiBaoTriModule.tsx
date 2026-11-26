@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import DateField from "@/components/DateField"
 import CollapsibleTools from "@/components/CollapsibleTools"
 import { usePaged, ListFrame, SearchInput } from "@/ui"
-import { Landmark, Send, X, RefreshCw, Save, ChevronUp, ChevronDown } from "lucide-react"
+import { Landmark, Send, X, RefreshCw, Save, ChevronUp, ChevronDown, Info } from "lucide-react"
 import { demThangHieuLuc } from "@/lib/bao-tri"
 
 type May = {
@@ -83,23 +83,26 @@ function DonGiaInput({ value, onChange }: { value: number | null; onChange: (n: 
   )
 }
 
-// Ô "Số tháng": để trống = TỰ TÍNH theo lịch (hiện số tự tính mờ + nhãn "tự: N"),
-// nhập số = ÉP TAY (nhãn xanh "ép tay"). Chỉ nhận số nguyên 0..12.
+// Ô "Số tháng" (1 dòng, cao bằng các cột khác): để trống = TỰ TÍNH theo lịch (số xám = placeholder);
+// nhập số = ÉP TAY (số xanh + nút ↺ xóa về tự tính). Chỉ nhận số nguyên 0..12.
 function SoThangCell({ value, auto, onChange }: { value: number | null; auto: number; onChange: (n: number | null) => void }) {
   const manual = value != null
   return (
-    <div className="flex flex-col items-center gap-0.5">
+    <div className="flex items-center justify-center gap-1">
       <Input
         value={manual ? String(value) : ''}
         placeholder={String(auto)}
         inputMode="numeric"
-        className="h-8 bg-white text-center"
-        title="Để trống = tự tính theo lịch bảo trì; nhập số = ép tay (0..12)"
+        className={`h-8 bg-white text-center ${manual ? 'w-14 text-blue-600 font-semibold border-blue-300' : 'w-[72px] text-slate-400'}`}
+        title={manual ? 'Ép tay — bấm ↺ để về tự tính' : 'Trống = tự tính theo lịch; gõ số để ép tay (0..12)'}
         onChange={e => { const d = e.target.value.replace(/[^\d]/g, ''); onChange(d ? Math.min(12, Number(d)) : null) }}
       />
-      <span className={`text-[10px] leading-none ${manual ? 'text-blue-600 font-semibold' : 'text-slate-400'}`}>
-        {manual ? 'ép tay' : `tự: ${auto}`}
-      </span>
+      {manual && (
+        <button type="button" onClick={() => onChange(null)} title="Về tự tính theo lịch"
+          className="h-7 w-7 shrink-0 flex items-center justify-center rounded-md border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors">
+          <RefreshCw className="w-3.5 h-3.5" />
+        </button>
+      )}
     </div>
   )
 }
@@ -411,11 +414,19 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
       </CollapsibleTools>
 
       {/* ===== Bảng cấu hình phí BT theo máy (inline edit) — khung chuẩn ListFrame ===== */}
-      <ListFrame paged={mayPaged} unit="máy" aboveTable={dirty.size > 0 ? (
-        <div className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">
-          ⚠ Còn <b>{dirty.size}</b> dòng chưa lưu (nền xanh) — bấm <b>Lưu</b>. Reload/rời trang khi chưa lưu sẽ mất thay đổi.
+      <ListFrame paged={mayPaged} unit="máy" aboveTable={
+        <div className="space-y-1.5">
+          <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
+            <Info className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            Cột <b>Số tháng</b>: để trống = <span className="text-slate-400 font-medium">tự tính theo lịch</span> (mốc lắp / tạm dừng), gõ số = <span className="text-blue-600 font-medium">ép tay</span>; bấm <RefreshCw className="w-3 h-3 inline -mt-0.5" /> để về tự tính.
+          </div>
+          {dirty.size > 0 && (
+            <div className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">
+              ⚠ Còn <b>{dirty.size}</b> dòng chưa lưu (nền xanh) — bấm <b>Lưu</b>. Reload/rời trang khi chưa lưu sẽ mất thay đổi.
+            </div>
+          )}
         </div>
-      ) : undefined} toolbar={
+      } toolbar={
         <div className="flex flex-wrap items-center gap-2">
           <SearchInput value={q} onChange={setQ} placeholder="Tìm khách / mã máy / số HĐ..." className="w-full sm:w-72" />
           <Button onClick={doSave} disabled={saving || dirty.size === 0} className="h-9 text-xs font-semibold px-4 gap-1.5 ml-auto">
@@ -475,7 +486,9 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
                     {sortFieldMay === 'don_gia_bt' && (sortAscMay ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
                   </div>
                 </th>
-                <th className="px-3 py-2 text-center w-24" title="Số tháng tính phí trong kỳ (mặc định 12). Máy tạm dừng thì nhập số tháng đã bảo trì.">Số tháng</th>
+                <th className="px-3 py-2 text-center w-32" title="Trống = tự tính theo lịch bảo trì (mốc lắp / tạm dừng), kỳ 12 tháng kể từ ngày ký HĐ. Gõ số = ép tay (0..12); bấm ↺ để về tự tính.">
+                  <span className="inline-flex items-center gap-1 justify-center">Số tháng <Info className="w-3 h-3 text-slate-400" /></span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
