@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     // Gom máy cùng Số HĐDV (chỉ HĐBT/MF), chỉ máy có đơn giá > 0.
     const { data: mays, error: mErr } = await supabaseAdmin
       .from('soct_khach_hang')
-      .select('id, don_gia_bt, loai_hd')
+      .select('id, don_gia_bt, so_thang_bt, loai_hd')
       .eq('so_hddv', so_hddv)
       .in('loai_hd', LOAI_HD_BAO_TRI)
     if (mErr) throw mErr
@@ -40,13 +40,19 @@ export async function POST(request: Request) {
 
     const soMay = list.length
     const idKhachHang = list[0].id
+    // Số tháng/máy: NULL = 12 (đủ kỳ). Thành tiền máy = round(đơn giá × số tháng / 12).
+    const thangOf = (m: any) => { const t = m.so_thang_bt == null ? 12 : parseInt(String(m.so_thang_bt), 10); return Number.isFinite(t) ? Math.min(12, Math.max(0, t)) : 12 }
+    const ttOf = (m: any) => Math.round(Number(m.don_gia_bt) * thangOf(m) / 12)
     const giaSet = new Set(list.map((m: any) => Math.round(Number(m.don_gia_bt))))
-    const donGong = Math.round(list.reduce((s: number, m: any) => s + Number(m.don_gia_bt), 0)) // TỔNG = Σ máy
+    const allFull = list.every((m: any) => thangOf(m) === 12) // mọi máy đủ 12 tháng
+    const donGong = list.reduce((s: number, m: any) => s + ttOf(m), 0) // TỔNG = Σ thành tiền từng máy
 
-    // Dạng dòng: tự nhận hoặc theo yêu cầu client. "theo_may" chỉ hợp lệ khi đồng giá.
-    const kieu = (body.kieu === 'theo_may' || body.kieu === 'gop') ? body.kieu : (giaSet.size === 1 ? 'theo_may' : 'gop')
-    if (kieu === 'theo_may' && giaSet.size > 1) {
-      return NextResponse.json({ error: 'Đơn giá lệch giữa các máy — chọn dạng "Gộp cả kỳ" (không lập được dạng Theo máy).' }, { status: 400 })
+    // Dạng dòng: "Theo máy" (SL = số máy, đơn giá nguyên) chỉ hợp lệ khi ĐỒNG GIÁ và MỌI máy đủ 12 tháng.
+    // Lệch giá hoặc có máy thiếu tháng -> thành tiền mỗi máy khác nhau -> phải Gộp cả kỳ.
+    const theoMayOk = giaSet.size === 1 && allFull
+    const kieu = (body.kieu === 'theo_may' || body.kieu === 'gop') ? body.kieu : (theoMayOk ? 'theo_may' : 'gop')
+    if (kieu === 'theo_may' && !theoMayOk) {
+      return NextResponse.json({ error: 'Đơn giá lệch hoặc có máy không đủ 12 tháng — chọn dạng "Gộp cả kỳ".' }, { status: 400 })
     }
 
     // SL / ĐVT / đơn giá / thành tiền theo dạng dòng.

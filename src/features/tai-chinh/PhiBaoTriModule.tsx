@@ -20,13 +20,17 @@ type May = {
   so_hddv: string | null
   ngay_ky_hddv: string | null
   don_gia_bt: number | null
+  so_thang_bt: number | null
   soct_khach_cum?: { ma_khach_hang?: string; ten_khach_hang?: string } | null
 }
 type Group = { so_hddv: string; mays: May[]; donGias: Set<number>; ngayKy: string | null; hetHan: string | null }
 
 const fmtVnd = (x: any) => (Math.round(Number(x) || 0)).toLocaleString('vi-VN')
-// TỔNG phí BT của 1 HĐ = Σ đơn giá từng máy (đúng cả khi đồng giá lẫn lệch giá). Số tháng/máy bổ sung sau.
-const tongOf = (g: Group) => g.mays.reduce((s, m) => s + (Number(m.don_gia_bt) || 0), 0)
+// Số tháng tính phí/máy: NULL = 12 (đủ kỳ), chặn [0..12]. Thành tiền máy = round(đơn giá × số tháng / 12).
+const thangOf = (m: May) => { const t = m.so_thang_bt == null ? 12 : Math.trunc(Number(m.so_thang_bt)); return Number.isFinite(t) ? Math.min(12, Math.max(0, t)) : 12 }
+const ttOf = (m: May) => Math.round((Number(m.don_gia_bt) || 0) * thangOf(m) / 12)
+// TỔNG phí BT của 1 HĐ = Σ thành tiền từng máy (đúng cả khi đồng giá, lệch giá, lẫn máy thiếu tháng).
+const tongOf = (g: Group) => g.mays.reduce((s, m) => s + ttOf(m), 0)
 const fmtDate = (s?: string | null) => { if (!s) return ''; const p = String(s).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : '' }
 const digits = (s: string) => s.replace(/[^\d]/g, '')
 const sanitize = (s: string) => String(s || '').replace(/[^A-Za-z0-9]+/g, '').slice(0, 40)
@@ -37,7 +41,7 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
   const [nam, setNam] = useState(String(new Date().getFullYear()))
-  const [bill, setBill] = useState<{ so_hddv: string; ten_dong: string; soMay: number; donGia: number; khach: string; diaChi: string; lech: boolean; tong: number; kieu: 'theo_may' | 'gop'; dvt: string } | null>(null)
+  const [bill, setBill] = useState<{ so_hddv: string; ten_dong: string; soMay: number; donGia: number; khach: string; diaChi: string; lech: boolean; tong: number; kieu: 'theo_may' | 'gop'; dvt: string; theoMayOk: boolean; thieuThang: number; rows: { ma_may: string; donGia: number; thang: number; tt: number }[] } | null>(null)
   const [pushing, setPushing] = useState(false)
   const [dirty, setDirty] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
@@ -68,7 +72,7 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
     setSaving(true)
     try {
       const items = ([...dirty].map(id => rows.find(r => r.id === id)).filter(Boolean) as May[])
-        .map(r => ({ id: r.id, so_hddv: r.so_hddv, ngay_ky_hddv: r.ngay_ky_hddv, don_gia_bt: r.don_gia_bt }))
+        .map(r => ({ id: r.id, so_hddv: r.so_hddv, ngay_ky_hddv: r.ngay_ky_hddv, don_gia_bt: r.don_gia_bt, so_thang_bt: r.so_thang_bt }))
       const res = await fetch('/api/admin/phi-bao-tri', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }) })
       const j = await res.json()
       if (res.ok) { setDirty(new Set()); showNotification('success', `Đã lưu ${j.saved} dòng cấu hình.`) }
@@ -209,11 +213,16 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
     const addrs = [...new Set(g.mays.map(m => (m.vi_tri_dat_may || '').trim()).filter(Boolean))]
     const diaChi = addrs.length === 0 ? '' : addrs.length === 1 ? addrs[0] : `${addrs.length} vị trí máy`
     const lech = g.donGias.size > 1
-    // Mặc định: đồng giá -> dạng "Theo máy" (ĐVT Máy); lệch giá -> "Gộp cả kỳ" (ĐVT Năm). Staff đổi được.
+    const allFull = g.mays.every(m => thangOf(m) === 12)
+    const theoMayOk = !lech && allFull // "Theo máy" chỉ khi đồng giá VÀ mọi máy đủ 12 tháng
+    const thieuThang = g.mays.filter(m => thangOf(m) < 12).length
+    const brk = g.mays.map(m => ({ ma_may: m.ma_may || '—', donGia: Math.round(Number(m.don_gia_bt) || 0), thang: thangOf(m), tt: ttOf(m) }))
+    // Mặc định: đủ điều kiện "Theo máy" -> Theo máy (ĐVT Máy); ngược lại -> "Gộp cả kỳ" (ĐVT Năm).
     setBill({
       so_hddv: g.so_hddv, ten_dong: defaultTenDong(g), soMay: g.mays.length,
       donGia: Math.round([...g.donGias][0] || 0), khach: khName(g.mays[0]), diaChi,
-      lech, tong: Math.round(tongOf(g)), kieu: lech ? 'gop' : 'theo_may', dvt: lech ? 'Năm' : 'Máy',
+      lech, tong: Math.round(tongOf(g)), kieu: theoMayOk ? 'theo_may' : 'gop', dvt: theoMayOk ? 'Máy' : 'Năm',
+      theoMayOk, thieuThang, rows: brk,
     })
   }
   // Đổi kiểu dòng: cập nhật ĐVT mặc định theo kiểu (giữ ĐVT lạ nếu staff đã sửa tay cho dạng gộp).
@@ -397,13 +406,14 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
                     {sortFieldMay === 'don_gia_bt' && (sortAscMay ? <ChevronUp className="w-3.5 h-3.5 text-blue-600" /> : <ChevronDown className="w-3.5 h-3.5 text-blue-600" />)}
                   </div>
                 </th>
+                <th className="px-3 py-2 text-center w-24" title="Số tháng tính phí trong kỳ (mặc định 12). Máy tạm dừng thì nhập số tháng đã bảo trì.">Số tháng</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading && sortedMays.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-6 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải phí bảo trì...</td></tr>
+                <tr><td colSpan={9} className="px-4 py-6 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1.5 text-blue-600" />Đang tải phí bảo trì...</td></tr>
               ) : sortedMays.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Không có máy HĐBT/MF.</td></tr>
+                <tr><td colSpan={9} className="px-4 py-6 text-center text-slate-400">Không có máy HĐBT/MF.</td></tr>
               ) : mayPaged.pageItems.map(m => {
                 // Máy MF (miễn phí) — kỳ này khách KHÔNG phải thanh toán: khóa 3 ô cấu hình + tô màu.
                 const isMF = String(m.loai_hd || '').trim().toUpperCase() === 'MF'
@@ -417,7 +427,7 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
                   </td>
                   <td className="px-2 py-1.5 text-center text-xs whitespace-nowrap">{fmtDate(m.ngay_het_han_hdbt) || '—'}</td>
                   {isMF ? (
-                    <td colSpan={3} className="px-3 py-1.5 text-center text-xs font-medium text-amber-700 italic">MF - không thu phí bảo trì</td>
+                    <td colSpan={4} className="px-3 py-1.5 text-center text-xs font-medium text-amber-700 italic">MF - không thu phí bảo trì</td>
                   ) : (<>
                     <td className="px-3 py-1.5">
                       <Input value={m.so_hddv || ''} onChange={e => setLocal(m.id, 'so_hddv', e.target.value)}
@@ -430,6 +440,11 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
                     <td className="px-3 py-1.5">
                       <Input value={m.don_gia_bt != null ? fmtVnd(m.don_gia_bt) : ''} onChange={e => setLocal(m.id, 'don_gia_bt', digits(e.target.value) ? Number(digits(e.target.value)) : null)}
                         className="h-8 bg-white text-right" placeholder="0" />
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <Input value={m.so_thang_bt != null ? String(m.so_thang_bt) : ''}
+                        onChange={e => { const d = digits(e.target.value); const n = d ? Math.min(12, Number(d)) : null; setLocal(m.id, 'so_thang_bt', n) }}
+                        className="h-8 bg-white text-center" placeholder="12" title="Mặc định 12 (đủ kỳ)" />
                     </td>
                   </>)}
                 </tr>
@@ -455,9 +470,9 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-600">Dạng dòng hóa đơn</label>
               <div className="flex gap-2">
-                <button type="button" onClick={() => setKieu('theo_may')} disabled={bill.lech}
-                  title={bill.lech ? 'Đơn giá lệch — không lập được dạng Theo máy' : ''}
-                  className={`flex-1 rounded-md border px-3 py-2 text-xs font-semibold text-left transition-colors ${bill.kieu === 'theo_may' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'} ${bill.lech ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                <button type="button" onClick={() => setKieu('theo_may')} disabled={!bill.theoMayOk}
+                  title={!bill.theoMayOk ? 'Đơn giá lệch hoặc có máy không đủ 12 tháng — không lập được dạng Theo máy' : ''}
+                  className={`flex-1 rounded-md border px-3 py-2 text-xs font-semibold text-left transition-colors ${bill.kieu === 'theo_may' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'} ${!bill.theoMayOk ? 'opacity-40 cursor-not-allowed' : ''}`}>
                   Theo máy
                   <span className="block font-normal text-[11px] text-slate-500 mt-0.5">ĐVT “Máy” · SL = số máy</span>
                 </button>
@@ -467,16 +482,36 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
                   <span className="block font-normal text-[11px] text-slate-500 mt-0.5">ĐVT “{bill.kieu === 'gop' ? bill.dvt : 'Năm'}” · SL = 1 · đơn giá = tổng</span>
                 </button>
               </div>
-              {bill.lech && <div className="text-[11px] text-amber-600">Đơn giá các máy khác nhau → chỉ lập được dạng <b>Gộp cả kỳ</b>.</div>}
+              {!bill.theoMayOk && <div className="text-[11px] text-amber-600">{bill.lech ? 'Đơn giá các máy khác nhau' : ''}{bill.lech && bill.thieuThang > 0 ? ' · ' : ''}{bill.thieuThang > 0 ? `${bill.thieuThang} máy không đủ 12 tháng` : ''} → chỉ lập được dạng <b>Gộp cả kỳ</b>.</div>}
             </div>
 
             <div className="text-sm text-slate-600 bg-slate-50 rounded-lg p-3">
               {bill.kieu === 'theo_may' ? (
                 <><span className="font-semibold">{bill.soMay}</span> máy × <span className="font-semibold">{fmtVnd(bill.donGia)}</span> đ &nbsp;=&nbsp; </>
               ) : (
-                <>Gộp <span className="font-semibold">{bill.soMay}</span> máy{bill.lech ? ' (nhiều mức giá)' : ''} &nbsp;=&nbsp; </>
+                <>Gộp <span className="font-semibold">{bill.soMay}</span> máy{bill.lech ? ' (nhiều mức giá)' : ''}{bill.thieuThang > 0 ? ` · ${bill.thieuThang} máy < 12 tháng` : ''} &nbsp;=&nbsp; </>
               )}
               <b className="text-slate-800">{fmtVnd(bill.tong)}</b> đ (chưa VAT) · VAT 8% → <b className="text-slate-800">{fmtVnd(Math.round(bill.tong * 1.08))}</b> đ · Năm lập: <b>{nam}</b>
+            </div>
+
+            {/* Bảng xem trước từng máy — soát khớp số office trước khi đẩy. */}
+            <div className="max-h-44 overflow-y-auto rounded-lg border border-slate-200">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50 text-slate-500 sticky top-0">
+                  <tr><th className="px-2 py-1 text-left font-semibold">Mã máy</th><th className="px-2 py-1 text-right font-semibold">Đơn giá/năm</th><th className="px-2 py-1 text-center font-semibold">Tháng</th><th className="px-2 py-1 text-right font-semibold">Thành tiền</th></tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {bill.rows.map((r, i) => (
+                    <tr key={i} className={r.thang < 12 ? 'bg-amber-50' : ''}>
+                      <td className="px-2 py-1 font-mono">{r.ma_may}</td>
+                      <td className="px-2 py-1 text-right">{fmtVnd(r.donGia)}</td>
+                      <td className={`px-2 py-1 text-center font-semibold ${r.thang < 12 ? 'text-amber-700' : 'text-slate-500'}`}>{r.thang}</td>
+                      <td className="px-2 py-1 text-right font-medium text-slate-700">{fmtVnd(r.tt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-slate-50 font-bold text-slate-800 sticky bottom-0"><tr><td className="px-2 py-1" colSpan={3}>TỔNG (chưa VAT)</td><td className="px-2 py-1 text-right">{fmtVnd(bill.tong)}</td></tr></tfoot>
+              </table>
             </div>
 
             {bill.kieu === 'gop' && (

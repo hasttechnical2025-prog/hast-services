@@ -17,7 +17,7 @@ export async function GET() {
     const data = await selectAll<any>((from, to) => supabaseAdmin
       .from('soct_khach_hang')
       .select(`id, ten_khach_hang, ma_may, model, loai_hd, ma_khach_cum, vi_tri_dat_may,
-        ngay_het_han_hdbt, so_hddv, ngay_ky_hddv, don_gia_bt,
+        ngay_het_han_hdbt, so_hddv, ngay_ky_hddv, don_gia_bt, so_thang_bt,
         soct_khach_cum ( ma_khach_hang, ten_khach_hang )`)
       .in('loai_hd', LOAI_HD_BAO_TRI)
       .not('ma_may', 'is', null)
@@ -56,6 +56,11 @@ export async function PATCH(request: Request) {
       const v = body.don_gia_bt === '' || body.don_gia_bt == null ? null : Number(body.don_gia_bt)
       if (v != null && (!Number.isFinite(v) || v < 0)) return NextResponse.json({ error: 'Đơn giá không hợp lệ' }, { status: 400 })
       updates.don_gia_bt = v
+    }
+    if ('so_thang_bt' in body) {
+      const t = body.so_thang_bt === '' || body.so_thang_bt == null ? null : parseInt(String(body.so_thang_bt), 10)
+      if (t != null && (!Number.isInteger(t) || t < 0 || t > 12)) return NextResponse.json({ error: 'Số tháng phải từ 0 đến 12' }, { status: 400 })
+      updates.so_thang_bt = t
     }
     if (Object.keys(updates).length === 0) return NextResponse.json({ error: 'Không có trường nào để cập nhật' }, { status: 400 })
 
@@ -97,10 +102,13 @@ export async function PUT(request: Request) {
       if (!it.id || !allowed.has(it.id)) continue
       const v = it.don_gia_bt === '' || it.don_gia_bt == null ? null : Number(it.don_gia_bt)
       if (v != null && (!Number.isFinite(v) || v < 0)) return NextResponse.json({ error: `Đơn giá không hợp lệ (máy ${it.id})` }, { status: 400 })
+      const t = it.so_thang_bt === '' || it.so_thang_bt == null ? null : parseInt(String(it.so_thang_bt), 10)
+      if (t != null && (!Number.isInteger(t) || t < 0 || t > 12)) return NextResponse.json({ error: `Số tháng phải từ 0 đến 12 (máy ${it.id})` }, { status: 400 })
       const updates = {
         so_hddv: String(it.so_hddv || '').trim() || null,
         ngay_ky_hddv: it.ngay_ky_hddv || null,
         don_gia_bt: v,
+        so_thang_bt: t,
       }
       const { error } = await supabaseAdmin.from('soct_khach_hang').update(updates).eq('id', it.id)
       if (error) throw error
