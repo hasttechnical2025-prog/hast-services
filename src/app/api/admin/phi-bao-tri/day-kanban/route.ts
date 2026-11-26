@@ -40,12 +40,13 @@ export async function POST(request: Request) {
 
     const soMay = list.length
     const idKhachHang = list[0].id
-    // Số tháng/máy: NULL = 12 (đủ kỳ). Thành tiền máy = round(đơn giá × số tháng / 12).
+    // Số tháng/máy: NULL = 12 (đủ kỳ). Thành tiền máy (chính xác) = đơn giá × số tháng / 12. Đơn giá có thể LẺ.
     const thangOf = (m: any) => { const t = m.so_thang_bt == null ? 12 : parseInt(String(m.so_thang_bt), 10); return Number.isFinite(t) ? Math.min(12, Math.max(0, t)) : 12 }
-    const ttOf = (m: any) => Math.round(Number(m.don_gia_bt) * thangOf(m) / 12)
-    const giaSet = new Set(list.map((m: any) => Math.round(Number(m.don_gia_bt))))
+    const ttOf = (m: any) => Number(m.don_gia_bt) * thangOf(m) / 12
+    const giaSet = new Set(list.map((m: any) => Math.round(Number(m.don_gia_bt)))) // so sánh đồng giá (làm tròn)
     const allFull = list.every((m: any) => thangOf(m) === 12) // mọi máy đủ 12 tháng
-    const donGong = list.reduce((s: number, m: any) => s + ttOf(m), 0) // TỔNG = Σ thành tiền từng máy
+    // TỔNG = LÀM TRÒN tổng thành tiền chính xác (Σ số lẻ rồi mới làm tròn) để khớp office tới từng đồng.
+    const donGong = Math.round(list.reduce((s: number, m: any) => s + ttOf(m), 0))
 
     // Dạng dòng: "Theo máy" (SL = số máy, đơn giá nguyên) chỉ hợp lệ khi ĐỒNG GIÁ và MỌI máy đủ 12 tháng.
     // Lệch giá hoặc có máy thiếu tháng -> thành tiền mỗi máy khác nhau -> phải Gộp cả kỳ.
@@ -59,8 +60,8 @@ export async function POST(request: Request) {
     let soLuong: number, donGia: number, thanhTien: number, dvt: string
     if (kieu === 'theo_may') {
       soLuong = soMay
-      donGia = Math.round([...giaSet][0])
-      thanhTien = soMay * donGia
+      donGia = Number(list[0].don_gia_bt)        // giữ nguyên thập phân cho đồng-giá (vd 1666666.667)
+      thanhTien = Math.round(soMay * donGia)      // thành tiền làm tròn tới đồng
       dvt = String(body.dvt || '').trim() || 'Máy'
     } else {
       soLuong = 1

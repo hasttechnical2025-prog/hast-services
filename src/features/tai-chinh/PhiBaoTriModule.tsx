@@ -26,14 +26,47 @@ type May = {
 type Group = { so_hddv: string; mays: May[]; donGias: Set<number>; ngayKy: string | null; hetHan: string | null }
 
 const fmtVnd = (x: any) => (Math.round(Number(x) || 0)).toLocaleString('vi-VN')
-// Số tháng tính phí/máy: NULL = 12 (đủ kỳ), chặn [0..12]. Thành tiền máy = round(đơn giá × số tháng / 12).
+// Đơn giá phí BT chưa VAT có thể LẺ (vd 1.666.666,667 = 1.800.000 ÷ 1,08). Hiển thị tối đa 3 số lẻ.
+const fmtVndDec = (x: any) => { const n = Number(x); return Number.isFinite(n) ? n.toLocaleString('vi-VN', { maximumFractionDigits: 3 }) : '' }
+// Phân tích số người dùng gõ, cho phép thập phân (chấm hoặc phẩy) + ngăn nghìn.
+const parseDec = (s: string): number | null => {
+  let t = String(s).replace(/[^\d.,]/g, '')
+  if (!t) return null
+  if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.')   // kiểu VN: chấm=nghìn, phẩy=lẻ
+  else { const p = t.split('.'); if (p.length > 2) t = p.join('') }  // nhiều dấu chấm = ngăn nghìn → bỏ
+  const n = Number(t)
+  return Number.isFinite(n) ? n : null
+}
+// Số tháng tính phí/máy: NULL = 12 (đủ kỳ), chặn [0..12].
 const thangOf = (m: May) => { const t = m.so_thang_bt == null ? 12 : Math.trunc(Number(m.so_thang_bt)); return Number.isFinite(t) ? Math.min(12, Math.max(0, t)) : 12 }
-const ttOf = (m: May) => Math.round((Number(m.don_gia_bt) || 0) * thangOf(m) / 12)
-// TỔNG phí BT của 1 HĐ = Σ thành tiền từng máy (đúng cả khi đồng giá, lệch giá, lẫn máy thiếu tháng).
-const tongOf = (g: Group) => g.mays.reduce((s, m) => s + ttOf(m), 0)
+// Thành tiền từng máy = đơn giá × số tháng / 12. ttExactOf giữ thập phân; ttOf làm tròn (hiển thị số nguyên).
+const ttExactOf = (m: May) => (Number(m.don_gia_bt) || 0) * thangOf(m) / 12
+const ttOf = (m: May) => Math.round(ttExactOf(m))
+// TỔNG phí BT của 1 HĐ = LÀM TRÒN tổng thành tiền chính xác từng máy (khớp office: Σ số lẻ rồi mới làm tròn,
+// không làm tròn từng máy rồi cộng — tránh lệch vài đồng khi đơn giá lẻ).
+const tongOf = (g: Group) => Math.round(g.mays.reduce((s, m) => s + ttExactOf(m), 0))
 const fmtDate = (s?: string | null) => { if (!s) return ''; const p = String(s).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : '' }
 const digits = (s: string) => s.replace(/[^\d]/g, '')
 const sanitize = (s: string) => String(s || '').replace(/[^A-Za-z0-9]+/g, '').slice(0, 40)
+
+// Ô nhập đơn giá/máy/năm (chưa VAT) — CHO PHÉP THẬP PHÂN. Khi focus hiện số thô để gõ tự do (vd 1666666.667),
+// khi rời ô hiện định dạng nghìn + số lẻ. Không chặn phẩy/chấm như các ô số nguyên khác.
+function DonGiaInput({ value, onChange }: { value: number | null; onChange: (n: number | null) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [raw, setRaw] = useState('')
+  return (
+    <Input
+      value={editing ? raw : (value != null ? fmtVndDec(value) : '')}
+      inputMode="decimal"
+      placeholder="0"
+      title="Đơn giá/máy/năm (chưa VAT) — nhập được số lẻ, vd 1666666.667"
+      className="h-8 bg-white text-right"
+      onFocus={() => { setRaw(value != null ? String(value) : ''); setEditing(true) }}
+      onChange={e => setRaw(e.target.value.replace(/[^\d.,]/g, ''))}
+      onBlur={() => { setEditing(false); onChange(parseDec(raw)) }}
+    />
+  )
+}
 
 export default function PhiBaoTriModule({ showNotification, v2Layout = false }: { showNotification: (t: 'success' | 'error', m: string) => void, v2Layout?: boolean }) {
   const [rows, setRows] = useState<May[]>([])
@@ -216,12 +249,12 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
     const allFull = g.mays.every(m => thangOf(m) === 12)
     const theoMayOk = !lech && allFull // "Theo máy" chỉ khi đồng giá VÀ mọi máy đủ 12 tháng
     const thieuThang = g.mays.filter(m => thangOf(m) < 12).length
-    const brk = g.mays.map(m => ({ ma_may: m.ma_may || '—', donGia: Math.round(Number(m.don_gia_bt) || 0), thang: thangOf(m), tt: ttOf(m) }))
+    const brk = g.mays.map(m => ({ ma_may: m.ma_may || '—', donGia: Number(m.don_gia_bt) || 0, thang: thangOf(m), tt: ttExactOf(m) }))
     // Mặc định: đủ điều kiện "Theo máy" -> Theo máy (ĐVT Máy); ngược lại -> "Gộp cả kỳ" (ĐVT Năm).
     setBill({
       so_hddv: g.so_hddv, ten_dong: defaultTenDong(g), soMay: g.mays.length,
-      donGia: Math.round([...g.donGias][0] || 0), khach: khName(g.mays[0]), diaChi,
-      lech, tong: Math.round(tongOf(g)), kieu: theoMayOk ? 'theo_may' : 'gop', dvt: theoMayOk ? 'Máy' : 'Năm',
+      donGia: Number([...g.donGias][0] || 0), khach: khName(g.mays[0]), diaChi,
+      lech, tong: tongOf(g), kieu: theoMayOk ? 'theo_may' : 'gop', dvt: theoMayOk ? 'Máy' : 'Năm',
       theoMayOk, thieuThang, rows: brk,
     })
   }
@@ -319,7 +352,7 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
                     <td className="px-3 py-2 font-mono font-semibold text-slate-700 whitespace-nowrap">{g.so_hddv}</td>
                     <td className="px-3 py-2">{khName(g.mays[0])}</td>
                     <td className="px-2 py-2 text-center font-semibold">{g.mays.length}</td>
-                    <td className="px-3 py-2 text-right">{lech ? <span className="text-amber-600 text-xs font-semibold" title="Đơn giá khác nhau giữa các máy — khi lập sẽ gộp thành 1 dòng">nhiều mức</span> : fmtVnd(donGia)}</td>
+                    <td className="px-3 py-2 text-right">{lech ? <span className="text-amber-600 text-xs font-semibold" title="Đơn giá khác nhau giữa các máy — khi lập sẽ gộp thành 1 dòng">nhiều mức</span> : fmtVndDec(donGia)}</td>
                     <td className="px-3 py-2 text-right font-semibold text-slate-800">{fmtVnd(tongOf(g))}</td>
                     <td className="px-3 py-2 text-center text-xs whitespace-nowrap">{tu && den ? `${tu} → ${den}` : <span className="text-slate-400">—</span>}</td>
                     <td className="px-2 py-2 text-center">
@@ -438,8 +471,7 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
                         onChange={v => setLocal(m.id, 'ngay_ky_hddv', v)} />
                     </td>
                     <td className="px-3 py-1.5">
-                      <Input value={m.don_gia_bt != null ? fmtVnd(m.don_gia_bt) : ''} onChange={e => setLocal(m.id, 'don_gia_bt', digits(e.target.value) ? Number(digits(e.target.value)) : null)}
-                        className="h-8 bg-white text-right" placeholder="0" />
+                      <DonGiaInput value={m.don_gia_bt} onChange={n => setLocal(m.id, 'don_gia_bt', n)} />
                     </td>
                     <td className="px-3 py-1.5">
                       <Input value={m.so_thang_bt != null ? String(m.so_thang_bt) : ''}
@@ -487,7 +519,7 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
 
             <div className="text-sm text-slate-600 bg-slate-50 rounded-lg p-3">
               {bill.kieu === 'theo_may' ? (
-                <><span className="font-semibold">{bill.soMay}</span> máy × <span className="font-semibold">{fmtVnd(bill.donGia)}</span> đ &nbsp;=&nbsp; </>
+                <><span className="font-semibold">{bill.soMay}</span> máy × <span className="font-semibold">{fmtVndDec(bill.donGia)}</span> đ &nbsp;=&nbsp; </>
               ) : (
                 <>Gộp <span className="font-semibold">{bill.soMay}</span> máy{bill.lech ? ' (nhiều mức giá)' : ''}{bill.thieuThang > 0 ? ` · ${bill.thieuThang} máy < 12 tháng` : ''} &nbsp;=&nbsp; </>
               )}
@@ -504,9 +536,9 @@ export default function PhiBaoTriModule({ showNotification, v2Layout = false }: 
                   {bill.rows.map((r, i) => (
                     <tr key={i} className={r.thang < 12 ? 'bg-amber-50' : ''}>
                       <td className="px-2 py-1 font-mono">{r.ma_may}</td>
-                      <td className="px-2 py-1 text-right">{fmtVnd(r.donGia)}</td>
+                      <td className="px-2 py-1 text-right">{fmtVndDec(r.donGia)}</td>
                       <td className={`px-2 py-1 text-center font-semibold ${r.thang < 12 ? 'text-amber-700' : 'text-slate-500'}`}>{r.thang}</td>
-                      <td className="px-2 py-1 text-right font-medium text-slate-700">{fmtVnd(r.tt)}</td>
+                      <td className="px-2 py-1 text-right font-medium text-slate-700">{fmtVndDec(r.tt)}</td>
                     </tr>
                   ))}
                 </tbody>
