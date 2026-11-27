@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import { useSession } from './SessionProvider'
 import { useRealtimeRefetch } from '@/lib/useRealtime'
 import { JOBS_TOPIC, CSKH_TOPIC, THUECPC_TOPIC } from '@/lib/realtime'
-import { chotSoDate, counterStatus } from '@/lib/thue-cpc'
+import { useAlerts } from './AlertsProvider'
 
 // Badge đếm trên sidebar v2 — gom TỔNG các badge NỘI BỘ của tab con/cháu ra sidebar để gây chú ý.
 // Mỗi mục con có badge ↔ 1 key "cha.con":
@@ -20,16 +20,9 @@ export function useBadges(): BadgeCtx {
   return useContext(Ctx) || { counts: {}, refetch: () => {} }
 }
 
-const vnToday = () => new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
-// Kỳ counter mặc định theo cutoff (ngày chuyển kỳ) — giống monthNow() trong ThueCpcModule.
-const monthNow = (cutoff: number) => {
-  const d = new Date()
-  if (d.getDate() <= cutoff) { d.setDate(1); d.setMonth(d.getMonth() - 1) }
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
-
 export function BadgeProvider({ children }: { children: React.ReactNode }) {
-  const { user, subVisible, subSubVisible, config } = useSession()
+  const { user, subVisible, subSubVisible } = useSession()
+  const alerts = useAlerts()
   const pathname = usePathname()
   const [counts, setCounts] = useState<Record<string, number>>({})
   const setKey = (k: string, n: number) => setCounts(c => (c[k] === n ? c : { ...c, [k]: n }))
@@ -49,34 +42,8 @@ export function BadgeProvider({ children }: { children: React.ReactNode }) {
       fetch('/api/admin/cskh/can-cham-soc').then(r => r.ok ? r.json() : { can_lam: 0 }).then(j => setKey('cong_viec.cham_soc_kh', j.can_lam ?? 0)).catch(() => {})
     } else setKey('cong_viec.cham_soc_kh', 0)
 
-    // ── Tài chính › Thuê/CPC: gom 2 badge cháu (counter tới hạn + sắp hết mực) ──
-    if (subVisible('tai_chinh', 'thue_cpc')) {
-      const seeCounter = subSubVisible('tai_chinh', 'thue_cpc', 'counter')
-      const seeMuc = subSubVisible('tai_chinh', 'thue_cpc', 'canh_bao_muc')
-      let due = 0, muc = 0, done = 0
-      const finish = () => { if (++done === 2) setKey('tai_chinh.thue_cpc', due + muc) }
-      // counter tới hạn (kỳ mặc định theo cutoff)
-      if (seeCounter) {
-        const cutoff = parseInt(config?.counter_chuyen_ky_ngay || '20') || 20
-        const today = vnToday()
-        fetch(`/api/admin/thue-cpc/counter?thang_nam=${monthNow(cutoff)}`).then(r => r.ok ? r.json() : { data: { rows: [] } }).then(j => {
-          let n = 0
-          for (const r of j.data?.rows || []) {
-            const daNhap = r.so_bw != null || r.so_mau != null
-            const s = counterStatus(chotSoDate(monthNow(cutoff), r.chot_so_ngay, r.chot_so_cuoi_thang, cutoff), daNhap, today).status
-            if (s === 'overdue' || s === 'due_soon') n++
-          }
-          due = n
-        }).catch(() => {}).finally(finish)
-      } else finish()
-      // sắp hết mực (lọc nhóm admin đã lưu, mặc định 'muc')
-      if (seeMuc) {
-        let nhom = 'muc'; try { nhom = localStorage.getItem('soct_cbvt_nhom2') || 'muc' } catch {}
-        fetch('/api/admin/muc-sap-het').then(r => r.ok ? r.json() : { data: [] }).then(j => {
-          muc = (j.data || []).filter((r: any) => (r.trang_thai ? r.trang_thai === 'canh_bao' : true) && (nhom === 'all' || (r.nhom || 'muc') === nhom)).length
-        }).catch(() => {}).finally(finish)
-      } else finish()
-    } else setKey('tai_chinh.thue_cpc', 0)
+    // ── Tài chính › Thuê/CPC: badge này KHÔNG fetch ở đây — đọc lại từ chuông (useAlerts) ở effect
+    //    riêng bên dưới, tránh gọi counter (~7.4kB) + muc-sap-het trùng lần 2. Giảm egress.
 
     // ── Theo dõi máy ──
     if (subVisible('theo_doi_may', 'bao_tri')) {
@@ -91,11 +58,23 @@ export function BadgeProvider({ children }: { children: React.ReactNode }) {
     if (subVisible('tai_chinh', 'kanban')) {
       fetch('/api/admin/kanban-hd?count=1').then(r => r.ok ? r.json() : { col2_chua_minv: 0 }).then(j => setKey('tai_chinh.kanban', j.col2_chua_minv ?? 0)).catch(() => {})
     } else setKey('tai_chinh.kanban', 0)
-  }, [user, subVisible, subSubVisible, config])
+  }, [user, subVisible])
 
   useEffect(() => { refetch() }, [refetch])
   useEffect(() => { refetch() }, [pathname]) // eslint-disable-line react-hooks/exhaustive-deps
   useRealtimeRefetch([JOBS_TOPIC, CSKH_TOPIC, THUECPC_TOPIC], 'changed', refetch, !!user, 180000)
+
+  // Badge Thuê/CPC = counter tới hạn + sắp hết mực. ĐỌC LẠI từ chuông (AlertsProvider) thay vì fetch
+  // riêng — chuông đã tải counter/muc-sap-het rồi, dùng chung 1 nguồn (hết trùng, hết nhân theo đổi tab).
+  useEffect(() => {
+    if (!user || !subVisible('tai_chinh', 'thue_cpc')) { setKey('tai_chinh.thue_cpc', 0); return }
+    const due = subSubVisible('tai_chinh', 'thue_cpc', 'counter') ? alerts.counterDueList.length : 0
+    let nhom = 'muc'; try { nhom = localStorage.getItem('soct_cbvt_nhom2') || 'muc' } catch {}
+    const muc = subSubVisible('tai_chinh', 'thue_cpc', 'canh_bao_muc')
+      ? alerts.mucSapHet.filter((r: any) => (r.trang_thai ? r.trang_thai === 'canh_bao' : true) && (nhom === 'all' || (r.nhom || 'muc') === nhom)).length
+      : 0
+    setKey('tai_chinh.thue_cpc', due + muc)
+  }, [user, subVisible, subSubVisible, alerts.counterDueList, alerts.mucSapHet]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return <Ctx.Provider value={{ counts, refetch }}>{children}</Ctx.Provider>
 }

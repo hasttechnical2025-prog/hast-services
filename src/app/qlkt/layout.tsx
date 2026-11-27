@@ -13,12 +13,14 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <SharedDataProvider>
-        <BadgeProvider>
-          <BellAlertsProvider>
+        {/* Alerts (chuông) ĐẶT TRÊN Badge để Badge đọc lại dữ liệu chuông (counter/muc-sap-het),
+            khỏi fetch trùng lần 2 — giảm egress. Xem BadgeProvider + AlertsProvider. */}
+        <BellAlertsProvider>
+          <BadgeProvider>
             <AutoCuonNgay />
             <AppShell>{children}</AppShell>
-          </BellAlertsProvider>
-        </BadgeProvider>
+          </BadgeProvider>
+        </BellAlertsProvider>
       </SharedDataProvider>
     </SessionProvider>
   )

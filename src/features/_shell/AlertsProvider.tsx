@@ -23,7 +23,7 @@ const getJson = (u: string, fb: any) => fetch(u).then(r => r.ok ? r.json() : fb)
 const normModel = (s: any) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
 
 export function BellAlertsProvider({ children }: { children: React.ReactNode }) {
-  const { user, config } = useSession()
+  const { user, config, subVisible, tabVisible } = useSession()
   const { customers, inventory, committed } = useShared()
   const hdbtCanhBaoThang = parseInt(config?.hdbt_canh_bao_thang || '2') || 2
   const counterBaoTruocNgay = parseInt(config?.counter_bao_truoc_ngay || '3') || 3
@@ -43,42 +43,57 @@ export function BellAlertsProvider({ children }: { children: React.ReactNode }) 
 
   const refetch = useCallback(() => {
     if (!user) return
-    getJson('/api/admin/muc-may-thue', { data: [] }).then(j => setMucMap(j.data || []))
-    getJson('/api/admin/muc-sap-het', { data: [] }).then(j => setMucSapHet(j.data || []))
-    getJson('/api/admin/canh-bao-ton', { items: [] }).then(j => setCanhBaoTon(j.items || []))
-    getJson('/api/admin/cskh/hen', { data: [] }).then(j => setHenCskh(j.data || []))
-    getJson('/api/admin/kanban-hd?count=1', {}).then(j => { if (j && typeof j.col1 === 'number') setKanban({ col1: j.col1, col2: j.col2, col1_phieu: j.col1_phieu ?? j.col1, col2_phieu: j.col2_phieu ?? j.col2, col2_chua_minv: j.col2_chua_minv ?? j.col2 }) })
-    getJson('/api/admin/nghi-phep?today=1', { data: [] }).then(j => setLeaveToday(j.data || []))
-    getJson('/api/admin/kho-hang/dang-giu', { choVe: {} }).then(j => setChoVe(j.choVe || {}))
+    // GIẢM EGRESS: chỉ fetch danh sách mà ROLE được xem (khớp canSee của NotificationCenter —
+    // chuông là nơi DUY NHẤT dùng useAlerts). Role không thấy mục → KHÔNG kéo danh sách (nhất là
+    // counter ~7.4kB, các list máy thuê/kho). Admin luôn true nên không đổi gì với admin.
+    const seeThue = subVisible('tai_chinh', 'thue_cpc')
+    const seeTon = subVisible('kho_hang', 'thong_ke')
+    const seeCskh = subVisible('cong_viec', 'cham_soc_kh')
+    const seeKanban = subVisible('tai_chinh', 'kanban')
+    const seeLeave = subVisible('quan_ly', 'nghi_phep')
+    const seeJobs = tabVisible('cong_viec')
+
+    if (seeThue) getJson('/api/admin/muc-may-thue', { data: [] }).then(j => setMucMap(j.data || [])); else setMucMap([])
+    if (seeThue) getJson('/api/admin/muc-sap-het', { data: [] }).then(j => setMucSapHet(j.data || [])); else setMucSapHet([])
+    if (seeTon) getJson('/api/admin/canh-bao-ton', { items: [] }).then(j => setCanhBaoTon(j.items || [])); else setCanhBaoTon([])
+    if (seeCskh) getJson('/api/admin/cskh/hen', { data: [] }).then(j => setHenCskh(j.data || [])); else setHenCskh([])
+    if (seeKanban) getJson('/api/admin/kanban-hd?count=1', {}).then(j => { if (j && typeof j.col1 === 'number') setKanban({ col1: j.col1, col2: j.col2, col1_phieu: j.col1_phieu ?? j.col1, col2_phieu: j.col2_phieu ?? j.col2, col2_chua_minv: j.col2_chua_minv ?? j.col2 }) }); else setKanban({ col1: 0, col2: 0, col1_phieu: 0, col2_phieu: 0, col2_chua_minv: 0 })
+    if (seeLeave) getJson('/api/admin/nghi-phep?today=1', { data: [] }).then(j => setLeaveToday(j.data || [])); else setLeaveToday([])
+    // "Đang giữ/chờ về" phục vụ cả mực máy thuê (thue_cpc) lẫn cảnh báo tồn (kho/thống kê).
+    if (seeThue || seeTon) getJson('/api/admin/kho-hang/dang-giu', { choVe: {} }).then(j => setChoVe(j.choVe || {})); else setChoVe({})
     // Công nợ chưa gán khách cụm — CHỈ admin (endpoint yêu cầu admin).
     if (user.role === 'admin') getJson('/api/admin/cong-no/chua-cum', { items: [] }).then(j => setCongNoChuaCum(j.items || []))
     else setCongNoChuaCum([])
 
-    // Phiếu ngày trước chưa hoàn + đặt trước ngày tới
+    // Phiếu ngày trước chưa hoàn + đặt trước ngày tới (chỉ role vào được Sổ công tác)
     const vnNow = new Date(Date.now() + 7 * 3600 * 1000)
     const today = vnNow.toISOString().slice(0, 10)
-    const yesterday = new Date(Date.parse(today + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10)
-    const tomorrow = new Date(Date.parse(today + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10)
-    const kq = 'Chờ nhận,Đã nhận,Đang làm,Chưa hoàn thành'
-    getJson(`/api/admin/cong-viec?denNgay=${yesterday}&ket_qua=${encodeURIComponent(kq)}`, { data: [] }).then(j => setUnfinished(j.data || []))
-    getJson(`/api/admin/cong-viec?tuNgay=${tomorrow}&ket_qua=${encodeURIComponent(kq)}`, { data: [] }).then(j => setFuture(j.data || []))
+    if (seeJobs) {
+      const yesterday = new Date(Date.parse(today + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10)
+      const tomorrow = new Date(Date.parse(today + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10)
+      const kq = 'Chờ nhận,Đã nhận,Đang làm,Chưa hoàn thành'
+      getJson(`/api/admin/cong-viec?denNgay=${yesterday}&ket_qua=${encodeURIComponent(kq)}`, { data: [] }).then(j => setUnfinished(j.data || []))
+      getJson(`/api/admin/cong-viec?tuNgay=${tomorrow}&ket_qua=${encodeURIComponent(kq)}`, { data: [] }).then(j => setFuture(j.data || []))
+    } else { setUnfinished([]); setFuture([]) }
 
-    // Máy thuê/CPC đến hạn lấy counter (kỳ theo cutoff)
-    const dTmp = new Date(vnNow.getTime())
-    if (dTmp.getUTCDate() <= counterChuyenKyNgay) { dTmp.setUTCDate(1); dTmp.setUTCMonth(dTmp.getUTCMonth() - 1) }
-    const thang = dTmp.toISOString().slice(0, 7)
-    getJson(`/api/admin/thue-cpc/counter?thang_nam=${thang}`, { data: { rows: [] } }).then(j => {
-      const due = (j.data?.rows || [])
-        .map((m: any) => {
-          const daNhap = m.so_bw != null || m.so_mau != null
-          const st = counterStatus(chotSoDate(thang, m.chot_so_ngay, m.chot_so_cuoi_thang, counterChuyenKyNgay), daNhap, today, counterBaoTruocNgay)
-          return { ...m, _st: st }
-        })
-        .filter((m: any) => m._st.status === 'overdue' || m._st.status === 'due_soon')
-        .sort((a: any, b: any) => (a._st.status === 'overdue' ? 0 : 1) - (b._st.status === 'overdue' ? 0 : 1) || a._st.days - b._st.days)
-      setCounterDueList(due)
-    })
-  }, [user, counterBaoTruocNgay, counterChuyenKyNgay])
+    // Máy thuê/CPC đến hạn lấy counter (kỳ theo cutoff) — danh sách NẶNG nhất, chỉ kéo khi xem được.
+    if (seeThue) {
+      const dTmp = new Date(vnNow.getTime())
+      if (dTmp.getUTCDate() <= counterChuyenKyNgay) { dTmp.setUTCDate(1); dTmp.setUTCMonth(dTmp.getUTCMonth() - 1) }
+      const thang = dTmp.toISOString().slice(0, 7)
+      getJson(`/api/admin/thue-cpc/counter?thang_nam=${thang}`, { data: { rows: [] } }).then(j => {
+        const due = (j.data?.rows || [])
+          .map((m: any) => {
+            const daNhap = m.so_bw != null || m.so_mau != null
+            const st = counterStatus(chotSoDate(thang, m.chot_so_ngay, m.chot_so_cuoi_thang, counterChuyenKyNgay), daNhap, today, counterBaoTruocNgay)
+            return { ...m, _st: st }
+          })
+          .filter((m: any) => m._st.status === 'overdue' || m._st.status === 'due_soon')
+          .sort((a: any, b: any) => (a._st.status === 'overdue' ? 0 : 1) - (b._st.status === 'overdue' ? 0 : 1) || a._st.days - b._st.days)
+        setCounterDueList(due)
+      })
+    } else setCounterDueList([])
+  }, [user, counterBaoTruocNgay, counterChuyenKyNgay, subVisible, tabVisible])
 
   useEffect(() => { refetch() }, [refetch])
   useRealtimeRefetch([JOBS_TOPIC, KHO_TOPIC, CSKH_TOPIC, THUECPC_TOPIC, DATHANG_TOPIC, CONGNO_TOPIC], 'changed', refetch, !!user, 180000)
