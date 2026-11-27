@@ -54,27 +54,26 @@ export function BadgeProvider({ children }: { children: React.ReactNode }) {
       fetch('/api/admin/giam-dinh?count=1').then(r => r.ok ? r.json() : { count: 0 }).then(j => setKey('theo_doi_may.giam_dinh', j.count ?? 0)).catch(() => {})
     } else setKey('theo_doi_may.giam_dinh', 0)
 
-    // ── Kanban Hóa đơn: số PHIẾU cột 2 (Đang xử lý HĐ) chưa xuất M-invoice ──
-    if (subVisible('tai_chinh', 'kanban')) {
-      fetch('/api/admin/kanban-hd?count=1').then(r => r.ok ? r.json() : { col2_chua_minv: 0 }).then(j => setKey('tai_chinh.kanban', j.col2_chua_minv ?? 0)).catch(() => {})
-    } else setKey('tai_chinh.kanban', 0)
+    // ── Kanban Hóa đơn: badge cột 2 cũng ĐỌC LẠI từ chuông (effect bên dưới) — không fetch riêng.
   }, [user, subVisible])
 
   useEffect(() => { refetch() }, [refetch])
   useEffect(() => { refetch() }, [pathname]) // eslint-disable-line react-hooks/exhaustive-deps
   useRealtimeRefetch([JOBS_TOPIC, CSKH_TOPIC, THUECPC_TOPIC], 'changed', refetch, !!user, 180000)
 
-  // Badge Thuê/CPC = counter tới hạn + sắp hết mực. ĐỌC LẠI từ chuông (AlertsProvider) thay vì fetch
-  // riêng — chuông đã tải counter/muc-sap-het rồi, dùng chung 1 nguồn (hết trùng, hết nhân theo đổi tab).
+  // Badge Thuê/CPC + Kanban: ĐỌC LẠI từ chuông (AlertsProvider) thay vì fetch riêng — chuông đã tải
+  // counter/muc-sap-het/kanban rồi, dùng chung 1 nguồn (hết trùng, hết bắn lại mỗi lần đổi tab).
   useEffect(() => {
-    if (!user || !subVisible('tai_chinh', 'thue_cpc')) { setKey('tai_chinh.thue_cpc', 0); return }
-    const due = subSubVisible('tai_chinh', 'thue_cpc', 'counter') ? alerts.counterDueList.length : 0
-    let nhom = 'muc'; try { nhom = localStorage.getItem('soct_cbvt_nhom2') || 'muc' } catch {}
-    const muc = subSubVisible('tai_chinh', 'thue_cpc', 'canh_bao_muc')
-      ? alerts.mucSapHet.filter((r: any) => (r.trang_thai ? r.trang_thai === 'canh_bao' : true) && (nhom === 'all' || (r.nhom || 'muc') === nhom)).length
-      : 0
-    setKey('tai_chinh.thue_cpc', due + muc)
-  }, [user, subVisible, subSubVisible, alerts.counterDueList, alerts.mucSapHet]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (user && subVisible('tai_chinh', 'thue_cpc')) {
+      const due = subSubVisible('tai_chinh', 'thue_cpc', 'counter') ? alerts.counterDueList.length : 0
+      let nhom = 'muc'; try { nhom = localStorage.getItem('soct_cbvt_nhom2') || 'muc' } catch {}
+      const muc = subSubVisible('tai_chinh', 'thue_cpc', 'canh_bao_muc')
+        ? alerts.mucSapHet.filter((r: any) => (r.trang_thai ? r.trang_thai === 'canh_bao' : true) && (nhom === 'all' || (r.nhom || 'muc') === nhom)).length
+        : 0
+      setKey('tai_chinh.thue_cpc', due + muc)
+    } else setKey('tai_chinh.thue_cpc', 0)
+    setKey('tai_chinh.kanban', (user && subVisible('tai_chinh', 'kanban')) ? (alerts.kanban.col2_chua_minv || 0) : 0)
+  }, [user, subVisible, subSubVisible, alerts.counterDueList, alerts.mucSapHet, alerts.kanban]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return <Ctx.Provider value={{ counts, refetch }}>{children}</Ctx.Provider>
 }
