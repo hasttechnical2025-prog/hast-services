@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useDeferredValue } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Users, ClipboardCheck, Clock, AlertTriangle, Plus, ChevronUp, ChevronDown, PenSquare, MapPin, Printer, FileText, CalendarClock, ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -57,27 +57,34 @@ export function CustomerListTool({ customers, loaiHdOptions, hangOptions, hdbtCa
     : 'Tất cả'
   const selectFilter = (v: string) => { setHdFilter(v); setFilterOpen(false) }
 
-  const q = search.trim().toLowerCase()
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const limit = new Date(today); limit.setMonth(limit.getMonth() + hdbtCanhBaoThang)
 
-  const filtered = customers.filter(c => {
-    if (q && !(
-      (c.ten_khach_hang || "").toLowerCase().includes(q) ||
-      (c.ma_may || "").toLowerCase().includes(q) ||
-      (c.serial || "").toLowerCase().includes(q) ||
-      (c.dia_chi || "").toLowerCase().includes(q) ||
-      (c.model || "").toLowerCase().includes(q) ||
-      (c.loai_hd || "").toLowerCase().includes(q)
-    )) return false
-    if (hdFilter === 'all') return true
-    if (hdFilter === 'has') return c.loai_hd === 'HĐBT' || c.loai_hd === 'MF'
-    if (hdFilter.startsWith('hd:')) return c.loai_hd === hdFilter.slice(3)
-    const exp = (c.ngay_het_han_hdbt && String(c.loai_hd || '').trim()) ? new Date(c.ngay_het_han_hdbt) : null
-    if (hdFilter === 'expiring') return exp !== null && exp >= today && exp <= limit
-    if (hdFilter === 'expired') return exp !== null && exp < today
-    return true
-  })
+  // useDeferredValue: ô gõ (local trong SearchInput) luôn mượt; việc LỌC nặng chạy theo giá trị "trễ"
+  // nên React render bảng ở mức ưu tiên thấp, KHÔNG chặn gõ. + memo hoá để khỏi lọc lại mỗi lần render.
+  const deferredSearch = useDeferredValue(search)
+  const filtered = useMemo(() => {
+    const q = deferredSearch.trim().toLowerCase()
+    const t = new Date(); t.setHours(0, 0, 0, 0)
+    const lim = new Date(t); lim.setMonth(lim.getMonth() + hdbtCanhBaoThang)
+    return customers.filter(c => {
+      if (q && !(
+        (c.ten_khach_hang || "").toLowerCase().includes(q) ||
+        (c.ma_may || "").toLowerCase().includes(q) ||
+        (c.serial || "").toLowerCase().includes(q) ||
+        (c.dia_chi || "").toLowerCase().includes(q) ||
+        (c.model || "").toLowerCase().includes(q) ||
+        (c.loai_hd || "").toLowerCase().includes(q)
+      )) return false
+      if (hdFilter === 'all') return true
+      if (hdFilter === 'has') return c.loai_hd === 'HĐBT' || c.loai_hd === 'MF'
+      if (hdFilter.startsWith('hd:')) return c.loai_hd === hdFilter.slice(3)
+      const exp = (c.ngay_het_han_hdbt && String(c.loai_hd || '').trim()) ? new Date(c.ngay_het_han_hdbt) : null
+      if (hdFilter === 'expiring') return exp !== null && exp >= t && exp <= lim
+      if (hdFilter === 'expired') return exp !== null && exp < t
+      return true
+    })
+  }, [customers, deferredSearch, hdFilter, hdbtCanhBaoThang])
 
   const handleSave = async () => {
     if (!editing) return

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useDeferredValue } from 'react'
 import { Package, Boxes, AlertTriangle, Trash2, ChevronUp, ChevronDown, ToggleLeft, ToggleRight, PenSquare, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,12 +31,14 @@ export function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSucce
     else { setSortField(field); setSortAsc(true) }
   }
 
+  // useDeferredValue: ô gõ mượt, việc lọc nặng chạy theo giá trị "trễ" (render ưu tiên thấp, không chặn gõ).
+  const deferredSearch = useDeferredValue(searchTerm)
   const filteredInventory = useMemo(() => {
     return inventory.filter(item => {
       if (statusFilter === 'active' && item.ngung_su_dung) return false
       if (statusFilter === 'discontinued' && !item.ngung_su_dung) return false
-      if (searchTerm.trim()) {
-        const q = searchTerm.trim().toLowerCase()
+      if (deferredSearch.trim()) {
+        const q = deferredSearch.trim().toLowerCase()
         const matchMH = (item.ma_hang || '').toLowerCase().includes(q)
         const matchTH = (item.ten_hang || '').toLowerCase().includes(q)
         const matchModel = (item.model || '').toLowerCase().includes(q)
@@ -45,7 +47,7 @@ export function InventoryManagementTool({ inventory, lowStock = 0, onUpdateSucce
       }
       return true
     })
-  }, [inventory, statusFilter, searchTerm])
+  }, [inventory, statusFilter, deferredSearch])
 
   const sortedInventory = useMemo(() => {
     const list = [...filteredInventory]

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Search, X, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -16,9 +16,13 @@ export function SearchInput({ value, onChange, placeholder = 'Tìm…', debounce
   icon?: LucideIcon
 }) {
   const [local, setLocal] = useState(value)
-  useEffect(() => { setLocal(value) }, [value])
+  // Nhớ giá trị MÌNH vừa phát ra (onChange) để KHÔNG tự dội lại: khi debounce commit, cha đổi `value`
+  // đúng bằng chuỗi này -> effect dưới BỎ QUA, không setLocal -> không kéo ô về, không nuốt ký tự
+  // người dùng vừa gõ tiếp. Chỉ đồng bộ xuống khi `value` đổi THẬT từ ngoài (nút Xóa lọc, reset…).
+  const lastEmitted = useRef(value)
+  useEffect(() => { if (value !== lastEmitted.current) { lastEmitted.current = value; setLocal(value) } }, [value])
   useEffect(() => {
-    const t = setTimeout(() => { if (local !== value) onChange(local) }, debounceMs)
+    const t = setTimeout(() => { if (local !== value) { lastEmitted.current = local; onChange(local) } }, debounceMs)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [local])
@@ -36,7 +40,7 @@ export function SearchInput({ value, onChange, placeholder = 'Tìm…', debounce
       {local && (
         <button
           type="button"
-          onClick={() => { setLocal(''); onChange('') }}
+          onClick={() => { lastEmitted.current = ''; setLocal(''); onChange('') }}
           aria-label="Xóa tìm kiếm"
           className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
         >

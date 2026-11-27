@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useRef, useState, useLayoutEffect } from 'react'
+import { useMemo, useRef, useState, useLayoutEffect, useDeferredValue } from 'react'
 import { ChevronDown, X, UserPlus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { normVi } from '@/ui'
@@ -19,11 +19,13 @@ export function CustomerPicker({ customers, value, onChange }: {
   const selected = value === 'NEW' ? null : customers.find(c => c.id === value)
   const label = value === 'NEW' ? '➕ Khách hàng mới' : selected ? `${selected.ten_khach_hang || '—'}${selected.ma_may ? ` · ${selected.ma_may}` : ''}` : 'Chọn khách hàng / điểm máy…'
 
+  // Ô gõ (q) tức thì; lọc chạy theo giá trị "trễ" (useDeferredValue) -> không chặn gõ khi danh sách lớn.
+  const dq = useDeferredValue(q)
   const filtered = useMemo(() => {
-    const nq = normVi(q)
+    const nq = normVi(dq)
     const list = nq ? customers.filter(c => normVi([c.ten_khach_hang, c.ma_may, c.dia_chi, c.model].join(' ')).includes(nq)) : customers
     return list.slice(0, 50)
-  }, [customers, q])
+  }, [customers, dq])
 
   useLayoutEffect(() => {
     if (!open || !btnRef.current) return
